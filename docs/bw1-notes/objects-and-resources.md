@@ -8,8 +8,8 @@ Los árboles están en [trees.md](trees.md) y la carga del mapa en [map-loading.
 - [Coger por tandas](#coger-por-tandas-multi-pick-up)
 - [Almacén](#almacén-storagepit)
 - [Objetos estáticos](#objetos-estáticos-mobilestatic-rocas)
-- [Campos](#campos-field-informe-tmp_disfieldfield_notestxt)
-- [Sonidos](#sonidos-informe-tmp_dissoundnotestxt)
+- [Campos](#campos-field-informe-documentacionfieldfield_notestxt)
+- [Sonidos](#sonidos-informe-documentacionsoundnotestxt)
 - [Movido a otras páginas](#movido-a-otras-páginas)
 - [Pendiente](#pendiente) · [Ganchos de prueba](#ganchos-de-prueba) · [Fuentes](#fuentes)
 
@@ -62,7 +62,7 @@ Los árboles están en [trees.md](trees.md) y la carga del mapa en [map-loading.
 
 Movido a [trees.md](trees.md) (arrancar, soltar, bosques, crecimiento, dibujado).
 
-## Campos (Field, informe `tmp_dis\field\field_notes.txt`)
+## Campos (Field, informe `documentacion\field\field_notes.txt`)
 
 - Los 6 GFieldTypeInfo son iguales: ageGrowth 80, ageRecolt 1200 (maduro), timesToSow 30, foodValueTakenWithHand 25,
   totalFoodInField 350, maxFarmerInFarm 10, sol 0,5/1,5, lluvia 1,5/1,5, ratioBeforeRipe 0,2. El símbolo `IsUnripe`
@@ -85,7 +85,7 @@ Movido a [trees.md](trees.md) (arrancar, soltar, bosques, crecimiento, dibujado)
   de comida de un campo maduro (sus cantidades a la mitad y truncadas llegan a 0, y `RemoveFood` solo lo borra si se le
   pide más de lo que tiene), con el mod un campo maduro con menos de 25 (lo que necesita para dibujarse) cuenta como
   vacío y se borra. Falta la alineación/lluvia en el crecimiento.
-- **Color y vaivén de la malla** (`Field::Draw` 0x528570, detalle en `tmp_dis\field\draw_colour_sway_notes.txt`):
+- **Color y vaivén de la malla** (`Field::Draw` 0x528570, detalle en `documentacion\field\draw_colour_sway_notes.txt`):
   `BlendColor` 0x5284C0 (k = 0 da a, 255 da b, `(a(255−k) + b·k)/255` truncado): creciendo, oliva (121,145,25) →
   verde claro (170,212,67) con k = 255·(1 − comida/350); madurando, oliva → blanco con k = 255·(crec − 80)/1120;
   maduro, blanco. Multiplica byte a byte la luz del terreno del objeto, `(c·tinte) >> 8` (fn_0080BF10), antes de la
@@ -97,14 +97,14 @@ Movido a [trees.md](trees.md) (arrancar, soltar, bosques, crecimiento, dibujado)
   `ecs::FieldDrawColour`, `ecs::WindSway`. Los árboles usan la misma tabla ([trees.md](trees.md#dibujado)). Con el mod world.foliage
   (`fields = wheat`) el campo se dibuja con plantas que crecen por etapas en vez de la malla (mod-library.md).
 
-## Sonidos (informe `tmp_dis\sound\notes.txt`)
+## Sonidos (informe `documentacion\sound\notes.txt`)
 
 - El tono de LHAudio es un **porcentaje** de la frecuencia del wav (100 = normal). Al empezar (0x1001278B, enteros sin
   signo): d = desviación·p/100, p = p − d + rand·2d/32767 (0 → 100), frecuencia = rate·p/100 (división entera; lo mismo
   en `LHSampleSetPitch` 0x10013520, que no hace nada si el canal ya tiene ese p). El tono, el volumen, los bucles
   (+0x248) y el modo del .sad solo cuentan si su bit está en las banderas de +0x244 (0x1, 0x20, 0x40, 0x400) y quien
   llama no los ha puesto (máscara +0x1C de las opciones); si no, 100, 127, 0 y 3. openblack pasaba el número crudo.
-- **Volumen** (verificado con Unicorn, `tmp_dis\agua\re\emu_qmixer.py`): LHaudio manda a `QSWaveMixSetVolume`
+- **Volumen** (verificado con Unicorn, `documentacion\agua\re\emu_qmixer.py`): LHaudio manda a `QSWaveMixSetVolume`
   floor(maestro·v/127)·258 (0x100133C1; maestro = `AudioSampleMasterVolume` de BWSetup = 127 → v·258, 0..32766) y
   QMixer lo guarda como vol/32767 (0x18007AE5) y lo **multiplica** por la ganancia de la distancia (0x1800AE20):
   ganancia lineal v·258/32767 (`sample_play::QMixerGain`, `Sound::volume`). El "user param" del .sad
@@ -178,7 +178,7 @@ Movido a [trees.md](trees.md) (arrancar, soltar, bosques, crecimiento, dibujado)
     `PauseGame` 0x54AE20) ni si el objeto 3D de la mano (`CHand+0x482C`) dibuja algo sostenido (+0x8C, lo pone su
     `SetHeldG3D` vt+0x234 = 0x816830; vacío también con una `SpellSeed` que no se dibuja en la mano). En openblack:
     `ScreenFade::IsWideScreenOn` (solo `SET_WIDESCREEN`), `Game::IsPaused` y `!_held` (`HandPlacement.cpp`).
-- **Ambiente (atmos)** (hecho, 2026-09-30; `Audio/SoundMap`, `Audio/AtmosBanks`; informe `tmp_dis\agua\audio.md` §1-3):
+- **Ambiente (atmos)** (hecho, 2026-09-30; `Audio/SoundMap`, `Audio/AtmosBanks`; informe `documentacion\agua\audio.md` §1-3):
   - Zona de la celda: `Terrain::GetAtmosType` 0x7352B0 = `(flags >> 2) & 0xF` (bits 2..5 del byte 7; **1 = SEA** fuera
     del mapa o sin bloque). Tabla 0x9CB048 de 14 tipos {nombre, banco, de día}: 1 SEA `ocean.sad`, 2 STILL_FRESH_WATER
     `lake.sad`, 3 COASTAL `shore.sad`, 4 JUNGLE*, 5 ARCTIC, 6 DESERT*, 7 COUNTRYSIDE*, 8 SWAMP*, 9 RUNNING_WATER
@@ -264,8 +264,8 @@ Movido a [trees.md](trees.md) (arrancar, soltar, bosques, crecimiento, dibujado)
 
 ## Fuentes
 
-- `C:\Users\diewgarc\dev\tmp_dis\field\field_notes.txt` y `draw_colour_sway_notes.txt`: campos.
-- `C:\Users\diewgarc\dev\tmp_dis\sound\notes.txt`: sonidos de coger y de LHAudio.
-- `C:\Users\diewgarc\dev\tmp_dis\agua\re\emu_qmixer.py` y `emu_polar.py`: volumen, distancias y ejes de QMixer (Unicorn).
-- `C:\Users\diewgarc\dev\tmp_dis\agua\audio.md` §1-3: el ambiente.
+- `C:\Users\diewgarc\dev\documentacion\field\field_notes.txt` y `draw_colour_sway_notes.txt`: campos.
+- `C:\Users\diewgarc\dev\documentacion\sound\notes.txt`: sonidos de coger y de LHAudio.
+- `C:\Users\diewgarc\dev\documentacion\agua\re\emu_qmixer.py` y `emu_polar.py`: volumen, distancias y ejes de QMixer (Unicorn).
+- `C:\Users\diewgarc\dev\documentacion\agua\audio.md` §1-3: el ambiente.
 - `C:\Users\diewgarc\dev\decomp_pickup`: coger, sostener y soltar (interfaz, CHand, objetos).

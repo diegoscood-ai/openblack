@@ -3,7 +3,7 @@
 El aldeano de runblack.exe (W120) tal como lo porta la sesión "aldeanos" (rama `local/aldeanos`, hito V1: el núcleo de
 la máquina de estados). Los clips (qué clip por estado, transiciones, tamaño) siguen en [animation.md](animation.md);
 aquí van los datos del aldeano, el turno, los cambios de estado y las reglas de velocidad. Investigación con
-direcciones: `C:\Users\diewgarc\dev\tmp_dis\aldeanos\` (`V1_spec.md`, `PLAN.md`, `core.md`, `team_apis.md`, volcados en
+direcciones: `C:\Users\diewgarc\dev\documentacion\aldeanos\` (`V1_spec.md`, `PLAN.md`, `core.md`, `team_apis.md`, volcados en
 `core\` y `v1\`).
 
 En openblack:
@@ -49,7 +49,7 @@ Faltan del original (llegan con su hito): `next` +0xE4 (lista de la casa, V4), `
 
 ### Flags
 
-Villager +0xE0 (escritores directos: `tmp_dis\aldeanos\v1\scanE0.py`): 0x1 tras un toque en su casa
+Villager +0xE0 (escritores directos: `documentacion\aldeanos\v1\scanE0.py`): 0x1 tras un toque en su casa
 (SetupAfterTapOnAbode), 0x2 en el sitio de culto (AddVillagerToWorshipSite / RemoveVillagerFromWorshipSite), 0x4 dentro
 de casa (ArriveHome), 0x8 niño (SetAge; CheckChildGrownUp lo borra), 0x10 de camino al culto o a un fuego, 0x20 en la
 mano (InterfaceSetInMagicHand; EndPhysics / Landed lo borran), 0x80 fútbol / guion, 0x200 / 0x400 discípulo /
@@ -305,7 +305,7 @@ máximo 0,4. El adulto resta
 
 ## Decidir qué hacer y el ocio (V2)
 
-Spec completa: `dev\tmp_dis\aldeanos\V2_spec.md`. Código: `Villager/VillagerDecide.{h,cpp}`, `Villager/VillagerHome.{h,cpp}`,
+Spec completa: `dev\documentacion\aldeanos\V2_spec.md`. Código: `Villager/VillagerDecide.{h,cpp}`, `Villager/VillagerHome.{h,cpp}`,
 `Town/TownQueries.{h,cpp}`, `Town/AbodeQueries.{h,cpp}`; tests `test/test_villager_decide.cpp` (13 casos).
 
 - **163 DECIDE_WHAT_TO_DO** (0x7515C0, devuelve 1): emergencia del pueblo (Town::IsInStateOfEmergency 0x747970, +0xF1C
@@ -371,7 +371,7 @@ reunión, el culto sigue (11 adoradores en 59/60).
 
 ## Deseos del pueblo y reparto (V3)
 
-Spec completa: `dev\tmp_dis\aldeanos\V3_spec.md` (desensamblados `town_dis\desire.txt`, `desire_fns.txt`, `rep.txt`;
+Spec completa: `dev\documentacion\aldeanos\V3_spec.md` (desensamblados `town_dis\desire.txt`, `desire_fns.txt`, `rep.txt`;
 `v3\emu_dtab_all.py` saca la tabla, `v3\emu_qsort.py` ejecuta el `_qsort` del exe). Código: `Town/TownDesire.{h,cpp}`
 (tabla, funciones, Process, órdenes, reparto, API de lectura, guiones), `Town/TownProcess.{h,cpp}` (Town::Process y el
 bucle de jugadores), `Town/TownStats.{h,cpp}`, `Villager/VillagerSatisfy.{h,cpp}` (los CheckSatisfy), `Components/Town.h`
@@ -461,7 +461,7 @@ un caso nuevo en `test/test_villager_decide.cpp`.
 
 ## Casa, comida, sueño, sin techo y edad (V4)
 
-Spec completa: `dev\tmp_dis\aldeanos\V4_spec.md` (desensamblados en `v4\`: `home.txt`, `homeless.txt`, `food.txt`,
+Spec completa: `dev\documentacion\aldeanos\V4_spec.md` (desensamblados en `v4\`: `home.txt`, `homeless.txt`, `food.txt`,
 `age.txt`, `abode.txt`, `town.txt`, `misc*.txt`, `helpers.txt`, `scanline.txt`; valores de los tests en `v4\v4calc.py`).
 Código: `Villager/VillagerHome.{h,cpp}` (36/37/38, 119/120/121, 129, 130, 234, 238, la tienda, las mudanzas),
 `Villager/VillagerFood.{h,cpp}` (CheckHungry, cantidades, 117/118/212, 33/34/35), `Villager/VillagerAge.{h,cpp}` (crecer,
@@ -563,7 +563,7 @@ código de V5). Lo que ya existe de V4: `Villager/VillagerResources.{h,cpp}` con
 Falta: coger y soltar recursos (PickupResource / Drop*), las capacidades por tipo de aldeano, la vasija temporal
 (Town::GetTemporaryResourceStorePotOrPos 0x73E900), llevar comida y madera al almacén (StoragePit::AddResource 0x732F60,
 Abode::DoResourceAdding 0x404DF0), CheckSatisfyFoodDesire 0x759F30, el objeto llevado (SetStateCarriedObject
-0x7501A0), CreateDroppedResource 0x750940 y la reacción 9. Volcados para retomarlo: `dev\tmp_dis\aldeanos\v5\README.md`.
+0x7501A0), CreateDroppedResource 0x750940 y la reacción 9. Volcados para retomarlo: `dev\documentacion\aldeanos\v5\README.md`.
 
 ## Culto: vuelta a casa
 

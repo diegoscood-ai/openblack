@@ -34,7 +34,7 @@ Estado: todo lo de esta página es **fiel** (original, verificado en el ejecutab
 `LH3DRender` pone los estados con dos envoltorios, `LH3DRender::SetRenderState` (0x412940) y
 `LH3DRender::SetTextureStageState` (0x82B9C0), y también con llamadas directas a la vtable de
 `IDirect3DDevice7`: `+0x50` es SetRenderState y `+0x94` es SetTextureStageState. Para listarlos todos con sus
-constantes, usa `tmp_dis\render\scan_states.py` (envoltorios) y `scan_vt.py` (vtable).
+constantes, usa `documentacion\render\scan_states.py` (envoltorios) y `scan_vt.py` (vtable).
 
 - **Filtrado**: en la configuración por defecto (`0x82CA40`, dentro de `fn_0082C8F0`, junto a `OpenD3D`),
   MINFILTER y MAGFILTER = 2 (**lineal**) en las etapas 0 y 1. `SetupThing` (0x4133A2… y `DrawBevBox` 0x413C20),
@@ -225,7 +225,7 @@ En openblack (`fs_water`/`vs_water`, `Graphics/RendererSea.cpp`, `Graphics/SeaRo
   bit de 0x20 (cercano) a 0x02, dos vértices nuevos por corte al final de la tabla y, si quedan dos triángulos, el
   primero recortado por una llamada recursiva; los vértices nuevos llevan solo los códigos de los planos siguientes
   y su y de pantalla se pinza a 0..alto−1 (`g_MaxScreen`, 0x81E130). `bot`/`top` se leen en el orden de esa lista.
-  Comprobado con una emulación Unicorn de `fn_00879500` (`tmp_dis\agua\re\emu_sea_range.py`): las dos rutas dan la
+  Comprobado con una emulación Unicorn de `fn_00879500` (`documentacion\agua\re\emu_sea_range.py`): las dos rutas dan la
   misma lista y la misma y (±0,05 px de redondeo) en 400 cámaras al azar; `test_sea_rows` lleva dos casos de la
   emulación. En 30000 cámaras sobre la isla la rareza de "solo `bot`" nunca movió `top` más de 1 px.
   **Fallo del original, copiado**: para decidir si hace falta recortar suma los códigos de 0, 1, 2 y de la entrada
@@ -272,7 +272,7 @@ En openblack (`fs_water`/`vs_water`, `Graphics/RendererSea.cpp`, `Graphics/SeaRo
 
 ## Costa
 
-**Fiel** (hecha). Informe: `tmp_dis\agua\sea_render.md` §4. Las rutas normal y SSE hacen lo mismo. El intento anterior (aplanar y omitir
+**Fiel** (hecha). Informe: `documentacion\agua\sea_render.md` §4. Las rutas normal y SSE hacen lo mismo. El intento anterior (aplanar y omitir
 celdas sin más) dio "fondo de arena en escalones" porque le faltaba la pieza que da la forma de la orilla: el **alfa
 de la textura de bloque**.
 - **Alfa costero por texel** (`fn_008732C0`, SSE `fn_007AB4B0`, 16×16 texels por celda, 256 por bloque): altitud
@@ -294,7 +294,7 @@ de la textura de bloque**.
   somera sus motas solo salen junto a vértices más altos, sin borde.
 - **Ningún borde duro junto a las celdas de mar abierto**: en las 6 tierras, las celdas 0x02 tienen las 4 esquinas a
   altitud 0 y el alfa costero de las celdas dibujadas vecinas vale 0 en todos los texels de la arista común
-  (`tmp_dis\agua\shore\edge_stats.py`: Land1 871 aristas, Land2 1722, Land3 900, Land4 1283, Land5 1808, LandT 556,
+  (`documentacion\agua\shore\edge_stats.py`: Land1 871 aristas, Land2 1722, Land3 900, Land4 1283, Land5 1808, LandT 556,
   todas con nibble máximo 0). Un borde recto en openblack no puede venir del alfa costero.
 - **Sombras dinámicas** (`fn_00878350`): color de vértice 0 donde el byte de altitud ≤ 1 → se funden hacia el agua
   (interpolado), sin corte duro.
@@ -309,7 +309,7 @@ de la textura de bloque**.
   (`fn_00877210` 0x87722C–0x877296, 0x877C8A–0x877CCD): **el más cercano primero**; `fn_007FF610` y `fn_007FF4F0`
   recorren la misma lista (+0x9B8). openblack los ordena igual en `Renderer::DrawPass`. Sin Z en la tierra reflejada,
   ese orden decide qué monte espejado tapa a cuál.
-- openblack: `3D/CoastAlpha` (port de `tmp_dis\agua\sea_coast_alpha.py`, idéntico texel a texel en Land1),
+- openblack: `3D/CoastAlpha` (port de `documentacion\agua\sea_coast_alpha.py`, idéntico texel a texel en Land1),
   hoy el canal alfa de la RGBA8 `BlockTexture` de `LandIsland` (ver abajo; filtro lineal, filas a lo largo de +z; se
   rehace en `RebuildAltitudes`);
   `LandBlock` aplana, colapsa a un punto las celdas 0x02 (la forma física de Bullet las conserva) y pasa por vértice
@@ -331,11 +331,11 @@ de la textura de bloque**.
     uno pinzado a 15 (0x873438..0x8734EA); alfa el nibble costero.
   - Si las 4 esquinas de la celda no son del mismo país, se construye una vez por país de esquina y `fn_00871850`
     mezcla por canal de 4 bits (alfa incluido) con los pesos de cono: `floor(Σ canal_k·w_k / 255)`.
-  - Comprobado: la emulación Unicorn de `fn_00873790` (`tmp_dis\agua\re\emu_block_texel.py`) coincide con la
+  - Comprobado: la emulación Unicorn de `fn_00873790` (`documentacion\agua\re\emu_block_texel.py`) coincide con la
     referencia en los 163840 texels de 40 filas de celdas de Land1 por la ruta x87; la SSE (P4, `fn_007AB4B0` con
     `pmulhuw`) baja en 1 el nibble azul (a veces el verde) en ~1,8 % de los texels. Se sigue la x87. La textura que
     genera openblack (`OPENBLACK_DUMP_BLOCK_TEXTURE`) es idéntica a la referencia en 524288 texels comparados
-    (`tmp_dis\agua\re\cmp_block_dump.py`).
+    (`documentacion\agua\re\cmp_block_dump.py`).
   - openblack: `3D/BlockTexture` (`CountryTexel`, `BlendCorners`, `BuildIslandBlockTexture`); `LandIsland` guarda las
     texturas de material y el bump en CPU y sube una RGBA8 `BlockTexture` (nibble × 17, color y alfa costero) que
     sustituye a la R8 `CoastAlpha`; `fs_terrain` toma de ella el color (ya lleva el bump) y el alfa; encima van las
@@ -356,7 +356,7 @@ de la textura de bloque**.
 - Uso: difuso del vértice de tierra = tabla[luminosidad]; tierra reflejada × 0,5; mar = tabla[255].
 - Valores a mediodía neutral: [48] 686d66, [128] 9eab9f, [218] daf0e0, [255] f3fffb (casi blanco); medianoche
   [255] 3d5b6c; ocaso d68e79; malo a mediodía dbc8ff.
-- openblack: `3D/LandLightTable` (port exacto, comprobado contra `tmp_dis\render\light_lut.py`), textura 256×1 que
+- openblack: `3D/LandLightTable` (port exacto, comprobado contra `documentacion\render\light_lut.py`), textura 256×1 que
   `vs_terrain` muestrea por vértice; `u_seaColour` para el mar. `Build(skyType, alineación, nublado, destello)`:
   tope `min(c, ftol(255 − 96·nublado))` sin recortar el nublado (0x869ADB), destello `c += ((0xFF − c)·f) >> 8` con alfa
   0xFF en toda la tabla (0x869C25) y la neblina de tormenta/relámpago; `LandLightTable::Current().GetRaw(i)` (copia
@@ -366,7 +366,7 @@ de la textura de bloque**.
   `GetWeatherSmooth` en la cámara × 0,01) y destello = `[0xFA2768]` (`Update3D` 0x83587C, la tormenta más cercana que
   contiene la cámara). El nublado sale de una sola fuente, `Clouds::WeatherOvercastAtCamera()`; `3D/SkyWeather` solo
   da el destello (`weather::LightningFlashAtCamera(cámara)` de `ECS/Weather/LightningFlash`). Test:
-  `test_land_light` contra `tmp_dis\agua\light_lut_testgen.py` (entradas exactas en binario: con 1,3 o 0,6 las
+  `test_land_light` contra `documentacion\agua\light_lut_testgen.py` (entradas exactas en binario: con 1,3 o 0,6 las
   columnas en float caen al otro lado de un entero que los double de Python). La alineación es la suavizada del cielo (`Renderer::_skyAlignment`, [0xBF3378]).
   El tipo de cielo de la columna es el muestreo del fotograma [0xFA26BC] (`sky_type::Frame()`; columna
   `sky_type::LightColumn` = (2 − T)·15, neblina `sky_type::HazeFactor`, ver
@@ -394,7 +394,7 @@ de la textura de bloque**.
   cielo (solo tinte de tormenta), al sol y la luna (alfa ÷ (1 + 8w)), ni a partículas PSys, sombras o la mano.
 - Valores (neutral, despejado): mediodía near 400 far 900 k 211 color (63, 70, 65); ocaso 100/800 k 120 (56, 37,
   31); medianoche 400/900 k 81 (16, 24, 28). Referencia:
-  `tmp_dis\render\haze_calc.py`.
+  `documentacion\render\haze_calc.py`.
 - openblack: una sola API, `graphics::haze` (`src/Graphics/Haze.{h,cpp}`) y `assets/shaders/haze.sh` (ver la
   sección siguiente). Fiel en el redondeo: `f = 256 − ftol((256 − k)·t)` (0x7FEBC3), difuso `(c·f) >> 8` por byte con
   el alfa conservado (0x7FEBED), color con `fistp` (al par, 0x7FEC4A), clase 2 con el color truncado [0xE9B6D8]
@@ -508,7 +508,7 @@ bit 1, si no 2.
 
 ## Sombras (tres sistemas del original)
 
-Informe completo: disassembly en `tmp_dis\render\shadow_*.txt`.
+Informe completo: disassembly en `documentacion\render\shadow_*.txt`.
 - **Estáticas** (hechas): `fn_008721A0` (hilo de texturas de bloque, tras nieve y huellas). Proyectan todos los
   Fixed y MobileObject (`SetShadowOnTexture` en `Create3DObject` 0x52DE30 / 0x607210), árboles y bosques con prueba de
   alfa (`DrawTextureShadow`); no AnimatedStatic, DeadTree, flores, vasijas, comida mágica, cultivos, escudos,
@@ -524,7 +524,7 @@ Informe completo: disassembly en `tmp_dis\render\shadow_*.txt`.
 ## Sombras proyectadas (ShadowInfo)
 
 **Fiel** salvo lo marcado (punto 5 de la sesión «shaders»). Plan y reglas R1..R29 con sus bytes:
-`dev\tmp_dis\unify2\PLAN_5_shadows.md`.
+`dev\documentacion\unify2\PLAN_5_shadows.md`.
 
 **Original.**
 - Una lista enlazada de `ShadowInfo` (0x4AC bytes, cabeza [0xFAA7E0]); cada nueva va delante (`fn_0087FD50`
@@ -642,7 +642,7 @@ Informe completo: disassembly en `tmp_dis\render\shadow_*.txt`.
 
 ## Cielo: sol, luna y nubes (original)
 
-Informe: `tmp_dis\render\sky_*.txt`.
+Informe: `documentacion\render\sky_*.txt`.
 - La hora que usan el sol y la luna es la **hora de guion** (umbrales fijos 3,5 / 7,5 / 8 / 8,5 h); el reloj real del
   juego es la hora visual con los umbrales del ciclo. Ver [day-night-weather.md](day-night-weather.md).
 - La **cúpula** (las texturas `sky_*.555`) va por el tipo de cielo de la hora visual, con histéresis de 0,03 y 32 filas
@@ -688,7 +688,7 @@ Informe: `tmp_dis\render\sky_*.txt`.
   (fotograma (contador/20) & 15, UV ((f&7)/8, (f>>3)/8 + 0,25)), luz cenital con ambiente 210/256; color de
   alineación × tabla[255] · 186/256 + 35;
   alfa 0 en tierra buena, 200 neutral, 255 mala.
-  - **Colocación** (`CloudInSky::Open` 0x5E2439..0x5E24F4, informe `tmp_dis\mapa\clouds_placement.md`): cinco
+  - **Colocación** (`CloudInSky::Open` 0x5E2439..0x5E24F4, informe `documentacion\mapa\clouds_placement.md`): cinco
     `Random` por nube en este orden (x, y, z, tamaño, k), también las nubes 0 y 1, cada una por su cuenta y uniforme en
     la caja: **las nubes del cielo no van en grupos**. Los grupos que se ven salen del azar (≈1500 u de media entre
     68 nubes, con rachas y huecos) y de la perspectiva; los grupos de verdad del original son las nubes de tormenta
@@ -705,7 +705,7 @@ Informe: `tmp_dis\render\sky_*.txt`.
     cada nube vuelve por la misma línea a la misma altura); borde = fistp((x ± 8000)·0,1275) (redondeo), fijas 192;
     alfa = borde·A/255 en enteros.
   - **Color** (`fn_005E1DE0`, cada fotograma desde `GLandAlignement::DrawSky`; informe
-    `tmp_dis\mapa\clouds_colour.md`): i = trunc(X), f = trunc((X − i)·256), cada byte a + floor((b − a)·f/256) entre
+    `documentacion\mapa\clouds_colour.md`): i = trunc(X), f = trunc((X − i)·256), cada byte a + floor((b − a)·f/256) entre
     00FFFFFF / C8FFFFFF / FFAAA066 (0xBF339C), RGB·tabla[255] (c·t >> 8), luego c + floor((8960 − 70c)/256) (255 →
     **220**: el original nunca las pinta blancas). Luz por vértice (`fn_0084BA90`): I = fistp(255·N·L),
     f = 210 + (45·I >> 8) (210..**254**), difuso (c·f) >> 8. La hora entra solo por la tabla (filas 0-2 de
@@ -741,7 +741,7 @@ Informe: `tmp_dis\render\sky_*.txt`.
 
 ## Ríos
 
-**Fiel** (hechos). Informe completo con direcciones y pseudo-C++: `C:\Users\diewgarc\dev\tmp_dis\streams\streams.md`.
+**Fiel** (hechos). Informe completo con direcciones y pseudo-C++: `C:\Users\diewgarc\dev\documentacion\streams\streams.md`.
 
 - **No hay renderizador de ríos.** `GStream` (GameThing 0x47, Stream.cpp) guarda sus puntos en orden de script
   (`CREATE_STREAM_POINT` 0x717550 pone y = altura del suelo y añade al final); los tramos son p[i] → p[i+1]
@@ -762,7 +762,7 @@ Informe: `tmp_dis\render\sky_*.txt`.
 
 ## Fundido de pantalla y bandas de cine
 
-**Fiel** (hecho; sin el negro de `OnNewGame`). Informe: `tmp_dis\render\fade_notes.txt` (+ `fade_script.txt`, `fade_widescreen.txt`, `fade_chl_scripts.txt`).
+**Fiel** (hecho; sin el negro de `OnNewGame`). Informe: `documentacion\render\fade_notes.txt` (+ `fade_script.txt`, `fade_widescreen.txt`, `fade_chl_scripts.txt`).
 - Estado GScript (g_game+0x250090): +0xB0 paso de alfa por turno, +0xB4 alfa, +0xB8 color ARGB.
   - `SET_FADE(r, g, b, t)` (0x6FCD70 → `SetupScreenFadeTo` 0x6EBA90; todo truncado, t como char): t ≤ 0 → A = 255 al
     instante; si no, alfa 0 y paso 255/(10t) (el byte A no cambia hasta el turno siguiente).
@@ -782,7 +782,7 @@ Informe: `tmp_dis\render\sky_*.txt`.
 
 ## Texto: fuentes del original y el mensaje de la mano
 
-**Fiel** (hecho; el margen respecto a la mano es **(aproximado)**). Informes: `tmp_dis\font\font_notes.txt` (formato), `tmp_dis\numbers\NOTES_numbers.md` (mensajes).
+**Fiel** (hecho; el margen respecto a la mano es **(aproximado)**). Informes: `documentacion\font\font_notes.txt` (formato), `documentacion\numbers\NOTES_numbers.md` (mensajes).
 - Fuentes `Data\j0` ("Ocean Sans MM", la de los mensajes), `f1`, `f3`: `.met` = u32 alto de celda 80, wchar[128]
   nombre, u32 número, registros de 28 bytes {u16 código, u16 ancho del bitmap, s16, u16, f32 izquierda, f32 ancho,
   f32 derecha, u32 desplazamiento y u32 tamaño en el `.fnt`}. `.fnt` (`CachePage::RenderChar` 0x830C10): longitudes de
@@ -849,15 +849,15 @@ En [openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depur
 
 ## Fuentes
 
-- Sombras proyectadas: `dev\tmp_dis\unify2\PLAN_5_shadows.md`, `shader_projected_shadows_{original,openblack}.md` y
+- Sombras proyectadas: `dev\documentacion\unify2\PLAN_5_shadows.md`, `shader_projected_shadows_{original,openblack}.md` y
   `lh3d_zsorter_original.md`.
-- `dev\tmp_dis\unify2\haze_land_light_{original,openblack}.md`, `dev\tmp_dis\miracles\polish\tormenta_audit.md` y
-  `fuego_audit.md` (sellos), `dev\tmp_dis\unify\U5_changes.md`.
-- `dev\tmp_dis\render\`: `scan_states.py`, `scan_vt.py` (estados D3D), `shadow_*.txt`, `sky_*.txt`, `light_lut.py`,
+- `dev\documentacion\unify2\haze_land_light_{original,openblack}.md`, `dev\documentacion\miracles\polish\tormenta_audit.md` y
+  `fuego_audit.md` (sellos), `dev\documentacion\unify\U5_changes.md`.
+- `dev\documentacion\render\`: `scan_states.py`, `scan_vt.py` (estados D3D), `shadow_*.txt`, `sky_*.txt`, `light_lut.py`,
   `haze_calc.py`, `fade_notes.txt` (+ `fade_script.txt`, `fade_widescreen.txt`, `fade_chl_scripts.txt`).
-- `dev\tmp_dis\agua\`: `sea_render.md`, `sea_coast_alpha.py`, `light_lut_testgen.py`, `re\emu_sea_range.py`,
+- `dev\documentacion\agua\`: `sea_render.md`, `sea_coast_alpha.py`, `light_lut_testgen.py`, `re\emu_sea_range.py`,
   `re\emu_block_texel.py`, `re\cmp_block_dump.py`; `shore\edge_stats.py` (alfa costero en las aristas de las celdas
   0x02, todas las tierras) y `shore\map_around.py` (mapa de altitudes y celdas 0x02 alrededor de una celda).
-- `dev\tmp_dis\mapa\`: `clouds_placement.md`, `clouds_colour.md`, `emu_inv.py`.
-- `dev\tmp_dis\streams\streams.md` (ríos), `dev\tmp_dis\font\font_notes.txt` y `dev\tmp_dis\numbers\NOTES_numbers.md`
+- `dev\documentacion\mapa\`: `clouds_placement.md`, `clouds_colour.md`, `emu_inv.py`.
+- `dev\documentacion\streams\streams.md` (ríos), `dev\documentacion\font\font_notes.txt` y `dev\documentacion\numbers\NOTES_numbers.md`
   (texto).

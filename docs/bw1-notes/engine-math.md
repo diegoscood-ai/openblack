@@ -623,7 +623,7 @@ paran en pausa; el grano de la mano, las luciérnagas y los efectos de partícul
 ## Listas de objetos por celda (`ecs::map_cells`)
 
 `src/ECS/MapCells.{h,cpp}` (fase A de map_cell_queries, 2026-10-02, milagros2; investigación en
-`dev\tmp_dis\unify2\map_cell_queries_original.md`, `map_cell_queries_PLAN_A.md` y `map_cell_queries_A_impl.md`). Es la
+`dev\documentacion\unify2\map_cell_queries_original.md`, `map_cell_queries_PLAN_A.md` y `map_cell_queries_A_impl.md`). Es la
 rejilla GMap del original (g_game+0x59B8, MapCell de 8 bytes en +0x59FC, 512 × 512 por `GMap::Init(0x200, 0x200)`
 0x6014C0): cada celda tiene **dos listas enlazadas y ordenadas**, +0 la móvil (`SetFirstObjectMobile` 0x601B60) y +4
 la fija (0x601B70).
@@ -1408,7 +1408,7 @@ Estado a 2026-10-02, rama `local/sistemas2`.
 
 ### Matrices, Zoomer y normal
 
-Estado a 2026-10-02, rama `local/sistemas` (informes `dev\tmp_dis\unify\U8_object_matrix.md`, `U9_zoomer_normal.md`
+Estado a 2026-10-02, rama `local/sistemas` (informes `dev\documentacion\unify\U8_object_matrix.md`, `U9_zoomer_normal.md`
 y `U8_changes.md`):
 - Las rotaciones sin fuente de [Matrices LH](#matrices-lh) (HeldSway, bandas, árbol tumbado y tirón, flexión, sol,
   templo, mano, aldeano, almacén, ríos): se dejan como estaban hasta leer sus constructores.
@@ -1564,44 +1564,44 @@ y `U8_changes.md`):
 
 ## Fuentes
 
-- Desensamblado W120 (`dev\tmp_dis\bwdis.py`): 0x603160, 0x603340, 0x603430, 0x6041C0, 0x6042C0, 0x605470, 0x605C40,
+- Desensamblado W120 (`dev\herramientas\dis\bwdis.py`): 0x603160, 0x603340, 0x603430, 0x6041C0, 0x6042C0, 0x605470, 0x605C40,
   0x5E1860, 0x5E1950, 0x74CA10, 0x74CA60, 0x74D7E0, 0x74D810, 0x74F520, 0x74F540, 0x7A1400, 0x525100..0x525260,
   0x63AFF2, 0x7204D0 (0x72056B..0x720595), 0x882730 (0x8827C7..0x882810) y 0x7DEE00. De la 2.ª pasada: 0x6014C0,
   0x54F650+0x2A0, 0x5FBB40..0x5FBD10, 0x72F5C0..0x72F6E0, 0x725000..0x725180, 0x5ED080, 0x41A8B0, 0x41A640..0x41A780,
   0x419490, 0x60FC50, 0x7238C0, 0x420E10, 0x771BE0, 0x772BE0, 0x74CDE0 y 0x7409C0..0x740A60.
-- Informes: `dev\tmp_dis\unify2\PLAN.md` §1, `map_coords_grid_original.md` (sobre todo su «Verificación adversaria»)
+- Informes: `dev\documentacion\unify2\PLAN.md` §1, `map_coords_grid_original.md` (sobre todo su «Verificación adversaria»)
   y `map_coords_grid_openblack.md`.
 - bw1-decomp: `src/Black/MapCoords.h`, `Map.h`, `Utils.h` y `Lionhead/LH3DLib/development/LH3DMapCoords.h`.
 - Distancias de GUtils: desensamblado de 0x74CCA0:1D0, 0x74CE6E:C0, 0x74DCC0:50, 0x74DD00, 0x74E2D0,
   0x74F170:A0, 0x74F290:40, 0x74F580:1A0, 0x74F620, 0x74F680, 0x74F6C0, 0x605CD0, 0x605FB0, 0x5ECA20, 0x657F30,
   0x438770, 0x4F78C0, 0x73C5C0..0x73C64E (vida³), 0x552FF0, 0x5252E0, 0x60D9D0 y 0x6E3E60; bytes de 0xC23284
   (164 B), 0x99A1D0, 0x99A1D4, 0x99A1D8, 0x99A1BC, 0x8AC408, 0x8AC41C, 0x8AC400, 0x8AA390, 0x8AA3A4, 0x8AB678,
-  0x8AB680, 0x8AB41C, 0x8BF518 y 0x930670. Informes: `dev\tmp_dis\unify2\PLAN.md` §6,
+  0x8AB680, 0x8AB41C, 0x8BF518 y 0x930670. Informes: `dev\documentacion\unify2\PLAN.md` §6,
   `gutils_distance_original.md` (con su «Verificación adversaria») y `gutils_distance_openblack.md`.
 - bw1-decomp para las distancias: `src/Black/Utils.h` (solo firmas; `GetDistance` aparece como `void`),
   `MapCoords.h:137` y `Lionhead/LH3DLib/development/LH3DMath.h:33`.
 - Reloj del juego: desensamblado de 0x54C4A0, 0x54C570, 0x54CC30 (0x54CD0F..0x54CD58), 0x54D2A8..0x54D3D3, 0x54AE60:90,
   0x5557E0:60, 0x555820, 0x82F14E:50, 0x711630:30, 0x711610, 0x711280:F0, 0x70CC30:140, 0x66CD00, 0x66CD30:B0,
   0x5C6250:50, 0x714DB0 y, en la auditoría, 0x818C60:60, 0x8189F0:190, 0x54CD93, 0x54D338:50, 0x879B0A:40,
-  0x54E5C0, 0x52AF90, 0x5DBD4E, 0x5C61B0:D0, 0x5C68C0:E0, 0x5537F0:E0, 0x634B40, 0x76EAF0 y 0x54E763. Informes: `dev\tmp_dis\unify2\PLAN.md` §2, `game_clock_original.md` (con su «Verificación
+  0x54E5C0, 0x52AF90, 0x5DBD4E, 0x5C61B0:D0, 0x5C68C0:E0, 0x5537F0:E0, 0x634B40, 0x76EAF0 y 0x54E763. Informes: `dev\documentacion\unify2\PLAN.md` §2, `game_clock_original.md` (con su «Verificación
   adversaria») y `game_clock_openblack.md`. bw1-decomp: `src/Black/Game.cpp` (`PauseGame`, `SetSpeed`,
   `LocalTimerSaysDoATurn`, `ResetLocalGameTimer`, `ProcessNetworkPackets`, `Loop` l. 1834-1996, `ResolveLoad`).
 - Tamaño de los objetos: desensamblado de 0x638110:E0, 0x8082C0:C0, 0x66EB60:C0, 0x66F180, 0x66F1B0:80, 0x477F40,
   0x47B190, 0x4EF4F0, 0x638C00, 0x74B610, 0x5110E0, 0x728640, 0x639AC0, 0x510E10, 0x77DE10, 0x77DDD0, 0x4026B0,
   0x74A1A0, 0x74A140, 0x6384C0, 0x637730, 0x637FB0, 0x5702B0, 0x4027C0, 0x637E00, 0x636D30; los sitios migrados
   0x53A740, 0x5116A0, 0x74AB80, 0x74B12F, 0x439220, 0x639550, 0x66E900, 0x722B30, 0x403270, 0x6A0D51 y 0x5287A0.
-  Informes: `dev\tmp_dis\unify2\PLAN.md` §4, `object_radius_height_original.md` (con su «Verificación adversaria»)
+  Informes: `dev\documentacion\unify2\PLAN.md` §4, `object_radius_height_original.md` (con su «Verificación adversaria»)
   y `object_radius_height_openblack.md`. bw1-decomp: `src/Black/Object.cpp:1062-1104`; decomp_pickup:
   `multi.cpp:285-330`.
 - Ángulos de GUtils: desensamblado de 0x74D0C0:120, 0x74D200:A0, 0x74D320:180, 0x74D510:180, 0x74D6F0:80,
   0x74DC30:50, 0x74E290:40, 0x605410, 0x6054A0, 0x605520, 0x6055C0, 0x636D30:110, 0x639550:60, 0x74C040:70,
   0x439240:50, 0x439360:70, 0x53A060:70, 0x6E7560:200, 0x77AFC0:C0, 0x75AA90:F0, 0x75B320:80, 0x41B210:140,
   0x418CD0:60, 0x41E930:F0 y 0x41F1B0:80; tablas 0xC2307C y 0xC31614 volcadas del exe. Informes:
-  `dev\tmp_dis\unify2\angles_original.md` (con su «Verificación adversaria», que manda) y `angles_openblack.md`.
+  `dev\documentacion\unify2\angles_original.md` (con su «Verificación adversaria», que manda) y `angles_openblack.md`.
 - Matrices, Zoomer y normal (2026-10-02, sistemas):
   - desensamblado de 0x7FAC10:B0, 0x5198F0:70, 0x86AFA0:70, 0x674200:160, 0x674360:50, 0x6743E0:60, 0x6A1150:D0,
     0x6A1218, 0x6A12C7, 0x6A12F0, 0x6A6250:70, 0x7FB180:110, 0x7FB290:160, 0x423140:250, 0x407D60:170, 0x442720:90,
     0x441F80:C0, 0x5B4200:180, 0x803630:260, 0x803890:F0 y 0x516AA0:50;
   - constantes leídas del exe: 0x9A2BEC, 0x9A2BE8, 0xC3720C, 0x8AB41C, 0xC371D4, 0x8AA3B0, 0x8AB26C, 0x8AB268 y
     0x8AB414;
-  - informes `dev\tmp_dis\unify\U8_object_matrix.md`, `U9_zoomer_normal.md` y `U8_changes.md`.
+  - informes `dev\documentacion\unify\U8_object_matrix.md`, `U9_zoomer_normal.md` y `U8_changes.md`.

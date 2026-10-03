@@ -58,7 +58,7 @@ pista, duración ≤ ms recorridos; sin pista, `CameraMode::Arrived` 0x441700: |
 ## Seguimientos
 
 **Fiel** salvo lo marcado (`CameraModeFollow`, del que hereda el modo del guion; lectura completa en
-`dev\tmp_dis\camara\step2.md`).
+`dev\documentacion\camara\step2.md`).
 - Campos: +0x08 cosa seguida con la posición, +0x4C (Script) cosa seguida con el foco (`GetFocusThing` 0x4611F0 = +0x4C
   o, si es nula, +0x08), +0x0C rumbo, +0x10 cabeceo, +0x14 distancia, +0x18 factor de tiempo (0.2 en Script), +0x1C
   «detrás» (1 en Script).
@@ -83,7 +83,7 @@ pista, duración ≤ ms recorridos; sin pista, `CameraMode::Arrived` 0x441700: |
 ## Cámara doble
 
 **Fiel** salvo lo marcado (`CameraModeTwoObjects`, 0x30 bytes, vtable 0x8C7DD0, «Dual Cam»; lectura completa en
-`dev\tmp_dis\camara\step3.md`). Se apila encima del modo del guion (ctor 0x461BB0; con un punto fn_00461CB0; uno igual
+`dev\documentacion\camara\step3.md`). Se apila encima del modo del guion (ctor 0x461BB0; con un punto fn_00461CB0; uno igual
 al actual se borra a sí mismo).
 - `Update` 0x461DE0, por fotograma: T = (+0x68 > 1.5 ? 1 : 2 − +0x68 / 1.5), **sin factor**; A y B = MapCoords de las
   dos cosas (o el punto); foco = punto medio subido por el alto medio · 0.5; distancia = ((separación en x/z + los dos
@@ -208,6 +208,6 @@ vuelve **siempre** a 70° en 0,5 s; luego el estado del guion (`Help/ScriptContr
 
 ## Fuentes
 
-- `dev\tmp_dis\camara\original.md` (paso 1) y `dev\tmp_dis\camara\step2.md` (seguimientos, cara de un objeto,
-  SET_AVI_SEQUENCE), `dev\tmp_dis\camara\step3.md` (cámara doble, temblor, zonas, giro fijo), con sus auditorías
+- `dev\documentacion\camara\original.md` (paso 1) y `dev\documentacion\camara\step2.md` (seguimientos, cara de un objeto,
+  SET_AVI_SEQUENCE), `dev\documentacion\camara\step3.md` (cámara doble, temblor, zonas, giro fijo), con sus auditorías
   `audit_step1.md` / `audit_step2.md` / `audit_step3.md` en la misma carpeta.

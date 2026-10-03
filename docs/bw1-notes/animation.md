@@ -22,7 +22,7 @@ donde se marca otra cosa; lo que falta en openblack está reunido en [Pendiente]
 
 ## Fuentes
 
-Informes completos con direcciones en `C:\Users\diewgarc\dev\tmp_dis\anim\`:
+Informes completos con direcciones en `C:\Users\diewgarc\dev\documentacion\anim\`:
 
 - `anm_format.md` (formato y reproducción), `villager_anims.md` (qué clip toca en cada estado; tabla de los 255
   estados, animales, bailes).

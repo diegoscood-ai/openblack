@@ -78,7 +78,7 @@ texturas, **+0x48 el framebuffer** `ancho*alto*2` bytes a cero, +0x4C..+0x64 lo 
 - Los materiales del mosaico: `CreateMaterial(modo 6, textura)` 0x844FC6 (SRCALPHA / INVSRCALPHA, color y alfa
   MODULATE, sin escritura de Z), `+5 &= ~4` 0x844FD7 (sin repetición: `SetD3DTillingOff` 0x8459B1) y `+5 |= 1` 0x844FE4
   (dos caras: CULLMODE 1 = NONE, 0x8459E4).
-- fn_00845740 (leído en `tmp_dis\psys\lh3d.asm`): `w`/`h` 0 → la pantalla (`[0xE85058]`/`[0xE8505A]`, 0x845798..0x8457B5);
+- fn_00845740 (leído en `documentacion\psys\lh3d.asm`): `w`/`h` 0 → la pantalla (`[0xE85058]`/`[0xE8505A]`, 0x845798..0x8457B5);
   escala `sx = w / ancho`, `sy = h / alto` (0x8457B9..0x8457D3); por tile `x0 = x + tx·256·sx`, `x1 = x0 + n·sx` (igual
   en y), con `n` = 256 salvo la última columna/fila, `ancho & 0xFF` / `alto & 0xFF` (0x84583A..0x845870); u, v de 1/512
   a `n/256 − 1/512` (0x845891..0x84596C: medio texel hacia dentro); el color en los cuatro vértices (0x8458C1..0x8458DB);
@@ -460,13 +460,13 @@ ve ya con `OPENBLACK_TEST_VIDEO=intro`.
   contra los `.bin` de oro de la DLL (sólo los CRC están en el test).
 - Juego: `OPENBLACK_TEST_VIDEO=<intro|fall|ruta>` (Game.cpp, al cargar el mapa): `intro` = `Data\intro.bik` +
   `ScheduleIntro()` (60 s), `fall` = `video::GetFallingSpell().Start()` (KickOff sin la prueba de la criatura:
-  modo 2, alfa 0x50 sin mundo, estados, blanco y fin; V6), si no la ruta dada. Fotos de V3: `dev\tmp_dis\unify\shots\video\intro_mid.png`
+  modo 2, alfa 0x50 sin mundo, estados, blanco y fin; V6), si no la ruta dada. Fotos de V3: `dev\documentacion\unify\shots\video\intro_mid.png`
   (frame 1800, el vídeo tapa la pantalla) y `fall_mid.png` (frame 1500, el mundo × 0,686).
 
 ## Fuentes
 
-- `dev\tmp_dis\video\original.md` (lectura del original) y `dev\tmp_dis\video\plan.md` (decisión y plan V0..V8).
-- `dev\tmp_dis\audio\video_audio.md` (sesión *audio*: el audio de cada vídeo).
+- `dev\documentacion\video\original.md` (lectura del original) y `dev\documentacion\video\plan.md` (decisión y plan V0..V8).
+- `dev\documentacion\audio\video_audio.md` (sesión *audio*: el audio de cada vídeo).
 - `dev\_scratch\asistente\video\golden\README.md` (frames de oro de la DLL; 555 = flag 9 en 0x845146) y
   `oracle\` (el exe de 32 bits que los saca).
 - `dev\_scratch\asistente\video\patch12\README.md` y `audit.md` (V1-V2 y su auditoría).

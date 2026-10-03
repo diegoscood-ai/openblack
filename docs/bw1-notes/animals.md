@@ -4,10 +4,10 @@ Toda la IA de los animales portada de runblack.exe (sesión "animales", 2026-09-
 muerte · 2d629816 depredadores y huida · e3a9d81f aves · 333ad5ae API para los hechizos · 2894cfd9 aldeanos como presa,
 bandadas, edad, humo, reacciones de comida y objeto volador · f992a01a auditoría completa contra el original; 2026-10-01: a8e3313d rodeo, guaridas y animales de guion · 3f548aec
 reloj común · 19d165f3 avisos de muerte · 0b8471b2 agua de sea_cells · d207fdd4 aldeano comido por VillagerDead ·
-b7f48053 MOVE_GAME_THING). Relevo para quien continúe: `dev\tmp_dis\animals\HANDOVER.md`. bw1-decomp
+b7f48053 MOVE_GAME_THING). Relevo para quien continúe: `dev\documentacion\animals\HANDOVER.md`. bw1-decomp
 solo tiene stubs vacíos de Animal*.cpp: todo sale del ejecutable.
 
-Investigación con direcciones, en `C:\Users\diewgarc\dev\tmp_dis\animals\`: `grazing_ai.md` (herbívoros),
+Investigación con direcciones, en `C:\Users\diewgarc\dev\documentacion\animals\`: `grazing_ai.md` (herbívoros),
 `hand_death.md` (mano, vuelo, aterrizaje, muerte), `predator_ai.md` (depredadores), `hunting.md` (caza), `flee.md`
 (huida), `birds_ai.md` / `birds_draw.md` (aves), `misc.md` (bandadas, edad, humo), `villager_prey.md` (aldeanos
 cazados), `reactions.md` (todas las reacciones), `wallhug.md` (moverse), `old_age.md` (vejez), `audit.md` y
@@ -122,7 +122,7 @@ Todas son la clase Dove (constructor 0x41DCF0); solo cambian los clips y los val
 - No se pueden coger ni golpear (playerCanPickUp 0) y no son presa (a más de 2 m). Muertas caen con la física a la
   velocidad del vuelo (`Dove::Dying` 0x41F1B0) y quedan en el suelo como cadáver.
 
-## Moverse (MobileWallHug, `dev\tmp_dis\animals\wallhug.md`)
+## Moverse (MobileWallHug, `dev\documentacion\animals\wallhug.md`)
 
 `Living::SetupMoveToPos` (0x5F2830) usa la versión de un argumento de `SetupMobileMoveToPos`: **STEP_THROUGH**, un paseo
 recto sin rodear obstáculos que en los animales re-apunta cada turno con su `SetTowardsAngle` (giro limitado por
@@ -241,7 +241,7 @@ avanza con el terreno recorrido mientras se mueve (`Object::IsMoving`) y con el 
 - **Edad** (`Living::GetAge` 0x5ECAF0): 1500 turnos por año desde su turno de nacimiento. Los jóvenes crecen cada 375
   turnos (`escala += aleatorio(0,75 × (ageToScale[edad + 1] − escala))`) hasta `grownUpAge`; un adulto nace a 0,9 y dos
   tiradas lo dejan en (0,95, 1,05]. **Los animales no mueren de viejos**: comprobado en todo el ejecutable
-  (`dev\tmp_dis\animals\old_age.md`): `oldAge` / `retirementAge` solo los lee `Villager::CheckDeathFromOldAge`
+  (`dev\documentacion\animals\old_age.md`): `oldAge` / `retirementAge` solo los lee `Villager::CheckDeathFromOldAge`
   (0x760CA0) y el motivo de muerte OLD_AGE (9) solo es de aldeanos.
 - **Nacer** (GIVES_BIRTH): el recién nacido decide al momento, antes de que la madre vuelva a pasear.
 - **Animal lanzado a un almacén de comida:** se convierte en comida (su foodValue: vaca y caballo 1200, oveja 800,
@@ -262,7 +262,7 @@ openblack `ecs::villager::VillagerDead` de la sesión mapas, que lo mata al fina
 animales (`components::DownedVillager`). El que no se puede comer (+0x25 & 0x40) se
 levanta (LANDED) en vez de morir; openblack lo pone en LANDED al acabar los 300 turnos, sin esperar al clip (aproximado).
 
-## Scripts y marcas (`dev\tmp_dis\animals\script_flags.md`)
+## Scripts y marcas (`dev\documentacion\animals\script_flags.md`)
 
 - **Retenido por un script** (`ECS/ScriptHeld.*`, fiel): los objetos de los scripts del original son huecos de
   `ScriptManage` (511, 0xD967F8) con su cuenta de referencias; en openblack el hueco es `components::ScriptHeld` de la
@@ -307,7 +307,7 @@ levanta (LANDED) en vez de morir; openblack lo pone en LANDED al acabar los 300 
 
 ### Manchas (hechas)
 
-Informe: `tmp_dis\render\animal_notes.txt`, datos `animal_ebone_dump.txt`.
+Informe: `documentacion\render\animal_notes.txt`, datos `animal_ebone_dump.txt`.
 - En `fn_00812170`: si no es humano, con `IsHumanShadowed` (flag 0x4000000, `SetHumanShadowed(1)` en el Create de cada
   especie; 0 mientras la criatura lo sostiene), y > 0,2 y malla con `ContainsEBone` → `fn_0081FFF0(obj, normal, ebone)`.
 - Bloque EBone (836 bytes) tras los de huella (tamaño en +8), UV2, nombre y métricas extra: `u32 tamaño; float m[16][12];
@@ -389,5 +389,5 @@ creado un CREATE; en `suelta` pierde la referencia; cada 25 turnos su estado, co
 `OPENBLACK_TEST_CANNOT_BE_EATEN=<turno>` (ese turno todos los animales y aldeanos reciben la marca del vórtice; con
 `HUNT_VILLAGER` antes del derribo no hay caza, después el aldeano se levanta),
 `OPENBLACK_TEST_VIEW_LOCK=1` (la cámara se coloca cada turno
-junto al animal, para las aves). Land2 (`-s Land2.txt`) tiene leones, tigres y lobos. `dev\tools\animales_shot.sh <nombre> <fotogramas> <captura> [VAR=valor...]` lanza una
+junto al animal, para las aves). Land2 (`-s Land2.txt`) tiene leones, tigres y lobos. `dev\herramientas\animales_shot.sh <nombre> <fotogramas> <captura> [VAR=valor...]` lanza una
 copia privada en `dev\animales_run`.

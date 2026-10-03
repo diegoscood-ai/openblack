@@ -238,13 +238,13 @@ par en línea (el lobo 0x51C751); faltan por portar los pares en línea del Frag
   (`ParticleMeshCreatorAnimTextured`, `ParticleVolBlendMeshCreator`): los objetos del mundo dependen solo del material.
 - `AllMeshes.g3d`: 1675 primitivas con el bit, 161 sin él; ninguna de estas tiene UV fuera de 0..1, así que el recorte
   solo cambia el filtrado bilineal en los bordes de la textura. openblack: `Primitive::wrap` y flags de sampler en
-  `Renderer::DrawSubMesh`. Script: `tmp_dis\render\l3d_wrap_scan.py`.
+  `Renderer::DrawSubMesh`. Script: `documentacion\render\l3d_wrap_scan.py`.
 
 ## La cola única de transparentes (LH3DZSorter)
 
 **Fiel**, con lo que se marca. API `graphics::zsorter`, en `src/Graphics/ZSorter.{h,cpp}` (núcleo del Renderer, sin
-dueño de área). Informe: `dev\tmp_dis\unify2\lh3d_zsorter_original.md` (con su verificación); cambios:
-`dev\tmp_dis\unify\U6_changes.md`.
+dueño de área). Informe: `dev\documentacion\unify2\lh3d_zsorter_original.md` (con su verificación); cambios:
+`dev\documentacion\unify\U6_changes.md`.
 
 **El original.** Todo lo que se dibuja con mezcla en el mundo pasa por **una sola cola**:
 
@@ -321,7 +321,7 @@ malla (y la burbuja por su `sortPoint`); los demás modelos, al momento, con tod
 de la clase 0x9A3068.
 
 **Los tres caminos de un efecto PSys** (`psys::DrawPath`; [particles.md](particles.md), veredicto
-`dev\tmp_dis\miracles\polish\psys_draw_paths_verdict.md`, interfaz `drawpath_fix.md`). `fn_00679860` copia el +0xAE
+`dev\documentacion\miracles\polish\psys_draw_paths_verdict.md`, interfaz `drawpath_fix.md`). `fn_00679860` copia el +0xAE
 del gestor en [0xC0215D] (0x679884) y cada átomo lo mira:
 
 - **`Sorted`** (`Draw_(t, 1)` 0x55EDA0 → `fn_00679840`, +0xAE = 1 en 0x67984E; `Spell::Draw` 0x720441, tormenta
@@ -407,7 +407,7 @@ La traza `OPENBLACK_ORB_TRACE` sigue escribiendo la distancia (la raíz de la cl
 
 ## Manchas de aldeanos, reflejos de objetos y LOD
 
-**Fiel**. Informe: `tmp_dis\render\misc_*` (con emulación Unicorn de `fn_0081FFF0`).
+**Fiel**. Informe: `documentacion\render\misc_*` (con emulación Unicorn de `fn_0081FFF0`).
 - **Manchas** (`fn_0081FFF0`, desde el Draw de objetos animados `fn_00812170`): pies = huesos 21 y 18 (fin de las dos
   piernas), en el suelo + 0,2; D = O·s − ((O·s)·n)·n con O = (√2, 0, √2), s = escala, n = normal del terreno;
   quad 1 desde el pie 21 con V = D + (P18 − P21)/2, quad 2 simétrico; esquinas C − 0,02V ± U y C + V ± U con
@@ -527,7 +527,7 @@ El original tiene tres mecanismos y un solo plano:
 
 ## Reflejos de objetos y sombra de la mano sobre objetos
 
-**Fiel** (hechos). Informes: `tmp_dis\render\objshadow_notes.txt`, `cut_notes.txt`. El código común está en
+**Fiel** (hechos). Informes: `documentacion\render\objshadow_notes.txt`, `cut_notes.txt`. El código común está en
 [La pasada bajo el mar](#la-pasada-bajo-el-mar-graphicssea_pass).
 - **DrawUnderWater** (estático 0x811010 → `fn_00850FC0` por primitiva; animado 0x810E20; complejo 0x813300): mundo =
   objeto × vértice, clip = W2C·(x, −y, z), orden de índices invertido, plano (0, 1, 0, 0) que quita lo que tenía y < 0.
@@ -645,7 +645,7 @@ El original tiene tres mecanismos y un solo plano:
     Como `fs_water` compone el mar opaco con la textura de reflejo, "lo que hay detrás del mar" es la pasada de reflejo:
     los peces se dibujan ahí **espejados** (y → −y) y sin prueba de Z, sobre la tierra reflejada (que en el original no
     escribe Z). Lo mismo valdría para los cortes bajo el agua.
-  - **Susto** (informe `tmp_dis\fish\fish_notes.txt`): el punto de chapoteo global 0xEA9F40 / bandera 0xEB99F0 lo ponen
+  - **Susto** (informe `documentacion\fish\fish_notes.txt`): el punto de chapoteo global 0xEA9F40 / bandera 0xEB99F0 lo ponen
     el **inicio del agarre del terreno sobre el agua** (`StartLandscapeGrip` fn_005D1AB0, botón de agarre: anillo de
     crecimiento 7 y los sonidos `G_HANDINWATER_01..10` por turno), las pisadas de la criatura con el pie bajo y 1
     (fn_00483290) y un objeto físico que cae al agua (fn_0074F2D0). Cada banco a menos de 300 de la cámara: objetivo =
@@ -668,7 +668,7 @@ El original tiene tres mecanismos y un solo plano:
 
 ## Sombras de los objetos físicos
 
-**Fiel** (hechas). Informe: `tmp_dis\render\physshadow\`.
+**Fiel** (hechas). Informe: `documentacion\render\physshadow\`.
 - `fn_00646FE0` (desde `GLandscape::Draw` 0x5E49DC) → `fn_007FCE80` por objeto físico que no esté en reposo (byte
   elem+0x19C = PhysOb+0x174) ni con y ≤ −r: si no tiene sombra y proyecta sombra estática (Flags1 0x1000 / 0x2000) o
   está animado, `fn_008745A0` crea un `ShadowInfo` solo de tierra (si+0xC = 1). No la tienen las vasijas, la comida
@@ -722,7 +722,7 @@ Movido a [animals.md](animals.md#manchas-y-malla-de-los-animales): las manchas d
 
 ## Humo de las chimeneas (LH3DSmoke)
 
-**Fiel** (hecho; desviaciones al final). Investigación completa: `dev\tmp_dis\aldeanos\smoke.md` (scripts en `tmp_dis\aldeanos\smoke\`). Todo leído en el
+**Fiel** (hecho; desviaciones al final). Investigación completa: `dev\documentacion\aldeanos\smoke.md` (scripts en `documentacion\aldeanos\smoke\`). Todo leído en el
 desensamblado de W1.20; los puntos dudosos (fn_007F8E00, 0x7F9F10, 0x5E4310, fn_005DBC60) se volvieron a leer al portarlo.
 
 - **Creación** (`Abode::CallVirtualFunctionsForCreation` 0x403200): si la malla tiene el flag 0x400 (en openblack
@@ -877,7 +877,7 @@ D2b, D2c, los dos arreglos de RotateAxis y RandomAngle y el corte por near no es
 Están verificados en el binario, pero **falta la aprobación del jefe de sesión**.
 
 Lo demás da los mismos vértices que antes: estela, peces, anillos, SmokyStuff, nieblas y nubes a más de 1 m,
-FaceCamera, cadenas y la burbuja. Detalle por archivo: `dev\tmp_dis\unify\U1_changes.md`.
+FaceCamera, cadenas y la burbuja. Detalle por archivo: `dev\documentacion\unify\U1_changes.md`.
 
 **Huecos.**
 - (inferido) El vector w de UR_OrientSpriteWithVelocity antes de 0x69A8ED.
@@ -1380,15 +1380,15 @@ corte 0x96: un poco más finos).
   - HandEffects como efectos PSys de verdad;
 - Mallas pegadas al suelo:
   - capturas antes/después del escudo físico, el disco del dispensador, el teletransporte, el arca y el dinosaurio
-    de Land 4, la marca de la explosión de rayo y el cráter (escenas en `dev\tmp_dis\unify\U3_changes.md`);
+    de Land 4, la marca de la explosión de rayo y el cráter (escenas en `dev\documentacion\unify\U3_changes.md`);
   - portar la cortina del anillo de influencia (`InfluenceCurtain` ya está), la correa de la criatura (`fn_008491B0`,
     `fn_00848600` / `fn_00848830`) y los quads de la criatura (`fn_0081F360`) cuando tengan casa en openblack;
   - la entrada del templo, el templo a medio hacer, el andamio y los demás usuarios de `GetExtraPos`;
   - el `SmokyStuff` de modo 1 de las marcas del suelo.
 - Modos de render: portar el ALPHAREF forzado del árbol que arde y de sus otros escritores; comprobar con el original
-  si el aro de piedra del dispensador debe tapar la burbuja que se funde (escena 3 de `dev\tmp_dis\unify\U4_changes.md`).
+  si el aro de piedra del dispensador debe tapar la burbuja que se funde (escena 3 de `dev\documentacion\unify\U4_changes.md`).
 
-- Cola de transparentes: capturas antes y después de las escenas de `dev\tmp_dis\unify\U6_changes.md` (nubes
+- Cola de transparentes: capturas antes y después de las escenas de `dev\documentacion\unify\U6_changes.md` (nubes
   contra modelos y nieblas, lluvia, barco, mano); el reflejo (no leído); `CheckRegionOnScreen` antes de encolar un
   modelo (0x815AB1); las mallas animadas de un `Sorted` (fn_00813340);
   portar los llamadores que faltan (LightSheet, HandGlow fn_0083F100, VillagerName, ValueSpinner, PowerSpin,
@@ -1399,8 +1399,8 @@ corte 0x96: un poco más finos).
   ([SF_TeleportVortex y ZR_SurfRevol](miracles.md#sf_teleportvortex-y-zr_surfrevol-srcpsysrulessurfrevol-srcgraphicsrenderersurfrevolcpp)).
   La luz a dos caras de FragMesh (rama `local/fragmesh-wip`) toca `WorldTriangles` y `Renderer.cpp`: su diff
   se revisa antes de fusionar (ver arriba).
-- Fotos y guiones de la sesión «sistemas» que cita la wiki: `dev\tmp_dis\unify\shots\` (u7, drawpath, video,
-  wtri) y `dev\tmp_dis\unify\scripts\`; el plan y las notas de U1-U9 en `dev\tmp_dis\unify\` (las rutas
+- Fotos y guiones de la sesión «sistemas» que cita la wiki: `dev\documentacion\unify\shots\` (u7, drawpath, video,
+  wtri) y `dev\documentacion\unify\scripts\`; el plan y las notas de U1-U9 en `dev\documentacion\unify\` (las rutas
   `dev\_audit\sistemas\...` que citan esas notas ya no existen).
 
 ### Dudas para el usuario (sesión «sistemas», cola de transparentes)
@@ -1408,7 +1408,7 @@ corte 0x96: un poco más finos).
 - **Llamas detrás de los árboles** (D7: solo van a la cola las mallas con la marca 0x200, SetMesh 0x7F9E48 /
   AddDrawing 0x815F0B): los árboles se dibujan ahora al momento y con Z, así que las llamas de un árbol de atrás
   quedan tapadas por el follaje de los de delante, y por encima se ven más claras y sin el humo oscuro
-  (`dev\tmp_dis\unify\shots\drawpath\fire_tree_*`). ¿Era así en el original?
+  (`dev\documentacion\unify\shots\drawpath\fire_tree_*`). ¿Era así en el original?
 
 ### Dudas para el usuario (sesión «shaders», SHADERS_PLAN)
 
@@ -1434,7 +1434,7 @@ enteros por encima de las sombras (paso S5 aplicado).
   soporte de la semilla se dibujaba sin el alfa 0x95 del orbe (DrawSpellGraphic 0x51A252 → SetAlpha 0x55ED50 →
   [0xC0215C], aplicado en fn_00679920 0x679BC2) y la semilla del jugador se ilumina con la celda de tierra
   (0x803340); la burbuja ya era fiel (textura cian × la luz de la hierba). Comparación con las capturas del original:
-  `dev\_audit\magic\orbcolour_compare.png`.
+  `dev\documentacion\audit_magic\orbcolour_compare.png`.
 
 ## Ganchos de prueba
 
@@ -1449,12 +1449,12 @@ En [openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depur
 - Billboards: `OPENBLACK_TEST_SEED=FIREBALL` / `LIGHTNING_BOLT` con `OPENBLACK_MOUSE_AT` (sprites de PSys en la mano:
   origen, CentreAtBase y giro); `OPENBLACK_TEST_FIRE` (llamas); `OPENBLACK_TIME_OF_DAY=22` con `OPENBLACK_CAMERA_LOCK`
   (la luna, centrada y en un borde); `OPENBLACK_TEST_ONESHOT` (la burbuja). La lista de escenas está en
-  `dev\tmp_dis\unify\U1_changes.md`.
+  `dev\documentacion\unify\U1_changes.md`.
 - Texturas animadas: `OPENBLACK_TEST_ONESHOT="<semilla>,x,z[,pu]"` (la burbuja; con pu, las bandas que miran a la
   cámara; con una fiola de criatura, su hoja 8×4), `OPENBLACK_TEST_DISPENSER`, `OPENBLACK_TEST_FIRE` (llamas),
   `OPENBLACK_HAND_TEST_FISH=1` y `OPENBLACK_TEST_SPLASH` (peces y anillos), `OPENBLACK_TEST_SEED=LIGHTNING_BOLT`
   (cadenas), `OPENBLACK_TIME_OF_DAY=22` (faroles), `OPENBLACK_TEST_WEATHER` (bocanadas de tormenta),
-  `OPENBLACK_TEST_CHIMNEY=all` (humo). La lista de escenas está en `dev\tmp_dis\unify\U2_changes.md`.
+  `OPENBLACK_TEST_CHIMNEY=all` (humo). La lista de escenas está en `dev\documentacion\unify\U2_changes.md`.
 - Orden de transparentes y burbuja: `OPENBLACK_ORB_TRACE=1` escribe por fotograma el sitio y la clave de cada disco
   `ZR_SurfRevol` y de cada burbuja de bola de un uso en la lista ordenada, con la fase, el fotograma, el `[1][3]`
   empaquetado, el alfa y el recorte de cada burbuja (ver
@@ -1464,36 +1464,36 @@ En [openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depur
   cada clase (modelos, nubes, casillas de lluvia, sprites del barco, efectos, superficies, cintas, nieblas, humo,
   sprites, mano), las perdidas por el tope y las claves extremas. Escenas: el cielo de Land 1 con
   `OPENBLACK_CLOUD_SEED=7`, una tormenta con `OPENBLACK_TEST_WEATHER="x,z,60"`, el barco con `OPENBLACK_BOAT_TRACE=1`
-  y la mano con `OPENBLACK_MOUSE_AT` (lista en `dev\tmp_dis\unify\U6_changes.md`).
+  y la mano con `OPENBLACK_MOUSE_AT` (lista en `dev\documentacion\unify\U6_changes.md`).
 - Mallas pegadas al suelo: `OPENBLACK_TEST_SPELL="PHYSICAL_SHIELD,x,z,..."` con `OPENBLACK_TEST_SHIELD_SHOT` (el escudo
   físico se funde con la tierra), `OPENBLACK_TEST_DISPENSER` y `OPENBLACK_TEST_TELEPORT` (los discos cortados),
   `OPENBLACK_TEST_SPELL="BEAM_EXPLOSION,x,z"` y `OPENBLACK_TEST_EXPLOSION_SHOT` (la marca del suelo; `UR_Explosion` solo
   está en `SF_BeamExplosion*`), `OPENBLACK_TEST_TUG`
   (el cráter); `OPENBLACK_SPELL_TRACE=1` escribe `Explosion: ground mark`. La lista de escenas está en
-  `dev\tmp_dis\unify\U3_changes.md`.
+  `dev\documentacion\unify\U3_changes.md`.
 - Modos de render: el test `test_render_modes` (las tablas, los estados de cada sitio antes y después y los arreglos);
   escenas con `OPENBLACK_HAND_TEST_TREE` y `OPENBLACK_CAMERA_LOCK` (bordes chroma), `OPENBLACK_TEST_ONESHOT` y
   `OPENBLACK_TEST_DISPENSER` (fundidos y aditivos), `OPENBLACK_MOUSE_AT` (sombra de la mano sobre objetos). La lista
-  está en `dev\tmp_dis\unify\U4_changes.md`.
+  está en `dev\documentacion\unify\U4_changes.md`.
 
 ## Fuentes
 
-- `dev\tmp_dis\render\`: `misc_*` (manchas, reflejos y LOD, con emulación Unicorn de `fn_0081FFF0`),
+- `dev\documentacion\render\`: `misc_*` (manchas, reflejos y LOD, con emulación Unicorn de `fn_0081FFF0`),
   `objshadow_notes.txt`, `cut_notes.txt`, `physshadow\`, `l3d_wrap_scan.py`, `animal_notes.txt`, `objlight_*`.
-- `dev\tmp_dis\fish\fish_notes.txt` (susto y pesca).
-- `dev\tmp_dis\aldeanos\smoke.md` y `smoke\` (humo de las chimeneas).
-- `dev\tmp_dis\unify\billboard_original.md` (los modos del original, con su verificación), `billboard_openblack.md`
+- `dev\documentacion\fish\fish_notes.txt` (susto y pesca).
+- `dev\documentacion\aldeanos\smoke.md` y `smoke\` (humo de las chimeneas).
+- `dev\documentacion\unify\billboard_original.md` (los modos del original, con su verificación), `billboard_openblack.md`
   (inventario de openblack) y `U1_changes.md` (la migración).
-- `dev\tmp_dis\unify\animtex_original.md` (los relojes del original, con su verificación), `animtex_openblack.md`
+- `dev\documentacion\unify\animtex_original.md` (los relojes del original, con su verificación), `animtex_openblack.md`
   (inventario de openblack) y `U2_changes.md` (la migración).
-- `dev\tmp_dis\unify2\lh3d_zsorter_original.md` (la cola del original, con su verificación),
-  `lh3d_zsorter_openblack.md` (inventario de openblack) y `dev\tmp_dis\unify\U6_changes.md` (la migración).
-- `dev\tmp_dis\unify\drape_original.md` (los algoritmos del original, con su verificación), `drape_openblack.md`
-  (inventario de openblack) y `U3_changes.md` (la migración); `dev\tmp_dis\morph\morph_notes.txt` (UpdateMelting).
-- `dev\tmp_dis\unify2\shader_lh3dcolour_instance_original.md` (las rutinas, con su verificación),
+- `dev\documentacion\unify2\lh3d_zsorter_original.md` (la cola del original, con su verificación),
+  `lh3d_zsorter_openblack.md` (inventario de openblack) y `dev\documentacion\unify\U6_changes.md` (la migración).
+- `dev\documentacion\unify\drape_original.md` (los algoritmos del original, con su verificación), `drape_openblack.md`
+  (inventario de openblack) y `U3_changes.md` (la migración); `dev\documentacion\morph\morph_notes.txt` (UpdateMelting).
+- `dev\documentacion\unify2\shader_lh3dcolour_instance_original.md` (las rutinas, con su verificación),
   `shader_lh3dcolour_instance_openblack.md` (inventario de openblack) y `SHADERS_PLAN.md` §3 (aritmética de LH3DColor).
-- `dev\tmp_dis\unify2\lh3d_render_modes_original.md` (el original, con su verificación), `lh3d_render_modes_openblack.md`
-  (inventario de openblack) y `dev\tmp_dis\unify\U4_changes.md` (la migración).
-- `dev\tmp_dis\unify2\shader_sea_reflection_pass_original.md` (las tres rutas del original, con su verificación),
+- `dev\documentacion\unify2\lh3d_render_modes_original.md` (el original, con su verificación), `lh3d_render_modes_openblack.md`
+  (inventario de openblack) y `dev\documentacion\unify\U4_changes.md` (la migración).
+- `dev\documentacion\unify2\shader_sea_reflection_pass_original.md` (las tres rutas del original, con su verificación),
   `shader_sea_reflection_pass_openblack.md` (inventario de openblack) y `PLAN_4_sea_pass.md` (las reglas R1-R14
   comprobadas otra vez y la migración a `sea_pass`).

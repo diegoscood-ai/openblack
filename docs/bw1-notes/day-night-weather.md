@@ -1,6 +1,6 @@
 # Día, noche y clima del original
 
-Informes y scripts: `C:\Users\diewgarc\dev\tmp_dis\daynight\` (`emu_cycle.py`, `emu_update.py` emulan con Unicorn las
+Informes y scripts: `C:\Users\diewgarc\dev\documentacion\daynight\` (`emu_cycle.py`, `emu_update.py` emulan con Unicorn las
 funciones del reloj de `runblack.exe`; `night_visuals.txt` es el informe de las luces de noche).
 
 El tiempo del juego (climas, tormentas, lluvia) está al final, en «Tiempo y clima».
@@ -87,7 +87,7 @@ original, hasta el sexto decimal.
 ## Tipo de cielo (`src/3D/SkyType.*`)
 
 Una sola API, `openblack::sky_type::` (`src/3D/SkyType.h`), con el convenio del original: **2 noche, 1 ocaso, 0 día**,
-continuo. Informes: `dev\tmp_dis\unify2\shader_sky_type_original.md` (su «Verificación adversaria» manda) y
+continuo. Informes: `dev\documentacion\unify2\shader_sky_type_original.md` (su «Verificación adversaria» manda) y
 `shader_sky_type_openblack.md`; plan: `SHADERS_PLAN.md` §6. Todo **fiel** salvo lo marcado.
 
 | Función | Original | Qué hace |
@@ -203,7 +203,7 @@ resta redondeada a float), salto desde `ForceScriptTime`).
     (MSH_O_TOWNLIGHT en (±15, 30, 0) de la puerta) están hechas (5877f018, ver map-loading.md).
   - Informe: `night_visuals.txt`, secciones 3 y 5.
 - **Sonido de las farolas** (hecho; `src/Audio/LanternSounds.*`, desde B3 del audio un `audio::tags` por farola,
-  [audio.md](audio.md#b3-soundtag-completo); informe `tmp_dis\mapa\flecos_lantern-sound.md`, volcados
+  [audio.md](audio.md#b3-soundtag-completo); informe `documentacion\mapa\flecos_lantern-sound.md`, volcados
   `d_soundtag.txt`, `d_gaudio_sfx.txt`, `d_5e5830.txt`, `d_streetlantern.txt`, script `sadhdr.py`):
   - **Creación**: `GStreetLantern::CallVirtualFunctionsForCreation` 0x734810 crea un `SoundTag` (`fn_0071E8C0`,
     +0x60) con desplazamiento (0, `Object::GetHeight` 0x638120, 0), muestra 0x93, 3D, modo 2, bucles −1, banco 1
@@ -248,7 +248,7 @@ resta redondeada a float), salto desde `ForceScriptTime`).
     que se desvanece entre 100 y 300 m.
   - Aproximado: la búsqueda en espiral con un 50 % por celda se reduce a "la más cercana que pase una moneda".
 - **Sonido**: `GSoundMap` mezcla el ambiente de día y el de noche según max(0, tipo de cielo − 1) (hecho, ver
-  [objects-and-resources.md](objects-and-resources.md#sonidos-informe-tmp_dissoundnotestxt), "Ambiente"); los
+  [objects-and-resources.md](objects-and-resources.md#sonidos-informe-documentacionsoundnotestxt), "Ambiente"); los
   sonidos de las casas se eligen por el tipo de cielo (pendiente).
 - Solo jugabilidad, fuera por ahora: los leones y los lobos van a su guarida (22 / 23 h), los niños salen de la
   guardería, el deseo de comida y los deseos de la criatura.
@@ -266,8 +266,8 @@ Agua y clima: **no hay suelo mojado** en el original; el mar solo cambia con el 
 tabla de luz y el destello del relámpago (`LandLightTable::Build`). El nublado tiene una sola fuente,
 `Clouds::WeatherOvercastAtCamera()` (lee `weather::atmos::GetWeatherSmooth` en la cámara); `3D/SkyWeather` solo da el destello (`weather::LightningFlashAtCamera` de
 `ECS/Weather/LightningFlash` en la posición de la cámara).
-- **Nubes de tormenta** (sin hacer; informe `tmp_dis\daynight\gweather_drawclouds.txt`,
-  `tmp_dis\mapa\clouds_placement.md`): `GClimate::CreateStorm` 0x772E00 → `GWeather` 0x83F590 → `DrawClouds`
+- **Nubes de tormenta** (sin hacer; informe `documentacion\daynight\gweather_drawclouds.txt`,
+  `documentacion\mapa\clouds_placement.md`): `GClimate::CreateStorm` 0x772E00 → `GWeather` 0x83F590 → `DrawClouds`
   0x83FC90, un grupo de hasta 16 bolas (8 por defecto, `CHANGE_CLOUD_PROPERTIES` cambia número, negrura y altura) en
   lx, lz ∈ −1..1, ly ∈ −10..10 + altura; cada 400 fotogramas un objetivo nuevo (ly 0..20 + altura), 1/400 del camino
   por fotograma; mundo X = R·lx/2 + cx, Z = R·lz/2 + cz, Y = suelo + ly con R = radio(t) + radio2; tamaño R·2·Random(0,01,

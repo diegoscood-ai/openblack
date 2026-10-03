@@ -19,7 +19,7 @@ en runblack.exe) salvo lo marcado **(inferido)**, *desviación* o **pendiente**.
 
 ## Creación desde CHL (CREATE 27 / CREATE_WITH_ANGLE_AND_SCALE 252)
 
-Desensamblado en `tmp_dis\mapa\chl_creatething_6F11A0.txt`.
+Desensamblado en `documentacion\mapa\chl_creatething_6F11A0.txt`.
 - `GScript::CreateThing` 0x6F1B20 y `CreateWithAngleAndScale` 0x6F2E10 (ángulo en grados, ×0,0174533) solo aceptan
   los tipos 1..41 y llaman al switch `fn_006F11A0` (tabla 0x6F1A70). Si no se crea nada, el guion recibe **0**
   ("Thing not created"). openblack devolvía la entidad 0 (una entidad válida) para todo lo no soportado.
@@ -78,7 +78,7 @@ Desensamblado en `tmp_dis\mapa\chl_creatething_6F11A0.txt`.
   **mat3(derecha, −delante, arriba)**, es decir un **billboard**. X local = derecha de la pantalla, Y local (el eje de
   la cúpula) hacia la cámara, Z local = arriba, así que la cúpula siempre se ve de cara, como un disco del humo, y
   nunca de canto (comprobado emulando 0x819690 + la permutación + 0x7FB3F0 con varias cámaras,
-  `tmp_dis\mapa\emu_inv.py`). Su centro está en el suelo, así que el test de Z corta la mitad baja del disco (también
+  `documentacion\mapa\emu_inv.py`). Su centro está en el suelo, así que el test de Z corta la mitad baja del disco (también
   en el original).
 - **Rama efecto** (bit 2; en Land1 todas tienen k = 1, en Land4/Land5 k = 3,78 / 2,64): s = tamaño/(1 + (k − 1)
   (1 − |dy|/|d|)); 0x7FA4DC..0x7FA539 escalan la fila 0 (X local) por el tamaño y las filas 1 y 2 (Y, Z) por s: **escala
@@ -108,7 +108,7 @@ Desensamblado en `tmp_dis\mapa\chl_creatething_6F11A0.txt`.
 
 ## Animales y rebaños (CREATE_FLOCK, CREATE_NEW_ANIMAL)
 
-Desensamblado en `tmp_dis\mapa\all_cases.txt` (casos 24, 25 y 49).
+Desensamblado en `documentacion\mapa\all_cases.txt` (casos 24, 25 y 49).
 - **CREATE_FLOCK** "NAANNN" (0x71634A): `Flock::Flock` 0x52F780(A1, el jugador actual, id N0) → id en +0x8C, +0x60/+0x6C
   = A1, +0x50 = 0x50, +0x52 = 0x1E, en la lista g_game+0x205C44 (se inserta delante); `SetDomainCentrePos`(A2) → +0x14.
   Radio del dominio +0x50 = N3 (0 → 0x50). Con `VERSION` ≥ 2,1 (0xD9957C; todas las tierras traen 2,3): distancia del
@@ -215,7 +215,7 @@ Estado: **fiel** y portado.
 
 ## Objetos del guion del mapa (farolas, hogueras, árboles muertos, puertas)
 
-Desensamblado en `tmp_dis\mapa\all_cases.txt`, `d_streetlantern.txt`, `d_deadtree_isok.txt` y `d_animstatic_cvffc.txt`.
+Desensamblado en `documentacion\mapa\all_cases.txt`, `d_streetlantern.txt`, `d_deadtree_isok.txt` y `d_animstatic_cvffc.txt`.
 - **Parámetros**: en el bloque de argumentos del guion, el entero del parámetro i está en +0x6000 + 4i y el float en
   +0x6030 + 4i. `GMobileStaticInfo` ocupa 300 bytes en memoria (0xD3A6D8 + 300·i: MS[6] = 0xD3ADE0, MS[7] = 0xD3AF0C,
   MS[8] = 0xD3B038) y 284 en `info.dat`: en memoria el registro de info.dat empieza en +0x10 (el tipo de objeto está en
@@ -294,7 +294,7 @@ Desensamblado en `tmp_dis\mapa\all_cases.txt`, `d_streetlantern.txt`, `d_deadtre
   0x601D10 da el bit 8 y la celda no es agua. El bit 8 sale de un círculo `NewCollide::Obj` de radio 0,5 (0x82AD90)
   contra el `GetCollideData` (vtable +0x858) de cada objeto fijo de la lista +4 de la celda (`Obj::Collide` 0x829140);
   los demás bits vienen de `MapCell::Collide` 0x601BD0 (bit 0x10 del bloque de tierra, fuera del mapa). Informe
-  completo: `tmp_dis\mapa\flecos_isok.md` (simulación `isok\sim.py`).
+  completo: `documentacion\mapa\flecos_isok.md` (simulación `isok\sim.py`).
   - **Quién lo llama**: solo CREATE_TREE (27, 0x716235), CREATE_NEW_TREE (28, 0x7162EE), CREATE_POT (38, 0x716B0C, antes
     de mirar la cantidad) y CREATE_MOBILEOBJECT (40, 0x716C71). Si falla, no crea nada, no escribe nada y el guion sigue.
     Ángulo y escala no se usan. Los handlers CHL no lo llaman. CREATE_TOWN_CENTRE usa otro (`GAbodeInfo::IsOkToCreateAtPos`
@@ -348,14 +348,14 @@ Resumen de lo que la wiki ya dice de pueblos, templo y ciudadela, con enlaces (n
   [Objetos del guion del mapa](#objetos-del-guion-del-mapa-farolas-hogueras-árboles-muertos-puertas); CitadelHeart y
   WorshipSite aún no se registran en ella.
 - **Dentro de la ciudadela** (`g_game+0x205A28 == 1`): qué suena en [audio.md](audio.md#original-gaudio-lhaudio-y-qmixer)
-  y [objects-and-resources.md](objects-and-resources.md#sonidos-informe-tmp_dissoundnotestxt); el fotograma en
+  y [objects-and-resources.md](objects-and-resources.md#sonidos-informe-documentacionsoundnotestxt); el fotograma en
   [original-frame.md](original-frame.md#otros-casos-templo-vídeo-y-2d); la paridad gráfica en [parity.md](parity.md).
 - Árboles del pueblo (bosque escénico, lista de bosques Town +0x608):
-  [trees.md](trees.md#búsquedas-de-árboles-y-bosques-para-los-aldeanos-informe-tmp_distrees2villager_queriesmd).
+  [trees.md](trees.md#búsquedas-de-árboles-y-bosques-para-los-aldeanos-informe-documentaciontrees2villager_queriesmd).
 
 ## Órdenes de guion que mueven cosas (MOVE_GAME_THING 033 y compañía)
 
-La intro de **Land 1** (CHL `FollowUs`, `Scripts\Quests\challenge.chl`; código en `tmp_dis\mapa\rt_chl_code.txt`
+La intro de **Land 1** (CHL `FollowUs`, `Scripts\Quests\challenge.chl`; código en `documentacion\mapa\rt_chl_code.txt`
 desde la línea 49528) crea a la familia (madre = VILLAGER 49, padre = 53, hijo = 52, CREATE 027), la lleva con
 `MOVE_GAME_THING(cosa, punto, 0.0)` y espera con `GET_DISTANCE(GET_POSITION(cosa), punto) == 0` (`FollowUs_loop_4` y
 `_loop_6`) o `< 1` (`_loop_5`, `_loop_77..79`). Luego les hace actuar con `SET_SCRIPT_ULONG(cosa, clip, veces)` +
@@ -490,7 +490,7 @@ stub) y no hay `SET_FADE_IN` en `FollowUs`.
 - No hay otra forma original de saltar la intro: `FollowUs` no llama a `KEY_DOWN` ni mira ESC; el clic solo pasa los
   textos.
 
-**Qué corre con cada respuesta** (leído en `dev\tmp_dis\mapa\rt_chl_code.txt`, que es pseudoensamblador: los nativos
+**Qué corre con cada respuesta** (leído en `dev\documentacion\mapa\rt_chl_code.txt`, que es pseudoensamblador: los nativos
 salen como `CALL <n>`; extensiones: `SetupLand1` 25357-25622, `LandControl1` 74956-75239, `LandControlAll`
 171106-171139, `CreaturesInGlade` 43862-46096, `CreatureDevSeeHome` 6932-7814, `FollowUs` 49528-53196):
 
@@ -560,9 +560,9 @@ que openblack no puede saber porque no tiene perfiles. Lo único que queda del p
 
 ## Fuentes
 
-- `C:\Users\diewgarc\dev\tmp_dis\mapa\`: `chl_creatething_6F11A0.txt`, `all_cases.txt`, `d_streetlantern.txt`,
+- `C:\Users\diewgarc\dev\documentacion\mapa\`: `chl_creatething_6F11A0.txt`, `all_cases.txt`, `d_streetlantern.txt`,
   `d_deadtree_isok.txt`, `d_animstatic_cvffc.txt`, `flecos_isok.md`, `isok\sim.py`.
-- Órdenes de guion: `tmp_dis\miracles\all.asm` (GScript::MoveGameThing 0x6F8E80, SetScriptState 0x6F8370,
+- Órdenes de guion: `documentacion\miracles\all.asm` (GScript::MoveGameThing 0x6F8E80, SetScriptState 0x6F8370,
   SetScriptUlong 0x6F8770, Played 0x6F9DC0, GetPosition 0x6F88A0, GetDistance 0x6F8CA0, HasCameraArrived 0x6ED170),
   `bwdis.py` en las funciones de Living / Villager / MobileWallHug citadas, y `_scratch\mapa\sldis.py` sobre
   `Plug Ins\ScriptLibraryR.dll` (INTCAST).

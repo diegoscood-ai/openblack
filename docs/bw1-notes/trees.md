@@ -12,7 +12,7 @@ sacrificio. Todo es **fiel** (leído en runblack.exe o en info.dat) salvo lo mar
 - [Alineación](#alineación)
 - [Madera y tabla GTreeInfo](#madera-y-tabla-gtreeinfo)
 - [Árboles para los oficios de aldeano](#árboles-para-los-oficios-de-aldeano-api-srcecstreesh-para-la-sesión-de-aldeanos)
-- [Búsquedas de árboles y bosques](#búsquedas-de-árboles-y-bosques-para-los-aldeanos-informe-tmp_distrees2villager_queriesmd)
+- [Búsquedas de árboles y bosques](#búsquedas-de-árboles-y-bosques-para-los-aldeanos-informe-documentaciontrees2villager_queriesmd)
 - [Crecimiento y bosques](#crecimiento-treeprocess-0x74a290-treegrow-0x74a3f0)
 - [Dibujado](#dibujado)
 - [Fuego](#fuego)
@@ -51,7 +51,7 @@ sacrificio. Todo es **fiel** (leído en runblack.exe o en info.dat) salvo lo mar
   distancia en el rayo del ratón; el tirón es cuánto se ha movido en horizontal la mano (el rayo a esa distancia) desde
   entonces. El árbol se inclina hacia ella hasta 0,25 rad y sale cuando pasa de peso/1000 m (escala³ × peso de
   info.dat). Agarrado en cualquier sitio y sin mover el ratón, no sale. Si algún día se puede probar el original, se
-  puede comprobar con `tmp_dis\trees2\tugwatch.py` (lee la memoria de runblack.exe: plano, mano, agarre, estado).
+  puede comprobar con `documentacion\trees2\tugwatch.py` (lee la memoria de runblack.exe: plano, mano, agarre, estado).
   Gancho: `OPENBLACK_TEST_TUG="x,z,espera,mantener"` (+ `OPENBLACK_TEST_TUG_MOUSE2="x,y"`, el cursor se mueve 0,5 s
   después), trazas con `OPENBLACK_HAND_TRACE=1`.
 
@@ -65,7 +65,7 @@ sacrificio. Todo es **fiel** (leído en runblack.exe o en info.dat) salvo lo mar
   `RemoveResource` 0x4390D0: la madera del bosque (+0x84; al crearlo woodValue × escala, `Create` 0x438EC0) baja 350 y
   **solo** cuando su madera se aleja más de 250 de vida × escala × woodValue se reescala a madera/woodValue y planta en el
   borde; sin madera suficiente da lo que queda y el bosque se borra (detalle en
-  [Búsquedas de árboles y bosques](#búsquedas-de-árboles-y-bosques-para-los-aldeanos-informe-tmp_distrees2villager_queriesmd)).
+  [Búsquedas de árboles y bosques](#búsquedas-de-árboles-y-bosques-para-los-aldeanos-informe-documentaciontrees2villager_queriesmd)).
   `AddTreeAround` 0x439220: hasta 10 ángulos al azar a su radio; en tierra y sin objeto de la celda con distancia + radio
   menor de 4, un Pine de su bosque (+0x80), escala 0,05, ángulo al azar y tamaño máximo 0,75 + azar(0,5). openblack:
   `HandSystem::TakeTreeFromForest` (HandTrees.cpp), `BigForest::wood`, gancho `OPENBLACK_HAND_TEST_FOREST=1` (Land1:
@@ -97,7 +97,7 @@ sacrificio. Todo es **fiel** (leído en runblack.exe o en info.dat) salvo lo mar
   `StartImmersion(0x2E)` y mímica de criatura (sin portar) y alineación buena (ver [Alineación](#alineación)).
   El original saca el bosque del pueblo de una lista que el pueblo guarda (Town +0x608): el último bosque escénico de
   la lista (detalle en «Replantar en un pueblo», en
-  [Búsquedas](#búsquedas-de-árboles-y-bosques-para-los-aldeanos-informe-tmp_distrees2villager_queriesmd)); en un pueblo
+  [Búsquedas](#búsquedas-de-árboles-y-bosques-para-los-aldeanos-informe-documentaciontrees2villager_queriesmd)); en un pueblo
   sin bosque escénico se queda el bosque del árbol más cercano y, sin ninguno, el árbol queda **sin bosque**. openblack
   ya lo hace igual (`ecs::TownForestId` recorre esa lista, `HandTrees.cpp`). *Antes* openblack no modelaba la lista y
   el primer árbol plantado en un pueblo creaba su bosque.
@@ -147,7 +147,7 @@ turno, los guiones y lo que falta están en
   dirección), giro `0,4·(cos a, 0, sin a)` rad/s **en espacio del cuerpo** (`PhysicsObject::AddObject` 0x6443A0 hace
   `L = Σ (w·I)_i · fila_i` con la matriz del árbol, con su giro Y): en mundo `R·(cos a, 0, sin a)·0,4`, así que cómo cae
   depende de la orientación del árbol. En openblack el eje va **negado**: `PhysOb::Integrate` 0x7FE260 gira las filas con
-  `R(ŵ, ángulo)`, que en el `PhysOb` diestro de openblack es girar −ángulo (`tmp_dis\physics\physob.md`, «Sign
+  `R(ŵ, ángulo)`, que en el `PhysOb` diestro de openblack es girar −ángulo (`documentacion\physics\physob.md`, «Sign
   convention»). Después `Villager::ForesterChopsTree` borra el árbol (`ToBeDeleted`): en openblack es la misma entidad,
   así que se avisa a los oyentes de borrado y el fuego pasa al tronco (fn_00730960). Luego `PhysOb::AdjustToGroundLevel(false, true)`.
   **Sin portar**: `flags |= 2` y `+0x1A4 = 2` del objeto físico (sin identificar), `RaiseUntilNotIntersecting` 0x644800 y
@@ -156,7 +156,7 @@ turno, los guiones y lo que falta están en
   0x511990 añade el tronco al dibujo dos veces sin fuego (falta un `return` en el original): sin efecto visible.
   Gancho `OPENBLACK_TEST_FELL="x,z"`.
 
-## Búsquedas de árboles y bosques para los aldeanos (informe `tmp_dis\trees2\villager_queries.md`)
+## Búsquedas de árboles y bosques para los aldeanos (informe `documentacion\trees2\villager_queries.md`)
 
 - **Árboles de una celda** (`TreesInCell`; `MapCoords::FindType(6)` 0x6045C0 → `MapCell::FindTypeOnMap` 0x6015E0): el
   tipo 6 (`OBJECT_TYPE_FOREST_TREE`) va en la lista de **fijos** de la celda (MapCell +4), y `Fixed::InsertMapObjectToCell`
@@ -247,7 +247,7 @@ turno, los guiones y lo que falta están en
 ## Dibujado
 
 - **Mecido** (el mismo viento que los campos maduros, tabla `T0` y `Tree::PreDraw` 0x74A7C0 en
-  [objects-and-resources.md](objects-and-resources.md#campos-field-informe-tmp_disfieldfield_notestxt)): los árboles
+  [objects-and-resources.md](objects-and-resources.md#campos-field-informe-documentacionfieldfield_notestxt)): los árboles
   (`Tree::Draw` 0x74B016) usan la misma tabla con factor 1: x de la columna 1 = 0, z = escala × T0[i], `i` = bits 2-5 de
   +0x5C; portado en RenderingSystem salvo con el árbol inclinado por la mano. La curva junto a lo que pasa cerca (bits
   6-9 de +0x5C, tabla 0xD19A48) ya está portada para la mano y los objetos físicos (ver «Curvado», abajo); falta solo la
@@ -301,7 +301,7 @@ toca al árbol (valores de la tabla GTreeInfo, arriba):
   T −= (T + 10 − amb)·4·H·R·0,1·k/capacidad (k = 50 sobre agua con y < 2, 1 + 0,01·lluvia). Daño: vida −=
   (T − Tc)/Tc·0,001 por turno (muere en ~100 s; magic.md lo escribe `(T − Tc)/(2·Tc − Tc) · defenceMultiplierBurn ·
   0,1`, con defenceMultiplierBurn = 0,01 en los 22 tipos de árbol y en Tree Logs (info.dat,
-  `tmp_dis\miracles\infodump\info_dump.txt`) y Tmax = 2·Tc: es la misma fórmula); carbonizado con vida < 0,6. A vida 0 el árbol desaparece. Contagio: cada turno busca en R + 10 m, R =
+  `documentacion\miracles\infodump\info_dump.txt`) y Tmax = 2·Tc: es la misma fórmula); carbonizado con vida < 0,6. A vida 0 el árbol desaparece. Contagio: cada turno busca en R + 10 m, R =
   1,25·radio2D·clamp((T − 0,8Tc)/1,2Tc); calor q = min(10·dT, 0,5·(Ts − amb)·cap_s) → el objetivo gana q/cap_t (los
   arbustos prenden ~10× antes). Un árbol ardiendo se puede coger y sigue ardiendo; sostenido sobre algo que arde, o
   lanzado, prende lo que toca; al caer se vuelve DeadTree ardiendo. Sin rayos ni fuego aleatorio. Visual: color ×
@@ -322,7 +322,7 @@ toca al árbol (valores de la tabla GTreeInfo, arriba):
 
 ## Pendiente
 
-- Tirón: comprobar con el original la altura del plano (la «Consecuencia» del Tirón) con `tmp_dis\trees2\tugwatch.py`;
+- Tirón: comprobar con el original la altura del plano (la «Consecuencia» del Tirón) con `documentacion\trees2\tugwatch.py`;
   openblack usa la distancia horizontal de la mano.
 - Replantar: `StartImmersion(0x2E)` y la mímica de la criatura.
 - `MakeScenicForest` y `AssignForestsToTown` sin llamador (carga del mapa y edificios terminados): los pueblos no tienen
@@ -351,11 +351,11 @@ toca al árbol (valores de la tabla GTreeInfo, arriba):
 
 ## Fuentes
 
-- `C:\Users\diewgarc\dev\tmp_dis\trees2\`: `pick_rules.txt`, `treeinfo.txt`, `fire_notes.txt`, `totem_notes.txt`,
+- `C:\Users\diewgarc\dev\documentacion\trees2\`: `pick_rules.txt`, `treeinfo.txt`, `fire_notes.txt`, `totem_notes.txt`,
   `villager_queries.md`, `gap_hand_physics.md`, `gap_life_draw.md`, `gap_brightness_sound.md`, `tree_draw_bend.txt`,
-  `tugwatch.py`. Relevo para quien continúe con los árboles: `tmp_dis\trees2\HANDOVER.md`.
-- `C:\Users\diewgarc\dev\tmp_dis\miracles\infodump\info_dump.txt`: los valores de info.dat de los árboles (madera,
+  `tugwatch.py`. Relevo para quien continúe con los árboles: `documentacion\trees2\HANDOVER.md`.
+- `C:\Users\diewgarc\dev\documentacion\miracles\infodump\info_dump.txt`: los valores de info.dat de los árboles (madera,
   peso, `defenceMultiplierBurn` 0,01…).
-- `C:\Users\diewgarc\dev\tmp_dis\physics\physob.md` («Sign convention»): el giro del árbol talado.
-- `C:\Users\diewgarc\dev\tmp_dis\field\draw_colour_sway_notes.txt`: la tabla del mecido.
+- `C:\Users\diewgarc\dev\documentacion\physics\physob.md` («Sign convention»): el giro del árbol talado.
+- `C:\Users\diewgarc\dev\documentacion\field\draw_colour_sway_notes.txt`: la tabla del mecido.
 - bw1-decomp `src/Black/Object.cpp:539`: la prueba de la normal al soltar (solo seres vivos y vallas).

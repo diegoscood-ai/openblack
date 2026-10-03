@@ -7,7 +7,7 @@ fuego, el orden en el turno y los ganchos. Cada milagro tiene su sección en [mi
 partículas (PSys) está en [particles.md](particles.md), y el tiempo y el clima en
 [day-night-weather.md](day-night-weather.md#tiempo-y-clima-m6a-srcecsweather).
 
-Plan e informes: `dev\tmp_dis\miracles\` (`PLAN.md` y los informes que cita: `core.md`, `casting.md`, `sources.md`,
+Plan e informes: `dev\documentacion\miracles\` (`PLAN.md` y los informes que cita: `core.md`, `casting.md`, `sources.md`,
 `destructive.md`, `resources.md`, `protect_creature.md`, `visuals_sound.md`). Direcciones W120. Esta página recoge lo
 verificado en `runblack.exe` al portarlo, por hitos.
 
@@ -245,7 +245,7 @@ Verificado instrucción a instrucción:
       - `Renderer::DrawSubMesh`: un objeto con `components::Alpha` (la tabla 0xC387C8) conserva la mezcla aditiva de sus
         primitivas aditivas, y sin escribir Z las de los modos 11 y 13.
     - Capturas: `dev\_audit\magic\orbref_a.png` (antes), `orbref_b.png` y `orbref_c.png` (después), y la comparación
-      `dev\_audit\magic\ref\orb_compare.png` con la captura del original del usuario (`ref\dispenser_original.png`).
+      `dev\documentacion\audit_magic\ref\orb_compare.png` con la captura del original del usuario (`ref\dispenser_original.png`).
     - Diferencias que quedan con esa captura, **pendientes**:
       - en el original la bola flota más alta sobre el dispensador y se ve más grande;
       - en openblack el efecto de la semilla de FUEGO se ve como un núcleo amarillo dentro de la bola, y en el
@@ -462,7 +462,7 @@ Informes: `casting.md` (§2-5) y `visuals_sound.md` (§1.4, §4.13). Lo de abajo
     de la matriz apuntada por CHand +0x47F0 (copiados en 0x68D0F2..0x68D100; `PrepareForDrawing` 0x46CAE5 copia la
     misma en la matriz del objeto de la mano). Resultado: una pulsera que rodea la muñeca y gira sobre el eje del
     antebrazo. openblack lo tenía a lo largo de la Y y girando sobre la Y (el anillo colgaba bajo la mano y daba
-    vueltas de canto); corregido (`DrawBand`, capturas `_audit/magic/wristring_{before,after}_1500{0,1}.png`).
+    vueltas de canto); corregido (`DrawBand`, capturas `documentacion/audit_magic/wristring_{before,after}_1500{0,1}.png`).
   - Permanentes: `SetPULevel(pu + 1, 1)` desde `SpellSeed::SetPowerUp` 0x729BFC..0x729BFE (pu = POWER_UP_TYPE: −1 sin
     power-up, 0 = PU1, 1 = PU2), así que 0 / 1 / 2 anillos (máximo 5); empiezan a los 2,4 s; alfa 20→130 en 0,85 s,
     con lerp de matrices. Vuelan desde delante de la cámara hasta el hueso raíz de la mano (la muñeca).
@@ -535,7 +535,7 @@ Informes: `casting.md` (§2-5) y `visuals_sound.md` (§1.4, §4.13). Lo de abajo
 
 ## Culto: de dónde salen los milagros (M7, `src/Worship`, `ECS/Systems/Implementations/VillagerWorship`)
 
-Investigación: `dev\tmp_dis\miracles\sources.md` (§1-§8). La cadena del original es: una **ciudad** guarda tipos de
+Investigación: `dev\documentacion\miracles\sources.md` (§1-§8). La cadena del original es: una **ciudad** guarda tipos de
 magia → su **centro del pueblo** enseña un icono por semilla → la **ciudadela** del jugador tiene un **lugar de culto**
 por tribu, con un icono por semilla → los **aldeanos** bailan allí y llenan su **batería** de poder de oración → al
 tocar un icono este se **carga** y la semilla aparece en la mano. Aparte están los **dispensadores** de milagros de un
@@ -853,7 +853,7 @@ porque openblack no le pone la textura del terreno que usa. No es del sistema de
 
 ## Influencia (M1i, `src/ECS/Influence`)
 
-Investigación completa en `dev\tmp_dis\miracles\influence.md`. Todas las distancias son en x,z
+Investigación completa en `dev\documentacion\miracles\influence.md`. Todas las distancias son en x,z
 (`GetDistanceInMetres` 0x74CD70).
 
 - **Consulta.** `Influence::CalculatePlayerInfluence(pos, jugador, 0, tipo, aliados)` 0x5CD170 devuelve de -1 a 1; "en
@@ -1138,7 +1138,7 @@ El motor de partículas (tipos de partícula, registro de clases, creadores, son
 
 ## Revisión de la ola 2 (lane «review2»: M2, M3, M5, M6a, M7 juntos)
 
-Comprobado contra el ejecutable (`dev\tmp_dis\miracles\impl\review2\`) y con las cadenas completas en el juego.
+Comprobado contra el ejecutable (`dev\documentacion\miracles\impl\review2\`) y con las cadenas completas en el juego.
 
 ### Fórmulas releídas en el exe (coinciden)
 
@@ -1209,7 +1209,7 @@ magnitud sigue siendo el radio del guion (10 en `m5_fireball.png`), porque no pa
 
 Auditoría de TEAM_GUIDELINES §1.7 sobre todo lo que añade local/magic: 245 hallazgos, 41 corregidos para igualar el
 original, 52 con la fuente añadida, 139 marcados en el código y 13 sin cambio (ya fieles o de otra sesión). Tabla por
-fichero: `dev\_audit\magic\assumptions_audit.md`. Lo que queda marcado, por tema:
+fichero: `dev\documentacion\audit_magic\assumptions_audit.md`. Lo que queda marcado, por tema:
 
 - **Corregido para igualar el original:**
   - Hechizos: un hechizo sin PSys se lanza igual y acaba al turno siguiente (0x71FE50, paso 8).
@@ -1278,7 +1278,7 @@ fichero: `dev\_audit\magic\assumptions_audit.md`. Lo que queda marcado, por tema
 
 ### Oleada 4 (agua, bandadas, tormenta, explosión de rayo; lane audit4)
 
-25 hallazgos (tabla en `dev\_audit\magic\assumptions_audit.md`, sección «Wave 4»): 4 corregidos, 1 comentario, 7
+25 hallazgos (tabla en `dev\documentacion\audit_magic\assumptions_audit.md`, sección «Wave 4»): 4 corregidos, 1 comentario, 7
 marcados, 11 comprobados con el desensamblado y 2 sin cambio.
 
 - **Corregido para igualar el original:**
@@ -1307,7 +1307,7 @@ Lo que falta está en cada tema, al final de su sección:
 - Lanzar desde la mano: la ayuda, la inmersión, los iconos de gesto del HUD, el brillo de la mano y alimentar una bola de fuego en vuelo ([Lanzar desde la mano, gestos y efectos de la mano](magic.md#lanzar-desde-la-mano-gestos-y-efectos-de-la-mano-m2-srcmagicgestures-srcmagichand-handspellseedcpp)).
 - Alineación: el historial (`CAlignmentHistory::Add` 0x415260) y la alineación del terreno ([Alineación del jugador](magic.md#alineación-del-jugador-galignment-gplayer-0x60-srcecseffectsalignment-componentsplayeralignment)).
 - Vida: la cuenta de aldeanos heridos del pueblo (Town+0x714) y la marca 0x40 de `Object::SetLife` 0x63A140 ([Vida de los objetos](magic.md#vida-de-los-objetos-m0-srcecslife)).
-- Bola de los dispensadores: el usuario da por buenos el tamaño de las semillas y la altura de la burbuja (2026-10-01). La captura de referencia del original (`dev\_audit\magic\ref\dispenser_original.png`) es un orbe de AGUA, no de fuego: su mancha celeste es el efecto de la semilla de agua. Queda (aproximado) que la luz del terreno y la neblina se toman en `posición + facingOffset` y no en el punto adelantado hacia la cámara (Draw 0x518FCD..0x518FF2) ([Semillas y milagros de un uso](#semillas-y-milagros-de-un-uso-spellseed-oneoffspellseed)).
+- Bola de los dispensadores: el usuario da por buenos el tamaño de las semillas y la altura de la burbuja (2026-10-01). La captura de referencia del original (`dev\documentacion\audit_magic\ref\dispenser_original.png`) es un orbe de AGUA, no de fuego: su mancha celeste es el efecto de la semilla de agua. Queda (aproximado) que la luz del terreno y la neblina se toman en `posición + facingOffset` y no en el punto adelantado hacia la cámara (Draw 0x518FCD..0x518FF2) ([Semillas y milagros de un uso](#semillas-y-milagros-de-un-uso-spellseed-oneoffspellseed)).
 - Dispensador roto por una roca lanzada: openblack lo parte en trozos como una casa; el original lo dibuja con `MultiMapFixed::Draw` (`SpellDispenser::Draw` 0x722940 -> 0x518090). Falta leer `Abode::ReactToPhysicsImpact` 0x406240 y qué le pasa a su orbe.
 - Semillas COMIDA y BEAM_EXPLOSION: también se cargan con propiedades de material (`{1,0,1,1,0}`); aplicar `L3DMesh::SetMaterialProperties` como a la burbuja.
 - Vórtice entre tierras (`MagicVortex`, CREATE VORTEX): sin portar; al soltar, fn_005FE3B0 marca `thing+0x25 |= 0x40` en 0x5FE5DD (`script_held::SetCannotBeEaten`).
@@ -1334,6 +1334,6 @@ Por tema:
 
 ## Fuentes
 
-- `dev\tmp_dis\miracles\`: `PLAN.md`, `core.md`, `casting.md`, `sources.md`, `influence.md`, `destructive.md`,
+- `dev\documentacion\miracles\`: `PLAN.md`, `core.md`, `casting.md`, `sources.md`, `influence.md`, `destructive.md`,
   `resources.md`, `protect_creature.md`, `visuals_sound.md`, y `impl\review2\` (revisión de la ola 2).
 - `dev\_audit\magic\`: capturas y registros citados, y `assumptions_audit.md` (la auditoría de suposiciones).

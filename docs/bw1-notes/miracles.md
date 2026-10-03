@@ -5,7 +5,7 @@ Una sección por milagro del jugador: qué hace el hechizo, su objeto, sus part�
 reacciones, vida y el modelo del fuego) está en [magic.md](magic.md); el motor de partículas, en
 [particles.md](particles.md); el tiempo y el clima, en [day-night-weather.md](day-night-weather.md#tiempo-y-clima-m6a-srcecsweather).
 
-Plan e informes: `dev\tmp_dis\miracles\` (`PLAN.md` y los informes que cita: `core.md`, `casting.md`, `sources.md`,
+Plan e informes: `dev\documentacion\miracles\` (`PLAN.md` y los informes que cita: `core.md`, `casting.md`, `sources.md`,
 `destructive.md`, `resources.md`, `protect_creature.md`, `visuals_sound.md`). Direcciones W120. Esta página recoge lo
 verificado en `runblack.exe` al portarlo, por hitos.
 
@@ -134,7 +134,7 @@ Informe: `resources.md` §1. Lo de abajo está leído en el exe (W120) salvo lo 
 
 ## Agua (M4a, `Magic/Spells/SpellWater`, `PSys/Creators/Mist`)
 
-Informe: `resources.md` §2; desensamblado propio en `dev\tmp_dis\miracles\impl\m4a\` (`process.txt`,
+Informe: `resources.md` §2; desensamblado propio en `dev\documentacion\miracles\impl\m4a\` (`process.txt`,
 `alloc_getters.txt`, `obj_water.txt`, `field_water.txt`, `tree_water.txt`, `mist_creator.txt`, `mist_draw.txt`). MAGIC_TYPE
 22 WATER y 23 WATER_PU1, semilla 9 WATER. Estado: **fiel** salvo lo marcado.
 
@@ -393,7 +393,7 @@ literalmente una multiplicación de la posición del padre, no un desplazamiento
 
 ## Bosque (M4b, `Magic/Spells/SpellForest`, `Magic/Objects/MagicTree`, `ECS/Trees`)
 
-Informe: `resources.md` §3; lo de abajo está releído en el exe (W120, `tmp_dis\miracles\impl\m4b\`) y corrige varias
+Informe: `resources.md` §3; lo de abajo está releído en el exe (W120, `documentacion\miracles\impl\m4b\`) y corrige varias
 cosas del informe. La escena de la diosa de los árboles (toma de la cámara) está aplazada.
 
 - **SpellForest** (MAGIC_TYPE 13 NATURE; `GMagicForestInfo::AllocSpell` 0x5FAD90, 0xF8 bytes): +0xEC el Forest,
@@ -632,7 +632,7 @@ cosas del informe. La escena de la diosa de los árboles (toma de la cámara) es
   `GetCycleTimeFromFrame` 0x6C85F0). Detalle y lo que queda en
   [Las mallas de partículas](particles.md#las-mallas-de-partículas-creatorsmeshcpp-particle3dobjdrawat-0x679fd0-y-la-cúpula-del-escudo).
   Antes de U7 se dibujaban como malla quieta en su pose de reposo (`polish_fix_bosque2_forest_dry.png`). Capturas del
-  aleteo en `dev\tmp_dis\unify\shots\u7\`: `forest_t80/_t81/_t110.png` (la cámara de arriba, 80, 81 y 110 turnos después
+  aleteo en `dev\documentacion\unify\shots\u7\`: `forest_t80/_t81/_t110.png` (la cámara de arriba, 80, 81 y 110 turnos después
   de caer la semilla) y `close_t80/_t81/_t110.png` (cámara `1782,40,2612,1790,36,2625`, entre los árboles).
 - **Ganchos:** `OPENBLACK_TEST_SPELL=NATURE,x,z` (o `13`), `OPENBLACK_TEST_MAGIC_TURN=<n>` y
   `OPENBLACK_TEST_FOREST_SHOT` ([openblack-internals.md](openblack-internals.md#variables-de-entorno-de-depuración)).
@@ -653,7 +653,7 @@ cosas del informe. La escena de la diosa de los árboles (toma de la cámara) es
 ## Bandadas (M4c, `Magic/Spells/SpellFlock`, `PSys/Rules/Flock.cpp`)
 
 Los milagros FLYING_FLOCK (24, palomas o murciélagos) y GROUND_FLOCK (25, lobos). Desensamblado en
-`dev\tmp_dis\miracles\impl\m4c\` (`flock.asm`, `ground_tail.asm`, `spelldove.asm`, `spellwolf.asm`,
+`dev\documentacion\miracles\impl\m4c\` (`flock.asm`, `ground_tail.asm`, `spelldove.asm`, `spellwolf.asm`,
 `followtargets.asm`, `flocking*.asm`) y `resources.md` §5. Los animales son animales de verdad del módulo de los
 animales (`ECS/AnimalAI.h`: `CreateAnimal`, `MoveTo`, `SetStateRaw`, `SetFinalDestination`, `Destination`,
 `SetAlpha`, `Remove`, `SetDeathCallback`); lo que sus clases de hechizo SpellDove / SpellBat (AnimalDove.cpp) y
@@ -873,7 +873,7 @@ El fuego que encienden (el modelo de calor, `src/ECS/Fire`, sus aldeanos y sus n
   [0x8C79D8] (1e-4f ensanchado: gestos, `PSys/Utility.cpp`), [0x8D45D8] (2π float ensanchado: MapShield, Forest, Storm,
   SpellSeedGraphic), [0x9361E8] (−π/2 float), [0x9003C0] (0,99e30), [0x900AE8] (1,1), [0x980518] (1/30), [0x8AB260]
   (0,5), [0x8CF7D8] / [0x9375E8] (0,6 / 0,3 del tamaño del sonido; `Audio/SpellSounds.cpp` los compara en float, lo que
-  solo difiere con una fracción exactamente 0,6f o 0,3f). Lista completa en `tmp_dis\miracles\polish\fuego2_fix.md`.
+  solo difiere con una fracción exactamente 0,6f o 0,3f). Lista completa en `documentacion\miracles\polish\fuego2_fix.md`.
 
 ### Rayo (MAGIC_TYPE 4-6, semilla 6 LIGHTNING_BOLT; `PSys/Rules/Lightning.cpp`)
 
@@ -1106,8 +1106,8 @@ Las cintas (`ParticleChainCreator`) y los mapas de luz (`ParticleLightMapCreator
 
 ## Escudos (M6-shield, `Magic/Spells/SpellShield`, `Magic/Objects/MapShield`, `PSys/Rules/Shield`)
 
-Informe: `dev\tmp_dis\miracles\protect_creature.md` §1; lo nuevo, verificado en `runblack.exe` al portarlo, está en
-`dev\tmp_dis\miracles\impl\m6s\` (spark, spin, vapour, EP, tracer). MAGIC_TYPE SHIELD (19) y PHYSICAL_SHIELD (20) usan
+Informe: `dev\documentacion\miracles\protect_creature.md` §1; lo nuevo, verificado en `runblack.exe` al portarlo, está en
+`dev\documentacion\miracles\impl\m6s\` (spark, spin, vapour, EP, tracer). MAGIC_TYPE SHIELD (19) y PHYSICAL_SHIELD (20) usan
 la misma clase `SpellShield` (SpellWithObjects, 0x10C bytes), que hace un objeto `MapShield`: `MagicShield` (invisible;
 la cúpula es el PSys del hechizo, SF_DefenseSphere) o `PhysicalShield` (la malla sólida MSH_S_SOLID_SHIELD 554).
 
@@ -1316,7 +1316,7 @@ reparte **una sola vez** (`SpreadReaction`), así que solo tienen ocasión los a
   (`particleTypeInHand` 65 de `GMagicShieldInfo`[0], `SF_DefenseSphereInHand`: un átomo raíz que sigue a la mano con
   `SetScale` = `RenderHandScale` × 3,5 y `CreateRuleSphere` de 15 parches en el grupo 1) iban todos con la misma
   orientación y se veían como muchas piezas girando en corro; con él forman **una sola bola** que gira en la mano,
-  como el original. Capturas `dev\_audit\magic\shieldhand_before*.png` / `shieldhand_after*.png`.
+  como el original. Capturas `dev\documentacion\audit_magic\shieldhand_before*.png` / `shieldhand_after*.png`.
 
 La corrección de las jerarquías del PSys que necesita la cúpula está en
 [Corrección en el núcleo del PSys: las jerarquías](particles.md#corrección-en-el-núcleo-del-psys-las-jerarquías).
@@ -1393,7 +1393,7 @@ La corrección de las jerarquías del PSys que necesita la cúpula está en
 
 ## Teletransporte (M6t, `src/Magic/Objects/MagicTeleport`, `src/ECS/Systems/Implementations/VillagerTeleport`)
 
-Informe: `dev\tmp_dis\miracles\protect_creature.md` §2 y las funciones releídas en `impl\m6t`. TELEPORT es
+Informe: `dev\documentacion\miracles\protect_creature.md` §2 y las funciones releídas en `impl\m6t`. TELEPORT es
 MAGIC_TYPE 12; su clase es `SpellTeleport` (una `SpellWithObjects`, 0xF4). Cada lanzamiento deja una **piedra de
 teletransporte invisible** (`MagicTeleport`, una MobileStatic → MultiMapFixed) con una piscina de partículas
 (ParticleType 73 `SF_TeleportVortex`). Las piedras de un jugador forman una lista (GPlayer +0xA58 cabeza, +0xA5C
@@ -1658,7 +1658,7 @@ comentario viejo): ya van por `audio::tags::CreateAtMapCoords`, no por un emisor
 ## Tormenta, tormenta eléctrica y tornado (M6-storm, `Magic/Spells/SpellStormAndTornado`, `PSys/Rules/Storm`, `ECS/Weather/{LightningFlash,StormClouds}`)
 
 Informes: `destructive.md` §6 y `visuals_sound.md` §4.9; lo leído de nuevo en `runblack.exe` para este port (y lo que
-corrige a los informes) está en `dev\tmp_dis\miracles\impl\m6st\` (`tornado.txt`, `stormcast.txt`, `drawclouds.txt` y
+corrige a los informes) está en `dev\documentacion\miracles\impl\m6st\` (`tornado.txt`, `stormcast.txt`, `drawclouds.txt` y
 `props.py`, que saca los desplazamientos de las propiedades de los `DefineProperties`). Los tres MAGIC_TYPE (16 STORM,
 17 STORM_PU1, 18 STORM_PU2) son la misma clase y lanzan el mismo `SF_LightningStormPush`; lo que cambia es el nivel de
 mejora que leen sus reglas (−1, 0, 1: el derivado de la semilla, R3 sin verificar) y las filas de efecto y de
@@ -1938,7 +1938,7 @@ La alineación del cielo (`fn_0064AC30`, `alignment::GetInterfaceAlignment`), qu
 La explosión de rayo (MAGIC_TYPE 7-9 EXPLOSION_ONE, EXPLOSION_ONE_PU_ONE y _PU_TWO; semilla BEAM_EXPLOSION) es un
 `Spell` simple (`SpellGeneral.cpp`, clase General): todo lo que hace sale de los eventos de `UR_Explosion`. Lanza los
 tipos de partícula 11 / 12 / 13 (`SF_BeamExplosionSingle` / `Many` / `Loads`). Desensamblado en
-`dev\tmp_dis\miracles\impl\m6b\` (`explosion_*.asm`, `moveatom.asm`, `meshdraw.asm`, `forestpath.asm`).
+`dev\documentacion\miracles\impl\m6b\` (`explosion_*.asm`, `moveatom.asm`, `meshdraw.asm`, `forestpath.asm`).
 
 ### Los archivos (fiel)
 
@@ -2465,7 +2465,7 @@ Por milagro:
 
 ## Fuentes
 
-- `dev\tmp_dis\miracles\`: `PLAN.md`, `resources.md` (comida, madera, agua, bosque, curar, bandadas),
+- `dev\documentacion\miracles\`: `PLAN.md`, `resources.md` (comida, madera, agua, bosque, curar, bandadas),
   `destructive.md` (fuego, rayo, tormenta), `protect_creature.md` (escudos, teletransporte), `visuals_sound.md`,
   `psys\part_render.md`, y el desensamblado propio de cada lane en `impl\` (`m4a`, `m4b`, `m4c`, `m6b`, `m6s`, `m6st`, `m6t`).
 - `dev\_audit\magic\`: las capturas y registros citados.

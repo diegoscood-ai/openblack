@@ -469,7 +469,7 @@ Opciones `repeat` x1/x2/x3/x4, `upscale` off/on, `cliffs` triplanar/stretched. H
   `type` 18/11 lo comparten hierbas normales, y la métrica de contraste a gran escala no los separa de una roca
   nevada), así que se reconocen por hash FNV-1a de sus texels (`IsPictureMaterial` en LandIsland.cpp) y viajan en el
   byte `w` de los ids de material del vértice (bits 0-2). Si un mod de datos trae otro dibujo, hay que añadir su hash
-  (`dev\tools\lnd\lnd_hash.py`).
+  (`dev\herramientas\lnd\lnd_hash.py`).
 - **El mar** también: su periodo de repetición (560 a nivel de detalle 4) se divide por las repeticiones, la
   ondulación por filas del original se divide igual (si no, mueve la textura el triple y deja bandas) y con `upscale`
   `sky.raw`/`skya.raw` se escalan ×2 con Lanczos al cargarse (`Texture2DLoader`, que además copia los datos: antes
@@ -623,14 +623,14 @@ Lo que sigue describe las claves por su nombre, igual en los dos formatos.
   compactas: Land1 noroeste ~1620,2290 y este ~2550,2550; Land5 5-6 manchas), 16 bosque (Land1 ~2160,3100), 10 viento
   = nieve y montaña (Land2 todo el suroeste, Land3, Land5 noreste), 4 olas lentas (`swamp`: charcas interiores, muchas
   en Land5) y 5 lago (Land2 centro). 12 desierto no lo usa ningún mapa original.
-- Mapas en `dev\tmp_dis\biomes\Land*_snd.png` (`dev\tools\lnd\lnd_zones.py`; `dev\tools\lnd\lnd_countries.py` para
+- Mapas en `dev\documentacion\biomes\Land*_snd.png` (`dev\herramientas\lnd\lnd_zones.py`; `dev\herramientas\lnd\lnd_countries.py` para
   los country).
 - Uso actual: `water_plant` en jungla, lago y charcas; `jungle_grass` en la jungla; `wildflowers` en prado y bosque;
   `poppies` en prado; `dead_bush_barren` en viento/desierto (solo roca, tierra seca o arena). Todas con `tint = grey`.
 
 #### Altura y agua
 
-- **Altura** (29-09-2026, estudio en `dev\tmp_dis\heights`): `GetHeightAt` **aplana** junto al mar
+- **Altura** (29-09-2026, estudio en `dev\documentacion\heights`): `GetHeightAt` **aplana** junto al mar
   (si la esquina base de la celda vale ≤ 4, las esquinas ≤ 3 cuentan como 0: lo que usan las físicas y vs_object;
   `GetNormalAt` ya no aplana desde 2026-10-02: es `LH3DIsland::GetNormal` 0x803630, con las alturas en bruto),
   pero la malla del terreno que se dibuja no. Las plantas usan `GetUnflattenedHeightAt` y una normal por diferencias
@@ -777,7 +777,7 @@ Opción `fields` = wheat (por defecto); `original` = la malla.
   7-16, arena mojada, estrellas, conchas) con poca densidad, y la arena seca detrás (`sand_*`, coral y huellas, 14-80,
   altura hasta 40, `share` 0,7, sin `coast`) con más (conchas 1,1, piedras 0,6 por celda en medium); las huellas solo
   ahí, desde 20.
-- En Land1, playa de arena en `1700,2000` (cámara `1702,7,1992,1706,0.5,2004`; `dev\tools\lnd\lnd_beaches.py` lista la
+- En Land1, playa de arena en `1700,2000` (cámara `1702,7,1992,1706,0.5,2004`; `dev\herramientas\lnd\lnd_beaches.py` lista la
   arena junto al agua).
 - Imágenes del usuario en `B&W/Asstes_mods/Beach`; `.cfg` en `assets/mods/world.foliage.beach`.
 
@@ -983,7 +983,7 @@ Cámaras: playa de Land1 `1702,7,1992,1706,0.5,2004`; mariposas de Land1 `1428,6
 - Manifiestos en el repo: `assets/mods/<id>/mod.json` (los 13 que vienen con openblack) y sus datos:
   `assets/mods/world.foliage`, `assets/mods/world.foliage.beach`, `assets/mods/world.foliage.butterflies`,
   `assets/mods/graphics.hd-tweaks`.
-- Diseño del SDK: `dev\tmp_dis\modding\PLAN.md` (con lo que se tomó de Factorio, Fabric, RimWorld, SKSE y Luanti).
+- Diseño del SDK: `dev\documentacion\modding\PLAN.md` (con lo que se tomó de Factorio, Fabric, RimWorld, SKSE y Luanti).
 - Imágenes del usuario: `B&W/Asstes_mods/{Plants,Beach,Buterfly}`; `mono_*` en `B&W/BnW_openblack/Mods/world.foliage`.
-- Estudios: `dev\tmp_dis\heights` (altura junto al mar), `dev\tmp_dis\biomes` (mapas de zonas `Land*_snd.png`).
-- Scripts del LND: `dev\tools\lnd\` (`lnd_hash.py`, `lnd_zones.py`, `lnd_countries.py`, `lnd_beaches.py`).
+- Estudios: `dev\documentacion\heights` (altura junto al mar), `dev\documentacion\biomes` (mapas de zonas `Land*_snd.png`).
+- Scripts del LND: `dev\herramientas\lnd\` (`lnd_hash.py`, `lnd_zones.py`, `lnd_countries.py`, `lnd_beaches.py`).

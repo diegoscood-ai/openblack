@@ -17,7 +17,7 @@ las extensiones del editor de mapas BWLandEditor.
 
 ## Desensamblado de runblack.exe
 
-Scripts en `C:\Users\diewgarc\dev\tmp_dis`:
+Scripts en `C:\Users\diewgarc\dev\documentacion`:
 
 - `python bwdis.py ADDR:SIZE [ADDR:SIZE...]` desensambla `runblack.exe` con capstone. Anota símbolos, floats de la
   sección de datos (`; =0.67`) y cadenas.
@@ -79,7 +79,7 @@ Igual que openblack, más tres extensiones que openblack ya admite (`LNDFile`, `
   van en los bits bajos de `saveColor` (`LNDCell::Altitude`, `LandIslandInterface::GetCellAltitude`).
 - La cuadrícula puede tener hasta 128×128 bloques y más de 255 bloques. La tabla de la cabecera solo cubre 32×32 e
   índices < 256, así que `LandIsland` monta su tabla con `blockX`/`blockZ` de cada bloque. En los 21 `.lnd`
-  originales la tabla coincide con esos campos (`dev\tools\lnd\lnd_check.py`).
+  originales la tabla coincide con esos campos (`dev\herramientas\lnd\lnd_check.py`).
 - El editor corrige un `mapX`/`mapZ` que no cuadre con `blockX`/`blockZ`, y `LandIsland` hace lo mismo.
 
 ### Bytes de la celda
@@ -112,14 +112,14 @@ las lee en `LNDFile`).
 
 ### Mapas de prueba y scripts de análisis
 
-`dev\tools\lnd\lnd_make_tests.py` genera en `dev\lnd_test` tres mapas y sus guiones (arrancar con `-s` y la ruta
+`dev\herramientas\lnd\lnd_make_tests.py` genera en `dev\lnd_test` tres mapas y sus guiones (arrancar con `-s` y la ruta
 absoluta del `.txt`):
 
 - `Land1_ext`: Land1 con los bloques del editor al final; idéntico a Land1, altura en (1788.4, 2710) = 28.9173050.
 - `Land1_hi`: 10 bits y altitudes dobladas; altura 57.8346100.
 - `Land5_x2`: Land5 dos veces, cuadrícula de 60, 374 bloques.
 
-Scripts de análisis de `.lnd` (`dev\tools\lnd\`): `lnd_check` (tabla de bloques frente a blockX/blockZ),
+Scripts de análisis de `.lnd` (`dev\herramientas\lnd\`): `lnd_check` (tabla de bloques frente a blockX/blockZ),
 `lnd_make_tests` (mapas de prueba), `lnd_beaches` (arena junto al agua, materiales 6 y 11), `lnd_zones` /
 `lnd_countries` / `lnd_find_country <lnd> <n>` (zonas de sonido, countries y posición mediana de un country),
 `lnd_materials` / `lnd_colours` / `lnd_tile_check` / `lnd_decal_metric` (materiales RGB555 de 256×256),

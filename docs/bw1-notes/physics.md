@@ -2,7 +2,7 @@
 
 Código: `src/ECS/Physics/` (`PhysOb` = sólido rígido, `PhysicsObjects` = gestor por turnos), `src/ECS/Rocks.*`,
 `src/ECS/Components/Life.h`, y la parte de la mano en `HandPhysics.cpp`. Informes completos con pseudo-C++ y
-direcciones en `C:\Users\diewgarc\dev\tmp_dis\physics\` (`physob.md`, `physicsobject.md`, `physob_bodies.md`,
+direcciones en `C:\Users\diewgarc\dev\documentacion\physics\` (`physob.md`, `physicsobject.md`, `physob_bodies.md`,
 `rock_split.md`). No se usa Bullet para esto (openblack solo lo usa para lanzar rayos).
 
 - [Motor (PhysOb)](#motor-physob-0x7fb7300x7fe7b0)
@@ -68,7 +68,7 @@ ahogarse) está en [water.md](water.md).
 
 Código: `src/ECS/Physics/Buildings.*`, `FragMesh.*`, componentes `BuildingDamage` y `Fragment`
 (`src/ECS/Components/Fragment.h`), mallas generadas en `src/3D/L3DMeshGenerated.cpp`. Informes:
-`tmp_dis/physics/fragmesh.md` y `abode_damage.md`.
+`documentacion/physics/fragmesh.md` y `abode_damage.md`.
 
 - Solo rompen edificios las rocas (fila 3) y el juguete de fila 20, con `p = |v|·masa` del que golpea:
   **p > 2000** rompe; 1000–2000 y 300–1000 solo suenan (`editor.sad` 431–436 y 437–442).
@@ -102,7 +102,7 @@ Código: `src/ECS/Physics/Buildings.*`, `FragMesh.*`, componentes `BuildingDamag
 
 ## Sonidos, polvo y aspecto de los golpes
 
-Código: `src/ECS/Physics/CollisionSounds.*`, `Dust.*`, `PartialBuild.*`. Informes `tmp_dis/physics/collision_sounds.md`
+Código: `src/ECS/Physics/CollisionSounds.*`, `Dust.*`, `PartialBuild.*`. Informes `documentacion/physics/collision_sounds.md`
 (tabla completa en `snd/full_matrix.md`) y `building_visuals.md`.
 
 - **Sonido de choque** (`AttemptToAddSoundEvent` 0x6464F0), una vez por turno en cada cuerpo despierto con algo que lo
@@ -196,7 +196,7 @@ Código: `src/ECS/Physics/CollisionSounds.*`, `Dust.*`, `PartialBuild.*`. Inform
   imitar, juguetes). La rama de malla de fn_007FDD60 (fn_008683C0) no hace falta: ningún cuerpo de openblack la usa.
   La bandera `Tree`+0x5C & 2 de `Tree::EndPhysics` (0x74B882: solo `Fixed::EndPhysics`, ni replantar ni árbol
   muerto) la pone únicamente el constructor de `MagicTree` (0x5FCF8D, `or byte [esi+0x5C], 2`; barrido de todo
-  `.text` en `tmp_dis/agua/re/scan_tree5c.py`): son los árboles del milagro del bosque, que este árbol no tiene.
+  `.text` en `documentacion/agua/re/scan_tree5c.py`): son los árboles del milagro del bosque, que este árbol no tiene.
 - La normal del terreno sin la cuantización del original.
 - Tooltip "Golpear para Romper" (0xEF7) y comprobar la influencia del jugador antes de golpear una roca.
 - Mod **better physics** (pedido por el usuario, desactivado por defecto): trozos de edificio con malla de colisión y que
@@ -215,8 +215,8 @@ el primer aldeano 3, el primer árbol 4 o el primer animal 5, y lo **suelta suav
 
 ## Fuentes
 
-- `C:\Users\diewgarc\dev\tmp_dis\physics\`: `physob.md`, `physicsobject.md`, `physob_bodies.md`, `rock_split.md`,
+- `C:\Users\diewgarc\dev\documentacion\physics\`: `physob.md`, `physicsobject.md`, `physob_bodies.md`, `rock_split.md`,
   `fragmesh.md`, `abode_damage.md`, `collision_sounds.md` (tabla completa en `snd/full_matrix.md`) y
   `building_visuals.md`.
 - `bw1-decomp` `src/Black/Object.cpp:447` (`Object::InitialisePhysicsFromHand`, emparejado).
-- `tmp_dis/agua/re/scan_tree5c.py` (barrido de la bandera `Tree`+0x5C).
+- `documentacion/agua/re/scan_tree5c.py` (barrido de la bandera `Tree`+0x5C).

@@ -70,7 +70,7 @@ Proyecto **solo local**: no se publica nada (ni push, ni PRs, ni forks).
 | [mod-library.md](mod-library.md) | Librería de mods: menú, `settings.cfg`, `--mod`, tipos de mod, cómo programar uno, catálogo |
 | [mods.md](mods.md) | El `AllMeshes.g3d` modificado de la instalación y el mod HD-Tweaks |
 
-**En camino** (plan `C:\Users\diewgarc\dev\WIKI_PLAN.md`): `villagers.md` (oficios de los aldeanos).
+**En camino** (plan `C:\Users\diewgarc\dev\documentacion\equipo\WIKI_PLAN.md`): `villagers.md` (oficios de los aldeanos).
 
 ## ¿Dónde busco…?
 
@@ -106,8 +106,8 @@ Proyecto **solo local**: no se publica nada (ni push, ni PRs, ni forks).
 
 Cada página empieza con qué cubre y un índice. Cada tema lleva su estado: **fiel** (verificado en el original),
 **(aproximado)**, **(inferido)**, **mod/propio** o **pendiente**. Al final: **Pendiente**, **Ganchos de prueba** y
-**Fuentes** (informes de `C:\Users\diewgarc\dev\tmp_dis\…`). Un tema vive en una sola página; las demás enlazan.
-Nunca se borran direcciones ni cifras al editar. Detalle en `C:\Users\diewgarc\dev\WIKI_PLAN.md` §2.
+**Fuentes** (informes de `C:\Users\diewgarc\dev\documentacion\…`). Un tema vive en una sola página; las demás enlazan.
+Nunca se borran direcciones ni cifras al editar. Detalle en `C:\Users\diewgarc\dev\documentacion\equipo\WIKI_PLAN.md` §2.
 
 ## Filosofía
 
@@ -127,5 +127,5 @@ Nunca se borran direcciones ni cifras al editar. Detalle en `C:\Users\diewgarc\d
   da nombres a las direcciones.
 - `C:\Users\diewgarc\dev\decomp_pickup`: pseudo-C++ reconstruido de la mano, la interfaz y los objetos
   (`hand.cpp`, `interface.cpp`, `objects.cpp`, `multi.cpp` y sus `NOTES_*.md`).
-- `C:\Users\diewgarc\dev\tmp_dis`: scripts de desensamblado, volcados e informes por tema.
-- `C:\Users\diewgarc\dev\tools`: herramientas propias (scripts `lnd_*`, capturas, Real-ESRGAN).
+- `C:\Users\diewgarc\dev\documentacion`: scripts de desensamblado, volcados e informes por tema.
+- `C:\Users\diewgarc\dev\herramientas`: herramientas propias (scripts `lnd_*`, capturas, Real-ESRGAN).

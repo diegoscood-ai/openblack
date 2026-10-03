@@ -341,7 +341,7 @@ con las diferencias que se dicen al final. El reflejo del casco se dibuja como l
 de construcción del arca en el dique (`BUILT_PERCENTAGE`) está en
 [map-loading.md](map-loading.md#porcentaje-de-construcción-de-un-feature-built_percentage-propiedad-chl-22).
 
-Scripts de RE en `tmp_dis\agua\re\` (`emu_navire_pre.py`, `emu_navire_post.py`: Unicorn con objetos LH3D falsos que
+Scripts de RE en `documentacion\agua\re\` (`emu_navire_pre.py`, `emu_navire_post.py`: Unicorn con objetos LH3D falsos que
 registran cada llamada; `rd.py`; `chlfn.py` da la función GScript de un opcode CHL, tabla 0xC0DB98 + 0x90·opcode).
 - **CHL**: `PLAY_JC_SPECIAL` (326) = `GScript::PlayJCSpecial` 0x708ED0, tabla 0x708F74 sobre el valor entero (0..15):
   0, 1, 2, 4, 5, 6 → `fn_005DF9C0(n)`; 3 → un objeto de 0x2C de ScriptGFX (0x828DB0); 14/15 → [0x9CD384] = 1/0. En
@@ -419,7 +419,7 @@ registran cada llamada; `rd.py`; `chlfn.py` da la función GScript de un opcode 
 
 ## Decorado fijo por tierra: cascada de Land 3, arca y dinosaurio de Land 4
 
-Informes: `tmp_dis\agua\sealife_features.md` §2.6 y §3, `tmp_dis\agua\audio.md` §6. **Fiel** (hecho), con las
+Informes: `documentacion\agua\sealife_features.md` §2.6 y §3, `documentacion\agua\audio.md` §6. **Fiel** (hecho), con las
 diferencias que se dicen en el punto de openblack.
 
 - `GWaterfall` (`CREATE_WATERFALL`, comando 68 de Land, 0x7175D1; ctor 0x734130, vtable 0x8EC14C) es un objeto
@@ -469,7 +469,7 @@ diferencias que se dicen en el punto de openblack.
 
 Qué suena con el agua y cuándo. El motor (canales, modos, distancias, bancos) está en [audio.md](audio.md); el
 ambiente y la mano en el agua están, de momento, en
-[objects-and-resources.md](objects-and-resources.md#sonidos-informe-tmp_dissoundnotestxt) («Mano en el agua / agarrar
+[objects-and-resources.md](objects-and-resources.md#sonidos-informe-documentacionsoundnotestxt) («Mano en el agua / agarrar
 tierra» y «Ambiente (atmos)»). Todo **fiel**.
 
 - **Mano en el agua**: al empezar a agarrar el terreno sobre una celda de agua (`StartLandscapeGrip` fn_005D1AB0), un
@@ -533,7 +533,7 @@ El motor de las etiquetas de sonido que usan la cascada y el arca (no está en [
 ## Pendiente
 
 Estado a 2026-10-01 (hand-hbn `43054fb0` y siguientes). Todo lo demás del agua está hecho y es fiel al original; el
-plan y los informes están en `dev\tmp_dis\agua\PLAN.md`.
+plan y los informes están en `dev\documentacion\agua\PLAN.md`.
 
 **Se puede hacer ya (área del agua):**
 - Barco de los misioneros (`ecs/PetitNavire`): sus sprites (estela, `SmokyStuff`) ya van uno a uno en la cola común
@@ -628,13 +628,13 @@ del original.
 
 ## Fuentes
 
-- `dev\tmp_dis\agua\`: `sealife_features.md` (tiburones, puzle, decorado), `audio.md` (ambiente, cascada),
+- `dev\documentacion\agua\`: `sealife_features.md` (tiburones, puzle, decorado), `audio.md` (ambiente, cascada),
   `sea_render.md`; scripts de RE en `re\` (`emu_navire_pre.py`, `emu_navire_post.py`, `rd.py`, `chlfn.py`,
   `scan_tree5c.py`) y `re\NOTES.md`.
-- `dev\tmp_dis\agua\PLAN.md` (estado por hito W1..W18, preguntas al usuario), `shore\` (`edge_stats.py`,
+- `dev\documentacion\agua\PLAN.md` (estado por hito W1..W18, preguntas al usuario), `shore\` (`edge_stats.py`,
   `map_around.py`: el alfa costero frente a las celdas 0x02 en las 6 tierras) y `HANDOVER.md` (cómo continuar el área
   del agua: worktree `dev\openblack-agua`, rama `local/agua2`, scripts `dev\_scratch\agua\build_agua.sh` y `agua_shot.sh`).
-- `dev\tmp_dis\physics\` (`physob.md`, `physicsobject.md`, `collision_sounds.md`): flotación, golpes y hundimiento.
-- `dev\tmp_dis\fish\fish_notes.txt` (susto y pesca), `dev\tmp_dis\render\cut_notes.txt` y `objshadow_notes.txt`.
+- `dev\documentacion\physics\` (`physob.md`, `physicsobject.md`, `collision_sounds.md`): flotación, golpes y hundimiento.
+- `dev\documentacion\fish\fish_notes.txt` (susto y pesca), `dev\documentacion\render\cut_notes.txt` y `objshadow_notes.txt`.
 - `bw1-decomp` (`src/Black/Object.cpp`, `include/chlasm/ScriptEnums.h`).
 - Capturas en `_audit/agua/` (`re_shark.png`, `paths_sharks1.png`, `w12_shark_noon.png`, `re_waterfall_diff.png`).

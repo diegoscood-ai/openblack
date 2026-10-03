@@ -6,7 +6,7 @@ borrado, niveles de detalle). El estado de cada etapa en openblack está en [par
 hecho en [rendering.md](rendering.md) (el mundo) y [rendering-objects.md](rendering-objects.md) (los modelos).
 
 Todo es **fiel** (leído en el ejecutable) salvo lo marcado **(inferido)**. Volcados de trabajo en
-`C:\Users\diewgarc\dev\tmp_dis\render\`: `frame_map.md`, `frame_*.txt`, `frame_A_modes.py/txt`, `frame_B_*.txt`,
+`C:\Users\diewgarc\dev\documentacion\render\`: `frame_map.md`, `frame_*.txt`, `frame_A_modes.py/txt`, `frame_B_*.txt`,
 `frame_C_*` (y `objlight_*` para la luz de los modelos).
 
 - [1. Bucle del fotograma](#1-bucle-del-fotograma)

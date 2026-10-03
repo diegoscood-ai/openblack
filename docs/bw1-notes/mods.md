@@ -30,7 +30,7 @@ y el mod de openblack **HD-Tweaks** que las mejora. La librería de mods en gene
   incrustada de la malla cuando el material no encuentra su textura.
 - En `LH3DMesh::Create` (0x806460) las skins incrustadas se registran con `fn_008379E0`, y el valor 0x1001 podría ser
   formato + id (**inferido**).
-- Escáner: `python C:\Users\diewgarc\dev\tmp_dis\mod\scan_skins.py <pack.g3d> <salida.txt>` lista las mallas cuyos
+- Escáner: `python C:\Users\diewgarc\dev\documentacion\mod\scan_skins.py <pack.g3d> <salida.txt>` lista las mallas cuyos
   materiales piden texturas que no están ni en el paquete ni incrustadas.
 
 ## Origen de las mallas (rocas flotantes)
@@ -44,7 +44,7 @@ y el mod de openblack **HD-Tweaks** que las mejora. La librería de mods en gene
 
 ## Aldeanos: mallas y texturas
 
-Investigación del mod "hd people" (2026-09-29). Scripts en `C:\Users\diewgarc\dev\tmp_dis\hdpeople\` (compare.py,
+Investigación del mod "hd people" (2026-09-29). Scripts en `C:\Users\diewgarc\dev\documentacion\hdpeople\` (compare.py,
 anims.py, summary.txt).
 
 **Mallas**
@@ -66,7 +66,7 @@ anims.py, summary.txt).
   aldeanos en pose de reposo (Renderer.cpp, "Get animation frame instead of default"; L3DAnim cargaba AllAnims pero
   no había reproducción, hoy ver [animation.md](animation.md)).
 
-**Texturas** (hoja de contacto en `dev\tmp_dis\hdpeople\tex\sheet.png`)
+**Texturas** (hoja de contacto en `dev\documentacion\hdpeople\tex\sheet.png`)
 
 - Todas son atlas de 256² **nativos**. Las que el paquete del usuario tiene a 512 o 1024 son ampliaciones con
   píxeles duplicados (el error frente a doblar su mitad es < 1,5 niveles), salvo 0x5A y 0x47 (512 nativas).
@@ -77,7 +77,7 @@ anims.py, summary.txt).
   El atlas nórdico de Creature Isle (skin 0x74 de su paquete, `MSH_P_NORS_F_A_1` = 580 allí) tiene la ropa original
   (vestido oscuro, hombres de negro con cinturón). Por eso las aldeanas de Land1 (pueblo nórdico) parecen "las de la
   intro": la malla (`NORS_F_A_1`, 498) y el clip (`M_P_Walk_Woman`) son los correctos. Las texturas HD de
-  graphics.hd-tweaks salieron de ese atlas. Comparación en `dev\tmp_dis\hdpeople\tex\norse_cmp.png`.
+  graphics.hd-tweaks salieron de ese atlas. Comparación en `dev\documentacion\hdpeople\tex\norse_cmp.png`.
 
 ## Mod HD-Tweaks
 
@@ -93,7 +93,7 @@ desactivado por defecto como todo mod.
   HD.
   - Generación: Real-ESRGAN `realesrgan-x4plus` (el modelo anime aplana la pintura) desde la resolución nativa, con
     `python assets\mods\graphics.hd-tweaks\tools\make_textures.py <AllMeshes.g3d> <AllMeshes.h> <carpeta del mod>`
-    (Real-ESRGAN portable en `C:\Users\diewgarc\dev\tools\realesrgan`, ~3 min con la GPU); no están en git. El
+    (Real-ESRGAN portable en `C:\Users\diewgarc\dev\herramientas\realesrgan`, ~3 min con la GPU); no están en git. El
     generador lee las mallas `MSH_P_*` y `MSH_A_*` del AllMeshes.h del juego y reutiliza las imágenes ya hechas cuyo
     hash sigue siendo el del paquete.
 - `smooth` off/soft/round: triángulos PN (`3D/PnTessellation`, Vlachos 2001) partidos en 4 o 9 sobre las mallas de
@@ -132,7 +132,7 @@ desactivado por defecto como todo mod.
 ### Pruebas
 
 - `OPENBLACK_TEST_HD_TWEAKS=<frame>:<textures>,<smooth>` cambia las opciones a mitad de partida.
-- `dev\tools\shot_villager.sh`, `dev\tools\shot_hand.sh` y `dev\tools\shot_animal.sh <n,distancia,ángulo,1>` (copia
+- `dev\herramientas\shot_villager.sh`, `dev\herramientas\shot_hand.sh` y `dev\herramientas\shot_animal.sh <n,distancia,ángulo,1>` (copia
   privada en `dev\hdp_run`; los animales solo se siguen con el juego en marcha, sin START_PAUSED).
 - `OPENBLACK_START_PAUSED=1` deja a los aldeanos quietos para comparar A/B; `OPENBLACK_TEST_ANIM=<clip>,<ms>` para una
   pose (sentado 369, rezar 343).

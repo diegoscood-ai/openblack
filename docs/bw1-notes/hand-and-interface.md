@@ -32,7 +32,7 @@ Detalle completo en `C:\Users\diewgarc\dev\decomp_pickup` (hand.cpp, interface.c
   (`LH3DBoundingBox::CheckRegionOnScreen` 0x868C80; radio = escala × semidiagonal de la caja), a la distancia
   `|(x, y + semialto·escala, z) − cámara| − (R + plano cercano)`; el plano cercano es 0,3 + 0,16 × altura de la cámara
   sobre el terreno (0,3..3,5, `LandFeature::GetNearClipping` 0x5E2F30). Animales y criatura: triángulos, como el resto.
-  Informe: `tmp_dis\iface\hover_humans.md`.
+  Informe: `documentacion\iface\hover_humans.md`.
 - `UpdateInterfaceCollide` (0x5D5A70): la distancia del terreno cuenta 2,3 más (fn_005D5980); si aun así queda
   delante, el objeto solo cuenta si el punto del terreno cae dentro de su huella XZ.
 - Si al hacer clic no hay nada: `FindObjectNearMapCoord` (0x5D39E0), el más cercano en ±5 unidades y solo si está

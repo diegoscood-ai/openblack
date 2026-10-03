@@ -6,7 +6,7 @@ de GAudio), las voces y los textos, y las funciones CHL de audio. Para cada tema
 A y B están hechas y la fase C en parte; el estado al cerrar la sesión audio está en
 [Estado al cerrar la sesión audio](#estado-al-cerrar-la-sesión-audio-2026-10-03).
 El «qué suena y cuándo» de cada objeto, animación o golpe está en las páginas de cada tema
-([enlaces](#qué-suena-y-cuándo)). El plan completo está en `C:\Users\diewgarc\dev\tmp_dis\audio\PLAN.md`.
+([enlaces](#qué-suena-y-cuándo)). El plan completo está en `C:\Users\diewgarc\dev\documentacion\audio\PLAN.md`.
 
 - [Motor de audio](#motor-de-audio)
   - [Original: GAudio, LHaudio y QMixer](#original-gaudio-lhaudio-y-qmixer)
@@ -293,7 +293,7 @@ trata cada .sad como un grupo por nombre de archivo (fase B0).
 | `LHAudioWaveNumTable` | las listas {nº, muestras…} a las que apunta la columna 6 |
 | `LHAudioListViewText` | texto del editor de bancos, no se usa |
 
-Registro de muestra (0x280 B; los campos de reproducción completos están en `tmp_dis\sound\notes.txt`):
+Registro de muestra (0x280 B; los campos de reproducción completos están en `documentacion\sound\notes.txt`):
 
 | off | campo |
 |---|---|
@@ -542,7 +542,7 @@ El ctor las registra todas: 0x426E82..0x426F1F. Si existe `-NOLOADMUSIC` (byte 0
 
 `Audio\Music\script\MissionariesSad.sad` está en el disco pero no en la tabla. Los valores de bw1-decomp a partir del 84
 no existen en W120. openblack: `audio::MusicType` y `k_MusicBanks` en `BankTables.h` (A1). Lista con nombres:
-`tmp_dis\audio\music_types.md`.
+`documentacion\audio\music_types.md`.
 
 ### GameMusic: ProcessMusic y sus fuentes
 
@@ -748,7 +748,7 @@ GameMusic (+0x28, +0x180, +0x1C, +0x20, +0x24, +0x18C, pos[grupo]), GScript +0x8
   - `IsTalking` 0x5BB760 y `StopSentence` 0x5BB840.
   - Efectos de los espíritus: `HelpDude::PlaySoundFX` 0x5C2800 (banco `GetSoundFXBank` 0x5BC7C0).
 - **GGuidance** (`Guidance.sad`, 0x71AB10..0x71D490): reacciones de los aldeanos y comentarios de los consejeros.
-  Todo leído (volcado `tmp_dis\audio\voices_guidance_71ab10.txt`); el detalle está en
+  Todo leído (volcado `documentacion\audio\voices_guidance_71ab10.txt`); el detalle está en
   [B9](#fase-b-b9-y-b10-implementados-guidance-y-voces-nocturnas).
   - 33 tipos con una tabla de intervalos 0x980190 {base, nivel de ayuda, siempre}.
   - `PlayNow` 0x71AF50: un tipo no «siempre» calla en el **Land 1 de una partida de un jugador que no es el
@@ -765,7 +765,7 @@ GameMusic (+0x28, +0x180, +0x1C, +0x20, +0x24, +0x18C, pos[grupo]), GScript +0x8
   - HelpSprites 1686 (BETTER_14), 1673..1685 y 1704..1717.
   - Nunca dice «no»: es un fallo del original y se copia.
 - **GSpookyVoices** 0x72E2A0..0x72E870: de noche (reloj real 20:45-20:59 o 23:00-05:59) susurra el nombre del perfil
-  elegido por Soundex entre los 100 `HELP_TEXT_SPOOKY_NAMES_*` (volcado `tmp_dis\audio\spooky_72e130.txt`; detalle en
+  elegido por Soundex entre los 100 `HELP_TEXT_SPOOKY_NAMES_*` (volcado `documentacion\audio\spooky_72e130.txt`; detalle en
   [B10](#fase-b-b9-y-b10-implementados-guidance-y-voces-nocturnas)).
 - La **criatura no habla**: `creature.sad` y los bancos por especie son efectos **(inferido)**.
 
@@ -1092,7 +1092,7 @@ gancho (fiel) solo suenan los creaks 320/321. Los rechazos del núcleo (800, max
 
 ### B3: SoundTag completo
 
-`src/Audio/Services/SoundTags.{h,cpp}` (SoundTag.cpp 0x71E300..0x71ED90, volcado `tmp_dis\mapa\d_soundtag.txt`), API `audio::tags`:
+`src/Audio/Services/SoundTags.{h,cpp}` (SoundTag.cpp 0x71E300..0x71ED90, volcado `documentacion\mapa\d_soundtag.txt`), API `audio::tags`:
 
 | función | original |
 |---|---|
@@ -1496,12 +1496,12 @@ Comprobadas en el desensamblado: 0x406820 (`mov eax, 1`), 0x406830..0x40694A (vt
 ## Fase B: B9 y B10 implementados (Guidance y voces nocturnas)
 
 Sesión audio, rama `local/audio`. Fuentes: el desensamblado entero de SoundGuidance.cpp 0x71AA90..0x71D480
-(`tmp_dis\audio\voices_guidance_71ab10.txt` y 0x71AA90), de SpookyVoices.cpp 0x72E130..0x72E8B0
-(`tmp_dis\audio\spooky_72e130.txt`), los llamadores (`callers.py`: 0x54E711..0x54E729, 0x5DC50D, 0x7506C0..0x7508F4,
+(`documentacion\audio\voices_guidance_71ab10.txt` y 0x71AA90), de SpookyVoices.cpp 0x72E130..0x72E8B0
+(`documentacion\audio\spooky_72e130.txt`), los llamadores (`callers.py`: 0x54E711..0x54E729, 0x5DC50D, 0x7506C0..0x7508F4,
 0x4141A0, 0x406640..0x406786, 0x66F4D8..0x66F509, 0x63A9A0..0x63A9E6), HelpSystem::RunMessage 0x5C8CE0 /
 StopHelpScriptsForNewHelp 0x5C8C40 / TriggerCategory 0x5C8280 / Reset 0x5C5580 / fn_005C6CF0, GScript::StartScript
 0x6EB710, HelpSystemOn 0x6FBFD0, SetHelpSystem 0x6FC020, GRand 0x6DE570 / 0x6DE590, _LHRand 0x7DB600, la fase de la
-luna fn_0086A7F0 y las tablas 0x980128..0x9804D0, 0x999434 (`tmp_dis\audio\b10_dump.py`; el azar sembrado de los tests: `b9_interval.py`, el Soundex: `b10_soundex.py`; los llamadores: `b9_callers.txt`).
+luna fn_0086A7F0 y las tablas 0x980128..0x9804D0, 0x999434 (`documentacion\audio\b10_dump.py`; el azar sembrado de los tests: `b9_interval.py`, el Soundex: `b10_soundex.py`; los llamadores: `b9_callers.txt`).
 
 ### GGuidance (`src/Audio/Services/Guidance.{h,cpp}`, `audio::guidance`)
 
@@ -1793,7 +1793,7 @@ animal muerto todavía suena **(aproximado)**.
 
 ## Fase B: B11c, las API comunes del equipo
 
-Lo prometido (`tmp_dis\unify2\PLAN.md`, sistemas 1, 2, 4 y 6, y `sky_type` de «shaders»): `src/Audio` deja sus copias de
+Lo prometido (`documentacion\unify2\PLAN.md`, sistemas 1, 2, 4 y 6, y `sky_type` de «shaders»): `src/Audio` deja sus copias de
 las conversiones de MapCoords, de las distancias de GUtils, del reloj de turnos y del tipo de cielo, y usa las del equipo.
 Todas existían ya en la base (`a1c073e0`): `ecs::map_coords` (`src/ECS/MapCoords.h`), `gutils`
 (`src/ECS/GUtilsDistance.h`), `game_clock` (`src/GameClock.h`), `sky_type` (`src/3D/SkyType.h`) y `ecs::object`
@@ -1924,7 +1924,7 @@ Y, por la misma regla de los 24 bits, en float lo que estaba modelado en double 
 fn_005E5830 0x5E5A6C (luces de noche) y `ReadSpeedFactor` fn_005C6CB0 (`HelpSystem.cpp`, en double; a 24 bits sería
 float por pasos).
 
-Emulaciones (Unicorn, palabra de control 0x7F o la 0 de Unicorn, las dos a 24 bits) en `dev\tmp_dis\audio`:
+Emulaciones (Unicorn, palabra de control 0x7F o la 0 de Unicorn, las dos a 24 bits) en `dev\documentacion\audio`:
 `emu_polar2.py` (las dos mitades de la posición polar, las dos a 24 bits: la de QMixer ya no vale), `emu_moon.py`
 (fn_0086A7F0), `emu_wind.py` (el viento); y `emu_qm53.py` (auditoría): LHaudio a 24 bits y QMixer con 0x7F, 0x27F y
 0x37F (Unicorn respeta el control de precisión: 0x7F da otros dígitos); con 0x27F el modelo double de `PolarRelative`
@@ -1973,7 +1973,7 @@ las cinco constantes double de LHaudio (0x10030440..0x10030460), LHSampleStop 0x
 ## Qué suena y cuándo
 
 Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
-- Coger y soltar, montones, vasijas: [objects-and-resources.md](objects-and-resources.md#sonidos-informe-tmp_dissoundnotestxt).
+- Coger y soltar, montones, vasijas: [objects-and-resources.md](objects-and-resources.md#sonidos-informe-documentacionsoundnotestxt).
 - Sonidos de los clips de animación y el banter: [animation.md](animation.md#sonidos-de-los-clips).
 - Golpes, choques y lanzamientos: [physics.md](physics.md#sonidos-polvo-y-aspecto-de-los-golpes).
 - Farolas (SoundTag, de noche): [day-night-weather.md](day-night-weather.md#luces-de-noche-informe-night_visualstxt).
@@ -1981,13 +1981,13 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
 - Partículas de los milagros (SOUND_ACTION, PSysSound, spells.sad): [particles.md](particles.md#sonido-de-las-partículas-lane-s-srcaudiospellsounds-srcpsysrulessoundcpp).
 - Agua (la mano en el agua, golpes, ahogarse, barco, cascada y arca, ambiente del mar, la costa y los lagos):
   [water.md](water.md#audio-del-agua). Hechizos: [particles.md](particles.md) y las páginas de Milagros.
-- Inventario completo de los efectos del original (cada llamada, banco y muestra): `tmp_dis\audio\sfx_inventory.md` y
+- Inventario completo de los efectos del original (cada llamada, banco y muestra): `documentacion\audio\sfx_inventory.md` y
   `sfx_inventory_tables.md`. Interfaz y criatura: `ui_creature.md`.
 
 ## Estado al cerrar la sesión audio (2026-10-03)
 
 La sesión audio (motor central de audio) se cierra con todo subido a `local/hand-hbn` (último 7a3c0e4b, 85/85 tests).
-Sin dueño desde ahora: quien toque `src/Audio` lee primero esta página y `tmp_dis\audio\PLAN.md`.
+Sin dueño desde ahora: quien toque `src/Audio` lee primero esta página y `documentacion\audio\PLAN.md`.
 
 **Hecho**
 - Un solo motor (`src/Audio`, API `Audio.h`, capas Device / LH / GAudio / Services) que sustituye al AudioManager:
@@ -2151,7 +2151,7 @@ Sin dueño desde ahora: quien toque `src/Audio` lee primero esta página y `tmp_
   - GET_MUSIC_ENUM_DISTANCE empuja dos veces.
 - **Comprobaciones en el original** (pregunta 7 de PLAN §6), contestadas por el usuario el 2026-10-03:
   - en el menú hay música: el menú son cuadros encima del mundo cargado y suena su música normal, sin pista propia
-    (`tmp_dis\audio\menu_focus.md`); openblack no tiene menú todavía;
+    (`documentacion\audio\menu_focus.md`); openblack no tiene menú todavía;
   - `_vox` es el cántico completo (música más voces): se reproduce solo, sin la pista base debajo (para C3);
   - tras un Alt-Tab la música sigue: Alt-Tab sin minimizar no toca el audio (WM_ACTIVATEAPP 0x7DC073 solo borra
     teclado y ratón); un minimizado real (SIZE_MINIMIZED → AltTabDeactivate 0x7DE6D0 → LHGlobalSwitch(0)) la corta,
@@ -2165,7 +2165,7 @@ ECS: lo registra `src/ECS/AudioQueries.cpp`).
 
 - **Clima** (`GameQueries::weatherSmooth`, el `weatherAt(camera)` del plan; ya estaba registrado desde B11c):
   `GCamera::Update` llena GCamera+0x80 con `LH3DAtmos::GetWeatherSmooth(posición de la cámara, 1)` 0x835180 y
-  `GSoundMap` lo lee (temperatura, lluvia, nieve, nublado, viento x/z: weatherFade, RAIN, WIND; tmp_dis\agua\audio.md
+  `GSoundMap` lo lee (temperatura, lluvia, nieve, nublado, viento x/z: weatherFade, RAIN, WIND; documentacion\agua\audio.md
   §2.4). openblack: `audio::CameraWeather()` pide `weather::atmos::GetWeatherSmooth(origen de la cámara, true)` al
   calcular el mapa de sonido. `GetWeatherSmooth` no tiene estado (bilineal entre celdas, la caché de la rejilla por
   fotograma), así que pedirlo otra vez en el turno del audio da lo mismo que GCamera+0x80 **(aproximado: el original
@@ -2371,7 +2371,7 @@ sincronizado (mismo trozo).
 
 ## Fuentes
 
-- Informes en `C:\Users\diewgarc\dev\tmp_dis\audio\`:
+- Informes en `C:\Users\diewgarc\dev\documentacion\audio\`:
   - `PLAN.md` (síntesis, arquitectura §2, hitos §4, revisión crítica §8);
   - `engine.md` (motor, .sad, caché, canales, volúmenes);
   - `music.md`, `music_sad_table.md`, `music_types.md` (música);
@@ -2383,14 +2383,14 @@ sincronizado (mismo trozo).
 - Volcados: `music_dll_play.txt`, `music_dll_thread.txt`, `music_dll_stop_etc.txt`, `music_dis_process.txt`,
   `music_dis_init.txt`, `script_dis_thingmusic.txt`, `script_dis_helpsys.txt`, `script_dis_text.txt`,
   `engine_bankreg.txt`, `engine_sadblocks_out.txt`, `engine_loops_out.txt`, `voices_texttable.txt`, `voices_namerule.py`.
-- Otros: `tmp_dis\sound\notes.txt` (registro de muestra), `tmp_dis\agua\audio.md` y `tmp_dis\agua\re\NOTES.md`
+- Otros: `documentacion\sound\notes.txt` (registro de muestra), `documentacion\agua\audio.md` y `documentacion\agua\re\NOTES.md`
   (SamplePlay, ambiente, leyes de QMixer), `anim\sounds_props.md` (.sas y tablas de animación).
 - Código de la fase B: `src/Audio/{Audio.h, AudioSystem, GameSfx.cpp, SamplePlay, SampleOutput.h, AlSampleOutput,
   QMixerLaws, WaveBuffers}`, `AudioManager`, `AtmosBanks` (UpdateBanks/Mix), `Resources/Loaders.cpp` (+0x108, +0x124,
   +0x138/+0x13C), `Debug/Audio.cpp` («Channels»); test `test/test_sample_play.cpp`.
 - B2/B3: `src/Audio/{AnimEffects, AnimEffectBank.h, AnimationSounds, SoundTags, LanternSounds}`, `AudioSystem`
   (`SamplePlayAnimEffect`, `Get3DSoundPos`), `SamplePlay` (`Random`, `Loops`, el punto del canal de un tag); tests
-  `test/test_anim_effects.cpp`, `test/test_sound_tags.cpp`; volcados `tmp_dis\mapa\d_soundtag.txt` y los de
+  `test/test_anim_effects.cpp`, `test/test_sound_tags.cpp`; volcados `documentacion\mapa\d_soundtag.txt` y los de
   0x42A4B0, 0x516510, 0x10014670 / 0x100146F0 / 0x10014A20, 0x10012C50, 0x10015710, Tree::Draw 0x74AFDD..0x74B25C.
 - B4/B6: `src/Audio/{Audio.h (TickCount, SfxTrace, SoundExists), AudioSystem (traza), GameSfx, ScriptSound}`,
   `src/CHLApi.cpp`, los sitios de la tabla de B4; test `test/test_script_sound.cpp`; desensamblado de 0x5D2800,

@@ -24,7 +24,7 @@ que queda del PSys en el render) está en [El PSys en el mundo](#el-psys-en-el-m
 tienen archivo y el resto queda a NULL (NONE, TORNADO, FIREWORK, FOOD_IN_HAND...). Hay nombres guardados a través de un
 registro (`mov eax, str; mov [ecx+off], eax`), que la tabla antigua `psys\pt_table.md` perdía: FOOD y FOOD_POISONED →
 SF_Food, HEAL y HEAL_FX → SF_HealChakra, LANDSCAPE_VORTEX_OUT_BEFORE → SF_LandscapeVortexInBefore (sic). Reconstruida
-con `tmp_dis\miracles\ptnames.py`.
+con `documentacion\miracles\ptnames.py`.
 
 ## Registro de clases de PSys (M0, `src/PSys/PSysRegistry`)
 
@@ -205,7 +205,7 @@ Los creadores registrados derivan de `Creator` ([Registro de clases de PSys](par
 
 Los bucles y golpes de los milagros (piscina del teletransporte, tornado, escudo, rayos, bolas de fuego...) los suenan
 los átomos del PSys. Informe: `visuals_sound.md` §3; lo de abajo está verificado en el exe y en `LHaudiodllR.dll`
-(`tmp_dis\sound\dlldis.py`).
+(`documentacion\sound\dlldis.py`).
 
 - **Propiedad `SOUND_ACTION`** (`SoundActionProperty::ReadProperty` 0x585A70, `src/PSys/SoundAction`):
   `<SOUND_*|NO_SOUND> LOOPING b ONLYONE b SOFTRELEASE b USESURFACE b`. El nombre se busca en `Data\SoundAction.h`, que
@@ -271,7 +271,7 @@ los átomos del PSys. Informe: `visuals_sound.md` §3; lo de abajo está verific
 Viene de rendering.md (la parte que el render tenía del PSys). **Fiel** salvo lo que se dice sin portar.
 
 Informe completo (formato, 136 clases, fórmulas, tiempo de ejecución, dibujo, tablas de efectos):
-`tmp_dis\psys\psys_report.md`; los 132 archivos descomprimidos en `tmp_dis\psys\zzz\`.
+`documentacion\psys\psys_report.md`; los 132 archivos descomprimidos en `documentacion\psys\zzz\`.
 - Archivos: `Data\Spells\ZSpellFiles\SF_X_txt.zzz` (u32 tamaño + zlib) con texto del editor: cabecera
   `BEGINPROPERTIES` (DeleteOnCloseDown, Hierarchies[25], InitiallyCreated[25], MaxSpellAge) y bloques
   `BEGINCLASS <Clase> <Nombre>`. Un `.txt` suelto con el mismo nombre tiene prioridad (`LHLoadData`): sirve para mods.
@@ -286,7 +286,7 @@ Informe completo (formato, 136 clases, fórmulas, tiempo de ejecución, dibujo, 
   Fin: sin átomos ni reglas de creación, o edad > MaxSpellAge; `CloseDown` activa `TrueOnCloseDown`, suelta las
   reglas `RemoveOnCloseDown` y borra al momento si `DeleteOnCloseDown`.
 - Dibujo: **tres caminos** según quién dibuja el efecto (`psys::DrawPath`, `PSysManager::SetDrawPath`; veredicto en
-  `tmp_dis\miracles\polish\psys_draw_paths_verdict.md`, interfaz en `drawpath_fix.md`). **Sorted** = `Draw_(t, 1)`
+  `documentacion\miracles\polish\psys_draw_paths_verdict.md`, interfaz en `drawpath_fix.md`). **Sorted** = `Draw_(t, 1)`
   (fn_00679840, +0xAE = 1 en 0x67984E): el efecto no tiene objeto del Z-sorter; cada sprite (0x840C70), cada malla,
   también las opacas (fn_00679F60, clave su traslación), cada niebla (fn_007FA7F0, clave mist+0x38) y cada cadena
   (fn_0067B380, clave la articulación n/2) entran en la cola por su cuenta; las superficies ZR_SurfRevol se dibujan al
@@ -348,7 +348,7 @@ Informe completo (formato, 136 clases, fórmulas, tiempo de ejecución, dibujo, 
   el fotograma 272 de 300 (anillos) o 360 de 400 (vapor); `OPENBLACK_PSYS_TRACE=1` escribe la explosión.
 - Prueba: `OPENBLACK_TEST_PSYS="SF_Bonfire,1790,2630,0,1"` con la cámara `1775,45,2600,1790,30,2630`, `-n 5000`
   (hoguera con llamas y humo); `OPENBLACK_PSYS_TRACE=1` escribe átomos y edad de cada efecto cada 20 turnos.
-- **Creencias sobre el centro del pueblo** (`src/PSys/TownBelief.cpp`; informe `tmp_dis\psys\towncentre_notes.md`): cada centro funcional tiene TOWN_BELIEF (SF_TownBelief, `UR_TownCentreBelief` 0x69BF30), que avanza una vez por fotograma con dt = 0,1 s. Un símbolo por jugador con creencia: el primero (rango 0) quieto 2 unidades sobre la cima del tótem; los demás giran (radio y velocidad por la creencia, a 2,5 por rango de altura) y el segundo pelea (destellos). Se dibuja con dos brillos de S_SpriteSheet3 (color del jugador y blanco girando) y el símbolo. El símbolo del humano es la celda del "player symbol" del perfil (registro; 0 sin él, como en esta instalación) copiada de ChooseSymbol (PlayerSymbol::OpenOnce 0x5DE2F0); los rivales usan imágenes .cps (no hecho). Base: el tótem (`components::TotemStatue` de campos): x/z del pedestal, y = baseY + alto de la malla del icono × escala + 2. Falta la columna SpellColumn del dueño.
+- **Creencias sobre el centro del pueblo** (`src/PSys/TownBelief.cpp`; informe `documentacion\psys\towncentre_notes.md`): cada centro funcional tiene TOWN_BELIEF (SF_TownBelief, `UR_TownCentreBelief` 0x69BF30), que avanza una vez por fotograma con dt = 0,1 s. Un símbolo por jugador con creencia: el primero (rango 0) quieto 2 unidades sobre la cima del tótem; los demás giran (radio y velocidad por la creencia, a 2,5 por rango de altura) y el segundo pelea (destellos). Se dibuja con dos brillos de S_SpriteSheet3 (color del jugador y blanco girando) y el símbolo. El símbolo del humano es la celda del "player symbol" del perfil (registro; 0 sin él, como en esta instalación) copiada de ChooseSymbol (PlayerSymbol::OpenOnce 0x5DE2F0); los rivales usan imágenes .cps (no hecho). Base: el tótem (`components::TotemStatue` de campos): x/z del pedestal, y = baseY + alto de la malla del icono × escala + 2. Falta la columna SpellColumn del dueño.
 
 ## Índice de reglas
 
@@ -414,6 +414,6 @@ registran en `PSysRegistry.cpp`; las que no, siguen como «not ported yet».
 
 ## Fuentes
 
-- `dev\tmp_dis\miracles\visuals_sound.md` (§3 el sonido), `dev\tmp_dis\sound\dlldis.py` (`LHaudiodllR.dll`),
-  `dev\tmp_dis\miracles\ptnames.py` (los nombres de los tipos de partícula), `psys\pt_table.md` (la tabla antigua),
-  `psys\part_render.md` y `dev\tmp_dis\miracles\impl\` (`m4a` niebla, `m6b` mallas, `m6s` jerarquías).
+- `dev\documentacion\miracles\visuals_sound.md` (§3 el sonido), `dev\documentacion\sound\dlldis.py` (`LHaudiodllR.dll`),
+  `dev\documentacion\miracles\ptnames.py` (los nombres de los tipos de partícula), `psys\pt_table.md` (la tabla antigua),
+  `psys\part_render.md` y `dev\documentacion\miracles\impl\` (`m4a` niebla, `m6b` mallas, `m6s` jerarquías).

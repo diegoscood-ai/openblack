@@ -2,7 +2,7 @@
 
 Código: `src/3D/CameraTracks.{h,cpp}` (lector y evaluación), `src/ECS/MobileWalkPaths.{h,cpp}` +
 `ECS/Components/MobileWalkPath.h` (el `DataPath` de un MobileObject), `src/CHLApi.cpp` (`WALK_PATH`,
-`GET_WALK_PATH_PERCENTAGE`, `CONVERT_CAMERA_POSITION/FOCUS`). Guiones de RE: `dev\tmp_dis\agua\re\edt_dump.py`
+`GET_WALK_PATH_PERCENTAGE`, `CONVERT_CAMERA_POSITION/FOCUS`). Guiones de RE: `dev\documentacion\agua\re\edt_dump.py`
 (vuelca las pistas), `emu_walkpath.py` (Unicorn: la cadena original sobre una pista), `cmp_trace.py` (compara con la
 traza de openblack).
 

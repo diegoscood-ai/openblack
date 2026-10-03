@@ -1599,7 +1599,8 @@ MultiHelpJustTalkWithText not started`: el guion de la tierra (tarea 19/22, tipo
     LosingVillagers (pueblo con +0x618 > info+0x150, 0x99A36C) y LowOnPeople;
   - `Town::UpdateAggressor` 0x73C9B0 (TownAttackSFX, fn_0071C960, fn_0071C9F0), `Town::CalculateDesireForFood`
     0x747FA0 / 0x7481BC (LowOnFood/Wood), `TownDesire::Process` 0x745C8A (VillagerUnhappy), los deseos de los pueblos
-    (V3 de mapa: `desireTowns`, `townResourceNeeds` —TownDesire +0x90 / +0xD4 / +0x168 de los deseos 0, 1 y 10, que `components::TownDesire` no tiene—, `heartBeat`), el corazón de la ciudadela;
+    (hecho con la V3 de asistente: `desireTowns` y `townResourceNeeds` sobre `ecs::town_desire`, y las tres
+    llamadas van dentro de TownDesire.cpp; falta `heartBeat`), el corazón de la ciudadela;
   - `Abode::ApplyEffectsDueToPhysicalDestruction` 0x406781 (DestroyBuilding: +0x90 +0x18 < 0,4 y el jugador que lo
     rompió), `Object::InitialisePhysicsFromHand` 0x6372EA (MakeDiscipleSFX, TODO de HandHolding.cpp), el tótem
     0x738620/0x738666, `GBelief::AddToBelief` 0x437F2A, la criatura (0x45A772, 0x5039E7), fn_0071D100 (otras manos,
@@ -2045,8 +2046,9 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
   consejero solo decodifica PCM (ningún búfer AL), `ReadWave` cierra su flujo; las voces no tienen entidad dueña y
   `ClearMap` → LHSampleStopAll las corta; el hilo de música no toca `sample_play`.
 - **A8**: guardar `AudioMusicMasterVolume` y `AudioSampleMasterVolume`, y dónde va el deslizador. Pregunta 4 de PLAN §6.
-- **A9**: fn_00741020 (centro del pueblo entre sus edificios +0x754 o +0x9A8 con GetComputerSeen 0xC) no está en
-  `map_cells::GetNearestTownWithCentre`: un pueblo sin CREATE_TOWN_CENTRE no da música de tribu **(aproximado)**.
+- ~~**A9**~~ hecho (milagros2, a57b3db1): `map_cells::TownHasCentre` = fn_00741020 (un TownCentre entre los
+  edificios +0x754, IsTownCentre vt+0x1E0 0x55DB70, o un edificio planeado +0x9A8 con GetAbodeNumber 0x401260 == 0xC;
+  vt+0x44 es GetAbodeNumber, no GetComputerSeen): un pueblo sin CREATE_TOWN_CENTRE ya da música de tribu.
 - **Música**:
   - quién pone ThingMusicInfo+0x20;
   - `LandNumber` 6 y `g_game+0x205A0C`;
@@ -2150,12 +2152,18 @@ ECS: lo registra `src/ECS/AudioQueries.cpp`).
   de +0x9A4) con townTriggerOffDistance; la tribu, el componente `Tribe` del pueblo (Town +0x5B8, 0x42753D /
   0x42755A); la distancia, `gutils::GetDistanceInMetres` 0x74CD70 (0x4274EC, 0x427522); `town` = el pueblo de
   GAudio+0x18C mientras sea válido (IsAvailable 0x4274AF). La lógica (≤ 300 y altura < 400, 0x4274C4..0x427535) ya
-  estaba en `GameMusic::AlignmentMusicType`. **(aproximado)** sin fn_00741020 (ver pendientes).
+  estaba en `GameMusic::AlignmentMusicType`. El otro test de fn_00602160, fn_00741020 (0x6021B3), es
+  `map_cells::TownHasCentre`.
 - **Guidance**: `ResourceDropSFX` 0x71B570 busca el pueblo con `nearestTownAt` = `map_cells::GetNearestTown`
   0x6020E0(100, 0x98013C) en las MapCoords del punto; sus tres valores (`townResourceNeeds`, GetResourceDropSample
-  0x71B5F0: Town +0xC4/+0x108/+0x19C… = TownDesire +0x90/+0xD4/+0x168 de los deseos 0, 1 y 10) no existen en
-  `components::TownDesire`: sin asignar, no suena nada (como antes). `desireTowns` (+0x37C, GetRawDesire) tampoco:
-  sigue sin asignar.
+  0x71B5F0: Town +0xC4/+0x108/+0x19C… = TownDesire +0x90/+0xD4/+0x168 de los deseos 0, 1 y 10) salen de
+  `ecs::town_desire::GetField` (Raw + Boost + BoostA, en ese orden y en float). `desireTowns`: los pueblos de
+  `map_cells::ForEachTown` con `GetSortedRawDesires` (+0x378: valor +0x37C, tipo +0x380) y `GetRawDesire` 0x73E420.
+  Sin asignar todavía: `worshipSites` (los deseos del templo, de milagros2) y `heartBeat`.
+- Comprobación de los deseos (2026-10-03): en Land 1 no suena nada, como el original (PlayNow 0x71AF6F..0x71AF8F:
+  TownDesire no es «always» en la tierra 1 sin multijugador). `-s Land2.txt OPENBLACK_GUIDANCE_TRACE=1
+  OPENBLACK_CAMERA_FLY="2187,120,2200,2187,20,2260"` (almacén del pueblo 94 a 59,9) → `desire sample 4982 value
+  0.346` → `type 0 text 4982 3D -> Guidance.sad 143` (DESIRE_EXPAND), y el valor baja al repetirse (t0 de DesireScore).
 - Comprobación (Land 1, `OPENBLACK_TEST_ALIGNMENT_MUSIC=1 OPENBLACK_TEST_TEXT_CLICK=1 OPENBLACK_MUSIC_TRACE=1`,
   `-n 60000`): `OPENBLACK_CAMERA_LOCK="1850,90,2620,1865,30,2650"` (pueblo 0, NORSE, con centro) → `alignment music
   type 23`, `MUSIC_TYPE_NORSE_TOWN_NEUTRAL`, suena **celt_neutral.sad** (22..24 apuntan a las cadenas celtas);

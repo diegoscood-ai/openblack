@@ -385,7 +385,7 @@ void tags::Delete(TagId id)
 int tags::RandomSample(int first, int count)
 {
 	// 0x71ED40: first + GRand::LocalRand(count) (0x6DE570: 0 for 0, else LHRand(count) on g_game+0x205A3C): the one
-	// LocalRand of src/Audio, guidance::LocalRand (approximated there: openblack's generator, not LHRand's)
+	// LocalRand of src/Audio, guidance::LocalRand (game_random's local stream)
 	if (count <= 0)
 	{
 		return first;

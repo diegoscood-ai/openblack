@@ -33,8 +33,8 @@
 // creature, belief, disciples, the villagers' death) find the functions here with the original's arguments.
 //
 // Random numbers: GRand::LocalRand 0x6DE570 (0 for 0, else LHRand(n) 0x7DB600 on g_game+0x205A3C, in [0, n)) and
-// LocalFloatRand 0x6DE590 (0 for 0, else x * LHRand(0xFFFF) * (1 / 65535.f)). By default on openblack's generator
-// (approximated: not LHRand's sequence); SetRandom gives the tests LHRand with a seed.
+// LocalFloatRand 0x6DE590 (0 for 0, else x * LHRand(0xFFFF) * (1 / 65535.f)), on game_random's local stream (the one
+// the rest of the game draws from); SetRandom gives the tests their own generator.
 
 namespace openblack::audio::guidance
 {
@@ -143,7 +143,7 @@ inline constexpr std::array<std::array<uint32_t, 3>, 19> k_DesireTexts {{
 
 /// GRand::LocalRand: a number in [0, n), 0 for n == 0
 using RandomFn = std::function<uint32_t(uint32_t n)>;
-/// The generator of LocalRand / LocalFloatRand (tests); an empty one is openblack's (approximated)
+/// The generator of LocalRand / LocalFloatRand (tests); an empty one is game_random's local stream
 void SetRandom(RandomFn random);
 /// _LHRand 0x7DB600: seed = ror13(seed * 9377 + 9439); seed % n
 [[nodiscard]] uint32_t LHRand(uint32_t n, uint32_t& seed);

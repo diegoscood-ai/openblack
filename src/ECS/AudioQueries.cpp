@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <cstdlib>
 
+#include <array>
 #include <optional>
 #include <string>
 #include <vector>
@@ -38,6 +39,8 @@
 #include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
 #include "ECS/SeaCells.h"
+#include "ECS/Town/TownDesire.h"
+#include "ECS/Town/TownQueries.h"
 #include "ECS/Weather/Atmos.h"
 #include "Enums.h"
 #include "Locator.h"
@@ -217,6 +220,72 @@ std::optional<audio::ThingId> NearestTownAt(glm::vec3 point, float maxDistance)
 	return static_cast<audio::ThingId>(entt::to_integral(town));
 }
 
+std::vector<audio::DesireTown> DesireTowns()
+{
+	std::vector<audio::DesireTown> towns;
+	if (!Locator::entitiesRegistry::has_value())
+	{
+		return towns;
+	}
+	const auto& registry = Locator::entitiesRegistry::value();
+	// CheckTownDesiresSFX 0x71B130: GetNextPlayer x each player's town list (map_cells::ForEachTown, the neutral last)
+	ecs::map_cells::ForEachTown([&registry, &towns](entt::entity entity) {
+		const auto* t = registry.TryGet<const Town>(entity);
+		const auto* transform = registry.TryGet<const Transform>(entity);
+		if (t == nullptr || transform == nullptr)
+		{
+			return true;
+		}
+		audio::DesireTown town;
+		town.id = static_cast<audio::ThingId>(entt::to_integral(entity));
+		town.position = transform->position; // Town +0x14
+		// GetStoragePit 0x73B5B0 (IsAvailable), its +0x14
+		if (const auto pit = ecs::town_queries::GetStoragePit(entity); pit != entt::null)
+		{
+			if (const auto* pitTransform = registry.TryGet<const Transform>(pit); pitTransform != nullptr)
+			{
+				town.storagePit = pitTransform->position;
+			}
+		}
+		town.population = t->stats.adults + t->stats.children; // +0x618 + +0x61C
+		// Town +0x378 (TownDesire +0x344, order 2): value +0x37C, type +0x380; GetRawDesire(type) 0x73E420
+		const auto& sorted = ecs::town_desire::GetSortedRawDesires(entity);
+		for (size_t k = 0; k < sorted.size(); ++k)
+		{
+			town.desires.at(k).value = sorted.at(k).value;
+			town.desires.at(k).type = sorted.at(k).index;
+			town.desires.at(k).raw =
+			    ecs::town_desire::GetRawDesire(entity, static_cast<TownDesireInfo>(sorted.at(k).index));
+		}
+		towns.push_back(town);
+		return true;
+	});
+	return towns;
+}
+
+std::optional<std::array<float, 3>> TownResourceNeeds(audio::ThingId id)
+{
+	if (!Locator::entitiesRegistry::has_value())
+	{
+		return std::nullopt;
+	}
+	const auto town = static_cast<entt::entity>(id);
+	if (!Locator::entitiesRegistry::value().Valid(town) || !Locator::entitiesRegistry::value().AnyOf<Town>(town))
+	{
+		return std::nullopt;
+	}
+	// GetResourceDropSample 0x71B5F0: Town +0x19C + +0x108 + +0xC4 (TownDesire +0x168 Raw, +0xD4 Boost, +0x90 BoostA) of
+	// the desires 0 (food), 1 (wood) and 10 (rain), added in that order and stored as floats
+	using ecs::town_desire::Field;
+	const auto need = [town](TownDesireInfo d) {
+		const float raw = ecs::town_desire::GetField(town, d, Field::Raw);
+		const float rawBoost = raw + ecs::town_desire::GetField(town, d, Field::Boost);
+		return rawBoost + ecs::town_desire::GetField(town, d, Field::BoostA);
+	};
+	return std::array<float, 3> {need(TownDesireInfo::ForFood), need(TownDesireInfo::ForWood),
+	                             need(TownDesireInfo::ForRain)};
+}
+
 void RunViewHook(uint32_t turn)
 {
 	const char* view = std::getenv("OPENBLACK_AUDIO_TEST_VIEW");
@@ -354,10 +423,13 @@ void ecs::audio_queries::Fill(audio::GameQueries& queries)
 	// Town +0x5B8 and the distance GUtils::GetDistanceInMetres 0x74CD70 to the camera's MapCoords
 	queries.nearestTown = &NearestMusicTown;
 	queries.town = &KeptMusicTown;
-	// GGuidance::ResourceDropSFX 0x71B570: MapCoords::GetNearestTown 0x6020E0 (map_cells::GetNearestTown). Its three
-	// values (townResourceNeeds: TownDesire +0x90 / +0xD4 / +0x168, Town +0xC4.. +0x108.. +0x19C..) are not in
-	// components::TownDesire yet (TODO(V3)): left unset, so nothing is said (the neutral value)
+	// GGuidance::ResourceDropSFX 0x71B570: MapCoords::GetNearestTown 0x6020E0 (map_cells::GetNearestTown) and its three
+	// values (TownDesire +0x90 / +0xD4 / +0x168 of asistente's ecs::town_desire)
 	queries.nearestTownAt = &NearestTownAt;
+	queries.townResourceNeeds = &TownResourceNeeds;
+	// CheckTownDesiresSFX 0x71B130: every town's sorted raw desires (ecs::town_desire). The worship sites
+	// (CheckWorshipSiteDesiresSFX 0x71B270) and the heart beat's other values are not ported yet: left unset
+	queries.desireTowns = &DesireTowns;
 }
 
 void ecs::audio_queries::RunTestHooks(uint32_t turn)

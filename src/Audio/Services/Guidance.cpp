@@ -24,10 +24,9 @@
 #include "Audio/GameQueries.h"
 #include "Audio/Services/SpookyVoices.h"
 #include "Audio/Services/Voices.h"
-#include "Common/RandomNumberManager.h"
+#include "Common/GameRandom.h"
 #include "ECS/GUtilsDistance.h"
 #include "GameClock.h"
-#include "Locator.h"
 
 // Every function cites its original in Guidance.h; the comments here give the instructions the order comes from.
 // Disassembly: dev\tmp_dis\audio\voices_guidance_71ab10.txt.
@@ -165,11 +164,21 @@ void CheckTownDesires(uint32_t& sample, float& value, std::optional<glm::vec3>& 
 			continue;
 		}
 		const float d = Distance(*town.storagePit, camera); // GetInfo 0x74CD50 (pit +0x14, the camera's MapCoords)
+		if (Trace())
+		{
+			SPDLOG_LOGGER_INFO(spdlog::get("audio"), "Guidance: town {} pit ({:.0f}, {:.0f}) pop {} at {:.1f}", town.id,
+			                   town.storagePit->x, town.storagePit->z, town.population, d);
+		}
 		if (d < best)
 		{
 			best = d;
 			chosen = &town;
 		}
+	}
+	if (Trace())
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("audio"), "Guidance: town desires: {} towns, nearest pit {} at {:.1f}", towns.size(),
+		                   chosen != nullptr ? chosen->id : 0, best);
 	}
 	if (chosen == nullptr)
 	{
@@ -257,10 +266,7 @@ void guidance::SetRandom(RandomFn random)
 
 uint32_t guidance::LHRand(uint32_t n, uint32_t& seed)
 {
-	// 0x7DB600: lea 9a, 73a, 293a, shl 5, + a + 0x24DF: seed * 9377 + 9439, then ror 13 and the remainder
-	seed = seed * 9377u + 0x24DFu;
-	seed = (seed >> 13) | (seed << 19);
-	return seed % n;
+	return game_random::LHRand(n, seed); // _LHRand 0x7DB600
 }
 
 uint32_t guidance::LocalRand(uint32_t n)
@@ -271,14 +277,10 @@ uint32_t guidance::LocalRand(uint32_t n)
 	}
 	if (g_Guidance.random)
 	{
-		return g_Guidance.random(n);
+		return g_Guidance.random(n); // the tests' generator
 	}
-	// (approximated) openblack's generator stands for LHRand on g_game+0x205A3C
-	if (!Locator::rng::has_value())
-	{
-		return 0;
-	}
-	return Locator::rng::value().NextValue<uint32_t>(0, n - 1);
+	// GRand::LocalRand 0x6DE570: LHRand on g_game+0x205A3C, the one local stream of the game (n as the long it is)
+	return game_random::LocalRand(static_cast<int32_t>(n));
 }
 
 float guidance::LocalFloatRand(float x)
@@ -287,8 +289,12 @@ float guidance::LocalFloatRand(float x)
 	{
 		return 0.0f; // 0x6DE597..0x6DE5AD
 	}
-	// 0x6DE5B9..0x6DE5DA: LHRand(0xFFFF) as a 64-bit integer, x it, x 0x37800080
-	constexpr float k_Scale = 1.5259022e-5f;
+	if (!g_Guidance.random)
+	{
+		return game_random::LocalFloatRand(x); // GRand::LocalFloatRand 0x6DE590 on the local stream
+	}
+	// the tests' generator: 0x6DE5B9..0x6DE5DA, LHRand(0xFFFF) as a 64-bit integer, x it, x 0x37800080
+	const float k_Scale = game_random::FloatRandScale();
 	return static_cast<float>(LocalRand(0xFFFF)) * x * k_Scale; // fild qword (exact), two fmul at 24 bits
 }
 
@@ -624,6 +630,10 @@ void guidance::ProcessTownDesireSFX()
 	std::optional<glm::vec3> thing;
 	CheckTownDesires(sample, value, thing, *camera);
 	CheckWorshipSiteDesires(sample, value, thing, *camera);
+	if (Trace())
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("audio"), "Guidance: desire sample {} value {:.3f}", sample, value);
+	}
 	if (!(value > k_DesireThreshold)) // 0x71B09F: test ah, 0x41; jne
 	{
 		return;

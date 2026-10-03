@@ -44,27 +44,6 @@ entt::entity TownSystem::FindAbodeWithSpace(entt::entity townEntity) const
 	return result;
 }
 
-entt::entity TownSystem::FindClosestTown(const glm::vec3& point) const
-{
-	const auto& registry = Locator::entitiesRegistry::value();
-
-	entt::entity result = entt::null;
-	auto closest = std::numeric_limits<float>::infinity();
-
-	registry.Each<const Town, const Transform>(
-	    [&point, &result, &closest](entt::entity entity, [[maybe_unused]] auto& town, [[maybe_unused]] auto& transform) {
-		    const auto delta = point - transform.position;
-		    const float distance2 = glm::dot(delta, delta);
-		    if (distance2 < closest)
-		    {
-			    closest = distance2;
-			    result = entity;
-		    }
-	    });
-
-	return result;
-}
-
 void TownSystem::AddHomelessVillagerToTown(entt::entity townEntity, entt::entity villagerEntity)
 {
 	[[maybe_unused]] auto& registry = Locator::entitiesRegistry::value();

@@ -269,7 +269,14 @@ Game::Game(Arguments&& args) noexcept
 	{
 		if (!args.logFile.empty() && args.logFile != "stdout")
 		{
-			createLogger = [&args](const std::string& name) { return spdlog::basic_logger_mt(name, args.logFile); };
+			// One file sink shared by every subsystem's logger: with a basic_logger_mt each, every logger opened the same
+			// file on its own and their writes overwrote each other (lines went missing from openblack.log)
+			auto fileSink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(args.logFile);
+			createLogger = [fileSink](const std::string& name) {
+				auto logger = std::make_shared<spdlog::logger>(name, fileSink);
+				spdlog::register_logger(logger);
+				return logger;
+			};
 		}
 		else
 		{

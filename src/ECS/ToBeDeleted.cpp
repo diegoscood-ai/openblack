@@ -15,6 +15,7 @@
 #include "ECS/Components/Town.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Components/Villager.h"
+#include "ECS/MapCells.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
 #include "ECS/Trees.h"
@@ -55,6 +56,8 @@ void ToBeDeleted(entt::entity entity)
 		animal_ai::Forget(entity);
 	}
 	physics::PhysicsObjects::RemoveObject(entity);
+	// CleanupWhenDeleted 0x6377F0: RemoveMapObject vt +0x548, out of its cells
+	map_cells::RemoveMapObject(entity);
 	registry.Destroy(entity);
 	registry.SetDirty();
 }

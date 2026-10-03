@@ -18,7 +18,7 @@
 
 #include <algorithm>
 #include <memory>
-#include <unordered_map>
+#include <unordered_set>
 
 #include <bgfx/bgfx.h>
 #include <glm/vec4.hpp>
@@ -34,11 +34,6 @@
 #include "Locator.h"
 #include "Resources/ResourceManager.h"
 #include "Resources/ResourcesInterface.h"
-
-// Renderer.cpp's lookup of a primitive's texture (the models' DrawSubMesh uses it), defined there at namespace scope.
-// (openblack) shared, not copied: the plan (pieces_shadows_PLAN.md §1.3 d) has session sistemas move it here
-const openblack::graphics::Texture2D*
-GetTexture(uint32_t skinID, const std::unordered_map<uint32_t, std::unique_ptr<openblack::graphics::Texture2D>>& meshSkins);
 
 using namespace openblack;
 using namespace openblack::graphics;
@@ -85,9 +80,36 @@ void world_triangles::Frame::Append(const MaterialRef& material, render_modes::T
 	batches.push_back({material, table, globalAlpha, first, static_cast<uint32_t>(v.size()), tag});
 }
 
+// (openblack) the lookup of a primitive's texture the models (Renderer::DrawSubMesh, the shadow casters) and these
+// triangles share; it was Renderer.cpp's GetTexture
 const Texture2D* world_triangles::PrimitiveTexture(const L3DMesh& mesh, uint32_t skinId)
 {
-	return GetTexture(skinId, mesh.GetSkins());
+	if (skinId == 0xFFFFFFFF)
+	{
+		return nullptr;
+	}
+	const auto& meshSkins = mesh.GetSkins();
+	if (const auto it = meshSkins.find(skinId); it != meshSkins.end())
+	{
+		return it->second.get();
+	}
+	const auto& textureManager = Locator::resources::value().GetTextures();
+	if (textureManager.Contains(skinId))
+	{
+		return &*textureManager.Handle(skinId);
+	}
+	if (!meshSkins.empty())
+	{
+		// Some modded packs embed a mesh's skin under a placeholder id (0x1001) while its material still names a pack
+		// texture that the pack does not have: use the mesh's own skin.
+		return meshSkins.begin()->second.get();
+	}
+	static std::unordered_set<uint32_t> reported;
+	if (reported.insert(skinId).second)
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("graphics"), "Could not find the texture {:#x}", skinId);
+	}
+	return nullptr;
 }
 
 uint32_t world_triangles::Submit(RenderPass view, const Frame& frame, const ShaderManager& shaders, const void* only)

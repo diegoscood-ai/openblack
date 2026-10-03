@@ -29,6 +29,7 @@
 #include "ECS/Components/WorshipSite.h"
 #include "ECS/Effects/Reactions.h"
 #include "ECS/Map.h"
+#include "ECS/MapCells.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/HandSystemInterface.h"
 #include "ECS/Systems/LivingActionSystemInterface.h"
@@ -462,7 +463,18 @@ void villager_teleport::LandAt(entt::entity villager, const glm::vec3& mapPositi
 	// the Transform is taken again: a state change may have moved the registry's storage
 	if (auto* transform = Reg().TryGet<Transform>(villager); transform != nullptr)
 	{
-		transform->position = magic::ToWorld(glm::vec3(mapPosition.x, 0.0f, mapPosition.z));
+		const auto world = magic::ToWorld(glm::vec3(mapPosition.x, 0.0f, mapPosition.z));
+		// fn_005DA0C0: +0x14 = the position, then InsertMapObject (vt +0x544) at 0x5DA0E7 (the hand took it out of the
+		// map, HandSystem::PickUp). (openblack) one that is still in the map moves there, so its lists stay right
+		if (map_cells::IsObjectInMap(villager))
+		{
+			map_cells::MoveMapObject(villager, world);
+		}
+		else
+		{
+			transform->position = world;
+			map_cells::InsertMapObject(villager);
+		}
 	}
 	SetTopState(villager, VillagerStates::Landed);
 	DecideWhatToDo(villager);

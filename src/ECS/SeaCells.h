@@ -67,13 +67,15 @@ enum CollideBits : uint32_t
 	k_CollideWater = 0x01, ///< IsWater (the water bit, or no landscape cell)
 	k_CollideLand = 0x02,  ///< not water
 	k_CollideField = 0x04, ///< an OBJECT_TYPE 0x12 (Field) in the map cell
-	k_CollideFixed = 0x08, ///< MapCell::Collide(MapCoords) 0x601CE0: CollideWithFixed (0x601D10) when asked for
+	k_CollideFixed = 0x08, ///< only MapCoords::CollideCollideWithFixe 0x604FE0 (ecs::map_cells::CollideWithFixed); the
+	                       ///< branch of MapCell::Collide(MapCoords) 0x601CE0 to CollideWithFixe tests this bit of
+	                       ///< 0x601BD0's result (0x601CEB), which never sets it: a dead branch
 	k_CollideEdge = 0x10,  ///< the map cell is off the game map (fn_00601E00: x < [g_game+0x59C8], z < [+0x59C4])
 	k_CollideTree = 0x20,  ///< an OBJECT_TYPE 6 (ForestTree) in the map cell
 };
 /// The landscape part of MapCell::Collide (0x601BD0): 0x10 off the game map, else 1 on water (or no landscape cell)
-/// or 2. The object bits (0x04 Field, 0x20 tree, 0x08 fixed) come from the map cell's objects: callers that need them
-/// add them (TODO(sea-cells): no map-cell object lists in openblack yet).
+/// or 2. The object bits come from the map cell's fixed list: 0x04 Field and 0x20 tree in ecs::map_cells::Collide
+/// (0x6033C0), 0x08 only in ecs::map_cells::CollideWithFixed (0x604FE0).
 [[nodiscard]] uint32_t CollideLandscape(const LandIslandInterface& island, glm::ivec2 cell);
 
 /// GSoundMap::GetSurfaceType (0x71D8E0): 6 (DEEP_WATER) for no cell, 7 (SHALLOW_WATER) where !IsLand, else the

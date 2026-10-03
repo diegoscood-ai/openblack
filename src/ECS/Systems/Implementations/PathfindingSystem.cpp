@@ -27,6 +27,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/WallHug.h"
 #include "ECS/Map.h"
+#include "ECS/MapCells.h"
 #include "ECS/Registry.h"
 #include "Locator.h"
 
@@ -397,9 +398,11 @@ template <MoveState S, typename... Exclude>
 void ApplyStepGoal(ecs::Registry& registry, Exclude... exclude)
 {
 	registry.Each<const MoveStateTagComponent<S>, Transform>(
-	    [](const MoveStateTagComponent<S>& state, Transform& transform) {
+	    [](entt::entity entity, const MoveStateTagComponent<S>& state, Transform& /*transform*/) {
 		    const float altitude = Locator::terrainSystem::value().GetHeightAt(state.stepGoal);
-		    transform.position = glm::xzy(glm::vec3(state.stepGoal, altitude));
+		    // Object::MoveMapObject 0x636A40 (vt +0x55C): the new position, and the head of the new cell's list only when
+		    // the cell changes (map_cells writes the Transform)
+		    map_cells::MoveMapObject(entity, glm::xzy(glm::vec3(state.stepGoal, altitude)));
 	    },
 	    exclude...);
 }

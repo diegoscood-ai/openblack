@@ -19,6 +19,7 @@
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/RigidBody.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/MapCells.h"
 #include "ECS/Registry.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "InfoConstants.h"
@@ -60,6 +61,8 @@ entt::entity FeatureArchetype::Create(const glm::vec3& position, FeatureInfo typ
 
 		registry.Assign<RigidBody>(entity, rbInfo, startTransform);
 	}
+	// CallVirtualFunctionsForCreation (MultiMapFixed 0x52E890+0x184): InsertMapObject (vt +0x544, 0x52E650)
+	ecs::map_cells::InsertMapObject(entity);
 
 	return entity;
 }

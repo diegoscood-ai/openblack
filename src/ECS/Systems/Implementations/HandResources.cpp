@@ -63,6 +63,7 @@
 #include "ECS/Components/Tree.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Influence/Influence.h"
+#include "ECS/MapCells.h"
 #include "ECS/PotResource.h"
 #include "ECS/Components/Sprite.h"
 #include "Graphics/Texture2D.h"
@@ -225,6 +226,7 @@ void HandSystem::UpdateMultiPickUp(float seconds, bool actionHeld) noexcept
 		// resized the piles it took from.
 		if (store == entt::null && source->amount == 0)
 		{
+			ecs::map_cells::RemoveMapObject(*_pickSource); // CleanupWhenDeleted 0x6377F0: RemoveMapObject vt +0x548
 			registry.Destroy(*_pickSource);
 			_pickSource.reset();
 		}
@@ -334,6 +336,8 @@ void HandSystem::DepositInStore(entt::entity object, entt::entity store) noexcep
 		audio::PlaySoundEffect(options);
 	}
 	DropRoots(object, false);
+	// CleanupWhenDeleted 0x6377F0: RemoveMapObject vt +0x548 (a tree that hit the store from the physics may be in)
+	ecs::map_cells::RemoveMapObject(object);
 	registry.Destroy(object);
 	registry.SetDirty();
 	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand: {} wood added to the village store", total);

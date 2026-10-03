@@ -13,7 +13,6 @@
 #include <cstdlib>
 
 #include <algorithm>
-#include <unordered_map>
 
 #include <LNDFile.h>
 #include <glm/geometric.hpp>
@@ -23,6 +22,7 @@
 #include "3D/L3DMesh.h"
 #include "3D/LandIslandInterface.h"
 #include "Locator.h"
+#include "MapCells.h"
 #include "MapCoords.h"
 #include "Resources/ResourcesInterface.h"
 #include "SeaCells.h"
@@ -32,16 +32,8 @@ using namespace openblack::ecs::map_collide;
 
 namespace
 {
-/// NewCollideDescriptor 0x46AAD0: the circle of a map cell (0x40E33333)
-constexpr float k_CellCircleRadius = 7.1f;
-/// MapCell::CollideWithFixe 0x601D10: the circle at the tested position
-constexpr float k_TestRadius = 0.5f;
-/// Tree::CreateCollideData 0x74C5F0 (fn_00829590(position, 0.3))
-constexpr float k_TreeRadius = 0.3f;
 /// Obj(point, a, b, angle) 0x82ADD0 is used above this ratio of the half sizes
 constexpr float k_LongRatio = 1.4f;
-
-std::unordered_map<uint32_t, std::vector<Shape>> g_cells;
 
 /// x' = x cos a - z sin a, z' = x sin a + z cos a (the sign checked on the maps saved by the game)
 glm::vec2 Rotate(glm::vec2 v, float angle)
@@ -49,16 +41,6 @@ glm::vec2 Rotate(glm::vec2 v, float angle)
 	const float c = std::cos(angle);
 	const float s = std::sin(angle);
 	return {v.x * c - v.y * s, v.x * s + v.y * c};
-}
-
-int CellsPerSide()
-{
-	return Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetCellsPerSide() : 512;
-}
-
-uint32_t Key(int cx, int cz)
-{
-	return static_cast<uint32_t>(cx) * 0x10000u + static_cast<uint32_t>(cz);
 }
 
 bool LogRejections()
@@ -130,71 +112,17 @@ bool openblack::ecs::map_collide::Collide(glm::vec2 point, float radius, const S
 	                   [&](glm::vec2 child) { return hits(child, shape.childRadius); });
 }
 
-void openblack::ecs::map_collide::Clear()
-{
-	g_cells.clear();
-}
-
-void openblack::ecs::map_collide::RegisterFixed(entt::id_type meshResource, glm::vec3 position, float yAngle, float scale,
-                                                std::string_view what)
-{
-	Shape shape;
-	if (!FromMesh(meshResource, glm::xz(position), yAngle, scale, shape))
-	{
-		return;
-	}
-	shape.what = what;
-	const int side = CellsPerSide();
-	const float reach = shape.radius + k_CellCircleRadius;
-	const int x0 = std::max(0, static_cast<int>(std::floor((shape.centre.x - reach) / LandIslandInterface::k_CellSize)));
-	const int x1 = std::min(side - 1, static_cast<int>(std::floor((shape.centre.x + reach) / LandIslandInterface::k_CellSize)));
-	const int z0 = std::max(0, static_cast<int>(std::floor((shape.centre.y - reach) / LandIslandInterface::k_CellSize)));
-	const int z1 = std::min(side - 1, static_cast<int>(std::floor((shape.centre.y + reach) / LandIslandInterface::k_CellSize)));
-	for (int cx = x0; cx <= x1; ++cx)
-	{
-		for (int cz = z0; cz <= z1; ++cz)
-		{
-			const glm::vec2 cellCentre = (glm::vec2(cx, cz) + 0.5f) * LandIslandInterface::k_CellSize;
-			if (Collide(cellCentre, k_CellCircleRadius, shape))
-			{
-				g_cells[Key(cx, cz)].push_back(shape);
-			}
-		}
-	}
-}
-
-void openblack::ecs::map_collide::RegisterTree(glm::vec3 position)
-{
-	const auto cell = map_coords::CellOf(position); // MapCoords(LHPoint) 0x603160, the high words
-	if (!map_coords::InBounds(cell, CellsPerSide()))
-	{
-		return;
-	}
-	g_cells[Key(cell.x, cell.y)].push_back(Shape {glm::xz(position), k_TreeRadius, {}, 0.0f, "tree"});
-}
-
 bool openblack::ecs::map_collide::IsOkToCreateAtPos(glm::vec3 position, std::string_view command)
 {
-	// MapCoords::CollideCollideWithFixe 0x604FE0: off the map every bit is set, and then IsWater 0x6035B0 has no land
-	// cell and says yes: true
-	const auto cell = map_coords::CellOf(position); // ToMap 0x603430
-	if (!map_coords::InBounds(cell, CellsPerSide()))
+	// GObjectInfo::IsOkToCreateAtPos 0x638C40: MapCoords::CollideCollideWithFixe 0x604FE0 (0x638C47) on the live map
+	// cells (ecs::map_cells: everything in the map now, not only what the land script made), "test al, 8": clear ->
+	// yes. Off the map it is 0xFFFFFFFF, which has the bit. MapCoords x, z only (FromMetres: the altitude is not read)
+	const auto collide = map_cells::CollideWithFixed(map_coords::FromMetres(glm::vec2(position.x, position.z)));
+	if ((collide & sea_cells::k_CollideFixed) == 0)
 	{
 		return true;
 	}
-	const auto found = g_cells.find(Key(cell.x, cell.y));
-	if (found == g_cells.end())
-	{
-		return true;
-	}
-	const auto point = glm::xz(position);
-	const auto blocker = std::find_if(found->second.begin(), found->second.end(),
-	                                  [point](const Shape& shape) { return Collide(point, k_TestRadius, shape); });
-	if (blocker == found->second.end())
-	{
-		return true;
-	}
-	// MapCoords::IsWater 0x6035B0 (ecs::sea_cells, the cell of the 16.16 MapCoords): bit 0x10 of the land cell
+	// set: MapCoords::IsWater 0x6035B0 (ecs::sea_cells, the cell of the 16.16 MapCoords): bit 0x10 of the land cell
 	// (hasWater); no landscape cell (off the map, or an empty block) counts as water
 	if (sea_cells::IsWater(position))
 	{
@@ -202,8 +130,8 @@ bool openblack::ecs::map_collide::IsOkToCreateAtPos(glm::vec3 position, std::str
 	}
 	if (LogRejections())
 	{
-		SPDLOG_LOGGER_INFO(spdlog::get("scripting"), "isok: {} at ({:.2f}, {:.2f}) rejected by {}", command, position.x,
-		                   position.z, blocker->what);
+		SPDLOG_LOGGER_INFO(spdlog::get("scripting"), "isok: {} at ({:.2f}, {:.2f}) rejected (collide 0x{:X})", command,
+		                   position.x, position.z, collide);
 	}
 	return false;
 }

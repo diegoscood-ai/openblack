@@ -16,6 +16,7 @@
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Mobile.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/MapCells.h"
 #include "ECS/Registry.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "InfoConstants.h"
@@ -40,6 +41,8 @@ entt::entity MobileObjectArchetype::Create(const glm::vec3& position, MobileObje
 	registry.Assign<MobileObject>(entity, type);
 	const auto resourceId = resources::HashIdentifier(info.meshId);
 	registry.Assign<Mesh>(entity, resourceId, static_cast<int8_t>(0), static_cast<int8_t>(1));
+	// CallVirtualFunctionsForCreation (MobileObject 0x607150+0xA9): InsertMapObject (vt +0x544, 0x607250 -> 0x636830)
+	ecs::map_cells::InsertMapObject(entity);
 
 	return entity;
 }

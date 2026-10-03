@@ -19,6 +19,9 @@ struct TownInfluence
 {
 	float radius {0.0f};     ///< +0x5C8: base + abodes, x townInfluenceMultiplier; inside it the town gives 1
 	bool noInfluence {false}; ///< +0x5F8, the Town ctor's last argument (0 for CREATE_TOWN): no base, no abodes
+	/// +0xF24: the radius of the last GGame::Update3DInfluence (after 0x555354, written whether or not it made a
+	/// circle), which Town::Process 0x74759E compares with +0x5C8 (influence::NoteInfluence)
+	float drawnRadius {0.0f};
 };
 
 /// The citadel's influence (Citadel +0x6C), fixed when its CitadelHeart is made (ctor 0x4649B0): scale x the heart's
@@ -26,5 +29,8 @@ struct TownInfluence
 struct CitadelInfluence
 {
 	float value {0.0f};
+	/// Citadel +0x78: Citadel::GetInfluence at the last GGame::Update3DInfluence (after 0x55530E, always written),
+	/// which Citadel::Process 0x4630C6 compares with GetInfluence (influence::NoteInfluence)
+	float drawnRadius {0.0f};
 };
 } // namespace openblack::ecs::components

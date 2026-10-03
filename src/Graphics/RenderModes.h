@@ -273,6 +273,10 @@ inline constexpr Material k_Atmos {Mode::AlphaTexturedAlphaNz, k_TwoSided | k_Ti
 /// LH3DAtmos::AdditiveMaterial [0xEDC364] (0x835C49): the same atmos.raw, mode 13, two-sided (0x835C61).
 /// The hand's glow on the sea (0x5E4281)
 inline constexpr Material k_AtmosAdditive {Mode::AlphaTexturedAlphaAdditiveNz, k_TwoSided};
+/// [0xEB9A18] (InfluenceCircle::Draw 0x826D0E..0x826D2A, made on the first draw): CreateMaterial(6, burn.raw [0xEA1A9C]),
+/// +5 |= 1 (0x826D18) and +5 |= 4 (0x826D27), ALPHAREF 0; bit 0x10 clear, so DrawTriangle adds the UV offset. The
+/// influence border. Not the material [0xEA1AC0] fn_0080BBD0 makes from the same texture (mode 6, +5 |= 4 only)
+inline constexpr Material k_InfluenceCircle {Mode::AlphaTexturedAlphaNz, k_TwoSided | k_Tiling};
 } // namespace materials
 
 } // namespace openblack::graphics::render_modes

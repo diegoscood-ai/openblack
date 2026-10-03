@@ -223,6 +223,13 @@ inline constexpr LanternStarts k_LanternFileStarts = {0, 13, 0}; ///< 0xC383BC, 
 /// blobs.raw
 [[nodiscard]] uint8_t DustCell(uint32_t seed, float age) noexcept;
 
+/// InfluenceCircle::Draw 0x826D2D..0x826D83, the border's scroll: one GLOBAL clock [0xEB9A40] (int ms) = (c +
+/// g_game_time_inc) % 10000 (signed idiv), then [0xECA628] = 1 and the offset u = float(c) x 0.0001 ([0x9A391C]),
+/// v = float(-c) x 0.0002 ([0x9000DC]): u runs 0 -> 1 and v 0 -> -2 every 10 s, whole repeats of a tiled texture, so it
+/// is seamless. Run only when the draw passes its camera gate (influence::CurtainAlpha); [0xECA628] = 0 after the
+/// circles (0x826F8B). @return the offset
+[[nodiscard]] UvOffset InfluenceScroll(int32_t& clockMs, uint32_t gameTimeIncMs) noexcept;
+
 /// DesignedWaterFall 0x5E3770 (0x5E392E..0x5E3972): V -= 0.5 ([0x8AA3B4]) dt, minus its whole part (ftol), so it stays
 /// in -1..0; SetAnimatedUV_1(0, V). @return V
 [[nodiscard]] float WaterfallScroll(float& v, float seconds) noexcept;

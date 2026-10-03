@@ -214,6 +214,24 @@ TEST(FrameAnim, lanterns)
 	EXPECT_EQ(frame_anim::LanternCell(0, 1, written), (10 + 31 - 7) & 31);
 }
 
+TEST(FrameAnim, influenceScroll)
+{
+	// InfluenceCircle::Draw 0x826D2D..0x826D83: one int clock modulo 10000 ms, u = c x 0.0001 and v = -c x 0.0002
+	int32_t clock = 0;
+	auto offset = frame_anim::InfluenceScroll(clock, 2500);
+	EXPECT_EQ(clock, 2500);
+	EXPECT_NEAR(offset.x, 0.25f, 1e-6f);
+	EXPECT_NEAR(offset.y, -0.5f, 1e-6f);
+	offset = frame_anim::InfluenceScroll(clock, 7600); // 10100 -> 100
+	EXPECT_EQ(clock, 100);
+	EXPECT_NEAR(offset.x, 0.01f, 1e-6f);
+	EXPECT_NEAR(offset.y, -0.02f, 1e-6f);
+	EXPECT_TRUE(frame_anim::IsAnimatedUv(offset));
+	offset = frame_anim::InfluenceScroll(clock, 9900); // exactly 10000 -> 0: no offset
+	EXPECT_EQ(clock, 0);
+	EXPECT_FALSE(frame_anim::IsAnimatedUv(offset));
+}
+
 TEST(FrameAnim, otherCellClocks)
 {
 	// fn_00466730: 10 a second over 15, after the wrap

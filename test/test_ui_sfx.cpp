@@ -34,6 +34,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Influence/Influence.h"
 #include "ECS/Registry.h"
+#include "GameClock.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Resources/Loaders.h"
@@ -363,6 +364,12 @@ TEST_F(UiSfxTest, InfluenceCrossingNeedsTheHandToCrossAnEdge)
 	}
 	const auto town = MakeTown(glm::vec3(0.0f), 50.0f, PlayerNames::PLAYER_ONE);
 	MakeTown(glm::vec3(200.0f, 0.0f, 0.0f), 30.0f, PlayerNames::NEUTRAL); // the neutral player has no circle
+	// GGame::Update3DInfluence makes the circles (a turn multiple of 10, the dirty byte set) and the player's border is
+	// shown (fn_00883120): without it a crossing makes no ripple and no sound (0x8278E0..0x8278EC)
+	game_clock::SetTurn(0);
+	influence::ForceNeedUpdateInfluence();
+	influence::Update3DInfluence();
+	influence::ShowBoundary(PlayerNames::PLAYER_ONE);
 	const glm::vec3 outside(0.0f, 0.0f, 60.0f);
 	const glm::vec3 inside(0.0f, 0.0f, 40.0f);
 	influence::ProcessHandCrossing(outside); // the first call only remembers
@@ -375,6 +382,8 @@ TEST_F(UiSfxTest, InfluenceCrossingNeedsTheHandToCrossAnEdge)
 	EXPECT_EQ(output.plays, 2);
 	// the circle grows over the still hand: the bit changes, no edge was crossed
 	Locator::entitiesRegistry::value().Get<TownInfluence>(town).radius = 70.0f;
+	influence::ForceNeedUpdateInfluence();
+	influence::Update3DInfluence();
 	influence::ProcessHandCrossing(outside);
 	EXPECT_EQ(output.plays, 2);
 	influence::ProcessHandCrossing(outside);

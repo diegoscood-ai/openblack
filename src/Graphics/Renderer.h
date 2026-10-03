@@ -172,6 +172,17 @@ class Renderer final: public RendererInterface
 		uint32_t argb {0};
 	};
 	mutable std::vector<BoatSpriteDraw> _frameBoatSprites;
+	/// InfluenceCircle::Draw(1) 0x826C90 (GGame::Process3dEngine 0x54E3D2..0x54E3DE: every frame of the world view, no
+	/// option): every circle of influence::Circles() at once, after everything else drawn at once and before the
+	/// Z-sorter's drain (RendererInfluence.cpp)
+	void DrawInfluenceCircles(graphics::RenderPass viewId, const Camera& camera) const;
+	/// [0xEB9A40]: the border's scroll clock (frame_anim::InfluenceScroll), a global of the original
+	mutable int32_t _influenceScrollMs {0};
+	/// The NewZObject of fn_008274A0 for every ripple of influence::Ripples() (callback 0x827500): their Z-sorter keys
+	/// and indices (RendererInfluence.cpp)
+	std::vector<std::pair<float, uint32_t>> CollectInfluenceRipples(const Camera& camera) const;
+	/// One ripple, as the Z-sorter's callback 0x827500: its 7 sprites (LH3DSprite::DrawSpecial1 0x840CC0)
+	void DrawInfluenceRipple(graphics::RenderPass viewId, uint32_t index) const;
 	/// LH3DObject vt+0x118 DrawUnderWater (fn_00811010 / fn_00810E20 / fn_00813300 -> fn_00850FC0) of a mesh: mirrored by
 	/// the pass's camera, the part kept by sea.plane, in sea's light (sea_pass::UnderWater / UnderWaterLastDraw)
 	/// (RendererCut.cpp)

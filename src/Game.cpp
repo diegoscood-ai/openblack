@@ -629,6 +629,11 @@ bool Game::GameLogicLoop() noexcept
 	}
 	// The end of the miracles' turn, after the particle step: the PSys sounds, the seed in the hand (Magic/MagicLoop.cpp)
 	magic::ProcessTurnEnd();
+	// GGame::ProcessTurn 0x54E738: GGame::Update3DInfluence, the influence circles rebuilt every 10 turns when a radius
+	// moved (ECS/Influence/InfluenceCircles.cpp). (aproximado) the original calls it between the spooky voices
+	// (0x54E711..0x54E729) and GCamera::Validate (0x54E74E), which openblack's turn runs elsewhere; here, as there, it
+	// comes after every radius of the turn
+	influence::Update3DInfluence();
 	ecs::effects::reactions::EndTurn();
 
 	// mods: their turn event, at the end of the game's turn (the turn of game_clock, as it began)
@@ -912,6 +917,9 @@ bool Game::Update() noexcept
 					influence::ProcessHandCrossing(*hands[0]);
 				}
 			}
+			// fn_0x005e5cd0 0x5E6264..0x5E628D: fn_008274A0 on every ripple the crossings made (life -= g_game_time_inc,
+			// which is 0 while paused). (inferido) outside the pause test 0x5E61A6, traced only up to the crossing call
+			influence::UpdateRipples(game_clock::FrameGameMs());
 		}
 
 		// Update Entities

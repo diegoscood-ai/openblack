@@ -2371,13 +2371,14 @@ struct ZObject
 	int cloud {-1}; ///< a cloud of _clouds (LH3DMist::AddDrawing 0x7FA87B from fn_005E25C0)
 	int rain {-1};  ///< an index of _frameRain (fn_008341B0 0x83427F, one per raining tile)
 	int boat {-1};  ///< an index of _frameBoatSprites (LH3DSprite::AddDrawing 0x840CB3, one per sprite)
+	int ripple {-1}; ///< an index of influence::Ripples() (fn_008274A0's NewZObject, callback 0x827500)
 
 	/// a model instance (meshId / index): none of the other kinds is set. The drain draws it with drawInstance, its
 	/// shadows inside it (DrawShadowsOnObject); a new kind must be added here too
 	[[nodiscard]] bool IsModel() const
 	{
 		return sprite == entt::null && psysSprite < 0 && psysMesh < 0 && psysChain < 0 && queuedEffect < 0 && mist < 0 &&
-		       smoke < 0 && cloud < 0 && rain < 0 && boat < 0;
+		       smoke < 0 && cloud < 0 && rain < 0 && boat < 0 && ripple < 0;
 	}
 };
 
@@ -3167,6 +3168,12 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				{
 					sorted.Submit({.boat = static_cast<int>(index)}, key);
 				}
+				// the hand's ripples on the influence border, one Z object each (fn_008274A0, from fn_0x005e5cd0
+				// 0x5E6264..0x5E628D; RendererInfluence.cpp)
+				for (const auto& [key, index] : CollectInfluenceRipples(*desc.camera))
+				{
+					sorted.Submit({.ripple = static_cast<int>(index)}, key);
+				}
 			}
 
 			// OPENBLACK_ZSORTER_TRACE=1: once a second, what the frame's queue holds (docs/bw1-notes/openblack-internals.md)
@@ -3272,6 +3279,15 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				    });
 			}
 
+			// InfluenceCircle::Draw(1) 0x826C90 from GGame::Process3dEngine 0x54E3D2..0x54E3DE (original-frame.md row 23):
+			// after the power spins, so after everything drawn at once, and before FinishFrame's drain (24a), every frame
+			// of the world view. (inferido) not in the reflection: its only call site, 0x54E414, is after the whole world
+			// draw (RendererInfluence.cpp)
+			if (sortBlended)
+			{
+				DrawInfluenceCircles(desc.viewId, *desc.camera);
+			}
+
 			// The drain, far to near (fn_0082F280; the full queue dropped the entries over 0x800, NewZObject 0x83F31C), in
 			// its own view right after the main pass (same target and camera, no clear), so that nothing drawn at once in
 			// the main pass is drawn over them
@@ -3298,6 +3314,11 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					if (instance.boat >= 0)
 					{
 						DrawBoatSprite(k_Blended, static_cast<uint32_t>(instance.boat));
+						continue;
+					}
+					if (instance.ripple >= 0)
+					{
+						DrawInfluenceRipple(k_Blended, static_cast<uint32_t>(instance.ripple));
 						continue;
 					}
 					if (instance.psysSprite >= 0)

@@ -389,7 +389,7 @@ the original it has not been read **(inferred)**); it stays as it was.
 **(approximate)**:
 - The arrival order (the tie-break with equal keys) is not the original's: here clouds, models per mesh (a
   `std::map`), faded ones, sprites, meshes and chains of the `Sorted`, `Queued` effects, sprites, mists, smoke,
-  rain, boat; there the order of the frame's AddDrawing calls (`original-frame.md`, steps 4m..22).
+  rain, boat, influence ripples; there the order of the frame's AddDrawing calls (`original-frame.md`, steps 4m..22).
 - The rain point is `tile.origin` with the height from Rain.cpp's `LandHeightAt`, not `GetAltitude` 0x803090 on
   `MapCoords(x × 65536 × 0,1, z × 65536 × 0,1)` (0x8341D2..0x834210): that is U3.
 - `CheckRegionOnScreen` of a `Sorted` mesh (0x679F75) is its box's sphere; that of a model (0x815AB1) is not
@@ -813,7 +813,7 @@ the angle +0x14.
 | `Screen` (mode A) | `LH3DSprite::Draw` 0x840530, flag 0x40 = 0 | Square in the screen plane at the sprite's depth: it is parallel to the screen and does not turn towards the eye. local x = {−s − ox, s − ox}, y = {hs − oy, −hs − oy} (0x840831..0x8408CF). Local x goes to (cos, −sin) on screen and y to (sin, cos) (0x84071D..0x84082B), that is, a clockwise rotation. Angle 0 = no rotation (0x840770). Order TL, TR, BR, BL. Draws nothing if the depth is ≤ near (`InFrontOfNear`, 0x84055D..0x840585) | PSys sprites (`RendererPSys.cpp`: all the SF, TownBelief, FireGraphic), SmokyStuff puffs (`RendererBoat.cpp`) and, on the GPU, the chimney smoke and the `components::Sprite` |
 | `ScreenSpriteModel` | the same mode A in `vs_sprite.sc` | T(pos)·Rz(−angle)·S(half-width, half-height, 1). The shader adds u_invView·(model·(x, y, 0, 0)) in the −1..1 plane, with v = 0 at the top: it is `Screen` with origin 0. The near cut is done on the CPU | `drawSprite` (night lights, fireflies, dust, hand effects, temple sparkles, camera markers) and `DrawChimneySmoke` |
 | `Horizontal` (mode B) | flag 0x40 (0x8405FE..0x840704): `SetHorozontal` 0x6AA093, `GWater::InitialiseCircles` 0x54BA84, fn_00824740 0x8247EF | Ry(angle), with rows (c,0,s) / (0,1,0) / (−s,0,c), plus the position. x = {−s − ox, s − ox}, z = {−hs − oy, hs − oy} (0x84085D). It does not depend on the camera and has no near cut | boat wake, fish-farm fish, water rings, the horizontal branch of PSys (SF_ManaPathNew, light maps) |
-| `PlaneOfMatrix` | `LH3DSprite::DrawSpecial1` 0x840CC0 | The mode B square in the XZ plane of a given matrix, rotated about its local Y if the angle ≠ 0 (r0' = c·r0 + s·r2, r2' = c·r2 − s·r0, 0x840CEF..0x840D82). It does not use the sprite's position | nobody (the 7 rings of fn_008274A0 are not ported) |
+| `PlaneOfMatrix` | `LH3DSprite::DrawSpecial1` 0x840CC0 | The mode B square in the XZ plane of a given matrix, rotated about its local Y if the angle ≠ 0 (r0' = c·r0 + s·r2, r2' = c·r2 − s·r0, 0x840CEF..0x840D82). It does not use the sprite's position | the 7 rings of the influence ripple (fn_00827500, `RendererInfluence.cpp`) |
 | `YawToEye` (mode C) | inline code: `TownCentre::DrawPSys` 0x69BE76..0x69BE8A, fn_00466BB0, `TownDesireFlags::Draw` 0x746BFC, fn_00719E90, `ScriptHighlight::Draw` | θ = atan2(eye.z − p.z, eye.x − p.x) + π/2 ([0x8C78D8]); axes `lh_matrix::AngleY(θ)` (the rows of SetAngleY 0x674360). Local +Z goes from the eye to the object | nobody (influence columns, desire flags, ShowNeeds and ScriptHighlight are not ported) |
 | `ParticleYaw` (C') | `Particle3DObj::DrawAt` 0x679FD0, FaceCamera +0x4D, 0x67A032..0x67A1C3 | θ = atan2(d.z, d.x) − atan2(r2.z, r2.x), with d = p − eye in XZ; r0' = c·r0 + s·r2, r2' = c·r2 − s·r0; r1 × HeightStretch | PSys meshes with FaceCamera (`PSys/Creators/Mesh.cpp`) |
 | `FullSprite` (D) | FaceCameraSprite +0x4C, 0x67A250..0x67A451 | Identity × scale. Then each row (x, y) := (cos φ·x + sin φ·y, cos φ·y − sin φ·x), with φ = π/2 − atan2(d.y, \|d.xz\|) (0x67A367), and then fn_0067A4A0(ψ), with ψ = atan2(d.z, d.x). Local +Y faces the eye and Z stays horizontal | `Mesh.cpp`, after FaceCamera as in the original; no SF activates it |
@@ -960,6 +960,7 @@ negative, the vials' "+ 32" rounds to 32.
 | `PlayerSymbolCell` / `PlayerSymbolSpin` | PlayerSymbolSprite::Draw 0x69D7E0 | layer 0: +0xC −= ms·0.02 ([0x937538]); layer 1: +0x10 −= ms·0.023 ([0x937534]); +32 while < 0; ftol & 63. Spin of the second sparkle: +0x14 += ms·0.002 ([0x92A544]), −2π while > 2π. The ctor fn_0069D5A0 sets them to 0 | TownBelief sparkles (one accumulator per symbol) |
 | `SmokyStuffCell` | fn_00823F70 (0x8240F9..0x824115) | ftol(life·15) & 63 | SmokyStuff puffs |
 | `DustCell` | fn_00846010 (Dust.cpp) | 16 + ((rand % 16 + ftol(2·age)) & 15) | impact dust |
+| `InfluenceScroll` | InfluenceCircle::Draw 0x826D2D..0x826D83 | **global** clock [0xEB9A40] = (c + ms) % 10000 (signed); u = c·0.0001 ([0x9A391C]), v = −c·0.0002 ([0x9000DC]); only on frames that pass the camera gate (y > 100) | the influence border (`RendererInfluence.cpp`) |
 | `WaterfallScroll` | DesignedWaterFall 0x5E392E..0x5E3972 | V −= 0.5·dt ([0x8AA3B4]), minus its integer part; SetAnimatedUV_1(0, V) | the Land 3 waterfall |
 | `GoolooFrame` | fn_005E6390 | t from 500 ms to 0; x = t/500; UV (2·cos x, 1.7·sin(0.7·x)); material byte +4 = 255 − ftol(255·t/500) | not ported (ghost when removing an object) |
 | `RotatingUv` / `RotatingUvClock` | RenderParticleGJMeshRotatingUV::DrawAt 0x67CBA0 and GameUpdate 0x6C8BC0 | Draw: lerp(+0x24 → +0x2C, t), lerp(+0x28 → +0x30, t) with t = DrawData +0x14 (0x67CBA8..0x67CBC1); the period (+0x3C, +0x40) is subtracted while it exceeds it (0x67CBC8..0x67CBFC; nothing if negative). Step: the rule adds dt·SpeedU/V to the **target** +0x34/+0x38 and `GameUpdate`, at the end of `PostUpdateAtoms` fn_00673EA0 (0x674080, `vt+0x108`), raises +0x34 and +0x2C by one period while both are below −2·period (0x6C8BDF..0x6C8C5A) and lowers them while both exceed +2·period (0x6C8C5B..0x6C8CCC) — they move as a pair, so the difference the draw interpolates does not change —, and then copies +0x2C → +0x24 and +0x34 → +0x2C (0x6C8CCD..0x6C8CE2) | SurfRevol discs |
@@ -1042,9 +1043,8 @@ same cells, except for the rounding of adding dt·rate instead of multiplying ag
 - (inferred) GoldenShower: t in milliseconds. Gooloo: that the material's byte +4 is the ALPHAREF.
 - HandEffects (dust when gripping land, grains and fish when picking up food) is still a hand-made copy of effects that in
   the original are PSys (SF_GripLandscape, ER_MultiPickup). Its frame clocks are already the PSys ones.
-- Not ported, with their clock and their test in the API: InfluenceCircle (scroll 0.0001 / −0.0002 per ms, 0x826C90),
-  Gooloo, GoldenShower, the leashes, the creature room and the citadel world map, HelpDude, the
-  3D cursor and JCSpecial. Also HandGlow / fn_0083F270, the scroll that does not belong to LightSheet but to the object of
+- Not ported, with their clock and their test in the API: Gooloo, GoldenShower, the leashes, the creature room and
+  the citadel world map, HelpDude, the 3D cursor and JCSpecial. Also HandGlow / fn_0083F270, the scroll that does not belong to LightSheet but to the object of
   fn_0083F100 / fn_0083F210, read by fn_0084F910.
 ## Meshes stuck to the ground (land_morph)
 
@@ -1060,7 +1060,7 @@ height and four algorithms that apply it.
 | A | Cut the mesh by the terrain and raise each vertex `y += H(v) − H(origen)` | `fn_00686980` + cut `fn_00686D90` | once on creation (0x6867F9), only with `DoRaiseAboveLandscape`; without the per-frame "breathing" (0x686805) | `SplitByPlane`, `CellPlanes`, `RaiseAboveLandscape` | `PSys/Rules/SurfRevol.cpp`: `SF_TeleportVortex`, `SF_SpellDispenserVortex` |
 | B | *Melting*: a delta per vertex `(H(v) − H0) / escala`, in model space, along the local Y | `UpdateMelting` 0x8168F0 + morphable Draw 0x80E550 | on creation (`Snapshot`); `PhysicalShield` on every draw (`Live`) | `components::MorphWithTerrain{mode}`, `Melting`, `MeltingDeltas`, `LandMelting` (GPU), `ObjectProgram` | vs_object_hm_instanced: morphable buildings, fields, piles, BigForest, physical shield, ark and dinosaur, ground marks |
 | C | *Bake*: the same delta written into the vertices | FragMesh `fn_007F72B0`; ClampToLandscape `RenderParticleGJMesh::DrawAt` 0x67C313; MeltBorder 0x816350; citadel vt+0x208 `fn_00882B10` | FragMesh when breaking; ClampToLandscape every frame, all primitives, no cut | `Bake`, `Raised`, `BakeAgainstY` | `ECS/Physics/FragMesh.cpp`; `SurfRevol.cpp` (`SF_LandscapeVolcano*`, `SF_LandscapeVortex*`); flames of a morphable object (`ECS/Fire/FireGraphic.cpp`); the totem point over the town centre (`GetExtraPos` 0x80FF20, `AbodeArchetype.cpp`) |
-| D | Geometry made on the ground, `y = H + constante` | blobs `fn_0081FFF0`; InfluenceCircle `fn_008265F0`; leash `fn_008491B0`; creature quads `fn_0081F360` | on creation / every frame | `OnGround`, `k_BlobLift`, `k_LeashRibbonLift`, `k_CreatureQuadLift`, `InfluenceCurtain` | blobs (`Renderer::DrawHumanShadows`); picking of morphed objects (`HandPlacement.cpp`) |
+| D | Geometry made on the ground, `y = H + constante` | blobs `fn_0081FFF0`; InfluenceCircle `fn_008265F0`; leash `fn_008491B0`; creature quads `fn_0081F360` | on creation / every frame | `OnGround`, `k_BlobLift`, `k_LeashRibbonLift`, `k_CreatureQuadLift`, `InfluenceCurtain` | blobs (`Renderer::DrawHumanShadows`); picking of morphed objects (`HandPlacement.cpp`); the influence border (`ECS/Influence/InfluenceCircles.cpp`) |
 
 **A, cut and raise.** `fn_00686980(M, mesh)` takes the mesh into the world with the atom's matrix (`fn_00673E40` at
 0x6867E8: the local frame of `fn_00673DB0` in the hierarchy, `fn_006752D0`), gets the box of all the primitives
@@ -1183,7 +1183,8 @@ of a draw come from **a 16-byte material** (`LH3DMaterial`, `LH3DRender::CreateM
 [0xEA1ABC] and mode 13 [0xEA1AC4] (0x80BC7D / 0x80BCB8); atmos.raw, AtmosMaterial (mode 6, +5 |= 1 | 4: 0x835C58,
 0x835C6F..0x835C79) and AdditiveMaterial (mode 13, +5 |= 1: 0x835C61). In the API: `Material` (the mode and the flags
 +5), `State(material, opciones)` (the material's culling if the draw does not set another) and `materials::k_Smoke`,
-`k_SmokeAdditive`, `k_Misc0`, `k_Atmos`, `k_AtmosAdditive`, used by their eight draws. The texture and the wrapping
+`k_SmokeAdditive`, `k_Misc0`, `k_Atmos`, `k_AtmosAdditive`, used by their eight draws, and `k_InfluenceCircle`
+([0xEB9A18], burn.raw, mode 6, +5 |= 1 | 4 at 0x826D18 / 0x826D27: the influence border). The texture and the wrapping
 (+5 bit 2, `SetD3DTillingOn/Off` 0x82FF10 / 0x82FF50 with `g_b_need_tilling` [0xECA614]) are set by each draw; in the
 L3D meshes, `Primitive::wrap`.
 
@@ -1366,11 +1367,11 @@ cut-off 0x96: a little thinner).
   PSR scale, fn_0081C780), the orb's ring that sometimes covers the bubble depending on the animation, and that the bubble no longer
   flickers when its atlas starts over.
 - Billboards:
-  - port the users of `YawToEye` (influence columns, desire flags, ShowNeeds, ScriptHighlight), of
-    `PlaneOfMatrix` (fn_008274A0) and the HelpDude ones (basis (R, U, D), HelpDude::Update1 0x5BE302);
+  - port the users of `YawToEye` (influence columns, desire flags, ShowNeeds, ScriptHighlight) and the HelpDude
+    ones (basis (R, U, D), HelpDude::Update1 0x5BE302);
   - the oy inherited by the fire's steam and smoke;
 - Animated textures:
-  - port the users that only have a clock (InfluenceCircle, Gooloo, GoldenShower, the leashes and the creature
+  - port the users that only have a clock (Gooloo, GoldenShower, the leashes and the creature
     room, HelpDude, the 3D cursor, JCSpecial) and HandGlow / fn_0083F270;
   - the rest of the vials branch of 0x519AD0 (bounce, squashes of the switch 0x519D76);
   - in the chains, UseDynamicLighting (midpoint smoothing is already done, by milagros2; the SurfRevol
@@ -1379,7 +1380,7 @@ cut-off 0x96: a little thinner).
 - Meshes stuck to the ground:
   - before/after captures of the physical shield, the dispenser disc, the teleport, the ark and the dinosaur
     of Land 4, the lightning explosion mark and the crater (scenes in `dev\documentacion\unify\U3_changes.md`);
-  - port the influence ring curtain (`InfluenceCurtain` is already done), the creature leash (`fn_008491B0`,
+  - port the creature leash (`fn_008491B0`,
     `fn_00848600` / `fn_00848830`) and the creature quads (`fn_0081F360`) when they have a home in openblack;
   - the temple entrance, the half-built temple, the scaffold and the other users of `GetExtraPos`;
   - the mode 1 `SmokyStuff` of the ground marks.
@@ -1392,6 +1393,9 @@ cut-off 0x96: a little thinner).
   port the missing callers (LightSheet, HandGlow fn_0083F100, VillagerName, ValueSpinner, PowerSpin,
   LandscapeVortex, PlayerSymbolSprite, DrawLiquidParticles, fn_006CA930, Gooloo and the two with key 0) with `Submit`.
 
+- `world_triangles::SubmitRaw` (session "coordinador"): Draw3DWorldTriangle in a CreateMaterial'd `.raw` material
+  (program WorldQuad, `X.raw` + `Xa.raw`), used by the influence border and its ripples. `RendererSurfRevol.cpp`,
+  `RendererBoat.cpp` and the other WorldQuad draws still build their own transient buffers and can move to it.
 - `world_triangles` (session "sistemas" closed on 2026-10-03): `RendererSurfRevol.cpp` already uses the
   material's culling; the discs' lighting (`UseLighting`) and the specular distribution of fn_0081C780 are still pending
   ([SF_TeleportVortex and ZR_SurfRevol](miracles.md#sf_teleportvortex-and-zr_surfrevol-srcpsysrulessurfrevol-srcgraphicsrenderersurfrevolcpp)).

@@ -141,7 +141,44 @@ void ProcessTowns()
 		}
 		// 0x747380 multiplies only `if town->GetPlayer()`; (inferido): every town has a player (NEUTRAL included)
 		influence.radius *= multiplier;
+		// 0x74759E: fn_00555240(+0x5C8, +0xF24), the circles are rebuilt when the radius moved since they were last
+		NoteInfluence(influence.radius, influence.drawnRadius);
 	});
+}
+
+void ProcessCitadels()
+{
+	// Citadel::Process, the influence part, for the citadel of each player (GPlayer +0xA48: the first temple, as
+	// CitadelInfluenceAt)
+	auto& registry = Locator::entitiesRegistry::value();
+	std::array<entt::entity, static_cast<size_t>(PlayerNames::_COUNT)> citadels {};
+	citadels.fill(entt::null);
+	registry.Each<const Temple>([&citadels](entt::entity entity, const Temple& temple) {
+		const auto index = static_cast<size_t>(temple.owner);
+		if (index < citadels.size() && citadels.at(index) == entt::null)
+		{
+			citadels.at(index) = entity;
+		}
+	});
+	for (size_t p = 0; p < citadels.size(); ++p)
+	{
+		const auto citadel = citadels.at(p);
+		if (citadel == entt::null)
+		{
+			continue;
+		}
+		// 0x462E33 / 0x462E4F: vt+0x200 of the citadel's 3D object, fn_00883120, sets the player's border latch when
+		// the fade it is given reaches 1 (0x8831AD). (inferido) that value is the temple's appearance fade (the virtual
+		// call at 0x462DF3 that gives it was not decoded); openblack makes the temple whole at once (magic.md
+		// "Inherited difference"), so the latch is set as soon as the player has a temple
+		ShowBoundary(static_cast<PlayerNames>(p));
+		// 0x4630C6: fn_00555240(GetInfluence, +0x78). CitadelRadius makes the CitadelInfluence on its first call
+		const float radius = CitadelRadius(citadel);
+		if (const auto* stored = registry.TryGet<const CitadelInfluence>(citadel); stored != nullptr)
+		{
+			NoteInfluence(radius, stored->drawnRadius);
+		}
+	}
 }
 
 float TownRadius(entt::entity town)

@@ -935,15 +935,42 @@ Full research in `dev\documentacion\miracles\influence.md`. All distances are in
   - CHL `GET_INFLUENCE` (62): on the stack go position, `raw` and player (script one: 0 = the local one, n = n − 1).
     Allies = `raw == 0`.
   - LandT's script opens a 1000 m ring at (2185.6, 2409.5).
-- **Drawing** (`GGame::Update3DInfluence` 0x555280, every 10 turns if something has changed by more than 0.01):
-  - one circle per citadel and per town, in the player's colour (the rings are not drawn);
-  - only with the `WorldRoom::ShowInfluence` option;
-  - it is not ported.
+- **Drawing: the border** (`InfluenceCircle`, `src/ECS/Influence/InfluenceCircles.cpp` and
+  `src/Graphics/RendererInfluence.cpp`; spec `dev\_scratch\coordinador\spec_influence_circle.md`):
+  - **The list.** `GGame::Update3DInfluence` 0x555280 (from `GGame::ProcessTurn` 0x54E738) rebuilds it only when the
+    dirty byte g_game+0x250174 is set **and** `GameTurn % 10 == 0`: one circle per citadel and per town with influence,
+    in the owner's colour (the rings, anti rings and shields are never drawn). The byte is set by fn_00555240 when a
+    radius moved by more than 0.01 since the last rebuild (`Citadel::Process` 0x4630C6 against citadel +0x78,
+    `Town::Process` 0x74759E against town +0xF24) and by `ForceNeedUpdateInfluence` 0x555270 (a deleted citadel or
+    town, a town changing owner).
+  - **Overlaps** (fn_00827040, at each `Add`): a circle fully inside another one **of the same player** (3D distance of
+    the centres) is deleted; where two of them cross, the columns inside the other go transparent (fn_00827110). Quirk
+    kept: a hidden closing column turns white (0x00FFFFFF), so its two segments fade towards white.
+  - **The curtain** (`land_morph::InfluenceCurtain`, fn_008265F0): 40 units high, three rows at H, H + 20 and H + 40;
+    only the middle row gets an alpha, so it is a soft band that peaks 20 above the land. `burn.raw` / `burna.raw`,
+    scrolled +0.0001 u and −0.0002 v per game ms (global clock [0xEB9A40], `frame_anim::InfluenceScroll`), material
+    [0xEB9A18] (mode 6, two-sided, tiled: `materials::k_InfluenceCircle`), colours `g_players_color` [0xEA9EFC]
+    (`influence::k_CircleColours`, alpha 0; blue and white differ from the generic table 0xBFF0B8).
+  - **When.** `InfluenceCircle::Draw(1)` 0x826C90 runs **every frame in the world view** (`GGame::Process3dEngine`
+    0x54E3D2..0x54E3DE): there is no option, no hand-proximity test and no fade timer. `WorldRoom::ShowInfluence`
+    [0xC2A478] only gates `Draw(0)`, the map in the temple's world room (0x54E3E0..0x54E412). Nothing is drawn while
+    g_camera.y ≤ 100; the middle alpha is 120 from y = 200 up and ftol((y − 100) · 0.01 · 120) below. It is drawn at
+    once, after everything else drawn at once and before the Z-sorter drain, so every Z-sorted blended thing is drawn
+    over it; it writes no Z.
+  - **The latch** [0xEB9A1C + 4p]: cleared on every land load (fn_00828A50 from `LH3DIsland::Create`); set by the
+    citadel's 3D object when its fade reaches 1 (fn_00883120 0x8831AD). Until then the player's circles are drawn with
+    alpha 0 and crossing them makes no ripple and no sound. (inferred) openblack has no temple fade, so it is set as
+    soon as the player has a temple (`influence::ProcessCitadels`).
+  - **The ripple** (fn_00827250..fn_00827500): crossing a border with the hand (fn_00827820) makes 7 growing rings of
+    `smoke.raw` cell 63 in the player's colour, standing in the curtain's plane at the crossing point (bisection
+    fn_00827670), for 2 s, Z-sorted; and sound 52.
 - **Not ported:**
   - the virtual influence;
   - the allies (openblack has no alliances);
   - the multiplayer rule (without a citadel, 0);
-  - the drawing;
+  - the border in the temple's world room (`Draw(0)`, `WorldRoom::ShowInfluence`; openblack has no temple world room)
+    and the per-land colour remap `GetRemapedPlayer` 0x64D790 (every openblack user of the player colours takes the
+    identity);
   - `CalculateMostInfluentialPlayer` and its helpers 0x5CD4F0 / 0x5CD600 / 0x5CD6C0.
 - **Inherited difference.** openblack creates the temple of `CREATE_PLANNED_CITADEL` already built. The original gives
   it the influence when Land1's script builds it, a few seconds in.
@@ -967,8 +994,13 @@ Full research in `dev\documentacion\miracles\influence.md`. All distances are in
 - Script: `GET_ALIGNMENT(jugador)` returns the value; `SET_ALIGNMENT(jugador, v)` **adds** v (`CrudeUpdate`, despite the
   name) and outside −1..1 gives the error "Alignment out of range" without doing anything (`GScript::SetAlignment`
   0x6F99C0).
-- Not ported: the history (`CAlignmentHistory::Add` 0x415260, read by the advisors and the good/evil view) and
-  `GGuidance::HelpSpritesAlignmentProcess`. The **terrain** alignment (`MapCoords::GetAlignment`, the one for growth
+- Not ported: the history (`CAlignmentHistory`, one global at 0xC4CD40; `AddTotal` 0x415480 and the `Add*` wrappers
+  0x414D40..0x4153C0, e.g. `Add(GPlayer*, Tree*, float)` 0x415260). **Retail never reads it**: its only reader is the
+  debug overlay 0x414840, which has no caller, and its node lists are never recorded (byte +0x85 is always 0). The
+  advisors (`GGuidance::HelpSpritesAlignmentProcess` 0x71CEB0, ported as `audio::guidance::HelpSpritesAlignmentProcess`)
+  read the raw per-turn change straight from `GAlignment::ProcessForPlayer` 0x4141A0, not the history (spec
+  `dev\_scratch\coordinador\spec_alignment_history.md`).
+  The **terrain** alignment (`MapCoords::GetAlignment`, the one for growth
   and the fields) is something else, from the influence of each cell, and is still not ported. Trace:
   `OPENBLACK_ALIGNMENT_TRACE=1`.
 
@@ -1322,9 +1354,9 @@ marked, 11 checked against the disassembly and 2 unchanged.
 What is missing is in each topic, at the end of its section:
 
 - Worship: where miracles come from: [Differences from the original and what is missing](#differences-from-the-original-and-what-is-missing)
-- Influence: the virtual influence, the allies, the multiplayer rule, the drawing and `CalculateMostInfluentialPlayer` ([Influence](magic.md#influence-m1i-srcecsinfluence)).
+- Influence: the virtual influence, the allies, the multiplayer rule, the border in the temple's world room, the colour remap and `CalculateMostInfluentialPlayer` ([Influence](magic.md#influence-m1i-srcecsinfluence)).
 - Casting from the hand: the help, the immersion, the HUD gesture icons, the hand glow and feeding a fireball in flight ([Casting from the hand, gestures and hand effects](magic.md#casting-from-the-hand-gestures-and-hand-effects-m2-srcmagicgestures-srcmagichand-handspellseedcpp)).
-- Alignment: the history (`CAlignmentHistory::Add` 0x415260) and the terrain alignment ([Player alignment](magic.md#player-alignment-galignment-gplayer-0x60-srcecseffectsalignment-componentsplayeralignment)).
+- Alignment: the terrain alignment; the history (`CAlignmentHistory`) only feeds a dead debug overlay in retail ([Player alignment](magic.md#player-alignment-galignment-gplayer-0x60-srcecseffectsalignment-componentsplayeralignment)).
 - Life: the town's count of injured villagers (Town+0x714) and the 0x40 flag of `Object::SetLife` 0x63A140 ([Object life](magic.md#object-life-m0-srcecslife)).
 - Dispenser orb: the user accepts the size of the seeds and the height of the bubble (2026-10-01). The reference capture of the original (`dev\documentacion\audit_magic\ref\dispenser_original.png`) is a WATER orb, not a fire one: its sky-blue blotch is the effect of the water seed. What remains (approximate) is that the terrain light and the haze are taken at `posición + facingOffset` and not at the point moved forward towards the camera (Draw 0x518FCD..0x518FF2) ([Seeds and one-off miracles](#seeds-and-one-off-miracles-spellseed-oneoffspellseed)).
 - Dispenser broken by a thrown rock: openblack breaks it into pieces like a house; the original draws it with `MultiMapFixed::Draw` (`SpellDispenser::Draw` 0x722940 -> 0x518090). `Abode::ReactToPhysicsImpact` 0x406240 and what happens to its orb still have to be read.

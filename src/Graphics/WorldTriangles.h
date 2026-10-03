@@ -112,6 +112,17 @@ struct Frame
 /// all, the first ones that fit are drawn and a warning is given once. Returns the batches drawn
 uint32_t Submit(RenderPass view, const Frame& frame, const ShaderManager& shaders, const void* only = nullptr);
 
+/// Draw3DWorldTriangle 0x81C090 in a material made by LH3DRender::CreateMaterial 0x82FD30 on a .raw texture (the
+/// influence border's [0xEB9A18], the ripples' smoke [0xEA1ABC]) instead of an L3D primitive's: indexed triangles
+/// (three indices each) drawn at once with the program "WorldQuad" (vs_blob + fs_world_quad: colour = texture x
+/// diffuse, alpha = the alpha file x diffuse alpha, the stage 0 of mode 6; no fog and no specular, 0x81C2BF), `diffuse`
+/// and `alpha` the X.raw / Xa.raw textures with their own samplers (the .raw loader's Repeat, which the tiling bit +5
+/// bit 2 of the materials drawn this way asks for), and render_modes::State of the material (its mode, the culling of
+/// +5 bit 0). Only for the modes whose stage 0 is that one (mode 6). (openblack guard) nothing is drawn when the
+/// transient buffers cannot take it all. Returns true when it was drawn
+bool SubmitRaw(RenderPass view, std::span<const Vertex> vertices, std::span<const uint16_t> indices, const Texture2D& diffuse,
+               const Texture2D& alpha, const render_modes::Material& material, const ShaderManager& shaders);
+
 /// The texture of an L3D primitive: the mesh's skins (or its SetSkinSource's), else the texture manager; nullptr for
 /// an untextured one. The models' lookup (Renderer::DrawSubMesh and the shadow casters use it too)
 [[nodiscard]] const Texture2D* PrimitiveTexture(const L3DMesh& mesh, uint32_t skinId);

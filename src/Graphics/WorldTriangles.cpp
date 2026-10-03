@@ -230,3 +230,39 @@ uint32_t world_triangles::Submit(RenderPass view, const Frame& frame, const Shad
 	}
 	return drawn;
 }
+
+bool world_triangles::SubmitRaw(RenderPass view, std::span<const Vertex> vertices, std::span<const uint16_t> indices,
+                                const Texture2D& diffuse, const Texture2D& alpha, const render_modes::Material& material,
+                                const ShaderManager& shaders)
+{
+	const auto* program = shaders.GetShader("WorldQuad");
+	if (program == nullptr || vertices.empty() || indices.size() < 3)
+	{
+		return false;
+	}
+	const auto& layout = Layout();
+	const auto vertexCount = static_cast<uint32_t>(vertices.size());
+	const auto indexCount = static_cast<uint32_t>(indices.size() / 3 * 3);
+	// (openblack guard) the transient buffers are shared with the rest of the frame
+	if (bgfx::getAvailTransientVertexBuffer(vertexCount, layout) < vertexCount ||
+	    bgfx::getAvailTransientIndexBuffer(indexCount) < indexCount)
+	{
+		return false;
+	}
+	bgfx::TransientVertexBuffer vertexBuffer;
+	bgfx::TransientIndexBuffer indexBuffer;
+	bgfx::allocTransientVertexBuffer(&vertexBuffer, vertexCount, layout);
+	bgfx::allocTransientIndexBuffer(&indexBuffer, indexCount);
+	static_assert(sizeof(Vertex) == 24, "Layout(): 3 + 2 floats and 4 bytes");
+	std::memcpy(vertexBuffer.data, vertices.data(), vertexCount * sizeof(Vertex));
+	std::memcpy(indexBuffer.data, indices.data(), indexCount * sizeof(uint16_t));
+	program->SetTextureSampler("s_diffuse", 0, diffuse);
+	program->SetTextureSampler("s_alpha", 1, alpha);
+	bgfx::setVertexBuffer(0, &vertexBuffer);
+	bgfx::setIndexBuffer(&indexBuffer);
+	// SetMaterial through the current table (0x81C48E..0x81C4A0: the normal one for these draws) and CULLMODE from +5 bit
+	// 0 (0x81C556..0x81C58F); the vertices are in the world, no mirror
+	bgfx::setState(render_modes::State(material));
+	bgfx::submit(static_cast<bgfx::ViewId>(view), toBgfx(program->GetRawHandle()));
+	return true;
+}

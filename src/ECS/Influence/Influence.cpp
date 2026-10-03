@@ -115,6 +115,17 @@ const InfluenceGlobals& GlobalsOrDefault()
 	return entity == entt::null ? k_Defaults : registry.Get<const InfluenceGlobals>(entity);
 }
 
+InfluenceGlobals* TryGlobals()
+{
+	if (!Locator::entitiesRegistry::has_value())
+	{
+		return nullptr;
+	}
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto entity = registry.Front<InfluenceGlobals>();
+	return entity == entt::null ? nullptr : registry.TryGet<InfluenceGlobals>(entity);
+}
+
 float DistanceXZ(const glm::vec3& a, const glm::vec3& b)
 {
 	return std::hypot(a.x - b.x, a.z - b.z);
@@ -242,8 +253,9 @@ float CalculateInfluenceOnRange(float distance, float radius, const GInfluenceIn
 void ProcessTurn()
 {
 	// GGame::ProcessTurn 0x54E63C: InfluenceRing::ProcessRings. The towns' radii (Town::Process 0x747380) are
-	// recomputed here too, once per turn, before anything reads them.
+	// recomputed here too, once per turn, before anything reads them, and the citadels' part of Citadel::Process
 	ProcessTowns();
+	ProcessCitadels();
 	ProcessRings();
 }
 

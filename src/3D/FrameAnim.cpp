@@ -49,6 +49,9 @@ constexpr std::array<float, 2> k_PlayerSymbolRate = {0.02f, 0.023f}; ///< [0x937
 constexpr float k_PlayerSymbolSpinRate = 0.002f; ///< [0x92A544]
 constexpr float k_TwoPi = 6.28318548f;           ///< [0x8AB210]
 constexpr float k_WaterfallRate = 0.5f;        ///< [0x8AA3B4]
+constexpr int32_t k_InfluenceLoopMs = 10000;   ///< InfluenceCircle::Draw 0x826D2D..0x826D59 (the idiv)
+constexpr float k_InfluenceRateU = 0.0001f;    ///< [0x9A391C]
+constexpr float k_InfluenceRateV = 0.0002f;    ///< [0x9000DC]
 constexpr float k_GoolooMs = 500.0f;           ///< [0xBF3588]
 constexpr double k_GoolooV = static_cast<double>(1.7f); ///< double [0x92B338] = 1.7000000476837158
 constexpr double k_GoolooRate = 0.7;           ///< double [0x900AE0]
@@ -259,6 +262,12 @@ int frame_anim::LanternAdvance(int& clockMs, uint32_t gameTimeIncMs) noexcept
 		clockMs %= k_LanternLoopMs;
 	}
 	return clockMs * 31 / k_LanternLoopMs;
+}
+
+frame_anim::UvOffset frame_anim::InfluenceScroll(int32_t& clockMs, uint32_t gameTimeIncMs) noexcept
+{
+	clockMs = (clockMs + static_cast<int32_t>(gameTimeIncMs)) % k_InfluenceLoopMs;
+	return {static_cast<float>(clockMs) * k_InfluenceRateU, static_cast<float>(-clockMs) * k_InfluenceRateV};
 }
 
 uint8_t frame_anim::LanternCell(int a, int flame, const LanternStarts& starts) noexcept

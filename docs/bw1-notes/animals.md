@@ -367,8 +367,12 @@ Report: `documentacion\render\animal_notes.txt`, data `animal_ebone_dump.txt`.
   shepherds nor flock player, so it only looks at its own flock's village [approximated].
 - Shepherds, the leader priority of FLOCK_ATTACH, the birds' landing (unreachable in the game: info.sleep 0), the exact
   order of the lists of each map cell and the turn interleaved with the villagers.
-- The random numbers are openblack's (mt19937), not the original's GameRand.
-- Putting an object down gently with the hand places it immediately; the original releases it into physics (hand, Tareas.txt).
+- The random numbers go through `game_random` (GameRand over the synchronised seed, ffd386c8); the sequence is still
+  not that of an original game while other systems drawing from the stream are not ported (engine-math.md «Random
+  numbers») (approximate).
+- Putting an animal down gently goes through physics like the original (`Object::InitialisePhysicsFromHand` 0x636F00,
+  [physics.md](physics.md)): on land it leaves physics on the spot through `Animal::EndPhysics` 0x5F0D80. The three
+  landing poses of `Villager::EndPhysics` are (pending, V13).
 
 ## Test hooks
 

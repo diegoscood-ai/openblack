@@ -199,8 +199,10 @@ villagers.
 
 ## Pending
 
-- Speed: town desires, hunger (cubed), wood and food loads, the town's belief in the
-  player and the player's wonder bonus (openblack uses the neutral value).
-- Age: growth every 375 turns (openblack does not age the villagers).
+- Speed: the wood and food loads (pending, villager milestone V5), the town-needs term from the town's desires (V3 has
+  the desires; SetStateSpeed does not read them yet: pending), the town's belief in the player and the player's wonder
+  bonus (neutral 1 until they exist). Hunger is in (GetDesireForFood 0x75BB50 at 0x750FDB).
+- Age: ported in V4 (`ECS/Villager/VillagerAge`, CheckChildGrownUp 0x751079, SetScaleForAge;
+  [villagers.md](villagers.md#home-food-sleep-homeless-and-age-v4)).
 - Clips: the jobs (objects in the hand) and the `GetAnimId` branches that depend on what does not exist yet (see
   [Which clip plays](#which-clip-plays)).

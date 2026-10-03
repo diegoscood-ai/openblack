@@ -16,7 +16,7 @@
 #include <glm/gtc/constants.hpp>
 
 #include "3D/LandIslandInterface.h"
-#include "Common/RandomNumberManager.h"
+#include "Common/GameRandom.h"
 #include "ECS/AnimalAIDetail.h"
 #include "ECS/AnimalAnimations.h"
 #include "ECS/Components/Animal.h"
@@ -252,7 +252,10 @@ void BirdStartWander(Context& ctx)
 	SetSpeed(ctx, SpeedDefault(ctx));
 	const auto p = CalcRandomPos(ctx, FlockPos(ctx), static_cast<float>(ctx.info.domainInnerRadius), static_cast<float>(flock->domainRadius));
 	const float variance = ctx.info.altitudeVariance;
-	const float altitude = ctx.brain.altitude + variance - Locator::rng::value().NextValue(0.0f, 2.0f * variance);
+	// 0x41DFFD: (altitude + variance) - GameFloatRand(2 variance)
+	const float high = ctx.brain.altitude + variance;
+	const float range = 2.0f * variance;
+	const float altitude = high - game_random::GameFloatRand(range);
 	const float base = FlockAltitude(ctx);
 	const float goalAltitude =
 	    base + ctx.info.altitudeMin < altitude && altitude < base + ctx.info.altitudeMax ? altitude : base;

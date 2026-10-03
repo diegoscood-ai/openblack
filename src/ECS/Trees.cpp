@@ -32,7 +32,7 @@
 #include "Audio/Services/AnimationSounds.h"
 #include "Audio/Audio.h"
 #include "Camera/Camera.h"
-#include "Common/RandomNumberManager.h"
+#include "Common/GameRandom.h"
 #include "ECS/Archetypes/TreeArchetype.h"
 #include "ECS/Archetypes/Utils.h"
 #include "ECS/Components/Forest.h"
@@ -263,11 +263,11 @@ entt::entity openblack::ecs::PlantTreeNear(uint32_t forestId, entt::entity paren
 	}
 	const auto type = parentTree->type;
 	const auto origin = parentTransform->position;
-	auto& rng = Locator::rng::value();
-	float angle = rng.NextValue(0.0f, glm::two_pi<float>());
+	// GameFloatRand(2pi) 0x53A043, once; GameRand(5) + 5 at the start of each ring (0x53A065..0x53A073)
+	float angle = game_random::GameFloatRand(glm::two_pi<float>());
 	for (int ring = 0; ring < 32; ++ring)
 	{
-		int radius = static_cast<int>(rng.NextValue<uint32_t>(0, 4)) + 5;
+		auto radius = game_random::GameRand(5) + 5u;
 		for (int attempt = 0; attempt < 5; ++attempt)
 		{
 			// 0x53A086..0x53A0A6: origin + GetPosFromAngle(a, float(r)) (fild qword), MapCoords::operator+ 0x605520;
@@ -279,9 +279,11 @@ entt::entity openblack::ecs::PlantTreeNear(uint32_t forestId, entt::entity paren
 			if (IsFreeForTree(coords))
 			{
 				g_lastTreeCreatedTurn = game_clock::Turn();
-				const auto tree = archetypes::TreeArchetype::Create(forestId, point, type, true,
-				                                                     rng.NextValue(0.0f, glm::two_pi<float>()),
-				                                                     0.8f + rng.NextValue(0.0f, 0.4f), 0.1f);
+				// Tree::Create's arguments right to left: size 0.1, then yAngle GameFloatRand(2pi) (0x53A14E), then
+				// maxSize GameFloatRand(0.4) + 0.8 (0x53A168..0x53A16D)
+				const float yAngle = game_random::GameFloatRand(glm::two_pi<float>());
+				const float maxSize = game_random::GameFloatRand(0.4f) + 0.8f;
+				const auto tree = archetypes::TreeArchetype::Create(forestId, point, type, true, yAngle, maxSize, 0.1f);
 				registry.SetDirty();
 				if (std::getenv("OPENBLACK_TREE_TRACE") != nullptr)
 				{
@@ -943,10 +945,9 @@ uint32_t openblack::ecs::BigForestRemoveWood(entt::entity bigForest, uint32_t am
 		// AddTreeAround 0x439220
 		const auto position = transform.position;
 		const float radius = Object2DRadius(bigForest);
-		auto& rng = Locator::rng::value();
 		for (int attempt = 0; attempt < 10 && Locator::terrainSystem::has_value(); ++attempt)
 		{
-			const float angle = rng.NextValue(0.0f, glm::two_pi<float>());
+			const float angle = game_random::GameFloatRand(glm::two_pi<float>());
 			// 0x439250..0x439274: position + GetPosFromAngle(GameFloatRand(2 pi), R)
 			const glm::vec2 point = PosFromAngle(position, angle, radius);
 			const float ground = Locator::terrainSystem::value().GetHeightAt(point);
@@ -976,10 +977,12 @@ uint32_t openblack::ecs::BigForestRemoveWood(entt::entity bigForest, uint32_t am
 			}
 			// Tree::Create(pos, GTreeInfo 0xDA49D8 = Pine (the GTreeInfo array: base 0xDA3AD8, stride 0x140, filled at
 			// 0x749D30; index 12), the BigForest's forest, maxSize 0.75 (0x8AC3F8) + GameFloatRand(0.5), yAngle
-			// GameFloatRand(2pi), size 0.05; the ctor keeps arg 4 as +0x64 maxSize, 0x749E4A)
-			const float maxSize = 0.75f + rng.NextValue(0.0f, 0.5f);
+			// GameFloatRand(2pi), size 0.05; the ctor keeps arg 4 as +0x64 maxSize, 0x749E4A): maxSize drawn first
+			// (0x4392FC, + 0.75 at 0x439309), then yAngle (0x439322)
+			const float maxSize = game_random::GameFloatRand(0.5f) + 0.75f;
+			const float yAngle = game_random::GameFloatRand(glm::two_pi<float>());
 			archetypes::TreeArchetype::Create(forest->forestId, glm::vec3(point.x, ground, point.y), TreeInfo::Pine, false,
-			                                  rng.NextValue(0.0f, glm::two_pi<float>()), maxSize, 0.05f);
+			                                  yAngle, maxSize, 0.05f);
 			break;
 		}
 	}
@@ -1211,26 +1214,36 @@ void openblack::ecs::UpdateTrees(float seconds)
 	// Tree::Draw 0x74B111: a tree over 10 tall whose position is within 10 of the camera in x and z (and 18 in y)
 	// rustles about once a second (LocalRand(1000 / frame ms) == 1, so the chance per frame is the frame's seconds):
 	// one of the editor.sad ambient samples of the tree group (G_TreeRustle / G_TreeCreak).
-	if (!Locator::resources::has_value() || seconds <= 0.0f)
+	// The draw comes first, for every tree drawn (0x74B111..0x74B140, before the distance tests): n = ftol(1000 (float
+	// [0x8AB228]) / g_game +0x205D48), and with 0 ms (pause) 1000/0 is +inf, which __ftol 0x7A1400 turns into the
+	// x87 integer indefinite 0x80000000, LocalRand's unsigned div then by 2^31. (aproximado) every tree with a mesh
+	// draws, not only those in the view as Tree::Draw.
+	if (!Locator::resources::has_value())
 	{
 		return;
 	}
+	const auto frameMs = game_clock::FrameGameMs();
+	const auto rustleRange = frameMs == 0 ? std::numeric_limits<int32_t>::min()
+	                                      : static_cast<int32_t>(1000.0f / static_cast<float>(frameMs));
 	auto& registry = Locator::entitiesRegistry::value();
 	auto& meshes = Locator::resources::value().GetMeshes();
-	auto& rng = Locator::rng::value();
 	registry.Each<const Tree, const Transform, const Mesh>(
 	    [&](entt::entity entity, const Tree&, const Transform& transform, const Mesh& mesh) {
+		    if (!meshes.Contains(mesh.id))
+		    {
+			    return;
+		    }
+		    if (game_random::LocalRand(rustleRange) != 1) // 0x74B135..0x74B13D
+		    {
+			    return;
+		    }
 		    const auto& at = transform.position;
 		    if (std::abs(at.x - cameraPosition.x) > 10.0f || std::abs(at.z - cameraPosition.z) > 10.0f ||
 		        std::abs(cameraPosition.y - at.y) >= 18.0f)
 		    {
 			    return;
 		    }
-		    if (!meshes.Contains(mesh.id) || ecs::object::GetHeight(entity) <= 10.0f) // vt +0x42C (0x74B1CF)
-		    {
-			    return;
-		    }
-		    if (rng.NextValue(0.0f, 1.0f) >= seconds)
+		    if (ecs::object::GetHeight(entity) <= 10.0f) // vt +0x42C (0x74B1CF)
 		    {
 			    return;
 		    }
@@ -1249,7 +1262,6 @@ namespace
 void ProcessForests(uint32_t turn)
 {
 	auto& registry = Locator::entitiesRegistry::value();
-	auto& rng = Locator::rng::value();
 	std::vector<uint32_t> empty;
 	std::vector<std::pair<uint32_t, entt::entity>> plant;
 	for (auto& [id, forest] : g_forests)
@@ -1290,7 +1302,7 @@ void ProcessForests(uint32_t turn)
 		{
 			continue;
 		}
-		const float r = 2000.0f + rng.NextValue(0.0f, 1000.0f);
+		const float r = game_random::GameFloatRand(1000.0f) + 2000.0f; // 0x539F04..0x539F0C
 		const float f = std::min(1.0f, 0.05f * static_cast<float>(grown.size()));
 		const float t = static_cast<float>(turn - g_lastTreeCreatedTurn);
 		const float c = static_cast<float>(++forest.attempts);
@@ -1298,7 +1310,8 @@ void ProcessForests(uint32_t turn)
 		{
 			forest.attempts = 0;
 			std::ranges::sort(grown, [](const auto& lhs, const auto& rhs) { return lhs.first < rhs.first; });
-			const auto pick = std::min(rng.NextValue<size_t>(0, grown.size() / 2), grown.size() - 1);
+			// CreateNewTree 0x539FD0: GameRand(n / 2 + 1) (0x539FE4), n = the list's count +0x4C, always < n
+			const auto pick = game_random::GameRand(static_cast<uint32_t>(grown.size() / 2 + 1));
 			plant.emplace_back(id, grown.at(pick).second);
 		}
 	}

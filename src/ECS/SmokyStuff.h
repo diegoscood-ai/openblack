@@ -42,13 +42,11 @@ struct Cloud
 	uint32_t colour {0};    ///< +0xC8: 0xAARRGGBB, its rgb replaces the puffs' unless it is -1
 };
 
-/// Random(a, b) 0x81D180: a + (b - a) x rand() / 32768 (rand() as MSVC's, from its own seed)
-[[nodiscard]] float Random(float from, float to);
-
 /// SmokyStuff::Create 0x823C90(pos, mode, size, colour), mode 0: each puff at pos + (c, b, a) with a, b, c =
 /// Random(-size, size), turned Random(0, 2 pi), cell 0x10, flying along norm(e, size, d) (d, e = Random(-size, size)) at
 /// Random(0.3, 1) x size units per second. Mode != 0 (0x823DA7, the ground marks' dust of ECS/GroundMarks): 1.5 x size
-/// along that direction.
+/// along that direction. Random is ?Random@@YAMMM@Z 0x81D180 (game_random::crt::Random): ((rand() x k) x (b - a)) + a,
+/// k 0x38000100, on the CRT stream the rest of the game shares.
 void Create(const glm::vec3& position, int32_t mode, float size, uint32_t colour);
 
 /// fn_00824140 (dt = g_game_time_inc x 0.001) -> fn_00823F70 per SmokyStuff, then the ones with life < 0 are freed:

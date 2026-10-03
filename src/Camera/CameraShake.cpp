@@ -15,7 +15,7 @@
 
 #include <glm/geometric.hpp>
 
-#include "3D/LH3DRandom.h"
+#include "Common/GameRandom.h"
 
 namespace openblack::camera_shake
 {
@@ -87,20 +87,20 @@ void Adjust(const glm::vec3& lastDrawn, glm::vec3& position, glm::vec3& target)
 	const float a = static_cast<float>(nearest->remainingMs) / static_cast<float>(nearest->totalMs) * nearest->amplitude;
 	if (nearest->yOnly) // 0x8211AC..0x8211CF
 	{
-		position.y += graphics::lh3d::Random(-a, a); // 0x8211D1..0x8211DF
-		target.y += graphics::lh3d::Random(-a, a);   // 0x8211E2..0x8211F0
+		position.y += game_random::crt::Random(-a, a); // 0x8211D1..0x8211DF
+		target.y += game_random::crt::Random(-a, a);   // 0x8211E2..0x8211F0
 		return;
 	}
 	// Six draws, kept in this order (0x8211F7..0x821264)
-	const float positionZ = graphics::lh3d::Random(-a, a);
-	const float positionY = graphics::lh3d::Random(-a, a);
-	const float positionX = graphics::lh3d::Random(-a, a);
+	const float positionZ = game_random::crt::Random(-a, a);
+	const float positionY = game_random::crt::Random(-a, a);
+	const float positionX = game_random::crt::Random(-a, a);
 	position.x += positionX;
 	position.y += positionY;
 	position.z += positionZ;
-	const float targetZ = graphics::lh3d::Random(-a, a);
-	const float targetY = graphics::lh3d::Random(-a, a);
-	const float targetX = graphics::lh3d::Random(-a, a);
+	const float targetZ = game_random::crt::Random(-a, a);
+	const float targetY = game_random::crt::Random(-a, a);
+	const float targetX = game_random::crt::Random(-a, a);
 	target.x += targetX;
 	target.y += targetY;
 	target.z += targetZ;

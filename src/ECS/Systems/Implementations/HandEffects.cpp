@@ -47,7 +47,7 @@
 #include "Camera/Camera.h"
 #include "Windowing/WindowingInterface.h"
 #include "Camera/CameraModel.h"
-#include "Common/RandomNumberManager.h"
+#include "Common/GameRandom.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Alpha.h"
 #include "ECS/Components/Hand.h"
@@ -144,10 +144,11 @@ void HandSystem::EmitGripDust(glm::vec3 point) noexcept
 	// No height test: the caller picks the land or the water branch by the cell's water bit (StartLandscapeGrip)
 	const auto texture = textures.Handle(textureId)->GetNativeHandle();
 	auto& registry = Locator::entitiesRegistry::value();
-	const auto random = [this]() {
-		_dustSeed = _dustSeed * 1664525u + 1013904223u;
-		return static_cast<float>(_dustSeed >> 8) / static_cast<float>(1u << 24);
-	};
+	// The hand's effects are local PSys effects (fn_0046E7B0 creates them with NET_GAME_TYPE 0, 0x46E7CF): their atoms
+	// draw PSysFloatRand / PSysRand on the local seed (LocalRand). (aproximado) The emitter is hand-rolled here, not the
+	// .zzz's: the stream and the PSys formulas are the original's, the number and the order of the position draws are not
+	const game_random::psys::StepScope scope(game_random::psys::NetGameType::Local);
+	const auto random = []() { return game_random::psys::FloatRand(1.0f); };
 	for (uint32_t i = 0; i < k_DustAtoms; ++i)
 	{
 		// Random point in the upper half of the sphere around the grab point.
@@ -157,7 +158,8 @@ void HandSystem::EmitGripDust(glm::vec3 point) noexcept
 		const float d = k_DustRadius * std::cbrt(random());
 		const glm::vec3 offset(std::cos(a) * r * d, u * d * 0.5f, std::sin(a) * r * d);
 		const auto entity = registry.Create();
-		const auto frame = std::floor(random() * static_cast<float>(k_DustFrames)); // RandomiseInitFrame
+		// RandomiseInitFrame: PSysRand(NumFrames) (CreateParticle3DSprite 0x6AA1E4)
+		const auto frame = static_cast<float>(game_random::psys::Rand(static_cast<int32_t>(k_DustFrames)));
 		// UseAdditiveAlpha 0 in SF_GripLandscape: normal blending (tint premultiplied by alpha each frame).
 		registry.Assign<Sprite>(entity, texture, DustFrameUv(frame), glm::vec2(1.0f / 8.0f), glm::vec4(k_DustColour, 0.0f), false);
 		registry.Assign<Transform>(entity, point + offset, glm::mat3(1.0f), glm::vec3(k_DustStartScale));
@@ -210,8 +212,8 @@ constexpr uint32_t k_PickupGrainFrames = 32;
 // the grains take the mean colour of S_SpriteSheet1's first 32 frames instead.
 constexpr glm::vec3 k_PickupGrainColour {229.0f / 255.0f, 208.0f / 255.0f, 148.0f / 255.0f};
 // SF_MultiPickUpFoodFish_txt.zzz: ParticleSpriteCreator_Fish, S_Spangle_A.raw cells 48..63 at 40 fps, looped, from a
-// random frame in a random direction, InitialScale 1, colour 200 x the landscape colour (here the mean colour of those
-// cells, 96 142 133, x 200 / 255). RandomiseScale is on but its range is unknown: not randomised.
+// random frame in a random direction, InitialScale 1 with RandomiseScale, colour 200 x the landscape colour (here the
+// mean colour of those cells, 96 142 133, x 200 / 255).
 constexpr float k_PickupFishScale = 1.0f;
 constexpr float k_PickupFishFrameRate = 40.0f;
 constexpr uint32_t k_PickupFishFirstCell = 48;
@@ -254,6 +256,24 @@ void HandSystem::UpdatePickupParticles(float seconds, bool emitting) noexcept
 		++_pickupEmitted;
 		const glm::vec3 start(hand.x, Locator::terrainSystem::value().GetHeightAt(glm::vec2(hand.x, hand.z)), hand.z);
 		const auto entity = registry.Create();
+		// A fish atom's draws, as CreateParticle3DSprite makes them (local stream, see EmitGripDust): RandomiseScale
+		// (PSysFloatRand(0.7) + 0.3) x InitialScale (0x6AA1B4..0x6AA1D6), RandomiseInitFrame PSysRand(NumFrames)
+		// (0x6AA1E4), RandomiseFrameDirection PSysRand(0x100) > 0x80 reverses the rate (0x6AA231)
+		float fishScale = k_PickupFishScale;
+		float fishFrame = 0.0f;
+		float fishFrameRate = k_PickupFishFrameRate;
+		if (fish)
+		{
+			const game_random::psys::StepScope scope(game_random::psys::NetGameType::Local);
+			const float r = game_random::psys::FloatRand(0.7f);
+			const float s = r + 0.3f;
+			fishScale = s * k_PickupFishScale;
+			fishFrame = static_cast<float>(game_random::psys::Rand(static_cast<int32_t>(k_PickupFishFrames)));
+			if (game_random::psys::Rand(0x100) > 0x80)
+			{
+				fishFrameRate = -fishFrameRate;
+			}
+		}
 		if (wood)
 		{
 			// RandomiseOrientations 0: SetAngleY(DefaultOrientation = 0).
@@ -286,14 +306,13 @@ void HandSystem::UpdatePickupParticles(float seconds, bool emitting) noexcept
 			// UseAdditiveAlpha 0: normal blending with a premultiplied tint. InitFrame 0, not randomised.
 			registry.Assign<Sprite>(entity, texture, glm::vec2(0.0f), glm::vec2(1.0f / 8.0f),
 			                        glm::vec4(fish ? k_PickupFishColour : k_PickupGrainColour, 1.0f), false);
-			registry.Assign<Transform>(entity, start, glm::mat3(1.0f), glm::vec3(fish ? k_PickupFishScale : k_PickupGrainScale));
+			registry.Assign<Transform>(entity, start, glm::mat3(1.0f), glm::vec3(fish ? fishScale : k_PickupGrainScale));
 		}
 		PickupParticle particle {entity, 0.0f, start, start, wood};
 		if (fish)
 		{
-			auto& rng = Locator::rng::value();
-			particle.frame = static_cast<float>(rng.NextValue<uint32_t>(0, k_PickupFishFrames - 1));
-			particle.frameRate = rng.NextValue<int>(0, 1) == 0 ? -k_PickupFishFrameRate : k_PickupFishFrameRate;
+			particle.frame = fishFrame;
+			particle.frameRate = fishFrameRate;
 		}
 		else
 		{

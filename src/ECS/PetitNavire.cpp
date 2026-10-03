@@ -30,6 +30,7 @@
 #include "3D/LandIslandInterface.h"
 #include "3D/ObjectMatrix.h"
 #include "Audio/Audio.h"
+#include "Common/GameRandom.h"
 #include "ECS/Animations.h"
 #include "ECS/Components/DynamicShadow.h"
 #include "ECS/Components/Mesh.h"
@@ -316,8 +317,8 @@ void PostDraw(int32_t dt)
 					// 0x5E04F5: two sprays 0xFEFFFFFF of size 7 at hull + (Random(-2, 2) - 10, 7, Random(-20, 20))
 					for (int k = 0; k < 2; ++k)
 					{
-						const float r1 = smoky_stuff::Random(-20.0f, 20.0f);
-						const float r2 = smoky_stuff::Random(-2.0f, 2.0f);
+						const float r1 = game_random::crt::Random(-20.0f, 20.0f); // 0x5E0531
+						const float r2 = game_random::crt::Random(-2.0f, 2.0f);   // 0x5E0544
 						smoky_stuff::Create(hullPosition + glm::vec3(r2 - 10.0f, 7.0f, r1), 0, 7.0f, 0xFEFFFFFFu);
 					}
 				}
@@ -327,8 +328,8 @@ void PostDraw(int32_t dt)
 				// 0x5E0598: two sand-coloured dusts 0xFFB88C38 of size 5 at hull + (Random(-2, 2), 0, Random(-20, 20))
 				for (int k = 0; k < 2; ++k)
 				{
-					const float r1 = smoky_stuff::Random(-20.0f, 20.0f);
-					const float r2 = smoky_stuff::Random(-2.0f, 2.0f);
+					const float r1 = game_random::crt::Random(-20.0f, 20.0f); // 0x5E05D7
+					const float r2 = game_random::crt::Random(-2.0f, 2.0f);   // 0x5E05EA
 					smoky_stuff::Create(hullPosition + glm::vec3(r2, 0.0f, r1), 0, 5.0f, 0xFFB88C38u);
 				}
 			}

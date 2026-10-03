@@ -11,7 +11,6 @@
 
 #include <algorithm>
 #include <cstdlib>
-#include <random>
 #include <string_view>
 
 #include <glm/geometric.hpp>
@@ -19,6 +18,7 @@
 
 #include "3D/FrameAnim.h"
 #include "3D/L3DMesh.h"
+#include "Common/GameRandom.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/HandSystemInterface.h"
@@ -32,14 +32,6 @@ using openblack::ecs::components::ChimneySmoke;
 
 namespace
 {
-/// Random 0x81D180 (a uniform float in [min, max]); the smoke is only drawn, so it has its own generator and does not
-/// move the game's synced one
-float Random(float min, float max)
-{
-	static std::mt19937 generator(0x5E0C4E);
-	return std::uniform_real_distribution<float>(min, max)(generator);
-}
-
 /// fn_007F8E00's globals, set by GLandscape::Draw (crt init 0x7F8DA0 / 0x7F8DD0: handWind (1, 0, 0), handPos
 /// (-10000, 0, 0); handSpeed in the bss, 0)
 struct HandWind
@@ -86,8 +78,9 @@ ChimneySmoke chimney_smoke::Create(const glm::vec3& chimney, uint32_t rgb)
 		puff.position = glm::vec3(0.0f, static_cast<float>(i) * 0.5f, 0.0f);
 		puff.hidden = true;
 		puff.age = static_cast<int32_t>(i) * 90;
-		puff.angle = Random(0.0f, glm::pi<float>());
-		puff.clockwise = (static_cast<int32_t>(Random(1.0f, 100.0f)) & 1) != 0;
+		// Random 0x81D180 (the CRT stream, not the synced one): 0x7F8C92 (0, pi), 0x7F8CA7 (1, 100)
+		puff.angle = game_random::crt::Random(0.0f, glm::pi<float>());
+		puff.clockwise = (static_cast<int32_t>(game_random::crt::Random(1.0f, 100.0f)) & 1) != 0;
 		puff.velocity = glm::vec3(0.0f);
 	}
 	return smoke;
@@ -186,9 +179,9 @@ void chimney_smoke::Advance(ChimneySmoke& smoke, float milliseconds, std::vector
 	}
 	else
 	{
-		// the first Random goes to z, the second to x
-		const float z = Random(-3.0f, 3.0f);
-		const float x = Random(-3.0f, 3.0f);
+		// the first Random (0x81D180, the CRT stream) goes to z, the second to x (fn_007F8E00 0x7F8EA9 / 0x7F8EBC)
+		const float z = game_random::crt::Random(-3.0f, 3.0f);
+		const float x = game_random::crt::Random(-3.0f, 3.0f);
 		drift = glm::vec3(x, 0.0f, z);
 	}
 

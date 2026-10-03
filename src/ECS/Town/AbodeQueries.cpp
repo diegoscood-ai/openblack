@@ -14,6 +14,7 @@
 #include "3D/L3DMesh.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Mesh.h"
+#include "Common/GameRandom.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Life.h"
 #include "ECS/MapCoords.h"
@@ -129,11 +130,11 @@ glm::ivec2 GetPosOutside(entt::entity abode, float p1, float p2, float p3)
 	// 0x4072EF: the door
 	const auto door = GetArrivePos(abode);
 	// 0x407317..0x40734B: GameFloatRand(2 pi / p1) (Abode.cpp 0x94A) - 2 pi / (p1 + p1)
-	const float spread = villager::GameFloatRand(glm::two_pi<float>() / p1) - glm::two_pi<float>() / (p1 + p1);
+	const float spread = game_random::GameFloatRand(glm::two_pi<float>() / p1) - glm::two_pi<float>() / (p1 + p1);
 	// 0x40734F: + Get3DAngleFromXZ(pos, door)
 	const float angle = town_queries::Get3DAngleFromXZ(town_queries::PosOf(abode), door) + spread;
 	// 0x40736B: GameFloatRand(p3) (0x94B) + p2
-	const float distance = villager::GameFloatRand(p3) + p2;
+	const float distance = game_random::GameFloatRand(p3) + p2;
 	// 0x407387..0x407394: door + GetPosFromAngle(angle, distance)
 	return door + town_queries::GetPosFromAngle(angle, distance);
 }

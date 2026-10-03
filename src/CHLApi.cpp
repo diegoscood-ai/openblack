@@ -44,6 +44,7 @@
 #include "Audio/Services/ScriptSound.h"
 #include "Camera/Camera.h"
 #include "Camera/CameraShake.h"
+#include "Common/GameRandom.h"
 #include "Camera/PlayerCameraScript.h"
 #include "Camera/ScriptCamera.h"
 #include "Video/FallingSpellVideo.h"
@@ -874,10 +875,16 @@ void Create() // 027 CREATE
 
 void Random() // 028 RANDOM
 {
+	// GScript::Random 0x6F8DA0: the first POP is max (0x6F8DAE), the second min (0x6F8DC2); ((max - min) + 1) rounded to
+	// a float (fstp 0x6F8DE4), synced GameFloatRand of it (0x6F8DE7), + min (0x6F8DEC), __ftol (0x6F8DF3, towards 0),
+	// pushed back as a float (fild, PUSH type 2 0x6F8E11): a whole number in [min, max + 1)
 	const auto max = Popf();
 	const auto min = Popf();
-	const float random = min + (max - min) * static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
-	Pushf(random);
+	const float span = max - min;
+	const float range = span + 1.0f;
+	const float drawn = game_random::GameFloatRand(range);
+	const float sum = drawn + min;
+	Pushf(static_cast<float>(static_cast<int32_t>(sum)));
 }
 
 void DllGettime() // 029 DLL_GETTIME
@@ -1430,11 +1437,13 @@ void Played() // 064 PLAYED
 
 void RandomUlong() // 065 RANDOM_ULONG
 {
-	// const auto max = Pop().intVal;
-	// const auto min = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushi(0);
+	// GScript::RandomULONG 0x6F8E20: the first POP is max (0x6F8E2E), the second min (0x6F8E40); synced
+	// GameRand(max - min + 1) (0x6F8E4C..0x6F8E55, unsigned; 0 for 0) + min (0x6F8E63), PUSH type 1 (int, 0x6F8E68)
+	const auto max = Pop().uintVal;
+	const auto min = Pop().uintVal;
+	const uint32_t range = max - min + 1u;
+	const uint32_t drawn = game_random::GameRand(range);
+	Pushi(static_cast<int32_t>(drawn + min));
 }
 
 void SetGamespeed() // 066 SET_GAMESPEED

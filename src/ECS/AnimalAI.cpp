@@ -27,7 +27,7 @@
 
 #include "3D/LandIslandInterface.h"
 #include "3D/ObjectMatrix.h"
-#include "Common/RandomNumberManager.h"
+#include "Common/GameRandom.h"
 #include "ECS/AnimalAIDetail.h"
 #include "ECS/AnimalAnimations.h"
 #include "ECS/AnimalWallHug.h"
@@ -69,23 +69,8 @@ using components::Mesh;
 using components::Villager;
 using components::Transform;
 
-namespace
-{
-/// GRand::GameFloatRand 0x6DE530 -> fn_005106B0: 0 for max == 0 (`fcomp 0; test ah, 0x40`), else float(LHRand(0xFFFF))
-/// x max x 1/65535 ([0x8D6050] = 0x37800080) (0x510710..0x510736), so in [0, max] for a negative max too.
-/// (aproximado) LHRand 0x7DB600 on g_game +0x205A30 is openblack's generator here: uniform in 0..0xFFFE, as the `div`
-/// by 0xFFFF
-float GameFloatRand(float max)
-{
-	if (max == 0.0f)
-	{
-		return 0.0f;
-	}
-	constexpr float k_InvFFFF = 1.0f / 65535.0f; // [0x8D6050] = 0x37800080
-	const auto random = Locator::rng::value().NextValue<uint32_t>(0, 0xFFFE);
-	return static_cast<float>(random) * max * k_InvFFFF;
-}
-} // namespace
+using game_random::GameFloatRand;
+using game_random::GameRand;
 
 namespace detail
 {
@@ -736,7 +721,8 @@ void SetNewWander(Context& ctx, glm::vec2 c, int32_t rMin, int32_t rMax)
 	if (!FlockSteer(ctx, out))
 	{
 		const auto turn = static_cast<int32_t>(ctx.info.turnAngle);
-		const int32_t random = turn > 0 ? static_cast<int32_t>(Locator::rng::value().NextValue<uint32_t>(0, turn - 1)) : 0;
+		// 0x41A509: GameRand(turn), 0 for 0 without a draw
+		const auto random = static_cast<int32_t>(GameRand(static_cast<uint16_t>(turn)));
 		const auto a = static_cast<uint16_t>((ctx.brain.angle - turn / 2 + random) & 0x7FF);
 		AddSteer(ctx.brain, out, Step(a, ctx.brain.speed));
 	}
@@ -805,11 +791,9 @@ void SetScaleForAge(Context& ctx, uint32_t age)
 		return;
 	}
 	const float step = 0.75f * (values[age + 1] - ctx.transform.scale.x);
-	if (step > 0.0f)
-	{
-		const float scale = ctx.transform.scale.x + Locator::rng::value().NextValue(0.0f, step);
-		ctx.transform.scale = glm::vec3(scale);
-	}
+	// 0x417A76: scale + GameFloatRand(step), whatever the sign of step (GameFloatRand gives 0 for 0)
+	const float scale = ctx.transform.scale.x + GameFloatRand(step);
+	ctx.transform.scale = glm::vec3(scale);
 }
 
 /// Animal::ProcessNeeds (0x417DC0)
@@ -1190,11 +1174,10 @@ void MoveToPos(Context& ctx)
 /// Animal::StartToEat (0x418280): 15..24 eat clips; the grazers' Cow::StartToEat (0x41D4A0) then makes it 20..34
 void StartToEat(Context& ctx)
 {
-	auto& rng = Locator::rng::value();
-	ctx.brain.counter = static_cast<int16_t>(rng.NextValue<uint32_t>(0, 9) + 15);
+	ctx.brain.counter = static_cast<int16_t>(GameRand(10) + 15); // 0x41828F
 	if (IsGrazer(ctx.animal.type))
 	{
-		ctx.brain.counter = static_cast<int16_t>(rng.NextValue<uint32_t>(0, 14) + 20);
+		ctx.brain.counter = static_cast<int16_t>(GameRand(15) + 20); // 0x41D4B4
 	}
 	SetSpeed(ctx, SpeedDefault(ctx));
 	PlayAnimThenSetState(ctx, AnimalState::Eat);

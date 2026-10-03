@@ -16,7 +16,7 @@
 #include <glm/geometric.hpp>
 
 #include "3D/L3DMesh.h"
-#include "Common/RandomNumberManager.h"
+#include "Common/GameRandom.h"
 #include "ECS/AnimalAIDetail.h"
 #include "ECS/AnimalWallHug.h"
 #include "ECS/Archetypes/PotArchetype.h"
@@ -438,10 +438,16 @@ glm::vec2 FleeingPosition(glm::vec2 me, glm::vec2 object, glm::vec2 movement, fl
 		const glm::vec2 away = me - object;
 		return glm::length(away) > 0.0f ? me + glm::normalize(away) * distance : me;
 	}
-	auto& rng = Locator::rng::value();
 	const glm::vec2 dir = glm::normalize(movement);
 	const glm::vec2 perp(-dir.y, dir.x);
-	const glm::vec2 f(rng.NextValue(0.0f, 8.0f) + perp.x * distance - 4.0f, rng.NextValue(0.0f, 8.0f) + perp.y * distance - 4.0f);
+	// (GameFloatRand(8) + side x distance) - 4: x first (0x420688), then z (0x4206B0)
+	glm::vec2 f;
+	f.x = game_random::GameFloatRand(8.0f);
+	f.x += perp.x * distance;
+	f.x -= 4.0f;
+	f.y = game_random::GameFloatRand(8.0f);
+	f.y += perp.y * distance;
+	f.y -= 4.0f;
 	return glm::dot(perp, me - object) >= 0.0f ? me + f : me - f;
 }
 

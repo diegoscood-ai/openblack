@@ -20,7 +20,7 @@
 #include "3D/L3DMesh.h"
 #include "3D/LandIslandInterface.h"
 #include "3D/LandMorph.h"
-#include "Common/RandomNumberManager.h"
+#include "Common/GameRandom.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/MorphWithTerrain.h"
 #include "ECS/Components/Transform.h"
@@ -159,11 +159,20 @@ bool SharesEdge(const FragMesh::Triangle& a, const FragMesh::Triangle& b)
 	return matches >= 2;
 }
 
+/// (GameRand(201) - 100) x scale on each axis, z drawn first and x last: the LHPoint's arguments are evaluated right to
+/// left (Impact 0x76E83B / 0x76E864 / 0x76E88D x 0.01 into +8 / +4 / +0 of the spin, SplitUnconnectedGroups 0x76E120 /
+/// 0x76E149 / 0x76E172 x 0.02 likewise)
 glm::vec3 RandomSpin(float scale)
 {
-	auto& rng = Locator::rng::value();
-	const auto r = [&]() { return static_cast<float>(rng.NextValue(0, 200) - 100) * scale; };
-	return {r(), r(), r()};
+	const auto r = [scale]() {
+		const auto n = static_cast<int32_t>(game_random::GameRand(201)) - 100;
+		const float v = static_cast<float>(n);
+		return v * scale;
+	};
+	const float z = r();
+	const float y = r();
+	const float x = r();
+	return {x, y, z};
 }
 
 uint32_t g_NextMesh = 0;
@@ -365,11 +374,19 @@ std::vector<FragMesh::Piece> FragMesh::Impact(glm::vec3 pos, glm::vec3 vel, floa
 			piece->Translate(-c);
 			const auto constructed = piece->TriangleCount(); // the Fragment's lifetime is counted before its split
 			auto parts = piece->SplitUnconnectedGroups(false, c);
+			// 0x76E7B1..0x76E7F8: three GameRand(201) whose results are dropped (the velocity is 0 + the hitter's,
+			// 0x76E7FD..0x76E834), then the spin. They come right after CreateFragment (0x76E619) whether or not
+			// the split left the Fragment any triangles
+			for (int i = 0; i < 3; ++i)
+			{
+				static_cast<void>(game_random::GameRand(201));
+			}
+			const auto spin = RandomSpin(0.01f);
 			if (piece->TriangleCount() > 0)
 			{
 				const auto c2 = piece->Centroid();
 				piece->Translate(-c2);
-				pieces.push_back({piece, c + c2, vel, RandomSpin(0.01f), constructed});
+				pieces.push_back({piece, c + c2, vel, spin, constructed});
 			}
 			for (auto& part : parts)
 			{

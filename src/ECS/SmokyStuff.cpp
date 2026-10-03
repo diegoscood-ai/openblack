@@ -15,21 +15,14 @@
 #include <glm/geometric.hpp>
 
 #include "3D/FrameAnim.h"
+#include "Common/GameRandom.h"
 
 namespace openblack::ecs::smoky_stuff
 {
 namespace
 {
 std::vector<Cloud> g_clouds;
-uint32_t g_seed = 1;
 } // namespace
-
-float Random(float from, float to)
-{
-	g_seed = g_seed * 214013u + 2531011u;
-	const auto r = static_cast<float>((g_seed >> 16) & 0x7FFFu);
-	return from + (to - from) * r * 3.05185e-05f;
-}
 
 void Create(const glm::vec3& position, int32_t mode, float size, uint32_t colour)
 {
@@ -40,20 +33,20 @@ void Create(const glm::vec3& position, int32_t mode, float size, uint32_t colour
 	cloud.colour = colour;
 	for (auto& puff : cloud.puffs)
 	{
-		// the order of the Random calls of 0x823D39..0x823D80
-		const float a = Random(-size, size);
-		const float b = Random(-size, size);
-		const float c = Random(-size, size);
+		// the order of the Random calls (0x81D180) of 0x823D39..0x823D80
+		const float a = game_random::crt::Random(-size, size);
+		const float b = game_random::crt::Random(-size, size);
+		const float c = game_random::crt::Random(-size, size);
 		puff.position = glm::vec3(c, b, a);
-		puff.angle = Random(0.0f, 6.2831855f);
-		const float d = Random(-size, size);
-		const float e = Random(-size, size);
+		puff.angle = game_random::crt::Random(0.0f, 6.2831855f);
+		const float d = game_random::crt::Random(-size, size);
+		const float e = game_random::crt::Random(-size, size);
 		puff.velocity = glm::vec3(e, size, d);
 		puff.cell = 0x10;
 		if (mode == 0)
 		{
-			// 0x823E80: Random(0.3, 1) x size along the direction (left as it is when it is 0)
-			const float speed = Random(0.3f, 1.0f) * size;
+			// 0x823E8A: Random(0.3, 1) x size along the direction (left as it is when it is 0)
+			const float speed = game_random::crt::Random(0.3f, 1.0f) * size;
 			const float length = glm::length(puff.velocity);
 			if (length > 0.0f)
 			{

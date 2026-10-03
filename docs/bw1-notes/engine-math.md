@@ -1068,14 +1068,17 @@ CRT. Todo **fiel** (leído en runblack.exe W120), salvo lo marcado.
   (`PSys/Noise.cpp`).
 - **Ya migrado** (fase A): Magic (SpellFlock, SpellForest, SpellWater), Worship (FireFlyReward), ECS/Weather (Climate,
   Storms, WeatherThing, StormClouds, Rain), VillagerFire, ECS/Fire/FireGraphic, PSys (Effect, Mist, LightMap, Mesh,
-  Gesture, Lightning, Storm, TownBelief, Noise). `villager::GameRand/GameFloatRand/SetRandForTests` y
-  `graphics::lh3d::Random` / `grand_local::*` (3D/LH3DRandom) reenvían al módulo, así que CameraShake, MistArchetype y
-  los aldeanos ya van por él.
-- **Lo que sigue en `Locator::rng`** (fase B, de otros dueños): animales, árboles, peces, luciérnagas, campos, rocas,
-  fragmentos, polvo, sonido y ayuda (`guidance::LocalRand`), Clouds (su `CrtRandom`), SmokyStuff, ChimneySmoke,
-  VillagerSpeed, VillagerAnimations; CHL RANDOM / RANDOM_ULONG (A6, pendiente del usuario). Por eso la secuencia
-  **nunca** coincidirá con una partida del original: lo que es fiel es la fórmula, la resolución y el ciclo de las
-  semillas.
+  Gesture, Lightning, Storm, TownBelief, Noise). `villager::GameRand/GameFloatRand/SetRandForTests` reenvían al
+  módulo. El antiguo `graphics::lh3d::Random` / `grand_local::*` (src/3D/LH3DRandom) se ha **quitado**: sus usuarios
+  (CameraShake, MistArchetype, los aldeanos...) llaman ya directamente a `game_random` (`crt::Random` en lugar de
+  `lh3d::Random`, `LocalRand` / `LocalFloatRand` en lugar de `grand_local::*`).
+- **Fase B (2026-10-03)**: todo sorteo de src pasa ya por `game_random`: el GRand sincronizado (`GameRand` /
+  `GameFloatRand`), el GRand local (`LocalRand` / `LocalFloatRand`) o el `rand()` de la CRT (`crt::Random` y
+  compañía), según lo que use el original en cada sitio (animales, árboles, peces, luciérnagas, campos, rocas,
+  fragmentos, polvo, sonido y ayuda, nubes, humos, aldeanos, CHL RANDOM / RANDOM_ULONG...). `Locator::rng`
+  (`RandomNumberManagerInterface`) solo queda para el `TestRng` de las pruebas (test_villager_*, test_camera); ningún
+  código del juego lo usa. La secuencia sigue sin coincidir con una partida del original (no se reproduce el orden
+  exacto de todas las llamadas): lo que es fiel es la fórmula, la resolución y el ciclo de las semillas.
 
 ## Pendiente
 
@@ -1437,9 +1440,9 @@ y `U8_changes.md`):
 ### Números aleatorios
 
 - A6: CHL `RANDOM` (`GScript::Random` 0x6F8DA0: `ftol(min + GameFloatRand(max − min + 1))`, empujado como float) y
-  `RANDOM_ULONG` (0x6F8E20: `GameRand(max − min + 1) + min`) siguen con el generador de openblack (CHLApi.cpp), a la
-  espera del usuario.
-- La fase B: las copias de otros dueños (`unify2/game_random_PLAN_A.md` §6).
+  `RANDOM_ULONG` (0x6F8E20: `GameRand(max − min + 1) + min`) ya van por el GRand sincronizado de `game_random`
+  (CHLApi.cpp, fase B).
+- La fase B está hecha (2026-10-03, ver «Fase B» arriba).
 - La traza `OPENBLACK_TRACE_GAME_RAND` toma el sitio con `std::source_location`, no la pila (`GetCurrentStackString`).
 - Hilos: sin mutex; en Debug un `assert` comprueba que solo tira el hilo que llamó a Init/Reset.
 

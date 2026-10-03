@@ -14,14 +14,16 @@
 
 #include <entt/entity/entity.hpp>
 
-#include "Common/RandomNumberManager.h"
+#include "Common/GameRandom.h"
 #include "ECS/Components/LivingAction.h"
+#include "ECS/Components/Town.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/WallHug.h"
 #include "ECS/Components/WorshipSite.h"
 #include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
 #include "ECS/ScriptHeld.h"
+#include "ECS/Town/TownQueries.h"
 #include "ECS/Villager/VillagerAge.h"
 #include "ECS/Villager/VillagerCore.h"
 #include "Game.h"
@@ -37,12 +39,6 @@ using namespace components;
 
 namespace
 {
-/// FloatRand (0x6DE530): [0, x)
-float FloatRand(float x)
-{
-	return x > 0.0f ? Locator::rng::value().NextValue(0.0f, x) : 0.0f;
-}
-
 /// g_game +0x205A40, the game turn
 uint32_t CurrentGameTurn()
 {
@@ -125,11 +121,20 @@ void SetVillagerStateSpeed(entt::entity entity)
 	float speed = 0.0f;
 	if (life <= info->lifeWhenCrawlsWounded)
 	{
-		speed = (FloatRand(0.2f) + 0.4f) * static_cast<float>(Raw(group.speed4)) * m;
+		// 0x7538D3: GameFloatRand(0.2) + 0.4
+		speed = (game_random::GameFloatRand(0.2f) + 0.4f) * static_cast<float>(Raw(group.speed4)) * m;
 	}
 	else if (life <= info->lifeWhenWalksWounded)
 	{
-		speed = (FloatRand(0.25f) + 0.5f) * static_cast<float>(Raw(group.speedDefault)) * m;
+		// 0x75391C: GameFloatRand(0.25) + 0.5
+		speed = (game_random::GameFloatRand(0.25f) + 0.5f) * static_cast<float>(Raw(group.speedDefault)) * m;
+	}
+	else if (const auto* town = villager->town != entt::null ? registry.TryGet<const Town>(villager->town) : nullptr;
+	         town != nullptr && town_queries::IsInStateOfEmergency(*town))
+	{
+		// 0x753939..0x753972: in a town in a state of emergency (Town::IsInStateOfEmergency 0x747970),
+		// (GameFloatRand(0.5) + 0.75) x the fleeing speed (GVillagerInfo +0x108) x m (0x75395A)
+		speed = (game_random::GameFloatRand(0.5f) + 0.75f) * static_cast<float>(Raw(group.speedFleeing)) * m;
 	}
 	else
 	{

@@ -22,7 +22,6 @@
 
 #include "3D/L3DMesh.h"
 #include "3D/ObjectMatrix.h"
-#include "Common/RandomNumberManager.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Fragment.h"
 #include "ECS/Components/Life.h"
@@ -136,7 +135,7 @@ void CreateFragment(const FragMesh::Piece& piece, entt::entity parent)
 	// one dust puff per distinct vertex (fn_845C20: 0x80706050, size 2, +-2 units per second)
 	for (const auto& p : points)
 	{
-		Dust::Emit(piece.centre + p, Dust::RandomVelocity(), 0x80706050u, 2.0f);
+		Dust::Emit(piece.centre + p, Dust::SyncedRandomVelocity(), 0x80706050u, 2.0f);
 	}
 	if (auto* po = PhysicsObjects::AddObject(entity, piece.velocity, piece.angularVelocity, parent))
 	{

@@ -19,7 +19,7 @@
 #include "3D/LandIslandInterface.h"
 #include "ECS/Archetypes/MobileStaticArchetype.h"
 #include "Audio/Audio.h"
-#include "Common/RandomNumberManager.h"
+#include "Common/GameRandom.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Mobile.h"
 #include "ECS/Components/Transform.h"
@@ -103,7 +103,8 @@ std::array<entt::entity, 2> Rocks::SplitInTwo(entt::entity entity, glm::vec3 vel
 	const float offset = Radius2D(entity) * k_Factor;
 	// Only the Y angle is kept. MobileStaticArchetype's rotation has column 2 = (-sin y cos x, sin x, cos y cos x).
 	const float yAngle = std::atan2(-transform.rotation[2].x, transform.rotation[2].z);
-	const float a = Locator::rng::value().NextValue(0.0f, glm::two_pi<float>());
+	// Rock::SplitInTwo 0x6E7560 draws first thing: GameFloatRand(2pi) at 0x6E7576
+	const float a = game_random::GameFloatRand(glm::two_pi<float>());
 	// 0x6E75B1: o = GetPosFromAngle(a, R2D x 0.7935); 0x6E76A9 / 0x6E76CE: the halves at pos + o and pos - o
 	// (MapCoords::operator+ 0x605520 / operator- 0x6055C0 on this +0x14, `lea edi, [esi + 0x14]` 0x6E76A3): both keep
 	// the rock's altitude (o's is 0), so each half is the ground at its own point plus that altitude (GetLHPoint)

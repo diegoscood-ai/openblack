@@ -483,8 +483,9 @@ bit 1, si no 2.
   el id del fuego en vez de `this & 0xFFFF`.
 - (aproximado) Un modo de luz por malla, no por instancia: si dos clases comparten malla (un `DeadTree` o `FelledTree`,
   que usan `fn_00801C90`, con la de un árbol vivo), gana el modo especial y se avisa una vez en el registro.
-- `grand_local::LocalRand` / `LocalFloatRand` (3D/LH3DRandom) reenvían a `game_random` (LHRand sobre GData +0xC): ya
-  no es otro generador.
+- `grand_local::LocalRand` / `LocalFloatRand` (3D/LH3DRandom) se han quitado: en su lugar se llama directamente a
+  `game_random::LocalRand` / `LocalFloatRand` (LHRand sobre GData +0xC), y para el `Random` de la CRT a
+  `game_random::crt::Random`. Ya no hay otro generador.
 - PLAUSIBLE, sin hacer: el reflejo bajo el agua (`vs_object` x = 3) va sin neblina, pero el original guarda en +0x4C /
   +0x50 la luz ya con neblina (`MobileObject::Draw` 0x51818E, `PhysicsObject::DrawAll` 0x646FB1), que
   `DrawUnderWater` reutiliza.

@@ -23,7 +23,8 @@ struct FishShoal;
 }
 
 /// fn_00824740 for each of the 15 fish: size 0.8..1.2, within +-5 (x, z) and -1..0 (y) of the centre, a random heading,
-/// speed 0.5..1.5 and turn rate speed x 0.6283 x (1 +- 0.1); the target is the centre
+/// speed 0.5..1.5 and turn rate speed x [0x900C90] (bit_cast 0x3F20D97C, about pi / 5) x (1 +- 0.1); the target is
+/// the centre
 void InitFishShoal(components::FishShoal& shoal, const glm::vec3& centre);
 
 /// fn_0074F2D0 & co.: something hit the water here this frame (the hand gripping the sea, an object falling in).

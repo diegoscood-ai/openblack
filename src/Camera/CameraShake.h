@@ -54,7 +54,7 @@ void StartCameraShake(const glm::vec3& point, float radius, float amplitude, flo
 /// (1 in the .data and never written: always on here, inferido). The shake nearest to `lastDrawn` (g_camera, the camera
 /// drawn the frame before: fn_004C2B90 subtracts, fn_004A1BA0 is the length; the first of equal ones, i.e. the newest)
 /// moves the camera when that distance is below its +4: a = remaining / total x amplitude (0x8211A9..0x8211B7), then
-/// Random(-a, a) (?Random@@YAMMM@Z 0x81D180, graphics::lh3d::Random) on y of both with "y only" (position first), else on
+/// Random(-a, a) (?Random@@YAMMM@Z 0x81D180, game_random::crt::Random) on y of both with "y only" (position first), else on
 /// the position's z, y, x and the target's z, y, x in that order (0x8211F7..0x821264). No fall-off with the distance
 void Adjust(const glm::vec3& lastDrawn, glm::vec3& position, glm::vec3& target);
 

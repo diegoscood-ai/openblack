@@ -11,8 +11,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <optional>
-#include <random>
 #include <vector>
 
 #include <entt/entity/entity.hpp>
@@ -20,16 +18,19 @@
 #include <glm/vec3.hpp>
 #include <spdlog/spdlog.h>
 
-#include "3D/AllMeshes.h"
 #include "3D/DayNightClock.h"
 #include "3D/FrameAnim.h"
-#include "3D/L3DMesh.h"
-#include "3D/LandIslandInterface.h"
+#include "Common/GameRandom.h"
 #include "ECS/Components/Abode.h"
-#include "ECS/Components/Mesh.h"
 #include "ECS/Components/Sprite.h"
+#include "ECS/Components/StreetLantern.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Tree.h"
+#include "ECS/GUtilsDistance.h"
+#include "ECS/MapCells.h"
+#include "ECS/MapCoords.h"
+#include "ECS/ObjectCreationIndex.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
 #include "ECS/Rocks.h"
 #include "FileSystem/FileSystemInterface.h"
@@ -47,7 +48,7 @@ using namespace openblack::ecs::components;
 namespace
 {
 constexpr size_t k_MaxFireFlies = 50;    // game+0x205D34, GGame ctor 0x54B806
-constexpr float k_SearchRadius = 300.0f; // fn_0052A5D0 / fn_0052A7A0
+constexpr float k_SearchRadius = 300.0f; // fn_0052A5D0 0x52A5D6 / fn_0052A8D0 0x52A8D5
 constexpr float k_HalfSize = 0.3f;
 constexpr uint32_t k_Frame = 37; // S_SpriteSheet3, 8 x 8: column 5, row 4
 
@@ -68,7 +69,7 @@ struct FireFly
 	glm::vec3 to {0.0f};    // +0x6C
 	glm::vec3 position {0.0f};
 	glm::vec3 previous {0.0f}; // +0x78, the position of the last turn (drawing interpolates)
-	glm::vec3 perch {0.0f};    // the tree or rock it sleeps on
+	map_coords::MapCoords coords; // +0x14 at rest: where it was made or where its last flight went
 	float progress {0.0f};     // +0x98
 	float duration {0.5f};     // +0x9C
 	float speedA {1.0f};       // +0xA0
@@ -80,31 +81,8 @@ struct FireFly
 	float clock {0.0f};        // accumulated seconds
 };
 
-std::vector<FireFly> g_fireFlies;
+std::vector<FireFly> g_fireFlies; // the list g_game +0x205D0C (head) / +0x205D10 (count)
 bool g_canSpawn = true; // [0xBE9DA0], set again every morning
-std::mt19937 g_random {0x46495245u};
-
-float Random(float from, float to)
-{
-	return std::uniform_real_distribution<float>(from, to)(g_random);
-}
-
-float Ground(const glm::vec3& p)
-{
-	return Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(glm::vec2(p.x, p.z)) : p.y;
-}
-
-float MeshHeight(entt::entity entity)
-{
-	const auto& registry = Locator::entitiesRegistry::value();
-	const auto* mesh = registry.TryGet<const Mesh>(entity);
-	const auto& meshes = Locator::resources::value().GetMeshes();
-	if (mesh == nullptr || !meshes.Contains(mesh->id))
-	{
-		return 0.0f;
-	}
-	return meshes.Handle(mesh->id)->GetBoundingBox().Size().y * registry.Get<const Transform>(entity).scale.y;
-}
 
 graphics::TextureHandle SheetTexture()
 {
@@ -127,148 +105,268 @@ graphics::TextureHandle SheetTexture()
 	return textures.Handle(id)->GetNativeHandle();
 }
 
-/// The trees and rocks the fireflies sleep on (GameLists.trees, the rocks of GameLists.multi_map_fixed)
-void Perches(std::vector<glm::vec3>& trees, std::vector<glm::vec3>& rocks)
+/// fn_0052B1A0: IsRock (vt +0x1F0) or IsAnyKindOfTree (vt +0x478)
+bool IsRockOrTree(entt::entity object)
 {
-	auto& registry = Locator::entitiesRegistry::value();
-	registry.Each<const Tree, const Transform>(
-	    [&trees](entt::entity /*unused*/, const Tree& /*unused*/, const Transform& transform) { trees.push_back(transform.position); });
-	registry.Each<const Transform>([&rocks](entt::entity entity, const Transform& transform) {
-		if (Rocks::IsRock(entity))
-		{
-			rocks.push_back(transform.position);
-		}
-	});
+	return Rocks::IsRock(object) || Locator::entitiesRegistry::value().AnyOf<Tree, DeadTree>(object);
 }
 
-/// The spiral search of fn_0052A5D0 / fn_0052A7A0 over 300 m: each cell is tested with a 50 % chance and the search
-/// may stop at a candidate, so the result is the nearest candidate that survives a coin toss
-std::optional<glm::vec3> Nearest(const glm::vec3& from, std::vector<std::pair<float, glm::vec3>> candidates)
+/// fn_0052B1D0: IsAbode (vt +0x208) or IsStreetLight (vt +0x200; (inferido) the GStreetLanterns)
+bool IsAbodeOrStreetLight(entt::entity object)
 {
-	std::erase_if(candidates, [&from](auto& c) {
-		c.first = glm::distance(glm::vec2(from.x, from.z), glm::vec2(c.second.x, c.second.z));
-		return c.first >= k_SearchRadius;
-	});
-	std::sort(candidates.begin(), candidates.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
-	for (const auto& candidate : candidates)
+	return Locator::entitiesRegistry::value().AnyOf<Abode, StreetLantern>(object);
+}
+
+/// The firefly's +0x14: at rest (asleep or hovering) the MapCoords its flight went to; (aproximado) in flight the
+/// interpolated position (the port keeps it in metres)
+map_coords::MapCoords CoordsOf(const FireFly& fly)
+{
+	if (fly.state == State::Asleep || fly.state == State::Hovering)
 	{
-		if (std::bernoulli_distribution(0.5)(g_random))
-		{
-			return candidate.second;
-		}
+		return fly.coords;
 	}
-	return std::nullopt;
+	return map_coords::FromWorld(fly.position);
 }
 
-/// fn_0052B1D0: houses and street lanterns, the destination raised by the object's height + 2
-std::vector<std::pair<float, glm::vec3>> Lights()
+/// The game lists the spawn picks from: (inferido) newest first, by the creation index (the lists' order is not read)
+std::vector<entt::entity> NewestFirst(std::vector<entt::entity> list)
 {
-	std::vector<std::pair<float, glm::vec3>> result;
-	auto& registry = Locator::entitiesRegistry::value();
-	registry.Each<const Abode, const Transform>([&result](entt::entity entity, const Abode& /*unused*/, const Transform& transform) {
-		result.emplace_back(0.0f, transform.position + glm::vec3(0.0f, MeshHeight(entity) + 2.0f, 0.0f));
-	});
-	const auto lantern = resources::HashIdentifier(MeshId::ObjectTownLight);
-	registry.Each<const Mesh, const Transform>([&result, lantern](entt::entity entity, const Mesh& mesh, const Transform& transform) {
-		if (mesh.id == lantern)
+	std::stable_sort(list.begin(), list.end(),
+	                 [](entt::entity a, entt::entity b) { return object_index::Of(a) > object_index::Of(b); });
+	return list;
+}
+
+/// GameLists.trees (g_game +0x205CDC head, +0x205CE0 count): the Trees (a DeadTree is a Rock subclass)
+std::vector<entt::entity> TreeList()
+{
+	std::vector<entt::entity> list;
+	Locator::entitiesRegistry::value().Each<const Tree>(
+	    [&list](entt::entity entity, const Tree& /*unused*/) { list.push_back(entity); });
+	return NewestFirst(std::move(list));
+}
+
+/// GameLists.multi_map_fixed (g_game +0x205CB4 head, +0x205CB8 count): the MultiMapFixed-class objects
+std::vector<entt::entity> MultiMapFixedList()
+{
+	std::vector<entt::entity> list;
+	Locator::entitiesRegistry::value().Each<const Transform>([&list](entt::entity entity, const Transform& /*unused*/) {
+		if (map_cells::IsMultiMapFixedClass(entity))
 		{
-			result.emplace_back(0.0f, transform.position + glm::vec3(0.0f, MeshHeight(entity) + 2.0f, 0.0f));
+			list.push_back(entity);
 		}
 	});
-	return result;
+	return NewestFirst(std::move(list));
 }
 
+/// fn_0052A670 (fn_0052B1D0's objects) / fn_0052A7A0 (fn_0052B1A0's): GUtils::Spiral over ftol(ceil(2r / 10))^2 cells
+/// (0x52A673..0x52A6B4, ceil on the double) from the start's cell. Each InBounds cell is searched only when
+/// GameRand(2) != 0 (0x52A6ED / 0x52A81D); in its FindType(ANY) walk (0x52A701, 0x52A75E) an object pred accepts is
+/// taken when its GetDistanceInMetres from the start is below the best ("test ah, 1": or unordered) or there is no best
+/// yet, and then GameRand(3) == 0 (0x52A747 / 0x52A877) ends that cell. The radius only sizes the spiral: no cut by
+/// distance. Null when nothing was taken
+entt::entity SpiralSearch(const map_coords::MapCoords& from, float radius, bool (*pred)(entt::entity))
+{
+	const float twice = radius + radius;
+	const float cells = twice / 10.0f;
+	const auto side = static_cast<int32_t>(std::ceil(static_cast<double>(cells)));
+	int32_t count = side * side;
+	map_coords::MapCoords coords = from;
+	map_coords::Spiral spiral;
+	entt::entity best = entt::null;
+	float bestDistance = 0.0f;
+	for (; count > 0; --count)
+	{
+		if (map_coords::InBounds(coords) && game_random::GameRand(2) != 0)
+		{
+			const auto cell = map_coords::Cell(coords);
+			for (auto candidate = map_cells::FindType(cell, ObjectType::Any); candidate != entt::null;
+			     candidate = map_cells::FindType(cell, ObjectType::Any, candidate))
+			{
+				if (!pred(candidate))
+				{
+					continue;
+				}
+				const float distance = gutils::GetDistanceInMetres(from, object::MapCoordsOf(candidate));
+				if (!(distance >= bestDistance) || best == entt::null)
+				{
+					bestDistance = distance;
+					best = candidate;
+					if (game_random::GameRand(3) == 0)
+					{
+						break;
+					}
+				}
+			}
+		}
+		map_coords::AddCells(coords, spiral.Next());
+	}
+	return best;
+}
+
+/// fn_0052A630 / fn_0052A917: the fallback, 15 m along x (ftol((x 10 / 65536 + 15) 65536 / 10)) with this altitude
+map_coords::MapCoords Aside(map_coords::MapCoords coords, float altitude)
+{
+	coords.x = map_coords::ToFixedGUtils(map_coords::ToMetres(coords.x) + 15.0f);
+	coords.altitude = altitude;
+	return coords;
+}
+
+/// FireFly::Create 0x52A200 -> the ctor 0x52A280 -> fn_0052A380: eight synced GameFloatRand in this order (FireFly.cpp
+/// lines 0x78..0x81): +0xA0 = GFR(0.8) + 0.6, +0xA4 the same, then GFR(2 pi) for +0xA8, +0xAC, +0xB0, +0xB4, +0xB8 and
+/// +0xBC (+0xB0 and +0xBC are drawn and never read). The new firefly goes to the HEAD of the list (0x52A2C8..0x52A2DD)
+void Create(const map_coords::MapCoords& coords, graphics::TextureHandle texture)
+{
+	using game_random::GameFloatRand;
+	FireFly fly;
+	fly.coords = coords;
+	fly.position = fly.previous = fly.from = fly.to = map_coords::ToWorld(coords);
+	const float speedA = GameFloatRand(0.8f);
+	fly.speedA = speedA + 0.6f;
+	const float speedB = GameFloatRand(0.8f);
+	fly.speedB = speedB + 0.6f;
+	fly.phaseA1 = GameFloatRand(glm::two_pi<float>());
+	fly.phaseA2 = GameFloatRand(glm::two_pi<float>());
+	static_cast<void>(GameFloatRand(glm::two_pi<float>())); // +0xB0
+	fly.phaseB1 = GameFloatRand(glm::two_pi<float>());
+	fly.phaseB2 = GameFloatRand(glm::two_pi<float>());
+	static_cast<void>(GameFloatRand(glm::two_pi<float>())); // +0xBC
+	auto& registry = Locator::entitiesRegistry::value();
+	fly.sprite = registry.Create();
+	registry.Assign<Sprite>(fly.sprite, texture, graphics::frame_anim::SpriteCellUv(static_cast<int>(k_Frame), 8)[0],
+	                        glm::vec2(1.0f / 8.0f), glm::vec4(0.0f), true);
+	registry.Assign<Transform>(fly.sprite, fly.position, glm::mat3(1.0f), glm::vec3(k_HalfSize));
+	g_fireFlies.insert(g_fireFlies.begin(), fly);
+}
+
+/// fn_0052B200: (max - count) attempts (0x52B215..0x52B223, the max re-read each time). Each GameRand(2) (0x52B235):
+/// nonzero, the GameRand(count) (0x52B25F) tree of GameLists.trees, an empty list ends the spawn (0x52B24E); zero, the
+/// GameRand(count) (0x52B2CC) object of GameLists.multi_map_fixed, then on to the first IsRock (0x52B2FF..0x52B312), an
+/// empty list ends the spawn (0x52B2BF) and no rock from there makes nothing this attempt. A firefly at its MapCoords
 void Spawn()
 {
-	std::vector<glm::vec3> trees;
-	std::vector<glm::vec3> rocks;
-	Perches(trees, rocks);
-	const auto texture = SheetTexture();
-	auto& registry = Locator::entitiesRegistry::value();
-	while (g_fireFlies.size() < k_MaxFireFlies)
+	if (g_fireFlies.size() >= k_MaxFireFlies)
 	{
-		const bool tree = std::uniform_int_distribution<int>(0, 1)(g_random) != 0;
-		const auto& list = tree ? trees : rocks;
-		if (list.empty())
-		{
-			if (trees.empty() && rocks.empty())
-			{
-				return;
-			}
-			continue;
-		}
-		const auto& at = list[std::uniform_int_distribution<size_t>(0, list.size() - 1)(g_random)];
-		FireFly fly;
-		fly.perch = glm::vec3(at.x, Ground(at), at.z);
-		fly.position = fly.previous = fly.from = fly.to = fly.perch;
-		fly.speedA = Random(0.0f, 0.8f) + 0.6f;
-		fly.speedB = Random(0.0f, 0.8f) + 0.6f;
-		fly.phaseA1 = Random(0.0f, glm::two_pi<float>());
-		fly.phaseA2 = Random(0.0f, glm::two_pi<float>());
-		fly.phaseB1 = Random(0.0f, glm::two_pi<float>());
-		fly.phaseB2 = Random(0.0f, glm::two_pi<float>());
-		fly.sprite = registry.Create();
-		registry.Assign<Sprite>(fly.sprite, texture, graphics::frame_anim::SpriteCellUv(static_cast<int>(k_Frame), 8)[0],
-		                        glm::vec2(1.0f / 8.0f), glm::vec4(0.0f), true);
-		registry.Assign<Transform>(fly.sprite, fly.position, glm::mat3(1.0f), glm::vec3(k_HalfSize));
-		g_fireFlies.push_back(fly);
+		return;
 	}
-	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Fireflies: {} ({} trees, {} rocks)", g_fireFlies.size(), trees.size(), rocks.size());
+	const auto trees = TreeList();
+	const auto fixed = MultiMapFixedList();
+	const auto texture = SheetTexture();
+	for (size_t attempt = g_fireFlies.size(); attempt < k_MaxFireFlies; ++attempt)
+	{
+		entt::entity at = entt::null;
+		if (game_random::GameRand(2) != 0)
+		{
+			if (trees.empty())
+			{
+				break;
+			}
+			at = trees[game_random::GameRand(static_cast<uint32_t>(trees.size()))];
+		}
+		else
+		{
+			if (fixed.empty())
+			{
+				break;
+			}
+			for (size_t i = game_random::GameRand(static_cast<uint32_t>(fixed.size())); i < fixed.size(); ++i)
+			{
+				if (Rocks::IsRock(fixed[i]))
+				{
+					at = fixed[i];
+					break;
+				}
+			}
+			if (at == entt::null)
+			{
+				continue;
+			}
+		}
+		Create(object::MapCoordsOf(at), texture);
+	}
+	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Fireflies: {} ({} trees, {} multi map fixed)", g_fireFlies.size(), trees.size(),
+	                   fixed.size());
 }
 
-void StartFlight(FireFly& fly, const glm::vec3& to, State state)
+/// fn_0052A950 (out) / fn_0052AA10 (home): the flight to that MapCoords
+void StartFlight(FireFly& fly, const map_coords::MapCoords& to, State state)
 {
 	fly.from = fly.position;
-	fly.to = to;
+	fly.coords = to;
+	fly.to = map_coords::ToWorld(to);
 	fly.progress = 0.0f;
 	fly.state = state;
 	fly.duration = std::max(0.5f, glm::distance(fly.from, fly.to) / (3.0f * fly.speedA));
 }
 
-/// fn_0052B350: the first resting firefly flies out to the nearest light (none: 1.5 m aside, 4 up)
-void WakeOne()
+/// The list head to the tail (0x52B43C..0x52B4B3 / 0x52B51C..0x52B591)
+void HeadToTail()
 {
-	const auto it = std::find_if(g_fireFlies.begin(), g_fireFlies.end(), [](const FireFly& f) { return f.resting; });
-	if (it == g_fireFlies.end())
-	{
-		return;
-	}
-	auto fly = *it;
-	g_fireFlies.erase(it);
-	const auto destination = Nearest(fly.position, Lights());
-	StartFlight(fly, destination.value_or(fly.position + glm::vec3(1.5f, 4.0f, 0.0f)), State::FlyingOut);
-	fly.resting = false;
-	g_fireFlies.push_back(fly); // to the end of the list
+	std::rotate(g_fireFlies.begin(), g_fireFlies.begin() + 1, g_fireFlies.end());
 }
 
-/// fn_0052B4C0: the first awake firefly flies back to the nearest tree or rock
-void SleepOne()
+/// fn_0052B350: only the list head, and only when it is resting (+0xC0 bit 0). Its tree or rock must still be there: an
+/// object of the fixed list of its cell (GetFirstObjectFixed 0x52B388 + GetMapChild) that is fn_0052B1A0 and whose
+/// MapCoords equal its own (operator== 0x605660, x and z), else it is deleted (0x52B3FB). (The same walk deletes it
+/// when another FireFly there has its MapCoords; a FireFly is type 0x2A, which DoesObjectTypeCountAsFixed puts in the
+/// mobile list, so that never happens.) Then it flies to fn_0052A670's abode or lantern, raised by its GetHeight + 2
+/// (fn_0052A5D0), none: 15 m along x, altitude 4; it is awake and goes to the tail
+void WakeOne()
 {
-	const auto it = std::find_if(g_fireFlies.begin(), g_fireFlies.end(), [](const FireFly& f) { return !f.resting; });
-	if (it == g_fireFlies.end())
+	if (g_fireFlies.empty() || !g_fireFlies.front().resting)
 	{
 		return;
 	}
-	std::vector<glm::vec3> trees;
-	std::vector<glm::vec3> rocks;
-	Perches(trees, rocks);
-	std::vector<std::pair<float, glm::vec3>> candidates;
-	for (const auto& p : trees)
+	auto& fly = g_fireFlies.front();
+	const auto at = CoordsOf(fly);
+	bool perched = false;
+	map_cells::ForEachFixed(map_coords::Cell(at), [&perched, &at](entt::entity candidate) {
+		if (IsRockOrTree(candidate))
+		{
+			const auto coords = object::MapCoordsOf(candidate);
+			perched = perched || (coords.x == at.x && coords.z == at.z);
+		}
+		return true;
+	});
+	if (!perched)
 	{
-		candidates.emplace_back(0.0f, p);
+		auto& registry = Locator::entitiesRegistry::value();
+		if (registry.Valid(fly.sprite))
+		{
+			registry.Destroy(fly.sprite);
+		}
+		g_fireFlies.erase(g_fireFlies.begin());
+		return;
 	}
-	for (const auto& p : rocks)
+	map_coords::MapCoords destination;
+	if (const auto light = SpiralSearch(at, k_SearchRadius, IsAbodeOrStreetLight); light != entt::null)
 	{
-		candidates.emplace_back(0.0f, p);
+		destination = object::MapCoordsOf(light);
+		const float height = object::GetHeight(light) + 2.0f; // 0x52A605..0x52A60B
+		destination.altitude = height + destination.altitude;
 	}
-	auto destination = Nearest(it->position, std::move(candidates));
-	if (destination)
+	else
 	{
-		destination->y = Ground(*destination);
+		destination = Aside(at, 4.0f);
 	}
-	it->perch = destination.value_or(glm::vec3(it->position.x + 1.5f, Ground(it->position), it->position.z));
-	StartFlight(*it, it->perch, State::FlyingHome);
-	it->resting = true;
+	StartFlight(fly, destination, State::FlyingOut);
+	fly.resting = false;
+	HeadToTail();
+}
+
+/// fn_0052B4C0: only the list head, and only when it is awake. It flies to fn_0052A7A0's tree or rock (fn_0052A8D0),
+/// none: 15 m along x, altitude 0; it is resting from now on and goes to the tail
+void SleepOne()
+{
+	if (g_fireFlies.empty() || g_fireFlies.front().resting)
+	{
+		return;
+	}
+	auto& fly = g_fireFlies.front();
+	const auto at = CoordsOf(fly);
+	const auto perch = SpiralSearch(at, k_SearchRadius, IsRockOrTree);
+	StartFlight(fly, perch != entt::null ? object::MapCoordsOf(perch) : Aside(at, 0.0f), State::FlyingHome);
+	fly.resting = true;
+	HeadToTail();
 }
 
 float Smooth(float p)

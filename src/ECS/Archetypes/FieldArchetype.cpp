@@ -16,7 +16,7 @@
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Field.h"
 #include "ECS/Components/Town.h"
-#include "Common/RandomNumberManager.h"
+#include "Common/GameRandom.h"
 #include "ECS/MapCells.h"
 #include "ECS/Registry.h"
 #include "EngineConfig.h"
@@ -50,7 +50,8 @@ entt::entity FieldArchetype::Create(int townId, const glm::vec3& position, Field
 		field.growth = Field::k_AgeRecolt;
 		field.food = Field::k_TotalFood;
 	}
-	field.turnOffset = static_cast<uint8_t>(Locator::rng::value().NextValue<int>(0, 9));
+	// the ctor: GameRand(10) at 0x527E90 into +0x11C
+	field.turnOffset = static_cast<uint8_t>(game_random::GameRand(10));
 	// test hook: every field starts at this growth, with the food it would have (OPENBLACK_TEST_FIELD_GROWTH=0..1200)
 	if (const char* growth = std::getenv("OPENBLACK_TEST_FIELD_GROWTH"); growth != nullptr)
 	{

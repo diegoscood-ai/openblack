@@ -26,7 +26,6 @@
 #include "ECS/Fire/FireEffect.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
-#include "Common/RandomNumberManager.h"
 #include "Locator.h"
 
 using namespace openblack;

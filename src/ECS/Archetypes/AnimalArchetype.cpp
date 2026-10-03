@@ -14,7 +14,7 @@
 #include <glm/vec3.hpp>
 
 #include "3D/LandIslandInterface.h"
-#include "Common/RandomNumberManager.h"
+#include "Common/GameRandom.h"
 #include "ECS/AnimalAI.h"
 #include "ECS/Components/Animal.h"
 #include "ECS/DetailMeshes.h"
@@ -82,16 +82,15 @@ AnimalClass ClassOf(const GAnimalInfo& info)
 	}
 }
 
-/// GameRand(range) + 5
+/// GameRand(range) + 5 (0x419C34 with 0x28, 0x419D47 with 0x14)
 uint32_t RandomAge(uint32_t range)
 {
-	return Locator::rng::value().NextValue<uint32_t>(0, range - 1) + 5;
+	return game_random::GameRand(range) + 5;
 }
 
 /// The class factory and CallVirtualFunctionsForCreation of an animal
 entt::entity MakeAnimal(const glm::vec3& position, AnimalInfo type, const GAnimalInfo& info, uint32_t age)
 {
-	auto& rng = Locator::rng::value();
 	// InitialiseScale 0x417B20 / SetScaleForAge 0x417A40 (K = 0.75): young ones take their age's scale and a random part
 	// of the step to the next; adults 1.05 - FloatRand(0.1)
 	float scale;
@@ -100,17 +99,21 @@ entt::entity MakeAnimal(const glm::vec3& position, AnimalInfo type, const GAnima
 	{
 		scale = ageToScale[age - 1];
 		const float step = 0.75f * (ageToScale[age + 1] - scale);
-		scale += step > 0.0f ? rng.NextValue<float>(0.0f, step) : 0.0f;
+		scale += game_random::GameFloatRand(step); // 0x417A76, whatever the sign of step
 	}
 	else
 	{
 		// InitialiseScale: 0.9; SetScaleForAge's adult branch: t = 1.05 - FloatRand(0.1), and if the scale is under it a
 		// second roll 1.05 - FloatRand(0.1)
 		scale = 0.9f;
-		const float t = 1.05f - rng.NextValue<float>(0.0f, 0.1f);
+		// (0.05 - GameFloatRand(0.1)) + 1, one operation per statement (0x417AAE..0x417AC0)
+		float t = 0.05f - game_random::GameFloatRand(0.1f);
+		t += 1.0f;
 		if (scale < t)
 		{
-			scale = 1.05f - rng.NextValue<float>(0.0f, 0.1f);
+			// 0x417AE7..0x417AF5
+			scale = 0.05f - game_random::GameFloatRand(0.1f);
+			scale += 1.0f;
 		}
 	}
 

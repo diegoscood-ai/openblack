@@ -32,26 +32,19 @@ std::array<Drop, k_Drops> g_drops;
 float g_elevation = 160.0f; ///< 0xC38E10
 float g_fallSpeed = 1.0f;   ///< 0xC38E14
 bool g_drawn = false;       ///< 0xEDC300
-/// ?Random@@YAMMM@Z 0x81D180 (fn_00833D10 / fn_00834700): ((rand() x k) x (max - min)) + min on the CRT rand, not
-/// GRand (game_random::crt)
-float Random(float min, float max)
-{
-	return game_random::crt::Random(min, max);
-}
-
-/// fn_00833D10
+/// fn_00833D10: 7 draws of ?Random@@YAMMM@Z 0x81D180 (game_random::crt, the CRT rand, not GRand), 0x833D1D..0x833D8F
 void Place(Drop& drop)
 {
-	drop.x = Random(-160.0f, 160.0f) * 0.5f;
-	drop.z = Random(-160.0f, 160.0f) * 0.5f;
-	drop.dx = Random(-15.0f, 15.0f);
-	drop.dz = Random(-15.0f, 15.0f);
-	drop.scroll = Random(0.0f, 1.0f);
-	drop.speed = Random(0.1f, 0.2f);
-	drop.phase = Random(0.0f, 1.0f);
+	drop.x = game_random::crt::Random(-160.0f, 160.0f) * 0.5f;
+	drop.z = game_random::crt::Random(-160.0f, 160.0f) * 0.5f;
+	drop.dx = game_random::crt::Random(-15.0f, 15.0f);
+	drop.dz = game_random::crt::Random(-15.0f, 15.0f);
+	drop.scroll = game_random::crt::Random(0.0f, 1.0f);
+	drop.speed = game_random::crt::Random(0.1f, 0.2f);
+	drop.phase = game_random::crt::Random(0.0f, 1.0f);
 }
 
-/// fn_00833EA0
+/// fn_00833EA0: 4 more Random draws per reborn drop (0x833F23..0x833F5F)
 void Step(float seconds)
 {
 	const float step = seconds * 2.4f;
@@ -66,10 +59,10 @@ void Step(float seconds)
 		if (drop.phase > 1.0f)
 		{
 			drop.phase -= static_cast<float>(static_cast<int32_t>(drop.phase));
-			drop.dx = Random(-15.0f, 15.0f);
-			drop.dz = Random(-15.0f, 15.0f);
-			drop.x = Random(-160.0f, 160.0f) * 0.5f;
-			drop.z = Random(-160.0f, 160.0f) * 0.5f;
+			drop.dx = game_random::crt::Random(-15.0f, 15.0f);
+			drop.dz = game_random::crt::Random(-15.0f, 15.0f);
+			drop.x = game_random::crt::Random(-160.0f, 160.0f) * 0.5f;
+			drop.z = game_random::crt::Random(-160.0f, 160.0f) * 0.5f;
 		}
 	}
 }

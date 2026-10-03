@@ -12,7 +12,7 @@
 #include <algorithm>
 #include <vector>
 
-#include "Common/RandomNumberManager.h"
+#include "Common/GameRandom.h"
 #include "ECS/AnimalAI.h"
 #include "ECS/Animations.h"
 #include "ECS/Components/Animal.h"
@@ -240,12 +240,12 @@ bool IsBird(AnimalInfo type)
 /// fixed ids (the odd ones, e.g. the crow's stand = TAKEOFF, are what the code returns); every other slot -1
 int32_t BirdClip(AnimalInfo type, Slot slot, AnimalState state)
 {
-	auto& rng = Locator::rng::value();
 	if (state == AnimalState::DecideWhatToDo)
 	{
 		slot = Slot::Move; // Animal::DecideAnimation 0x41BD20 = the Move function
 	}
-	const auto coin = [&rng](int32_t heads, int32_t tails) { return rng.NextValue<uint32_t>(0, 1) == 0 ? heads : tails; };
+	// GameRand(2) == 0 ? first : second (Dove 0x41BD39, Crow 0x41BEC9, Pigeon / Seagull 0x41BF39 / 0x41BFA9)
+	const auto coin = [](int32_t heads, int32_t tails) { return game_random::GameRand(2) == 0 ? heads : tails; };
 	struct Fixed
 	{
 		int32_t stand, dead, eat, sleep, thrown;
@@ -284,7 +284,7 @@ int32_t BirdClip(AnimalInfo type, Slot slot, AnimalState state)
 	case AnimalInfo::Swallow:
 		if (slot == Slot::Move)
 		{
-			const auto third = rng.NextValue<uint32_t>(0, 2);
+			const auto third = game_random::GameRand(3); // 0x41C019
 			return third == 0 ? 27 : (third == 1 ? 26 : 25);
 		}
 		fixed = {27, 26, 27, 27, 27};
@@ -364,12 +364,12 @@ int32_t AnimalAnimId(entt::entity entity)
 		// Cow::DeadAnimation 0x41C790: (status & 0x30) == 0x10 ? DEAD_ON_RHS : DEAD_ON_LHS
 		return landType == 1 ? clips->dead[0] : clips->dead[1];
 	case Slot::Eat:
-		// Cow::EatAnimation 0x41C740: GameRand(2) picks one of the two
+		// Cow::EatAnimation 0x41C740: GameRand(2) picks one of the two (0x41C74C)
 		if (clips->eat0 == clips->eat1)
 		{
 			return clips->eat0;
 		}
-		return Locator::rng::value().NextValue<uint32_t>(0, 1) == 0 ? clips->eat0 : clips->eat1;
+		return game_random::GameRand(2) == 0 ? clips->eat0 : clips->eat1;
 	case Slot::StartToEat:
 		return clips->startToEat;
 	case Slot::FinishEating:

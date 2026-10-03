@@ -11,14 +11,15 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cmath>
-#include <random>
 
 #include <LNDFile.h>
 #include <entt/entity/entity.hpp>
 #include <spdlog/spdlog.h>
 
 #include "Audio/Services/LanternSounds.h"
+#include "Common/GameRandom.h"
 #include "DayNightClock.h"
 #include "ECS/Components/Sprite.h"
 #include "ECS/Components/StreetLantern.h"
@@ -248,7 +249,7 @@ void night_lights::StampLight(const LightImage& image, float x, float z, float i
 
 namespace
 {
-constexpr float k_JitterMs = 30.0f;     // fn_00823460
+constexpr float k_JitterMs = 30.0f;     // fn_00823460 [0x8BF51C]
 constexpr int k_GlowCell = 56;          // fn_00823240 0x8233BC..0x8233EB: (flags & ~7) | 0x38
 constexpr glm::vec3 k_LightColour {0xF3 / 255.0f, 0x84 / 255.0f, 0x21 / 255.0f};
 
@@ -277,14 +278,11 @@ struct State
 	// 0xC383BC: the start of each sprite's cells, one table for every light, rewritten by every new light
 	// (frame_anim::LanternStarts); kept from land to land as the original's global
 	graphics::frame_anim::LanternStarts flameStarts {graphics::frame_anim::k_LanternFileStarts};
-	std::mt19937 random {0x4C414E54u};
 };
 State g_state;
 
-float Random(float from, float to)
-{
-	return std::uniform_real_distribution<float>(from, to)(g_state.random);
-}
+/// Every draw here is the CRT's ?Random 0x81D180
+using game_random::crt::Random;
 
 std::vector<uint8_t> ReadTexture(const char* name)
 {
@@ -362,15 +360,17 @@ void Rescan()
 		VillageLight light;
 		light.position = position;
 		light.type = type;
+		// 0x8232FB: the jitter clock +0x10 starts at Random(0, 30)
 		light.timer = Random(0.0f, k_JitterMs);
 		const glm::vec3 at = position + glm::vec3(0.0f, type == 1 ? 1.0f : 5.0f, 0.0f);
 		for (size_t i = 0; i < light.sprites.size(); ++i)
 		{
 			const bool flame = i < 2;
-			// fn_00823240 0x823355..0x823368: a flame's size 1 + Random(-0.1, 0.1)
+			// fn_00823240 0x823355..0x823382: a flame's size Random(-0.1, 0.1) + 1, at least [0x8BF518] = 1e-4, drawn
+			// before the sprite's start
 			if (flame)
 			{
-				light.flameSize[i] = 1.0f + Random(-0.1f, 0.1f);
+				light.flameSize[i] = std::max(Random(-0.1f, 0.1f) + 1.0f, 1e-4f);
 			}
 			// 0x8233E4..0x8233F8: every sprite, the glow too, rewrites its entry of the global start table
 			g_state.flameStarts.at(i) = graphics::frame_anim::LanternStart(Random(0.0f, 31.0f));
@@ -448,14 +448,26 @@ void night_lights::Update(float milliseconds, float scriptHour, const glm::vec3&
 	const int a = graphics::frame_anim::LanternAdvance(g_state.flameMs, running ? wholeMs : 0u);
 	const float alpha = std::trunc(villageAlpha) / 255.0f;
 	auto& registry = Locator::entitiesRegistry::value();
-	for (auto& light : g_state.lights)
+	// fn_00823460 walks the list [0xEB99B8] from its head, and fn_00823240 puts each new light at the head
+	// (0x8232D5..0x8232E7): the newest first
+	for (auto it = g_state.lights.rbegin(); it != g_state.lights.rend(); ++it)
 	{
-		light.timer -= milliseconds;
-		if (light.timer <= 0.0f)
+		auto& light = *it;
+		// 0x8234B6..0x8234FD: +0x10 += g_game_time_inc (whole ms); above 30, -= 30 ftol(+0x10 x [0x8CF3F8] (1/30)), then
+		// CRT Random(-0.5, 0.5) for +0x14 (0x823502) and +0x18 (0x823514), and the glow's size Random(-0.1, 0.1) + 3, at
+		// least 1e-4 (0x823526..0x823546)
+		const float elapsed = static_cast<float>(wholeMs);
+		light.timer = elapsed + light.timer;
+		if (light.timer > k_JitterMs)
 		{
-			light.timer += k_JitterMs;
-			light.offset = glm::vec2(Random(-0.5f, 0.5f), Random(-0.5f, 0.5f));
-			light.glowSize = 3.0f + Random(-0.1f, 0.1f);
+			const float scaled = light.timer * std::bit_cast<float>(0x3D088889u);
+			const float whole = static_cast<float>(static_cast<int32_t>(scaled));
+			const float wrap = whole * k_JitterMs;
+			light.timer = light.timer - wrap;
+			const float x = Random(-0.5f, 0.5f);
+			const float z = Random(-0.5f, 0.5f);
+			light.offset = glm::vec2(x, z);
+			light.glowSize = std::max(Random(-0.1f, 0.1f) + 3.0f, 1e-4f);
 		}
 		for (size_t i = 0; i < light.sprites.size(); ++i)
 		{

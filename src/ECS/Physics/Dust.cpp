@@ -18,7 +18,7 @@
 #include <spdlog/spdlog.h>
 
 #include "3D/FrameAnim.h"
-#include "Common/RandomNumberManager.h"
+#include "Common/GameRandom.h"
 #include "ECS/Components/Sprite.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
@@ -76,11 +76,32 @@ glm::vec2 CellUv(uint32_t cell)
 }
 } // namespace
 
+namespace
+{
+/// (r - 100) x [0x8CF178] (0.02): fild of the int, fmul
+float Axis(uint32_t r)
+{
+	const auto centred = static_cast<int32_t>(r) - 100;
+	return static_cast<float>(centred) * 0.02f;
+}
+} // namespace
+
 glm::vec3 Dust::RandomVelocity()
 {
-	auto& rng = Locator::rng::value();
-	const auto r = [&rng]() { return static_cast<float>(rng.NextValue(0, 200) - 100) * 0.02f; };
-	return {r(), r(), r()};
+	// 0x6467D1, 0x6467ED, 0x646809: z ([ebp-0x38]), y ([ebp-0x3C]), x ([ebp-0x40]) in that order
+	const float z = Axis(game_random::LocalRand(201));
+	const float y = Axis(game_random::LocalRand(201));
+	const float x = Axis(game_random::LocalRand(201));
+	return {x, y, z};
+}
+
+glm::vec3 Dust::SyncedRandomVelocity()
+{
+	// 0x76EEC5, 0x76EEEE, 0x76EF1A (ViscousLiquid.cpp line 0x27D): z (stored 0x76EF4A), y (0x76EF35), x (0x76EF53)
+	const float z = Axis(game_random::GameRand(201));
+	const float y = Axis(game_random::GameRand(201));
+	const float x = Axis(game_random::GameRand(201));
+	return {x, y, z};
 }
 
 void Dust::Emit(glm::vec3 at, glm::vec3 velocity, uint32_t argb, float size)
@@ -89,6 +110,9 @@ void Dust::Emit(glm::vec3 at, glm::vec3 velocity, uint32_t argb, float size)
 	{
 		return;
 	}
+	// fn_00845FA0 0x845FDE: a kind other than 0 (all of openblack's are kind 4) takes CRT rand() % 16 (signed; rand is
+	// never negative), after the 0x400 test of fn_00845D30 (0x845D42)
+	const auto seed = static_cast<uint32_t>(game_random::crt::Rand() % 16);
 	const auto texture = Texture();
 	if (!texture)
 	{
@@ -99,7 +123,6 @@ void Dust::Emit(glm::vec3 at, glm::vec3 velocity, uint32_t argb, float size)
 	const glm::vec3 rgb(colour);
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto entity = registry.Create();
-	const auto seed = static_cast<uint32_t>(Locator::rng::value().NextValue(0, 15));
 	// normal blending with the tint premultiplied by its alpha
 	registry.Assign<Sprite>(entity, *texture, CellUv(16 + seed), glm::vec2(1.0f / 8.0f), glm::vec4(rgb * a, a), false);
 	registry.Assign<Transform>(entity, at, glm::mat3(1.0f), glm::vec3(0.0f));

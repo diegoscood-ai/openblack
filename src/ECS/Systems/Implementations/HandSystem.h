@@ -359,7 +359,6 @@ private:
 		float frame; ///< the atom's +0x10C, from RandomiseInitFrame (frame_anim::PSysFrameAdvance)
 	};
 	std::vector<DustParticle> _dust;
-	uint32_t _dustSeed {1};
 
 	/// SF_MultiPickUpWood / SF_MultiPickUpFood atoms (ER_MultiPickup): pieces rising from the pile into the hand.
 	struct PickupParticle

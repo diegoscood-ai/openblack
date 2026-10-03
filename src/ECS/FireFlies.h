@@ -20,8 +20,10 @@ namespace openblack::ecs
 {
 
 /// FireFly::ProcessAll 0x52B7A0, once per game turn: in the evening up to 50 fireflies appear at random trees and
-/// rocks and one per turn flies to the nearest house or street lantern; in the morning one per turn flies back to a
-/// tree or rock and goes to sleep.
+/// rocks and one per turn flies to an abode or street lantern found by fn_0052A670 (a 300-unit GUtils::Spiral where
+/// each cell is searched only on GameRand(2) != 0 and a closer match ends the cell on GameRand(3) == 0: not strictly
+/// the nearest); in the morning one per turn flies back to a tree or rock found the same way by fn_0052A7A0 and goes
+/// to sleep.
 void ProcessFireFliesTurn(const DayNightClock& clock);
 
 /// FireFly::Draw 0x52AA90 / fn_0052ABC0, every frame: the orbit around the firefly's point, the distance fade and

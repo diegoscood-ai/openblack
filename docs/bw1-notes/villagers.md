@@ -351,7 +351,7 @@ Spec completa: `dev\documentacion\aldeanos\V2_spec.md`. Código: `Villager/Villa
   devuelve 1; si tienen hambre, CheckChild → GoHome → la rama sin casa de DoGoingHome 0x760310 (neutra) devuelve 1. Antes
   de V2 paseaban (paseo inventado). Land1: 5–6 niños en 114 quietos (12, 13 en (1748,4, 2679,6) desde su creación). El
   trace lo dice una vez por aldeano: `child 114: no mother, no abode -> CheckNeedNewAbode …` y
-  `home: no abode -> DoGoingHome's homeless branch …`. Land1 (2026-10-01, `_mapa_runudit_v2_fix.log`, 367 turnos): niños 60, 12 y 67 por
+  `home: no abode -> DoGoingHome's homeless branch …`. Land1 (2026-10-01, `_mapa_run\audit_v2_fix.log`, 367 turnos): niños 60, 12 y 67 por
   CheckNeedNewAbode, aldeanos 1992 y 1991 por la rama sin casa de DoGoingHome.
 - Los que quedan en 37 o en 36 sin casa no vuelven a CheckNeededForSomething: el culto de Milagros
   (CheckNeededForWorship) no puede reclutarlos y la reserva de adoradores baja con la partida.

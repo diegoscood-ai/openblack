@@ -15,7 +15,7 @@
 #include <glm/geometric.hpp>
 
 #include "3D/L3DAnim.h"
-#include "Common/RandomNumberManager.h"
+#include "Common/GameRandom.h"
 #include "ECS/Animations.h"
 #include "ECS/Components/LivingAction.h"
 #include "ECS/Components/Mesh.h"
@@ -127,11 +127,6 @@ enum Carried : int32_t
 	k_CarriedHammer = 8,
 	k_CarriedMalletHeavy = 9,
 };
-
-int32_t Random(int32_t count)
-{
-	return Locator::rng::value().NextValue<int32_t>(0, count - 1);
-}
 
 const GVillagerStateTableInfo& StateInfo(VillagerStates state)
 {
@@ -256,7 +251,7 @@ int32_t StateFunctionAnim(AnimFn function, entt::entity entity, const Villager& 
 	case AnimFn::Building:
 	{
 		// BuildingAnimation (0x423E20): the working clip after its into clip, else one of the three at random
-		// and it sets the carried object: hammer, saw or heavy mallet
+		// and it sets the carried object: hammer, saw or heavy mallet (GameRand 0x6DE510, as every draw here)
 		const auto current = CurrentClip(entity);
 		int32_t clip = k_Hammering;
 		if (current == k_IntoHammering)
@@ -274,7 +269,7 @@ int32_t StateFunctionAnim(AnimFn function, entt::entity entity, const Villager& 
 		else
 		{
 			const std::array<int32_t, 3> clips = {k_Hammering, k_SawWood, k_Sledgehammer};
-			clip = clips.at(static_cast<size_t>(Random(3)));
+			clip = clips.at(static_cast<size_t>(game_random::GameRand(3)));
 		}
 		if (auto* animation = Locator::entitiesRegistry::value().TryGet<SkeletalAnimation>(entity);
 		    animation != nullptr && !animation->carriedLocked)
@@ -292,30 +287,30 @@ int32_t StateFunctionAnim(AnimFn function, entt::entity entity, const Villager& 
 	case AnimFn::LookAtLargeObject:
 		return k_LookingForSomething;
 	case AnimFn::InspectCreature:
-		if (IsWomanOrChild(villager) && Random(3) == 0)
+		if (IsWomanOrChild(villager) && static_cast<int32_t>(game_random::GameRand(3)) == 0)
 		{
 			return k_ScaredStiff;
 		}
-		return Random(8) > 2 ? k_TalkingAndPointing : k_Stand;
+		return static_cast<int32_t>(game_random::GameRand(8)) > 2 ? k_TalkingAndPointing : k_Stand;
 	case AnimFn::RespectCreature:
 	{
-		const auto r = Random(5);
+		const auto r = static_cast<int32_t>(game_random::GameRand(5));
 		return r == 0 ? k_CrowdImpressed1 : r <= 2 ? k_Stand : k_Pray;
 	}
 	case AnimFn::ControlledByCreature:
-		return Random(3) == 2 ? k_WaitingImpatiently : k_Stand;
+		return static_cast<int32_t>(game_random::GameRand(3)) == 2 ? k_WaitingImpatiently : k_Stand;
 	case AnimFn::PointAtFlyingObject:
 	{
-		if (IsWomanOrChild(villager) && Random(3) == 0)
+		if (IsWomanOrChild(villager) && static_cast<int32_t>(game_random::GameRand(3)) == 0)
 		{
 			return k_ScaredStiff;
 		}
 		const std::array<int32_t, 3> clips = {k_LookingForSomething, k_Stand, k_TalkingAndPointing};
-		return clips.at(static_cast<size_t>(Random(3)));
+		return clips.at(static_cast<size_t>(game_random::GameRand(3)));
 	}
 	case AnimFn::FootballWaitForKickOff:
 	{
-		const auto r = Random(100);
+		const auto r = static_cast<int32_t>(game_random::GameRand(100));
 		return r < 25 ? 414 : r < 50 ? 415 : r < 75 ? 416 : 417;
 	}
 	case AnimFn::FootballGoalKeeper:
@@ -323,20 +318,20 @@ int32_t StateFunctionAnim(AnimFn function, entt::entity entity, const Villager& 
 	case AnimFn::FootballWatchMatch:
 	{
 		const std::array<int32_t, 3> clips = {k_TalkingAndPointing, 396, 272};
-		return clips.at(static_cast<size_t>(Random(3)));
+		return clips.at(static_cast<size_t>(game_random::GameRand(3)));
 	}
 	case AnimFn::FootballMatchPaused:
 	{
-		const auto r = Random(100);
+		const auto r = static_cast<int32_t>(game_random::GameRand(100));
 		return r < 25 ? k_LookingForSomething : r < 50 ? k_Stand : r < 75 ? 412 : 413;
 	}
 	case AnimFn::Yawn:
-		return Random(2) == 0 ? k_Yawn : k_Yawn2;
+		return static_cast<int32_t>(game_random::GameRand(2)) == 0 ? k_Yawn : k_Yawn2;
 	case AnimFn::PauseForASecond: // not poisoned
-		return Random(2) == 0 ? k_Overworked1 : k_Overworked2;
+		return static_cast<int32_t>(game_random::GameRand(2)) == 0 ? k_Overworked1 : k_Overworked2;
 	case AnimFn::AmazedByShield:
 	{
-		const auto r = Random(5);
+		const auto r = static_cast<int32_t>(game_random::GameRand(5));
 		return r == 0 ? k_IntoPointing : r <= 2 ? k_LookAtHand : k_Stand;
 	}
 	case AnimFn::TownEmergency:
@@ -351,11 +346,11 @@ int32_t StateFunctionAnim(AnimFn function, entt::entity entity, const Villager& 
 		                                       k_StandDespair1 + 1,
 		                                       k_StandDespair1 + 2,
 		                                       k_TalkingAndPointing};
-		return clips.at(static_cast<size_t>(Random(10)));
+		return clips.at(static_cast<size_t>(game_random::GameRand(10)));
 	}
 	case AnimFn::RandomCrowd:
 	{
-		const auto r = Random(25);
+		const auto r = static_cast<int32_t>(game_random::GameRand(25));
 		return r == 0 ? 204 : r == 1 ? 203 : r == 2 ? k_WaitingImpatiently : r == 3 ? k_CrowdImpressed1 : r <= 5 ? k_CrowdWon : k_Stand;
 	}
 	case AnimFn::SitDown:
@@ -375,7 +370,7 @@ int32_t StateFunctionAnim(AnimFn function, entt::entity entity, const Villager& 
 				return k_SittingDown2;
 			}
 		}
-		return Random(2) == 0 ? k_SittingDown1 : k_SittingDown2;
+		return static_cast<int32_t>(game_random::GameRand(2)) == 0 ? k_SittingDown1 : k_SittingDown2;
 	}
 	}
 	return fallback;

@@ -12,10 +12,10 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
-#include <ctime>
 
 #include "3D/LandLight.h"
 #include "Camera/Camera.h"
+#include "Common/GameRandom.h"
 #include "ECS/Effects/Alignment.h"
 #include "ECS/Weather/Atmos.h"
 #include "EngineConfig.h"
@@ -34,39 +34,22 @@ constexpr float k_WindSin = 0.70710678f;
 
 uint32_t s_landscapeGeneration = 0;
 
-/// The MSVC CRT rand() 0x7C8837 that Random 0x81D180 uses (not the game's synced GRand): s = s * 214013 + 2531011,
-/// (s >> 16) & 0x7FFF. The game seeds it once with srand(time(NULL)) (fn_005776E0 0x577721), so the sky is different
-/// in every session; OPENBLACK_CLOUD_SEED=<n> fixes the seed (tests, screenshots). Other CRT rand() users of the
-/// original share the stream, which openblack cannot reproduce; the stream here only serves the clouds and goes on
-/// from land to land.
-class CrtRandom
+/// The clouds draw with Random 0x81D180 (game_random::crt::Random) on the CRT rand() 0x7C8837 stream the whole game
+/// shares, not the synced GRand. The original's only srand(time(NULL)) (0x577721) is in fn_005776E0, and only when
+/// creature.lhp is saved; the other srand callers are 0x87AF37, 0x8861F7 and 0x88BB89. openblack makes no wall-clock
+/// seed: the stream starts at the CRT's 1 (inferido). OPENBLACK_CLOUD_SEED=<n> (tests, screenshots) calls
+/// crt::Srand(n) once, before the first sky: the same sky only if the CRT draws before it are the same too (inferido)
+void SeedCrtOnce()
 {
-public:
-	CrtRandom()
-	{
+	static const bool k_Seeded = [] {
 		const char* seed = std::getenv("OPENBLACK_CLOUD_SEED");
-		_state = seed != nullptr ? static_cast<uint32_t>(std::strtoul(seed, nullptr, 10))
-		                         : static_cast<uint32_t>(std::time(nullptr));
-	}
-	int Rand() noexcept
-	{
-		_state = _state * 214013u + 2531011u;
-		return static_cast<int>((_state >> 16) & 0x7FFFu);
-	}
-	/// Random 0x81D180: min + (max - min) * (rand() * 3.0518509e-05f), the float 1/32767, so max can come out
-	float Random(float min, float max) noexcept
-	{
-		return min + (max - min) * (static_cast<float>(Rand()) * 3.0518509e-05f);
-	}
-
-private:
-	uint32_t _state;
-};
-
-CrtRandom& Crt()
-{
-	static CrtRandom random;
-	return random;
+		if (seed != nullptr)
+		{
+			game_random::crt::Srand(static_cast<uint32_t>(std::strtoul(seed, nullptr, 10)));
+		}
+		return true;
+	}();
+	static_cast<void>(k_Seeded);
 }
 
 /// fn_005E1DE0's lerp of two D3DCOLORs: every byte a + floor((b - a) * f / 256), modulo 256
@@ -104,16 +87,16 @@ Clouds::Clouds()
 	// [-8000, 8000], y in [300, 500], z in [-5000, 5000], size +0x88 in [13, 50], k +0x8C in [2.5, 5]. Each cloud on its
 	// own, uniform in the box: the sky's clouds are not placed in groups (the grouped ones are the storms' puffs,
 	// GWeather::DrawClouds 0x83FC90)
-	auto& random = Crt();
+	SeedCrtOnce();
 	_clouds.reserve(k_CloudCount);
 	for (int i = 0; i < k_CloudCount; ++i)
 	{
 		Cloud cloud {};
-		cloud.local.x = random.Random(-k_TrackHalf, k_TrackHalf);
-		cloud.local.y = random.Random(300.0f, 500.0f);
-		cloud.local.z = random.Random(-5000.0f, 5000.0f);
-		cloud.size = random.Random(13.0f, 50.0f);
-		cloud.k = random.Random(2.5f, 5.0f);
+		cloud.local.x = game_random::crt::Random(-k_TrackHalf, k_TrackHalf);
+		cloud.local.y = game_random::crt::Random(300.0f, 500.0f);
+		cloud.local.z = game_random::crt::Random(-5000.0f, 5000.0f);
+		cloud.size = game_random::crt::Random(13.0f, 50.0f);
+		cloud.k = game_random::crt::Random(2.5f, 5.0f);
 		cloud.pinned = false;
 		_clouds.push_back(cloud);
 	}

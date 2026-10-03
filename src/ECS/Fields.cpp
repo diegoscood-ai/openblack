@@ -17,7 +17,7 @@
 
 #include <glm/geometric.hpp>
 
-#include "Common/RandomNumberManager.h"
+#include "Common/GameRandom.h"
 #include "Camera/Camera.h"
 #include "EngineConfig.h"
 #include "InfoConstants.h"
@@ -37,23 +37,22 @@ namespace
 /// Tree::PreDraw 0x74A7C0: 16 phases advancing at 1.06-2.12 rad/s, the speeds drawn again (Random(1, 2)) every 2 s
 struct WindSwaySlots
 {
-	std::array<float, 16> speed {1.5f, 1.5f, 1.5f, 1.5f, 1.5f, 1.5f, 1.5f, 1.5f, 1.5f, 1.5f, 1.5f, 1.5f, 1.5f, 1.5f, 1.5f, 1.5f};
+	// 0xDA3A4C, past .data's raw end (0xC3D000), so 0 until the first draw: no sway for the first 2 s
+	std::array<float, 16> speed {};
 	std::array<float, 16> phase {};
 	std::array<float, 16> lean {};
-	float sinceSpeeds {0.0f};
-	bool randomised {false};
+	float sinceSpeeds {0.0f}; ///< [0xDA579C] += g_game +0x205D48 (0x74A7D6), back to 0 once over 2000 (0x74A879)
 
 	void Update(float milliseconds)
 	{
 		sinceSpeeds += milliseconds;
-		if (sinceSpeeds > 2000.0f || !randomised)
+		if (sinceSpeeds > 2000.0f) // cmp 0x7D0; jle (0x74A7F4)
 		{
 			for (auto& s : speed)
 			{
-				s = openblack::Locator::rng::value().NextValue<float>(1.0f, 2.0f);
+				s = openblack::game_random::crt::Random(1.0f, 2.0f); // 0x74A805, slot by slot
 			}
 			sinceSpeeds = 0.0f;
-			randomised = true;
 		}
 		for (size_t i = 0; i < 16; ++i)
 		{

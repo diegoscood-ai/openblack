@@ -23,8 +23,11 @@ class Dust
 public:
 	/// argb as in the original (0xAARRGGBB); size is the quad's half size at its largest.
 	static void Emit(glm::vec3 at, glm::vec3 velocity, uint32_t argb, float size);
-	/// The velocity of the original's puffs: (rand(201) - 100) x 0.02 on each axis, +-2 units per second.
+	/// The velocity of a ground impact's puffs (AttemptToAddSoundEvent 0x6467D1..0x646833): (LocalRand(201) - 100) x
+	/// 0.02 on each axis, +-2 units per second, drawn z, y, x.
 	[[nodiscard]] static glm::vec3 RandomVelocity();
+	/// The same on the synced stream, a fragment's puffs (Fragment::SetUpPhysOb 0x76EEC5..0x76EF53): GameRand(201).
+	[[nodiscard]] static glm::vec3 SyncedRandomVelocity();
 	static void Update(float seconds);
 	static void Clear();
 	Dust() = delete;

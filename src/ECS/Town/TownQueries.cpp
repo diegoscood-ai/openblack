@@ -22,6 +22,7 @@
 #include <spdlog/spdlog.h>
 
 #include "Audio/Services/Guidance.h"
+#include "Common/GameRandom.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Field.h"
 #include "ECS/Components/Mobile.h"
@@ -433,8 +434,8 @@ glm::ivec2 GetCongregationPos(entt::entity townEntity)
 	}
 	// 0x740AA6..0x740AFD: d = GameFloatRand(10) + 10 (first), angle = GameFloatRand(2 pi) (0x40C90FDB, second), Town.cpp
 	// 0x11EC; base += GetPosFromAngle(angle, d)
-	const float distance = villager::GameFloatRand(10.0f) + 10.0f;
-	const float angle = villager::GameFloatRand(glm::two_pi<float>());
+	const float distance = game_random::GameFloatRand(10.0f) + 10.0f;
+	const float angle = game_random::GameFloatRand(glm::two_pi<float>());
 	pos = base + GetPosFromAngle(angle, distance);
 	// 0x740B02: the cache
 	town->congregationPos = pos;

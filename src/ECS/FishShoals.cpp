@@ -10,6 +10,7 @@
 #include "FishShoals.h"
 
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <cstdlib>
 
@@ -19,7 +20,7 @@
 #include <glm/gtc/constants.hpp>
 
 #include "3D/FrameAnim.h"
-#include "Common/RandomNumberManager.h"
+#include "Common/GameRandom.h"
 #include "ECS/Components/FishFarm.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/FishPuzzle.h"
@@ -73,19 +74,37 @@ void UpdateFish(Fish& fish, const glm::vec3& target, float dt)
 
 void openblack::ecs::InitFishShoal(FishShoal& shoal, const glm::vec3& centre)
 {
-	auto& rng = Locator::rng::value();
+	using openblack::game_random::crt::Random;
+	/// [0x900C90] (0x8248C8), about 0.2 pi
+	const auto turnScale = std::bit_cast<float>(0x3F20D97Cu);
 	shoal.centre = centre;
 	shoal.target = centre;
+	// fn_00824740: ten CRT draws (?Random 0x81D180) per fish, in this order
 	for (auto& fish : shoal.fish)
 	{
-		fish.halfSize = rng.NextValue(0.8f, 1.2f);
-		fish.position = centre + glm::vec3(rng.NextValue(-5.0f, 5.0f), rng.NextValue(-1.0f, 0.0f), rng.NextValue(-5.0f, 5.0f));
-		fish.heading = rng.NextValue(-glm::pi<float>(), glm::pi<float>());
-		fish.speed = rng.NextValue(0.5f, 1.5f);
-		fish.turnRate = fish.speed * (1.0f + rng.NextValue(-0.1f, 0.1f)) * 0.6283f;
-		fish.frame = 0.0f;
-		fish.fleeTime = 0.0f;
-		fish.cell = 8;
+		// 0x82475E: the size, at least [0x8BF518] = 1e-4 (0x824763..0x824774)
+		fish.halfSize = std::max(Random(0.8f, 1.2f), 1e-4f);
+		// 0x824797: the sprite's cell, ftol(r) & 0x3F into +0x28
+		fish.cell = static_cast<uint8_t>(static_cast<int32_t>(Random(0.0f, 15.5f)) & 0x3F);
+		// 0x8247DB: the sprite's angle (+0x14); every fn_008248E0 sets it to the heading (0x824AA1), the drawing uses
+		// the heading, so only the draw is kept
+		static_cast<void>(Random(0.0f, glm::pi<float>()));
+		// 0x8247F7: the animation phase +0x1C
+		fish.frame = Random(0.0f, 15.0f);
+		// 0x824809, 0x824819, 0x82482C: z, y, x in that order, then the centre added (0x824846..0x824877)
+		const float z = Random(-5.0f, 5.0f);
+		const float y = Random(-1.0f, 0.0f);
+		const float x = Random(-5.0f, 5.0f);
+		fish.position = glm::vec3(centre.x + x, centre.y + y, centre.z + z);
+		// 0x82488D, 0x82489F
+		fish.heading = Random(-glm::pi<float>(), glm::pi<float>());
+		fish.speed = Random(0.5f, 1.5f);
+		// 0x8248B1..0x8248CE: ((r + 1) x speed) x [0x900C90]
+		const float r = Random(-0.1f, 0.1f);
+		const float r1 = r + 1.0f;
+		const float rs = r1 * fish.speed;
+		fish.turnRate = rs * turnScale;
+		fish.fleeTime = 0.0f; // +0x20 (0x8248BC)
 	}
 }
 
@@ -160,7 +179,6 @@ void openblack::ecs::UpdateFishShoals(float seconds, const glm::vec3& camera)
 	// the frame's game time in seconds, at most 0.1
 	const float dt = std::min(seconds, 0.1f);
 	auto& registry = Locator::entitiesRegistry::value();
-	auto& rng = Locator::rng::value();
 	const auto splash = s_splash;
 	s_splash.reset();
 	// fn_00824B90: no fish inside any bait yet this frame
@@ -187,13 +205,26 @@ void openblack::ecs::UpdateFishShoals(float seconds, const glm::vec3& camera)
 		}
 		shoal.alpha = d2 > 40000.0f ? static_cast<uint8_t>(static_cast<int>((1.0f - (d2 - 40000.0f) * 1e-4f) * 255.0f) & 0xFF)
 		                            : uint8_t {255};
+		// 0x824E73..0x824F2C, before the splash: timer -= g_game_time_inc x 0.001 (whole milliseconds; (aproximado) the
+		// port's game time, at most 0.1 s); below 0 a new target: CRT Random(-[+0x58], [+0x58]) for z (0x824EA3) then x
+		// (0x824EB9), y the centre's, and timer = 0.5 x the distance from the previous target (0x824F11)
+		const float elapsed = static_cast<float>(static_cast<uint32_t>(dt * 1000.0f)) * 0.001f;
+		shoal.timer -= elapsed;
+		if (shoal.timer < 0.0f)
+		{
+			const auto previous = shoal.target;
+			const float z = game_random::crt::Random(-FishShoal::k_Range, FishShoal::k_Range);
+			const float x = game_random::crt::Random(-FishShoal::k_Range, FishShoal::k_Range);
+			shoal.target = glm::vec3(x + shoal.centre.x, shoal.centre.y, z + shoal.centre.z);
+			shoal.timer = 0.5f * glm::distance(shoal.target, previous);
+		}
 		size_t fled = 0;
 		if (splash.has_value())
 		{
-			// the shoal darts 2 units in a random direction; the fish within 8 units of the splash flee from it for 2 s
-			const float r = rng.NextValue(0.0f, glm::two_pi<float>());
+			// the shoal darts 2 units in a random direction (CRT Random(0, 2 pi) 0x824F41); the fish within 8 units of the
+			// splash flee from it for 2 s, and only then the shoal's timer is 2 (0x82503B)
+			const float r = game_random::crt::Random(0.0f, glm::two_pi<float>());
 			shoal.target = shoal.centre + 2.0f * glm::vec3(std::cos(r), 0.0f, -std::sin(r));
-			shoal.timer = 2.0f;
 			for (size_t i = 0; i < shown; ++i)
 			{
 				auto& fish = shoal.fish[i];
@@ -201,6 +232,7 @@ void openblack::ecs::UpdateFishShoals(float seconds, const glm::vec3& camera)
 				if (glm::dot(away, away) < 64.0f)
 				{
 					fish.fleeTime = 2.0f;
+					shoal.timer = 2.0f;
 					fish.heading = std::atan2(away.z, away.x);
 					++fled;
 				}
@@ -213,14 +245,6 @@ void openblack::ecs::UpdateFishShoals(float seconds, const glm::vec3& camera)
 		if (dt <= 0.0f)
 		{
 			return 0;
-		}
-		shoal.timer -= dt;
-		if (shoal.timer < 0.0f)
-		{
-			const auto previous = shoal.target;
-			shoal.target = shoal.centre + glm::vec3(rng.NextValue(-FishShoal::k_Range, FishShoal::k_Range), 0.0f,
-			                                        rng.NextValue(-FishShoal::k_Range, FishShoal::k_Range));
-			shoal.timer = 0.5f * glm::distance(shoal.target, previous);
 		}
 		// the hidden fish (the stock is low) stay where they are until they come back
 		uint32_t inside = 0;

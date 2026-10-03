@@ -32,7 +32,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/FishShoals.h"
 #include "ECS/WaterRings.h"
-#include "Common/RandomNumberManager.h"
+#include "Common/GameRandom.h"
 #include "ECS/Registry.h"
 #include "InfoConstants.h"
 #include "GameClock.h"
@@ -65,7 +65,8 @@ void HandSystem::SplashHand(glm::vec3 point) noexcept
 	ecs::WaterRing ring;
 	ring.position = glm::vec3(point.x, 0.2f, point.z);
 	ring.growth = 7.0f;
-	ring.angle = Locator::rng::value().NextValue(0.0f, 6.2831853f);
+	// CRT Random(0, 2 pi) 0x5D2057, drawn before the ring pool is searched (0x5D205C): even when it is full
+	ring.angle = game_random::crt::Random(0.0f, 6.2831853f);
 	ring.cell = 0x30;
 	ring.argb = 0xB0FFFFFFu;
 	ring.seaLight = true;

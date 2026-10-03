@@ -24,6 +24,7 @@
 #include "ECS/Physics/Buildings.h"
 #include "ECS/Physics/CollisionSounds.h"
 #include "ECS/Registry.h"
+#include "ECS/Town/AbodeQueries.h"
 #include "ECS/Town/AbodeVillagers.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -162,4 +163,31 @@ bool abodes::OnPhysicalDamage(entt::entity building, const PhysicalDamage& hit)
 		return false;
 	}
 	return true;
+}
+
+float abodes::GetPercentForDrawBuilding(entt::entity building)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	// GetPercentBuilt (vt +0x880, MultiMapFixed +0x5C): 1 until V6 (abode_queries::IsBuilt)
+	const float built = 1.0f;
+	// GetPercentRepairedFromWhenDamaged 0x52F010
+	float repaired = 1.0f;
+	if (abode_queries::IsBuilt(building))
+	{
+		const auto* life = registry.TryGet<const Life>(building);
+		const float percentRepaired = life != nullptr ? life->value : 1.0f; // GetPercentRepaired = GetLife (0x401500)
+		const auto* damage = registry.TryGet<const BuildingDamage>(building);
+		if (damage != nullptr && damage->mesh)
+		{
+			const float a = 1.0f - damage->repairBase;
+			const float b = percentRepaired - damage->repairBase;
+			repaired = (a == 0.0f || b == 0.0f) ? 0.0f : b / a;
+		}
+		else
+		{
+			repaired = percentRepaired * 0.98f; // [0x8CF3FC]
+		}
+	}
+	// 0x52EFD0: GetPercentBuilt <= repaired ? GetPercentBuilt : repaired
+	return built <= repaired ? built : repaired;
 }

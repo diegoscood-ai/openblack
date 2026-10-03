@@ -149,6 +149,26 @@ void alignment::UpdateForTree(PlayerNames player, bool good)
 	}
 }
 
+void alignment::UpdateForResource(PlayerNames player, entt::entity abode, int32_t amount, float change)
+{
+	if (!Locator::infoConstants::has_value())
+	{
+		return;
+	}
+	// abode.GetTown() is not tested (0x414538); there is a single GTownInfo
+	static_cast<void>(abode);
+	const auto& town = Locator::infoConstants::value().town;
+	const float k = amount > 0 ? town.giveResourceAligmnetChangeMultiplier : town.takeResourceAligmnetChangeMultiplier;
+	auto& alignment = Of(player);
+	const float weighed = ScaleChange(alignment, change * k);
+	alignment.pending += weighed;
+	if (Trace())
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Alignment: player {} resource {:+d} {:+.5f} (pending {:+.5f})",
+		                   static_cast<int>(player), amount, weighed, alignment.pending);
+	}
+}
+
 void alignment::ProcessForPlayer(PlayerNames player)
 {
 	if (!Locator::infoConstants::has_value())

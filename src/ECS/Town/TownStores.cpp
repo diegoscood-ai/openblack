@@ -9,6 +9,7 @@
 
 #include "TownStores.h"
 
+#include <algorithm>
 #include <optional>
 
 #include "ECS/Components/Town.h"
@@ -18,6 +19,8 @@
 #include "ECS/Registry.h"
 #include "ECS/Town/AbodeQueries.h"
 #include "ECS/Town/TownQueries.h"
+#include "GameClock.h"
+#include "InfoConstants.h"
 #include "Locator.h"
 #include "Magic/Objects/MagicPiles.h"
 
@@ -60,5 +63,68 @@ TemporaryStore GetTemporaryResourceStorePotOrPos(entt::entity town, const map_co
 	}
 	// 0x73E921..0x73E94E / 0x73EA0C..0x73EA34: out = pot.GetNearestEdgeToPos(from) (vt +0x83C, Object 0x636DA0)
 	return {pot, object::GetNearestEdgeToPos(pot, from)};
+}
+
+namespace
+{
+components::Town* TownComponent(entt::entity town)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	return town != entt::null && registry.Valid(town) ? registry.TryGet<components::Town>(town) : nullptr;
+}
+
+/// The bounds of 0x740037..0x740049 / 0x7400D6..0x7400E4: player < 8 (unsigned), 0 <= type < 2
+bool InBounds(PlayerNames player, ResourceType type)
+{
+	return static_cast<uint32_t>(player) < 8 && (type == ResourceType::Food || type == ResourceType::Wood);
+}
+} // namespace
+
+float GetGameTurnResourceLastRemovedModifier(entt::entity town, PlayerNames player, ResourceType type)
+{
+	auto* t = TownComponent(town);
+	if (t == nullptr || !InBounds(player, type))
+	{
+		return 0.0f;
+	}
+	const uint32_t last = t->resourceLastRemovedTurn.at(static_cast<size_t>(player)).at(static_cast<size_t>(type));
+	if (last == 0)
+	{
+		return 1.0f;
+	}
+	// fild qword (the unsigned turn difference) / fidiv GTownInfo +0x100; min 1; r * r * r. (approximate) in float, the
+	// original's x87 keeps more digits until the store
+	const auto max = Locator::infoConstants::value().town.maxGameturnsForBeliefAfterRemovingFromStoragePit;
+	const float r = std::min(static_cast<float>(game_clock::Turn() - last) / static_cast<float>(max), 1.0f);
+	return r * r * r;
+}
+
+void SetGameTurnResourceLastRemoved(entt::entity town, PlayerNames player, ResourceType type)
+{
+	if (auto* t = TownComponent(town); t != nullptr && InBounds(player, type))
+	{
+		t->resourceLastRemovedTurn.at(static_cast<size_t>(player)).at(static_cast<size_t>(type)) = game_clock::Turn();
+	}
+}
+
+void AddToBelief(entt::entity town, PlayerNames player, float f, entt::entity thing, bool draw, int guidanceAlignment)
+{
+	auto* t = TownComponent(town);
+	// (openblack) the player bound is a guard of the array, the original indexes with GetPlayerNumber unchecked (0x437EBB)
+	if (t == nullptr || static_cast<uint32_t>(player) >= 8)
+	{
+		return;
+	}
+	const auto n = static_cast<size_t>(player); // GPlayer::GetPlayerNumber 0x64A790
+	t->belief.pending.at(n) += f; // +0xC8
+	t->belief.recent.at(n) += f;  // +0x28
+	if (f != 0.0f)
+	{
+		t->belief.lastAddedTurn.at(n) = game_clock::Turn();
+	}
+	// 0x437F0A..0x437F2A: with a thing, DrawBelief 0x438800 when draw and BeliefSFX 0x437F40: (pending) see the header
+	static_cast<void>(thing);
+	static_cast<void>(draw);
+	static_cast<void>(guidanceAlignment);
 }
 } // namespace openblack::ecs::town_stores

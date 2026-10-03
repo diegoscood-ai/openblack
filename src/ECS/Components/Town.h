@@ -104,6 +104,20 @@ struct TownDesire
 	std::array<float, 17> doingNowCount {};
 };
 
+/// Town +0x798 GBelief: the part GBelief::AddToBelief 0x437EB0 writes (Belief.h; Init 0x437DD0 zeroes them). The belief
+/// itself (+0x8, GetBeliefInPlayer 0x437E70) comes from the town's per-turn fold fn_004383D0 (Town::Process step 19):
+/// (pending) not ported, spec dev\documentacion\edificios\belief_spec.md
+struct TownBelief
+{
+	/// +0x28 [player], float (bw1-decomp says uint32): += f (0x437ED5); only decays (x GPlayerInfo +0x48 0.997 a turn)
+	/// and is read only by the computer player (fn_00438A40)
+	std::array<float, 8> recent {};
+	std::array<uint32_t, 8> lastAddedTurn {}; ///< +0x48 [player], the turn of the last f != 0 (0x437EF5)
+	/// +0xC8 [player]: += f (0x437EC7), what was added since the last fold; fn_004383D0 folds it x Town +0x5DC into
+	/// +0x8 (SetBelief 0x4387D0) and +0x88
+	std::array<float, 8> pending {};
+};
+
 struct Town
 {
 	uint32_t id;
@@ -120,6 +134,11 @@ struct Town
 	/// +0x600 / +0x604 [RESOURCE_TYPE]: the temporary pots (FOOD, WOOD) Town::GetTemporaryResourceStorePotOrPos 0x73E900
 	/// makes and keeps (0x73EA11); ecs::town_stores
 	std::array<entt::entity, 2> temporaryPots {entt::null, entt::null};
+	/// +0xEC8 [player][RESOURCE_TYPE]: the turn each player last took FOOD / WOOD from this town's abodes or storage pit
+	/// through an interface (Town::SetGameTurnResourceLastRemoved 0x7400D0); 0 = never. ecs::town_stores
+	std::array<std::array<uint32_t, 2>, 8> resourceLastRemovedTurn {};
+	/// +0x798: the town's GBelief (ecs::town_stores::AddToBelief)
+	TownBelief belief;
 	/// +0x5C0, Town::SetWorshipPercentage 0x73C060 (CREATE_TOWN_CENTRE's N5 * 0.001; all the shipped lands pass 0).
 	/// The original keeps it only if the town has a worship site (otherwise 0) and passes it on to the totem statue;
 	/// openblack has no worship sites yet and stores the script's value.

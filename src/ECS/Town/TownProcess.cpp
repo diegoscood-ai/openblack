@@ -145,7 +145,8 @@ void ProcessTown(entt::entity town)
 	//    storage pit -> ToBeDeleted, null; not available -> null. TODO(V5): openblack has no temporary pots
 	// 18 0x7474A2..0x7474FD: the missionaries +0x99C (MissionaryControl::Process 0x7567E0, the unavailable ones taken
 	//    off, --+0x9A0). TODO(milagros2)
-	// 19 0x7474FF..0x747506 fn_4383D0(+0x798, town): the belief (GBelief). TODO(milagros2): no function yet
+	// 19 0x7474FF..0x747506 fn_4383D0(+0x798, town): the belief (GBelief: +0xC8 x Town +0x5DC folded into +0x8 and
+	//    +0x88). TODO(Edificios, H2/H3): spec dev\documentacion\edificios\belief_spec.md
 	// 20 0x74750B..0x747523: with a player, fn_4141F0(player +0x60, town): the alignment by desires (TownDesire
 	//    fn_7466D0 with GetDesire, info +0x4C / +0x50 / +0x54 and AlignmentTurns +0x410; fn_414660; CAlignmentHistory::
 	//    Add 0x414D40). TODO(milagros2): no function yet

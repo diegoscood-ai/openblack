@@ -64,5 +64,11 @@ void StopBeingFunctional(entt::entity building);
 /// Abode::DestroyedByEffect 0x403F80: the villagers become homeless (RemoveAllVillagersFromAbode 0x404560), a store
 /// loses its piles, the physics forgets it (physics::Buildings::OnBuildingDeleted) and the building goes
 void DestroyedByEffect(entt::entity building);
+/// MultiMapFixed::GetPercentForDrawBuilding 0x52EFD0 (vt +0x898) = min(GetPercentBuilt vt +0x880,
+/// GetPercentRepairedFromWhenDamaged vt +0x888 0x52F010). The latter: not built -> 1; a DestructionMesh and a building
+/// site (+0x74) -> (life - site +0x640) / (1 - site +0x640), 0 when either is 0; else life x 0.98 ([0x8CF3FC]).
+/// (approximate until V6 / V11) GetPercentBuilt is 1 (abode_queries::IsBuilt) and the repair site's +0x640 is the
+/// physics' BuildingDamage::repairBase, set with the damage (OnPhysicalDamage)
+[[nodiscard]] float GetPercentForDrawBuilding(entt::entity building);
 
 } // namespace openblack::ecs::abodes

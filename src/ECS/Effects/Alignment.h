@@ -48,6 +48,11 @@ void CrudeUpdate(PlayerNames player, float change);
 /// `pending`. Uprooting with the hand is evil (Tree::InterfaceSetInMagicHand 0x74B730), planting good
 /// (Tree::EndPhysics 0x74BBB6). TODO: CAlignmentHistory::Add 0x415260.
 void UpdateForTree(PlayerNames player, bool good);
+/// GAlignment::Update(Abode*, type, int n, float delta) 0x414520 (Abode::DoResourceAdding 0x404E87, DoResourceRemoving
+/// 0x405005): k = n > 0 ? the abode's town info giveResourceAligmnetChangeMultiplier (+0x138, 0.5) : take (+0x13C, 0.5)
+/// (0x41452F..0x414555), `pending` += ScaleChange(delta x k) (0x414566, 0x414585). The alignment history
+/// (fn_004153C0), the only reader of the type, is not kept, as everywhere here: no type argument
+void UpdateForResource(PlayerNames player, entt::entity abode, int32_t amount, float change);
 /// GAlignment::ProcessForPlayer 0x4141A0 -> GAlignment::Process 0x414140: the pending change clamped to -1..1, times
 /// GPlayerInfo::maxAlignmentChangePerGameTurn, is CrudeUpdate-d and the pending change goes back to 0
 void ProcessForPlayer(PlayerNames player);

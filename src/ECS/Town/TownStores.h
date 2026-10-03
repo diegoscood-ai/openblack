@@ -43,4 +43,18 @@ constexpr float k_ClearAreaRadius = 2.0f;
 /// another type) {entt::null, from}
 [[nodiscard]] TemporaryStore GetTemporaryResourceStorePotOrPos(entt::entity town, const map_coords::MapCoords& from,
                                                                ResourceType type);
+
+/// Town::GetGameTurnResourceLastRemovedModifier 0x740030 (player, type): player >= 8 or type not FOOD / WOOD -> 0
+/// (0x740037..0x740049); never taken -> 1 (0x740061); else r = min((turn - last) / maxGameturnsForBeliefAfterRemoving
+/// FromStoragePit (GTownInfo +0x100, 1000), 1) (0x74006F..0x7400B4) and r^3 (0x7400BA..0x7400C8). How much a player
+/// giving back what it has just taken counts
+[[nodiscard]] float GetGameTurnResourceLastRemovedModifier(entt::entity town, PlayerNames player, ResourceType type);
+/// Town::SetGameTurnResourceLastRemoved 0x7400D0 (player, type): the same bounds, then +0xEC8[player][type] = the turn
+/// (0x7400E6..0x7400F9). Only Abode::DoResourceRemoving 0x404FD7 calls it
+void SetGameTurnResourceLastRemoved(entt::entity town, PlayerNames player, ResourceType type);
+/// GBelief::AddToBelief 0x437EB0 (P, f, thing, draw, GUIDANCE_ALIGNMENT) of the town's +0x798: +0xC8[n] += f (pending,
+/// folded each turn), +0x28[n] += f (recent, decays), f != 0 -> +0x48[n] = the turn (0x437EC0..0x437EFC). With a thing: draw -> GBelief::DrawBelief 0x438800 (pending,
+/// not ported) and GGuidance::BeliefSFX 0x437F40 (pending: it needs the interface's position IS +0x14; it plays only
+/// for a player below the strongest belief, and the beliefs +0x8 are not ported yet)
+void AddToBelief(entt::entity town, PlayerNames player, float f, entt::entity thing, bool draw, int guidanceAlignment);
 } // namespace openblack::ecs::town_stores

@@ -212,6 +212,16 @@ void CheckWorshipSiteDesires(uint32_t& sample, float& value, std::optional<glm::
 		return;
 	}
 	const auto citadel = queries.worshipSites();
+	if (Trace())
+	{
+		size_t count = 0;
+		for (const auto& candidate : citadel ? citadel->sites : decltype(citadel->sites) {})
+		{
+			count += candidate ? 1 : 0;
+		}
+		SPDLOG_LOGGER_INFO(spdlog::get("audio"), "Guidance: worship sites: {} ({} sites)",
+		                   citadel ? "citadel" : "no citadel", count);
+	}
 	if (!citadel)
 	{
 		return; // 0x71B2AB: no citadel (GPlayer+0xA48)
@@ -220,7 +230,7 @@ void CheckWorshipSiteDesires(uint32_t& sample, float& value, std::optional<glm::
 	const WorshipDesire::Site* site = nullptr;
 	for (const auto& candidate : citadel->sites)
 	{
-		if (!candidate || !candidate->worshippers)
+		if (!candidate)
 		{
 			continue;
 		}
@@ -228,8 +238,13 @@ void CheckWorshipSiteDesires(uint32_t& sample, float& value, std::optional<glm::
 		if (Trace())
 		{
 			SPDLOG_LOGGER_INFO(spdlog::get("audio"),
-			                   "Guidance: worship site {} ({:.0f}, {:.0f}) food {:.3f} need {:.3f} at {:.1f}", candidate->id, candidate->position.x, candidate->position.z, candidate->foodDesire,
-			                   citadel->need, d);
+			                   "Guidance: worship site {} ({:.0f}, {:.0f}) worshippers {} food {:.3f} need {:.3f} at {:.1f}",
+			                   candidate->id, candidate->position.x, candidate->position.z, candidate->worshippers,
+			                   candidate->foodDesire, citadel->need, d);
+		}
+		if (!candidate->worshippers)
+		{
+			continue;
 		}
 		if (d < best)
 		{

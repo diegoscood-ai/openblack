@@ -267,9 +267,22 @@ uint32_t pot_resource::PotStructureAddResource(entt::entity object, ResourceType
 		// so no pit can ever have one and the redirect is unreachable; port it with the building sites.
 		return StoragePitStore::AddResource(owner, type, amount);
 	}
-	// PotStructure::AddResource -> JustAddResource (vt 0x8C). PileResource::JustAddResource 0x66D330 plays the pile sound
-	// with the amount added (not for the hand's pots, infos 11 and 12); Pot::JustAddResource 0x66D2B0 clips at maxInPot
-	// only when nextPotForResource < 19 (no magic or loose pile), SetPoisoned(poisoned || IsPoisoned), SetSize (vt 0x85C)
+	// PotStructure::AddResource -> JustAddResource (vt 0x8C)
+	return pot_resource::JustAddResource(object, type, amount, poisoned);
+}
+
+uint32_t pot_resource::JustAddResource(entt::entity object, ResourceType type, uint32_t amount, bool poisoned)
+{
+	// PileResource::JustAddResource 0x66D330 plays the pile sound with the amount asked (not for the hand's pots, infos
+	// 11 and 12); Pot::JustAddResource 0x66D2B0 clips at maxInPot only when nextPotForResource < 19 (no magic or loose
+	// pile), SetPoisoned(poisoned || IsPoisoned), SetSize (vt 0x85C)
+	auto& registry = Locator::entitiesRegistry::value();
+	auto* pot = registry.TryGet<Pot>(object);
+	const auto* transform = registry.TryGet<const Transform>(object);
+	if (pot == nullptr || transform == nullptr)
+	{
+		return 0;
+	}
 	const auto& info = Locator::infoConstants::value().pot.at(static_cast<size_t>(pot->type));
 	if (info.potType != PotType::Pot && pot->type != PotInfo::HandWood && pot->type != PotInfo::HandFood)
 	{

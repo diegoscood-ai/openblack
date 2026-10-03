@@ -30,6 +30,9 @@ struct Dropper
 	bool hasInterface {false};                  ///< IS != NULL
 	PlayerNames player {PlayerNames::PLAYER_ONE}; ///< IS->GetPlayer()
 	bool isMyInterface {false};                 ///< IS == g_game.MyInterfaceStatus()
+	/// GInterfaceStatus +0x128: the player who owns what is put down (StoragePit::DoCreatureMimicAfterAddingResource
+	/// 0x733810 tells leaving from stealing by it)
+	PlayerNames sourceOwner {PlayerNames::PLAYER_ONE};
 };
 
 /// Pot::AddResourceToPos 0x66F270 (pos, IS, type, amount, poisoned, speedUp): out of bounds nothing. The 3x3 cells
@@ -45,6 +48,10 @@ uint32_t AddResourceToPos(const glm::vec3& position, const Dropper& dropper, Res
 /// (StoragePit::AddResource 0x732F60), any other takes it itself (JustAddResource vt 0x8C: the pile sound, the cap at
 /// maxAmountInPot, poisoned, the size). Returns what was taken; 0 for an object that is not a pot.
 uint32_t PotStructureAddResource(entt::entity object, ResourceType type, uint32_t amount, bool poisoned = false);
+/// JustAddResource (vt 0x8C, PileResource 0x66D330 -> Pot 0x66D2B0): the pot or pile itself takes it, whatever structure it
+/// is part of (the pile sound but for the hand's pots, the cap at maxAmountInPot when nextPotForResource < 19, poisoned,
+/// the size). Returns what was taken; 0 for an object that is not a pot.
+uint32_t JustAddResource(entt::entity object, ResourceType type, uint32_t amount, bool poisoned = false);
 
 /// fn_0066D1A0: the pile sound at pos, by type and amount (food < 200: G_PileFoodSmall_01..06 (77 + t % 6), else
 /// G_PileFood_01/02 (75 + (t & 1)); wood < 200: G_PileWoodSmall_01..06 (92 + t % 6), else G_PileWood_01..06 (86 + t % 6))

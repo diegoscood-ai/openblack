@@ -94,8 +94,10 @@ Each state has a "cursor state" (`GInterface+0x3AC`); IN THROW = **0x17**.
   `StartGrab` 0x5D1740 turns an object out of the influence (or not placeable) into a tap; `GenericPickup` 0x5D2800
   checks again when the 225 ms grab completes; `SendTap` 0x5D38A0 refuses the tap. While scooping,
   `GInterfaceStatus::Process` 0x5DC558 ends the locked select when the hand leaves the influence.
-- `IsCannotBePickedUp` (0x401A10, flag 0x2000) is checked by all of these too. **(not ported)**: its setters are
-  `GameOSFile::LoadInstance` 0x559999 and the puzzles (fn_006D71D0, HanoiBlock), none of which openblack has.
+- `IsCannotBePickedUp` (0x401A10, flag 0x2000) is checked by all of these too. The scripts set it with
+  `SET_ID_PICKUPABLE` 169 (0x6FB450, pickupable 0 sets it) and the flag 0x1000 IMMOVABLE with `SET_ID_MOVEABLE` 168
+  (0x6FB3E0); in openblack both are tag components (`src/ECS/ThingFlags.h`, `ecs::thing_flags`). **(not ported)**: the
+  other setters, `GameOSFile::LoadInstance` 0x559999 and the puzzles (fn_006D71D0, HanoiBlock).
 
 ## Tapping objects
 

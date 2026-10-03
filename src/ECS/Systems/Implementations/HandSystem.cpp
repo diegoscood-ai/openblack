@@ -73,6 +73,7 @@
 #include "ECS/Abodes.h"
 #include "ECS/Rocks.h"
 #include "ECS/Systems/HandTap.h"
+#include "ECS/ThingFlags.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "InfoConstants.h"
 #include "Game.h"
@@ -185,10 +186,9 @@ bool HandSystem::SendTap(entt::entity object) noexcept
 	// GInterface::SendTap 0x5D38A0: (m_InInfluence || !InterfaceMustBeInInfluenceForInteraction) && InterfaceValidToTap(IS)
 	// == 1 && !IsCannotBePickedUp -> packet 0x20 -> 0x5DA650, which checks InterfaceValidToTap again and calls InterfaceTap.
 	// InterfaceMustBeInInfluenceForInteraction is Object's 0x4028A0 = 1 for every ported class (only ScriptHighlight
-	// 0x709840 overrides it, not ported). (not ported) IsCannotBePickedUp 0x401A10 (flag 0x2000): openblack has none of
-	// its setters (GameOSFile::LoadInstance 0x559999, the puzzles fn_006D71D0, HanoiBlock), so no object has it.
+	// 0x709840 overrides it, not ported). IsCannotBePickedUp 0x401A10: the flag 0x2000 of SET_ID_PICKUPABLE 169.
 	const pot_resource::Dropper is {true, PlayerNames::PLAYER_ONE, true};
-	if (!InInfluence() || !hand_tap::ValidToTap(object, is))
+	if (!InInfluence() || !hand_tap::ValidToTap(object, is) || thing_flags::IsCannotBePickedUp(object))
 	{
 		return false;
 	}
@@ -394,7 +394,7 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 		// at once (StartTapOrLockedSelect 0x5D1A00) in the influence (m_InInfluence || !vt 0x714). Out of it the field
 		// goes on to the pick-up / tap path, where it is neither placeable (Object 0x402870) nor tappable (Object
 		// 0x4196B0): nothing.
-		_pickPressHeld = TapInInfluence() && TryPickUpField(*_hovered);
+		_pickPressHeld = TapInInfluence() && !thing_flags::IsCannotBePickedUp(*_hovered) && TryPickUpField(*_hovered);
 	}
 	else if (actionPressed && _hovered && !_held)
 	{
@@ -403,17 +403,18 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 		const auto source = PotInfoOf(*_hovered);
 		if (source != PotInfo::_COUNT && source != PotInfo::HandWood && source != PotInfo::HandFood)
 		{
-			if (TapInInfluence())
+			if (TapInInfluence() && !thing_flags::IsCannotBePickedUp(*_hovered))
 			{
 				PickUp(*_hovered);
 			}
 			_pickPressHeld = _held.has_value();
 		}
-		else if (!ValidForPlaceInHand(*_hovered) || !TapInInfluence())
+		else if (!ValidForPlaceInHand(*_hovered) || thing_flags::IsCannotBePickedUp(*_hovered) || !TapInInfluence())
 		{
-			// StartGrab 0x5D1740: an object that cannot go into the hand (a rock too big to lift, a spell icon) or out of
-			// the influence is tapped at once: Tap 0x5D3930 -> SendTap 0x5D38A0 (refused out of the influence) -> packet
-			// 0x20 -> InterfaceTap (Rock::InterfaceTap splits it, SpellIcon::InterfaceTap 0x726430)
+			// StartGrab 0x5D1740: an object that cannot go into the hand (a rock too big to lift, a spell icon, the flag
+			// 0x2000 of SET_ID_PICKUPABLE) or out of the influence is tapped at once: Tap 0x5D3930 -> SendTap 0x5D38A0
+			// (refused out of the influence) -> packet 0x20 -> InterfaceTap (Rock::InterfaceTap splits it,
+			// SpellIcon::InterfaceTap 0x726430)
 			SendTap(*_hovered);
 			_hovered.reset();
 		}
@@ -501,10 +502,10 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 		{
 			const auto entity = *_pendingPick;
 			_pendingPick.reset();
-			if (!TapInInfluence())
+			if (!TapInInfluence() || thing_flags::IsCannotBePickedUp(entity))
 			{
-				// GenericPickup 0x5D2800 out of the influence (m_InInfluence 0, vt 0x714 = 1) returns 0: State_Grab
-				// resets the action, nothing is picked up
+				// GenericPickup 0x5D2800 with IsCannotBePickedUp (vt 0x180) or out of the influence (m_InInfluence 0,
+				// vt 0x714 = 1) returns 0: State_Grab resets the action, nothing is picked up
 			}
 			else if (Locator::entitiesRegistry::value().AllOf<BigForest>(entity))
 			{

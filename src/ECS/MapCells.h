@@ -17,6 +17,7 @@
 #include <vector>
 
 #include <entt/entity/entity.hpp>
+#include <glm/mat3x3.hpp>
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 
@@ -268,6 +269,12 @@ namespace detail
 /// DescriptorCells(shape, reach) of it and its collide data the shape (the tests have no meshes)
 using ShapeProvider = bool (*)(entt::entity object, map_collide::Shape& shape, float& reach);
 void SetShapeProviderForTests(ShapeProvider provider);
+/// The angle NewCollide(LH3DObject) 0x829390 turns the shape by: LH3DObject +0x48 (pushed at 0x8294A3 into
+/// Obj(point, a, b, angle) 0x82ADD0, +0x14), the object's Y angle, which Game3DObject::SetPosition 0x63B680 (0x63B68F)
+/// and Object::SetXYZAnglesAndScale 0x638F80 (0x6391E1) store. The x and z angles do not enter. From a Transform: the y
+/// of LHMatrix::GetYXZ 0x7FAB30 (fn_007FA990(m8, -m6), the atan2 of row 2), what SetYXZMatrixOnly 0x7FAC10 (m6 =
+/// -(cb sa), m8 = cb ca) and AngleY were given, and what the physics stores of a landed body (SetXYZAngles from GetYXZ)
+[[nodiscard]] float YAngleOf(const glm::mat3& rotation);
 } // namespace detail
 
 } // namespace openblack::ecs::map_cells

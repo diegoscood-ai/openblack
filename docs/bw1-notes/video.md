@@ -233,7 +233,7 @@ perfil nuevo no se puede saltar** (inferido: lo que se ve en el juego).
   NULL)` 0x5261FC (**pausa y pantalla ancha como la intro**: el juego sí se para) y, con reproductor: fps ≤ 0 → 0x18,
   la cámara en el punto de la ruta del ms 0 (×0,8), y **+0x25018C = +0x250190** (0x5262C4..0x5262CF): **el vídeo no tiene
   fundido propio** (los 5 s de `fn_0054AB20` se anulan). Luego +0 = 1, +0x10 la posición de cámara guardada, un
-  `LH3DSprite` y 16 chispas (+0x34/+0x38), `+0x1C = +0x20 = +0x24 = 0`, dos `LightBurst` (+0x3C), +0x28 = 0,
+  `LH3DSprite` y 16 chispas (+0x34/+0x38), `+0x1C = +0x20 = +0x24 = 0`, un `LightBurst` (+0x3C) que se inicializa dos veces, +0x28 = 0,
   +0x30 = 1.0, +0x2C = 0 y la retrollamada de fin de frame 0x526480 (los destellos de luz, desde el estado 2).
 - **Cada frame (modo 2).** `Process3dEngine` 0x54DD83: con `+0x205A28 == 2` (caso 2, 0x54DD9B..0x54DE02) **no se dibuja
   la tierra** (el caso 0 es 0x54DE57): `LH3DAtmos::Update3D`, `g_mode_cleaning = 0`, la actualización 0x526E00, y si no
@@ -262,7 +262,7 @@ perfil nuevo no se puede saltar** (inferido: lo que se ve en el juego).
   de llamarlo y el fundido se queda) **(inferido: que nada suba la precisión entre medias)**. Al arrancar, `DoLogo`
   (0x5FA0E1..0x5FA0FF, primera vuelta de `GGame::Loop`) pone actual = objetivo = 0 y `[0xE06028] = 0`: en reposo.
 - **El final.** `EndFallingSpellVideo`: `+0x205A28 = 0`, `Close` (quita la retrollamada, borra la criatura y la ruta,
-  devuelve la cámara, libera chispas y destellos), `delete`, `FallingSpellVideo = NULL` y `fn_0054DA00`. Sin
+  devuelve la **luz de los modelos** [0xEA9E90] (no la cámara; fn_0081E1F0 0x5264F4), libera chispas y destellos), `delete`, `FallingSpellVideo = NULL` y `fn_0054DA00`. Sin
   `FallingSpellVideo` ese salto es el **normal**: fundido de 48 frames desde el actual **con base 0xFF** (el primer
   fotograma, alpha 1.0, tapa el mundo) y la pausa devuelta. Por tiempo: a 43,9 s el blanco sube en 1 s, a ~44,9 s acaba
   el hechizo, el vídeo se funde en 2 s y el blanco baja en 1 s. ESC (`fn_0054DA00` 0x54DA0C) hace lo mismo antes.
@@ -389,15 +389,16 @@ Diferencias:
 - Fiel desde V5: el paso a 16 bits parte del RGBA8 del descodificador y da el mismo 555/565 que el YUV→555 de la DLL
   (comprobado contra los frames de oro).
 - **(inferido)** Un salto por pulsación: las repeticiones de tecla de SDL se ignoran.
-- V6 no portado: la `CreatureFalling`, la ruta `fall.cm2` y la cámara con `ChangeFov(π/4)`, las 16 chispas, los
-  `LightBurst`, el tinte de la criatura y los `SetScalePowerTime` de `Draw`, `LH3DAtmos::Update3D`/`Render2D`, los otros
+- V6: las 16 chispas (bocanadas de smoke.raw), el `LightBurst` y la ruta `fall.cm2` (calculada, aún sin aplicar a la
+  cámara) los porta milagros2 (miracles.md, «La caída del hechizo»). Sin portar: la `CreatureFalling`, la cámara con
+  `ChangeFov(π/4)`, el tinte de la criatura y los `SetScalePowerTime` de `Draw`, `LH3DAtmos::Update3D`/`Render2D`, los otros
   lectores de +0x205A28 y la reescritura de +0x1C por `Draw`. Lo que se ve en openblack en modo 2: el vídeo al 31 % sobre
   **(inferido)** el color de borrado de openblack (no se ha leído qué queda debajo en el original: no hay borrado
   identificado en `StartFrame`).
 - **(aproximado)** V6: el fps ≤ 0 → 0x18 de `Init`/0x526E4E no se escribe en el reproductor (se usa al calcular `t`;
   `BikFile` no abre fps 0).
 - **(aproximado)** V6: en modo 2 el original dibuja el vídeo dentro de `Process3dEngine` (`thedraw` 0x52689F) y las
-  bandas y el fundido de `FinishFrame` van encima; openblack dibuja bandas, vídeo, fundido. Misma imagen con las bandas
+  bandas y el fundido de `FinishFrame` van encima; openblack dibuja ahora el orden del original en modo 2: vídeo, bocanadas, destellos, bandas, fundido. Misma imagen con las bandas
   al 100 % (el *letterbox* del vídeo es su altura). El frame en que corre `EndFallingSpellVideo` el original aún dibuja
   el vídeo con base 0x50 (el color lo guardó `DrawToScreen` 0x54DC6D); openblack, con 0xFF (bajo el blanco casi opaco).
 - No portado: el banco de sonido (los dos llamadores pasan NULL), `ClearTipVideo`, la ruta del CD, la cadena de

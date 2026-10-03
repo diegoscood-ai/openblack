@@ -33,12 +33,15 @@
 ///   the normal skip (no FallingSpellVideo any more): a 48-frame fade of the film with base alpha 0xFF, the pause given
 ///   back. ESC (fn_0054DA00 0x54DA0C) ends it the same way.
 ///
-/// Not ported (no CreatureFalling, no camera path, no LightBurst in openblack; the session milagros owns spells): Init's
+/// Ported by milagros2 in src/Magic (FallingSpell, Graphics/RendererFallingSpell.cpp): the fall.cm2 path (computed, not
+/// yet applied to the camera), the 16 screen-anchored smoke puffs, the one LightBurst (initialised twice) and the model
+/// light Init saves, Draw puts at (0, 0, 1000) and Close puts back (fn_0081E1F0 0x5264F4: the light, not the camera).
+/// Still not ported: Init's
 /// fall.cm2 camera path (LHFileLength / LHLoadData / fn_0086D4A0 0x52607F..0x5260B6), the CreatureFalling copy of the
 /// player's creature (new(0x57B8) 0x5260D1, ctor 0x52610E, vtable 0x8D8BD8) and its hand glows (0x526186..0x5261EB),
 /// the camera along the path with ChangeFov(pi / 4) (0x526259..0x5262BF, 0x526EA9..0x526F1C), the 16 sprites (new(0x200)
 /// 0x526335) and the light bursts (new(0x400) 0x52642E, the finish frame callback 0x526480 -> 0x526530), everything
-/// FallingSpell::Draw draws besides the film, Close's camera put back (fn_0081E1F0 0x5264F4), LH3DAtmos::Update3D
+/// FallingSpell::Draw draws besides the film (the creature parts), LH3DAtmos::Update3D
 /// (0x54DDAB) and the other readers of +0x205A28 (GCamera::Update 0x44233C.., fn_00516CB0, fn_00517080,
 /// AddPlayerSparkles 0x55264D, fn_005739F0, Process3dEngine 0x54E3D2 / 0x54E4BC). The sounds and the music stop are
 /// events (Hooks::sound / musicStop); GameHooks() plays them through Audio.h (PlaySoundEffect / StopSoundEffect /

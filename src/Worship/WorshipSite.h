@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 #include <optional>
 
 #include <entt/entity/entity.hpp>
@@ -68,6 +70,17 @@ void RemoveSpellIconIfUnheld(entt::entity site, SpellSeedType seed);
 
 /// fn_0077B960 -> 0x77CFB0: the dancers (Dance +0x90)
 [[nodiscard]] int DancerCount(const WorshipSite& site);
+/// the same by entity: 0 when it is not a site (a dance-less site has no dancers, 0x77CFB6)
+[[nodiscard]] int DancerCount(entt::entity site);
+/// Dance::CalculateFoodNeededByDancers 0x50BF20 (the site's dance +0xA0): the sum over the dancers of
+/// (1 - food (+0xE8)) x foodReqiredForDinner (GVillagerInfo +0x2D8)
+[[nodiscard]] float CalculateFoodNeededByDancers(entt::entity site);
+/// WorshipSite::GetResource 0x77BD80 (vt +0x98) for FOOD: the food pot's (+0xB4) Pot::JustGetResource 0x66D390 (its
+/// +0x70 amount when the pot holds food); 0 without a pot
+[[nodiscard]] uint32_t GetFoodResource(entt::entity site);
+/// WorshipSite::CalculateDesireForFood 0x77C310 (vt +0x420 of ??_7WorshipSite 0x8F2840): 1 - min((food + 1e-4) /
+/// (needed + 1e-4), 1), food = GetFoodResource, needed = CalculateFoodNeededByDancers. 0 when it is not a site.
+[[nodiscard]] float CalculateDesireForFood(entt::entity site);
 /// fn_0077E060: the chants the dancers make each turn, N x chantsPerVillager x TribalPower[2] of the player (GPlayer +0x70)
 [[nodiscard]] float Capacity(const WorshipSite& site);
 /// fn_0077E780: chantsToFillBattery + N x eachVillagerAddToFillBattery

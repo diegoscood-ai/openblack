@@ -22,17 +22,20 @@
 #include "3D/ObjectMatrix.h"
 #include "ECS/Archetypes/PotArchetype.h"
 #include "ECS/Components/Mesh.h"
+#include "ECS/Components/Pot.h"
 #include "ECS/Components/SpellIcon.h"
 #include "ECS/Components/Temple.h"
 #include "ECS/Components/Town.h"
 #include "ECS/Components/TownInfluence.h"
 #include "ECS/Components/TownMagic.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/Components/Villager.h"
 #include "ECS/GUtilsAngle.h"
 #include "ECS/MapCells.h"
 #include "ECS/MapCoords.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "ECS/Registry.h"
+#include "ECS/Villager/VillagerCore.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Magic/Core/Players.h"
@@ -450,6 +453,85 @@ entt::entity site::GetSpellIconFromMagicType(entt::entity siteEntity, MagicType 
 int site::DancerCount(const WorshipSite& site)
 {
 	return static_cast<int>(site.dancers.size());
+}
+
+int site::DancerCount(entt::entity siteEntity)
+{
+	// fn_0077B960 -> 0x77CFB0: no dance (+0xA0) -> 0, else Dance +0x90
+	return IsSite(siteEntity) ? DancerCount(SiteOf(siteEntity)) : 0;
+}
+
+float site::CalculateFoodNeededByDancers(entt::entity siteEntity)
+{
+	if (!IsSite(siteEntity))
+	{
+		return 0.0f;
+	}
+	auto& registry = Locator::entitiesRegistry::value();
+	// 0x50BF2C: the sum starts at 0 (a float local, stored back after every dancer: fstp 0x50BF82)
+	float needed = 0.0f;
+	// 0x50BF25..0x50BF90: the dance's groups (+0x78) and each group's members (+0x1C); (aproximado) the order of the
+	// sum is the dancers' join order here, the original's is group by group (it changes only the float rounding)
+	for (const auto dancer : SiteOf(siteEntity).dancers)
+	{
+		// 0x50BF51: dynamic_cast<Villager*>: members that are not villagers add nothing
+		const auto* villager =
+		    dancer != entt::null && registry.Valid(dancer) ? registry.TryGet<const Villager>(dancer) : nullptr;
+		if (villager == nullptr)
+		{
+			continue;
+		}
+		// 0x50BF5D..0x50BF82: fld 1; fsub +0xE8; fimul (int) info +0x2D8; fadd sum (each step rounded to float by the
+		// game thread's 24-bit FPU, so float arithmetic, one operation per statement)
+		const float hunger = 1.0f - villager->food;
+		const auto required = static_cast<int32_t>(ecs::villager::InfoOf(dancer).foodReqiredForDinner);
+		const float share = hunger * static_cast<float>(required);
+		needed = needed + share;
+	}
+	return needed;
+}
+
+uint32_t site::GetFoodResource(entt::entity siteEntity)
+{
+	if (!IsSite(siteEntity))
+	{
+		return 0;
+	}
+	auto& registry = Locator::entitiesRegistry::value();
+	// 0x77BD88..0x77BD90: the food pot +0xB4, none -> 0 (0x77BDA3)
+	const auto pot = SiteOf(siteEntity).foodPot;
+	const auto* component = pot != entt::null && registry.Valid(pot) ? registry.TryGet<const Pot>(pot) : nullptr;
+	if (component == nullptr || component->type == PotInfo::_COUNT)
+	{
+		return 0;
+	}
+	// Pot::JustGetResource 0x66D390: the pot's type (vt +0x690, its GPotInfo's resource type) must be FOOD, then +0x70
+	const auto& info = Locator::infoConstants::value().pot.at(static_cast<size_t>(component->type));
+	return info.resourceType == ResourceType::Food ? component->amount : 0;
+}
+
+float site::CalculateDesireForFood(entt::entity siteEntity)
+{
+	if (!IsSite(siteEntity))
+	{
+		return 0.0f;
+	}
+	// 0x77C31C: Dance::CalculateFoodNeededByDancers, stored as a float (fstp 0x77C321)
+	const float needed = CalculateFoodNeededByDancers(siteEntity);
+	// 0x77C325..0x77C33D: GetResource(FOOD) (vt +0x98), fild qword (unsigned)
+	const auto food = GetFoodResource(siteEntity);
+	// 0x77C342 / 0x77C34C: both + 0.0001 (0x8BF518 = 0x38D1B717), 0x77C352: fdivp -> food / needed
+	constexpr float k_Epsilon = 0.0001f;
+	const float foodPlus = static_cast<float>(food) + k_Epsilon;
+	const float neededPlus = needed + k_Epsilon;
+	float ratio = foodPlus / neededPlus;
+	// 0x77C354..0x77C363: fcom 1 (0x8AA390); not below 1 -> 1 (a NaN is kept: C0 set when unordered)
+	if (!(ratio < 1.0f) && !std::isnan(ratio))
+	{
+		ratio = 1.0f;
+	}
+	// 0x77C369: fsubr 1 -> 1 - ratio
+	return 1.0f - ratio;
 }
 
 float site::Capacity(const WorshipSite& site)

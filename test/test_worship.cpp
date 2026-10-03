@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 
+#include "ECS/Components/Pot.h"
 #include "ECS/Components/SpellIcon.h"
 #include "ECS/Components/Town.h"
 #include "ECS/Components/TownInfluence.h"
@@ -62,6 +63,9 @@ protected:
 		info->worshipSite.at(static_cast<size_t>(Tribe::NORSE)) = ShippedNorseSiteInfo();
 		info->villager.at(0).damageThresholdToGoHome = 0.3f;
 		info->villager.at(0).chantLifeRate = 5e-6f;
+		// the desire for food (0x50BF20 reads info +0x2D8; the food pot's GPotInfo holds FOOD)
+		info->villager.at(0).foodReqiredForDinner = 4;
+		info->pot.at(static_cast<size_t>(PotInfo::StoragePitFoodPile)).resourceType = ResourceType::Food;
 		// the FIRE seed and its rows: base magic FIREBALL, costToCreate 3500 (sources.md §2.4)
 		info->spellSeed.at(static_cast<size_t>(SpellSeedType::Fire)).magicTypes = {MagicType::Fireball, MagicType::None,
 		                                                                          MagicType::None, MagicType::None};
@@ -286,4 +290,37 @@ TEST_F(WorshipTest, FireFlyRewardProbabilities)
 	EXPECT_FLOAT_EQ(worship::fire_fly::Total(), 26.0f);
 	worship::fire_fly::SetRewardProbability(MagicType::Heal, 5.0f);
 	EXPECT_FLOAT_EQ(worship::fire_fly::Total(), 5.0f);
+}
+
+TEST_F(WorshipTest, DesireForFoodOfASite)
+{
+	// WorshipSite::CalculateDesireForFood 0x77C310: 1 - min((food + 1e-4) / (needed + 1e-4), 1); needed is
+	// Dance::CalculateFoodNeededByDancers 0x50BF20, the sum of (1 - food) x foodReqiredForDinner (info +0x2D8)
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto siteEntity = registry.Create();
+	registry.Assign<WorshipSite>(siteEntity, NorseSite(0));
+	EXPECT_EQ(worship::site::DancerCount(siteEntity), 0);
+	// no dancers and no pot: 1 - min(1e-4 / 1e-4, 1) = 0
+	EXPECT_FLOAT_EQ(worship::site::CalculateDesireForFood(siteEntity), 0.0f);
+	for (const float food : {0.5f, 0.75f})
+	{
+		const auto villager = registry.Create();
+		registry.Assign<Villager>(villager).food = food;
+		registry.Get<WorshipSite>(siteEntity).dancers.push_back(villager);
+	}
+	EXPECT_EQ(worship::site::DancerCount(siteEntity), 2);
+	// (1 - 0.5) x 4 + (1 - 0.75) x 4 = 3
+	EXPECT_FLOAT_EQ(worship::site::CalculateFoodNeededByDancers(siteEntity), 3.0f);
+	// still no pot: 1 - 1e-4 / 3.0001
+	EXPECT_FLOAT_EQ(worship::site::CalculateDesireForFood(siteEntity), 1.0f - 0.0001f / 3.0001f);
+	const auto pot = registry.Create();
+	registry.Assign<Pot>(pot, static_cast<uint16_t>(1), static_cast<uint16_t>(100), PotInfo::StoragePitFoodPile);
+	registry.Get<WorshipSite>(siteEntity).foodPot = pot;
+	EXPECT_EQ(worship::site::GetFoodResource(siteEntity), 1u);
+	EXPECT_FLOAT_EQ(worship::site::CalculateDesireForFood(siteEntity), 1.0f - 1.0001f / 3.0001f);
+	// enough food: the ratio is held at 1, no desire
+	registry.Get<Pot>(pot).amount = 50;
+	EXPECT_FLOAT_EQ(worship::site::CalculateDesireForFood(siteEntity), 0.0f);
+	// not a site: nothing
+	EXPECT_FLOAT_EQ(worship::site::CalculateDesireForFood(pot), 0.0f);
 }

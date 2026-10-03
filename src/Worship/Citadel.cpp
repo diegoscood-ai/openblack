@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <limits>
 #include <vector>
 
@@ -57,6 +58,37 @@ entt::entity citadel::Of(PlayerNames player)
 		}
 	});
 	return found;
+}
+
+std::array<entt::entity, 6> citadel::WorshipSitesOf(PlayerNames player)
+{
+	std::array<entt::entity, 6> sites {entt::null, entt::null, entt::null, entt::null, entt::null, entt::null};
+	// 0x71B2A5..0x71B2AD: GPlayer +0xA48, none -> nothing
+	const auto citadelEntity = Of(player);
+	if (!IsCitadel(citadelEntity))
+	{
+		return sites;
+	}
+	// 0x71B2B3..0x71B301: +0x34 + 4 i, i = 0..5 (CitadelWorship::sites is indexed by the slot, WorshipSite +0x110)
+	const auto& worship = Registry().Get<const CitadelWorship>(citadelEntity);
+	for (size_t i = 0; i < sites.size(); ++i)
+	{
+		const auto site = worship.sites.at(i);
+		sites.at(i) = site != entt::null && Registry().Valid(site) && Registry().AllOf<WorshipSite>(site) ? site : entt::null;
+	}
+	return sites;
+}
+
+float citadel::StrainSoundFraction(entt::entity citadelEntity)
+{
+	return IsCitadel(citadelEntity) ? Registry().Get<const CitadelWorship>(citadelEntity).strainSoundFraction : 0.0f;
+}
+
+float citadel::StrainSoundFractionAtMostOne(entt::entity citadelEntity)
+{
+	const float fraction = StrainSoundFraction(citadelEntity);
+	// 0x71B319..0x71B332: fld +0x70; fcomp 1.0 (0x8AA390); C0 (below or unordered) -> +0x70, else 1.0 (0x3F800000)
+	return fraction < 1.0f || std::isnan(fraction) ? fraction : 1.0f;
 }
 
 void citadel::Initialise(entt::entity temple, float heartYAngle)

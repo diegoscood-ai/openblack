@@ -578,6 +578,20 @@ huecos (`sites[6]`); el ángulo del hueco *n* es **el ángulo del corazón + n �
   cada jugador con ciudadela, cada una de sus ciudades sin lugar de culto → `Citadel::AddTown`.
 - `Town::IsAllowedToCreateWorshipSite` 0x740BB0: **nunca en la tierra 1**, ni si el guion lo prohíbe
   (`SET_CAN_BUILD_WORSHIPSITE`), ni sin población. Por eso en Land1 solo hay dispensadores y luciérnagas.
+- **Lo que lee el audio** (`GGuidance::CheckWorshipSiteDesiresSFX` 0x71B270). Recorre `GPlayer+0xA48` →
+  `Citadel+0x34..+0x48` en orden de hueco (`citadel::WorshipSitesOf`). Se salta los lugares sin bailarines: fn_0077B960
+  salta a 0x77CFB0, que da `Dance+0x90` o 0 sin baile (`site::DancerCount`). De los demás se queda con el más cercano
+  a la cámara, a menos de 200 m (0x980130). Luego pide su `CalculateDesireForFood` (vt+0x420 de `??_7WorshipSite`
+  0x8F2840 = 0x77C310; `site::CalculateDesireForFood`), que vale `1 − min((comida + 0,0001) / (necesaria + 0,0001), 1)`.
+  - La comida es la de la olla del lugar (+0xB4, `Pot::JustGetResource` 0x66D390).
+  - La necesaria sale de `Dance::CalculateFoodNeededByDancers` 0x50BF20: la suma, por bailarín, de
+    `(1 − comida en la barriga +0xE8) × foodReqiredForDinner` (+0x2D8).
+  - Lee también `Citadel+0x70`, la fracción del sonido de tensión del culto, limitada a 1 en 0x71B31C
+    (`citadel::StrainSoundFractionAtMostOne`). Solo la escribe `SetWorshipStrainSoundFrac` 0x463850 (desde
+    `ProcessSpellIcons` 0x46396C) y se guarda y carga con la partida (0x463D6A / 0x463FB9).
+  - **(aproximado)** openblack suma los bailarines en el orden en que se unieron, no grupo a grupo; solo cambia el
+    redondeo.
+  - **(inferido)** El valor inicial de +0x70 es 0: no se ha leído el constructor de Citadel.
 
 ### La batería y el turno del lugar (`Worship/WorshipSite.cpp`)
 

@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <array>
+
 #include <entt/entity/entity.hpp>
 #include <glm/vec3.hpp>
 
@@ -21,6 +23,17 @@ namespace openblack::worship::citadel
 {
 /// GPlayer +0xA48: the player's citadel (its temple entity with a CitadelWorship), or entt::null
 [[nodiscard]] entt::entity Of(PlayerNames player);
+
+/// GPlayer +0xA48 -> Citadel +0x34..+0x48 (as GGuidance::CheckWorshipSiteDesiresSFX 0x71B2A5..0x71B301 walks them):
+/// the six site slots in slot order, entt::null for an empty slot; all null when the player has no citadel
+[[nodiscard]] std::array<entt::entity, 6> WorshipSitesOf(PlayerNames player);
+/// Citadel +0x70, the worship-strain sound fraction: written only by SetWorshipStrainSoundFrac 0x463850 (from
+/// ProcessSpellIcons 0x46396C, the local player's citadel), saved / loaded as 4 bytes (Save 0x463D6A, Load 0x463FB9).
+/// 0 when it is not a citadel.
+[[nodiscard]] float StrainSoundFraction(entt::entity citadel);
+/// +0x70 as GGuidance::CheckWorshipSiteDesiresSFX reads it (0x71B319..0x71B332): below 1 (fcomp 0x8AA390) it is
+/// kept (a NaN too: C0 set when unordered), else 1
+[[nodiscard]] float StrainSoundFractionAtMostOne(entt::entity citadel);
 
 /// The citadel's worship part, from CitadelArchetype (the heart's Y angle from the script's rotation)
 void Initialise(entt::entity temple, float heartYAngle);

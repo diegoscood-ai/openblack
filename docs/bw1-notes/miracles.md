@@ -2443,9 +2443,38 @@ What is missing from each miracle, in its section:
   ([Food and wood](miracles.md#food-and-wood-m3-magicspellsspellresource-magicobjectsmagicfoodwood-ecspotresource)).
 - Forest: the goddess and the camera (postponed; the flapping of the butterflies and the bats is done, U7)
   ([Forest](miracles.md#forest-m4b-magicspellsspellforest-magicobjectsmagictree-ecstrees)).
-- Lightning: `LightningForkFlicker` 0x6B24D0, `NumTexturesToTile`, the recursive fork tree, `DrawOffsetLT` and the EffectValues of lightning without a spell ([Lightning](miracles.md#lightning-magic_type-4-6-seed-6-lightning_bolt-psysruleslightningcpp)).
+- Lightning: `LightningForkFlicker` 0x6B24D0 and the EffectValues of lightning without a spell (`NumTexturesToTile`, the recursive fork tree fn_00691F30 and `DrawOffsetLT` are done since the polish batches 1-2b) ([Lightning](miracles.md#lightning-magic_type-4-6-seed-6-lightning_bolt-psysruleslightningcpp)).
 - Teleport: the lighting of the pool (`UseLighting` 1, `MaterialSetDoubleSided` 0 of `SF_TeleportVortex`) and the creature ([Teleport](miracles.md#teleport-m6t-srcmagicobjectsmagicteleport-srcecssystemsimplementationsvillagerteleport)).
 - [Creature miracles](miracles.md#creature-miracles-m8-pending).
+
+## State at the close of session milagros2 (2026-10-03)
+
+Everything is in `local/hand-hbn` (last code ffd386c8, 85/85 tests). From now on `src/Magic`, `src/PSys`, `src/Worship`,
+`src/ECS/Fire`, `src/ECS/Weather`, `src/ECS/Influence`, `src/ECS/MapCells.*` and `src/Common/GameRandom.*` have no
+owner: read this page, [magic.md](magic.md) and `dev\documentacion\miracles\polish\PENDIENTE.md` (the detailed list, in
+Spanish) first.
+
+**Done in the polish batches 1-8 and after**
+- Lightning (smooth, blue and white, the fork tree, the land cut `LandIslandInterface::RayCast` 0x802550, bolt clash),
+  storm cloud and its shadow, the forest seed (spiral fall; temple seed stays, orb seed does not), teleport by hand,
+  the beam-explosion crater and debris (world triangles), the spiritual shield in the hand (one sphere), the wrist band
+  (player colour, axis), opaque orb meshes, the PSys draw paths (Sorted / Queued / Immediate).
+- `ecs::map_cells` (the original's per-cell lists and queries) and `game_random` (phases A and B: every draw in src as
+  the original's site; `LH3DRandom` removed).
+- The turn start in the original's order (0x54E637..0x54E65B), the town centre test fn_00741020, TownBelief per frame,
+  the FallingSpell overlay and fall.cm2 camera, RemoveMapObject on destruction, the off-map delete at the end of physics
+  (0x63763A), the PSys meshes' human shadow, the temple desires and the heartbeat / worship chants for the audio.
+
+**Pending**
+- The creature (M8 above) and everything that waits for it: the falling creature in FallingSpell, enemy creatures in the
+  heartbeat, the creature in water / forest / lightning / tornado.
+- Town aggression (`Town::ProcessPlayerInteract` 0x73DEC0, villagers): without it the protection desire only rises
+  with a script boost, so villagers seldom react to shields.
+- Physics (no owner): the pair skip with +0x1A4 == 1 and flag 2 (0x64583E..0x645866) is missing in `Substep`.
+- (approximate) the C22 box centre turns only on xz; (inferred) the off-map delete when the object that stays is
+  another one (Tree → DeadTree); not tested in game: the off-map delete, the heartbeat and the chants.
+- The user's open question: a mod so that the orb bubble does not write depth and cut the rain or fire behind it (the
+  original does cut).
 
 ## Test hooks
 

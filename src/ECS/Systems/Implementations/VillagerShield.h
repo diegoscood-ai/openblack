@@ -31,15 +31,15 @@ struct Reaction;
 // town's need for it goes. Magic/Spells/SpellShield makes the reaction (radius R + 30) when the spell is cast; it is
 // spread once, so only the villagers near it at that moment get the chance to react.
 //
-// Two of the original's inputs have no openblack equivalent yet and keep the villagers from ever reacting unless they
-// are homeless (see ReactToMagicShieldPriority):
-//  - TownDesire::GetDesireSignificanceToVillager(town +0x34, TOWN_DESIRE_FOR_PROTECTION 3) 0x746660: the three desire
-//    arrays it adds (TownDesire +0x90 / +0xD4 / +0x118) are not ported (components::TownDesire only keeps what
-//    Villager::AdjustTownModifier writes);
+// The town gates read TownDesire::GetDesireSignificanceToVillager(town +0x34, TOWN_DESIRE_FOR_PROTECTION 3) 0x746660
+// through ecs::town_desire, and the town's aggressor turn (Town +0xEB0). Two things that feed them are still missing,
+// so in a normal game only the homeless react (see ReactToMagicShieldPriority):
+//  - the protection desire's function (0x7488A0) returns Town +0xEC0, written by ProcessPlayerInteract 0x73DEC0, not
+//    ported (town_desire's DesireInputs::protection is 0): only a script boost (+0xD4) makes it above its trigger;
 //  - Town::UpdateAggressor 0x73C9B0 only has its two record fields ported (components::Town::aggressor*), written by
 //    the physical shield's impacts; nothing else makes a town's aggressor yet.
-// OPENBLACK_TEST_SHIELD_REACTION=1 takes both as "the town wants protection and was just attacked" so the reaction can
-// be seen in game; without it nothing changes for a villager with a town. Wiki: docs/bw1-notes/miracles.md, "Escudos".
+// OPENBLACK_TEST_SHIELD_REACTION=1 takes both gates as "the town wants protection and was just attacked" so the
+// reaction can be seen in game; without it the gates are the original's reads. Wiki: docs/bw1-notes/miracles.md, "Escudos".
 
 namespace openblack::ecs::villager_shield
 {

@@ -17,9 +17,13 @@
 #include <exception>
 #include <utility>
 
+#include <glm/geometric.hpp>
+#include <glm/trigonometric.hpp>
 #include <spdlog/spdlog.h>
 
+#include "Camera/Camera.h"
 #include "Common/GameRandom.h"
+#include "EngineConfig.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "GameClock.h"
 #include "Graphics/ModelLight.h"
@@ -261,6 +265,32 @@ CameraPath::Key CameraPath::At(uint32_t ms) const
 	return out;
 }
 
+glm::mat4 falling_spell::WorldToCamera(const Camera& camera)
+{
+	const auto& a = camera.matrix;
+	// 0x81A075..0x81A0F5: the path's 3x3 transposed with its third row negated, in the caller's matrix
+	std::array<float, 9> m {a[0], a[3], -a[6], a[1], a[4], -a[7], a[2], a[5], -a[8]};
+	// 0x81A0F8 fn_007FB5C0: each row of three times InverseSquareRoot 0x841170 of its length squared. (aproximado) an
+	// exact 1 / sqrt, not LH3DMath's table g_inverse_sqrt_lookup_table [0xEEA394]
+	for (size_t row = 0; row < 3; ++row)
+	{
+		const glm::vec3 v(m.at(3 * row), m.at(3 * row + 1), m.at(3 * row + 2));
+		const float inverse = 1.0f / std::sqrt(glm::dot(v, v));
+		for (size_t k = 0; k < 3; ++k)
+		{
+			m.at(3 * row + k) *= inverse;
+		}
+	}
+	// 0x81A112..0x81A22F: copied to 0xEA1D28..0xEA1D48, then 0xEA1D4C..0xEA1D54 = -(m0 p.x + m3 p.y + m6 p.z),
+	// -(m1 p.x + m4 p.y + m7 p.z), -(m2 p.x + m5 p.y + m8 p.z)
+	const glm::vec3& p = camera.position;
+	const glm::vec3 c0(m[0], m[3], m[6]);
+	const glm::vec3 c1(m[1], m[4], m[7]);
+	const glm::vec3 c2(m[2], m[5], m[8]);
+	return {glm::vec4(m[0], m[1], m[2], 0.0f), glm::vec4(m[3], m[4], m[5], 0.0f), glm::vec4(m[6], m[7], m[8], 0.0f),
+	        glm::vec4(-glm::dot(c0, p), -glm::dot(c1, p), -glm::dot(c2, p), 1.0f)};
+}
+
 FallingSpell::FallingSpell(Hooks hooks)
     : _hooks(std::move(hooks))
 {
@@ -332,6 +362,12 @@ void FallingSpell::Close()
 	// 0x5264DD..0x5264F1: the path freed (fn_0086D4D0)
 	_path.reset();
 	_camera.reset();
+	// (openblack) the game camera back: Close does not touch the camera, the next frame's GCamera::Update in mode 0 draws
+	// it again (ChangeFov 0x4425D3 with its FOV, UpdateCamera 0x442622 with its zoomers, which mode 2 left alone)
+	if (_hooks.applyCamera)
+	{
+		_hooks.applyCamera(std::nullopt);
+	}
 	// 0x5264E8..0x5264F4: fn_0081E1F0(+0x10): the model light put back
 	if (_hooks.setLight)
 	{
@@ -350,9 +386,14 @@ void FallingSpell::UpdateCamera(int32_t filmMs)
 		return;
 	}
 	// 0x526E9B..0x526F1C: fn_0086D760(path, NULL, t, &position, &focus, &matrix), ChangeFov(pi / 4), position and focus
-	// x 0.8 ([0x8C4A04]), fn_00819F50(&position, &focus, &matrix)
+	// x 0.8 ([0x8C4A04]), fn_00819F50(&position, &focus, &matrix). Init 0x526259..0x5262BF does the same at the film's
+	// first frame without ChangeFov; here both come in the first frame (aproximado: see FrameUpdate)
 	const auto key = _path->At(static_cast<uint32_t>(filmMs));
 	_camera = Camera {key.position * k_PathScale, key.focus * k_PathScale, key.matrix, k_FallFov};
+	if (_hooks.applyCamera)
+	{
+		_hooks.applyCamera(_camera);
+	}
 }
 
 void FallingSpell::Draw(uint32_t deltaMs, int width, int height)
@@ -524,6 +565,27 @@ FallingSpell& falling_spell::Get()
 		};
 		hooks.light = []() { return model_light::Light(); };
 		hooks.setLight = [](const glm::vec3& position) { model_light::SetLight(position); };
+		// fn_00819F50 and ChangeFov 0x8195B0 on openblack's camera. ChangeFov takes the horizontal angle (0x4424C6..
+		// 0x4424E2: [0xC3812C] = tan(fov / 2) near, [0xC38130] = that / aspect), as the config's cameraXFov; the
+		// config keeps GCamera's own FOV, which the clear puts back. (inferido) the near plane stays openblack's
+		// (GetNearClipping 0x4424AF runs in every mode, from GCamera's camera). Not ported: the debug camera overrides
+		// [0xEA9EC8] / [0xEA9ECC] and the shake fn_008210C0 (0x819FAA..0x81A032) on the fall's camera, and the readers
+		// of g_camera in mode 2 (GCamera::Update 0x442347..0x442395 takes it as its drawn camera: GetWeatherSmooth
+		// 0x4426BA, +0x74)
+		hooks.applyCamera = [](const std::optional<Camera>& fall) {
+			if (!Locator::camera::has_value() || !Locator::config::has_value() || !Locator::windowing::has_value())
+			{
+				return;
+			}
+			auto& camera = Locator::camera::value();
+			const auto& config = Locator::config::value();
+			const float xFov = fall.has_value() ? glm::degrees(fall->fov) : config.cameraXFov;
+			camera.SetProjectionMatrixPerspective(xFov, Locator::windowing::value().GetAspectRatio(), config.cameraNearClip,
+			                                      config.cameraFarClip);
+			// the drawn view, g_camera and the world to camera of fn_00819F50, over the game camera's look-at without
+			// touching its zoomers
+			camera.SetDrawnView(fall.has_value() ? std::optional(WorldToCamera(*fall)) : std::nullopt);
+		};
 		return hooks;
 	}());
 	return spell;

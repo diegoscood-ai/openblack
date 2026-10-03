@@ -17,6 +17,7 @@
 #include <vector>
 
 #include <glm/mat3x4.hpp>
+#include <glm/mat4x4.hpp>
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 
@@ -36,9 +37,13 @@
 ///   none, so the bursts neither move nor draw (pendiente: the creature).
 /// - The camera path data\spells\fall\fall.cm2 (LHLoadData 0x52609C, fn_0086D4A0 0x5260A2, +0x08), sampled at the
 ///   film's ms by fn_0086D760 and given to fn_00819F50 with the position and focus x 0.8 (Init 0x526259..0x5262BF, the
-///   update 0x526E9B..0x526F1C, with ChangeFov(pi / 4) 0x526EB3). Loaded and sampled here (CameraNow); not applied to
-///   openblack's camera (pendiente: fn_00819F50, 0x800 bytes, only called by FallingSpell, not read; GCamera::Update
-///   0x44233C's mode 2 branch not read; in mode 2 no land or model is drawn, so only the creature would show it).
+///   update 0x526E9B..0x526F1C, with ChangeFov(pi / 4) 0x526EB3). fn_00819F50 0x819F50..0x81A74B is
+///   LH3DTech::UpdateCamera 0x819920 with the path's rotation: the drawn camera (g_camera 0xEA1DB8, its focus 0xEA1DC4,
+///   the world to camera 0xEA1D28, see WorldToCamera) for the frame. GCamera::Update leaves it alone in mode 2 (with
+///   g_game+0x205A28 != 0 no ChangeFov 0x4424F0 and no UpdateCamera 0x442602) and its zoomers are not touched, so
+///   nothing puts the game camera back: the first frame in mode 0 draws it again (ChangeFov 0x4425D3, UpdateCamera
+///   0x442622). Applied through Hooks::applyCamera every update, cleared at Close. In mode 2 no land or model is drawn,
+///   so only the creature would show it (pendiente: the creature).
 /// - The model light: Init keeps [0xEA9E90] at +0x10 (0x5262E0..0x526311), Draw puts it at (0, 0, 1000) for the
 ///   creature (fn_0081E1F0 0x526873..0x526895), Close puts the kept one back (0x5264E8..0x5264F4).
 ///
@@ -142,6 +147,13 @@ struct Camera
 	float fov {k_FallFov};
 };
 
+/// fn_00819F50 0x81A075..0x81A0F8 and 0x81A112..0x81A22F: the world to camera matrix 0xEA1D28 (LH3D rows,
+/// x' = m0 x + m3 y + m6 z + m9) from the path's first nine floats a0..a8: (a0, a3, -a6, a1, a4, -a7, a2, a5, -a8),
+/// each row of three normalised by fn_007FB5C0, then m9..m11 = -(the columns . position). The camera's right, up and
+/// forward are so the path matrix's rows 0, 1 and -2; the focus does not turn it (UpdateWorldToCamera 0x81A10D's
+/// look-at is overwritten). As a glm (column) matrix with the same memory, like openblack's glm::lookAt view
+[[nodiscard]] glm::mat4 WorldToCamera(const Camera& camera);
+
 /// FallingSpell's state that is not the film's (the object 0x40 bytes, GGame::FallingSpellVideo 0xCD3B10)
 class FallingSpell
 {
@@ -155,6 +167,9 @@ public:
 		/// The model light [0xEA9E90] (model_light::Light / SetLight)
 		std::function<glm::vec3()> light;
 		std::function<void(const glm::vec3&)> setLight;
+		/// fn_00819F50 and ChangeFov on the drawn camera: the fall's camera each update, nothing to give back the game's
+		/// camera (what GCamera::Update does in mode 0 every frame)
+		std::function<void(const std::optional<Camera>&)> applyCamera;
 	};
 	explicit FallingSpell(Hooks hooks);
 
@@ -165,7 +180,7 @@ public:
 	void Close();
 	[[nodiscard]] bool IsActive() const { return _active; }
 
-	/// The update 0x526E00's camera (0x526E9B..0x526F1C): the path at the film's ms
+	/// The update 0x526E00's camera (0x526E9B..0x526F1C): the path at the film's ms, given to Hooks::applyCamera
 	void UpdateCamera(int32_t filmMs);
 	/// The update's +0x1C = 1 (0x527047, once, with the state 0 -> 1 at 13.45 s)
 	void StartSparks() { _sparksOn = true; }

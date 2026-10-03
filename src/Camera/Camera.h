@@ -80,6 +80,11 @@ public:
 		_originDrawOffset = origin;
 		_focusDrawOffset = focus;
 	}
+	/// fn_00819F50 (only FallingSpell's Init 0x5262BF and update 0x526F1C call it): LH3DTech::UpdateCamera 0x819920 with
+	/// its own world to camera 0xEA1D28 (magic::falling_spell::WorldToCamera). GetViewMatrix gives it while it is set;
+	/// the zoomers are not touched (GCamera::Update skips UpdateCamera with g_game+0x205A28 != 0, 0x4425F6..0x442602),
+	/// so clearing it draws the game camera again, as the first frame in mode 0 does (0x442622)
+	void SetDrawnView(const std::optional<glm::mat4>& view) { _drawnView = view; }
 	/// The time of the zoomers since their last destination (the position's x Zoomer, CurrentTime +0x14)
 	[[nodiscard]] std::chrono::microseconds GetInterpolatorTime() const;
 
@@ -115,6 +120,7 @@ protected:
 	Zoomer3d _focus;  ///< GCamera +0x88
 	glm::vec3 _originDrawOffset {0.0f}; ///< the shake added to the drawn position (fn_008210C0)
 	glm::vec3 _focusDrawOffset {0.0f};  ///< the shake added to the drawn focus (fn_008210C0)
+	std::optional<glm::mat4> _drawnView; ///< fn_00819F50's view, while the falling spell (mode 2) draws
 	float _xFov = 0.0f; // TODO(#707): This should be a zoomer for animations
 	glm::mat4 _projectionMatrix = glm::mat4 {1.0f};
 	glm::mat4 _projectionMatrixReversedZ = glm::mat4 {1.0f};

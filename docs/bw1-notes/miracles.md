@@ -2355,7 +2355,34 @@ actualización 0x526E00). Lanzar: CHL 203 `SET_AVI_SEQUENCE(on, 2)`; en pruebas 
   el resto usa la parte entera del paso, así que la fracción pasa de 1 a partir de unos 2,9 s y la cámara del original
   **extrapola** desde la clave (portado igual); a·(1−f) + b·f para posición, foco y matriz. La actualización
   (0x526E9B..0x526F1C) e `Init` (0x526259..0x5262BF) dan posición y foco ×0,8 y la matriz a fn_00819F50, y
-  `ChangeFov(π/4)`. En openblack: cargada y muestreada cada frame (`FallingSpell::CameraNow()`).
+  `ChangeFov(π/4)` (sólo la actualización; `Init` no cambia el FOV).
+- **fn_00819F50** (0x819F50..0x81A74B, sólo la llaman `Init` 0x5262BF y la actualización 0x526F1C; ecx = posición,
+  edx = foco, pila = matriz, `ret 4`) es **`LH3DTech::UpdateCamera` 0x819920 con la rotación de la ruta**: el mismo
+  principio (cámara de depuración [0xEA9EC8] / [0xEA9ECC], la sacudida fn_008210C0, g_camera 0xEA1DB8 y su foco
+  0xEA1DC4, el mirar-a de `UpdateWorldToCamera` 0x81A10D) y el mismo final (la matriz B 0xEA1C98, g_world_to_clipping
+  0xEA9E40 escalada por [0xE83A00] / [0xE83A04], su inversa, el octante [0xEA9EBC], el plano [0xF03128] → [0xF03118],
+  la matriz de giro en Y 0xEA1D88 de `GetYAngle` + π/2, la luz [0xEA9E90] → [0xEA9E80], `SetD3DMatrix` y
+  `SetTransform(VIEW)`, la inversa 0xEA1CF8). Lo distinto: de los nueve primeros floats a0..a8 de la matriz
+  (0x81A075..0x81A0F5) hace (a0, a3, −a6, a1, a4, −a7, a2, a5, −a8), normaliza cada fila de tres (fn_007FB5C0, con
+  `InverseSquareRoot` 0x841170 de tabla) y **la copia sobre el mirar-a** en 0xEA1D28..0xEA1D48; la traslación
+  0xEA1D4C..0xEA1D54 = −(columna · posición) (0x81A112..0x81A22F). Así la derecha, el arriba y el adelante de la
+  cámara son las filas 0, 1 y −2 de la matriz de la ruta; el foco no la gira (sólo cuenta para el octante, el giro en
+  Y y la sacudida); a9..a11 no se leen.
+- **Quién pone la cámara del juego.** `GCamera::Update` (0x44233C..0x4423F4) con `g_game+0x205A28` = 1 o 2 toma
+  g_camera (la del frame anterior, aquí la de la ruta) como su cámara dibujada, y con ≠ 0 se salta `ChangeFov`
+  (0x4424F0) y `UpdateCamera` (0x4425F6..0x442602); los zoomers de GCamera siguen a lo suyo. `Close` no toca la
+  cámara: **nada la devuelve**, el primer frame en modo 0 vuelve a dibujar la de GCamera (`ChangeFov` 0x4425D3 con su
+  FOV, `UpdateCamera` 0x442622). En openblack: `FallingSpell::Hooks::applyCamera` cada actualización con la cámara
+  de la ruta y vacío en `Close` (el equivalente del modo 0): el FOV con `SetProjectionMatrixPerspective` (π/4 en
+  horizontal, como `cameraXFov`; al cerrar el `cameraXFov` de la configuración) y la vista
+  `falling_spell::WorldToCamera` con `Camera::SetDrawnView`, que `GetViewMatrix` da mientras está puesta sin tocar
+  los zoomers. **Pendiente (dueño de la cámara)**: `SetDrawnView` está en `dev\_scratch\Milagros\fallspell_camera.diff`
+  (Camera.{h,cpp} y la línea del gancho); hasta aplicarlo sólo cambia el FOV. Sin tierra ni criatura en modo 2 no se
+  ve nada (pendiente: la criatura). **(aproximado)** 1/√ exacta y no la tabla de `InverseSquareRoot`; `Init` y la
+  primera actualización en el mismo frame. **(inferido)** el plano cercano sigue siendo el de openblack
+  (`GetNearClipping` 0x4424AF corre en todos los modos desde la cámara de GCamera). **No portado**: la cámara de
+  depuración y la sacudida sobre la cámara de la ruta, y los lectores de g_camera en modo 2 (`GetWeatherSmooth`
+  0x4426BA, GCamera +0x74).
 
 **(aproximado)** `Get3DPointFromScreen` sin pasar por el plano cercano (se cancela; el original redondea con él); la
 clave del Z-sorter calculada en espacio de cámara; `Init` corre en el primer frame del vídeo y no en el turno del
@@ -2373,13 +2400,13 @@ al azar A = 0xFF, R = 0x20 + LocalRand(32), G = 8 + LocalRand(8), B = LocalRand(
 las ventanas de `SetScalePowerTime` de los brillos de mano (16 350..19 350 y 31 650..32 650 ms el 0; 17 200..20 200 y
 36 500..37 500 el 2); su avance `UpdateTime(t − +0xC)` en la actualización; las teclas de depuración
 0xE85376..0xE85379 que la giran (0, π/2, π, 3π/2); **el centro de los destellos** (sin criatura no hay centro: ni se
-dibujan ni avanzan); aplicar la cámara de `fall.cm2` (fn_00819F50, 0x800 bytes, sólo la llama FallingSpell, sin leer;
-la rama de modo 2 de `GCamera::Update` 0x44233C sin leer; sin tierra ni criatura no se vería nada).
+dibujan ni avanzan); que la cámara de `fall.cm2` (ya aplicada, ver arriba) se vea, porque sólo la criatura la usa.
 
-**Pruebas y capturas.** `test_falling_spell` (13): índices y geometría del abanico, rangos de `LightBurst::Init`,
+**Pruebas y capturas.** `test_falling_spell` (15): índices y geometría del abanico, rangos de `LightBurst::Init`,
 la luz guardada y devuelta, `Init` de las bocanadas, sin `+0x1C` nada, posición/tamaño/ángulo/celda/alfa en pantalla
 y orden de lejos a cerca, el fundido y el `+0x1C` reescrito, destellos sólo desde el estado 2 y con centro (alfa,
-+0x28, +0x30), la fracción de fn_0086D760 y su deriva (t = 48 000: f = 16,36), la cámara ×0,8 y el `fall.cm2` real.
++0x28, +0x30), la fracción de fn_0086D760 y su deriva (t = 48 000: f = 16,36), la cámara ×0,8 y el `fall.cm2` real,
+la cámara aplicada cada actualización y devuelta en `Close`, y `WorldToCamera` como fn_00819F50.
 Ganchos: `OPENBLACK_TEST_FALL_LOG=1` (una línea por segundo de vídeo: estado, bocanadas, destellos) y
 `OPENBLACK_TEST_FALL_BURST_AT=fx,fy` (prueba: un centro en esa fracción de pantalla en lugar de la criatura). Fotos
 (`dev\_audit\magic\`): `polish_fix_fallspell_sparks.png` (15,6 s: las bocanadas naranjas sobre el vídeo al 31 %) y

@@ -46,6 +46,8 @@
 #include "Locator.h"
 #include "Resources/ResourcesInterface.h"
 #include "Video/VideoPlayer.h"
+#include "Worship/Citadel.h"
+#include "Worship/WorshipSite.h"
 
 using namespace openblack;
 using namespace openblack::ecs::components;
@@ -286,6 +288,53 @@ std::optional<std::array<float, 3>> TownResourceNeeds(audio::ThingId id)
 	                             need(TownDesireInfo::ForRain)};
 }
 
+std::optional<audio::WorshipDesire> WorshipSites()
+{
+	if (!Locator::entitiesRegistry::has_value())
+	{
+		return std::nullopt;
+	}
+	const auto& registry = Locator::entitiesRegistry::value();
+	// CheckWorshipSiteDesiresSFX 0x71B270: the local player's citadel GPlayer+0xA48 (openblack's is PLAYER_ONE).
+	// OPENBLACK_TEST_WORSHIP_PLAYER=<n> (test hook, not original; milagros2's worship hooks): that player's instead
+	auto player = PlayerNames::PLAYER_ONE;
+	if (const char* test = std::getenv("OPENBLACK_TEST_WORSHIP_PLAYER"); test != nullptr)
+	{
+		const int n = std::atoi(test);
+		if (n >= 0 && n < static_cast<int>(PlayerNames::_COUNT))
+		{
+			player = static_cast<PlayerNames>(n);
+		}
+	}
+	const auto citadel = worship::citadel::Of(player);
+	const auto* citadelTransform = citadel != entt::null ? registry.TryGet<const Transform>(citadel) : nullptr;
+	if (citadelTransform == nullptr)
+	{
+		return std::nullopt; // 0x71B2AB
+	}
+	audio::WorshipDesire desire;
+	desire.citadelPosition = citadelTransform->position; // GetCitadel (vt +0x114) +0x14
+	desire.need = worship::citadel::StrainSoundFraction(citadel); // +0x70, capped by the caller (0x71B319)
+	// Citadel +0x34..+0x48 in slot order: the site's +0x14, fn_0077B960 > 0 and CalculateDesireForFood (vt +0x420)
+	const auto sites = worship::citadel::WorshipSitesOf(player);
+	for (size_t i = 0; i < sites.size(); ++i)
+	{
+		const auto site = sites.at(i);
+		const auto* transform = site != entt::null ? registry.TryGet<const Transform>(site) : nullptr;
+		if (transform == nullptr)
+		{
+			continue;
+		}
+		audio::WorshipDesire::Site entry;
+		entry.id = static_cast<audio::ThingId>(entt::to_integral(site));
+		entry.position = transform->position;
+		entry.worshippers = worship::site::DancerCount(site) > 0;
+		entry.foodDesire = worship::site::CalculateDesireForFood(site);
+		desire.sites.at(i) = entry;
+	}
+	return desire;
+}
+
 void RunViewHook(uint32_t turn)
 {
 	const char* view = std::getenv("OPENBLACK_AUDIO_TEST_VIEW");
@@ -427,9 +476,11 @@ void ecs::audio_queries::Fill(audio::GameQueries& queries)
 	// values (TownDesire +0x90 / +0xD4 / +0x168 of asistente's ecs::town_desire)
 	queries.nearestTownAt = &NearestTownAt;
 	queries.townResourceNeeds = &TownResourceNeeds;
-	// CheckTownDesiresSFX 0x71B130: every town's sorted raw desires (ecs::town_desire). The worship sites
-	// (CheckWorshipSiteDesiresSFX 0x71B270) and the heart beat's other values are not ported yet: left unset
+	// CheckTownDesiresSFX 0x71B130: every town's sorted raw desires (ecs::town_desire); CheckWorshipSiteDesiresSFX
+	// 0x71B270: the citadel's sites (milagros2's worship::citadel / worship::site). The heart beat's values are not
+	// ported yet: left unset
 	queries.desireTowns = &DesireTowns;
+	queries.worshipSites = &WorshipSites;
 }
 
 void ecs::audio_queries::RunTestHooks(uint32_t turn)

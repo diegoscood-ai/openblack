@@ -250,20 +250,8 @@ std::unique_ptr<Creator> MakeMeshCreator(const Object& object)
 	creator->doubleSided = object.Bool("MaterialSetDoubleSided", true);
 	creator->neverClip = object.Bool("NeverClip", false);
 	// CastHumanShadow: ParticleMeshCreator's +0x5D only (DefineProperties 0x6B393E..0x6B3949); AnimTextured's +0x5D is
-	// its NeverClip and ParticleAnimCreator has none. (pendiente) read, not ported: see MeshCreator::castHumanShadow
+	// its NeverClip and ParticleAnimCreator has none. Its shadow: MeshCreator::castHumanShadow, mesh_atoms::HumanShadows
 	creator->castHumanShadow = !creator->animTextured && !creator->animated && object.Bool("CastHumanShadow", false);
-	if (creator->castHumanShadow)
-	{
-		static bool told = false;
-		if (!told)
-		{
-			told = true;
-			SPDLOG_LOGGER_WARN(spdlog::get("game"),
-			                   "PSys: {} {} sets CastHumanShadow: the original casts a human shadow for each atom "
-			                   "(fn_006CA340, updated by fn_006CA540 -> fn_006CA3D0), not ported here",
-			                   object.className, object.name);
-		}
-	}
 	// DrawWithLandscapeColor: ParticleMeshCreator's DefineProperties 0x6B38B0 reads it into +0x5E (0x6B390E; CreateParticle
 	// 0x6A8B82 puts it in the particle's +0x24 bit 1, which Particle3DObj::DrawAt 0x67A00C tests for fn_0080BEC0), and
 	// ParticleMeshCreatorAnimTextured's DefineProperties 0x6B3970 reads it too, into its own +0x84 (its last property,
@@ -350,8 +338,9 @@ void MeshCreator::InitAtom(Effect& effect, Atom& atom) const
 	}
 	if (!animTextured)
 	{
-		// ParticleMeshCreator::CreateParticle 0x6A8B00: the Particle3DObj only. Its CastHumanShadow node
-		// (0x6A8B55..0x6A8B7F) is left out on purpose: Mesh.h, castHumanShadow
+		// ParticleMeshCreator::CreateParticle 0x6A8B00: the Particle3DObj. Its CastHumanShadow node (0x6A8B55..0x6A8B7F)
+		// is the shadow list's entry of the atom, made when the shadow list first meets it in HumanShadows (Mesh.h,
+		// castHumanShadow)
 		return;
 	}
 	// ParticleMeshCreatorAnimTextured::CreateParticle 0x6A8DA0
@@ -403,9 +392,22 @@ bool mesh_atoms::Any()
 	return false;
 }
 
+namespace
+{
+/// The list [0xD4EDCC] of this frame (Mesh.h, castHumanShadow): refilled by every Collect, as fn_006CA660 empties it
+/// after each fn_006CA540 (0x6CA69E..0x6CA6CC) and DrawAt pushes the drawn particles again
+std::vector<mesh_atoms::HumanShadow> g_HumanShadows;
+} // namespace
+
+const std::vector<mesh_atoms::HumanShadow>& mesh_atoms::HumanShadows()
+{
+	return g_HumanShadows;
+}
+
 std::vector<mesh_atoms::Instance> mesh_atoms::Collect()
 {
 	std::vector<Instance> result;
+	g_HumanShadows.clear();
 	const glm::vec3 cameraOrigin = Locator::camera::has_value() ? Locator::camera::value().GetOrigin() : glm::vec3(0.0f);
 	const glm::vec3* camera = Locator::camera::has_value() ? &cameraOrigin : nullptr;
 	for (const auto& drawable : manager::Collect(Creator::Kind::Mesh))
@@ -487,6 +489,13 @@ std::vector<mesh_atoms::Instance> mesh_atoms::Collect()
 			result.back().path = drawable.path;
 			result.back().effect = drawable.effect;
 			result.back().atom = atom.atom;
+			// Particle3DObj::DrawAt 0x67A45D..0x67A494: the node's +0xC = the object (+0x20), pushed on [0xD4EDCC]; its
+			// object's matrix is the drawn one (0x679FF6..0x679FFE, then the face-camera paths) and its scale obj+0x44 the
+			// PSR's +0x30 (0x67A003..0x67A009 / 0x67A445..0x67A44E): the atom's drawn scale
+			if (creator->castHumanShadow && atom.atom != nullptr)
+			{
+				g_HumanShadows.push_back({atom.atom, creator->meshId, model, atom.scale});
+			}
 			// (openblack) no pose for an atom of alpha 0: the renderer does not draw it
 			if (clip != nullptr && alpha > 0.0f && Locator::resources::has_value())
 			{

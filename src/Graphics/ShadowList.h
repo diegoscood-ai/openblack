@@ -30,8 +30,10 @@
 /// The casters (the producers in Frame): the hand (CHand::CHand 0x46BC0B -> CreateDynamicShadow 0x80C020, the complex
 /// update fn_00814FD0), the flying physics objects (fn_007FCE80 0x7FCEC7, generic update fn_00874850, removed with the
 /// physics, PhysOb::DeInitialise 0x7FB772) and the objects with a components::DynamicShadow (the launched boat,
-/// PetitNavire::PetitNavire 0x5E11AE). Not here yet: the creature (LH3DCreature 0x47F543), the prediction object
-/// (fn_00646FE0 0x647245), the SuperVillagers (fn_00825F20) and the PSys mesh atoms (fn_006CA340, owner: PSys).
+/// PetitNavire::PetitNavire 0x5E11AE) and the PSys mesh atoms with CastHumanShadow (ParticleMeshCreator::CreateParticle
+/// 0x6A8B76 -> fn_006CA340 -> fn_008745A0, updated by fn_006CA540 0x6CA5A9 -> fn_006CA3D0 -> fn_00874850 with the
+/// particle's object; psys::mesh_atoms::HumanShadows). Not here yet: the creature (LH3DCreature 0x47F543), the
+/// prediction object (fn_00646FE0 0x647245) and the SuperVillagers (fn_00825F20).
 namespace openblack::graphics::shadow_list
 {
 
@@ -64,6 +66,12 @@ enum class LightKind : uint8_t
 struct ShadowInfo
 {
 	entt::entity caster {entt::null}; ///< its owner: the hand, the physics object, the boat's hull
+	/// A PSys mesh atom's node instead (CreateParticle 0x6A8B7F, the particle's +0x1C; caster stays entt::null): its key,
+	/// and its object of this frame (psys::mesh_atoms::HumanShadow: the mesh, the drawn matrix obj+0x14, obj+0x44)
+	const void* psysAtom {nullptr};
+	entt::id_type psysMesh {0};
+	glm::mat4 psysMatrix {1.0f};
+	float psysScale {1.0f};
 	entt::entity held {entt::null};   ///< si+0x00, the held object rasterized with the caster (R3, R4)
 	Update update {Update::Generic};
 	LightKind light {LightKind::Vertical};

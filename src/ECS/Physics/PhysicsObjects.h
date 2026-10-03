@@ -11,6 +11,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include <entt/entity/entity.hpp>
@@ -45,6 +46,12 @@ struct PhysicsObject
 	PhysOb body;
 	/// the body's rotation at the start of the turn (po+0xBC.. / +0xD8, what Animal::EndPhysics reads the landType from)
 	glm::mat3 turnStartRotation {1.0f};
+	/// the body's centre at the start of the turn (with turnStartRotation, PhysOb +0xAC: the matrix the drawing
+	/// interpolates from)
+	glm::vec3 turnStartCentre {0.0f};
+	/// a game turn has started since the body was added: until then it is drawn where it is (SetUpPos 0x7FC760 makes
+	/// the two matrices equal; (inferred) what AdjustToGroundLevel / RaiseUntilNotIntersecting do to +0xAC is not read)
+	bool turnStarted {false};
 	uint32_t flags {0};
 	bool villager {false};
 	/// the player's hand threw it, directly or through what it hit (GInterfaceStatus +0x24, inherited by proxies)
@@ -134,6 +141,12 @@ public:
 	/// the player are set, but the flying-object reaction is left to the caller (it is only spread when the object does
 	/// not land, 0x637412).
 	static PhysicsObject* AddObjectFromHand(entt::entity entity, glm::vec3 velocity, glm::vec3 angularVelocity);
+	/// What a villager drops when released without landing (Villager::CreateDroppedResource 0x750A05..0x750A89):
+	/// Object::InitialisePhysics(velocity, angularVelocity, thrower 0, add 1, status 0) (vt +0x784 -> AddObject), then
+	/// with a body: po+0x90 = angularMomentum when given (PhysOb +0x68, L in world space), flag 0x10
+	/// (NoObjectCollision), PhysOb::AdjustToGroundLevel(false, true) 0x7FCB80 and RaiseUntilNotIntersecting 0x644800.
+	static PhysicsObject* AddDroppedObject(entt::entity entity, glm::vec3 velocity, glm::vec3 angularVelocity,
+	                                       std::optional<glm::vec3> angularMomentum);
 	/// RemoveObject (0x646A00) without EndPhysics.
 	static void RemoveObject(entt::entity entity);
 	/// RemoveObject(obj, true, true) (0x646A00): the object takes the body's pose (angles, position, altitude), its
@@ -148,8 +161,12 @@ public:
 	/// Is the object flying (in physics and not a resting proxy)?
 	[[nodiscard]] static bool IsFlying(entt::entity entity);
 
-	/// Runs the 0.005 s substeps for the elapsed time; every 20 of them close a game turn.
-	static void Update(float seconds);
+	/// PhysicsObject::GameTurnUpdate 0x644FC0, once a game turn (GGame::ProcessTurn 0x54E67E, unpaused): the turn's
+	/// start, its 20 substeps of 0.005 s in one go (0x64576F..0x64604D) and its end (impacts, sounds, reactions).
+	static void GameTurnUpdate();
+	/// Every frame: the dust, and the pose each moving body is drawn at, between the start and the end of the last turn
+	/// by the turn fraction (fn_00646FE0 0x5E49DC -> fn_007FCE80; components::PhysicsDrawPose).
+	static void UpdateFrame(float turnFraction, float seconds);
 	static void Clear();
 	/// Every physics object, read only (the renderer's shadows)
 	static void ForEach(const std::function<void(const PhysicsObject&)>& func);

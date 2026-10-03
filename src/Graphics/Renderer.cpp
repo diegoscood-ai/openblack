@@ -50,6 +50,7 @@
 #include "ECS/Animations.h"
 #include "ECS/Components/Animal.h"
 #include "ECS/Components/DrawPosition.h"
+#include "ECS/Components/PhysicsDrawPose.h"
 #include "ECS/Components/SkeletalAnimation.h"
 #include "ECS/Components/FishFarm.h"
 #include "ECS/Components/Hand.h"
@@ -1695,9 +1696,12 @@ void Renderer::DrawHumanShadows(graphics::RenderPass viewId) const
 			    return;
 		    }
 		    const auto* draw = registry.TryGet<const ecs::components::DrawPosition>(entity);
-		    // the two feet: bone matrix slots 21 and 18 (ends of the leg chains), on the ground + 0.2
-		    auto model = lh_matrix::Model(draw != nullptr ? draw->position : transform.position,
-		                                  draw != nullptr ? draw->rotation : transform.rotation, transform.scale);
+		    // the two feet: bone matrix slots 21 and 18 (ends of the leg chains), on the ground + 0.2; in the physics, the
+		    // drawn pose between its last two turns (ECS/Physics)
+		    const auto* flying = registry.TryGet<const ecs::components::PhysicsDrawPose>(entity);
+		    auto model = flying != nullptr ? lh_matrix::Model(flying->position, flying->rotation, transform.scale)
+		                                   : lh_matrix::Model(draw != nullptr ? draw->position : transform.position,
+		                                                      draw != nullptr ? draw->rotation : transform.rotation, transform.scale);
 		    const auto foot = [&](size_t bone) {
 			    auto p = glm::vec3(model * bones[bone] * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
 			    p.y = land_morph::OnGround(ground, glm::vec2(p.x, p.z), land_morph::k_BlobLift);
@@ -1716,7 +1720,8 @@ void Renderer::DrawHumanShadows(graphics::RenderPass viewId) const
 	// Animals (IsHumanShadowed, flag 0x4000000): the points of their mesh's EBone block, 2 or 4 quads. The original passes
 	// the first quad of each pair V = D (it builds D + (P1 - P0) / 2 but hands over &D); the second gets D + (P0 - P1) / 2.
 	registry.Each<const ecs::components::Animal, const ecs::components::Transform, const ecs::components::Mesh>(
-	    [&](const ecs::components::Animal& animal, const ecs::components::Transform& transform, const ecs::components::Mesh& mesh) {
+	    [&](entt::entity entity, const ecs::components::Animal& animal, const ecs::components::Transform& transform,
+	        const ecs::components::Mesh& mesh) {
 		    if (!animal.humanShadowed || transform.position.y <= 0.2f || !meshes.Contains(mesh.id))
 		    {
 			    return;
@@ -1728,7 +1733,10 @@ void Renderer::DrawHumanShadows(graphics::RenderPass viewId) const
 		    {
 			    return;
 		    }
-		    const auto model = lh_matrix::Model(transform);
+		    // in the physics, the drawn pose between its last two turns (ECS/Physics)
+		    const auto* flying = registry.TryGet<const ecs::components::PhysicsDrawPose>(entity);
+		    const auto model = flying != nullptr ? lh_matrix::Model(flying->position, flying->rotation, transform.scale)
+		                                         : lh_matrix::Model(transform);
 		    // LH3DIsland::GetNormal 0x803630 (fn_00812170 0x812859)
 		    const auto n = island.GetNormalAt(glm::vec2(transform.position.x, transform.position.z));
 		    const auto os = o * transform.scale.x;

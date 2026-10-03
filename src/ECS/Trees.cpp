@@ -38,6 +38,7 @@
 #include "ECS/Components/Forest.h"
 #include "ECS/Components/Life.h"
 #include "ECS/Components/Mesh.h"
+#include "ECS/Components/PhysicsDrawPose.h"
 #include "ECS/Effects/Alignment.h"
 #include "ECS/GUtilsAngle.h"
 #include "ECS/GUtilsDistance.h"
@@ -1105,7 +1106,10 @@ void UpdateTreeBends()
 		{
 			return;
 		}
-		sources.emplace_back(po.entity, BendSource {registry.Get<const Transform>(po.entity).position, MeshHalfDiagonal(po.entity)});
+		// fn_00646FE0 0x647182..0x6471A4: fn_005DF1B0(g3d +0x38, the interpolated position (ECS/Physics PhysicsDrawPose)
+		const auto* drawn = registry.TryGet<const PhysicsDrawPose>(po.entity);
+		const auto at = drawn != nullptr ? drawn->position : registry.Get<const Transform>(po.entity).position;
+		sources.emplace_back(po.entity, BendSource {at, MeshHalfDiagonal(po.entity)});
 	});
 
 	// Tree +0x5C bits 6-9: which source marked each tree this frame (the last one wins)

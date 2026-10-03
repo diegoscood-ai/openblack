@@ -36,7 +36,8 @@ using namespace openblack::ecs::systems::hand_detail;
 
 std::vector<entt::entity> HandSystem::GetThrownObjects() const noexcept
 {
-	return physics::from_hand::ThrownObjects();
+	// everything the hand throws is a physics object (Object::ThrowObjectFromHand 0x6385E0): there is no other flight
+	return {};
 }
 
 void HandSystem::RegisterPhysicsHandlers() noexcept
@@ -118,10 +119,6 @@ void HandSystem::RegisterPhysicsHandlers() noexcept
 		const auto type = PotInfoOf(entity);
 		return type == PotInfo::HandWood || type == PotInfo::HandFood;
 	};
-	hooks.findWoodStore = [this](glm::vec3 point) { return FindWoodStore(point); };
-	hooks.depositInStore = [this](entt::entity object, entt::entity store) { DepositInStore(object, store); };
-	hooks.makeDeadTree = [this](entt::entity entity, glm::vec3 direction) { MakeDeadTree(entity, direction); };
-	hooks.updateRoots = [this](entt::entity entity) { UpdateRoots(entity); };
 	physics::from_hand::SetHandHooks(std::move(hooks));
 	PhysicsObjects::LoadConstants();
 }

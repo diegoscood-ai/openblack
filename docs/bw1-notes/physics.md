@@ -29,7 +29,8 @@ drowning) is in [water.md](water.md).
 - The original accumulates torque as F×r and rotates the rows the other way round; the two inversions cancel out. The port uses r×F and
   columns (same motion). The inertia tensor keeps the original's bug (`I[1][2] = −xz`).
 - **Ground**: `GetAltitude` per vertex and the **flat normal of the exact triangle** (`LH3DIsland::GetNormal` 0x803630,
-  raw heights without the flattening at the sea edge). openblack normalises exactly; the original uses a 1024-entry table.
+  raw heights without the flattening at the sea edge), with the original's two tables (T1 0xE9B2D8, T2 0xE9A2D8, built by
+  fn_00803890): `land_normal::OfCell`, checked branch by branch (`documentacion/physics/step2_misc.md` §4).
 - **Sea**: if the ground under the centre is < 0,0001, the centre is below the radius and the cell has no land:
   buoyancy `frac·m·g/density`, drag ×100, and **no contact with the bottom**. Density rises by 6,67e-5 per
   submerged substep (it soaks up water); above 1 it sinks. Below −4R the object is deleted.
@@ -51,6 +52,23 @@ drowning) is in [water.md](water.md).
 
 ## Manager (PhysicsObject::GameTurnUpdate 0x644FC0)
 
+- **Once a game turn**, from `GGame::ProcessTurn` 0x54E67E (after `FireFly::ProcessAll`, before `GScript::Process`;
+  not while paused): the turn's start, its **20 substeps in one go** (0x64576F..0x64604D, `cmp eax, 0x14` at 0x646046)
+  and its end. The game logic sees the end-of-turn pose. openblack: `PhysicsObjects::GameTurnUpdate` from
+  `Game::GameLogicLoop`. (The second call in `Process3dEngine` 0x54DAB0 is dead: nothing writes [0xD46A74].)
+- **Drawn between turns** (fn_00646FE0 from `GLandscape::Draw` 0x5E49DC, every frame, each awake body):
+  fn_007FCE80 lerps the 12 floats of the turn-start matrix (PhysOb +0xAC, copied from +0x7C at 0x645187) to the end
+  one cell by cell with the turn fraction (g_game +0x205D64, `game_clock::TurnFraction`), normalises each row
+  (fn_007FB5C0, `lh_matrix::NormaliseRows`; (approximate) exact 1 / sqrt, not the table of 0x841170), and takes
+  `T − R·s·com` as the origin. `PhysicsDrawPose` carries it to the drawing (instances, blob shadows, a villager's carried prop, the
+  trees' bending sources); a body at rest is drawn at its Transform. (pending) the −Radius < T.y filter of the drawing (0x647017), the
+  π/2 turn of animated meshes (vt +0x1AC, 0x7FD009) and vt +0x184, the flames of a burning flying object
+  (FireGraphic), the roots of a flying tree (they follow its Transform), dynamic shadow receivers (RendererShadows).
+- **The list** grows by 16 slots when it is full (`MakeSureEndSlotIsFree` 0x644C40, no upper limit). The wake pass
+  stops when the allocated slots are used up (0x6453E2 / 0x645411 / 0x6454B7): no more proxies or wake-ups that turn.
+- **Pair skip** (0x64583E..0x645866): a villager's body (+0x1A4 == 1) does not hit what a Living pushed (flag 2:
+  `Object::PushObject` 0x6396BA, `Ball::KickBallAtDestination` 0x435D99, `FelledTree::Create` 0x51186B). Nothing in
+  openblack sets flag 2 yet (pending, with those three).
 - Each turn, each moving body looks at the box `|v.xz|·0,1 + R` and adds as **obstacles at rest** the objects
   that interact: rocks and statics, mobile objects, villagers, animals, dead trees, hand pots, houses and
   storehouses. **Standing trees do not interact** (thrown things pass through them); neither do fields, forests nor piles.
@@ -198,6 +216,18 @@ The hand calls `physics::from_hand::Throw(object, spring velocity, dont_replant)
 throw needs from the hand (putting a hand pot down, wood stores, dead trees, roots) comes through
 `from_hand::SetHandHooks`. A building that is deleted calls `physics::Buildings::OnBuildingDeleted` first.
 
+**Rows of PhysicsConstants** (`GetPhysicsConstantsType` vt +0x788): a fence (`IsFence` 0x609110) is row 18, tested
+after the three "rock" tests and before the toys (`MobileStatic` 0x609270); anything else with no override takes
+`Object` 0x6376A0 = `CanBecomeAPhysicsObject ? 1 : 0`. Not ported (their classes are not in openblack): Ball 2, Poo 12,
+LandscapeVortexIn 13, Scaffold 17, Creature 0, CitadelHeart 0, FieldCrop 6 (`step2_misc.md` §3.2).
+
+**A thrown object always has a body.** `PhysicsObject::AddObject` 0x6443A0 only fails for a class that cannot become a
+physics object, an IMMOVABLE one (flag 0x1000) or one already flying; the list never refuses. The angle the hand gives
+(`ThrowAngularVelocity`, CHand +0x48D4) is the prediction body's L after `min(ping / 100, 5)` steps against the ground
+(fn_00644F20): 0 in a single player game (inferred: ping 0), as in openblack (`step2_throw.md`). (approximate) an object
+openblack cannot make a body for (no mesh; the original would crash in `PhysOb::Initialise`) is put on the ground
+(`physics::from_hand::PlaceWithoutBody`); openblack's old ballistic flight for it is gone.
+
 ## Pending
 
 - Snow on the FragMesh (needs the weather: snow storms and the 128×128 snow map) and charring/glow from
@@ -207,7 +237,7 @@ throw needs from the hand (putting a hand pot down, wood stores, dead trees, roo
 - Villagers and animals on landing: the original's three postures and the corpses (today they get up or disappear).
 - Complete villager death (`VillagerDead` 0x7506C0) and the creature's mimicry when something dropped by the
   player sinks: in [water.md](water.md#pending).
-- From dropping: the hand's angular velocity (`ThrowAngularVelocity`, 0 in openblack), the disciple sound
+- From dropping: the disciple sound
   (`MakeDiscipleSFX`) and `SetVillagerDisciple`, reaction 9, the villager's log and the creature stuff (catching,
   imitating, toys). The mesh branch of fn_007FDD60 (fn_008683C0) is not needed: no openblack body uses it.
   The `Tree`+0x5C & 2 flag of `Tree::EndPhysics` (0x74B882: only `Fixed::EndPhysics`, neither replanting nor dead

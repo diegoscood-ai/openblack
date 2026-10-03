@@ -661,7 +661,7 @@ The original has three mechanisms and a single plane:
     the hidden ones neither move nor are drawn. The last argument of `CREATE_TOWN_FISH_FARM` is the GFishFarmInfo index.
   - openblack: `ecs::SplashWater` / `ProcessFishFarmsTurn` / `FindFishFarmAt` / `RemoveFishFarmFood` (FishShoals.cpp),
     `HandFish.cpp` (`SplashHand`, `TryPickUpFish`, `UpdateFishPickUp`), splash when thrown objects land in
-    `UpdateThrown`. Missing: the pitch of the sounds, the help text ("Pick up") and the fishermen.
+    `CollisionSounds::AttemptToAddSoundEvent` (0x6465B7). Missing: the pitch of the sounds, the help text ("Pick up") and the fishermen.
 
 - **Fish puzzle** (Land 4, the `FishPlot` net and its baited shoals): in [water.md](water.md#fish-puzzle).
 

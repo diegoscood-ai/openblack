@@ -9,6 +9,8 @@
 
 #include "ObjectMatrix.h"
 
+#include <glm/geometric.hpp>
+
 #include <cmath>
 
 #include "ECS/Components/Transform.h"
@@ -102,6 +104,15 @@ void lh_matrix::RotateZ(glm::mat3& m, float a)
 {
 	// r0' = c r0 - s r1, r1' = c r1 + s r0: the pair (0, 1) with -s (0x86AFAC..0x86B008)
 	TurnRowPair(m, 0, 1, std::cos(static_cast<double>(a)), -std::sin(static_cast<double>(a)));
+}
+
+void lh_matrix::NormaliseRows(glm::mat3& m)
+{
+	for (int row = 0; row < 3; ++row)
+	{
+		const float inverse = 1.0f / std::sqrt(glm::dot(m[row], m[row]));
+		m[row] *= inverse;
+	}
 }
 
 void lh_matrix::TurnRows(glm::mat3& m, int axis, double c, double s)

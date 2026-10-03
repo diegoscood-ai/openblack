@@ -69,6 +69,10 @@ void TurnRows(glm::mat3& m, int axis, float a);
 /// 0x7FB1E7..0x7FB26E) = glm::rotate(-a, axis); the translation 0 (0x7FB273..0x7FB279). `axis` is unit length
 [[nodiscard]] glm::mat3 AxisAngle(const glm::vec3& axis, float a);
 
+/// fn_007FB5C0 0x7FB5C0, in place: each row (glm's column) times InverseSquareRoot 0x841170 of its length squared, no
+/// re-orthogonalisation. (approximate) an exact 1 / sqrt, not LH3DMath's table [0xEEA394]
+void NormaliseRows(glm::mat3& m);
+
 /// LHMatrix::SetInverse 0x7FB290 of an LHMatrix (glm::mat4x3: the 3 rows, then the translation): the adjugate over the
 /// determinant, with |det| < 1e-10 [0xC371D4] clamped to +-1e-10 (the sign of det, + for 0; 0x7FB2C8..0x7FB2EE), and
 /// the translation -(t A^-1) (0x7FB392..0x7FB3DF)

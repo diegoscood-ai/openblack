@@ -20,6 +20,7 @@
 #include "ECS/Components/DrawPosition.h"
 #include "ECS/Components/LivingAction.h"
 #include "ECS/Components/Mesh.h"
+#include "ECS/Components/PhysicsDrawPose.h"
 #include "ECS/Components/SkeletalAnimation.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
@@ -100,9 +101,12 @@ void UpdateCarriedProps()
 		}
 		// the villager's model matrix (as RenderingSystem builds it) * bone 15 * the axis swap
 		const auto& owner = registry.Get<const Transform>(villager);
-		const auto* draw = registry.TryGet<const DrawPosition>(villager);
-		auto model = lh_matrix::Model(draw != nullptr ? draw->position : owner.position,
-		                              draw != nullptr ? draw->rotation : owner.rotation, owner.scale);
+		// in the physics, the villager's drawn pose between its last two turns (ECS/Physics), with no slope shear
+		const auto* flying = registry.TryGet<const PhysicsDrawPose>(villager);
+		const auto* draw = flying == nullptr ? registry.TryGet<const DrawPosition>(villager) : nullptr;
+		auto model = flying != nullptr ? lh_matrix::Model(flying->position, flying->rotation, owner.scale)
+		                               : lh_matrix::Model(draw != nullptr ? draw->position : owner.position,
+		                                                  draw != nullptr ? draw->rotation : owner.rotation, owner.scale);
 		if (draw != nullptr)
 		{
 			model[0] += draw->shearX * model[1];

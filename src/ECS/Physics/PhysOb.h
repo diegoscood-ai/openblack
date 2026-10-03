@@ -107,6 +107,8 @@ public:
 
 	/// fn_7FD140: the object's origin from the body.
 	[[nodiscard]] glm::vec3 ObjectOrigin() const;
+	/// The same origin for another pose of the body (fn_007FCE80 0x7FD097..0x7FD117: T - R s com)
+	[[nodiscard]] glm::vec3 ObjectOrigin(const glm::mat3& rotation, glm::vec3 centre) const;
 	[[nodiscard]] const glm::mat3& Rotation() const { return _rotation; }
 	[[nodiscard]] glm::vec3 Centre() const { return _centre; }
 	[[nodiscard]] float Radius() const { return _radius; }

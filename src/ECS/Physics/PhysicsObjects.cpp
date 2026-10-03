@@ -15,6 +15,7 @@
 #include "Audio/Audio.h"
 #include "Dust.h"
 #include "FragMesh.h"
+#include "FromHand.h"
 
 #include <algorithm>
 #include <chrono>
@@ -44,6 +45,7 @@
 #include "ECS/Components/MapShield.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Mobile.h"
+#include "ECS/Components/PhysicsDrawPose.h"
 #include "ECS/Components/OneOffSpellSeed.h"
 #include "ECS/Components/Pot.h"
 #include "ECS/Components/StoragePit.h"
@@ -109,9 +111,10 @@ constexpr std::array<PhysicsData, k_NumConstants> k_DefaultConstants = {{
 
 std::array<PhysicsData, k_NumConstants> g_Constants = k_DefaultConstants;
 std::vector<std::unique_ptr<PhysicsObject>> g_Objects;
+/// the allocated slots of the list (0xD4781C): MakeSureEndSlotIsFree 0x644C40 grows it by 16 when it is full, never
+/// shrinks it, has no upper limit; DeleteAll 0x6442B0 sets it to 0
+size_t g_Capacity = 0;
 std::array<PhysicsObjects::ClassHandlers, static_cast<size_t>(PhysicsClass::_Count)> g_ClassHandlers;
-float g_Accumulator = 0.0f;
-int g_Substep = 0;
 
 PhysicsObject* Add(entt::entity entity, glm::vec3 velocity, glm::vec3 angularVelocity, entt::entity thrower, bool fromHand,
                    bool spreadReaction);
@@ -507,6 +510,12 @@ void RemoveAt(size_t index)
 			other->body.lastHit = nullptr;
 		}
 	}
+	// out of the physics: drawn at its Transform again
+	if (auto& registry = Locator::entitiesRegistry::value();
+	    registry.Valid(g_Objects[index]->entity) && registry.AllOf<PhysicsDrawPose>(g_Objects[index]->entity))
+	{
+		registry.Remove<PhysicsDrawPose>(g_Objects[index]->entity);
+	}
 	g_Objects.erase(g_Objects.begin() + static_cast<std::ptrdiff_t>(index));
 }
 
@@ -522,9 +531,19 @@ glm::ivec2 BoxCell(float x, float z)
 	return {clamped(x), clamped(z)};
 }
 
+/// PhysicsObject::MakeSureEndSlotIsFree 0x644C40: count == capacity -> capacity + 16 (0x644C54)
+void MakeSureEndSlotIsFree()
+{
+	if (g_Objects.size() >= g_Capacity)
+	{
+		g_Capacity += 16;
+	}
+}
+
 /// fn_644DF0: a resting body for an object a moving body may hit.
 void AddProxy(entt::entity entity)
 {
+	MakeSureEndSlotIsFree(); // 0x644E09
 	auto po = std::make_unique<PhysicsObject>();
 	po->entity = entity;
 	po->villager = Locator::entitiesRegistry::value().AllOf<Villager>(entity);
@@ -535,6 +554,10 @@ void AddProxy(entt::entity entity)
 	}
 	po->body.resting = true;
 	po->flags = PhysicsObject::Awake;
+	// SetUpPos 0x7FC760: the turn-start matrix is the body's own (a proxy knocked this turn moves from where it rests)
+	po->turnStartRotation = po->body.Rotation();
+	po->turnStartCentre = po->body.Centre();
+	po->turnStarted = true;
 	if (Locator::entitiesRegistry::value().AnyOf<Abode, StoragePit>(entity))
 	{
 		Buildings::ForgetHitter(entt::null, entity); // Abode::SetUpPhysOb 0x402DD0 clears the FragMesh's last hitter
@@ -559,7 +582,10 @@ void BeginTurn()
 			po.body.density += 0.01f; // corpses sink
 		}
 		po.forceSum = glm::vec3(0.0f);
+		// 0x645187..0x64519B: the end matrix (PhysOb +0x7C) becomes the turn-start one (+0xAC)
 		po.turnStartRotation = po.body.Rotation();
+		po.turnStartCentre = po.body.Centre();
+		po.turnStarted = true;
 		po.body.lastHit = nullptr;
 		po.hitBy = nullptr;
 		++i;
@@ -582,12 +608,14 @@ void BeginTurn()
 	// most 0x200). The inline iterator (0x645495..0x6454A3: the fixed list, then the mobile one, map_cells::
 	// ForEachInCell): what InteractsWithPhysicsObjects (vt +0x79C, 0x6454C7) is woken when it is in the physics
 	// already (|= 1, 0x6454F7), else with a 3D object (+0x40) it gets a resting proxy (AddProxy fn_00644DF0, 0x64551D)
-	// at once. (aproximado) The stop when the physics list is full ([0xD4781C], 0x645411 / 0x6454B7) is not kept:
-	// openblack's list has no size
+	// at once. The walk stops when the list's allocated slots are used up (count >= capacity [0xD4781C]: before each x
+	// column 0x6453E2, each z cell 0x645411 and each object 0x6454B7): AddProxy does not grow it here, so the condition
+	// stays true for the rest of the walk and for every later body of the turn
 	constexpr size_t k_WalkedCells = 0x200; // 0x64547B
 	std::vector<glm::ivec2> walked;
+	const auto full = []() { return g_Objects.size() >= g_Capacity; };
 	const size_t bodies = g_Objects.size(); // the proxies added below rest: they have no box
-	for (size_t b = 0; b < bodies; ++b)
+	for (size_t b = 0; b < bodies && !full(); ++b)
 	{
 		if (g_Objects[b]->body.resting)
 		{
@@ -600,9 +628,9 @@ void BeginTurn()
 		const auto second = BoxCell(centre.x + half, centre.z + half);
 		const auto low = glm::min(first, second);
 		const auto high = glm::max(first, second);
-		for (int32_t x = low.x; x <= high.x; ++x)
+		for (int32_t x = low.x; x <= high.x && !full(); ++x)
 		{
-			for (int32_t z = low.y; z <= high.y; ++z)
+			for (int32_t z = low.y; z <= high.y && !full(); ++z)
 			{
 				// JustMapXZ::InBounds 0x5E1860 (0x645435), then the walked list
 				const glm::ivec2 cell(x, z);
@@ -614,7 +642,11 @@ void BeginTurn()
 				{
 					walked.push_back(cell);
 				}
-				map_cells::ForEachInCell(cell, [&registry](entt::entity entity) {
+				map_cells::ForEachInCell(cell, [&registry, &full](entt::entity entity) {
+					if (full())
+					{
+						return false;
+					}
 					if (!PhysicsObjects::InteractsWithPhysicsObjects(entity))
 					{
 						return true;
@@ -681,6 +713,13 @@ void Substep()
 				continue;
 			}
 			if (a->body.resting && b->body.resting && !a->body.justSetUp && !b->body.justSetUp)
+			{
+				continue;
+			}
+			// 0x64583E..0x645866: a villager's body (+0x1A4 == 1) does not hit what a Living pushed (flag 2,
+			// Object::PushObject 0x6396BA, Ball::KickBallAtDestination 0x435D99, FelledTree::Create 0x51186B)
+			if ((a->villager && (b->flags & PhysicsObject::PushedByLiving) != 0) ||
+			    (b->villager && (a->flags & PhysicsObject::PushedByLiving) != 0))
 			{
 				continue;
 			}
@@ -968,6 +1007,11 @@ int PhysicsObjects::ConstantsType(entt::entity entity)
 		{
 			return 3;
 		}
+		// 0x609297..0x6092AA: IsFence (vt +0x3CC, MobileStatic::IsFence 0x609110) -> row 18, before the toys
+		if (from_hand::IsFence(entity))
+		{
+			return 18;
+		}
 		constexpr std::array<int, 5> k_Toys = {14, 20, 16, 15, 19}; // meshes 399..403
 		for (uint32_t m = 0; m < k_Toys.size(); ++m)
 		{
@@ -976,10 +1020,10 @@ int PhysicsObjects::ConstantsType(entt::entity entity)
 				return k_Toys.at(m);
 			}
 		}
-		// TODO(physics): IsFence -> 18
-		return 1;
+		return 1; // Object::GetPhysicsConstantsType 0x6376A0 with MobileStatic::CanBecomeAPhysicsObject 0x609320 = 1
 	}
-	return 1;
+	// Object::GetPhysicsConstantsType 0x6376A0: CanBecomeAPhysicsObject() ? 1 : 0
+	return CanBecomeAPhysicsObject(entity) ? 1 : 0;
 }
 
 bool PhysicsObjects::InteractsWithPhysicsObjects(entt::entity entity)
@@ -1106,11 +1150,30 @@ PhysicsObject* PhysicsObjects::AddObjectFromHand(entt::entity entity, glm::vec3 
 	return Add(entity, velocity, angularVelocity, entt::null, true, false);
 }
 
+PhysicsObject* PhysicsObjects::AddDroppedObject(entt::entity entity, glm::vec3 velocity, glm::vec3 angularVelocity,
+                                                std::optional<glm::vec3> angularMomentum)
+{
+	auto* po = AddObject(entity, velocity, angularVelocity);
+	if (po == nullptr)
+	{
+		return nullptr;
+	}
+	if (angularMomentum)
+	{
+		po->body.angularMomentum = *angularMomentum; // 0x750A54..0x750A66: po+0x90
+	}
+	po->flags |= PhysicsObject::NoObjectCollision; // 0x750A6D: or [po+0x1D8], 0x10
+	po->body.AdjustToGroundLevel(false, true);     // 0x750A78..0x750A7F
+	RaiseUntilNotIntersecting(*po);                // 0x750A89
+	return po;
+}
+
 namespace
 {
 PhysicsObject* Add(entt::entity entity, glm::vec3 velocity, glm::vec3 angularVelocity, entt::entity thrower, bool fromHand,
                    bool spreadReaction)
 {
+	MakeSureEndSlotIsFree(); // AddObject 0x6443C9
 	auto& registry = Locator::entitiesRegistry::value();
 	if (!registry.Valid(entity) || !PhysicsObjects::CanBecomeAPhysicsObject(entity))
 	{
@@ -1132,6 +1195,9 @@ PhysicsObject* Add(entt::entity entity, glm::vec3 velocity, glm::vec3 angularVel
 	{
 		return nullptr;
 	}
+	// SetUpPos 0x7FC760: the turn-start matrix is the body's own (drawn there until the next turn starts)
+	po->turnStartRotation = po->body.Rotation();
+	po->turnStartCentre = po->body.Centre();
 	po->body.SetAngularVelocity(angularVelocity);
 	const float speed = glm::length(velocity);
 	po->body.velocity = speed > PhysOb::k_MaxSpeed ? velocity * (PhysOb::k_MaxSpeed / speed) : velocity;
@@ -1309,36 +1375,23 @@ bool PhysicsObjects::IsFlying(entt::entity entity)
 	return po != nullptr && !po->body.resting;
 }
 
-void PhysicsObjects::Update(float seconds)
+void PhysicsObjects::GameTurnUpdate()
 {
-	Dust::Update(std::min(seconds, 0.25f));
 	// the fragments' timers (Fragment::ProcessTimer 0x76EAF0) run from GGame::ProcessTurn 0x54E768: Game::GameLogicLoop
-	const bool anyMoving = std::any_of(g_Objects.begin(), g_Objects.end(), [](const auto& po) { return !po->body.resting; });
-	if (!anyMoving && g_Substep == 0)
+	BeginTurn();
+	for (int substep = 0; substep < PhysOb::k_SubstepsPerTurn; ++substep) // cmp eax, 0x14 at 0x646046
 	{
-		g_Accumulator = 0.0f;
-		return;
-	}
-	g_Accumulator += std::min(seconds, 0.25f);
-	while (g_Accumulator >= PhysOb::k_Dt)
-	{
-		g_Accumulator -= PhysOb::k_Dt;
-		if (g_Substep == 0)
-		{
-			BeginTurn();
-		}
 		Substep();
-		if (++g_Substep == PhysOb::k_SubstepsPerTurn)
-		{
-			EndTurn();
-			g_Substep = 0;
-		}
 	}
+	EndTurn();
+	// the object's Pos and angles are set every substep (the game logic sees the end of the turn)
 	auto& registry = Locator::entitiesRegistry::value();
+	bool moved = false;
 	for (const auto& po : g_Objects)
 	{
 		if (!po->body.resting && registry.Valid(po->entity))
 		{
+			moved = true;
 			SyncTransform(*po);
 			if (const auto& handlers = HandlersOf(po->entity); handlers.moved)
 			{
@@ -1346,14 +1399,64 @@ void PhysicsObjects::Update(float seconds)
 			}
 		}
 	}
-	registry.SetDirty();
+	if (moved)
+	{
+		registry.SetDirty();
+	}
+}
+
+void PhysicsObjects::UpdateFrame(float turnFraction, float seconds)
+{
+	Dust::Update(std::min(seconds, 0.25f));
+	// fn_00646FE0 (GLandscape::Draw 0x5E49DC), every frame for each awake entry: fn_007FCE80(PhysOb, g3d, the turn
+	// fraction g_game +0x205D64) lerps the 12 floats of the turn-start matrix (+0xAC) to the end one (+0x7C) cell by cell
+	// (0x7FCED2..0x7FCFFD), normalises each row (fn_007FB5C0 0x7FD000), scales them and takes T - R s com as the origin.
+	// A body at rest has no entry of its own pose: it is drawn at its Transform (the end of the turn).
+	// (pending) the -Radius < T.y filter (0x647017), the turn of animated meshes by pi/2 (vt +0x1AC, 0x7FD009) and vt +0x184
+	auto& registry = Locator::entitiesRegistry::value();
+	const float f = turnFraction;
+	bool moving = false;
+	for (const auto& po : g_Objects)
+	{
+		if (!registry.Valid(po->entity))
+		{
+			continue;
+		}
+		if (po->body.resting)
+		{
+			if (registry.AllOf<PhysicsDrawPose>(po->entity))
+			{
+				registry.Remove<PhysicsDrawPose>(po->entity);
+			}
+			continue;
+		}
+		moving = true;
+		const auto& r1 = po->body.Rotation();
+		const auto& r0 = po->turnStarted ? po->turnStartRotation : r1;
+		const auto c1 = po->body.Centre();
+		const auto c0 = po->turnStarted ? po->turnStartCentre : c1;
+		glm::mat3 rotation;
+		for (int row = 0; row < 3; ++row)
+		{
+			rotation[row] = r0[row] + (r1[row] - r0[row]) * f; // fld M; fsub M0; fmul f; fadd M0
+		}
+		lh_matrix::NormaliseRows(rotation);
+		const auto centre = c0 + (c1 - c0) * f;
+		auto& pose = registry.AllOf<PhysicsDrawPose>(po->entity) ? registry.Get<PhysicsDrawPose>(po->entity)
+		                                                           : registry.Assign<PhysicsDrawPose>(po->entity);
+		pose.rotation = rotation;
+		pose.position = po->body.ObjectOrigin(rotation, centre);
+	}
+	if (moving)
+	{
+		registry.SetDirty(); // the drawn instances change every frame while something flies
+	}
 }
 
 void PhysicsObjects::Clear()
 {
 	g_Objects.clear();
-	g_Accumulator = 0.0f;
-	g_Substep = 0;
+	g_Capacity = 0; // DeleteAll 0x6442B0
 }
 
 PhysicsClass PhysicsObjects::ClassOf(entt::entity entity)

@@ -632,5 +632,10 @@ PhysOb::Result PhysOb::Integrate()
 
 glm::vec3 PhysOb::ObjectOrigin() const
 {
-	return _centre - _rotation * (_com * _scale);
+	return ObjectOrigin(_rotation, _centre);
+}
+
+glm::vec3 PhysOb::ObjectOrigin(const glm::mat3& rotation, glm::vec3 centre) const
+{
+	return centre - rotation * (_com * _scale);
 }

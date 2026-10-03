@@ -34,6 +34,7 @@
 #include "ECS/Components/MeshTint.h"
 #include "ECS/Components/ObjectColour.h"
 #include "ECS/Components/DrawPosition.h"
+#include "ECS/Components/PhysicsDrawPose.h"
 #include "ECS/Components/Fixed.h"
 #include "ECS/Components/Forest.h"
 #include "ECS/Components/Hand.h"
@@ -517,9 +518,11 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		    auto desc = (alpha != nullptr ? _renderContext.translucentDrawDescs : _renderContext.instancedDrawDescs).find(mesh.id);
 
 		    // villagers and animals are drawn where ECS/MobileDrawing puts them this frame (between turns, turning, on the slope)
-		    const auto* draw = registry.TryGet<const DrawPosition>(entity);
-		    const auto& drawRotation = draw != nullptr ? draw->rotation : transform.rotation;
-		    const auto& drawPosition = draw != nullptr ? draw->position : transform.position;
+		    // a moving physics object at its pose between the last two turns (fn_007FCE80, ECS/Physics), before all that
+		    const auto* flying = registry.TryGet<const PhysicsDrawPose>(entity);
+		    const auto* draw = flying == nullptr ? registry.TryGet<const DrawPosition>(entity) : nullptr;
+		    const auto& drawRotation = flying != nullptr ? flying->rotation : draw != nullptr ? draw->rotation : transform.rotation;
+		    const auto& drawPosition = flying != nullptr ? flying->position : draw != nullptr ? draw->position : transform.position;
 		    // T(p) R S with the position straight into the translation, as every Set* of the original (0x423195,
 		    // 0x6382B7, 0x607606). It was R T(p R) S, whose translation is R R^T p: a few ulp off p for a rotation, but
 		    // far from it for the matrices that are not one (the hand's bands while they fly, HandMagicFX SetTransform;

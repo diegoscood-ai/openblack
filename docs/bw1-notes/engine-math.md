@@ -1374,9 +1374,8 @@ Status as of 2026-10-02, branch `local/sistemas2`.
 0x54F4A5) → `game_clock::MsPerTurn()`; the duplicate copy of `audio::TickCount` / `MusicStream` → `game_clock::TickCount()`.
 
 **Not ported or doubtful:**
-- **Per-turn physics.** `PhysicsObject::GameTurnUpdate` (0x646046) does the 20 substeps within the turn. openblack
-  spreads them across frames with an accumulator (`PhysicsObjects.cpp:1317`), now with the game dt. Moving them
-  to the turn requires drawing the objects interpolated with the fraction (fn_00646FE0 0x647096 does it with their reflections).
+- **Per-turn physics: ported (session Fisicas).** `PhysicsObject::GameTurnUpdate` runs once a game turn with its 20
+  substeps and the bodies are drawn interpolated with the turn fraction (fn_00646FE0 / fn_007FCE80): physics.md, "Manager".
 - **TownBelief** (read, already faithful): `TownCentre::DrawAll` 0x7447F0, from `Process3dEngine` 0x54E032 on **every
   drawn frame (also when paused)**, calls `ProcessPSys` 0x69BCC0 → `GJPSysInterface::Process_` 0x673690, which
   passes as ms **[0xD01A38]** (the ms of one turn, 100) and not those of the frame → fn_00673300 → fn_00673340: dt

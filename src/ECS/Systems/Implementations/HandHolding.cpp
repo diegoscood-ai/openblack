@@ -294,7 +294,7 @@ void HandSystem::ThrowObjectFromHand(glm::vec3 velocity, bool dontReplant) noexc
 	_held.reset();
 	_pickSource.reset();
 	fire::SetOutMagicHand(entity); // GMagicHand::RemoveFromHand 0x5FB0B0: FireEffect::SetOutMagicHand
-	physics::from_hand::Throw(entity, velocity, dontReplant, _heldAltitude);
+	physics::from_hand::Throw(entity, velocity, dontReplant);
 }
 
 void HandSystem::Drop() noexcept

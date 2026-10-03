@@ -54,15 +54,6 @@ namespace
 {
 HandHooks g_Hooks;
 
-/// openblack only: an object thrown with no physics body, flying ballistically
-struct Thrown
-{
-	entt::entity entity;
-	glm::vec3 velocity;
-	float altitude;
-};
-std::vector<Thrown> g_Thrown;
-
 bool IsHandPot(entt::entity entity)
 {
 	return g_Hooks.isHandPot && g_Hooks.isHandPot(entity);
@@ -106,8 +97,9 @@ bool IsFence(entt::entity entity)
 
 void PlaceWithoutBody(entt::entity entity)
 {
-	// openblack only: an object PhysicsObject::AddObject cannot build a body for (no mesh) is put where it is, on the
-	// ground (Living::InitialisePhysicsFromHand 0x5EFDF8 ends the physics of a Living at once when AddObject fails)
+	// (approximate) openblack only: an object PhysicsObject::AddObject cannot build a body for (no mesh) is put where it
+	// is, on the ground (Living::InitialisePhysicsFromHand 0x5EFDF8 ends the physics of a Living at once when AddObject
+	// fails; an Object stays IN_PHYSICS where the hand left it, step2_throw.md)
 	auto& registry = Locator::entitiesRegistry::value();
 	auto& transform = registry.Get<Transform>(entity);
 	const float ground = Locator::terrainSystem::has_value()
@@ -221,7 +213,7 @@ std::optional<bool> InitialisePhysicsFromHand(entt::entity entity, glm::vec3 vel
 	return landed;
 }
 
-bool Throw(entt::entity entity, glm::vec3 velocity, bool dontReplant, float heldAltitude)
+bool Throw(entt::entity entity, glm::vec3 velocity, bool dontReplant)
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	if (!registry.Valid(entity))
@@ -244,13 +236,7 @@ bool Throw(entt::entity entity, glm::vec3 velocity, bool dontReplant, float held
 	{
 		return *landed;
 	}
-	// openblack only, no body could be built (no mesh): thrown, the old ballistic flight; put down, placed
-	if (velocity.x * velocity.x + velocity.z * velocity.z > 4.0f)
-	{
-		g_Thrown.push_back({entity, velocity, heldAltitude});
-		return false;
-	}
-	PlaceWithoutBody(entity);
+	PlaceWithoutBody(entity); // no body could be built (no mesh)
 	return true;
 }
 
@@ -259,103 +245,4 @@ bool ForceDrop(entt::entity entity)
 	return Throw(entity, glm::vec3(0.0f), true);
 }
 
-void UpdateThrown(float seconds)
-{
-	if (g_Thrown.empty() || seconds <= 0.0f)
-	{
-		return;
-	}
-	constexpr float k_Gravity = 30.0f;
-	constexpr float k_AirDrag = 0.4f;
-	auto& registry = Locator::entitiesRegistry::value();
-	const auto* terrain = Locator::terrainSystem::has_value() ? &Locator::terrainSystem::value() : nullptr;
-	for (auto& thrown : g_Thrown)
-	{
-		if (!registry.Valid(thrown.entity))
-		{
-			thrown.entity = entt::null;
-			continue;
-		}
-		auto& transform = registry.Get<Transform>(thrown.entity);
-		if (g_Hooks.updateRoots)
-		{
-			g_Hooks.updateRoots(thrown.entity);
-		}
-		thrown.velocity.y -= k_Gravity * seconds;
-		thrown.velocity *= std::exp(-k_AirDrag * seconds);
-		transform.position += thrown.velocity * seconds;
-		const float ground = terrain != nullptr ? terrain->GetHeightAt(glm::vec2(transform.position.x, transform.position.z)) : 0.0f;
-		if (transform.position.y <= ground + thrown.altitude && thrown.velocity.y < 0.0f)
-		{
-			transform.position.y = ground + thrown.altitude;
-			// PhysicsObject::AttemptToAddSoundEvent 0x6465B7: off dry land a white ring at y 0.1 that grows 2 x the
-			// object's radius, aging at 1 / radius (cell 0x3F); in deep water (no cell or altitude < 3 at the rounded
-			// cell, 0x646683) fn_0074F2D0 scares the fish too
-			if (!sea_cells::IsDryLand(transform.position))
-			{
-				const auto* island = Locator::terrainSystem::has_value() ? &Locator::terrainSystem::value() : nullptr;
-				const auto* cell = island != nullptr ? sea_cells::CellAt(*island, sea_cells::RoundedCellOf(transform.position)) : nullptr;
-				if (cell == nullptr || island->GetCellAltitude(*cell) < 3)
-				{
-					SplashWater(transform.position);
-				}
-				float radius = 1.0f;
-				if (const auto* mesh = registry.TryGet<const Mesh>(thrown.entity);
-				    mesh != nullptr && Locator::resources::value().GetMeshes().Contains(mesh->id))
-				{
-					radius = 0.5f * glm::length(Locator::resources::value().GetMeshes().Handle(mesh->id)->GetBoundingBox().Size()) *
-					         transform.scale.x;
-				}
-				radius = std::max(radius, 0.01f);
-				WaterRing ring;
-				ring.position = glm::vec3(transform.position.x, 0.1f, transform.position.z);
-				ring.growth = 2.0f * radius;
-				ring.rate = 1.0f / radius;
-				ring.cell = 0x3F;
-				AddWaterRing(ring);
-			}
-			if (auto* fixed = registry.TryGet<Fixed>(thrown.entity); fixed != nullptr)
-			{
-				fixed->boundingCenter = glm::vec2(transform.position.x, transform.position.z);
-			}
-			if (IsHandPot(thrown.entity) && sea_cells::IsLand(transform.position))
-			{
-				if (g_Hooks.putDownHandPot)
-				{
-					g_Hooks.putDownHandPot(thrown.entity);
-				}
-			}
-			else if (registry.AnyOf<Tree, DeadTree>(thrown.entity))
-			{
-				// Tree::ReactToPhysicsImpact: absorbed by a wood store it hits. Anything else: a thrown tree never
-				// lands as planted (PHYSICS_OBJECT_FLAG_LANDED is only set by a gentle release) and becomes a DeadTree.
-				if (const auto store = g_Hooks.findWoodStore ? g_Hooks.findWoodStore(transform.position) : std::nullopt; store)
-				{
-					if (g_Hooks.depositInStore)
-					{
-						g_Hooks.depositInStore(thrown.entity, *store);
-					}
-				}
-				else if (registry.AllOf<Tree>(thrown.entity) && g_Hooks.makeDeadTree)
-				{
-					g_Hooks.makeDeadTree(thrown.entity, thrown.velocity);
-				}
-			}
-			thrown.entity = entt::null;
-		}
-	}
-	std::erase_if(g_Thrown, [](const Thrown& thrown) { return thrown.entity == entt::null; });
-	registry.SetDirty();
-}
-
-std::vector<entt::entity> ThrownObjects()
-{
-	std::vector<entt::entity> entities;
-	entities.reserve(g_Thrown.size());
-	for (const auto& thrown : g_Thrown)
-	{
-		entities.push_back(thrown.entity);
-	}
-	return entities;
-}
 } // namespace openblack::ecs::physics::from_hand

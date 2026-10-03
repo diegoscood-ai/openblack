@@ -2470,7 +2470,7 @@ Spanish) first.
   heartbeat, the creature in water / forest / lightning / tornado.
 - Town aggression (`Town::ProcessPlayerInteract` 0x73DEC0, villagers): without it the protection desire only rises
   with a script boost, so villagers seldom react to shields.
-- Physics (no owner): the pair skip with +0x1A4 == 1 and flag 2 (0x64583E..0x645866) is missing in `Substep`.
+- Physics: the pair skip with +0x1A4 == 1 and flag 2 (0x64583E..0x645866) is in `Substep` (session Fisicas).
 - (approximate) the C22 box centre turns only on xz; (inferred) the off-map delete when the object that stays is
   another one (Tree → DeadTree); not tested in game: the off-map delete, the heartbeat and the chants.
 - The user's open question: a mod so that the orb bubble does not write depth and cut the rain or fire behind it (the

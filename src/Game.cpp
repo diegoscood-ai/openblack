@@ -80,6 +80,7 @@
 #include "ECS/GroundMarks.h"
 #include "ECS/PetitNavire.h"
 #include "ECS/Physics/Buildings.h"
+#include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/PuzzleGames.h"
 #include "ECS/Rivers.h"
 #include "ECS/WaterRings.h"
@@ -565,6 +566,8 @@ bool Game::GameLogicLoop() noexcept
 	}
 	// The miracles' part of GGame::ProcessTurn after Living (Magic/MagicLoop.cpp: fire, reactions, spells...)
 	magic::ProcessTurn(turn);
+	// GGame::ProcessTurn 0x54E67E: PhysicsObject::GameTurnUpdate, after FireFly::ProcessAll and before GScript::Process
+	ecs::physics::PhysicsObjects::GameTurnUpdate();
 
 	{
 		auto scripts = profiler.BeginScoped(Profiler::Stage::ScriptsUpdate);
@@ -760,6 +763,9 @@ bool Game::Update() noexcept
 	// Process3dEngine case 2 0x54DD83..0x54DDDB (the FallingSpell's update, its end at state 4 or without a film) and
 	// 0x54E2A4..0x54E2DE Temple::UpdateFade with g_delta_time (Video/FallingSpellVideo.h)
 	video::GetFallingSpell().ProcessFrame(game_clock::FrameRealMs());
+	// fn_00646FE0 (GLandscape::Draw 0x5E49DC): the physics objects drawn between their last two turn poses (before the
+	// trees' bending, which takes them as sources, and before the drawing), and the dust
+	ecs::physics::PhysicsObjects::UpdateFrame(GetTurnFraction(), game_clock::FrameGameSeconds());
 
 	// Fields: visibility and sinking with their food (Field::Draw)
 	ecs::UpdateFields(std::chrono::duration<float>(deltaTime).count());

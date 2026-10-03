@@ -556,10 +556,6 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 		_amountToolTipTime = 0.0f;
 	}
 	UpdatePickupParticles(seconds, _pickSource.has_value() && _held.has_value() && std::getenv("OPENBLACK_NO_PICKUP_PSYS") == nullptr);
-	physics::from_hand::UpdateThrown(seconds);
-	// PhysicsObject::GameTurnUpdate runs with the game turns: in game time (game_clock: 0 while paused, faster or
-	// slower with the game speed)
-	physics::PhysicsObjects::Update(game_clock::FrameGameSeconds());
 	UpdateTestSplash(seconds);
 	UpdateTestAbode(seconds);
 	UpdateRootsAndPiles(seconds);

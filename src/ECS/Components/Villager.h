@@ -67,8 +67,8 @@ struct Villager
 
 	/// Villager +0xE0 bits (docs/bw1-notes/villagers.md, section Flags): 0x1 after a tap on its abode, 0x2 at the worship site,
 	/// 0x4 inside its home, 0x8 a child (SetAge), 0x10 on the way to the worship site / a fire, 0x20 in the hand, 0x80
-	/// football / script, 0x200 / 0x400 disciple / disciple follower, 0x2000 going to bed. 0x800 / 0x1000 (into /
-	/// out-of clip) live in SkeletalAnimation::transitionFlags.
+	/// football / script, 0x200 / 0x400 disciple / disciple follower, 0x2000 going to bed, 0xC000 the tree type of the wood
+	/// carried. 0x800 / 0x1000 (into / out-of clip) live in SkeletalAnimation::transitionFlags.
 	enum Flags : uint16_t
 	{
 		k_FlagAfterTapOnAbode = 0x1,
@@ -81,7 +81,11 @@ struct Villager
 		k_FlagDisciple = 0x200,
 		k_FlagDiscipleFollower = 0x400,
 		k_FlagGoingToBed = 0x2000,
+		/// bits 14-15: the tree type (CarriedTreeType 0..3) of the wood carried, PickupResource 0x751460..0x751480 (`and
+		/// 0x3FFF; or (t & 3) << 14`), read by GetWoodCarriedObject 0x7502A0
+		k_FlagTreeTypeMask = 0xC000,
 	};
+	static constexpr uint16_t k_TreeTypeShift = 14; ///< +0xE0 >> 14 (GetWoodCarriedObject 0x7502A9)
 
 	float life; ///< Object +0x48, 0..1 (Object::GetLife; ecs::life has the setters)
 	/// Living +0xA0: the turn it was born (Living::SetAge 0x5ED2C0: turn - age * 1500); its age is

@@ -13,6 +13,8 @@
 #include <cstdlib>
 
 #include <algorithm>
+#include <array>
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -29,13 +31,16 @@
 #include "ECS/Components/WallHug.h"
 #include "ECS/Life.h"
 #include "ECS/ObjectCreationIndex.h"
+#include "ECS/ObjectResources.h"
 #include "ECS/PotResource.h"
 #include "ECS/Registry.h"
 #include "ECS/Components/Town.h"
+#include "ECS/Town/TownQueries.h"
 #include "ECS/Town/TownVillagers.h"
 #include "ECS/Villager/VillagerCore.h"
 #include "ECS/Villager/VillagerDecide.h"
 #include "ECS/Villager/VillagerHome.h"
+#include "ECS/Villager/VillagerResources.h"
 #include "Game.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -233,6 +238,35 @@ void RunDebugHooks(uint32_t turn)
 				}
 			}
 		}
+		// OPENBLACK_TEST_VILLAGER_CARRY="<food|wood>,<amount>[,<n>[,<tree 0-3>]]" (V5): villager::PickupResource for
+		// villager n (or all), so the town's carried totals stay right; nothing else is forced
+		if (const char* carry = std::getenv("OPENBLACK_TEST_VILLAGER_CARRY"); carry != nullptr && *carry != '\0')
+		{
+			const std::string text(carry);
+			std::vector<std::string> parts;
+			size_t start = 0;
+			while (start <= text.size())
+			{
+				const auto end = std::min(text.find(',', start), text.size());
+				parts.push_back(text.substr(start, end - start));
+				start = end + 1;
+			}
+			const auto type = !parts.empty() && parts[0] == "wood" ? ResourceType::Wood : ResourceType::Food;
+			const auto amount = static_cast<int16_t>(parts.size() > 1 ? std::atoi(parts[1].c_str()) : 0);
+			const std::optional<int64_t> who =
+			    parts.size() > 2 && !parts[2].empty() ? std::optional<int64_t>(std::atoll(parts[2].c_str())) : std::nullopt;
+			const auto tree = static_cast<uint8_t>(parts.size() > 3 ? std::atoi(parts[3].c_str()) : 0);
+			for (const auto entity : Villagers())
+			{
+				if (!who || object_index::Of(entity) == *who)
+				{
+					PickupResource(entity, type, amount, tree);
+					const auto& v = registry.Get<const Villager>(entity);
+					Trace(entity, fmt::format("test: carry {} {} tree {} (held {}/{})", type == ResourceType::Wood ? "wood" : "food",
+					                          amount, tree, v.resourceHeld.at(0), v.resourceHeld.at(1)));
+				}
+			}
+		}
 		// OPENBLACK_TEST_VILLAGER_STATE="<state>[,<n>]": villager::SetTopState and its code
 		if (const auto state = ParseValueFor("OPENBLACK_TEST_VILLAGER_STATE"))
 		{
@@ -265,6 +299,36 @@ void RunDebugHooks(uint32_t turn)
 				                          action != nullptr ? action->turnsUntilStateChange : 0));
 			}
 		}
+	}
+	// OPENBLACK_TOWN_TRACE (V5): each town's temporary pots (+0x600 / +0x604) every 50 turns and when a slot changes, and
+	// its storage pit's stock
+	if (std::getenv("OPENBLACK_TOWN_TRACE") != nullptr)
+	{
+		static std::map<entt::entity, std::array<entt::entity, 2>> s_LastPots;
+		registry.Each<const Town>([&](entt::entity town, const Town& t) {
+			auto& last = s_LastPots[town];
+			const bool changed = last != t.temporaryPots;
+			last = t.temporaryPots;
+			if (!changed && turn % 50 != 0)
+			{
+				return;
+			}
+			const auto amount = [&registry](entt::entity pot, ResourceType type) -> int64_t {
+				return pot != entt::null && registry.Valid(pot) ? static_cast<int64_t>(object_resources::GetResource(pot, type))
+				                                                 : int64_t {-1};
+			};
+			const auto food = t.temporaryPots.at(0);
+			const auto wood = t.temporaryPots.at(1);
+			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Town trace: pots: town {} food {}/{} wood {}/{}", t.id,
+			                   static_cast<uint32_t>(food), amount(food, ResourceType::Food), static_cast<uint32_t>(wood),
+			                   amount(wood, ResourceType::Wood));
+			if (const auto pit = town_queries::GetStoragePit(town); pit != entt::null && turn % 50 == 0)
+			{
+				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Town trace: pit: {} food {} wood {} pulse {}",
+				                   static_cast<uint32_t>(pit), object_resources::GetResource(pit, ResourceType::Food),
+				                   object_resources::GetResource(pit, ResourceType::Wood), t.buildPulse);
+			}
+		});
 	}
 	// the trace's summary every 100 turns
 	if (TraceTarget() && turn % 100 == 0)

@@ -179,7 +179,8 @@ uint32_t PauseForASecond(components::LivingAction& action);
 // ---- death (provisional until V12) -------------------------------------------------------------------------------
 
 /// Villager::VillagerDead 0x7506C0. TODO(V12, villager death): marks it and kills it at the end of the turn
-/// (FlushDeaths: ecs::life::Kill). The original keeps it alive (SetDying -> 13), which openblack has not ported.
+/// (FlushDeaths: ecs::life::Kill). The original keeps it alive (SetDying -> 13), which openblack has not ported. The
+/// drops (V5): flag != 0 -> CreateDroppedResource(0, 0, 0); then DropWood(0) and DropFood(0) always (0x7507C0..0x7507E2)
 void VillagerDead(entt::entity villager, DeathReason reason, PlayerNames player, float amount, int flag);
 [[nodiscard]] bool IsDying(entt::entity villager);
 /// The reason VillagerDead was given this turn, if any
@@ -193,7 +194,7 @@ void ForgetDeathsForTests();
 /// OPENBLACK_VILLAGER_TRACE=1 (all) or =<n> (the villager with creation index n)
 [[nodiscard]] bool TraceOn(entt::entity villager);
 void Trace(entt::entity villager, const std::string& line);
-/// Once a turn, before the villagers: OPENBLACK_TEST_VILLAGER_LIFE / _STATE / _BORN_IN_WATER / _POISONED and the
+/// Once a turn, before the villagers: OPENBLACK_TEST_VILLAGER_LIFE / _STATE / _BORN_IN_WATER / _POISONED / _CARRY and the
 /// trace's summary every 100 turns
 void RunDebugHooks(uint32_t turn);
 } // namespace openblack::ecs::villager

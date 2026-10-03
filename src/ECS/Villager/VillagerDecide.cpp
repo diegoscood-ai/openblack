@@ -531,7 +531,7 @@ uint32_t CheckTakeResourcesToStoragePit(entt::entity villager)
 	const int32_t food = v->resourceHeld.at(0);
 	if (wood > static_cast<int32_t>(info.minWoodToShowGraphic) || food > static_cast<int32_t>(info.minFoodToShowGraphic))
 	{
-		// 0x751704: SetTopState(31 GOTO_STORAGE_PIT_FOR_DROP_OFF). TODO(V5): 31 is not ported
+		// 0x751704: SetTopState(31 GOTO_STORAGE_PIT_FOR_DROP_OFF) (VillagerResources.cpp, V5)
 		TraceIf(villager, fmt::format("decide: resources (wood {}, food {}) -> 31", wood, food));
 		SetTopState(villager, VillagerStates::GotoStoragePitForDropOff);
 		return 1;

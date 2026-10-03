@@ -143,10 +143,16 @@ protected:
 		Locator::livingActionSystem::emplace<FakeStateTable>();
 		villager::SetTurnForTests(1000);
 		villager::SetRandForTests([](uint32_t) { return 0u; }, [](float) { return 0.0f; });
+		// V5: Town::GetTemporaryResourceStorePotOrPos without a pile (its point is the villager's own position) unless a
+		// test makes one
+		villager::SetTemporaryStoreForTests([](entt::entity, const ecs::map_coords::MapCoords& from, ResourceType) {
+			return ecs::town_stores::TemporaryStore {entt::null, from};
+		});
 	}
 
 	void TearDown() override
 	{
+		villager::SetTemporaryStoreForTests({});
 		villager::ForgetDeathsForTests();
 		villager::SetRandForTests({}, {});
 		villager::SetTurnForTests(std::nullopt);
@@ -377,13 +383,23 @@ TEST_F(VillagerFoodTest, ChangeStateToFindFoodToEatWithLittle)
 	V(b).food = 0.5f;
 	EXPECT_EQ(villager::ChangeStateToFindFoodToEat(b), 0u);
 	EXPECT_EQ(Top(b), 163u);
-	// a town without a functional storage pit: (aproximado hasta V5) the temporary pot is the villager's position -> 0
+	// a town without a functional storage pit whose temporary store point is the villager's own position -> 0
 	const auto other = MakeTown(2);
 	auto c = MakeVillager();
 	V(c).food = 0.5f;
 	V(c).town = other;
 	EXPECT_EQ(villager::ChangeStateToFindFoodToEat(c), 0u);
 	EXPECT_EQ(Top(c), 163u);
+	// V5: the town's temporary pot elsewhere: walk to its edge with FINAL 34
+	const auto pot = Reg().Create();
+	Reg().Assign<Transform>(pot, glm::vec3(130.0f, 0.0f, 130.0f), glm::mat3(1.0f), glm::vec3(1.0f));
+	const auto edge = ecs::town_queries::ToMapCoords({130.0f, 130.0f});
+	villager::SetTemporaryStoreForTests([pot, edge](entt::entity, const ecs::map_coords::MapCoords&, ResourceType) {
+		return ecs::town_stores::TemporaryStore {pot, {edge.x, edge.y, 0.0f}};
+	});
+	EXPECT_EQ(villager::ChangeStateToFindFoodToEat(c), 1u);
+	EXPECT_EQ(Top(c), 1u);
+	EXPECT_EQ(Final(c), 34u);
 }
 
 TEST_F(VillagerFoodTest, EatFoodHeld)

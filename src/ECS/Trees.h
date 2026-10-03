@@ -156,6 +156,12 @@ uint32_t RemoveWood(entt::entity deadTree, uint32_t amount);
 /// adjusted to the ground. Returns the felled tree (the same entity) or entt::null.
 entt::entity FellTree(entt::entity tree, entt::entity chopper);
 
+/// The log a loaded villager drops (Villager::CreateDroppedResource 0x7509A6..0x7509E7): DeadTree::Create fn_00510BB0(
+/// pos, GTreeInfo 0xDA49D8 (Pine), player 0, life 1.0, x angle pi/2 (0x3FC90FDB), 0, 0, mesh) with the mesh override
+/// (0xCC5F10, read by DeadTree::GetDeadTreeMesh 0x510C60) and DeadTree +0x9C = woodMultiplier. Not put into physics
+/// here (the caller does). Session Personas (V5), agreed with coordinador: trees have no owner.
+entt::entity CreateDroppedLog(glm::vec3 position, uint32_t mesh, float woodMultiplier);
+
 /// Get2DRadius vt +0x64 (Object 0x638180: GetScale x max(LH3DMesh +0x24, +0x2C), the half extents x and z that
 /// LH3DMesh::ComputeBoundingBox 0x8081B0 stores): ecs::object::Get2DRadius, with the class overrides
 [[nodiscard]] float Object2DRadius(entt::entity object);

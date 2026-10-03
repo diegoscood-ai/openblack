@@ -54,6 +54,15 @@ bool Hidden(entt::entity villager)
 }
 } // namespace
 
+uint32_t CarriedObjectMesh(int32_t carriedObject)
+{
+	if (carriedObject < 0 || carriedObject >= static_cast<int32_t>(k_PropMeshes.size()))
+	{
+		return 0;
+	}
+	return static_cast<uint32_t>(k_PropMeshes.at(static_cast<size_t>(carriedObject)));
+}
+
 void UpdateCarriedProps()
 {
 	auto& registry = Locator::entitiesRegistry::value();

@@ -565,13 +565,52 @@ Shuffle); tests `test/test_villager_food.cpp`, `test_villager_home.cpp`, `test_v
 
 ## Carrying resources and the storehouse (V5)
 
-**Pending** (2026-10-03: the research was stopped by the user's decision before writing the specification; there is no
-V5 code). What already exists from V4: `Villager/VillagerResources.{h,cpp}` with states 33/34 (eating from the
-storehouse). Missing: picking up and dropping resources (PickupResource / Drop*), the capacities per villager type, the
-temporary pot (Town::GetTemporaryResourceStorePotOrPos 0x73E900), taking food and wood to the storehouse
-(StoragePit::AddResource 0x732F60, Abode::DoResourceAdding 0x404DF0), CheckSatisfyFoodDesire 0x759F30, the carried object
-(SetStateCarriedObject 0x7501A0), CreateDroppedResource 0x750940 and reaction 9. Dumps to pick it up again:
-`dev\documentacion\aldeanos\v5\README.md`.
+Full spec: `dev\documentacion\aldeanos\V5_spec.md`; audit `V5_audit.md`. Code: `Villager/VillagerResources.{h,cpp}`,
+`Villager/VillagerSatisfy.cpp`, `VillagerSpeed.cpp`, `VillagerAnimations.cpp` (the carried object), `Town/TownDesire`
+(`TownNeedsSum`), `LivingPhysics.cpp` (the villager's InitialisePhysics); tests `test/test_villager_resources.cpp`.
+
+- **Load**: food +0xF4 and wood +0xF6 (`resourceHeld`), the carried tree type in `flags` bits 14-15 (`k_FlagTreeTypeMask`,
+  overwritten on each wood pick-up, never cleared by a drop). PickupResource 0x7513F0 / DropFood 0x7511E0 / DropWood
+  0x751240 / DropResource 0x7511B0 keep the town's **carried** totals (Town +0x708 / +0x70C, `TownStats::foodCarried /
+  woodCarried`; the stock is the storage pit's). Capacities MaxFoodCarried 150 / MaxWoodCarried 250 (GVillagerInfo +0x264
+  / +0x268, the same in all 63 records): GetFoodCapacity 0x7514D0 / GetWoodCapacity 0x7514F0 are a 16-bit `max − held`
+  (negative above the maximum). Villager::AddResource 0x7564D0 always returns 0 (literal).
+- **Only the larger load per trip**: GetResourceHeld 0x751570 (food if food > wood, else wood if any: a tie goes to the
+  wood). With food 120 and wood 60, the food is dropped and CheckTakeResourcesToStoragePit (V2, wood > MinWoodToShowGraphic
+  50 or food > MinFoodToShowGraphic 100) sends it back for the wood.
+- **31 GOTO_STORAGE_PIT_FOR_DROP_OFF** 0x769620: to the "storage pit" (Villager::GetStoragePit 0x751F10 = the town's, or
+  else **its own home**) when it is functional; otherwise to GetResourceDropoffPos; nothing held → 163.
+  **32 ARRIVES_AT_STORAGE_PIT_FOR_DROP_OFF** 0x7696D0 (clip 347 P_PUT_DOWN_BAG): AtStructureAddResource 0x76A3B0 (within
+  the villager's *speed* of the structure's resource edge, `IsCloseToEqual`) adds it with the structure's AddResource and
+  drops it; then it walks back to the pit's arrive point with FINAL 163 (not 163 at once). Without pit or functional home:
+  the town's **temporary pot** (MagicFood / MagicWood, `town_stores::GetTemporaryResourceStorePotOrPos` 0x73E900, Edificios;
+  [buildings.md](buildings.md)); asking for the drop-off point creates it.
+- **The pot branch of 34** (ArrivesAtStoragePitForResource 0x7698D0): the pot's RemoveResource result is discarded
+  (0x769AA3), so a villager takes the whole meal even from an empty temporary pot, and no poison or food speed-up from it
+  (literal quirk, (not verified) in the real game).
+- **CheckSatisfyFoodDesire** 0x759F30 (desire Food): literal only when the town has no fields, fish farms and flocks
+  (then "drop if carrying anything"); otherwise 0 until the jobs exist (V8 / V10) **(approximate)**. In Land 1 the
+  player's town has fields and fish farms, so it stays neutral there.
+- **The carried object** (SetStateCarriedObject 0x7501A0): wood > 50 → the log of its tree type (WOOD / TREE_1..3); else
+  food > 100 → BAG unless the final state's exit is ExitBuilding 0x7597B0; nothing at life ≤ LifeWhenCrawlsWounded; the
+  state rows' object (+0xEC) wins, final then TOP; IN_SCRIPT (4) and SCRIPT_PLAY_ANIM (200) keep the previous one.
+- **Speed** (SetStateSpeed 0x753760, 0x75397B..0x753B2A): load factors `clamp(1 + SpeedModWhenFullLoad − held / max, 0.75,
+  1)` (wood 0.75, food 0.85: slower only above 187.5 wood / 127.5 food); the **town-needs term** `0.85 + clamp(S / 2, 0,
+  0.5)`, S = clamp(0.2 × the sum of ten raw desires (13, 12, 9, 7, 6, 5, 4, 3, 1, 0), 0, 1) (fn_00747150); the food
+  speed-up ×4 (+0x39C) when IsFoodSpeedUp 0x55C980. **Visible change**: villagers of towns with positive desires walk
+  up to 1.35 / 0.85 = 1.59 times faster than before V5 (it is the original; openblack used the base 0.85 alone).
+- **Dropped log** (CreateDroppedResource 0x750940): a villager with wood > 50 put into physics by anything but the hand
+  (Villager::InitialisePhysics 0x5EFEF0), thrown by the hand without landing (0x6373FA) or dying (VillagerDead 0x7507D0)
+  lets the log fall as a Pine DeadTree with the carried mesh (`ecs::CreateDroppedLog` in Trees, DeadTree::Create
+  0x510BB0 with the mesh override 0xCC5F10 and +0x9C = wood / Pine's woodValue; Fisicas'
+  `PhysicsObjects::AddDroppedObject`). 51 wood gives back a 50 log (DeadTree::GetDefaultResource 0x511330, literal).
+  **(approximate)** from a physics release other than the hand the handler runs after the body was added and without
+  the angular velocity. VillagerDead also drops food and wood to nothing (0x7507D9 / 0x7507E2).
+- Reaction 9 (REACT_TO_FLYING_OBJECT) is not about picking up resources: it makes villagers flee (6) or point (162) at a
+  flying object (reactions, not V5). Picking up dropped food is reaction 7 (V8), wood reaction 12 (V9).
+- Test hook `OPENBLACK_TEST_VILLAGER_CARRY="<food|wood>,<amount>[,<n>[,<tree 0-3>]]"` (turn 2, through PickupResource);
+  the trace adds `carry:`, `drop 31:` / `drop 32:`, `carried:`, `speed:`, `food-desire:`, `pot:` and `dropped log:` lines;
+  `OPENBLACK_TOWN_TRACE` adds `pots:` / `pit:`.
 
 ## Worship: return home
 

@@ -13,6 +13,7 @@
 #include <array>
 
 #include <entt/entity/entity.hpp>
+#include <fmt/format.h>
 
 #include "Common/GameRandom.h"
 #include "ECS/Components/LivingAction.h"
@@ -23,9 +24,11 @@
 #include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
 #include "ECS/ScriptHeld.h"
+#include "ECS/Town/TownDesire.h"
 #include "ECS/Town/TownQueries.h"
 #include "ECS/Villager/VillagerAge.h"
 #include "ECS/Villager/VillagerCore.h"
+#include "ECS/Villager/VillagerResources.h"
 #include "Game.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "InfoConstants.h"
@@ -39,6 +42,9 @@ using namespace components;
 
 namespace
 {
+/// VillagerDisciple 9 TRADER (SetStateSpeed 0x7539FE `cmp cl, 9`)
+constexpr uint8_t k_DiscipleTrader = 9;
+
 /// g_game +0x205A40, the game turn
 uint32_t CurrentGameTurn()
 {
@@ -119,6 +125,9 @@ void SetVillagerStateSpeed(entt::entity entity)
 	const float life = villager->life;
 	const auto& group = info->speedGroup;
 	float speed = 0.0f;
+	// the emergency and normal branches go through the food speed-up (0x753976 / 0x753B13 -> 0x753B15); the two wounded
+	// ones jump past it (0x7538EB / 0x753934 -> 0x753B36)
+	bool foodSpeedUpApplies = false;
 	if (life <= info->lifeWhenCrawlsWounded)
 	{
 		// 0x7538D3: GameFloatRand(0.2) + 0.4
@@ -135,15 +144,35 @@ void SetVillagerStateSpeed(entt::entity entity)
 		// 0x753939..0x753972: in a town in a state of emergency (Town::IsInStateOfEmergency 0x747970),
 		// (GameFloatRand(0.5) + 0.75) x the fleeing speed (GVillagerInfo +0x108) x m (0x75395A)
 		speed = (game_random::GameFloatRand(0.5f) + 0.75f) * static_cast<float>(Raw(group.speedFleeing)) * m;
+		foodSpeedUpApplies = true;
 	}
 	else
 	{
-		// town needs: base + clamp(sum of the town's desires / divisor, 0, 0.5) (openblack's towns have no desires yet);
-		// the loads of wood and food (villagers carry none yet)
-		const float townNeeds = villager->town != entt::null ? info->baseForTownNeedsSpeedMod : 1.0f;
-		const float wood = std::clamp(1.0f + info->speedModWhenFullLoadOfWood - 0.0f, 0.75f, 1.0f);
-		const float food = std::clamp(1.0f + info->speedModWhenFullLoadOfFood - 0.0f, 0.75f, 1.0f);
-		speed = static_cast<float>(SpeedGroupEntry(group, states[final].field0x24)) * food * wood * townNeeds * m;
+		// 0x75397F..0x7539F4: T = 1 without a town; with one, base (+0x36C) + clamp(TownNeedsSum fn_00747150 / divisor
+		// (+0x370), 0, 0.5) (on the x87 stack)
+		const double townNeeds = villager->town != entt::null
+		                             ? villager::TownNeedsFactor(town_desire::TownNeedsSum(villager->town), *info)
+		                             : 1.0;
+		// 0x7539F8..0x753AF7: the loads of wood and food (+0xF6 / +0xF4), with the trader's capacities for disciple 9
+		const auto load = villager::LoadFactors(villager->resourceHeld.at(1), villager->resourceHeld.at(0), *info,
+		                                        villager->discipleType == k_DiscipleTrader);
+		// 0x753AFD..0x753B0D: fild spd; x foodF; x woodF; x T; x m; fstp float
+		speed = static_cast<float>(static_cast<double>(SpeedGroupEntry(group, states[final].field0x24)) * load.food *
+		                           static_cast<double>(load.wood) * townNeeds * static_cast<double>(m));
+		foodSpeedUpApplies = true;
+		if (villager::TraceOn(entity))
+		{
+			villager::Trace(entity, fmt::format("speed: spd {} foodF {:.9f} woodF {:.9f} T {:.9f} -> {:.6f}",
+			                                    SpeedGroupEntry(group, states[final].field0x24), load.food, load.wood,
+			                                    townNeeds, speed));
+		}
+	}
+	// 0x753B15..0x753B38: IsFoodSpeedUp (vt +0x87C, 0x55C980: +0xF0 != 0) -> speed x info +0x39C (foodPowerupIncrease,
+	// (inferred) the field at that offset of openblack's GVillagerInfo), kept on the x87 stack; then __ftol
+	int32_t whole = static_cast<int32_t>(speed);
+	if (foodSpeedUpApplies && villager->foodSpeedUp != 0)
+	{
+		whole = static_cast<int32_t>(static_cast<double>(speed) * static_cast<double>(info->foodPowerupIncrease));
 	}
 	// Villager::SetSpeed: the factor of the villager (its creation index), age, and for adults food, life and sex
 	// ObjectCreationIndex (+0x3C), a signed int in the original's multiplication
@@ -175,7 +204,7 @@ void SetVillagerStateSpeed(entt::entity entity)
 			f -= 0.2f;
 		}
 	}
-	const auto raw = std::clamp(static_cast<int32_t>(static_cast<float>(static_cast<int32_t>(speed)) * f), 0, 0xFFFF);
+	const auto raw = std::clamp(static_cast<int32_t>(static_cast<float>(whole) * f), 0, 0xFFFF);
 	// MobileWallHug::SetSpeed 0x60FC50 clamps to 0..0xFFFF and stores the u16 at +0x5A as it is: the distance per turn in
 	// MapCoords units. openblack keeps the speed in metres, so it converts here; (inferido) the original never converts
 	// this value, it adds it to a MapCoords, and ToMetres ([0x8AA3A4], the conversion it uses everywhere else) is the

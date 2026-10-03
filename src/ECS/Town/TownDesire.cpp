@@ -30,6 +30,7 @@
 #include "ECS/Components/Villager.h"
 #include "ECS/Effects/Alignment.h"
 #include "ECS/Life.h"
+#include "ECS/ObjectResources.h"
 #include "ECS/Registry.h"
 #include "ECS/StoragePitStore.h"
 #include "ECS/Town/AbodeQueries.h"
@@ -1186,6 +1187,27 @@ float GetRawDesire(entt::entity town, TownDesireInfo d)
 	return t != nullptr && ValidDesire(d) ? GetRawDesire(t->desire, Index(d)) : k_Zero;
 }
 
+double TownNeedsSum(const TownDesire& desire)
+{
+	// 0x747150..0x747186: fld +0x19C (13); fadd +0x198 (12), +0x18C (9), +0x184 (7), +0x180 (6), +0x17C (5), +0x178 (4),
+	// +0x174 (3), +0x16C (1), +0x168 (0): the raw desires (+0x168, no boosts), in that order on the x87 stack
+	const auto& raw = desire.raw;
+	double sum = static_cast<double>(raw.at(13));
+	for (const size_t d : {12u, 9u, 7u, 6u, 5u, 4u, 3u, 1u, 0u})
+	{
+		sum += static_cast<double>(raw.at(d));
+	}
+	// 0x74718C: x 0.2 ([0x8AA3AC], a float); 0x747192..0x7471B7: < 0 -> 0, > 1 -> 1
+	sum *= static_cast<double>(0.2f);
+	return sum < 0.0 ? 0.0 : sum > 1.0 ? 1.0 : sum;
+}
+
+double TownNeedsSum(entt::entity town)
+{
+	const auto* t = TownOf(town);
+	return t != nullptr ? TownNeedsSum(t->desire) : 0.0;
+}
+
 const std::array<DesireSort, k_Count>& GetSortedDesires(entt::entity town)
 {
 	const auto* t = TownOf(town);
@@ -1280,7 +1302,17 @@ DesireInputs GatherInputs(entt::entity town)
 		in.storageFood = StoragePitStore::GetResource(pit, ResourceType::Food);
 		in.storageWood = StoragePitStore::GetResource(pit, ResourceType::Wood);
 	}
-	// +0x600 / +0x604 the temporary pots: TODO(V5), none. +0x790 the building sites: TODO(V6), none
+	// +0x600 / +0x604 the temporary pots (ecs::town_stores): fn_747A90 0x747AC6 / fn_747B00 0x747B3C test the slot only
+	// (no IsAvailable), then GetResource (vt +0x98: PotStructure 0x66EF00, object_resources). (approximate) a slot whose
+	// entity is gone counts as empty (until TownProcess step 17 clears it, Edificios, a recycled entity could be read). +0x790 the building sites: TODO(V6), none
+	if (const auto pot = t->temporaryPots.at(0); pot != entt::null && registry.Valid(pot))
+	{
+		in.potFood = object_resources::GetResource(pot, ResourceType::Food);
+	}
+	if (const auto pot = t->temporaryPots.at(1); pot != entt::null && registry.Valid(pot))
+	{
+		in.potWood = object_resources::GetResource(pot, ResourceType::Wood);
+	}
 	for (size_t i = 0; i < in.populationWhenNeeded.size(); ++i)
 	{
 		if (const auto* info = town_stats::FindAbodeInfo(in.tribe, static_cast<AbodeNumber>(i)); info != nullptr)

@@ -20,7 +20,9 @@
 
 namespace openblack::ecs::villager
 {
-/// Villager::CheckSatisfyFoodDesire 0x759F30 (desire 0). TODO(V8): the farmers / fishermen; 0
+/// Villager::CheckSatisfyFoodDesire 0x759F30 (desire 0): the best of the fish farm / field / flock jobs against taking
+/// the food carried to the drop-off point (GotoStoragePitForDropOff). V5 (P-1): literal when the town has no field, fish
+/// farm or flock (then "drop if the load scores above 0, else 0"); otherwise TODO(V8/V10): the jobs, 0
 uint32_t CheckSatisfyFoodDesire(entt::entity villager);
 /// Villager::CheckSatisfyWoodDesire 0x75F4A0 (1: DecideHowToGetWood, VillagerGotoForest, BigForest,
 /// GotoStoragePitForDropOff). TODO(V9): 0

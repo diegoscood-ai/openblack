@@ -10,6 +10,7 @@
 #include "LivingPhysics.h"
 
 #include <cmath>
+#include <optional>
 
 #include <glm/vec2.hpp>
 #include <spdlog/spdlog.h>
@@ -26,6 +27,7 @@
 #include "ECS/Registry.h"
 #include "ECS/SeaCells.h"
 #include "ECS/StoragePitStore.h"
+#include "ECS/Villager/VillagerResources.h"
 #include "ECS/VillagerAnimations.h"
 #include "ECS/VillagerDrowning.h"
 #include "InfoConstants.h"
@@ -158,8 +160,16 @@ namespace openblack::ecs::living
 void RegisterPhysicsHandlers()
 {
 	PhysicsObjects::ClassHandlers villager;
+	// Villager::InitialisePhysics 0x5EFEF0 (anything but the hand: CreateDroppedResource(&v, &av, NULL), then
+	// Living::InitialisePhysics 0x5EFE10); from the hand Object::InitialisePhysicsFromHand calls CreateDroppedResource
+	// itself (0x6373FA, ECS/Physics/FromHand). (approximate) here after the body was added, not before, and without the
+	// angular velocity (the handler is not given it; the log that would use it is not made yet, VillagerResources).
 	// Living::InitialisePhysics: the villager flies (THROWN clips, ECS/VillagerAnimations)
-	villager.initialisePhysics = [](entt::entity entity, PhysicsObject&, bool) {
+	villager.initialisePhysics = [](entt::entity entity, PhysicsObject& po, bool fromHand) {
+		if (!fromHand)
+		{
+			villager::CreateDroppedResource(entity, po.body.velocity, std::nullopt, std::nullopt);
+		}
 		ecs::SetVillagerState(entity, VillagerStates::Flying);
 	};
 	// Living::ReactToPhysicsImpact 0x5ED3E0 (Villager shares it)

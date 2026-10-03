@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 #include <entt/entity/entity.hpp>
 
 namespace openblack::ecs
@@ -29,5 +31,9 @@ struct CarriedProp
 /// end of its -X arm (LH3DStaticObject::SetLinkedPosition 0x815FC0: rows -X, -Z, -Y of the bone, no offset). Not while
 /// the villager is hidden or in the hand. Runs after the poses are computed.
 void UpdateCarriedProps();
+
+/// CarriedObject::Init table 0xC5E19C: the mesh (AllMeshes.h index) of a CARRIED_OBJECT, 0 for none (0, 1 and out of
+/// range). Villager::CreateDroppedResource 0x750993 makes the dropped log with it.
+[[nodiscard]] uint32_t CarriedObjectMesh(int32_t carriedObject);
 
 } // namespace openblack::ecs

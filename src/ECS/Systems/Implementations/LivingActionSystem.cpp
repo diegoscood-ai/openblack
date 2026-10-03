@@ -33,6 +33,7 @@
 #include "ECS/Villager/VillagerFood.h"
 #include "ECS/Villager/VillagerHome.h"
 #include "ECS/Villager/VillagerOriginalFns.h"
+#include "ECS/Villager/VillagerResources.h"
 #include "ECS/Villager/VillagerScript.h"
 #include "ECS/Villager/VillagerStateTable.h"
 #include "VillagerFire.h"
@@ -267,8 +268,17 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* MOVE_ALONG_PATH */ k_TodoEntry,
     /* MOVE_ON_PATH */ k_TodoEntry,
     /* FLEEING_AND_LOOKING_AT_OBJECT_REACTION */ k_TodoEntry,
-    /* GOTO_STORAGE_PIT_FOR_DROP_OFF */ k_TodoEntry,
-    /* ARRIVES_AT_STORAGE_PIT_FOR_DROP_OFF */ k_TodoEntry,
+    // V5, carrying (VillagerResources.cpp): no entry, no exit; +0x50 AlwaysReactToTownEmergency (0x5AC990)
+    /* GOTO_STORAGE_PIT_FOR_DROP_OFF: Villager::GotoStoragePitForDropOff 0x769620 */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::GotoStoragePitForDropOffState,
+        .field0x50 = k_TodoEntry.field0x50,
+    },
+    /* ARRIVES_AT_STORAGE_PIT_FOR_DROP_OFF: Villager::ArrivesAtStoragePitForDropOff 0x7696D0 (clip 347) */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::ArrivesAtStoragePitForDropOff,
+        .field0x50 = k_TodoEntry.field0x50,
+    },
     // V4, the food (VillagerFood.cpp, P-1: the storage pit): no entry; +0x50 AlwaysReactToTownEmergency (0x5AC990)
     /* GOTO_STORAGE_PIT_FOR_FOOD: Villager::GotoStoragePitForFood 0x769830 */
     VillagerStateTableEntry {

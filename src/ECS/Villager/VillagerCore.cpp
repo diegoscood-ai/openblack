@@ -38,6 +38,7 @@
 #include "ECS/Villager/VillagerAge.h"
 #include "ECS/Villager/VillagerFood.h"
 #include "ECS/Villager/VillagerHome.h"
+#include "ECS/Villager/VillagerResources.h"
 #include "ECS/Villager/VillagerOriginalFns.h"
 #include "ECS/Villager/VillagerStateInfo.h"
 #include "ECS/VillagerAnimations.h"
@@ -132,11 +133,12 @@ Town* TownOf(entt::entity villager)
 	return Entities().TryGet<Town>(v->town);
 }
 
-/// Town +0x5E8, read by the disciple check of CheckEveryTime (0x750643). TODO(V3): openblack's towns have no such field
-/// yet: 0
-uint32_t TownField0x5E8([[maybe_unused]] const Town& town)
+/// Town +0x5E8, read by the disciple check of CheckEveryTime (0x750643): the town's pulse (`Town::buildPulse`, "the town
+/// changed": written by fields, scaffolds, the storage pit (StoragePit::AddResource 0x733183), workshops and a
+/// villager's death; also read by Town::Process and DiscipleNothingToDo 0x7540D8)
+uint32_t TownField0x5E8(const Town& town)
 {
-	return 0;
+	return town.buildPulse;
 }
 
 /// Villager +0xE0 & 0x2: at the worship site. Its writers (AddVillagerToWorshipSite 0x76C3F0 / RemoveVillagerFromWorshipSite
@@ -1000,7 +1002,7 @@ uint32_t PauseForASecond(LivingAction& action)
 // ---- death (provisional until V12) -------------------------------------------------------------------------------
 
 void VillagerDead(entt::entity villager, DeathReason reason, [[maybe_unused]] PlayerNames player,
-                  [[maybe_unused]] float amount, [[maybe_unused]] int flag)
+                  [[maybe_unused]] float amount, int flag)
 {
 	// TODO(V12, villager death): Villager::VillagerDead 0x7506C0 (the alignment, the town's counts, the texts,
 	// SetDying -> 13). Meanwhile it is marked and killed at the end of the turn (FlushDeaths)
@@ -1008,6 +1010,15 @@ void VillagerDead(entt::entity villager, DeathReason reason, [[maybe_unused]] Pl
 	{
 		return;
 	}
+	// 0x7507C0..0x7507E2: the last argument != 0 -> CreateDroppedResource(0, 0, 0) 0x750940; then DropWood(0) 0x751240
+	// and DropFood(0) 0x7511E0 always (the town's carried totals go down). (approximate until V12) here, before the
+	// provisional mark
+	if (flag != 0)
+	{
+		CreateDroppedResource(villager, std::nullopt, std::nullopt, std::nullopt);
+	}
+	DropWood(villager, 0);
+	DropFood(villager, 0);
 	g_Deaths.push_back({villager, reason});
 	const auto text = fmt::format("died ({})", DeathName(reason));
 	if (TraceOn(villager))

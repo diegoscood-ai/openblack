@@ -33,6 +33,7 @@
 #include "Audio/Audio.h"
 #include "Camera/Camera.h"
 #include "Common/GameRandom.h"
+#include "ECS/Archetypes/DeadTreeArchetype.h"
 #include "ECS/Archetypes/TreeArchetype.h"
 #include "ECS/Archetypes/Utils.h"
 #include "ECS/Components/Forest.h"
@@ -530,6 +531,25 @@ CarriedTreeType openblack::ecs::TreeCarriedType(entt::entity entity)
 		}
 	}
 	return Locator::infoConstants::value().tree.at(static_cast<size_t>(dead->type)).carriedType;
+}
+
+entt::entity openblack::ecs::CreateDroppedLog(glm::vec3 position, uint32_t mesh, float woodMultiplier)
+{
+	// 0x7509A6..0x7509C1: fn_00510BB0(pos, Pine, 0, 1.0, pi/2, 0, 0, mesh); the ctor 0x510A30 and SetXYZAngles
+	// (vt +0x518) are DeadTreeArchetype::Create's
+	const auto log = archetypes::DeadTreeArchetype::Create(position, TreeInfo::Pine, 1.0f, glm::half_pi<float>(), 0.0f, 0.0f);
+	auto& registry = Locator::entitiesRegistry::value();
+	// 0x510BFF..0x510C03: [0xCC5F10] = mesh while CallVirtualFunctionsForCreation runs: GetDeadTreeMesh 0x510C60 gives it
+	// instead of the tree type's mesh
+	if (mesh != 0)
+	{
+		registry.Get<Mesh>(log).id = resources::HashIdentifier(static_cast<MeshId>(mesh));
+	}
+	// 0x7509C6..0x7509E7: log +0x9C = the multiplier
+	registry.Get<DeadTree>(log).woodValueMultiplier = woodMultiplier;
+	// 0x510C30 `and word [esi+0x98], 0xFFEF` (a flag bit of +0x98, not identified): (not ported), as in
+	// DeadTreeArchetype::Create
+	return log;
 }
 
 entt::entity openblack::ecs::FellTree(entt::entity tree, entt::entity chopper)

@@ -27,6 +27,7 @@
 #include "ECS/Registry.h"
 #include "ECS/SeaCells.h"
 #include "ECS/Systems/LivingActionSystemInterface.h"
+#include "ECS/Villager/VillagerResources.h"
 #include "ECS/VillagerAnimationTable.h"
 #include "ECS/VillagerSpeed.h"
 #include "InfoConstants.h"
@@ -168,27 +169,13 @@ float Life(const Villager& villager)
 	return villager.life;
 }
 
-/// Villager::SetStateCarriedObject (0x7501A0), the part openblack has: what the states force (villagers carry no wood or
-/// food yet)
+/// Villager::SetStateCarriedObject (0x7501A0): the load (wood log / bag), the life, the builders' final states and what
+/// the state rows force (ecs::villager::SetStateCarriedObject, V5), from the current +0xF1 (kept by the script states)
 int32_t CarriedObject(entt::entity villager)
 {
-	const auto* action = Locator::entitiesRegistry::value().TryGet<const LivingAction>(villager);
-	int32_t carried = k_CarriedNone;
-	if (action == nullptr)
-	{
-		return carried;
-	}
-	const auto current = static_cast<VillagerStates>(action->states[static_cast<size_t>(LivingAction::Index::Top)]);
-	const auto final = static_cast<VillagerStates>(action->states[static_cast<size_t>(LivingAction::Index::Final)]);
-	if (static_cast<size_t>(final) < 255 && StateInfo(final).field0xdc != k_CarriedNoChange)
-	{
-		carried = StateInfo(final).field0xdc;
-	}
-	if (static_cast<size_t>(current) < 255 && StateInfo(current).field0xdc != k_CarriedNoChange)
-	{
-		carried = StateInfo(current).field0xdc;
-	}
-	return carried;
+	const auto* animation = Locator::entitiesRegistry::value().TryGet<const SkeletalAnimation>(villager);
+	const int32_t previous = animation != nullptr ? animation->carriedObject : k_CarriedNone;
+	return villager::SetStateCarriedObject(villager, previous);
 }
 
 /// MoveToPosAnimation (0x423400): walk, run or sprint by the speed; carry clips; wounded

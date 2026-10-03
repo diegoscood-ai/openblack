@@ -63,7 +63,7 @@ struct DesireInputs
 	/// GetStoragePit 0x73B5B0 ? its GetResource(FOOD / WOOD) (vt +0x98) : nullopt
 	std::optional<uint32_t> storageFood;
 	std::optional<uint32_t> storageWood;
-	/// the temporary pots +0x600 / +0x604 (V5: nobody makes them yet): their GetResource, nullopt without one
+	/// the temporary pots +0x600 / +0x604 (Town::temporaryPots, ecs::town_stores): their GetResource, nullopt without one
 	std::optional<uint32_t> potFood;
 	std::optional<uint32_t> potWood;
 	/// the building sites +0x790 (V6: none yet): their BuildingSite::GetDesireForVillagers 0x43BD70, site +0x634 and
@@ -238,6 +238,10 @@ uint32_t CheckVillagerNeeded(const components::TownDesire& desire, const std::ar
 /// Town::GetDesire 0x73E400 / Town::GetRawDesire 0x73E420 of a town entity (0 without one)
 [[nodiscard]] float GetDesire(entt::entity town, TownDesireInfo d);
 [[nodiscard]] float GetRawDesire(entt::entity town, TownDesireInfo d);
+/// fn_00747150 (this = TownDesire, Town +0x34; SetStateSpeed 0x7539BD): S = 0.2 x (raw 13 + 12 + 9 + 7 + 6 + 5 + 4 + 3
+/// + 1 + 0) (+0x168, no boosts) clamped to [0, 1]; returned on the x87 stack (double). 0 without a town
+[[nodiscard]] double TownNeedsSum(const components::TownDesire& desire);
+[[nodiscard]] double TownNeedsSum(entt::entity town);
 /// +0x278 (GetSortedDesire 0x7465D0 = &order1[k]) and +0x344 (Town +0x378: value +0x37C, type +0x380, the one
 /// GGuidance::CheckTownDesiresSFX 0x71B130 reads). An empty (all 0) array without a town
 [[nodiscard]] const std::array<DesireSort, k_Count>& GetSortedDesires(entt::entity town);

@@ -529,14 +529,28 @@ entt::entity EndPhysicsOfClass(PhysicsObject& po)
 /// cells (InsertMapObject vt +0x544 at 0x63762C; Fixed::EndPhysics reaches it through 0x52E054 / 0x52E0CB), a
 /// fragment that stays (FragmentEndPhysics) too; nothing for one that is gone. (inferido) after the class's part:
 /// where Villager / Animal::EndPhysics call it is not read; Tree::EndPhysics 0x74B830 searches the cells (0x74B9C0)
-/// before its insert, so a replanted tree does not see itself
+/// before its insert, so a replanted tree does not see itself.
+/// 0x637613..0x63763A: with insert and the object not UNAVAILABLE (GameThing +0xA bit 0, 0x637617: here, still in the
+/// registry), MapCoords::InBounds 0x6042C0 of its MapCoords (+0x14): inside the 512 x 512 cells it goes back in the map
+/// cells, outside it is deleted (ToBeDeleted(0), vt +0xC at 0x63763A). Returns entt::null when the object that stays
+/// is the deleted one. (inferido) a different object that stays (Tree -> DeadTree) is not tested here
 entt::entity EndPhysics(PhysicsObject& po)
 {
 	const auto entity = po.entity;
 	const auto kept = EndPhysicsOfClass(po);
-	if (Locator::entitiesRegistry::value().Valid(entity))
+	auto& registry = Locator::entitiesRegistry::value();
+	if (registry.Valid(entity))
 	{
-		map_cells::InsertMapObject(entity);
+		const auto* transform = registry.TryGet<const Transform>(entity);
+		if (transform == nullptr || map_coords::InBounds(map_coords::FromWorld(nullptr, transform->position)))
+		{
+			map_cells::InsertMapObject(entity);
+		}
+		else
+		{
+			ToBeDeleted(entity);
+			return kept == entity ? entt::null : kept;
+		}
 	}
 	return kept;
 }

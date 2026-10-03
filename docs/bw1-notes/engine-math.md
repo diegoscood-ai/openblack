@@ -751,6 +751,15 @@ objeto de una celda solo se reinserta si cambia de celda (0x636A40); un MultiMap
   `Reactions`: primero las bajas (destruidos, en la mano, en física, cambio de clase) y luego las altas y los
   movimientos por índice de creación (inferido).
 - Toda lectura se salta además lo que el original ya habría sacado: no válido, en la mano o volando.
+- **Al acabar la física** (Object::EndPhysics 0x6375A0, 0x637613..0x63763A; `physics::EndPhysics` en
+  PhysicsObjects.cpp): si el objeto sigue disponible, `MapCoords::InBounds` 0x6042C0 de su posición. Dentro de las
+  512 × 512 celdas vuelve a las listas (`InsertMapObject`, vt+0x544); fuera **se borra** (`ToBeDeleted(0)`, vt+0xC).
+  Pasa por ahí todo lo que aterriza: aldeanos, animales, vasijas, andamios, grano y los fijos (rocas, árboles,
+  fragmentos). Es (inferido) que se haga después de la parte de la clase, y no se mira el caso en que el objeto que
+  queda es otro (árbol → árbol muerto).
+- **El ángulo de C22** es el +0x48 del LH3DObject (0x8294A3), la Y de `LHMatrix::GetYXZ` 0x7FAB30 (fila 2), no la
+  fila 0. Lo que sigue (aproximado): el centro de la caja gira solo en xz por esa Y, mientras que el original pasa por
+  la matriz completa (0x8293CE..0x829413).
 - `OPENBLACK_MAPCELLS_CHECK=1` comprueba las listas en cada `Sync` y escribe `map_cells: N objects, M cells, E errors`.
 - La API vieja (`MapInterface` / `MapProduction`, `effects::ObjectsInMapCell`) sigue para quien no ha migrado. Lo que
   le queda a cada dueño está en `map_cell_queries_A_impl.md` y en `map_cell_queries_PLAN_B.md` (fase B).

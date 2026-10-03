@@ -71,6 +71,7 @@
 #include "ECS/Weather/Climate.h"
 #include "ECS/Trees.h"
 #include "ECS/Physics/FragMesh.h"
+#include "ECS/Physics/FromHand.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Rocks.h"
 #include "ECS/SeaDebugHooks.h"
@@ -908,9 +909,9 @@ void HandSystem::RunDebugHooks() noexcept
 			registry.Get<Transform>(tree).rotation =
 			    glm::mat3(glm::eulerAngleX(glm::radians(tilt))) * registry.Get<const Transform>(tree).rotation;
 			registry.SetDirty();
-			if (!InitialisePhysicsFromHand(tree, glm::vec3(0.0f), false))
+			if (!physics::from_hand::InitialisePhysicsFromHand(tree, glm::vec3(0.0f), false))
 			{
-				PlaceWithoutBody(tree);
+				physics::from_hand::PlaceWithoutBody(tree);
 			}
 			const bool alive = registry.Valid(tree);
 			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Tree test: dropped tilted {:.0f} deg at ({:.1f}, {:.1f}) -> {}", tilt,

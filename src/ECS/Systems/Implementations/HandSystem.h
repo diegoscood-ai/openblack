@@ -60,16 +60,7 @@ public:
 		}
 		return _amountToolTipTime > 0.0f ? std::optional(_amountToolTip) : std::nullopt;
 	}
-	[[nodiscard]] std::vector<entt::entity> GetThrownObjects() const noexcept override
-	{
-		std::vector<entt::entity> entities;
-		entities.reserve(_thrown.size());
-		for (const auto& thrown : _thrown)
-		{
-			entities.push_back(thrown.entity);
-		}
-		return entities;
-	}
+	[[nodiscard]] std::vector<entt::entity> GetThrownObjects() const noexcept override;
 	[[nodiscard]] const std::vector<glm::mat4>* GetBoneMatrices() const noexcept override;
 	[[nodiscard]] std::vector<std::string> GetAnimationNames() const noexcept override;
 	[[nodiscard]] const std::string& GetCurrentAnimation() const noexcept override;
@@ -86,14 +77,9 @@ private:
 	/// store, a hand pot put down at |v|^2 <= 5), then ThrowObjectFromHand -> InitialisePhysicsFromHand
 	void Release(glm::vec3 velocity) noexcept;
 	/// HandHolding.cpp: Object::ThrowObjectFromHand(status, dont_replant) 0x6385E0: the held object leaves the hand
-	/// (RemoveFromHand), a hand pot slow enough is put down, else InitialisePhysicsFromHand. Release passes
-	/// dont_replant 0, ForceDropHeld 1 (packet 0x1D, no ApplyThisToMapCoord)
+	/// (RemoveFromHand), then physics::from_hand::Throw. Release passes dont_replant 0, ForceDropHeld 1 (packet 0x1D, no
+	/// ApplyThisToMapCoord)
 	void ThrowObjectFromHand(glm::vec3 velocity, bool dontReplant) noexcept;
-	/// HandHolding.cpp: Object::InitialisePhysicsFromHand 0x636F00 (AddObject, AdjustToGroundLevel,
-	/// RaiseUntilNotIntersecting, the LANDED rule); false when no body could be made
-	bool InitialisePhysicsFromHand(entt::entity entity, glm::vec3 velocity, bool dontReplant) noexcept;
-	/// HandHolding.cpp: openblack's placement of an object that has no physics body
-	void PlaceWithoutBody(entt::entity entity) noexcept;
 	void UpdateHeldObject() noexcept;
 	void UpdateMultiPickUp(float seconds, bool actionHeld) noexcept;
 	/// HandTrees.cpp: BigForest::InterfaceSetInMagicHand 0x4393C0: the forest gives a Conifer to the hand
@@ -214,7 +200,6 @@ private:
 	void UpdateRoots(entt::entity tree, bool dying = false) noexcept;
 	void DropRoots(entt::entity tree, bool fall) noexcept;
 	void UpdateRootsAndPiles(float seconds) noexcept;
-	void UpdateThrown(float seconds) noexcept;
 	void EmitGripDust(glm::vec3 point) noexcept;
 	void UpdateGripDust(float seconds) noexcept;
 	/// Environment-variable test hooks (HandDebugHooks.cpp), run once when the landscape exists.
@@ -342,13 +327,6 @@ private:
 	/// Hand velocity (world units/s), for throwing on release.
 	glm::vec3 _handVelocity {0.0f};
 	std::optional<glm::vec3> _lastHeldPosition;
-	struct Thrown
-	{
-		entt::entity entity;
-		glm::vec3 velocity;
-		float altitude;
-	};
-	std::vector<Thrown> _thrown;
 	float _lastDt {0.0f};
 
 	/// SF_GripLandscape particles (dust thrown up when the land is gripped).

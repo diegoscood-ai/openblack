@@ -113,9 +113,27 @@ constexpr std::array<PhysicsData, k_NumConstants> k_DefaultConstants = {{
 
 std::array<PhysicsData, k_NumConstants> g_Constants = k_DefaultConstants;
 std::vector<std::unique_ptr<PhysicsObject>> g_Objects;
-PhysicsObjects::Handlers g_Handlers;
+std::array<PhysicsObjects::ClassHandlers, static_cast<size_t>(PhysicsClass::_Count)> g_ClassHandlers;
 float g_Accumulator = 0.0f;
 int g_Substep = 0;
+
+PhysicsObject* Add(entt::entity entity, glm::vec3 velocity, glm::vec3 angularVelocity, entt::entity thrower, bool fromHand,
+                   bool spreadReaction);
+
+const PhysicsObjects::ClassHandlers& HandlersOf(entt::entity entity)
+{
+	return g_ClassHandlers.at(static_cast<size_t>(PhysicsObjects::ClassOf(entity)));
+}
+
+ImpactInfo ImpactOf(const PhysicsObject& po)
+{
+	ImpactInfo info;
+	info.g = po.GLoad();
+	info.hitBy = po.hitBy != nullptr ? po.hitBy->entity : entt::entity {entt::null};
+	info.thrower = po.thrower;
+	info.byPlayer = po.byPlayer;
+	return info;
+}
 
 const graphics::L3DMesh* MeshOf(entt::entity entity)
 {
@@ -401,9 +419,9 @@ bool ReactToPhysicsImpact(PhysicsObject& po)
 		magic::map_shield::ReactToPhysicsImpact(entity, po); // PhysicalShield 0x72D610 (Magic/Objects/MapShield)
 		return registry.Valid(entity);
 	}
-	if (g_Handlers.reactToImpact && g_Handlers.reactToImpact(entity, po))
+	if (const auto& handlers = HandlersOf(entity); handlers.reactToImpact)
 	{
-		return false;
+		return handlers.reactToImpact(entity, po, ImpactOf(po));
 	}
 	if (registry.AnyOf<Abode, StoragePit>(entity))
 	{
@@ -471,6 +489,12 @@ entt::entity EndPhysicsOfClass(PhysicsObject& po)
 	auto entity = po.entity;
 	// Object::EndPhysics (0x6375A0): its own flying-object reactions go (the predators fleeing from it stop)
 	ecs::animal_ai::EndReactionsOf(entity);
+	if (const auto& handlers = HandlersOf(entity); handlers.endPhysics)
+	{
+		entity = handlers.endPhysics(entity, po);
+		registry.SetDirty();
+		return entity;
+	}
 	if (registry.AllOf<Animal>(entity))
 	{
 		// Animal::EndPhysics (0x5F0D80): the landType from the body, back on the land (altitude 0) and out of the
@@ -516,10 +540,6 @@ entt::entity EndPhysicsOfClass(PhysicsObject& po)
 	if (registry.AllOf<Fragment>(entity))
 	{
 		return Buildings::FragmentEndPhysics(entity, po);
-	}
-	if (g_Handlers.endPhysics)
-	{
-		entity = g_Handlers.endPhysics(entity, po);
 	}
 	registry.SetDirty();
 	return entity;
@@ -787,7 +807,8 @@ void Substep()
 		{
 			// 0x645A01: HasSunk (vt +0x7B8, ECS/VillagerDrowning) stops the body and ends its physics as if at rest
 			ecs::RememberLastPlayerToInteract(po.entity, po.byPlayer);
-			if (po.body.density > 1.0f && ecs::HasSunk(po.entity))
+			const auto& handlers = HandlersOf(po.entity);
+			if (po.body.density > 1.0f && (handlers.hasSunk ? handlers.hasSunk(po.entity, po) : ecs::HasSunk(po.entity)))
 			{
 				if (!stillAt(i, self)) // Living::HasSunk: the animal went (ToBeDeleted)
 				{
@@ -1172,18 +1193,31 @@ float PhysicsObjects::Weight(entt::entity entity)
 PhysicsObject* PhysicsObjects::AddObject(entt::entity entity, glm::vec3 velocity, glm::vec3 angularVelocity,
                                          entt::entity thrower, bool fromHand)
 {
+	return Add(entity, velocity, angularVelocity, thrower, fromHand, fromHand);
+}
+
+PhysicsObject* PhysicsObjects::AddObjectFromHand(entt::entity entity, glm::vec3 velocity, glm::vec3 angularVelocity)
+{
+	return Add(entity, velocity, angularVelocity, entt::null, true, false);
+}
+
+namespace
+{
+PhysicsObject* Add(entt::entity entity, glm::vec3 velocity, glm::vec3 angularVelocity, entt::entity thrower, bool fromHand,
+                   bool spreadReaction)
+{
 	auto& registry = Locator::entitiesRegistry::value();
-	if (!registry.Valid(entity) || !CanBecomeAPhysicsObject(entity))
+	if (!registry.Valid(entity) || !PhysicsObjects::CanBecomeAPhysicsObject(entity))
 	{
 		return nullptr;
 	}
-	if (auto* existing = Find(entity))
+	if (auto* existing = PhysicsObjects::Find(entity))
 	{
 		if (!existing->body.resting)
 		{
 			return nullptr;
 		}
-		RemoveObject(entity);
+		PhysicsObjects::RemoveObject(entity);
 	}
 	auto po = std::make_unique<PhysicsObject>();
 	po->entity = entity;
@@ -1193,7 +1227,16 @@ PhysicsObject* PhysicsObjects::AddObject(entt::entity entity, glm::vec3 velocity
 	{
 		return nullptr;
 	}
-	if (po->villager)
+	po->body.SetAngularVelocity(angularVelocity);
+	const float speed = glm::length(velocity);
+	po->body.velocity = speed > PhysOb::k_MaxSpeed ? velocity * (PhysOb::k_MaxSpeed / speed) : velocity;
+	po->flags = PhysicsObject::Awake | (fromHand ? PhysicsObject::FromHand : 0);
+	po->byPlayer = fromHand;
+	if (const auto& handlers = HandlersOf(entity); handlers.initialisePhysics)
+	{
+		handlers.initialisePhysics(entity, *po, fromHand);
+	}
+	else if (po->villager)
 	{
 		// Living::InitialisePhysics: the villager flies (THROWN clips, ECS/VillagerAnimations)
 		ecs::SetVillagerState(entity, VillagerStates::Flying);
@@ -1203,11 +1246,6 @@ PhysicsObject* PhysicsObjects::AddObject(entt::entity entity, glm::vec3 velocity
 		// Living::InitialisePhysicsFromHand: FLYING, the species' THROWN clip
 		ecs::animal_ai::InitialisePhysics(entity);
 	}
-	po->body.SetAngularVelocity(angularVelocity);
-	const float speed = glm::length(velocity);
-	po->body.velocity = speed > PhysOb::k_MaxSpeed ? velocity * (PhysOb::k_MaxSpeed / speed) : velocity;
-	po->flags = PhysicsObject::Awake | (fromHand ? PhysicsObject::FromHand : 0);
-	po->byPlayer = fromHand;
 	g_Objects.push_back(std::move(po));
 	// Object::InitialisePhysics 0x637480: out of the map cells while it flies (IsObjectInMap vt +0x178 at 0x6374AC,
 	// RemoveMapObject vt +0x548 at 0x6374BA)
@@ -1217,7 +1255,7 @@ PhysicsObject* PhysicsObjects::AddObject(entt::entity entity, glm::vec3 velocity
 	}
 	// Object::InitialisePhysics 0x637480: a burning object leaves its fire group (FireEffect::StartedMoving(0), ECS/Fire)
 	fire::StartedMoving(entity, false);
-	if (fromHand)
+	if (spreadReaction)
 	{
 		// Object::InitialisePhysicsFromHand (0x637412): the flying-object reaction, once (the predators flee from it)
 		// the thrower: the hand's player (GInterfaceStatus::GetPlayer, 0x637405; PLAYER_ONE's interface here)
@@ -1225,6 +1263,7 @@ PhysicsObject* PhysicsObjects::AddObject(entt::entity entity, glm::vec3 velocity
 	}
 	return g_Objects.back().get();
 }
+} // namespace
 
 void PhysicsObjects::RemoveObject(entt::entity entity)
 {
@@ -1405,9 +1444,9 @@ void PhysicsObjects::Update(float seconds)
 		if (!po->body.resting && registry.Valid(po->entity))
 		{
 			SyncTransform(*po);
-			if (g_Handlers.moved)
+			if (const auto& handlers = HandlersOf(po->entity); handlers.moved)
 			{
-				g_Handlers.moved(po->entity);
+				handlers.moved(po->entity);
 			}
 		}
 	}
@@ -1421,9 +1460,51 @@ void PhysicsObjects::Clear()
 	g_Substep = 0;
 }
 
-void PhysicsObjects::SetHandlers(Handlers handlers)
+PhysicsClass PhysicsObjects::ClassOf(entt::entity entity)
 {
-	g_Handlers = std::move(handlers);
+	const auto& registry = Locator::entitiesRegistry::value();
+	if (registry.AllOf<MapShield>(entity))
+	{
+		return PhysicsClass::Shield;
+	}
+	if (registry.AllOf<Villager>(entity))
+	{
+		return PhysicsClass::Villager;
+	}
+	if (registry.AllOf<Animal>(entity))
+	{
+		return PhysicsClass::Animal;
+	}
+	if (registry.AllOf<Tree>(entity))
+	{
+		return PhysicsClass::Tree;
+	}
+	if (registry.AllOf<DeadTree>(entity))
+	{
+		return PhysicsClass::DeadTree;
+	}
+	if (registry.AllOf<Pot>(entity))
+	{
+		return PhysicsClass::Pot;
+	}
+	if (registry.AllOf<Fragment>(entity))
+	{
+		return PhysicsClass::Fragment;
+	}
+	if (registry.AnyOf<Abode, StoragePit>(entity))
+	{
+		return PhysicsClass::Building;
+	}
+	if (Rocks::IsRock(entity))
+	{
+		return PhysicsClass::Rock;
+	}
+	return PhysicsClass::Other;
+}
+
+void PhysicsObjects::SetClassHandlers(PhysicsClass type, ClassHandlers handlers)
+{
+	g_ClassHandlers.at(static_cast<size_t>(type)) = std::move(handlers);
 }
 
 void PhysicsObjects::ForEach(const std::function<void(const PhysicsObject&)>& func)

@@ -177,11 +177,7 @@ void DestroyBuilding(entt::entity building)
 			registry.Destroy(pit->foodPile);
 		}
 	}
-	if (const auto* damage = registry.TryGet<const BuildingDamage>(building))
-	{
-		EraseMesh(damage->generatedMesh);
-	}
-	PhysicsObjects::RemoveObject(building);
+	Buildings::OnBuildingDeleted(building);
 	// CleanupWhenDeleted 0x6377F0: RemoveMapObject vt +0x548 (MultiMapFixed 0x52E7B0), out of all its cells
 	ecs::map_cells::RemoveMapObject(building);
 	registry.Destroy(building);
@@ -334,6 +330,15 @@ entt::entity Buildings::FragmentEndPhysics(entt::entity fragment, const PhysicsO
 	}
 	f.parent = entt::null;
 	return fragment;
+}
+
+void Buildings::OnBuildingDeleted(entt::entity building)
+{
+	if (const auto* damage = Locator::entitiesRegistry::value().TryGet<const BuildingDamage>(building))
+	{
+		EraseMesh(damage->generatedMesh);
+	}
+	PhysicsObjects::RemoveObject(building);
 }
 
 void Buildings::ProcessTurn()

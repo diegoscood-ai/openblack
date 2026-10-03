@@ -8,7 +8,7 @@
  *******************************************************************************/
 
 // The hand's side of the physics system: what thrown trees, pots and wood do when they hit a store or come to rest
-// (Tree/DeadTree/Pot ReactToPhysicsImpact and EndPhysics)
+// (Tree/DeadTree/Pot ReactToPhysicsImpact and EndPhysics), and the hand's hooks of physics::from_hand
 
 #define LOCATOR_IMPLEMENTATIONS
 
@@ -24,6 +24,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Fire/FireEffect.h"
+#include "ECS/Physics/FromHand.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
 #include "Locator.h"
@@ -33,25 +34,31 @@ using namespace openblack::ecs::components;
 using namespace openblack::ecs::systems;
 using namespace openblack::ecs::systems::hand_detail;
 
+std::vector<entt::entity> HandSystem::GetThrownObjects() const noexcept
+{
+	return physics::from_hand::ThrownObjects();
+}
+
 void HandSystem::RegisterPhysicsHandlers() noexcept
 {
-	physics::PhysicsObjects::Handlers handlers;
-	handlers.reactToImpact = [this](entt::entity entity, const physics::PhysicsObject& po) {
+	using physics::PhysicsClass;
+	using physics::PhysicsObjects;
+	// Tree / DeadTree::ReactToPhysicsImpact: hitting a wood store turns it into wood (DeleteObjectAndTakeResource)
+	const auto treeImpact = [this](entt::entity entity, physics::PhysicsObject& po, const physics::ImpactInfo&) {
 		auto& registry = Locator::entitiesRegistry::value();
-		// Tree / DeadTree::ReactToPhysicsImpact: hitting a wood store turns it into wood (DeleteObjectAndTakeResource)
-		if (registry.AnyOf<Tree, DeadTree>(entity) && po.hitBy != nullptr && registry.Valid(po.hitBy->entity) &&
-		    registry.AllOf<StoragePit>(po.hitBy->entity))
+		if (po.hitBy != nullptr && registry.Valid(po.hitBy->entity) && registry.AllOf<StoragePit>(po.hitBy->entity))
 		{
-			physics::PhysicsObjects::RemoveObject(entity);
+			PhysicsObjects::RemoveObject(entity);
 			DepositInStore(entity, po.hitBy->entity);
-			return true;
+			return false;
 		}
-		return false;
+		return true;
 	};
-	handlers.endPhysics = [this](entt::entity entity, const physics::PhysicsObject& po) {
+	PhysicsObjects::ClassHandlers tree;
+	tree.reactToImpact = treeImpact;
+	tree.endPhysics = [this](entt::entity entity, physics::PhysicsObject& po) {
 		auto& registry = Locator::entitiesRegistry::value();
 		const auto position = registry.Get<const Transform>(entity).position;
-		if (registry.AllOf<Tree>(entity))
 		{
 			// Tree::EndPhysics 0x74B830: LANDED (only a gentle release sets it, InitialisePhysicsFromHand 0x6372F2) on
 			// land (IsLand 0x74B8A5) and with no FireEffect (+0x44, hot or burning, ECS/Fire) -> planted again (altitude
@@ -85,6 +92,16 @@ void HandSystem::RegisterPhysicsHandlers() noexcept
 			}
 			return entity;
 		}
+	};
+	tree.moved = [this](entt::entity entity) { UpdateRoots(entity); };
+	PhysicsObjects::SetClassHandlers(PhysicsClass::Tree, std::move(tree));
+	PhysicsObjects::ClassHandlers deadTree;
+	deadTree.reactToImpact = treeImpact;
+	PhysicsObjects::SetClassHandlers(PhysicsClass::DeadTree, std::move(deadTree));
+	PhysicsObjects::ClassHandlers pot;
+	pot.endPhysics = [this](entt::entity entity, physics::PhysicsObject&) {
+		auto& registry = Locator::entitiesRegistry::value();
+		const auto position = registry.Get<const Transform>(entity).position;
 		if (const auto type = PotInfoOf(entity); (type == PotInfo::HandWood || type == PotInfo::HandFood) && IsLand(position))
 		{
 			// Pot::EndPhysics: a hand pot out of the water becomes a pile (AddResourceToPos)
@@ -93,12 +110,18 @@ void HandSystem::RegisterPhysicsHandlers() noexcept
 		}
 		return entity;
 	};
-	handlers.moved = [this](entt::entity entity) {
-		if (Locator::entitiesRegistry::value().AllOf<Tree>(entity))
-		{
-			UpdateRoots(entity);
-		}
+	PhysicsObjects::SetClassHandlers(PhysicsClass::Pot, std::move(pot));
+
+	physics::from_hand::HandHooks hooks;
+	hooks.putDownHandPot = [this](entt::entity entity) { PutDownHandPot(entity); };
+	hooks.isHandPot = [](entt::entity entity) {
+		const auto type = PotInfoOf(entity);
+		return type == PotInfo::HandWood || type == PotInfo::HandFood;
 	};
-	physics::PhysicsObjects::SetHandlers(std::move(handlers));
-	physics::PhysicsObjects::LoadConstants();
+	hooks.findWoodStore = [this](glm::vec3 point) { return FindWoodStore(point); };
+	hooks.depositInStore = [this](entt::entity object, entt::entity store) { DepositInStore(object, store); };
+	hooks.makeDeadTree = [this](entt::entity entity, glm::vec3 direction) { MakeDeadTree(entity, direction); };
+	hooks.updateRoots = [this](entt::entity entity) { UpdateRoots(entity); };
+	physics::from_hand::SetHandHooks(std::move(hooks));
+	PhysicsObjects::LoadConstants();
 }

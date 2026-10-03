@@ -18,7 +18,7 @@
 |---|---|
 | `HandSystem.cpp` | Press state machine, animation, public interface |
 | `HandPlacement.cpp` | Hand geometry, `Place`, object under the cursor, `ResolveCursorPoint` (ORHP) |
-| `HandHolding.cpp` | Picking up, poses, spring, dropping, throwing, thrown objects |
+| `HandHolding.cpp` | Picking up, poses, spring, releasing (the physics' part is in `src/ECS/Physics/FromHand.cpp`) |
 | `HandResources.cpp` | Piles, pots, taking in batches, putting down, stores |
 | `HandTrees.cpp` | Uprooting, roots, replanting, dead trees |
 | `HandEffects.cpp` | Dust when grabbing, particles when picking up (grain, wood, fish sparkles) |

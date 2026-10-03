@@ -83,7 +83,7 @@ sacrifice. Everything is **faithful** (read in runblack.exe or in info.dat) exce
   slope it is tilted) and `Tree::EndPhysics` replants it; tilted (or `dont_replant`) it stays in physics without LANDED, falls and
   ends up as a dead tree. Hot or burning, or LANDED on a water cell: it stays in physics with LANDED and when it stops
   `Tree::EndPhysics` turns it into a dead tree (it keeps its fire). Everything goes through the physics
-  (`HandSystem::InitialisePhysicsFromHand`, `HandPhysics.cpp`). "Upright" = `LHMatrix::GetYXZ` 0x7FAB30 of its matrix
+  (`physics::from_hand::InitialisePhysicsFromHand`, `HandPhysics.cpp`). "Upright" = `LHMatrix::GetYXZ` 0x7FAB30 of its matrix
   with |x| ≤ 0.2 and |z| ≤ 0.2 rad (x = asin(row2.y), z = atan2(−row0.y, row1.y), checked by emulation). Dropped over the sea (neither `IsDryLand` nor cell altitude > 1)
   it **does not land**: it floats ~19 s until it sinks (see [physics.md](physics.md#water-in-impacts-and-when-dropping)). The sound
   (`Tree::DropSfx` 0x74BC60, G_PLANTTREE + tick%3) is played by `PhysicsObject::RemoveObject` 0x646B44 on **every** careful

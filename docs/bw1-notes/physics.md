@@ -1,7 +1,7 @@
 # Physics: thrown objects, collisions, damage and rocks that split
 
-Code: `src/ECS/Physics/` (`PhysOb` = rigid body, `PhysicsObjects` = per-turn manager), `src/ECS/Rocks.*`,
-`src/ECS/Components/Life.h`, and the hand part in `HandPhysics.cpp`. Full reports with pseudo-C++ and
+Code: `src/ECS/Physics/` (`PhysOb` = rigid body, `PhysicsObjects` = per-turn manager, `FromHand` = what a released
+object does), `src/ECS/Rocks.*`, `src/ECS/Components/Life.h`, and the hand part in `HandPhysics.cpp`. Full reports with pseudo-C++ and
 addresses in `C:\Users\diewgarc\dev\documentacion\physics\` (`physob.md`, `physicsobject.md`, `physob_bodies.md`,
 `rock_split.md`). Bullet is not used for this (openblack only uses it for ray casting).
 
@@ -12,6 +12,7 @@ addresses in `C:\Users\diewgarc\dev\documentacion\physics\` (`physob.md`, `physi
 - [Sounds, dust and the look of impacts](#sounds-dust-and-the-look-of-impacts)
 - [Water in impacts and when dropping](#water-in-impacts-and-when-dropping)
 - [Rocks that split](#rocks-that-split-rocksplitintwo-0x6e7560)
+- [Who owns what: class handlers and the hand's API](#who-owns-what-class-handlers-and-the-hands-api)
 - [Pending](#pending), [Test hooks](#test-hooks), [Sources](#sources)
 
 Status: the engine and what is described here is **faithful** (ported from the original) except what is marked and what is in
@@ -96,7 +97,7 @@ Code: `src/ECS/Physics/Buildings.*`, `FragMesh.*`, components `BuildingDamage` a
   building is still standing stays as rubble of the building.
 - Quirk of the original: the rubble counts again as building triangles, and if after a hit the count
   reaches 1 the FragMesh is deleted and the house is drawn whole. It is left like this on purpose (the user prefers it as in the original, 2026-09-29).
-- Pending: the dust of each piece (one particle per vertex), repair by villagers (the
+- Pending: repair by villagers (the
   "half-built" drawing over the rubble), creature hits, village alignment and aggressor, buildings under
   construction (−0.2 per hit).
 
@@ -136,7 +137,7 @@ Code: `src/ECS/Physics/CollisionSounds.*`, `Dust.*`, `PartialBuild.*`. Reports `
   `ToBeDeleted`). What remains here is dropping from the hand, which decides whether the object lands or stays in physics (also
   over water).
 - **Dropping (gently or throwing): `Object::InitialisePhysicsFromHand` 0x636F00** (matched code in bw1-decomp
-  `src/Black/Object.cpp:447`), fully ported in `HandSystem::InitialisePhysicsFromHand` (HandHolding.cpp). Every
+  `src/Black/Object.cpp:447`), fully ported in `physics::from_hand::InitialisePhysicsFromHand` (`src/ECS/Physics/FromHand.cpp`). Every
   drop goes through here: packet 0x12 calls `ApplyThisToMapCoord` (tree over a wood store → the store
   keeps it, 0x74BFD0) and then `ThrowObjectFromHand(status, 0)` 0x6385E0 with the **spring velocity** (not zero):
   1. `PhysicsObject::AddObject(obj, v, 0, NULL, status)`; `lanzado = v.x² + v.z² > 4` (> 1 if a creature throws it).
@@ -181,6 +182,21 @@ Code: `src/ECS/Physics/CollisionSounds.*`, `Dust.*`, `PartialBuild.*`. Reports `
   `Pos ± (cos a, 0, sin a)·0,7935·R2D` with random `a`; the original is deleted and the halves enter physics (they fall or
   keep flying with its velocity). Sound G_RockTap_01..04 (130 + counter 0xD559AC) in 3D at the hand's point, with the rock as owner (0x6E751D).
 - Strong impacts also split them (see damage).
+
+## Who owns what: class handlers and the hand's API
+
+The original keeps each class's part of the physics in its virtuals (`InitialisePhysics`, `ReactToPhysicsImpact`
+vt +0x7AC, `EndPhysics` vt +0x790, `HasSunk` vt +0x7B8). openblack keeps that split with
+`PhysicsObjects::SetClassHandlers(PhysicsClass, ClassHandlers)`: one entry per class (`PhysicsObjects::ClassOf`:
+Villager, Animal, Tree, DeadTree, Pot, Rock, Fragment, Building, Shield, Other), set by the system that owns the class.
+`reactToImpact` gets an `ImpactInfo` (G of the turn, who hit it, the thrower, whether the hand threw it). An empty handler
+keeps the physics' own code for the class. The hand registers Tree, DeadTree and Pot (`HandPhysics.cpp`); the villagers'
+and animals' parts are still inside `PhysicsObjects.cpp` until session Personas moves them.
+
+The hand calls `physics::from_hand::Throw(object, spring velocity, dont_replant)` (`Object::ThrowObjectFromHand`
+0x6385E0, after it took the object out of the hand) and `ForceDrop` (`GInterface::ForceDropHeld` 0x5D4350); what the
+throw needs from the hand (putting a hand pot down, wood stores, dead trees, roots) comes through
+`from_hand::SetHandHooks`. A building that is deleted calls `physics::Buildings::OnBuildingDeleted` first.
 
 ## Pending
 

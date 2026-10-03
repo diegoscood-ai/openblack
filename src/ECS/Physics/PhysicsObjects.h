@@ -59,21 +59,59 @@ struct PhysicsObject
 	[[nodiscard]] float GLoad() const { return impact / (body.Mass() * PhysOb::k_Gravity); }
 };
 
+/// The object classes whose physics virtuals (InitialisePhysics, ReactToPhysicsImpact vt +0x7AC, EndPhysics vt +0x790,
+/// HasSunk vt +0x7B8) another system owns. One class per object (PhysicsObjects::ClassOf).
+enum class PhysicsClass : uint8_t
+{
+	Villager,
+	Animal,
+	Tree,
+	DeadTree,
+	Pot,
+	Rock,
+	Fragment,
+	Building, ///< Abode and StoragePit
+	Shield,   ///< PhysicalShield (MapShield)
+	Other,
+	_Count
+};
+
+/// What the physics knows of a body's impact at the end of a game turn (PhysicsObject::GameTurnUpdate 0x644FC0).
+struct ImpactInfo
+{
+	float g {0.0f};                    ///< impact / (mass x g), PhysicsObject::GLoad
+	entt::entity hitBy {entt::null};   ///< the body that hit it (PhysicsObject +0x20), or null
+	entt::entity thrower {entt::null}; ///< PhysicsObject +0x1C
+	bool byPlayer {false};             ///< the hand threw it (GInterfaceStatus +0x24)
+};
+
 /// The physics system (PhysicsObject::GameTurnUpdate 0x644FC0 and friends).
 class PhysicsObjects
 {
 public:
-	/// Class-specific reactions that live in other systems (the hand's trees, pots and stores).
-	struct Handlers
+	/// A class's physics virtuals, set by the system that owns the class. An empty function keeps the physics' own
+	/// code for that class (or nothing, when it has none).
+	struct ClassHandlers
 	{
-		/// Object::EndPhysics for the classes the hand owns; returns the entity that stays in physics (a tree
-		/// becomes a DeadTree) or entt::null to drop it. Called after the transform is synced.
-		std::function<entt::entity(entt::entity, const PhysicsObject&)> endPhysics;
-		/// ReactToPhysicsImpact extras (thrown into a store...); returns true when the object was consumed.
-		std::function<bool(entt::entity, const PhysicsObject&)> reactToImpact;
-		/// Every substep while the object moves (roots follow a tree...).
+		/// Living::InitialisePhysics / InitialisePhysicsFromHand (0x5EFD80): the body was just added (fromHand: by
+		/// the hand's InitialisePhysicsFromHand 0x636F00).
+		std::function<void(entt::entity, PhysicsObject&, bool fromHand)> initialisePhysics;
+		/// ReactToPhysicsImpact (vt +0x7AC), the class's part. Returns false when the object is gone (consumed, dead,
+		/// turned into something else).
+		std::function<bool(entt::entity, PhysicsObject&, const ImpactInfo&)> reactToImpact;
+		/// EndPhysics (vt +0x790), the class's part, after the transform is synced and the object's flying-object
+		/// reactions are gone (Object::EndPhysics 0x6375A0). Returns the entity that stays (a tree becomes a
+		/// DeadTree), or entt::null for none; putting it back in the map cells stays with the physics.
+		std::function<entt::entity(entt::entity, PhysicsObject&)> endPhysics;
+		/// HasSunk (vt +0x7B8), asked from 0x645A01 once the body is denser than the water: true ends its physics.
+		std::function<bool(entt::entity, PhysicsObject&)> hasSunk;
+		/// Every frame while the object moves (roots follow a tree...).
 		std::function<void(entt::entity)> moved;
 	};
+
+	/// The class whose handlers an object takes.
+	[[nodiscard]] static PhysicsClass ClassOf(entt::entity entity);
+	static void SetClassHandlers(PhysicsClass type, ClassHandlers handlers);
 
 	/// Loads Data\PhysicsConstants.txt (EditorPhysics::Load 0x5249D0).
 	static void LoadConstants();
@@ -92,6 +130,10 @@ public:
 	/// AddObject (0x6443A0): the object flies from where its transform is.
 	static PhysicsObject* AddObject(entt::entity entity, glm::vec3 velocity, glm::vec3 angularVelocity,
 	                                entt::entity thrower = entt::null, bool fromHand = false);
+	/// AddObject for Object::InitialisePhysicsFromHand 0x636F00 (physics::from_hand): PHYSICS_OBJECT_FLAG_FROM_HAND and
+	/// the player are set, but the flying-object reaction is left to the caller (it is only spread when the object does
+	/// not land, 0x637412).
+	static PhysicsObject* AddObjectFromHand(entt::entity entity, glm::vec3 velocity, glm::vec3 angularVelocity);
 	/// RemoveObject (0x646A00) without EndPhysics.
 	static void RemoveObject(entt::entity entity);
 	/// RemoveObject(obj, true, true) (0x646A00): the object takes the body's pose (angles, position, altitude), its
@@ -109,7 +151,6 @@ public:
 	/// Runs the 0.005 s substeps for the elapsed time; every 20 of them close a game turn.
 	static void Update(float seconds);
 	static void Clear();
-	static void SetHandlers(Handlers handlers);
 	/// Every physics object, read only (the renderer's shadows)
 	static void ForEach(const std::function<void(const PhysicsObject&)>& func);
 

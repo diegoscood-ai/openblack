@@ -33,6 +33,9 @@ public:
 	/// The mesh the building's physics body is built from (its intact one while it is drawn broken).
 	[[nodiscard]] static entt::id_type BodyMesh(entt::entity entity, entt::id_type drawn);
 	static void DestroyFragment(entt::entity fragment);
+	/// The physics' part of a building that is deleted: its generated broken mesh goes and it leaves the physics
+	/// (call it before the entity is destroyed).
+	static void OnBuildingDeleted(entt::entity building);
 	/// fn_646D60 / Abode::SetUpPhysOb: buildings forget a hitter (the pass-through pair ends); with a building given,
 	/// that building forgets its last hitter.
 	static void ForgetHitter(entt::entity hitter, entt::entity building = entt::null);

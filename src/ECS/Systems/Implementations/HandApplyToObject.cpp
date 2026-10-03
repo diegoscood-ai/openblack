@@ -165,6 +165,12 @@ std::optional<entt::entity> HandSystem::RemoveFirstFromHand() noexcept
 	return entity;
 }
 
+bool HandSystem::HeldValidToApplyTo(entt::entity target) const noexcept
+{
+	// ValidToApplyThisToObject (vt 0x71C) of the held object on `target`, for the tooltips (fn_005D6F40)
+	return _held && *_held != target && ValidToApplyThisToObject(*_held, target);
+}
+
 bool HandSystem::HeldActionPressedOnObject(bool inInfluence) noexcept
 {
 	auto& registry = Locator::entitiesRegistry::value();

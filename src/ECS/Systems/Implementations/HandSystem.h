@@ -51,15 +51,7 @@ public:
 	                  glm::vec3& velocity) const noexcept override;
 	[[nodiscard]] float GetHandScale() const noexcept override { return _handScale; }
 	[[nodiscard]] glm::mat4 GetHandMatrix() const noexcept override;
-	[[nodiscard]] std::optional<float> GetAmountInHandToolTip() const noexcept override
-	{
-		// test hook OPENBLACK_TEST_TOOLTIP=<amount>: always shown
-		if (static const char* test = std::getenv("OPENBLACK_TEST_TOOLTIP"); test != nullptr)
-		{
-			return static_cast<float>(std::atof(test));
-		}
-		return _amountToolTipTime > 0.0f ? std::optional(_amountToolTip) : std::nullopt;
-	}
+	[[nodiscard]] int32_t GetInterfaceHandState() const noexcept override { return _interfaceHandState; }
 	[[nodiscard]] std::vector<entt::entity> GetThrownObjects() const noexcept override;
 	[[nodiscard]] const std::vector<glm::mat4>* GetBoneMatrices() const noexcept override;
 	[[nodiscard]] std::vector<std::string> GetAnimationNames() const noexcept override;
@@ -112,6 +104,14 @@ private:
 	/// The tap handlers (ecs::hand_tap) of the classes whose owners have not registered them yet: rocks, abodes, spell
 	/// icons and one-shot orbs, through their public APIs
 	void RegisterTapHandlers() noexcept;
+	/// HandToolTips.cpp: fn_005D7E40, the interface's hand state (GInterface +0x3AC) for the hand's state now
+	[[nodiscard]] int32_t InterfaceHandState() const noexcept;
+	/// HandToolTips.cpp: fn_005D78D0, the tooltip of the hand state (table 0xBF1C10), once per turn
+	void SubmitToolTips() noexcept;
+	/// HandToolTips.cpp: fn_005D6980, the land tooltips
+	void SubmitLandToolTips() const noexcept;
+	/// HandApplyToObject.cpp: the held object's ValidToApplyThisToObject (vt 0x71C) on the target
+	[[nodiscard]] bool HeldValidToApplyTo(entt::entity target) const noexcept;
 	/// GInterface +0x48 m_InInfluence: the action position inside the player's influence (fn_005D1120)
 	[[nodiscard]] bool InInfluence() const noexcept;
 	/// vt 0x6FC ValidForPlaceInHand for the hovered classes: false for rocks too big to lift and tap-only spell icons
@@ -326,9 +326,9 @@ private:
 	float _testActionSeconds {0.0f};
 	/// UpdateMultiPickup fn_0068F930: the looping G_PICKUPFOOD / G_PICKUPWOOD of a multi pick-up and its pitch t^2
 	std::optional<audio::Channel> _pickupSound;
-	/// The forced tooltip 0xEEA: the amount and how long it is still shown (1.2 s after the last pick-up turn)
-	float _amountToolTip {0.0f};
-	float _amountToolTipTime {0.0f};
+	uint32_t _toolTipTurn {0};          ///< the game turn the tooltips were last processed
+	bool _toolTipScooping {false};      ///< a locked select was scooping last turn (its end forces 0xEEA once more)
+	int32_t _interfaceHandState {3};    ///< GInterface +0x3AC (SetToZero 0x5CE4F0 sets 3)
 	float _pickupSoundFraction {0.0f};
 	/// HandEffects.cpp: starts / re-pitches / stops the multi pick-up loop
 	void UpdatePickupSound(bool active) noexcept;

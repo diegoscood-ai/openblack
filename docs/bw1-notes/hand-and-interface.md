@@ -136,7 +136,8 @@ opcodes are wired by the intro session.
   - +0x3C the camera eye and +0x48 its focus;
   - +0x5C the trigger (**(inferred)** the space key);
   - +0x60 the game ms (g_game +0x25053C).
-- **Playback** (fn_005DAEE0, every frame from GInterface::Process):
+- **Playback** (fn_005DAEE0, from the interface's message pump fn_005D9A20, which runs both every frame (ProcessFrameUpdates
+  0x5CEDB0) and every turn (GInterface::Process 0x5CEC10); openblack: every frame only, (approximate)):
   - every record that is due is applied, in order, at the visual clock;
   - while waiting for the trigger with one pending, the time stands still;
   - message 0 moves the mouse; the camera goes through `GCamera::SetPositionAndFocus` 0x4438C0 and
@@ -148,6 +149,71 @@ opcodes are wired by the intro session.
 - **(pending)**:
   - the recorded throw information (CHand +0x48C8);
   - finding the target object of an action message again within 3 m (FindNearPos 0x6F7280);
-  - GInterface::SetActive (intro's InterfaceActive).
 - **(not ported)**: the camera tricon flags (+0x54 / +0x58).
 - **Test hook:** `OPENBLACK_TEST_HAND_DEMO=<name>` plays `Data\HandDemo\<name>.hnd` once the landscape exists.
+
+## Tooltips
+
+The original shows a single tooltip next to the hand, and the hand's state picks it every game turn. Research:
+`dev\documentacion\hand\tooltips\README.md` and `README_part2.md`. In openblack:
+- `src/Help/ToolTips.{h,cpp}` (`help::tooltips`) is the help system's part;
+- `HandToolTips.cpp` holds the hand's state and its texts;
+- `Renderer::DrawHandToolTip` draws it.
+
+### The hand's state
+
+`fn_005D7E40` works out GInterface +0x3AC from the action state (table 0xD18278) and, when the table gives nothing, from
+`fn_005D7F20`:
+- gripping the land: 20, whatever the hand holds;
+- something in the hand: 24, or 5 for a spell seed;
+- a tug: the object branch, so 9 (inferred);
+- scooping: 14;
+- IN THROW: 23;
+- nothing under the hand: 3;
+- an object under the hand: 18 out of the influence; 13 for a locked select (piles, fields); 9 for one that can be
+  picked up; 18 for the rest.
+
+`GET_HAND_STATE` 413 is this number (`HandSystemInterface::GetInterfaceHandState`).
+
+### The text of each state (table 0xBF1C10)
+
+| State | Original | Texts |
+|---|---|---|
+| 3 Normal | fn_005D6980 | over a fish in the water and in the influence 0xE73 «Recoger»; otherwise 0xE7E «Mover» (left button, four arrows) |
+| 9 Can Pick up | fn_005D6D70 | a flying object 0xE80 «Atrapar»; otherwise 0xE73 «Recoger», plus 0xEF7 «Golpear para Romper» (rocks) or 0xE7A «Golpear» when it can also be tapped; a one-shot orb only its own text, forced (pending) |
+| 13 Can Select Lock | fn_005D77C0 | piles 0xEFD / 0xEFE «Cantidad Comida / Madera: N»; fields 0xE73 |
+| 14 Select Lock | constant | 0xE85 «Interactuar» (up and down arrows) |
+| 18 Over Object | 0x5D7190 | tappable and not pickable: 0xEF7 (rocks) or 0xE7A (abodes); otherwise the land texts |
+| 24 Object In Hand | fn_005D6F40 | a target that takes it: 0xE8E; otherwise 0xEEF «Plantar» (trees) or 0xEEE «Soltar», then 0xE74 «Lanzar» |
+
+### The help system's part
+
+- **SubmitToolTips** 0x5C9A70:
+  - the texts 0xE73..0xF1C, with {priority, display, afterFocus} from info.dat;
+  - a higher priority keeps the tooltip;
+  - while the display timer runs (2.5 × display × 10 turns), only a forced text takes over.
+  - So «Soltar» and «Lanzar» alternate every 25 turns.
+- **ForceToolTips** 0x5C9C60: the amount in the hand, 0xEEA (priority 0.925).
+- **Every turn** (fn_005C9D00):
+  - the hand submits;
+  - a text nobody submits stays afterFocus × 25 turns;
+  - at TOOLTIP_LEVEL 2 a priority below 0.9 fades out in 1 s once its display time is over.
+- **The icon** fades in, in real time, over as many seconds as the text has been shown (forced: at once).
+- **Drawing** (CameraHelp::DrawKeyOrMouse 0x447EA0):
+  - S = H/25, at the hand on screen; the text at int(2S/3);
+  - black copies at (−1, −1) and (+1, +1), then yellow;
+  - S/2 to the left of the hand, or ending S/2 to its right past 2/3 of the screen (hysteresis back below 1/3).
+
+### Differences
+
+- **(pending)**:
+  - the mouse-button icon (`mousehelp.raw`), the panels and the arrows of DrawKeyOrMouse;
+  - the storage pit's 0xEF9 (two numbers) and the buildings' and town's texts of state 18;
+  - the seeds' 0xE81 / 0xEF1 (state 5);
+  - OneOffSpellSeed's own pick-up text;
+  - SpellIcon's tap text.
+- **(not ported)**: the camera's tricons (0xE76 «Inclinar», 0xE77 «Rotar»), 0xE8B «Alejar», the leash, the scaffolds,
+  giving to the creature.
+- The amount 0xEEA is forced every turn of the scooping and once when it ends (Pile 0x66E8DA, Field 0x529AD9, FishFarm
+  0x52D92A). It then stays about 13 turns, until «Soltar» takes over.
+- Out of the influence a second press with something in the hand does nothing (ActionPressedHolding 0x5D16BE).

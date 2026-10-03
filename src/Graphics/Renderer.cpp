@@ -73,6 +73,7 @@
 #include "Graphics/FrameBuffer.h"
 #include "Graphics/GameFont.h"
 #include "Help/HelpSystem.h"
+#include "Help/ToolTips.h"
 #include "Help/HelpTextDisplay.h"
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/IndexBuffer.h"
@@ -2043,12 +2044,9 @@ void Renderer::DrawVideoOverlay() const
 
 void Renderer::DrawHandToolTip(const Camera& camera) const
 {
-	if (!Locator::handSystem::has_value() || _resolution.x == 0 || _resolution.y == 0)
-	{
-		return;
-	}
-	const auto amount = Locator::handSystem::value().GetAmountInHandToolTip();
-	if (!amount)
+	// HelpSystem::Draw3D -> the KMIcon of the tooltip (help::tooltips) -> CameraHelp::DrawKeyOrMouse 0x447EA0
+	const auto icon = help::tooltips::Current();
+	if (!icon || icon->alpha <= 0.0f || !Locator::handSystem::has_value() || _resolution.x == 0 || _resolution.y == 0)
 	{
 		return;
 	}
@@ -2065,44 +2063,53 @@ void Renderer::DrawHandToolTip(const Camera& camera) const
 	}
 	const float width = _resolution.x;
 	const float height = _resolution.y;
+	// (align & 6) == 6: the anchor is the hand ([[GInterface +0x3A0] +0x482C] +0x38) projected to the screen, nothing
+	// when it cannot be; X clamped to [0, W - S] and Y to [0, H - S], S = H / 25
 	glm::vec3 screen;
 	if (!camera.ProjectWorldToScreen(registry.Get<ecs::components::Transform>(hands[0]).position,
 	                                 glm::vec4(0.0f, 0.0f, width, height), screen))
 	{
 		return;
 	}
-	// the anchor is the hand on screen, clamped to [0, W - h] x [0, H - h]; box height h = H / 25, text 2/3 of it,
-	// centred vertically; the text goes to the other side of the hand past 2/3 of the screen (and back below 1/3)
-	static bool leftSide = false;
-	const float h = height / 25.0f;
-	const float size = h * 2.0f / 3.0f;
-	const auto text = helptext::Format(helptext::k_ToolTipAmountInHand, static_cast<double>(*amount));
-	const float textWidth = font->GetStringWidth(text, size);
-	const float boxWidth = textWidth + h;
-	float x = screen.x;
-	const float y = std::clamp(screen.y, 0.0f, height - h); // ProjectWorldToScreen: y from the top
-	if (x > 2.0f * width / 3.0f)
+	// S = H / 25 and the sub-offsets in integers (0x5C9D6C..0x5C9D8D: imul 0x51EB851F, sar 3)
+	const float s = std::floor(height / 25.0f);
+	float x = std::clamp(screen.x, 0.0f, width - s);
+	const float y = std::clamp(screen.y, 0.0f, height - s); // ProjectWorldToScreen: y from the top
+	// the widths: the text at int(2S / 3); the mouse icon S wide (none for the action -1, row 3), plus S / 2 for each
+	// arrow stub 0x400 / 0x800; total = text + icon part + 2
+	const float size = std::floor(s * 2.0f / 3.0f); // (pending) 4S / 5 with NeedsBiggerText
+	const float textWidth = font->GetStringWidth(icon->text, size);
+	// (pending) a key binding gives the width of the key's text (fn_00447990)
+	const float iconWidth = icon->action == -1 ? 0.0f : s;
+	const float keyWidth =
+	    iconWidth + ((icon->align & 0x400) != 0 ? std::floor(s * 0.5f) : 0.0f) + ((icon->align & 0x800) != 0 ? std::floor(s * 0.5f) : 0.0f);
+	const float total = textWidth + keyWidth + 2.0f;
+	// align & 2: the side, with hysteresis ([0xC5AFE4]: 1 past 2W / 3, 0 below W / 3); side 0 starts S / 2 left of the
+	// hand, side 1 ends S / 2 right of it
+	static bool otherSide = false;
+	if ((icon->align & 2) != 0)
 	{
-		leftSide = true;
+		if (x > 2.0f * width / 3.0f)
+		{
+			otherSide = true;
+		}
+		else if (x < width / 3.0f)
+		{
+			otherSide = false;
+		}
+		x = otherSide ? x + std::floor(s * 0.5f) - total : x - std::floor(s * 0.5f);
 	}
-	else if (x < width / 3.0f)
-	{
-		leftSide = false;
-	}
-	if (leftSide)
-	{
-		x -= boxWidth;
-	}
-	x = std::clamp(x, 0.0f, std::max(0.0f, width - boxWidth));
-
-	// no box: the text alone over the scene (transparent background)
-	// the text: DrawTextRaw three times, black copies 1 px to each side, then yellow (LH3DColor b0 g255 r255 a255)
+	// align & 0x10: [text][2 px][icon]. (pending) the panels (fn_00447BA0, 9-slice), the arrows and the mouse icon
+	// (fn_00447450, mousehelp.raw): only the text is drawn
+	const float textX = x;
+	const float offset = std::floor((s - size) * 0.5f);
+	// DrawTextRaw three times: black copies at (-1, -1) and (+1, +1), then yellow (LH3DColor b0 g255 r255), all with the
+	// icon's alpha
+	const float alpha = icon->alpha;
 	std::vector<GameFont::Vertex> glyphs;
-	const float tx = x + h * 0.5f; // just right of the hand
-	const float ty = y + (h - size) * 0.5f;
-	font->AddText(glyphs, text, tx - 1.0f, ty, size, glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
-	font->AddText(glyphs, text, tx + 1.0f, ty, size, glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
-	font->AddText(glyphs, text, tx, ty, size, glm::vec4(1.0f, 1.0f, 0.0f, 1.0f));
+	font->AddText(glyphs, icon->text, textX - 1.0f, y + offset - 1.0f, size, glm::vec4(0.0f, 0.0f, 0.0f, alpha));
+	font->AddText(glyphs, icon->text, textX + 1.0f, y + offset + 1.0f, size, glm::vec4(0.0f, 0.0f, 0.0f, alpha));
+	font->AddText(glyphs, icon->text, textX, y + offset, size, glm::vec4(1.0f, 1.0f, 0.0f, alpha));
 	SubmitScreenText(*font, glyphs);
 }
 

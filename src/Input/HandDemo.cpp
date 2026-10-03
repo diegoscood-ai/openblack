@@ -23,6 +23,7 @@
 #include "Game.h"
 #include "GameClock.h"
 #include "Help/HelpSystem.h"
+#include "Input/InterfaceActive.h"
 #include "Locator.h"
 #include "Worship/PlayerSpellIcons.h"
 
@@ -210,7 +211,8 @@ bool Play(std::string_view name, uint32_t task, bool waitTrigger, bool keepHand)
 	{
 		Game::Instance()->GetScreenFade().SnapWideScreen();
 	}
-	// (not ported) GInterface::SetActive(1), so that the recorded input moves the hand (session Intro's InterfaceActive)
+	// GInterface::SetActive(1), so that the recorded input moves the hand
+	interface_active::SetActive(true);
 	state.records = Load(name);
 	state.read = 0;
 	state.frame = Frame {};
@@ -254,11 +256,15 @@ void End()
 {
 	auto& state = Get();
 	// GInterface::EndPlayBack 0x5DB3F0, only while playing: the file closed, +0x15C = +0x160 = 0,
-	// SetTurnOffMouseMove(0), the script's +0x8C = 0. The bars stay and the pending trigger (+0x88) stays. (not ported)
-	// SetActive(0) when HelpSystem +0x45EC is set.
+	// SetTurnOffMouseMove(0), the script's +0x8C = 0, SetActive(0) when HelpSystem +0x45EC is set. The bars stay and the
+	// pending trigger (+0x88) stays.
 	if (!state.playing)
 	{
 		return;
+	}
+	if (const auto* helpSystem = help::Get(); helpSystem != nullptr && helpSystem->GetWideScreenOwner() != 0)
+	{
+		interface_active::SetActive(false);
 	}
 	state.playing = false;
 	state.task = 0;

@@ -58,7 +58,7 @@ inline void SetPickupable(entt::entity object, bool pickupable)
 	}
 }
 
-/// The flag 0x1000 (PhysicsObject::AddObject 0x6443A0 refuses an immovable object)
+/// The flag 0x1000 (Object::InitialisePhysics 0x637480: an object IN_PHYSICS or IMMOVABLE gets no physics)
 [[nodiscard]] inline bool IsImmovable(entt::entity object)
 {
 	auto& registry = Locator::entitiesRegistry::value();

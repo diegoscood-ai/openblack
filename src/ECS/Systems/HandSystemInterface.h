@@ -73,9 +73,8 @@ public:
 	[[nodiscard]] virtual float GetHandScale() const noexcept = 0;
 	/// The player hand's model position (CHand +0x78) and matrix
 	[[nodiscard]] virtual glm::mat4 GetHandMatrix() const noexcept = 0;
-	/// ToolTips::ForceToolTips(0xEEA, amount) of a locked select: the amount in the hand while taking food or wood, and
-	/// for 12 turns after the last turn of it (afterFocus 0.5); nullopt when not shown
-	[[nodiscard]] virtual std::optional<float> GetAmountInHandToolTip() const noexcept = 0;
+	/// GInterface +0x3AC, the interface's hand state (fn_005D7E40) of the last turn: GET_HAND_STATE 413 (0x6FF730)
+	[[nodiscard]] virtual int32_t GetInterfaceHandState() const noexcept = 0;
 	/// Objects thrown by the hand that are still in flight (the original's physics objects)
 	[[nodiscard]] virtual std::vector<entt::entity> GetThrownObjects() const noexcept = 0;
 	/// Animated global bone matrices of the player hand, or nullptr when hh.HBN is not loaded.

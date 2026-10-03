@@ -74,6 +74,8 @@
 #include "ECS/Rocks.h"
 #include "ECS/Systems/HandTap.h"
 #include "ECS/ThingFlags.h"
+#include "Common/HelpText.h"
+#include "Help/ToolTips.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "InfoConstants.h"
 #include "Game.h"
@@ -132,6 +134,8 @@ bool HandSystem::Initialize() noexcept
 	LoadAnimations();
 	RegisterPhysicsHandlers();
 	RegisterTapHandlers();
+	// the builder 0x5C9FC0 asks the hand's state for its tooltip every turn (fn_005D78D0)
+	help::tooltips::SetStateSubmitter([this]() { SubmitToolTips(); });
 	return false;
 }
 
@@ -459,7 +463,8 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 		// ActionPressedHolding 0x5D1560: the object under the hand takes the held one (a villager into a teleport stone:
 		// HandApplyToObject.cpp); otherwise press the action button again, move and release to put it down or hurl it
 		// (state 12, 0x5D4DB0).
-		if (!HeldActionPressedOnObject(TapInInfluence()))
+		// 0x5D16BE: out of the influence ([this+0x48] == 0) nothing happens (0x5D172A returns 1 with no state set)
+		if (TapInInfluence() && !HeldActionPressedOnObject(true))
 		{
 			_releaseArmed = true;
 		}
@@ -543,19 +548,30 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 	}
 	UpdateMultiPickUp(seconds, actionHeld);
 	UpdatePickupSound(_pickSource.has_value() && _held.has_value());
-	// The amount in the hand (0xEEA "Cantidad: %3.0f"): forced every turn while scooping from piles, fields and fish
-	// farms, and shown for as long as the hand holds the food or wood (as the original looks in play; the scooping
-	// code alone would drop it 12 turns after the last turn)
-	if (_held && (PotInfoOf(*_held) == PotInfo::HandFood || PotInfoOf(*_held) == PotInfo::HandWood))
+	// Once per game turn: the amount in the hand (0xEEA "Cantidad: %3.0f", ForceToolTips), forced every turn of the
+	// scooping (ProcessInInteract: Pile 0x66E6E4, Field 0x52989F, FishFarm 0x52DAD6) and once when the locked select
+	// ends (Pile 0x66E8DA, Field 0x529AD9, FishFarm 0x52D92A); its lifetime keeps it about 13 turns after that. Then the
+	// help system's turn (HelpSystem::Process 0x5C8FE0 -> fn_005C9D00, not ported apart from the tooltips)
+	if (_toolTipTurn != game_clock::Turn())
 	{
-		const auto& pot = Locator::entitiesRegistry::value().Get<const Pot>(*_held);
-		_amountToolTip = static_cast<float>(pot.amount);
-		_amountToolTipTime = 1.2f;
+		_toolTipTurn = game_clock::Turn();
+		const bool scooping = _pickSource.has_value() && _held.has_value();
+		if ((scooping || _toolTipScooping) && _held &&
+		    (PotInfoOf(*_held) == PotInfo::HandFood || PotInfoOf(*_held) == PotInfo::HandWood))
+		{
+			const auto& pot = Locator::entitiesRegistry::value().Get<const Pot>(*_held);
+			help::tooltips::Force(helptext::k_ToolTipAmountInHand, static_cast<float>(pot.amount));
+		}
+		_toolTipScooping = scooping;
+		// test hook OPENBLACK_TEST_TOOLTIP=<amount>: the amount forced every turn
+		if (static const char* test = std::getenv("OPENBLACK_TEST_TOOLTIP"); test != nullptr)
+		{
+			help::tooltips::Force(helptext::k_ToolTipAmountInHand, static_cast<float>(std::atof(test)));
+		}
+		help::tooltips::ProcessTurn();
 	}
-	else
-	{
-		_amountToolTipTime = 0.0f;
-	}
+	// the KMIcon's fade, in real time (fn_00447850 -> fn_00448AC0(g_delta_time * 0.001))
+	help::tooltips::Frame(seconds);
 	UpdatePickupParticles(seconds, _pickSource.has_value() && _held.has_value() && std::getenv("OPENBLACK_NO_PICKUP_PSYS") == nullptr);
 	UpdateTestSplash(seconds);
 	UpdateTestAbode(seconds);

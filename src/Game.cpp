@@ -942,7 +942,14 @@ bool Game::Initialize() noexcept
 		{
 			extraFlags |= SDL_WINDOW_METAL;
 		}
-		openblack::InitializeWindow(k_WindowTitle, config.resolution.x, config.resolution.y, config.displayMode, extraFlags);
+		// Dev tooling, not original: run_openblack.sh exports the session name so each team member's window can be told
+		// apart ("openblack [Personas]").
+		std::string windowTitle = k_WindowTitle;
+		if (const char* tag = std::getenv("OPENBLACK_WINDOW_TAG"); tag != nullptr && *tag != '\0')
+		{
+			windowTitle += std::string(" [") + tag + "]";
+		}
+		openblack::InitializeWindow(windowTitle, config.resolution.x, config.resolution.y, config.displayMode, extraFlags);
 	}
 
 	using filesystem::Path;

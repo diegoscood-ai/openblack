@@ -1309,6 +1309,15 @@ corte 0x96: un poco más finos).
     (`fn_007F7ED0`, `fistp` 0x7F82A8, `neg` 0x7F82AF, las dos ramas de ambiente 0x7F82B1..0x7F82EC); openblack genera la
     cara de atrás como geometría aparte y la deja al programa de objetos, que ahora sí usa la regla entera y la luz
     compartida. Pasarlo a `model_light::Apply` pide color por vértice en la malla generada.
+    **En curso, parado (2026-10-03, sesión «shaders», a petición del usuario):** rama `local/fragmesh-wip`
+    (commit `52ef177f`, sobre `ba5e6b64`), compilada pero SIN auditoría, sin tests revisados y sin capturas. Pinta
+    cada fotograma como triángulos de mundo los edificios rotos (Abode::Draw 0x5160E9) y los fragmentos
+    (Fragment::Draw 0x76EC2A, PhysicsObject::DrawAll 0x646E77): L = normalize(luz − posición) con InverseSquareRoot
+    0x841170, luz de tierra fn_00801C90 × tinte (carbonizado / brillo, o 0xFFFFFFFF / 0) y neblina fn_007FEB30 una
+    vez por dibujo, un `fistp` I por cara (0x7F82A8), delante con I y detrás con −I (`model_light::TwoSided`),
+    especular por vértice como fn_0081C780; test `test_fragmesh_light` (emula 0x7F82AA..0x7F8363). Falta: auditoría
+    de suposiciones, revisión, capturas antes/después de fragmentos y edificios rotos, diff a sistemas
+    (`WorldTriangles`, `Renderer.cpp`) y fusión.
   - `RendererSurfRevol.cpp`: la malla GJ va sin luz (`UseLighting` sin portar; que esté activa es **(inferido)**).
 - Aritmética de LH3DColor, lo que falta por pasar a `lh3d_colour`:
   - tras el reempaquetado de la instancia: (el transporte `u_objectLight` ya pasa por `sea_pass::SeaDraw` y

@@ -276,8 +276,10 @@ Disassembly in `documentacion\mapa\all_cases.txt`, `d_streetlantern.txt`, `d_dea
     0x882730 (mesh B_FIRST_TEMPLE, % built, **flattens the land**): the flattening happens on conversion. Worship sites
     (`fn_00464F50`) only if life ≥ 1. Then heart+0x94 = town, `PostCreatePlanned` 0x648C50 and the plan is deleted.
   - `AddBuildingSiteNoFixedCheck` always passes life 0.0 and creates a `CitadelBuildingSite` (0x468DC0 → 0x43D1E0); it is
-    finished by the villagers (`CitadelHeart::Built` 0x465000). With life < 1 `Draw` 0x882A40 uses `DrawPartialyBuilt`
-    0x816AD0 (not decoded).
+    finished by the villagers (`CitadelHeart::Built` 0x465000). `Draw` 0x882A40 uses `DrawPartialyBuilt` 0x816AD0 while
+    the **percent built** (+0x5C, passed as +0x9C) is below 1.0, not the life, and with the inner-wall offsets
+    [0xC392AC] / [0xC392B0] set to 1.0 (both cull modes) for that draw, then restored to 0.2 / 0.35 (0x882A7B..0x882AA7;
+    documentacion\edificios\citadel_plan_spec.md §4.1-4.2).
   - Triggers: **Land 1** = CHL `FollowUs`: `BUILD_BUILDING((1915.05, 0, 2508.89), 1.0)` (the plan pos from
     Land1.txt:95; `GetPlannedAtPos` 0x73E4C0 takes the nearest plan less than the radius of mesh 564 × scale + 1 m away),
     then `CALL_NEAR(Citadel 18)` + `SET_PROPERTY(22, 0.375)`; `PreventCitadelCompletion` limits it to 0.9 and

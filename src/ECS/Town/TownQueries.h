@@ -27,6 +27,11 @@ namespace openblack::ecs::components
 struct Town;
 }
 
+namespace openblack::audio::guidance
+{
+struct HelpTown;
+}
+
 namespace openblack::ecs::town_queries
 {
 /// metres -> MapCoords (ecs::map_coords::ToFixed, MapCoords(LHPoint) 0x603160: fmul [0x8AC400], truncated towards 0).
@@ -56,6 +61,15 @@ namespace openblack::ecs::town_queries
 /// GUtils::SpiralIncrement 0x74D810: --count == 0 -> ++dir, count = dir / 2; then pos = ftol((pos x 10 / 65536 +
 /// step x table[dir & 3]) x 65536 / 10) on x and on z (the table of GUtils::Spiral: (1, 0) (0, 1) (-1, 0) (0, -1))
 void SpiralIncrement(glm::ivec2& pos, int32_t& dir, int32_t& count, float step);
+
+/// Town::GetStoragePit 0x73B5B0: +0x30 (Town::storagePit) if IsAvailable (vt +0x2C: abode_queries::IsAvailable),
+/// else entt::null
+[[nodiscard]] entt::entity GetStoragePit(entt::entity town);
+/// Town +0x744 (Town::creche, Creche::MakeFunctional 0x50AB50) if it is a valid entity, else entt::null
+[[nodiscard]] entt::entity GetCreche(entt::entity town);
+/// What the HelpSprites remarks read of a town (GGuidance 0x71CA60 / 0x71CAF0 / 0x71CC40): adults + children (+0x618 +
+/// +0x61C, Town::stats), GetStoragePit and its IsFunctional (vt +0xD4), the position (+0x14: the town's Transform)
+[[nodiscard]] audio::guidance::HelpTown HelpTownOf(entt::entity town);
 
 /// Town::IsInStateOfEmergency 0x747970: start (+0xF1C) != 0 && turn - start < GTownInfo +0x110
 /// gameTurnsAfterEmergencyVillagersReact (unsigned, jae)

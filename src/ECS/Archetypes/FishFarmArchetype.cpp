@@ -25,6 +25,7 @@
 #include "ECS/Components/Town.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/FishShoals.h"
+#include "ECS/MapCells.h"
 #include "ECS/Registry.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "Locator.h"
@@ -79,9 +80,13 @@ entt::entity FishFarmArchetype::Create(const glm::vec3& position, uint32_t info)
 				farm.shoal = shoal;
 				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Fish farm at ({}, {}): shoal at ({}, {}, {})", position.x, position.z,
 				                    shoal.centre.x, shoal.centre.y, shoal.centre.z);
+				// CallVirtualFunctionsForCreation: FishFarm::InsertMapObject 0x52CA10 (vt +0x544), the head of the fixed
+				// list of its own cell (GetNextPos 0x52C940 gives only its +0x14)
+				ecs::map_cells::InsertMapObject(entity);
 				return entity;
 			}
 		}
 	}
+	ecs::map_cells::InsertMapObject(entity); // FishFarm::InsertMapObject 0x52CA10, as above
 	return entity;
 }

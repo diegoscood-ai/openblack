@@ -425,41 +425,6 @@ graphics::ShaderManager& Renderer::GetShaderManager() const noexcept
 	return *_shaderManager;
 }
 
-const Texture2D* GetTexture(uint32_t skinID, const std::unordered_map<SkinId, std::unique_ptr<graphics::Texture2D>>& meshSkins)
-{
-	const auto& textureManager = Locator::resources::value().GetTextures();
-
-	const Texture2D* texture = nullptr;
-
-	if (skinID != 0xFFFFFFFF)
-	{
-		if (meshSkins.find(skinID) != meshSkins.end())
-		{
-			texture = meshSkins.at(skinID).get();
-		}
-		else if (textureManager.Contains(skinID))
-		{
-			texture = &*textureManager.Handle(skinID);
-		}
-		else if (!meshSkins.empty())
-		{
-			// Some modded packs embed a mesh's skin under a placeholder id (0x1001) while its material still names a
-			// pack texture that the pack does not have: use the mesh's own skin.
-			texture = meshSkins.begin()->second.get();
-		}
-		else
-		{
-			static std::unordered_set<uint32_t> reported;
-			if (reported.insert(skinID).second)
-			{
-				SPDLOG_LOGGER_ERROR(spdlog::get("graphics"), "Could not find the texture {:#x}", skinID);
-			}
-		}
-	}
-
-	return texture;
-}
-
 void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSubMesh& subMesh, const L3DMeshSubmitDesc& desc,
                            bool preserveState) const
 {
@@ -485,7 +450,6 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 	auto islandExtent = glm::vec4(extent.minimum, extent.maximum);
 	const auto& heightMap = island.GetHeightMap();
 
-	auto const& skins = mesh.GetSkins();
 	bool lastPreserveState = false;
 	// the pass of the opaque models: the normal table and every primitive in its own mode
 	const bool modelPass = desc.table == render_modes::Table::Normal && !desc.mode.has_value();
@@ -498,8 +462,8 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 
 		const bool hasNext = std::next(it) != primitives.end();
 
-		const Texture2D* texture = GetTexture(prim.skinID, skins);
-		const Texture2D* nextTexture = !hasNext ? nullptr : GetTexture(std::next(it)->skinID, skins);
+		const Texture2D* texture = world_triangles::PrimitiveTexture(mesh, prim.skinID);
+		const Texture2D* nextTexture = !hasNext ? nullptr : world_triangles::PrimitiveTexture(mesh, std::next(it)->skinID);
 
 		// Material blending of the original (L3D material type): AlphaTextured & co. blend with the texture alpha, e.g.
 		// the fading wrist of the hand and the soft edges of buildings. Chroma materials stay alpha tested.
@@ -969,7 +933,6 @@ void Renderer::DrawStaticShadowPass(const DrawSceneDesc& drawDesc) const
 	{
 		const auto mesh = meshManager.Handle(meshId);
 		const auto* program = mesh->IsBoned() ? boned : single;
-		const auto& skins = mesh->GetSkins();
 		const glm::mat4 identity(1.0f);
 		const auto* matrices = mesh->IsBoned() ? mesh->GetBoneMatrices().data() : &identity;
 		const auto matrixCount = mesh->IsBoned() ? static_cast<uint16_t>(mesh->GetBoneMatrices().size()) : uint16_t {1};
@@ -982,7 +945,7 @@ void Renderer::DrawStaticShadowPass(const DrawSceneDesc& drawDesc) const
 			}
 			for (const auto& prim : subMesh->GetPrimitives())
 			{
-				const auto* texture = GetTexture(prim.skinID, skins);
+				const auto* texture = world_triangles::PrimitiveTexture(*mesh, prim.skinID);
 				// x: ALPHAREF / 255 of the primitive's mode, -1 without alpha test (inferido: the normal table)
 				const auto alpha = render_modes::PrimitiveAlpha(
 				    static_cast<render_modes::Mode>(prim.materialType), render_modes::Table::Normal,
@@ -1930,6 +1893,17 @@ void Renderer::DrawFinishFrameOverlays() const
 	// (registered with 1 at 0x54B62D, RegisterFinishFrameCallback 0x82F2C0 ORs the bit), so the film is drawn over the
 	// bars and fits between them at 100 % (FullScreenRect's letterbox is barH at pct 1); (h) the fade fn_0086FEE0
 	// (0x82F753) last, over the film
+	if (video::GetFallingSpell().HidesWorld())
+	{
+		// (milagros2, fallspell) mode 2: FallingSpell::Draw draws the film itself (thedraw(0) 0x52689F, which clears
+		// the player's pending flag +0x64 so the 0x8000 callback draws nothing, 0x844E3A..0x844E49), before FinishFrame:
+		// then the Z-sorter (its sparks), the callback 0x526480 (its bursts), the bars and the fade
+		DrawVideoOverlay();
+		DrawFallingSpellOverlay();
+		DrawScreenOverlay(false);
+		DrawScreenOverlay(true);
+		return;
+	}
 	DrawScreenOverlay(false);
 	DrawVideoOverlay();
 	DrawScreenOverlay(true);
@@ -2893,10 +2867,20 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			{
 				surfaceOf.insert_or_assign(psysSurfaces[i].atom, i);
 			}
+			// The pieces (Kind::GJMesh) of the Queued and Immediate effects, built once for the frame and tagged with their
+			// atom: each is drawn by drawOrderedEffect at its atom's place (world_triangles::Submit's `only`)
+			static world_triangles::Frame s_orderedPieces; // refilled every frame, kept for its capacity
+			s_orderedPieces.Clear();
+			if (psys::explode_object::k_PiecesAsWorldTriangles && sortBlended)
+			{
+				psys::gj_mesh::Build(s_orderedPieces, psys::DrawPath::Queued);
+				psys::gj_mesh::Build(s_orderedPieces, psys::DrawPath::Immediate);
+			}
 			// A Queued or Immediate effect drawn all at once (fn_00679860 with [0xC0215D] = 0, 0x679884): its items in
 			// fn_006798B0's order (0x6798B0..0x679912, manager::OrderedEffect). Sprites through LH3DSprite::Draw
 			// (0x67B0DF), meshes through fn_00679F20 (0x67A458), mists through LH3DMist vt+0x104 (0x67A78C), surfaces
-			// 0x67CBA0, chains through fn_0067B370 (0x6798DD); the other kinds draw nothing here
+			// 0x67CBA0, pieces through RenderParticleGJMesh::DrawAt 0x67C150, chains through fn_0067B370 (0x6798DD); the
+			// other kinds draw nothing here
 			const auto drawOrderedEffect = [&](const psys::manager::OrderedEffect& effect, RenderPass viewId) {
 				std::vector<psys::Effect::DrawAtom> sprites;
 				const auto flushSprites = [&]() {
@@ -2925,6 +2909,14 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					}
 					if (creator == nullptr)
 					{
+						continue;
+					}
+					if (creator->kind == psys::Creator::Kind::GJMesh)
+					{
+						// RenderParticleGJMesh::DrawAt 0x67C150 of a piece atom: Draw3DWorldTriangle 0x81C090 at once, at
+						// the atom's place in fn_006798B0's order (0x67C150 does not read [0xC0215D]). No data uses it
+						// today: the pieces' effect, EXPLODE_OBJECT, is drawn Sorted (the block above, in Main)
+						world_triangles::Submit(viewId, s_orderedPieces, *_shaderManager, item.atom.atom);
 						continue;
 					}
 					if (creator->kind == psys::Creator::Kind::Mesh)
@@ -2961,7 +2953,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				// Draw_(t, 1) (fn_00679840, +0xAE = 1 at 0x67984E; Spell::Draw 0x720441 and the other Sorted sites): the
 				// effect has no Z object, each element goes into the queue with its own key, (x^2 + y^2) + z^2
 				// (zsorter::SumOrder::XYZ). Its ZR_SurfRevol surfaces do not read [0xC0215D] (0x67CBA0): drawn at once,
-				// here after the models, unsorted (Draw3DWorldTriangle 0x81C090 from 0x67C9F2)
+				// here after the models, unsorted (fn_0081C780 from 0x67CAEE, RendererSurfRevol.cpp)
 				for (const auto& surface : psysSurfaces)
 				{
 					if (surface.path == psys::DrawPath::Sorted)

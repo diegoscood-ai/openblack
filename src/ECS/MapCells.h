@@ -230,8 +230,10 @@ void ForEachTown(const std::function<bool(entt::entity)>& fn);
 [[nodiscard]] std::vector<entt::entity> TownsOf(PlayerNames player);
 /// MapCoords::GetNearestTown(r) 0x6020E0: GetDistanceInMetres (fn_00605CD0) < best, best = r (fcom; test ah, 1)
 [[nodiscard]] entt::entity GetNearestTown(const map_coords::MapCoords& coords, float radius);
-/// fn_00602160: the same, only the towns with a centre (+0x9A4, 0x6021A7). (aproximado) fn_00741020's other test (an
-/// IsTownCentre in the list +0x754, or +0x9A8) is not ported
+/// fn_00741020 (`ret`, ecx = the town): 1 when one of the town's abodes (+0x754) is a TownCentre (IsTownCentre vt+0x1E0)
+/// or one of its planned buildings (+0x9A8) has an info of abode number TOWN_CENTRE (vt+0x44 == 0xC), else 0
+[[nodiscard]] bool TownHasCentre(entt::entity town);
+/// fn_00602160: the same, only the towns with a centre: +0x9A4 != 0 (0x6021A7) or else fn_00741020 (0x6021B3)
 [[nodiscard]] entt::entity GetNearestTownWithCentre(const map_coords::MapCoords& coords, float radius);
 struct TownInCells
 {

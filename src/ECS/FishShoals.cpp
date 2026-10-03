@@ -23,6 +23,7 @@
 #include "ECS/Components/FishFarm.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/FishPuzzle.h"
+#include "ECS/MapCells.h"
 #include "ECS/Registry.h"
 #include "ECS/SeaCells.h"
 #include "ECS/WaterRings.h"
@@ -105,15 +106,11 @@ void openblack::ecs::ProcessFishFarmsTurn(uint32_t turn)
 
 bool openblack::ecs::IsOkToCreateFishFarmAt(const glm::vec3& point)
 {
-	if (!sea_cells::IsCoastal(point))
-	{
-		return false;
-	}
-	const auto cell = sea_cells::CellOf(point);
-	bool found = false;
-	Locator::entitiesRegistry::value().Each<const FishFarm, const Transform>(
-	    [&](const FishFarm&, const Transform& transform) { found = found || sea_cells::CellOf(transform.position) == cell; });
-	return !found;
+	// GFishFarmInfo::IsOkToCreateAtPos 0x52D100: MapCoords::IsCoastal (0x52D107), then FindType(0x21 FISH_FARM, 0)
+	// (0x52D116) on the point's map cell: a fish farm is only in its own cell (FishFarm::InsertMapObject 0x52CA10,
+	// GetNextPos 0x52C940 gives only its +0x14)
+	return sea_cells::IsCoastal(point) &&
+	       map_cells::FindType(map_coords::CellOf(point), ObjectType::FishFarm) == entt::null;
 }
 
 std::optional<entt::entity> openblack::ecs::FindFishFarmAt(const glm::vec3& point)

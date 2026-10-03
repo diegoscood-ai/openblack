@@ -210,7 +210,10 @@ class Renderer final: public RendererInterface
 	/// The full screen film (Video/VideoPlayer.h): LHVideoPlayer::DrawToScreen 0x54DC6D drawn by thedraw 0x844E30 ->
 	/// fn_00845740, one quad per 256x256 tile of the mosaic in material mode 6 (0x844FC6)
 	void DrawVideoOverlay() const;
-	/// The end of LH3DRender::FinishFrame 0x82F460: the bars, the film, the fade, in that order
+	/// (milagros2, fallspell) the falling spell's sparks and light bursts over its film (RendererFallingSpell.cpp)
+	void DrawFallingSpellOverlay() const;
+	/// The end of LH3DRender::FinishFrame 0x82F460: the bars, the film, the fade, in that order; in mode 2 (milagros2,
+	/// fallspell) the film (thedraw(0) 0x52689F in FallingSpell::Draw), the sparks, the bursts, the bars, the fade
 	void DrawFinishFrameOverlays() const;
 	/// The film's picture, (re)made when its size changes and updated when its serial changes
 	mutable bgfx::TextureHandle _videoTexture = BGFX_INVALID_HANDLE;

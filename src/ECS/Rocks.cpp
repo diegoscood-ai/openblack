@@ -24,6 +24,7 @@
 #include "ECS/Components/Mobile.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/GUtilsAngle.h"
+#include "ECS/MapCells.h"
 #include "ECS/ObjectMetrics.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
@@ -122,6 +123,7 @@ std::array<entt::entity, 2> Rocks::SplitInTwo(entt::entity entity, glm::vec3 vel
 		fire::CopyFire(entity, half);
 	}
 	physics::PhysicsObjects::RemoveObject(entity);
+	ecs::map_cells::RemoveMapObject(entity); // CleanupWhenDeleted 0x6377F0: RemoveMapObject vt +0x548
 	registry.Destroy(entity);
 	registry.SetDirty();
 	// Object::InitialisePhysics (vt 0x784): they fall and settle, or fly on

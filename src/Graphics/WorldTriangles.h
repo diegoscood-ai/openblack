@@ -113,7 +113,7 @@ struct Frame
 uint32_t Submit(RenderPass view, const Frame& frame, const ShaderManager& shaders, const void* only = nullptr);
 
 /// The texture of an L3D primitive: the mesh's skins (or its SetSkinSource's), else the texture manager; nullptr for
-/// an untextured one. The models' lookup (Renderer.cpp's GetTexture), shared
+/// an untextured one. The models' lookup (Renderer::DrawSubMesh and the shadow casters use it too)
 [[nodiscard]] const Texture2D* PrimitiveTexture(const L3DMesh& mesh, uint32_t skinId);
 
 } // namespace openblack::graphics::world_triangles

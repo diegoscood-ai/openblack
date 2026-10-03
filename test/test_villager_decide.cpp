@@ -349,6 +349,28 @@ TEST_F(VillagerDecideTest, CheckNeededForCivic)
 	EXPECT_EQ(V(a).flags & Villager::k_FlagAfterTapOnAbode, 0); // with a town: cleared
 }
 
+TEST_F(VillagerDecideTest, CheckNeededForTownDesireSleep)
+{
+	// V3: fn_7581A0 -> TownDesire::CheckVillagerNeededForTownDesire 0x745FF0 with Sleep (16) first in the town's
+	// order 1 (night) and an abode: CheckSatisfySleep -> 36 (37 ARRIVES_HOME is V4)
+	const auto town = MakeTown();
+	const auto abode = MakeAbode({60.0f, 60.0f});
+	auto& t = Reg().Get<Town>(town);
+	t.desire.sorted.at(0) = {0.0f, 1.0f, 16};
+	auto a = MakeVillager();
+	V(a).town = town;
+	V(a).abode = abode;
+	EXPECT_EQ(villager::CheckNeededForTownDesire(a), 1u);
+	EXPECT_EQ(Top(a), 36u);
+	// by day (Sleep 0 first: not above the trigger 0.001): the share-out cuts and nothing changes, as in V2
+	t.desire.sorted.at(0) = {0.0f, 0.0f, 16};
+	auto b = MakeVillager();
+	V(b).town = town;
+	V(b).abode = abode;
+	EXPECT_EQ(villager::CheckNeededForTownDesire(b), 0u);
+	EXPECT_EQ(Top(b), 163u);
+}
+
 TEST_F(VillagerDecideTest, SetupNothingToDoBranches)
 {
 	const auto town = MakeTown();

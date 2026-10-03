@@ -580,7 +580,8 @@ Velocidad de openblack: `Game::SetGameSpeed(m)` sigue recibiendo el multiplicado
 - **Relojes propios.** HandFish y HandResources (`ProcessInInteract` una vez por turno) contaban turnos con el dt real
   de la mano; ahora cuentan los turnos del juego. Los fragmentos de los edificios rotos (`Fragment::ProcessTimer`) van
   con el turno, y el dt de la física es el de juego. TownBelief usaba el reloj de pared donde el original suma
-  `g_game_time_inc · 0,002` (0x69D855). PetitNavire (`g_carry`) y los tiburones (`s_Clock`) reconstruían los ms
+  `g_game_time_inc · 0,002` (0x69D855); su paso del PSys, en cambio, **no** usa el tiempo del fotograma (ver
+  «TownBelief» abajo). PetitNavire (`g_carry`) y los tiburones (`s_Clock`) reconstruían los ms
   enteros: ya llegan enteros.
 - **Conversiones.** Los dispensadores (0x70CCDE, 0x711338), el final de los textos de ayuda (0x5C61F6) y la rampa de
   coger de un montón (0x66CD00, antes en float y sin truncar) usan `TicksForSeconds`. Cánticos y ayuda leen
@@ -720,7 +721,12 @@ objeto de una celda solo se reinserta si cambia de celda (0x636A40); un MultiMap
 - `ForEachTown` / `TownsOf` = `GetNextPlayerAndNeutral` 0x550980 (huecos 0..7, el neutral el último) × la lista de cada
   jugador, que se rellena **por la cola** (fn_0064C090): la más vieja primero ((inferido) por `Town::id`).
 - `GetNearestTown` 0x6020E0 y `GetNearestCitadel` 0x602200: `<` estricto desde r. `GetNearestTownWithCentre`
-  fn_00602160.
+  fn_00602160: lo mismo, solo las ciudades con +0x9A4 (0x6021A7) **o**, si no, fn_00741020 (0x6021B3) =
+  `TownHasCentre` (leído entero, 0x741020..0x741070): 1 si entre sus casas (+0x754, siguiente +0x9C) hay una con
+  `IsTownCentre` (vt+0x1E0; solo TownCentre 0x55DB70 da 1) o entre sus planeados (+0x9A8, siguiente +0x44) uno cuya
+  info (+0x40) da `GetAbodeNumber` (vt+0x44, GAbodeInfo 0x401260 = info +0x124) == 0xC (ABODE_NUMBER_TOWN_CENTRE; el
+  «GetComputerSeen» del nombre del hueco era falso). En info.dat las casas de tipo 0x404 son justo las de número 12
+  (prueba `TownCentreInfosAreNumber12`), así que openblack mira el número de la `Abode` de la ciudad (`townId`).
 - `GetNearestTownCells` 0x601F90: distancia octogonal en celdas; (aproximado) sin el rectángulo de la ciudad.
 - `GetNearestTownToPos` 0x73B170: `0x7FFF` es cualquier casa; con otro tipo **acepta las ciudades que no lo tienen**.
 - `FindNearestTownInList` fn_00552FF0: la lista global. **No tiene rama de ID** (leído): la primera siempre y luego
@@ -1359,9 +1365,21 @@ Estado a 2026-10-02, rama `local/sistemas2`.
 - **La física por turno.** `PhysicsObject::GameTurnUpdate` (0x646046) hace los 20 subpasos dentro del turno. openblack
   los reparte entre los fotogramas con un acumulador (`PhysicsObjects.cpp:1317`), ahora con el dt de juego. Pasarlos
   al turno pide dibujar los objetos interpolados con la fracción (fn_00646FE0 0x647096 lo hace con sus reflejos).
-- **TownBelief** avanza fase, ángulos y temporizador de pelea con un paso fijo de 0,1 por **fotograma**
-  (`k_Step`, `TownBelief.cpp:53`): debería ser por turno o con el dt, falta leer `PlayerSymbolSprite` /
-  fn_0069D3D0.
+- **TownBelief** (leído, ya fiel): `TownCentre::DrawAll` 0x7447F0, desde `Process3dEngine` 0x54E032 en **cada
+  fotograma dibujado (también en pausa)**, llama a `ProcessPSys` 0x69BCC0 → `GJPSysInterface::Process_` 0x673690, que
+  pasa como ms **[0xD01A38]** (los ms de un turno, 100) y no los del fotograma → fn_00673300 → fn_00673340: dt
+  [0xD4E0EC] = ms · 0,001 = 0,1 s (0x673402..0x67340C). Así que el original avanza fase, ángulos y pelea 0,1 s por
+  fotograma (depende de los fps, como en el exe). Antes openblack lo hacía en `Collect`, que corre al dibujar y va
+  **dos veces por fotograma** (CollectSorted y CollectQueued): el doble de rápido y el doble de tiradas del flujo
+  local de GRand. Ahora `town_belief::Step()` (Game.cpp, junto a los demás pasos del fotograma) hace el paso y los
+  sorteos una vez por fotograma con `MsPerTurn() · 0,001`, y `Collect` solo lee el estado. También: `fmod 2π` de
+  fase, a1 y a2 (0x69C4B7 / 0x69C4F0 / 0x69C50B, el double [0x8D45D8]); el orden de DrawAll (lista g_game +0x205CFC,
+  el ctor 0x743AC3 mete por la cabeza: el más nuevo primero; aquí por índice de creación); el primer Process de un
+  efecto da dos pasos (+0xAD = 1 en fn_00672B50 0x672BF7, fn_00673300) y CreatePSys ya lo llama (0x69BC95).
+  (aproximado) openblack crea el estado del centro el primer fotograma que lo ve (el original en MakeFunctional
+  0x743F18 / ResolveLoad 0x7448D8) y no mira `IsAvailable` (0x744808). Los brillos (PlayerSymbolSprite::Draw
+  0x69D7E0, g_game_time_inc) avanzan en el mismo `Step`, una vez por fotograma como Draw_(1) 0x69BF19.
+  (pendiente, de PSys) el doble primer paso de fn_00673300 no está en `psys::Effect` en general.
 - **La cámara** va con el dt del perfilador (µs reales); el original elige con `GetCameraTimeInc` 0x555820
   (`CameraFrameMs()`, ms enteros de pared). No se ha cambiado.
 - `PSysManager.cpp:242` (`seconds · 1000 / [0xD01A38]`, ahora con `MsPerTurn()`): no se ha leído en qué orden redondea

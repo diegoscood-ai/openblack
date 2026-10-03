@@ -23,6 +23,7 @@
 #include "ECS/Components/SkeletalAnimation.h"
 #include "ECS/Components/StreetLantern.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/MapCells.h"
 #include "ECS/Registry.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "InfoConstants.h"
@@ -95,6 +96,9 @@ entt::entity AnimatedStaticArchetype::Create(const glm::vec3& position, Animated
 	{
 		CreateNorseGateLamps(transform);
 	}
+	// CallVirtualFunctionsForCreation (MultiMapFixed 0x52E890+0x184): InsertMapObject (vt +0x544, 0x52E650); the
+	// gate's lamps are not map objects
+	ecs::map_cells::InsertMapObject(entity);
 
 	return entity;
 }

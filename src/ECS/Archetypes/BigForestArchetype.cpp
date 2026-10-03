@@ -19,6 +19,7 @@
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/MorphWithTerrain.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/MapCells.h"
 #include "ECS/Registry.h"
 #include "ECS/Trees.h"
 #include "ECS/ObjectCreationIndex.h"
@@ -54,6 +55,9 @@ entt::entity BigForestArchetype::Create(const glm::vec3& position, BigForestInfo
 	registry.Assign<MorphWithTerrain>(entity);
 	const auto resourceId = resources::HashIdentifier(info.meshId);
 	registry.Assign<Mesh>(entity, resourceId, static_cast<int8_t>(0), static_cast<int8_t>(1));
+	// BigForest::Create -> MultiMapFixed::CallVirtualFunctionsForCreation 0x52E890 (0x439057) -> InsertMapObject
+	// vt +0x544 (0x52EA14) = MultiMapFixed 0x52E650: the head of the fixed list of every cell of its descriptor
+	ecs::map_cells::InsertMapObject(entity);
 
 	return entity;
 }

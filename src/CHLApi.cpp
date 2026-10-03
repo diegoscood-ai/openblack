@@ -73,6 +73,7 @@
 #include "ECS/Components/Villager.h"
 #include "ECS/FeatureBuild.h"
 #include "ECS/GUtilsDistance.h"
+#include "ECS/MapCells.h"
 #include "ECS/MobileWalkPaths.h"
 #include "ECS/PetitNavire.h"
 #include "ECS/PuzzleGames.h"
@@ -81,6 +82,7 @@
 #include "ECS/ScriptHeld.h"
 #include "ECS/SeaCells.h"
 #include "ECS/Systems/HandSystemInterface.h"
+#include "ECS/Town/TownDesire.h"
 #include "ECS/Villager/VillagerScript.h"
 #include "ECS/VillagerDrowning.h"
 #include "EngineConfig.h"
@@ -95,6 +97,7 @@
 #include "Magic/Script/CHLSpells.h"
 #include "Magic/Script/CHLWeather.h"
 #include "Magic/Script/CHLWorship.h"
+#include "Magic/Script/ScriptPlayer.h"
 #include "ECS/Effects/Alignment.h"
 #include "ScriptHeaders/ScriptEnums.h"
 
@@ -2957,14 +2960,29 @@ void GetObjectWhichHit() // 225 GET_OBJECT_WHICH_HIT
 
 void GetNearestTownOfPlayer() // 226 GET_NEAREST_TOWN_OF_PLAYER
 {
-	// const auto unk4 = Pop().intVal;
-	// const auto unk3 = Pop().intVal;
-	// const auto unk2 = Pop().intVal;
-	// const auto unk1 = Pop().intVal;
-	// const auto unk0 = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pusho(0);
+	// GScript::GetNearestTownOfPlayer 0x6F2A20: five POPs (0x6F2A2F..0x6F2A83): the radius, the player (a float,
+	// __ftol 0x6F2A96), then the position's z, y and x; ConvertScriptPlayerToGamePlayer 0x6EB9A0 (0x6F2A9C) and
+	// GetPlayer 0x5509B0 (0x6F2AC0), MapCoords(LHPoint) 0x603160 (0x6F2AD7), GScript::FindPlayerTownAtPos 0x6F72E0
+	// (0x6F2ADD: only that player's towns, GetDistanceInMetres <= best, best = r). None: ScriptErrorMessage "Did not
+	// find town" (0x6F2AEA) and 0; else AddScriptGameThing(town, 0) 0x70D0F0 (0x6F2B0D) and the town
+	const auto radius = Popf();
+	const auto scriptPlayer = Popf();
+	const auto position = PopVec();
+	PlayerNames player = PlayerNames::NEUTRAL;
+	// (openblack) a player out of 0..7 has no GPlayer (GetPlayer gives NULL and FindPlayerTownAtPos reads [NULL +
+	// 0xA50]): no town. MapCoords x, z only (FromMetres: the altitude is not read)
+	const auto town = magic::ScriptPlayerToGamePlayer(ecs::map_coords::FtoL(scriptPlayer), player)
+	                      ? ecs::map_cells::FindPlayerTownAtPos(
+	                            ecs::map_coords::FromMetres(glm::vec2(position.x, position.z)), radius, player)
+	                      : entt::entity {entt::null};
+	if (town == entt::null)
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "GET_NEAREST_TOWN_OF_PLAYER: Did not find town");
+		Pusho(0);
+		return;
+	}
+	ecs::script_held::AddScriptThing(town, false);
+	Pusho(static_cast<uint32_t>(town));
 }
 
 void SpellAtPoint() // 227 SPELL_AT_POINT
@@ -3032,11 +3050,18 @@ void CreatureSpellReversion() // 233 CREATURE_SPELL_REVERSION
 
 void GetDesire() // 234 GET_DESIRE
 {
-	// const auto unk1 = Pop().intVal;
-	// const auto unk0 = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushf(0.0f);
+	// GScript::GetDesire 0x6FCCA0 (ecs::town_desire::ScriptGetDesire): POP the desire; out of [0, 17) -> "Invalid
+	// desire" and PUSH 0 without the second POP (literal: the object stays on the stack); else POP the object
+	// (GetScriptGameThing 0x70D220), PUSH the town's GetRawDesire 0x73E420 (0 if it is not a town)
+	const auto desire = Pop().intVal;
+	std::vector<std::string> errors;
+	const float value = ecs::town_desire::ScriptGetDesire(
+	    desire, [] { return static_cast<entt::entity>(Pop().uintVal); }, &errors);
+	for (const auto& error : errors)
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "GET_DESIRE: {}", error);
+	}
+	Pushf(value);
 }
 
 void GetEventsPerSecond() // 235 GET_EVENTS_PER_SECOND
@@ -4052,11 +4077,18 @@ void GamePlaySaySoundEffect() // 340 GAME_PLAY_SAY_SOUND_EFFECT
 
 void SetTownDesireBoost() // 341 SET_TOWN_DESIRE_BOOST
 {
-	// const auto boost = Popf();
-	// const auto desire = Pop().intVal;
-	// const auto object = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SetTownDesireBoost 0x6FE650: POP the boost (0x6FE660), the desire (0x6FE674), the thing (0x6FE686,
+	// GetScriptGameThing 0x70D220); a town and desire < 17 and -1 <= boost <= 1 -> +0xD4[desire] = boost and the
+	// re-sort of order 1 (fn_746140 0x6FE73E) (ecs::town_desire::ScriptSetTownDesireBoost)
+	const auto boost = Popf();
+	const auto desire = Pop().intVal;
+	const auto object = Pop().uintVal;
+	std::vector<std::string> errors;
+	ecs::town_desire::ScriptSetTownDesireBoost(static_cast<entt::entity>(object), desire, boost, &errors);
+	for (const auto& error : errors)
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "SET_TOWN_DESIRE_BOOST: {}", error);
+	}
 }
 
 void IsLockedInteraction() // 342 IS_LOCKED_INTERACTION

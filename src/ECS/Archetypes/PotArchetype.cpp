@@ -20,6 +20,7 @@
 #include "ECS/Components/MorphWithTerrain.h"
 #include "ECS/Components/Pot.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/MapCells.h"
 #include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
 #include "ECS/ObjectCreationIndex.h"
@@ -74,6 +75,9 @@ entt::entity PotArchetype::Create(const glm::vec3& position, float yAngleRadians
 	// PileResource::CallVirtualFunctionsForCreation 0x66E300: a new pile starts fully buried (offset = -GetHeight)
 	// and SetSize raises it out of the ground over 1 s.
 	SetSize(entity, info.potType != PotType::Pot);
+	// CallVirtualFunctionsForCreation (MobileObject 0x607150+0xA9): InsertMapObject (vt +0x544, 0x6071F9): a pot or
+	// pile (type 21, counted as fixed) at the tail of its cell's fixed list at once, so Pot::AddResourceToPos sees it
+	ecs::map_cells::InsertMapObject(entity);
 
 	return entity;
 }

@@ -21,6 +21,7 @@
 #include <glm/gtc/constants.hpp>
 #include <spdlog/spdlog.h>
 
+#include "Audio/Services/Guidance.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Field.h"
 #include "ECS/Components/Mobile.h"
@@ -31,10 +32,12 @@
 #include "ECS/GUtilsAngle.h"
 #include "ECS/GUtilsDistance.h"
 #include "ECS/Map.h"
+#include "ECS/MapCells.h"
 #include "ECS/MapCoords.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
+#include "ECS/Town/AbodeQueries.h"
 #include "ECS/Villager/VillagerCore.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -54,7 +57,9 @@ std::vector<entt::entity> CellObjects(int cellX, int cellZ)
 	{
 		return g_CellObjectsForTests(cellX, cellZ);
 	}
-	return effects::ObjectsInMapCell(cellX, cellZ);
+	// Town::CheckForClearArea 0x7413D0: GetFirstIterator 0x6034D0 (0x741437), the next vt +0x53C (0x741488), then the
+	// mobile list (0x741496..0x7414A4): the cell's lists from their heads (ecs::map_cells)
+	return map_cells::ObjectsInCell(glm::ivec2(cellX, cellZ));
 }
 
 /// Object::Get2DRadius (vt +0x64, 0x638180)
@@ -196,6 +201,46 @@ void SpiralIncrement(glm::ivec2& pos, int32_t& dir, int32_t& count, float step)
 	dir = spiral.dir;
 	count = spiral.count;
 	pos = {coords.x, coords.z};
+}
+
+entt::entity GetStoragePit(entt::entity town)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto* t = registry.TryGet<const Town>(town);
+	if (t == nullptr || t->storagePit == entt::null)
+	{
+		return entt::null; // 0x73B5B4
+	}
+	// 0x73B5BC: IsAvailable (vt +0x2C)
+	return abode_queries::IsAvailable(t->storagePit) ? t->storagePit : entt::null;
+}
+
+entt::entity GetCreche(entt::entity town)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto* t = registry.TryGet<const Town>(town);
+	if (t == nullptr || t->creche == entt::null || !registry.Valid(t->creche))
+	{
+		return entt::null;
+	}
+	return t->creche;
+}
+
+audio::guidance::HelpTown HelpTownOf(entt::entity town)
+{
+	audio::guidance::HelpTown help;
+	auto& registry = Locator::entitiesRegistry::value();
+	if (const auto* t = registry.TryGet<const Town>(town); t != nullptr)
+	{
+		help.population = t->stats.adults + t->stats.children;
+	}
+	const auto pit = GetStoragePit(town);
+	help.storagePitFunctional = pit != entt::null && abode_queries::IsFunctional(pit);
+	if (const auto* transform = registry.TryGet<const Transform>(town); transform != nullptr)
+	{
+		help.position = transform->position;
+	}
+	return help;
 }
 
 bool IsInStateOfEmergency(const Town& town)

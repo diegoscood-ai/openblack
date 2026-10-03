@@ -58,6 +58,10 @@
 #include "ECS/Components/MorphWithTerrain.h"
 #include "ECS/Components/Pot.h"
 #include "ECS/Components/Forest.h"
+#include "ECS/Components/Field.h"
+#include "ECS/Components/FishFarm.h"
+#include "ECS/Components/TotemStatue.h"
+#include "ECS/Components/Town.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/Sprite.h"
@@ -67,9 +71,14 @@
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Physics/PhysOb.h"
 #include "ECS/Registry.h"
+#include "ECS/StoragePitStore.h"
 #include "ECS/Fire/FireEffect.h"
 #include "ECS/Effects/Alignment.h"
+#include "ECS/GUtilsDistance.h"
+#include "ECS/MapCoords.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/GroundMarks.h"
+#include "ECS/MapCells.h"
 #include "ECS/Trees.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "InfoConstants.h"
@@ -98,8 +107,6 @@ void HandSystem::Replant(entt::entity tree) noexcept
 	auto& transform = registry.Get<Transform>(tree);
 	auto& component = registry.Get<Tree>(tree);
 	DropRoots(tree, false);
-	// Fixed::EndPhysics puts it back in its map cell (InsertMapObject: at the head of the cell's list)
-	component.mapInsertion = ecs::NextMapInsertion();
 	transform.position.y = Locator::terrainSystem::value().GetHeightAt(glm::vec2(transform.position.x, transform.position.z));
 	if (auto* fixed = registry.TryGet<Fixed>(tree); fixed != nullptr)
 	{
@@ -107,56 +114,120 @@ void HandSystem::Replant(entt::entity tree) noexcept
 	}
 	const glm::vec2 at(transform.position.x, transform.position.z);
 
-	// Tree::EndPhysics 0x74B8BF: a spiral over the map cells, stopping at 25 + 10 m. For every fixed object in those
-	// cells d = its distance minus its own 2D radius; an object that belongs to a town (or a citadel part) within 25 m
-	// means the tree was planted "in a town" and it joins that town's forest, which beats any other. Otherwise the
-	// nearest tree that has a forest lends its forest (with no distance limit of its own, only the 35 m of the search),
-	// and a tree with neither, outside a town, starts a new forest.
-	// The town's forest is the last scenic one of the town's list (Town +0x608, ecs::TownForestId); with none the best
-	// forest found so far stays (0x74BA9C-0x74BAAE only overwrite it for a scenic forest), and a tree in a town with no
-	// forest at all stays without one.
-	constexpr float k_SearchRadius = 35.0f;
+	// Tree::EndPhysics 0x74B982..0x74BADB: a spiral (GUtils::Spiral 0x74BAC9, MapCoords += JustMapXZ 0x605470) over a
+	// copy of the tree's MapCoords, at most 1000 cells (0x3E8, 0x74B982), that stops at the first cell farther than
+	// 25 [0xC22FA4] + 10 [0x8AB414] m ("fcompp; test ah, 1" 0x74B99B..0x74B9B6). It walks only the fixed list of each
+	// cell (GetFirstObjectFixed 0x74B9C0, GetMapChild 0x74BA66). For each object d = fn_00605CD0(object, tree) minus
+	// its Get2DRadius (vt +0x64, 0x74B9D6..0x74B9E6):
+	// - d < 25 (0x74B9EE) and a town (GetTown vt +0x48) or a citadel part (IsCitadelPart 0x6380C0: info type 8): in a
+	//   town (0x74BA7B); with a town every scenic forest of its list (Town +0x608) becomes the best at distance 0, so
+	//   the last one wins (0x74BA9C..0x74BAB4, ecs::TownForestId); then the next CELL (0x74BAB6);
+	// - else a Tree (RTTI 0x74BA20) with a forest (GetForest vt +0x86C) nearer than the best (from 99999 =
+	//   0x47C34F80, 0x74B902; "test ah, 1" 0x74BA46) lends its forest.
+	// The later cells go on with the same best, after a town too.
+	namespace map_cells = ecs::map_cells;
+	namespace map_coords = ecs::map_coords;
+	constexpr int32_t k_SearchCells = 1000;
 	constexpr float k_TownRadius = 25.0f;
-	bool inTown = false;
-	uint32_t townId = 0;
-	std::optional<uint32_t> forest;
-	float nearest = std::numeric_limits<float>::max();
-	registry.Each<const Transform>([&](entt::entity other, const Transform& position) {
-		if (other == tree)
+	constexpr float k_SearchRadius = k_TownRadius + 10.0f;
+	// Object::GetTown vt +0x48 of the fixed list's classes: Abode 0x401730 (+0x98; storage pits and town centres are
+	// abodes here), Field 0x528960 (+0x118), FishFarm 0x52C450 (+0x8C), TotemStatue 0x738480 (its town centre's),
+	// PotStructure 0x66EF60 (a store's pile: the store's, vt +0x860); MultiMapFixed 0x4220A0 / Object 0x419950: none
+	const auto abodeTown = [&registry](entt::entity object) -> std::optional<uint32_t> {
+		if (const auto* abode = registry.TryGet<const Abode>(object); abode != nullptr)
 		{
-			return;
+			return abode->townId;
 		}
-		const float cellDistance = glm::distance(at, glm::vec2(position.position.x, position.position.z));
-		if (cellDistance > k_SearchRadius)
+		return std::nullopt;
+	};
+	const auto townOf = [&registry, &abodeTown](entt::entity object) -> std::optional<uint32_t> {
+		std::optional<uint32_t> id;
+		if (const auto* field = registry.TryGet<const components::Field>(object); field != nullptr)
 		{
-			return;
+			id = static_cast<uint32_t>(field->town);
 		}
-		const auto* fixed = registry.TryGet<const Fixed>(other);
-		const float d = cellDistance - (fixed != nullptr ? fixed->boundingRadius : 0.0f);
-		if (d < k_TownRadius)
+		else if (registry.AllOf<Abode>(object))
 		{
-			// Object::GetTown: every town building is an Abode here (storage pits and town centres included).
-			if (const auto* abode = registry.TryGet<const Abode>(other); abode != nullptr)
+			id = abodeTown(object);
+		}
+		else if (const auto* farm = registry.TryGet<const components::FishFarm>(object); farm != nullptr)
+		{
+			if (registry.Valid(farm->town) && registry.AllOf<components::Town>(farm->town))
 			{
-				inTown = true;
-				townId = abode->townId;
-				return;
+				id = registry.Get<const components::Town>(farm->town).id;
 			}
 		}
-		const auto* other_tree = registry.TryGet<const Tree>(other);
-		if (other_tree != nullptr && ecs::IsInForest(other_tree->forestId) && d < nearest)
+		else if (const auto* totem = registry.TryGet<const components::TotemStatue>(object); totem != nullptr)
 		{
-			nearest = d;
-			forest = other_tree->forestId;
+			if (registry.Valid(totem->townCentre))
+			{
+				id = abodeTown(totem->townCentre);
+			}
 		}
-	});
-	// Tree +0x5E bit 1 (0x74BB5A) takes the "in a town" answer.
+		else if (registry.AllOf<components::Pot>(object))
+		{
+			if (const auto store = ecs::StoragePitStore::OwnerOf(object); store != entt::null && registry.Valid(store))
+			{
+				id = abodeTown(store);
+			}
+		}
+		if (id && !registry.Context().towns.contains(*id))
+		{
+			id.reset();
+		}
+		return id;
+	};
+	// The tree is out of the map while it is held or flying (fn_005DC330 0x5DC385, Object::InitialisePhysics
+	// 0x6374BA: RemoveMapObject vt +0x548), so the search does not see it. (until the hand and physics hooks are in, it
+	// can still be listed where it was picked up)
+	map_cells::RemoveMapObject(tree);
+	const auto treeCoords = map_coords::FromMetres(at);
+	auto coords = treeCoords;
+	map_coords::Spiral spiral;
+	bool inTown = false;
+	uint32_t forest = 0;
+	float nearest = 99999.0f;
+	for (int32_t left = k_SearchCells; left != 0; --left)
+	{
+		if (gutils::GetDistanceInMetres(treeCoords, coords) > k_SearchRadius)
+		{
+			break;
+		}
+		map_cells::ForEachFixed(map_coords::Cell(coords), [&](entt::entity other) {
+			const auto& position = registry.Get<const Transform>(other).position;
+			const float d =
+			    gutils::GetDistanceInMetres(glm::vec2(position.x, position.z), at) - ecs::object::Get2DRadius(other);
+			if (d < k_TownRadius)
+			{
+				const auto town = townOf(other);
+				if (town || map_cells::TypeOf(other) == ObjectType::Citadel)
+				{
+					inTown = true;
+					if (town)
+					{
+						if (const auto scenic = ecs::TownForestId(*town, transform.position); scenic != 0)
+						{
+							nearest = 0.0f;
+							forest = scenic;
+						}
+					}
+					return false;
+				}
+			}
+			if (const auto* other_tree = registry.TryGet<const Tree>(other);
+			    other_tree != nullptr && ecs::IsInForest(other_tree->forestId) && d < nearest)
+			{
+				nearest = d;
+				forest = other_tree->forestId;
+			}
+			return true;
+		});
+		map_coords::AddCells(coords, spiral.Next());
+	}
+	// 0x74BB10..0x74BB62: Tree +0x5E bit 1 takes the "in a town" answer; the forest found, else outside a town a new
+	// Forest at the tree (0x74BB53); in a town without a forest the tree stays without one
 	component.isNonScenic = inTown;
-	const auto townForest = inTown ? ecs::TownForestId(townId, transform.position) : 0u;
-	component.forestId = townForest != 0            ? townForest
-	                     : forest.value_or(0u) != 0 ? *forest
-	                     : inTown                   ? 0u
-	                                                : ecs::CreateForest(0, transform.position);
+	component.forestId = forest != 0 ? forest : inTown ? 0u : ecs::CreateForest(0, transform.position);
 	// Tree::EndPhysics: a white SmokyStuff puff on the ground (the grip dust stands in for it) and, outside a town, the
 	// SPOT_VISUAL_FOREST_CREATED effect (0x2C; the original also passes 0.3 and 50, whose meaning is not pinned down,
 	// so the effect runs for its own life from the data).
@@ -169,6 +240,9 @@ void HandSystem::Replant(entt::entity tree) noexcept
 		psys::manager::CreateSpotVisual(static_cast<int>(SpotVisualType::ForestCreated), transform.position, 0.0f,
 		                                entt::null);
 	}
+	// Fixed::EndPhysics 0x74BBCA -> Object::EndPhysics (0x52E054 / 0x52E0CB) -> InsertMapObject vt +0x544 (0x63762C):
+	// back in its cell, at the head of the fixed list, after the search
+	ecs::map_cells::InsertMapObject(tree);
 	registry.SetDirty();
 	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand: tree replanted at ({:.1f}, {:.1f}), {} forest {}", at.x, at.y,
 	                   inTown ? "town" : (forest ? "joined" : "new"), component.forestId);
@@ -183,6 +257,8 @@ void HandSystem::MakeDeadTree(entt::entity tree, glm::vec3 direction, bool place
 	const auto type = registry.Get<Tree>(tree).type;
 	const float multiplier = registry.Get<Tree>(tree).woodValueMultiplier;
 	ecs::NotifyTreeDeleted(tree, ecs::TreeDeletion::BecameDeadTree);
+	// the tree's ToBeDeleted (0x74BC37) -> CleanupWhenDeleted 0x6377F0: RemoveMapObject vt +0x548
+	ecs::map_cells::RemoveMapObject(tree);
 	registry.Remove<Tree>(tree);
 	registry.Assign<DeadTree>(tree, type, multiplier);
 	if (!placeLying)
@@ -190,6 +266,9 @@ void HandSystem::MakeDeadTree(entt::entity tree, glm::vec3 direction, bool place
 		registry.SetDirty();
 		UpdateRoots(tree, true);
 		DropRoots(tree, true);
+		// Tree::EndPhysics 0x74BBD9: fn_00510B70 makes the DeadTree and InsertMapObject vt +0x544 (0x74BC0A) puts it
+		// in the map
+		ecs::map_cells::InsertMapObject(tree);
 		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand: tree became a dead tree at ({:.1f}, {:.1f})", transform.position.x,
 		                   transform.position.z);
 		return;
@@ -217,6 +296,8 @@ void HandSystem::MakeDeadTree(entt::entity tree, glm::vec3 direction, bool place
 	// DeadTree::Draw: the roots break off and fall to the ground (fn_00826280).
 	UpdateRoots(tree, true);
 	DropRoots(tree, true);
+	// Tree::EndPhysics: InsertMapObject vt +0x544 of the DeadTree (0x74BC0A), once it lies where it rests
+	ecs::map_cells::InsertMapObject(tree);
 	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand: tree became a dead tree at ({:.1f}, {:.1f})", transform.position.x,
 	                   transform.position.z);
 }

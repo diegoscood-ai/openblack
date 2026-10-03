@@ -398,6 +398,7 @@ void fire::traits::DestroyedByEffect(entt::entity object)
 	physics::PhysicsObjects::RemoveObject(object);
 	g_CannotBeSetOnFire.erase(object);
 	g_NotHurtByFire.erase(object);
+	ecs::map_cells::RemoveMapObject(object); // CleanupWhenDeleted 0x6377F0: RemoveMapObject vt +0x548
 	registry.Destroy(object);
 	registry.SetDirty();
 }

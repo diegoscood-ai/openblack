@@ -32,6 +32,7 @@
 #include "ECS/Components/Town.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
+#include "ECS/MapCells.h"
 #include "ECS/Registry.h"
 #include "CollisionSounds.h"
 #include "Dust.h"
@@ -174,11 +175,13 @@ void DestroyBuilding(entt::entity building)
 		{
 			if (registry.Valid(pile))
 			{
+				ecs::map_cells::RemoveMapObject(pile); // CleanupWhenDeleted 0x6377F0: RemoveMapObject vt +0x548
 				registry.Destroy(pile);
 			}
 		}
 		if (registry.Valid(pit->foodPile))
 		{
+			ecs::map_cells::RemoveMapObject(pit->foodPile); // CleanupWhenDeleted 0x6377F0, vt +0x548
 			registry.Destroy(pit->foodPile);
 		}
 	}
@@ -187,6 +190,8 @@ void DestroyBuilding(entt::entity building)
 		EraseMesh(damage->generatedMesh);
 	}
 	PhysicsObjects::RemoveObject(building);
+	// CleanupWhenDeleted 0x6377F0: RemoveMapObject vt +0x548 (MultiMapFixed 0x52E7B0), out of all its cells
+	ecs::map_cells::RemoveMapObject(building);
 	registry.Destroy(building);
 	registry.SetDirty();
 }
@@ -396,6 +401,7 @@ void Buildings::DestroyFragment(entt::entity fragment)
 	{
 		EraseMesh(f->generatedMesh);
 	}
+	ecs::map_cells::RemoveMapObject(fragment); // CleanupWhenDeleted 0x6377F0: RemoveMapObject vt +0x548
 	registry.Destroy(fragment);
 	registry.SetDirty();
 }

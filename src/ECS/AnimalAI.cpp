@@ -44,6 +44,7 @@
 #include "ECS/Effects/Reactions.h"
 #include "ECS/GUtilsDistance.h"
 #include "ECS/Map.h"
+#include "ECS/MapCells.h"
 #include "ECS/MobileDrawing.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
@@ -209,17 +210,14 @@ bool InBounds(glm::vec2 p)
 	return sea_cells::InBounds(glm::vec3(p.x, 0.0f, p.y));
 }
 
-/// Object::Collide(info.collideType) [inferred]: the sea or a fixed object's footprint
+/// Object::Collide(info.collideType) [inferred]: MapCoords::Collide of the point & the collide type
 bool Collides(glm::vec2 p, uint32_t collideType)
 {
-	// MapCoords::Collide (0x6033C0): no map cell -> everything; else MapCell::Collide 0x601BD0 (ECS/SeaCells: 0x10 off
-	// the game map, 1 water, 2 land) & collideType. Fixed objects' own footprints do not count; the object bits (fields,
-	// forest trees) are not in openblack's map cells yet
-	if (!InBounds(p))
-	{
-		return collideType != 0;
-	}
-	return (sea_cells::CollideLandscape(glm::vec3(p.x, 0.0f, p.y)) & collideType) != 0;
+	// MapCoords::Collide 0x6033C0 -> MapCell::Collide(MapCoords) 0x601CE0 -> MapCell::Collide 0x601BD0: 0xFFFFFFFF off
+	// the map (0x6033CC: every type collides), else the landscape (0x10 off the game map, 1 water, 2 land) with 4 for a
+	// FIELD and 0x20 for a FOREST_TREE in the cell's fixed list (0x601C78..0x601CAE). Fixed objects' own footprints
+	// do not count (bit 8 never comes from here)
+	return (map_cells::Collide(map_coords::FromMetres(p)) & collideType) != 0;
 }
 
 /// fn_0074F310: uniform in a square of that side around c (half - GameFloatRand(size) per axis, 0x74F346 / 0x74F35E)
@@ -551,7 +549,9 @@ int SnapToGoal(Context& ctx)
 	if (InBounds(goal))
 	{
 		ctx.brain.movedLastTurn += glm::distance(Xz(ctx.transform), goal);
-		ctx.transform.position = glm::vec3(goal.x, Locator::terrainSystem::value().GetHeightAt(goal) + ctx.brain.altitude, goal.y);
+		// Object::MoveMapObject vt +0x55C (0x636A40): the lists change only when the cell does
+		map_cells::MoveMapObject(
+		    ctx.entity, glm::vec3(goal.x, Locator::terrainSystem::value().GetHeightAt(goal) + ctx.brain.altitude, goal.y));
 	}
 	return 0xA;
 }
@@ -615,7 +615,10 @@ bool MoveBy(Context& ctx, glm::ivec2 step)
 	{
 		return false;
 	}
-	ctx.transform.position = glm::vec3(to.x, Locator::terrainSystem::value().GetHeightAt(to) + ctx.brain.altitude, to.y);
+	// Object::MoveMapObject vt +0x55C (0x636A40): out of the old cell and into the new one (at the head) only when the
+	// cell changes, the same test as the return value
+	map_cells::MoveMapObject(ctx.entity,
+	                         glm::vec3(to.x, Locator::terrainSystem::value().GetHeightAt(to) + ctx.brain.altitude, to.y));
 	ctx.brain.movedLastTurn += glm::distance(from, to);
 	return CellOf(from) != CellOf(to);
 }
@@ -1005,7 +1008,11 @@ void LookForFlocksInSpiral(Context& ctx, float radius, bool merge)
 		const glm::vec2 c = map_coords::ToMetres(coords);
 		if (InBounds(c))
 		{
-			for (const auto entity : Locator::entitiesMap::value().GetMobileInGridCell(CellOf(c)))
+			// Animal::LookForFlocksAtPos 0x41A790: FindTypeOnMap(4, 0) 0x41A7A7 .. FindTypeOnMap(4, obj) 0x41A876, the
+			// ANIMAL objects of the cell's mobile list (type 4 does not count as fixed) from its head
+			const auto cell = map_coords::Cell(coords);
+			for (auto entity = map_cells::FindType(cell, ObjectType::Animal); entity != entt::null;
+			     entity = map_cells::FindType(cell, ObjectType::Animal, entity))
 			{
 				if (entity == ctx.entity || !registry.Valid(entity) || !registry.AllOf<Animal>(entity))
 				{
@@ -1540,6 +1547,8 @@ void Delete(entt::entity entity)
 		LeaveFlock(entity, *animal);
 	}
 	physics::PhysicsObjects::RemoveObject(entity);
+	// CleanupWhenDeleted 0x6377F0: RemoveMapObject vt +0x548, out of its cell's mobile list
+	map_cells::RemoveMapObject(entity);
 	registry.Destroy(entity);
 	registry.SetDirty();
 }

@@ -28,6 +28,7 @@
 #include "ECS/Registry.h"
 #include "ECS/Systems/Implementations/VillagerWorship.h"
 #include "ECS/Town/AbodeQueries.h"
+#include "ECS/Town/TownDesire.h"
 #include "ECS/Town/TownQueries.h"
 #include "ECS/Villager/VillagerCore.h"
 #include "ECS/Villager/VillagerHome.h"
@@ -395,10 +396,12 @@ uint32_t CheckNeededForTownDesire(entt::entity villager)
 		return 0;
 	}
 	// 0x7581AF: the trigger
-	[[maybe_unused]] const float trigger = GetOwnDesiresTrigger(villager);
-	// 0x7581CA: town +0x34 TownDesire::CheckVillagerNeededForTownDesire(this, trigger) 0x745FF0. TODO(V3): the jobs'
-	// share-out; void in the PDB (QAEX), its eax is what the caller compares with 1 (P-11). Neutral: 0
-	const uint32_t result = 0;
+	const float trigger = GetOwnDesiresTrigger(villager);
+	// 0x7581CA: town +0x34 TownDesire::CheckVillagerNeededForTownDesire(this, trigger) 0x745FF0, the jobs' share-out
+	// (V3, ECS/Town/TownDesire). Void in the PDB (QAEX), but it leaves 0 or 1 in eax (0x7460EB / 0x7460F7), which the
+	// caller compares with 1 (P-11). Pending V4: at night Sleep (16) is first and CheckSatisfySleep sends the villagers
+	// with an abode to 36; 37 ARRIVES_HOME is V4, so they stop at the door until then (P-1, accepted for V3)
+	const uint32_t result = town_desire::CheckVillagerNeededForTownDesire(TownEntityOf(villager), villager, trigger);
 	// 0x7581CF: flags &= ~1 (the tap on its abode is forgotten), always with a town
 	if (auto* v = VillagerOf(villager))
 	{

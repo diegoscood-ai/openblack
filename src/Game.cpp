@@ -30,6 +30,7 @@
 #include "3D/DayNightClock.h"
 #include "3D/NightLights.h"
 #include "PSys/PSysManager.h"
+#include "PSys/TownBelief.h"
 #include "3D/L3DMesh.h"
 #include "3D/LandAvoid.h"
 #include "3D/LandIslandInterface.h"
@@ -65,6 +66,7 @@
 #include "ECS/AnimalAI.h"
 #include "ECS/SmokyStuff.h"
 #include "ECS/ScriptHeld.h"
+#include "ECS/Town/TownProcess.h"
 #include "ECS/AnimalAnimations.h"
 #include "ECS/Animations.h"
 #include "ECS/CarriedProps.h"
@@ -268,7 +270,14 @@ Game::Game(Arguments&& args) noexcept
 	{
 		if (!args.logFile.empty() && args.logFile != "stdout")
 		{
-			createLogger = [&args](const std::string& name) { return spdlog::basic_logger_mt(name, args.logFile); };
+			// One file sink shared by every subsystem's logger: with a basic_logger_mt each, every logger opened the same
+			// file on its own and their writes overwrote each other (lines went missing from openblack.log)
+			auto fileSink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(args.logFile);
+			createLogger = [fileSink](const std::string& name) {
+				auto logger = std::make_shared<spdlog::logger>(name, fileSink);
+				spdlog::register_logger(logger);
+				return logger;
+			};
 		}
 		else
 		{
@@ -529,6 +538,9 @@ bool Game::GameLogicLoop() noexcept
 	ecs::BeginMobileTurn();
 	// fn_00775140 (0x54E5C7): the sharks' turn (Whale::Process), then the WALK_PATH list (GlobalGameLists::Process)
 	ecs::ProcessSharksTurn();
+	// GPlayer::ProcessPlayers 0x54E641: Town::Process 0x747380 for each player's towns (the desires, ECS/Town), before
+	// the villagers (Living::ProcessLiving 0x54E65B)
+	ecs::town_process::ProcessPlayers();
 	// GlobalGameLists::Process 0x591449: the PuzzleGames (fn_006D7480), before the scripts
 	ecs::ProcessPuzzleGamesTurn();
 
@@ -771,6 +783,8 @@ bool Game::Update() noexcept
 
 	// FishFarm shoals (fn_00824DA0), moved with the frame's game time
 	ecs::UpdateFishShoals(game_clock::FrameGameSeconds(), camera.GetOrigin());
+	// Process3dEngine 0x54E032 TownCentre::DrawAll: the town belief symbols' PSys step, once a rendered frame
+	psys::town_belief::Step();
 
 	// fn_005C6BB0 (from HelpSystem::Draw3D): the cinema bars slide with the game time of this frame
 	_screenFade->UpdateWideScreen(static_cast<float>(game_clock::FrameGameMs()));

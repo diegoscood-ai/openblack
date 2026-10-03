@@ -56,6 +56,8 @@
 #include "ECS/VillagerAnimations.h"
 #include "ECS/FishShoals.h"
 #include "ECS/Life.h"
+#include "ECS/MapCells.h"
+#include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
 #include "ECS/Rocks.h"
 #include "ECS/SeaCells.h"
@@ -460,8 +462,9 @@ bool ReactToPhysicsImpact(PhysicsObject& po)
 	return true;
 }
 
-/// EndPhysics (vt +0x790) at rest. Returns the entity that stays as a resting proxy (entt::null: none).
-entt::entity EndPhysics(PhysicsObject& po)
+/// EndPhysics (vt +0x790) at rest, the class's part. Returns the entity that stays as a resting proxy (entt::null:
+/// none).
+entt::entity EndPhysicsOfClass(PhysicsObject& po)
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	SyncTransform(po);
@@ -522,6 +525,22 @@ entt::entity EndPhysics(PhysicsObject& po)
 	return entity;
 }
 
+/// EndPhysics (vt +0x790) at rest: the class's part, then Object::EndPhysics 0x6375A0 puts the object back in the map
+/// cells (InsertMapObject vt +0x544 at 0x63762C; Fixed::EndPhysics reaches it through 0x52E054 / 0x52E0CB), a
+/// fragment that stays (FragmentEndPhysics) too; nothing for one that is gone. (inferido) after the class's part:
+/// where Villager / Animal::EndPhysics call it is not read; Tree::EndPhysics 0x74B830 searches the cells (0x74B9C0)
+/// before its insert, so a replanted tree does not see itself
+entt::entity EndPhysics(PhysicsObject& po)
+{
+	const auto entity = po.entity;
+	const auto kept = EndPhysicsOfClass(po);
+	if (Locator::entitiesRegistry::value().Valid(entity))
+	{
+		map_cells::InsertMapObject(entity);
+	}
+	return kept;
+}
+
 /// fn_646D60 / RemoveObject: the object stops being a hitter: buildings forget it (FragMesh lastHitter) and bodies that
 /// had it as their thrower (the pass-through pair) collide with it again.
 void ForgetThrower(entt::entity entity)
@@ -552,15 +571,16 @@ void RemoveAt(size_t index)
 	g_Objects.erase(g_Objects.begin() + static_cast<std::ptrdiff_t>(index));
 }
 
-float Radius2D(entt::entity entity)
+/// A corner of the physics' cell boxes (RaiseUntilNotIntersecting 0x644877, GameTurnUpdate 0x645322): x 6553.6
+/// [0x8AC400], __ftol, and off the map (MapCoords::InBounds 0x6042C0) fn_00604250: each signed high word clamped to
+/// 0 .. [g_game+0x59C8] - 1 (511)
+glm::ivec2 BoxCell(float x, float z)
 {
-	const auto* mesh = MeshOf(entity);
-	if (mesh == nullptr)
-	{
-		return 0.0f;
-	}
-	const auto size = mesh->GetBoundingBox().Size() * Locator::entitiesRegistry::value().Get<const Transform>(entity).scale;
-	return 0.5f * std::max(size.x, size.z);
+	const auto clamped = [](float metres) {
+		return std::clamp<int32_t>(map_coords::SignedCellOf(map_coords::ToFixed(metres)), 0,
+		                           static_cast<int32_t>(map_coords::k_MapCells) - 1);
+	};
+	return {clamped(x), clamped(z)};
 }
 
 /// fn_644DF0: a resting body for an object a moving body may hit.
@@ -617,45 +637,59 @@ void BeginTurn()
 			po->flags |= PhysicsObject::Awake;
 		}
 	}
-	std::vector<std::pair<glm::vec2, float>> boxes;
-	for (const auto& po : g_Objects)
+	// PhysicsObject::GameTurnUpdate 0x6452A6..0x64556A: each moving body (+0x19C clear) wakes what is in the map cells
+	// of its box C -/+ (fn_006E8160 |v.xz| x 0.1 [0x8AB22C] + R [+0x178]) (BoxCell), x outer ([esp+0x1C]) and z inner
+	// ([esp+0x2C]); a cell is walked once for all the bodies (the list of walked cells, 0x64544B..0x645491, keeps at
+	// most 0x200). The inline iterator (0x645495..0x6454A3: the fixed list, then the mobile one, map_cells::
+	// ForEachInCell): what InteractsWithPhysicsObjects (vt +0x79C, 0x6454C7) is woken when it is in the physics
+	// already (|= 1, 0x6454F7), else with a 3D object (+0x40) it gets a resting proxy (AddProxy fn_00644DF0, 0x64551D)
+	// at once. (aproximado) The stop when the physics list is full ([0xD4781C], 0x645411 / 0x6454B7) is not kept:
+	// openblack's list has no size
+	constexpr size_t k_WalkedCells = 0x200; // 0x64547B
+	std::vector<glm::ivec2> walked;
+	const size_t bodies = g_Objects.size(); // the proxies added below rest: they have no box
+	for (size_t b = 0; b < bodies; ++b)
 	{
-		if (!po->body.resting)
+		if (g_Objects[b]->body.resting)
 		{
-			const auto v = po->body.velocity;
-			boxes.emplace_back(glm::vec2(po->body.Centre().x, po->body.Centre().z),
-			                   glm::length(glm::vec2(v.x, v.z)) * 0.1f + po->body.Radius());
+			continue;
 		}
-	}
-	if (!boxes.empty())
-	{
-		std::vector<entt::entity> candidates;
-		registry.Each<const Transform, const Mesh>([&](entt::entity entity, const Transform& transform, const Mesh&) {
-			if (!PhysicsObjects::InteractsWithPhysicsObjects(entity))
-			{
-				return;
-			}
-			const glm::vec2 at(transform.position.x, transform.position.z);
-			const float reach = Radius2D(entity);
-			for (const auto& [centre, half] : boxes)
-			{
-				const auto d = glm::abs(at - centre);
-				if (d.x <= half + reach && d.y <= half + reach)
-				{
-					candidates.push_back(entity);
-					return;
-				}
-			}
-		});
-		for (const auto entity : candidates)
+		const auto centre = g_Objects[b]->body.Centre();
+		const auto v = g_Objects[b]->body.velocity;
+		const float half = glm::length(glm::vec2(v.x, v.z)) * 0.1f + g_Objects[b]->body.Radius();
+		const auto first = BoxCell(centre.x - half, centre.z - half);
+		const auto second = BoxCell(centre.x + half, centre.z + half);
+		const auto low = glm::min(first, second);
+		const auto high = glm::max(first, second);
+		for (int32_t x = low.x; x <= high.x; ++x)
 		{
-			if (auto* po = PhysicsObjects::Find(entity))
+			for (int32_t z = low.y; z <= high.y; ++z)
 			{
-				po->flags |= PhysicsObject::Awake;
-			}
-			else
-			{
-				AddProxy(entity);
+				// JustMapXZ::InBounds 0x5E1860 (0x645435), then the walked list
+				const glm::ivec2 cell(x, z);
+				if (!map_coords::InBounds(cell) || std::find(walked.begin(), walked.end(), cell) != walked.end())
+				{
+					continue;
+				}
+				if (walked.size() < k_WalkedCells)
+				{
+					walked.push_back(cell);
+				}
+				map_cells::ForEachInCell(cell, [&registry](entt::entity entity) {
+					if (!PhysicsObjects::InteractsWithPhysicsObjects(entity))
+					{
+						return true;
+					}
+					if (auto* po = PhysicsObjects::Find(entity))
+					{
+						po->flags |= PhysicsObject::Awake;
+					}
+					else if (registry.AllOf<Mesh>(entity))
+					{
+						AddProxy(entity);
+					}
+					return true;
+				});
 			}
 		}
 	}
@@ -799,6 +833,12 @@ void Substep()
 			{
 				po.body.resting = false;
 				po.flags |= PhysicsObject::Awake;
+				// Object::InitialisePhysics 0x637480: out of the map cells while it flies (IsObjectInMap vt +0x178 at
+				// 0x6374AC, RemoveMapObject vt +0x548 at 0x6374BA)
+				if (map_cells::IsObjectInMap(po.entity))
+				{
+					map_cells::RemoveMapObject(po.entity);
+				}
 				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Physics: knocked entity {}", static_cast<uint32_t>(po.entity));
 			}
 			break;
@@ -1155,6 +1195,12 @@ PhysicsObject* PhysicsObjects::AddObject(entt::entity entity, glm::vec3 velocity
 	po->flags = PhysicsObject::Awake | (fromHand ? PhysicsObject::FromHand : 0);
 	po->byPlayer = fromHand;
 	g_Objects.push_back(std::move(po));
+	// Object::InitialisePhysics 0x637480: out of the map cells while it flies (IsObjectInMap vt +0x178 at 0x6374AC,
+	// RemoveMapObject vt +0x548 at 0x6374BA)
+	if (map_cells::IsObjectInMap(entity))
+	{
+		map_cells::RemoveMapObject(entity);
+	}
 	// Object::InitialisePhysics 0x637480: a burning object leaves its fire group (FireEffect::StartedMoving(0), ECS/Fire)
 	fire::StartedMoving(entity, false);
 	if (fromHand)
@@ -1174,6 +1220,12 @@ void PhysicsObjects::RemoveObject(entt::entity entity)
 		{
 			RemoveAt(i);
 			ForgetThrower(entity);
+			// (inferido, not read) out of the physics without EndPhysics: back in the map cells at once while it exists,
+			// not at the next map_cells::Sync. Nothing for a resting proxy (it never left) or one held out (a tornado's)
+			if (Locator::entitiesRegistry::value().Valid(entity))
+			{
+				map_cells::InsertMapObject(entity);
+			}
 			return;
 		}
 	}
@@ -1208,31 +1260,42 @@ void PhysicsObjects::RemoveObjectWithEndPhysics(entt::entity entity)
 void PhysicsObjects::RaiseUntilNotIntersecting(PhysicsObject& po)
 {
 	auto& registry = Locator::entitiesRegistry::value();
-	// 0x644877: the map cells of the two corners (C.x - R, C.z - R) and (C.x + R, C.z + R), clamped into the map
-	// (fn_00604250). openblack has no per-cell object lists: an object is in a cell if its position is, and the
-	// multi-cell buildings (MultiMapFixed: abodes, stores) are in every cell their footprint (Radius2D) covers.
+	// 0x644877..0x644919: the cells of the two corners (C.x - R, C.z - R) and (C.x + R, C.z + R) (BoxCell: x 6553.6,
+	// __ftol, clamped into the map by fn_00604250 when off it), the low and high words of the two
 	const auto centre = po.body.Centre();
 	const float radius = po.body.Radius();
-	const int last = Locator::terrainSystem::has_value() ? static_cast<int>(Locator::terrainSystem::value().GetCellsPerSide()) - 1 : 511;
-	const auto cellOf = [last](float v) { return std::clamp(static_cast<int>(std::floor(v * 0.1f)), 0, last); };
-	const glm::ivec2 low(cellOf(centre.x - radius), cellOf(centre.z - radius));
-	const glm::ivec2 high(cellOf(centre.x + radius), cellOf(centre.z + radius));
+	const auto first = BoxCell(centre.x - radius, centre.z - radius);
+	const auto second = BoxCell(centre.x + radius, centre.z + radius);
+	const auto low = glm::min(first, second);
+	const auto high = glm::max(first, second);
+	// x outer, z inner (0x64491F..0x64493D), JustMapXZ::InBounds 0x644951, ToMap 0x644962 and the inline iterator: the
+	// fixed list, then the mobile one (0x644967..0x644975, map_cells::ForEachInCell; a MultiMapFixed in every cell of
+	// its NewCollideDescriptor). AddProxy (fn_00644DF0, 0x6449F4) puts each in the physics list at once, so a later
+	// cell of the same object skips it ("not in the physics list yet"): here the candidates list does that
 	std::vector<entt::entity> candidates;
-	registry.Each<const Transform, const Mesh>([&](entt::entity entity, const Transform& transform, const Mesh&) {
-		// obj != po->thrower (+0x1C) && ShouldPhysicsRaiseObjectUntilNotIntersectingThis (= InteractsWithPhysicsObjects,
-		// 0 for LandscapeVortexIn / MapShield) && not in the physics list yet && it has a Game3dObject
-		if (entity == po.entity || entity == po.thrower || !InteractsWithPhysicsObjects(entity) || Find(entity) != nullptr)
+	for (int32_t x = low.x; x <= high.x; ++x)
+	{
+		for (int32_t z = low.y; z <= high.y; ++z)
 		{
-			return;
+			const glm::ivec2 cell(x, z);
+			if (!map_coords::InBounds(cell))
+			{
+				continue;
+			}
+			map_cells::ForEachInCell(cell, [&](entt::entity entity) {
+				// obj != po->thrower (+0x1C, 0x644987) && ShouldPhysicsRaiseObjectUntilNotIntersectingThis (vt +0x7A4,
+				// = InteractsWithPhysicsObjects, 0 for LandscapeVortexIn / MapShield) && not in the physics list yet && it
+				// has a Game3dObject (+0x40, 0x6449D5)
+				if (entity != po.entity && entity != po.thrower && InteractsWithPhysicsObjects(entity) &&
+				    Find(entity) == nullptr && registry.AllOf<Mesh>(entity) &&
+				    std::find(candidates.begin(), candidates.end(), entity) == candidates.end())
+				{
+					candidates.push_back(entity);
+				}
+				return true;
+			});
 		}
-		const float reach = registry.AnyOf<Abode, StoragePit>(entity) ? Radius2D(entity) : 0.0f;
-		const glm::ivec2 from(cellOf(transform.position.x - reach), cellOf(transform.position.z - reach));
-		const glm::ivec2 to(cellOf(transform.position.x + reach), cellOf(transform.position.z + reach));
-		if (to.x >= low.x && from.x <= high.x && to.y >= low.y && from.y <= high.y)
-		{
-			candidates.push_back(entity);
-		}
-	});
+	}
 	for (const auto entity : candidates)
 	{
 		AddProxy(entity); // fn_00644DF0

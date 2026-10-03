@@ -19,6 +19,7 @@
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Mobile.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/MapCells.h"
 #include "ECS/Registry.h"
 #include "ECS/StaticGrounding.h"
 #include "ECS/ObjectCreationIndex.h"
@@ -53,6 +54,9 @@ entt::entity MobileStaticArchetype::Create(const glm::vec3& position, MobileStat
 	{
 		StaticGrounding::Ground(entity);
 	}
+	// CallVirtualFunctionsForCreation (MultiMapFixed 0x52E890+0x184): InsertMapObject (vt +0x544, 0x52E650), the
+	// head of every cell of its NewCollideDescriptor
+	ecs::map_cells::InsertMapObject(entity);
 
 	return entity;
 }
@@ -91,6 +95,8 @@ entt::entity MobileStaticArchetype::CreateWithXYZAngles(const glm::vec3& positio
 		auto& transform = Locator::entitiesRegistry::value().Get<Transform>(entity);
 		transform.rotation = XYZRotation(xAngleRadians, yAngleRadians, zAngleRadians);
 		transform.scale = glm::vec3(scale);
+		// SetXYZAnglesAndScale (MobileStatic 0x608D60): Remove and Insert when in the map
+		ecs::map_cells::OnAnglesOrScaleChanged(entity);
 		return entity;
 	}
 	default:

@@ -20,6 +20,7 @@
 #include "ECS/Components/Temple.h"
 #include "ECS/Components/Town.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/MapCells.h"
 #include "ECS/Registry.h"
 #include "3D/LandIslandInterface.h"
 #include "Locator.h"
@@ -94,6 +95,10 @@ entt::entity CitadelArchetype::Create(const glm::vec3& position, PlayerNames pla
 	// Citadel::AddTown fills with a WorshipSite per tribe (Worship/Citadel.cpp). (inferido, openblack deviation) A
 	// planned citadel gets it too, because openblack draws it as a finished temple and has no building sites.
 	worship::citadel::Initialise(entity, worship::YAngleOf(glm::mat3(rotation)));
+	// CitadelHeart's CallVirtualFunctionsForCreation (MultiMapFixed 0x52E890+0x184): InsertMapObject (vt +0x544,
+	// 0x52E650). (aproximado) its own collide shape (CreateCollideData 0x468FB0) is not ported: map_cells takes the
+	// mesh's. (inferido) after the worship part above: their order is not read
+	ecs::map_cells::InsertMapObject(entity);
 	return entity;
 }
 

@@ -95,25 +95,6 @@ void ProcessAbode(entt::entity abode);
 /// Graveyard); Field 0x529020, TownCentre 0x743DF0, Workshop 0x7797F0 and SpellDispenser 0x722A70 override it
 [[nodiscard]] bool RunsAbodeProcess(entt::entity abode);
 
-// ---- resources ---------------------------------------------------------------------------------------------------
-
-/// Object::GetResource (vt +0x98): Abode 0x404D30 (+0xBC[type]: Abode::foodAmount / woodAmount); a storage pit the
-/// total of its piles (PotStructure::GetResource 0x66EF00, StoragePitStore)
-[[nodiscard]] uint32_t GetResource(entt::entity object, ResourceType type);
-/// Object::RemoveResource (vt +0xA0) for a villager (no GInterfaceStatus): StoragePit 0x7332A0 (StoragePitStore);
-/// Abode 0x404F10 -> DoResourceRemoving 0x404F60: amount >= what it has -> SetPoisoned(0) (the abode's own flag:
-/// GameThingWithPos has none, nothing); the town's CallDesireFunction(type != 0) BEFORE the removal (the raw desire of
-/// Food / Wood rewritten, and maybe HelpSpritesLowOnFood); JustRemoveResource 0x404D60 (min(amount, what it has)).
-/// The +0x74 building-site branch (WOOD or -2, V6) is TODO(V6). Returns what was removed
-uint32_t RemoveResource(entt::entity object, ResourceType type, uint32_t amount);
-/// Abode::AddResource 0x404D90 for a villager (no GInterfaceStatus): DoResourceAdding 0x404DF0 -> JustAddResource
-/// 0x404D40 (+0xBC[type] += amount, no cap). Returns the amount
-uint32_t AddResource(entt::entity abode, ResourceType type, uint32_t amount);
-/// The object's IsPoisoned (vt +0x4A4) as GetResourceFrom 0x7533EC reads it: StoragePit 0x7336B0 =
-/// IsPoisonedResource(FOOD) || (WOOD) 0x733550 (an available pile of +0xC4 / +0xC8 whose Pot::IsPoisoned is set);
-/// an abode 0 (GameThingWithPos 0x402400); a pot its own flag
-[[nodiscard]] bool IsPoisoned(entt::entity object);
-
 // ---- the pure layer (tests) --------------------------------------------------------------------------------------
 
 /// 0x404B4F..0x404CA7: f = count / max (fidiv), min(f, 1); room = 1 - f, room <= 0 -> room; sex = listSize == 0 ? 1 :

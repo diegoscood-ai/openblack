@@ -18,6 +18,7 @@
 #include "ECS/Components/WallHug.h"
 #include "ECS/Life.h"
 #include "ECS/MapCoords.h"
+#include "ECS/ObjectResources.h"
 #include "ECS/Registry.h"
 #include "ECS/Town/AbodeQueries.h"
 #include "ECS/Town/AbodeVillagers.h"
@@ -289,7 +290,7 @@ uint32_t ChangeStateToFindFoodToEat(entt::entity villager)
 	// 118 inside (0x24 + 0x52 x inside)
 	if (const auto abode = AbodeEntityOf(*v); abode != entt::null && abode_queries::IsFunctional(abode))
 	{
-		const uint32_t have = abode_villagers::GetResource(abode, ResourceType::Food) +
+		const uint32_t have = object_resources::GetResource(abode, ResourceType::Food) +
 		                      static_cast<uint32_t>(static_cast<int32_t>(held));
 		if (!(have < need))
 		{
@@ -304,7 +305,7 @@ uint32_t ChangeStateToFindFoodToEat(entt::entity villager)
 	const auto pit = GetStoragePit(villager);
 	if (pit != entt::null && abode_queries::IsFunctional(pit))
 	{
-		const uint32_t inPit = abode_villagers::GetResource(pit, ResourceType::Food);
+		const uint32_t inPit = object_resources::GetResource(pit, ResourceType::Food);
 		if (!(inPit < need))
 		{
 			TraceIf(villager, fmt::format("food: need {} pit {} has {} -> 33", need, static_cast<uint32_t>(pit), inPit));
@@ -371,7 +372,7 @@ void GetFoodFromHome(entt::entity villager, uint32_t amount)
 		return;
 	}
 	// 0x75C04F..0x75C06F: m = min(n, GetResource(FOOD)) (cmp; jb keeps n)
-	const uint32_t have = abode_villagers::GetResource(abode, ResourceType::Food);
+	const uint32_t have = object_resources::GetResource(abode, ResourceType::Food);
 	const uint32_t m = amount < have ? amount : have;
 	// 0x75C071..0x75C077: GetResourceFrom(abode, FOOD, m): RemoveResource + PickupResource
 	const auto took = GetResourceFrom(villager, abode, ResourceType::Food, static_cast<int16_t>(m));
@@ -465,8 +466,8 @@ uint32_t ArrivesAtHomeWithFood(LivingAction& action)
 		if (const auto abode = AbodeEntityOf(*v); abode != entt::null)
 		{
 			const auto dropped = DropFood(villager, 0);
-			abode_villagers::AddResource(abode, ResourceType::Food,
-			                             static_cast<uint32_t>(static_cast<int32_t>(static_cast<int16_t>(dropped))));
+			object_resources::AddResource(abode, ResourceType::Food,
+			                              static_cast<uint32_t>(static_cast<int32_t>(static_cast<int16_t>(dropped))));
 		}
 	}
 	// 0x769B6C ArrivesHome 0x760930 (its result)

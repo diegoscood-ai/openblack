@@ -32,7 +32,7 @@ void PickupFood(entt::entity villager, int16_t amount);
 /// +0xF4 -= n, Town +0x708 -= n. The food is gone (no pot is made). Returns n
 uint16_t DropFood(entt::entity villager, uint16_t amount);
 /// Villager::GetResourceFrom 0x753390 (object, type, n): c = object.RemoveResource(type, n) (vt +0xA0,
-/// abode_villagers::RemoveResource); c != 0 -> PickupResource(type, c, object.GetCarriedTreeType() (Object 0x402AF0:
+/// object_resources::RemoveResource); c != 0 -> PickupResource(type, c, object.GetCarriedTreeType() (Object 0x402AF0:
 /// 0)); object.IsSpeedUp (GameThingWithPos 0x402410: 0) -> SetFoodSpeedup; object.IsPoisoned -> SetPoisoned(1)
 /// (ecs::life::TakePoisonedResource). Returns c
 uint16_t GetResourceFrom(entt::entity villager, entt::entity object, ResourceType type, int16_t amount);

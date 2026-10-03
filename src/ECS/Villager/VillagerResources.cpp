@@ -18,6 +18,7 @@
 #include "ECS/Components/Town.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Life.h"
+#include "ECS/ObjectResources.h"
 #include "ECS/Registry.h"
 #include "ECS/Town/AbodeQueries.h"
 #include "ECS/Town/AbodeVillagers.h"
@@ -118,7 +119,7 @@ uint16_t GetResourceFrom(entt::entity villager, entt::entity object, ResourceTyp
 	// 0x7533A0..0x7533AD: object.RemoveResource(type, (movsx) n, 0, 0) (vt +0xA0). A negative n is a huge unsigned:
 	// the whole store (literal)
 	const auto requested = static_cast<uint32_t>(static_cast<int32_t>(amount));
-	const auto taken = static_cast<uint16_t>(abode_villagers::RemoveResource(object, type, requested));
+	const auto taken = static_cast<uint16_t>(object_resources::RemoveResource(object, type, requested));
 	// 0x7533B5: test bx, bx
 	if (taken == 0)
 	{
@@ -129,7 +130,7 @@ uint16_t GetResourceFrom(entt::entity villager, entt::entity object, ResourceTyp
 	// 0x7533CE..0x7533E2: object.IsSpeedUp (vt +0x4A8): GameThingWithPos 0x402410 `xor al, al` for abodes and storage
 	// pits (the piles' own is V5): no SetFoodSpeedup here
 	// 0x7533E8..0x7533FC: object.IsPoisoned (vt +0x4A4) -> SetPoisoned(1)
-	if (abode_villagers::IsPoisoned(object))
+	if (object_resources::IsPoisoned(object))
 	{
 		life::TakePoisonedResource(villager);
 	}
@@ -230,7 +231,7 @@ uint32_t ArrivesAtStoragePitForResource(entt::entity villager, ResourceType type
 	if (pit != entt::null && abode_queries::IsFunctional(pit))
 	{
 		// 0x76990D..0x769939: m = min(n, pit.GetResource(type)) (cmp; jb keeps n)
-		const uint32_t have = abode_villagers::GetResource(pit, type);
+		const uint32_t have = object_resources::GetResource(pit, type);
 		const uint32_t m = amount < have ? amount : have;
 		// 0x76993B: m == 0 -> SetTopState(fail); 0
 		if (m == 0)

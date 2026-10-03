@@ -295,8 +295,18 @@ std::optional<audio::WorshipDesire> WorshipSites()
 		return std::nullopt;
 	}
 	const auto& registry = Locator::entitiesRegistry::value();
-	// CheckWorshipSiteDesiresSFX 0x71B270: the local player's citadel GPlayer+0xA48 (openblack's is PLAYER_ONE)
-	const auto citadel = worship::citadel::Of(PlayerNames::PLAYER_ONE);
+	// CheckWorshipSiteDesiresSFX 0x71B270: the local player's citadel GPlayer+0xA48 (openblack's is PLAYER_ONE).
+	// OPENBLACK_TEST_WORSHIP_PLAYER=<n> (test hook, not original; milagros2's worship hooks): that player's instead
+	auto player = PlayerNames::PLAYER_ONE;
+	if (const char* test = std::getenv("OPENBLACK_TEST_WORSHIP_PLAYER"); test != nullptr)
+	{
+		const int n = std::atoi(test);
+		if (n >= 0 && n < static_cast<int>(PlayerNames::_COUNT))
+		{
+			player = static_cast<PlayerNames>(n);
+		}
+	}
+	const auto citadel = worship::citadel::Of(player);
 	const auto* citadelTransform = citadel != entt::null ? registry.TryGet<const Transform>(citadel) : nullptr;
 	if (citadelTransform == nullptr)
 	{
@@ -306,7 +316,7 @@ std::optional<audio::WorshipDesire> WorshipSites()
 	desire.citadelPosition = citadelTransform->position; // GetCitadel (vt +0x114) +0x14
 	desire.need = worship::citadel::StrainSoundFraction(citadel); // +0x70, capped by the caller (0x71B319)
 	// Citadel +0x34..+0x48 in slot order: the site's +0x14, fn_0077B960 > 0 and CalculateDesireForFood (vt +0x420)
-	const auto sites = worship::citadel::WorshipSitesOf(PlayerNames::PLAYER_ONE);
+	const auto sites = worship::citadel::WorshipSitesOf(player);
 	for (size_t i = 0; i < sites.size(); ++i)
 	{
 		const auto site = sites.at(i);

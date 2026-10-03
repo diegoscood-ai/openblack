@@ -117,6 +117,9 @@ struct Town
 	std::vector<entt::entity> homelessVillagers;
 	/// +0x9A4: the first town centre made for it (CREATE_TOWN_CENTRE 0x71577C sets it only while empty)
 	entt::entity centre {entt::null};
+	/// +0x600 / +0x604 [RESOURCE_TYPE]: the temporary pots (FOOD, WOOD) Town::GetTemporaryResourceStorePotOrPos 0x73E900
+	/// makes and keeps (0x73EA11); ecs::town_stores
+	std::array<entt::entity, 2> temporaryPots {entt::null, entt::null};
 	/// +0x5C0, Town::SetWorshipPercentage 0x73C060 (CREATE_TOWN_CENTRE's N5 * 0.001; all the shipped lands pass 0).
 	/// The original keeps it only if the town has a worship site (otherwise 0) and passes it on to the totem statue;
 	/// openblack has no worship sites yet and stores the script's value.

@@ -20,7 +20,8 @@
 using namespace openblack;
 using namespace openblack::magic;
 
-entt::entity objects::CreateMagicWood(const glm::vec3& position, std::optional<PlayerNames> player, uint32_t amount)
+entt::entity objects::CreateMagicWood(const glm::vec3& position, std::optional<PlayerNames> player, uint32_t amount,
+                                      bool allowEmpty)
 {
 	// PileResource(pos, GPotInfo 0xD4D1C4 = info 9, ...) -> PileWood; the scale 0.7 is PotArchetype's. There is no
 	// Process and no expiry: the pile stays until it is emptied. IsAWoodPileOutsideStoragePit always answers 1 (creature
@@ -34,7 +35,7 @@ entt::entity objects::CreateMagicWood(const glm::vec3& position, std::optional<P
 	                         ? Locator::terrainSystem::value().GetHeightAt(glm::vec2(position.x, position.z))
 	                         : position.y;
 	const auto pile = ecs::archetypes::PotArchetype::Create(glm::vec3(position.x, ground, position.z), 0.0f,
-	                                                        PotInfo::MagicWood, static_cast<int32_t>(amount));
+	                                                        PotInfo::MagicWood, static_cast<int32_t>(amount), allowEmpty);
 	if (pile != entt::null)
 	{
 		// +0xB4 (0x600E64..0x600E8A): the owner, NULL -> g_game +0x18 + byte g_game[0x205A5B] * 0xA60, the neutral player

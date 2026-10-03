@@ -31,6 +31,7 @@ verified in the executable or measured, except where marked **(inferred)** or **
 | [trees.md](trees.md) | Trees and forests: uprooting and the tug, pick-up rules, dropping and replanting, wood and GTreeInfo, API for villager jobs, searches, growth, drawing, tree fire, sacrifice |
 | [map-loading.md](map-loading.md) | Map loading and script functions: CHL CREATE, map fog, herds and animals, simulation data, fish farms, `BUILT_PERCENTAGE`, script objects (street lamps, bonfires, dead trees, gates, planned citadel), `IsOkToCreateAtPos`, towns and citadel |
 | [physics.md](physics.md) | Original physics: thrown objects, collisions, damage, floating, dropping from the hand, buildings and rocks that break |
+| [buildings.md](buildings.md) | Buildings and towns, the building side: resources held by objects (`ecs::object_resources`), the town's temporary pots (`ecs::town_stores`), life and damage, plans and building sites (pending) |
 
 **Living beings**
 

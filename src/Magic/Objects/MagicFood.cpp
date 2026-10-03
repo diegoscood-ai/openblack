@@ -32,7 +32,7 @@ glm::vec3 OnLand(const glm::vec3& position)
 } // namespace
 
 entt::entity objects::CreateMagicResourcePile(const glm::vec3& position, std::optional<PlayerNames> player, ResourceType type,
-                                              uint32_t amount)
+                                              uint32_t amount, bool allowEmpty)
 {
 	// fn_005FA8B0; CallVirtualFunctionsForCreation (vt 0x658) is the pile's rise out of the land (PotArchetype::Create).
 	// MagicFood::CallVirtualFunctionsForCreation 0x5FAAB0, after PileFood's (0x66E1A0), also calls two setters on its
@@ -46,19 +46,20 @@ entt::entity objects::CreateMagicResourcePile(const glm::vec3& position, std::op
 	switch (type)
 	{
 	case ResourceType::Food:
-		return CreateMagicFood(position, player, amount);
+		return CreateMagicFood(position, player, amount, allowEmpty);
 	case ResourceType::Wood:
-		return CreateMagicWood(position, player, amount);
+		return CreateMagicWood(position, player, amount, allowEmpty);
 	default:
 		return entt::null;
 	}
 }
 
-entt::entity objects::CreateMagicFood(const glm::vec3& position, std::optional<PlayerNames> player, uint32_t amount)
+entt::entity objects::CreateMagicFood(const glm::vec3& position, std::optional<PlayerNames> player, uint32_t amount,
+                                      bool allowEmpty)
 {
 	// PileFood(pos, GPotInfo 0xD4D308 = info 10, amount, town, 0, 0, 1.0); the scale 0.3 is PotArchetype's
 	const auto pile = ecs::archetypes::PotArchetype::Create(OnLand(position), 0.0f, PotInfo::MagicFood,
-	                                                        static_cast<int32_t>(amount));
+	                                                        static_cast<int32_t>(amount), allowEmpty);
 	if (pile != entt::null)
 	{
 		// +0xBC (0x5FA9F0): NULL -> g_game +0x18 + byte g_game[0x205A5B] * 0xA60, the neutral player (ScriptPlayer.h)

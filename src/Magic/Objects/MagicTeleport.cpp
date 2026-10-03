@@ -300,6 +300,7 @@ void teleport::ToBeDeleted(entt::entity stone)
 	{
 		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Teleport: stone {} deleted", static_cast<uint32_t>(stone));
 	}
+	ecs::map_cells::RemoveMapObject(stone); // CleanupWhenDeleted 0x6377F0: vt +0x548 MultiMapFixed 0x52E7B0
 	registry.Destroy(stone);
 	registry.SetDirty();
 }

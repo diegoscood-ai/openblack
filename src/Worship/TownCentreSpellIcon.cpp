@@ -18,6 +18,7 @@
 #include "ECS/Components/SpellIcon.h"
 #include "ECS/Components/TownMagic.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/MapCells.h"
 #include "ECS/Registry.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -149,6 +150,9 @@ void DeleteIcon(entt::entity icon)
 			}
 		}
 	}
+	// SpellIcon::ToBeDeleted 0x7260A0 (0x748B0C): out of the map (0x7260B3: vt +0x548 MultiMapFixed 0x52E7B0), then
+	// the graphic
+	ecs::map_cells::RemoveMapObject(icon);
 	seed_graphic::Delete(registry.Get<const SpellIcon>(icon).graphic);
 	registry.Destroy(icon);
 	registry.SetDirty();

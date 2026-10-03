@@ -33,8 +33,9 @@ const GVillagerInfo* VillagerInfoOf(entt::entity villager);
 /// by a script (+0x25 & 4, 0x753766) or dancing (Living::IsDancing 0x5ECC10, 0x753772; (aproximado) as TOP == IN_DANCE).
 void SetVillagerStateSpeed(entt::entity villager);
 
-/// Villager::SetAge (0x7528C0) scale part: InitialiseScale (0x74FB80) + SetScaleForAge (0x752A90). Adults end in
-/// (0.95, 1.05]; children take ageToScale[age - 1] plus a random part of the way to ageToScale[age + 1].
+/// Villager::SetAge (0x7528C0) scale part: InitialiseScale (0x74FB80) + SetScaleForAge (0x752A90), with the game's synced
+/// GameFloatRand (V4: villager::InitialScaleForAge / ScaleForAge). Adults end in (0.95, 1.05]; children take
+/// ageToScale[age - 1] plus a random part of the way to ageToScale[age + 1].
 float VillagerScaleForAge(const GVillagerInfo& info, uint32_t age);
 
 } // namespace openblack::ecs

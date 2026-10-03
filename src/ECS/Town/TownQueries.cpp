@@ -272,6 +272,11 @@ float Get2DRadius(entt::entity object)
 	return Radius2D(object);
 }
 
+std::vector<entt::entity> ObjectsInCell(glm::ivec2 cell)
+{
+	return CellObjects(cell.x, cell.y);
+}
+
 bool CheckForClearArea(glm::ivec2 pos, float radius, const ClearAreaFilter& filter, entt::entity excluded,
                        entt::entity* blocker)
 {

@@ -1344,6 +1344,18 @@ float FoodDesireValue(entt::entity town)
 	return DesireForFood(ContextFor(*t, in, nullptr));
 }
 
+float CallDesireFunctionNow(entt::entity town, TownDesireInfo d)
+{
+	auto* t = TownOf(town);
+	if (t == nullptr || !ValidDesire(d))
+	{
+		return k_Zero;
+	}
+	const auto in = GatherInputs(town);
+	const auto sink = SinkFor(town);
+	return CallDesireFunction(t->desire, ContextFor(*t, in, &sink), Index(d));
+}
+
 uint32_t CheckVillagerNeededForTownDesire(entt::entity town, entt::entity villager, float trigger)
 {
 	const auto* t = TownOf(town);

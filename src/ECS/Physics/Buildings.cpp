@@ -34,6 +34,7 @@
 #include "ECS/Components/Villager.h"
 #include "ECS/MapCells.h"
 #include "ECS/Registry.h"
+#include "ECS/Town/AbodeVillagers.h"
 #include "CollisionSounds.h"
 #include "Dust.h"
 #include "FragMesh.h"
@@ -155,19 +156,11 @@ void DestroyBuilding(entt::entity building)
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Buildings: {} destroyed", static_cast<uint32_t>(building));
-	if (const auto* abode = registry.TryGet<const Abode>(building))
+	// Abode::RemoveAllVillagersFromAbode 0x404560: Villager::HomeDeleted 0x7611F0 of each (MakeHomeless: out of the
+	// abode, the town's homeless list, 129 HOMELESS_START)
+	if (registry.AllOf<Abode>(building))
 	{
-		for (const auto villager : abode->inhabitants)
-		{
-			if (auto* v = registry.TryGet<Villager>(villager))
-			{
-				v->abode = entt::null;
-				if (auto* town = registry.TryGet<Town>(v->town))
-				{
-					town->homelessVillagers.insert(villager);
-				}
-			}
-		}
+		ecs::abode_villagers::RemoveAllVillagersFromAbode(building);
 	}
 	if (const auto* pit = registry.TryGet<const StoragePit>(building))
 	{

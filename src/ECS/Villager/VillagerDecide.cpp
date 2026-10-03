@@ -306,11 +306,12 @@ uint32_t ChildFollowsMother(LivingAction& action)
 	}
 	else
 	{
-		// Until V4 (CheckNeedNewAbode 0x757F90 is neutral) a child with no mother and no abode stands still here
+		// CheckNeedNewAbode 0x757F90 (a child: 0, it stays): a child with no mother and no abode stands still here
+		// (literal, V4 §6.8)
 		static std::unordered_set<int64_t> traced;
 		if (TraceOn(villager) && traced.insert(object_index::Of(villager)).second)
 		{
-			Trace(villager, "child 114: no mother, no abode -> CheckNeedNewAbode 0x757F90 (TODO V4: stands still)");
+			Trace(villager, "child 114: no mother, no abode -> CheckNeedNewAbode 0x757F90 (a child: 0, it stays)");
 		}
 		CheckNeedNewAbode(villager);
 		return 1;
@@ -348,12 +349,7 @@ uint32_t CheckNeededForSomething(entt::entity villager)
 	return CheckNeededForSpecial(villager) == 1 ? 1 : 0;
 }
 
-uint32_t CheckHomelessMoveIntoAbode([[maybe_unused]] entt::entity villager)
-{
-	// TODO(V4): 0x761360 (Town::FindAbodeWithSpaceInTown 0x73B370, the homeless list +0x768 / +0xE4 / +0x76C,
-	// Abode::AddVillagerToAbode 0x404060, SetTopState(36)). Neutral
-	return 0;
-}
+// CheckHomelessMoveIntoAbode 0x761360 is VillagerHome.cpp (V4)
 
 uint32_t CheckNeededForSpecial(entt::entity villager)
 {
@@ -399,8 +395,8 @@ uint32_t CheckNeededForTownDesire(entt::entity villager)
 	const float trigger = GetOwnDesiresTrigger(villager);
 	// 0x7581CA: town +0x34 TownDesire::CheckVillagerNeededForTownDesire(this, trigger) 0x745FF0, the jobs' share-out
 	// (V3, ECS/Town/TownDesire). Void in the PDB (QAEX), but it leaves 0 or 1 in eax (0x7460EB / 0x7460F7), which the
-	// caller compares with 1 (P-11). Pending V4: at night Sleep (16) is first and CheckSatisfySleep sends the villagers
-	// with an abode to 36; 37 ARRIVES_HOME is V4, so they stop at the door until then (P-1, accepted for V3)
+	// caller compares with 1 (P-11). At night Sleep (16) is first and CheckSatisfySleep sends the villagers with an abode
+	// to 36, which takes them in (V4): 37 -> 38 -> CheckSatisfySleep inside -> 119 -> 120
 	const uint32_t result = town_desire::CheckVillagerNeededForTownDesire(TownEntityOf(villager), villager, trigger);
 	// 0x7581CF: flags &= ~1 (the tap on its abode is forgotten), always with a town
 	if (auto* v = VillagerOf(villager))
@@ -485,22 +481,7 @@ uint32_t CheckSatisfyOwnDesire(entt::entity villager, float trigger)
 	return 0;
 }
 
-uint32_t CheckSatisfyOwnFoodDesire(entt::entity villager)
-{
-	// 0x75BF03: IsHungry -> ChangeStateToFindFoodToEat
-	if (IsHungry(villager))
-	{
-		return ChangeStateToFindFoodToEat(villager);
-	}
-	return 0;
-}
-
-uint32_t ChangeStateToFindFoodToEat(entt::entity villager)
-{
-	// TODO(V4): Villager::ChangeStateToFindFoodToEat 0x75B990 (the storage pit, the field, the food at home). Neutral
-	TraceIf(villager, "own food: ChangeStateToFindFoodToEat TODO(V4)");
-	return 0;
-}
+// CheckSatisfyOwnFoodDesire 0x75BF00 and ChangeStateToFindFoodToEat 0x75B990: VillagerFood.cpp (V4)
 
 uint32_t CheckSatisfySleep(entt::entity villager)
 {
@@ -535,11 +516,7 @@ uint32_t CheckSatisfySleep(entt::entity villager)
 	return GetState(villager, Index::Top) == VillagerStates::SleepInTent ? 1 : 0;
 }
 
-uint32_t CheckWhenGoingToBed([[maybe_unused]] entt::entity villager)
-{
-	// TODO(V4): Villager::CheckWhenGoingToBed 0x760B60. Neutral
-	return 0;
-}
+// CheckWhenGoingToBed 0x760B60: VillagerHome.cpp (V4)
 
 uint32_t CheckTakeResourcesToStoragePit(entt::entity villager)
 {
@@ -629,11 +606,7 @@ uint32_t ChildGotoCreche([[maybe_unused]] entt::entity villager)
 	return 0;
 }
 
-uint32_t CheckNeedNewAbode([[maybe_unused]] entt::entity villager)
-{
-	// TODO(V4): Villager::CheckNeedNewAbode 0x757F90. Neutral
-	return 0;
-}
+// CheckNeedNewAbode 0x757F90: VillagerHome.cpp (V4)
 
 // ---- the idle branch ---------------------------------------------------------------------------------------------
 

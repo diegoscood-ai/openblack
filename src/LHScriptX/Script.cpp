@@ -10,6 +10,7 @@
 #include "Script.h"
 
 #include <algorithm>
+#include <array>
 #include <ranges>
 
 #include <glm/vec2.hpp>
@@ -22,6 +23,17 @@
 
 using namespace openblack;
 using namespace openblack::lhscriptx;
+
+namespace
+{
+/// LHScriptX<char>::Pram +0x6000: the 12 integer slots (the loop of ScanLine 0x7E7715..0x7E77F9 stops at 12, 0xFBFD40)
+std::array<int32_t, 12> g_IntSlots {};
+} // namespace
+
+int32_t Script::IntSlot(size_t index)
+{
+	return index < g_IntSlots.size() ? g_IntSlots.at(index) : 0;
+}
 
 Script::Script() = default;
 
@@ -245,6 +257,18 @@ void Script::RunCommand(const std::string& identifier, const std::vector<Token>&
 		if (param.GetType() != expected)
 		{
 			throw ScriptError("Invalid script argument type");
+		}
+	}
+
+	// ScanLine 0x7E7734..0x7E77D7: an 'N' argument also goes to its integer slot (atol); the slot of any other type
+	// keeps what an earlier command left there. (aproximado) openblack's signatures stand for the exe's type strings
+	// (0xC20F20..: CREATE_TOWN "NALNL", CREATE_ABODE "NALNNNN", CREATE_VILLAGER_POS "AALN")
+	for (size_t slot = 0; slot < parameters.size() && slot < g_IntSlots.size(); ++slot)
+	{
+		const auto& param = parameters.at(slot);
+		if (param.GetType() == ParameterType::Number)
+		{
+			g_IntSlots.at(slot) = param.GetNumber();
 		}
 	}
 

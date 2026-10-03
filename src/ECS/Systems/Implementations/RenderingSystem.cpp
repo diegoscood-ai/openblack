@@ -704,11 +704,12 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 			    lh3d_colour::PackInstanceColour(lh3d, *colours.colour);
 		    }
 		    lh3d_colour::PackInstanceSpecular(lh3d, colours.specular);
-		    // Abode::Draw 0x515F70: the window colour (+0x54, vt 0x30) of a house's lit windows at night, 0 otherwise
+		    // Abode::Draw 0x515F70: the window colour (+0x54, vt 0x30) of a house's lit windows at night, 0 otherwise; lit
+		    // only with someone inside: PresentAtHome (+0xB6) && IsVisualNight (0x515F78; V4 fills PresentAtHome)
 		    if (const auto* abode = registry.TryGet<const Abode>(entity); abode != nullptr && Game::Instance() != nullptr)
 		    {
 			    lh3d_colour::PackInstanceWindow(lh3d, night_lights::WindowColour(Game::Instance()->GetDayNightClock(),
-			                                                                     transform.position, !abode->inhabitants.empty()));
+			                                                                     transform.position, abode->presentAtHome != 0));
 		    }
 		    if (drawBoundingBox)
 		    {

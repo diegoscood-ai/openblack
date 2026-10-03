@@ -31,8 +31,11 @@
 #include "ECS/ObjectCreationIndex.h"
 #include "ECS/PotResource.h"
 #include "ECS/Registry.h"
+#include "ECS/Components/Town.h"
+#include "ECS/Town/TownVillagers.h"
 #include "ECS/Villager/VillagerCore.h"
 #include "ECS/Villager/VillagerDecide.h"
+#include "ECS/Villager/VillagerHome.h"
 #include "Game.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -190,6 +193,33 @@ void RunDebugHooks(uint32_t turn)
 				}
 			}
 		}
+		// OPENBLACK_TEST_VILLAGER_AGE="<age>[,<n>]" (V4): Living::SetAge (the birth turn) only, no meshes nor flags (to
+		// try 12 -> 13 and the old age)
+		if (const auto age = ParseValueFor("OPENBLACK_TEST_VILLAGER_AGE"))
+		{
+			const auto value = static_cast<uint32_t>(std::atoi(age->value.c_str()));
+			for (const auto entity : Villagers())
+			{
+				if (Applies(*age, entity))
+				{
+					SetAgeBirthTurn(entity, value, turn);
+					Trace(entity, fmt::format("test: age set to {}", value));
+				}
+			}
+		}
+		// OPENBLACK_TEST_HOMELESS=<n> (V4): Villager::MakeHomeless of the villager n (129, then 36 without an abode)
+		if (const char* homeless = std::getenv("OPENBLACK_TEST_HOMELESS"); homeless != nullptr)
+		{
+			const auto n = std::atoll(homeless);
+			for (const auto entity : Villagers())
+			{
+				if (object_index::Of(entity) == n)
+				{
+					const bool made = MakeHomeless(entity);
+					Trace(entity, fmt::format("test: MakeHomeless = {}", made ? 1 : 0));
+				}
+			}
+		}
 		// OPENBLACK_TEST_VILLAGER_POISONED=<n>
 		if (const char* poisoned = std::getenv("OPENBLACK_TEST_VILLAGER_POISONED"); poisoned != nullptr)
 		{
@@ -239,6 +269,26 @@ void RunDebugHooks(uint32_t turn)
 	// the trace's summary every 100 turns
 	if (TraceTarget() && turn % 100 == 0)
 	{
+		// V4: per town, who is inside (+0xE0 & 4), asleep (120), in a tent (238), and the homeless / vagrants lists
+		registry.Each<const Town>([&](entt::entity town, const Town& t) {
+			uint32_t inside = 0;
+			uint32_t asleep = 0;
+			uint32_t tents = 0;
+			for (const auto entity : Villagers())
+			{
+				const auto& v = registry.Get<const Villager>(entity);
+				if (v.town != town)
+				{
+					continue;
+				}
+				inside += (v.flags & Villager::k_FlagAtHome) != 0 ? 1 : 0;
+				const auto top = GetState(entity, Index::Top);
+				asleep += top == VillagerStates::SleepingAtHome ? 1 : 0;
+				tents += top == VillagerStates::SleepInTent ? 1 : 0;
+			}
+			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Villager trace: home: town {} inside {} asleep {} tents {} homeless {} vagrants {}",
+			                   t.id, inside, asleep, tents, t.homelessVillagers.size(), town_villagers::Vagrants().size());
+		});
 		for (const auto entity : Villagers())
 		{
 			if (!TraceOn(entity))

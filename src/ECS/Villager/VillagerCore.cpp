@@ -35,6 +35,9 @@
 #include "ECS/ScriptHeld.h"
 #include "ECS/Town/TownQueries.h"
 #include "ECS/Systems/LivingActionSystemInterface.h"
+#include "ECS/Villager/VillagerAge.h"
+#include "ECS/Villager/VillagerFood.h"
+#include "ECS/Villager/VillagerHome.h"
 #include "ECS/Villager/VillagerOriginalFns.h"
 #include "ECS/Villager/VillagerStateInfo.h"
 #include "ECS/VillagerAnimations.h"
@@ -530,8 +533,8 @@ uint32_t CheckEveryTime(entt::entity villager, uint32_t turn)
 			    state_info::GoHomeWhenHurt(*st) && !Entities().AllOf<DownedVillager>(villager) &&
 			    !state_info::NoGoHomeWhenHurt(*st) && (!foodReaction || v->food > info.hungryForFood))
 			{
-				// 0x7505C3 SetTopState(36 GO_HOME): Villager::GoHome 0x760270 walks to the abode's door (VillagerHome.cpp);
-				// TODO(V4): its arrival 37 and AT_HOME 38. The tests may switch the rule off (SetGoHomeEnabledForTests)
+				// 0x7505C3 SetTopState(36 GO_HOME): Villager::GoHome 0x760270 walks to the abode's door (VillagerHome.cpp); its
+				// arrival 37 goes in and 38 / 119 / 120 rest (V4). The tests may switch the rule off (SetGoHomeEnabledForTests)
 				if (g_GoHomeEnabled)
 				{
 					if (TraceOn(villager))
@@ -992,40 +995,7 @@ uint32_t PauseForASecond(LivingAction& action)
 	return 1;
 }
 
-// ---- checks that are neutral until their milestone ---------------------------------------------------------------
-
-bool CheckHungry(entt::entity villager, uint32_t turn)
-{
-	// 0x75BCC0: 0 turns since the last check -> 0 (0x75BCD0). TODO(V4): eating, starving, the hunger states
-	// (0x75BCD6..0x75BEDA). Every other way ends in SetGameTurnLastChecked (0x75BEDF): the periodic check's clock
-	if (GetGameTurnsSinceLastChecked(villager, turn) == 0)
-	{
-		return false;
-	}
-	SetGameTurnLastChecked(villager, turn);
-	// the one half that does not need the hunger states: 0x75BD92..0x75BD9E, a poisoned villager takes the hunger
-	// damage even when it is not hungry (ecs::life::ProcessPoison; the food side comes with V4)
-	ecs::life::ProcessPoison(villager);
-	return false;
-}
-
-bool CheckChildGrownUp([[maybe_unused]] entt::entity villager)
-{
-	// TODO(V4): Villager::CheckChildGrownUp 0x751050 (the grown-up check and the rescale every 375 turns)
-	return false;
-}
-
-bool WomanSpecial([[maybe_unused]] entt::entity villager)
-{
-	// TODO(V4): Villager::WomanSpecial 0x752240 (pregnancy)
-	return false;
-}
-
-bool CheckDeathFromOldAge([[maybe_unused]] entt::entity villager)
-{
-	// TODO(V4): Villager::CheckDeathFromOldAge 0x760CA0 (read in dev\tmp_dis\aldeanos\core\d_age.txt)
-	return false;
-}
+// ---- the periodic checks are in VillagerFood.cpp and VillagerAge.cpp (V4) ---------------------------------------
 
 // ---- death (provisional until V12) -------------------------------------------------------------------------------
 
@@ -1076,6 +1046,10 @@ void FlushDeaths()
 	{
 		if (registry.Valid(death.villager))
 		{
+			// (aproximado hasta V12) in the original the dying villager stays and its state's exit (to 13 SET_DYING, whose
+			// +0xC0 is 0) runs ExitAtHome's LeaveHome; SetDying is not read (R4). openblack deletes it: LeaveHome first,
+			// so PresentAtHome (+0xB6) does not stay up
+			LeaveHome(death.villager);
 			life::Kill(death.villager, DeathName(death.reason));
 		}
 	}

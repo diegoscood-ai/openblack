@@ -54,6 +54,8 @@ void TownSystem::AddHomelessVillagerToTown(entt::entity townEntity, entt::entity
 	// TODO(bwrsandman): if already assigned to abode or other villager homeless list, remove
 	assert(villager.abode == entt::null);
 	assert(villager.town == entt::null || villager.town == registryContext.towns[town.id]);
-	town.homelessVillagers.insert(villagerEntity);
+	// (V4) the list is ordered, the head first (MakeHomelessNoStateChange 0x7612F9); no caller left since V4
+	// (CREATE_VILLAGER_POS uses town_villagers::AddVillagerToTown)
+	town.homelessVillagers.insert(town.homelessVillagers.begin(), villagerEntity);
 	villager.town = townEntity;
 }

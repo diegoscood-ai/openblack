@@ -18,7 +18,10 @@
 #include "ECS/MapCells.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
+#include "ECS/Town/AbodeVillagers.h"
+#include "ECS/Town/TownVillagers.h"
 #include "ECS/Trees.h"
+#include "ECS/Villager/VillagerHome.h"
 #include "Locator.h"
 
 namespace openblack::ecs
@@ -40,15 +43,20 @@ void ToBeDeleted(entt::entity entity)
 	}
 	if (const auto* villager = registry.TryGet<const Villager>(entity))
 	{
-		// Villager::DeleteDependancys (0x74FD60), the part openblack has
-		if (auto* abode = registry.TryGet<Abode>(villager->abode))
+		// Villager::DeleteDependancys (0x74FD60), the part openblack has: Abode::RemoveDeletedVillagerFromAbode 0x404220
+		// (the pair, the counts, the list, Town::RemoveVillager), then out of the town's homeless list and of the
+		// vagrants (0x74FE4B)
+		// (aproximado hasta V12) in the original the change to 13 SET_DYING runs the exit of the state left (ExitAtHome
+		// 0x761B40 with row 13 +0xC0 = 0: Villager::LeaveHome 0x751FD0; SetDying is not read, R4) before the deletion;
+		// RemoveDeletedVillagerFromAbode 0x404220 does not touch PresentAtHome (+0xB6). openblack's deaths outside
+		// FlushDeaths (life::Kill) come straight here: LeaveHome first (nothing when FlushDeaths did it: bit 4 clear)
+		ecs::villager::LeaveHome(entity);
+		const auto abode = villager->abode;
+		if (abode != entt::null && registry.Valid(abode) && registry.AllOf<Abode>(abode))
 		{
-			abode->inhabitants.erase(entity);
+			abode_villagers::RemoveDeletedVillagerFromAbode(abode, entity);
 		}
-		if (auto* town = registry.TryGet<Town>(villager->town))
-		{
-			town->homelessVillagers.erase(entity);
-		}
+		town_villagers::ForgetVillager(entity);
 	}
 	if (registry.AnyOf<Villager, Animal>(entity))
 	{

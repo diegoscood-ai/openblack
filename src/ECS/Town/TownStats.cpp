@@ -47,8 +47,16 @@ void AddVillager(TownStats& stats, entt::entity villager, const Villager& v)
 	{
 		++stats.adults;
 	}
-	// 0x74930C: +0x54[info +0x1F8]++ (by villager number; no reader in V3, not kept)
+	// 0x74930C..0x74931E: +0x54[info +0x1F8 sex]++ (the men +0x54 / the women +0x58, children too; V4's shuffle reads them)
 	const auto& info = villager::InfoOf(villager);
+	if (info.sex == SexType::Female)
+	{
+		++stats.females;
+	}
+	else if (info.sex == SexType::Male)
+	{
+		++stats.males;
+	}
 	// 0x749320..0x749341: +0xE4 += (u32) info +0x2D8 foodReqiredForDinner (fild qword: unsigned)
 	stats.foodForDinner = static_cast<float>(static_cast<double>(stats.foodForDinner) +
 	                                         static_cast<double>(info.foodReqiredForDinner));

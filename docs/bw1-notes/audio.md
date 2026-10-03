@@ -2,8 +2,9 @@
 
 Esta página explica cómo suena Black & White 1. Cubre el motor del original (GAudio en `runblack.exe` sobre LHaudiodllR
 y QMixer), los bancos y sus formatos (.sad, .sas y la música MP2 en segmentos), la música (LHMusic y la parte de música
-de GAudio), las voces y los textos, y las funciones CHL de audio. Para cada tema se dice qué hace openblack: la fase A
-y los hitos B0..B11c de la fase B están hechos; la fase C queda pendiente.
+de GAudio), las voces y los textos, y las funciones CHL de audio. Para cada tema se dice qué hace openblack: las fases
+A y B están hechas y la fase C en parte; el estado al cerrar la sesión audio está en
+[Estado al cerrar la sesión audio](#estado-al-cerrar-la-sesión-audio-2026-10-03).
 El «qué suena y cuándo» de cada objeto, animación o golpe está en las páginas de cada tema
 ([enlaces](#qué-suena-y-cuándo)). El plan completo está en `C:\Users\diewgarc\dev\tmp_dis\audio\PLAN.md`.
 
@@ -44,6 +45,7 @@ El «qué suena y cuándo» de cada objeto, animación o golpe está en las pág
 - [Fase B: B11c, las API comunes del equipo](#fase-b-b11c-las-api-comunes-del-equipo)
 - [Fases B y C](#fases-b-y-c)
 - [Qué suena y cuándo](#qué-suena-y-cuándo)
+- [Estado al cerrar la sesión audio](#estado-al-cerrar-la-sesión-audio-2026-10-03)
 - [Pendiente](#pendiente)
 - [Ganchos de prueba](#ganchos-de-prueba)
 - [Fuentes](#fuentes)
@@ -1982,6 +1984,43 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
 - Inventario completo de los efectos del original (cada llamada, banco y muestra): `tmp_dis\audio\sfx_inventory.md` y
   `sfx_inventory_tables.md`. Interfaz y criatura: `ui_creature.md`.
 
+## Estado al cerrar la sesión audio (2026-10-03)
+
+La sesión audio (motor central de audio) se cierra con todo subido a `local/hand-hbn` (último 7a3c0e4b, 85/85 tests).
+Sin dueño desde ahora: quien toque `src/Audio` lee primero esta página y `tmp_dis\audio\PLAN.md`.
+
+**Hecho**
+- Un solo motor (`src/Audio`, API `Audio.h`, capas Device / LH / GAudio / Services) que sustituye al AudioManager:
+  16 canales de QMixer, leyes de volumen, anim-effects, música de 6 pistas en su hilo, bancos, SoundTags, ambiente,
+  SoundMap, voces y consejeros, Guidance, voces nocturnas, CHL de audio y de guion (diálogo, pantalla ancha, bloqueos
+  de cámara), milagros, interfaz y mano; el audio lee el juego solo por `GameQueries` (`src/ECS/AudioQueries.cpp`).
+- Fase C: clima y alineamiento en ambiente y música (C2), interior de la ciudadela (C4), vídeos (`videoPlaying`,
+  ambiente callado y música siguiendo debajo; los 11 sonidos de fall.bik y `MusicStop(1)` a los 43,9 s, comprobados).
+- Música de tribu por pueblo (con fn_00741020), búsqueda de pueblos de Guidance, deseos de los pueblos
+  (`desireTowns`, `townResourceNeeds` sobre `ecs::town_desire`) y del templo (`worshipSites` sobre `worship::citadel`
+  / `worship::site`), azar local único (`game_random`), regla de la FPU a 24 bits.
+
+**Pendiente** (por orden; cada punto con su dueño o dependencia)
+1. `heartBeat` (ProcessHeartBeatSFX 0x71C190): faltan creyentes (0x64B680), reparto de creencia (fn_0064B700),
+   criaturas enemigas cerca y el corazón de la ciudadela; sin dueño.
+2. La voz al soltar recursos (ResourceDropSFX 0x71B570): conectada, sin probar en el juego (hace falta soltar comida o
+   madera con la mano sobre un pueblo de Land 2+).
+3. C1 criatura (sin dueño), C3 aldeanos/obras/cánticos (con `_vox` solo), C6 partidas guardadas, C7 GConfirmation.
+4. Interior de la ciudadela: puertas 60/61, botones 62/63, pergaminos 54, sala de la criatura 175/177, chispas del
+   corazón 206, cuando existan esas piezas.
+5. Música `trailer.sad` del pre-intro cuando alguien reproduzca pre_intro.bik; el menú del original (autoguardado 20 y
+   cuadros encima del mundo) si se porta.
+6. Los llamadores de Guidance de otras áreas (agresor 0x73C9B0, derribo 0x406781, discípulos 0x6372EA, tótem,
+   creencia, muerte en el pueblo 0x7508EF) y el resto de la lista [Pendiente](#pendiente).
+
+**Cómo probar** (ver también [Ganchos de prueba](#ganchos-de-prueba))
+- El registro entero sale en `openblack.log` (un solo sink desde f2c45991).
+- Deseos: en Land 1 el espíritu guía calla a propósito (PlayNow 0x71AF6F); `-s Land2.txt OPENBLACK_GUIDANCE_TRACE=1
+  OPENBLACK_CAMERA_FLY="2187,120,2200,2187,20,2260"` (pueblo 94). Templo: `OPENBLACK_TEST_WORSHIP_PLAYER=1
+  OPENBLACK_TEST_WORSHIP="1,0.5" OPENBLACK_CAMERA_FLY="2540,150,1740,2540,100,1800"`.
+- Vídeo: `OPENBLACK_TEST_VIDEO=fall OPENBLACK_TEST_MUSIC=54@5 OPENBLACK_SFX_TRACE=1 OPENBLACK_MUSIC_TRACE=1`; la música
+  de prueba debe arrancar después de cargar el mapa (ClearMap la corta con LHMusicStop(0) 0x426CD3).
+
 ## Pendiente
 
 - **Fase C** ([arriba](#fases-b-y-c)); lo que queda de B9/B10 está [en su sección](#aproximado-inferido-y-pendiente-de-b9b10). Lo que queda de B7 está [en su sección](#aproximado-inferido-y-pendiente-de-b7).
@@ -2008,8 +2047,9 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
     asignado (0x427209, antes de que LHSamplePlay escriba el punto), un valor viejo; openblack da el punto del tag
     **(aproximado**; ningún llamador arranca un anim-effect con un tag de dueño);
   - las vueltas del canal (+0x40 de `LHSampleGetInfo`) son las del arranque y 0 tras `ReleaseLoop` (no se lee el contador de pasadas del DLL) **(inferido)**;
-  - `GRand::LocalRand` de `RandomSample` (desde B11b, `guidance::LocalRand`) con el generador de openblack
-    **(aproximado)**; el generador del DLL ya es el suyo (B11b);
+  - ~~`GRand::LocalRand` de `RandomSample` con el generador de openblack~~: desde 2026-10-03 `guidance::LocalRand` /
+    `LocalFloatRand` son `game_random::LocalRand` / `LocalFloatRand` (el flujo local único, 0x6DE570 / 0x6DE590); el
+    generador del DLL ya es el suyo (B11b);
   - las farolas reciben su tag en el `ProcessTurn` siguiente a crearse (no hay gancho de `CallVirtualFunctionsForCreation`) y ninguna tiene la marca UNAVAILABLE **(aproximado)**;
   - `PlayFromTable` no tiene argumento track: el sitio (doblar 0 / susurro 1) se distingue por el soundId de la clave (openblack).
 - **B2/B3, pendiente**: `SpellSounds` por `SamplePlayAnimEffect` (B5); el tag de punto de ambiente fn_0071E920 (el
@@ -2109,10 +2149,13 @@ Cada página de tema dice qué suena y cuándo. Aquí solo está el motor:
   - STOP_SOUND_EFFECT(isSay) no para 0x270F;
   - WELCOME_DANCE no tiene fichero;
   - GET_MUSIC_ENUM_DISTANCE empuja dos veces.
-- **Comprobaciones en el original** que solo puede hacer el usuario (pregunta 7 de PLAN §6):
-  - si hay música en el menú;
-  - si `_vox` es el cántico completo más las voces;
-  - si vuelve la música tras un Alt-Tab.
+- **Comprobaciones en el original** (pregunta 7 de PLAN §6), contestadas por el usuario el 2026-10-03:
+  - en el menú hay música: el menú son cuadros encima del mundo cargado y suena su música normal, sin pista propia
+    (`tmp_dis\audio\menu_focus.md`); openblack no tiene menú todavía;
+  - `_vox` es el cántico completo (música más voces): se reproduce solo, sin la pista base debajo (para C3);
+  - tras un Alt-Tab la música sigue: Alt-Tab sin minimizar no toca el audio (WM_ACTIVATEAPP 0x7DC073 solo borra
+    teclado y ratón); un minimizado real (SIZE_MINIMIZED → AltTabDeactivate 0x7DE6D0 → LHGlobalSwitch(0)) la corta,
+    como hace openblack. Queda por confirmar con el usuario el minimizado real de 10 s junto a un pueblo.
 
 ## Fase C: C2, clima y alineamiento
 
@@ -2174,7 +2217,7 @@ ECS: lo registra `src/ECS/AudioQueries.cpp`).
   `-n 60000`): `OPENBLACK_CAMERA_LOCK="1850,90,2620,1865,30,2650"` (pueblo 0, NORSE, con centro) → `alignment music
   type 23`, `MUSIC_TYPE_NORSE_TOWN_NEUTRAL`, suena **celt_neutral.sad** (22..24 apuntan a las cadenas celtas);
   `"2440,90,2560,2450,30,2580"` (pueblo 4, AZTEC) → tipo 8, `AZTEC_TOWN_NEUTRAL`, **aztc_neutral.sad**. Logs
-  `_auditudio	owns_norse.log` / `towns_aztec.log`.
+  `_audit\audio\towns_norse.log` / `towns_aztec.log`.
 
 **Comprobación en juego** (Land 1, logs `_audit\audio\c2_*.log`):
 - `OPENBLACK_TEST_WEATHER="1818,2628,100,100"` con `OPENBLACK_CAMERA_LOCK="1775,60,2595,1830,45,2650"` y

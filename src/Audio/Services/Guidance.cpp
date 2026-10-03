@@ -225,6 +225,12 @@ void CheckWorshipSiteDesires(uint32_t& sample, float& value, std::optional<glm::
 			continue;
 		}
 		const float d = Distance(candidate->position, camera);
+		if (Trace())
+		{
+			SPDLOG_LOGGER_INFO(spdlog::get("audio"),
+			                   "Guidance: worship site {} ({:.0f}, {:.0f}) food {:.3f} need {:.3f} at {:.1f}", candidate->id, candidate->position.x, candidate->position.z, candidate->foodDesire,
+			                   citadel->need, d);
+		}
 		if (d < best)
 		{
 			best = d;
@@ -236,7 +242,8 @@ void CheckWorshipSiteDesires(uint32_t& sample, float& value, std::optional<glm::
 		return;
 	}
 	const float food = site->foodDesire;
-	const float need = citadel->need < 1.0f ? citadel->need : 1.0f; // 0x71B319..0x71B332
+	// 0x71B319..0x71B332: fcomp 1 (0x8AA390), test ah, 1: kept when below or unordered (a NaN too), else 1
+	const float need = !(citadel->need >= 1.0f) ? citadel->need : 1.0f;
 	// 0x71B33E..0x71B34F: both texts are drawn with the food value (push ebp twice)
 	const uint32_t foodText = DesireSample(17, food);
 	const uint32_t needText = DesireSample(18, food);

@@ -11,6 +11,8 @@
 
 #include <optional>
 
+#include <entt/entity/entity.hpp>
+
 #include <entt/fwd.hpp>
 #include <glm/vec3.hpp>
 
@@ -36,5 +38,31 @@ namespace openblack::ecs::abodes
 /// knocking animation 0x39 (CHand::StartFixedPosAnimation 0x46C050): none of those exist in openblack yet, so only the
 /// sound is here.
 void InterfaceTap(entt::entity abode, const glm::vec3& handPosition);
+
+// ---- life and damage -----------------------------------------------------------------------------------------------
+
+/// What the physics passes (Abode::ReactToPhysicsImpact 0x406240 -> ApplyEffectsDueToPhysicalDestruction 0x406640,
+/// (Object* hitter, GPlayer* player))
+struct PhysicalDamage
+{
+	/// the DestructionMesh's remaining part (+0x90 -> +0x18, FragMesh::GetRemaining) after the impact; nullopt without one
+	/// (a building not built yet: 0x4062E8 skips the FragMesh)
+	std::optional<float> remaining;
+	entt::entity hitter {entt::null};
+	std::optional<PlayerNames> player;
+	/// the thrower is a creature (0x4064BA..: the Abode +0x7C bit 0x20 is set around the call)
+	bool byCreature {false};
+};
+/// Abode::ApplyEffectsDueToPhysicalDestruction 0x406640: the crash (SamplePlayAnimEffect {1, 0, 0x16, 9, 75}) and the
+/// life. (approximate) Still openblack's first version: life = min(life, remaining), the repair base 1.1 x life - 0.1,
+/// StopBeingFunctional below 0.75 and DestroyedByEffect at 0; the original's EffectValues(3) / GetDefenseMultiplier /
+/// ApplyEffect path is (pending). False when the building is gone
+bool OnPhysicalDamage(entt::entity building, const PhysicalDamage& hit);
+/// Abode::StopBeingFunctional 0x4073C0. (pending) only logs: the villagers leaving, the store's piles, the town's
+/// emergency and the repair site are not ported
+void StopBeingFunctional(entt::entity building);
+/// Abode::DestroyedByEffect 0x403F80: the villagers become homeless (RemoveAllVillagersFromAbode 0x404560), a store
+/// loses its piles, the physics forgets it (physics::Buildings::OnBuildingDeleted) and the building goes
+void DestroyedByEffect(entt::entity building);
 
 } // namespace openblack::ecs::abodes

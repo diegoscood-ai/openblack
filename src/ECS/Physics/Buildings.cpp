@@ -22,6 +22,7 @@
 
 #include "3D/L3DMesh.h"
 #include "3D/ObjectMatrix.h"
+#include "ECS/Abodes.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Fragment.h"
 #include "ECS/Components/Life.h"
@@ -143,76 +144,6 @@ void CreateFragment(const FragMesh::Piece& piece, entt::entity parent)
 	}
 	registry.SetDirty();
 }
-
-void StopBeingFunctional(entt::entity building)
-{
-	// TODO: villagers leave, stores' piles come loose, the town's emergency, a repair site (Abode::ReduceLife 0x405D90)
-	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Buildings: {} no longer works", static_cast<uint32_t>(building));
-}
-
-/// Abode::DestroyedByEffect (0x403F80): the villagers become homeless, a store loses its piles, the building goes.
-void DestroyBuilding(entt::entity building)
-{
-	auto& registry = Locator::entitiesRegistry::value();
-	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Buildings: {} destroyed", static_cast<uint32_t>(building));
-	// Abode::RemoveAllVillagersFromAbode 0x404560: Villager::HomeDeleted 0x7611F0 of each (MakeHomeless: out of the
-	// abode, the town's homeless list, 129 HOMELESS_START)
-	if (registry.AllOf<Abode>(building))
-	{
-		ecs::abode_villagers::RemoveAllVillagersFromAbode(building);
-	}
-	if (const auto* pit = registry.TryGet<const StoragePit>(building))
-	{
-		for (const auto pile : pit->woodPiles)
-		{
-			if (registry.Valid(pile))
-			{
-				ecs::map_cells::RemoveMapObject(pile); // CleanupWhenDeleted 0x6377F0: RemoveMapObject vt +0x548
-				registry.Destroy(pile);
-			}
-		}
-		if (registry.Valid(pit->foodPile))
-		{
-			ecs::map_cells::RemoveMapObject(pit->foodPile); // CleanupWhenDeleted 0x6377F0, vt +0x548
-			registry.Destroy(pit->foodPile);
-		}
-	}
-	Buildings::OnBuildingDeleted(building);
-	// CleanupWhenDeleted 0x6377F0: RemoveMapObject vt +0x548 (MultiMapFixed 0x52E7B0), out of all its cells
-	ecs::map_cells::RemoveMapObject(building);
-	registry.Destroy(building);
-	registry.SetDirty();
-}
-
-/// ApplyEffectsDueToPhysicalDestruction (0x406640): the crash, and the life becomes what is left standing.
-bool ApplyEffectsDueToPhysicalDestruction(entt::entity building)
-{
-	auto& registry = Locator::entitiesRegistry::value();
-	// 0x406640..0x40671D: SamplePlayAnimEffect(this, the camera's distance, {1, 0, 0x16, 9, 75}, 0, editor.sad, track 0)
-	// (G_Crash_Abode_01..09 in editor.sad's table)
-	CollisionSounds::PlayAnimEffect({1, 0, 0x16, 9, 75}, building, registry.Get<const Transform>(building).position, false);
-	auto& life = registry.AllOf<Life>(building) ? registry.Get<Life>(building) : registry.Assign<Life>(building);
-	const float before = life.value;
-	if (auto* damage = registry.TryGet<BuildingDamage>(building); damage != nullptr && damage->mesh)
-	{
-		life.value = std::min(life.value, damage->mesh->Remaining());
-		// Abode::ReduceLife 0x405D90: a repair site whose baseline is 1.1 x life - 0.1
-		damage->repairBase = 1.1f * life.value - 0.1f;
-	}
-	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Buildings: {} hit, life {:.2f} -> {:.2f}", static_cast<uint32_t>(building), before,
-	                   life.value);
-	// TODO: GAlignment::Update (an evil act), Town::UpdateAggressor, GPlayer::DamageFromPlayer, creature mimic
-	if (before >= 0.75f && life.value < 0.75f) // info.dat ThresholdForStopBeingFunctional
-	{
-		StopBeingFunctional(building);
-	}
-	if (life.value <= 0.0f)
-	{
-		DestroyBuilding(building);
-		return false;
-	}
-	return true;
-}
 } // namespace
 
 bool Buildings::PhysicallyDestroysAbodes(entt::entity entity)
@@ -292,8 +223,10 @@ bool Buildings::ReactToPhysicsImpact(entt::entity building, PhysicsObject& po)
 			}
 			return true;
 		}
-		// the life (and the repair baseline) first: the redraw's partly built percent comes from them
-		if (!ApplyEffectsDueToPhysicalDestruction(building))
+		// the life (and the repair baseline) first: the redraw's partly built percent comes from them.
+		// Abode::ApplyEffectsDueToPhysicalDestruction 0x406640 (Edificios). TODO(Fisicas): the player
+		// (PhysicsObject::GetPlayer 0x647460, 0x406261) and the creature thrower (0x4064BA..)
+		if (!ecs::abodes::OnPhysicalDamage(building, {remaining, hit->entity, std::nullopt, false}))
 		{
 			return false;
 		}

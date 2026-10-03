@@ -9,10 +9,22 @@
 
 #include "Abodes.h"
 
+#include <algorithm>
+
+#include <spdlog/spdlog.h>
+
 #include "Audio/Audio.h"
 #include "ECS/Components/Abode.h"
+#include "ECS/Components/Fragment.h"
+#include "ECS/Components/Life.h"
 #include "ECS/Components/Mesh.h"
+#include "ECS/Components/StoragePit.h"
+#include "ECS/Components/Transform.h"
+#include "ECS/MapCells.h"
+#include "ECS/Physics/Buildings.h"
+#include "ECS/Physics/CollisionSounds.h"
 #include "ECS/Registry.h"
+#include "ECS/Town/AbodeVillagers.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Resources/ResourceManager.h"
@@ -80,4 +92,74 @@ void abodes::InterfaceTap(entt::entity abode, const glm::vec3& handPosition)
 	options.track = false;
 	options.position = handPosition;
 	audio::PlaySoundEffect(options);
+}
+
+// ---- life and damage (moved unchanged from ECS/Physics/Buildings.cpp, session Edificios) ----------------------
+
+void abodes::StopBeingFunctional(entt::entity building)
+{
+	// TODO: villagers leave, stores' piles come loose, the town's emergency, a repair site (Abode::ReduceLife 0x405D90)
+	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Buildings: {} no longer works", static_cast<uint32_t>(building));
+}
+
+void abodes::DestroyedByEffect(entt::entity building)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Buildings: {} destroyed", static_cast<uint32_t>(building));
+	// Abode::RemoveAllVillagersFromAbode 0x404560: Villager::HomeDeleted 0x7611F0 of each (MakeHomeless: out of the
+	// abode, the town's homeless list, 129 HOMELESS_START)
+	if (registry.AllOf<Abode>(building))
+	{
+		ecs::abode_villagers::RemoveAllVillagersFromAbode(building);
+	}
+	if (const auto* pit = registry.TryGet<const StoragePit>(building))
+	{
+		for (const auto pile : pit->woodPiles)
+		{
+			if (registry.Valid(pile))
+			{
+				ecs::map_cells::RemoveMapObject(pile); // CleanupWhenDeleted 0x6377F0: RemoveMapObject vt +0x548
+				registry.Destroy(pile);
+			}
+		}
+		if (registry.Valid(pit->foodPile))
+		{
+			ecs::map_cells::RemoveMapObject(pit->foodPile); // CleanupWhenDeleted 0x6377F0, vt +0x548
+			registry.Destroy(pit->foodPile);
+		}
+	}
+	physics::Buildings::OnBuildingDeleted(building);
+	// CleanupWhenDeleted 0x6377F0: RemoveMapObject vt +0x548 (MultiMapFixed 0x52E7B0), out of all its cells
+	ecs::map_cells::RemoveMapObject(building);
+	registry.Destroy(building);
+	registry.SetDirty();
+}
+
+bool abodes::OnPhysicalDamage(entt::entity building, const PhysicalDamage& hit)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	// 0x406640..0x40671D: SamplePlayAnimEffect(this, the camera's distance, {1, 0, 0x16, 9, 75}, 0, editor.sad, track 0)
+	// (G_Crash_Abode_01..09 in editor.sad's table)
+	physics::CollisionSounds::PlayAnimEffect({1, 0, 0x16, 9, 75}, building, registry.Get<const Transform>(building).position, false);
+	auto& life = registry.AllOf<Life>(building) ? registry.Get<Life>(building) : registry.Assign<Life>(building);
+	const float before = life.value;
+	if (auto* damage = registry.TryGet<BuildingDamage>(building); damage != nullptr && hit.remaining)
+	{
+		life.value = std::min(life.value, *hit.remaining);
+		// Abode::ReduceLife 0x405D90: a repair site whose baseline is 1.1 x life - 0.1
+		damage->repairBase = 1.1f * life.value - 0.1f;
+	}
+	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Buildings: {} hit, life {:.2f} -> {:.2f}", static_cast<uint32_t>(building), before,
+	                   life.value);
+	// TODO: GAlignment::Update (an evil act), Town::UpdateAggressor, GPlayer::DamageFromPlayer, creature mimic
+	if (before >= 0.75f && life.value < 0.75f) // info.dat ThresholdForStopBeingFunctional
+	{
+		StopBeingFunctional(building);
+	}
+	if (life.value <= 0.0f)
+	{
+		DestroyedByEffect(building);
+		return false;
+	}
+	return true;
 }

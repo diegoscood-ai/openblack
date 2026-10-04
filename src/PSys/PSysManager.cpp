@@ -20,6 +20,10 @@
 #include <memory>
 #include <optional>
 #include <string_view>
+#include <deque>
+#include <iterator>
+#include <list>
+#include <tuple>
 #include <unordered_map>
 
 #include <spdlog/spdlog.h>
@@ -104,6 +108,7 @@ struct Running
 	std::unique_ptr<Effect> effect;
 	bool ownedBySpell {false}; ///< stepped by its spell (StartForSpell), not by ProcessTurn
 	bool perFrame {false};     ///< stepped every frame (the hand's and the interface's effects): drawn as last stepped
+	bool inContainer {false};  ///< a GParticleContainer's (CreateSpotVisual): stepped by its container in ProcessTurn
 	DrawPath path {DrawPath::Sorted}; ///< SetDrawPath; Spell::Draw's Draw_(1) (0x720441) until changed
 };
 
@@ -116,8 +121,60 @@ struct Container
 	bool hadOwner {false};
 };
 
-std::unordered_map<uint32_t, Running> g_Effects;
-std::vector<Container> g_Containers;
+/// The running effects in the order the original's owner lists walk them: every one of them (GParticleContainer
+/// fn_0063E0F0 0x63E151, Spell 0x71FC4C, MapShield 0x72C0AC, the seed graphics 0x726E70, the vortices 0x5FEA49) puts
+/// a new one at the head and walks from the head, so the newest comes first; looked up by id. (openblack had an
+/// unordered_map: stepped and drawn in hash order)
+class EffectList
+{
+public:
+	using List = std::list<std::pair<const uint32_t, Running>>;
+	using iterator = List::iterator;
+
+	/// the effect of `id`, made at the head when there is none
+	Running& operator[](uint32_t id)
+	{
+		if (const auto it = find(id); it != end())
+		{
+			return it->second;
+		}
+		_list.emplace_front(std::piecewise_construct, std::forward_as_tuple(id), std::forward_as_tuple());
+		_index[id] = _list.begin();
+		return _list.front().second;
+	}
+	iterator find(uint32_t id)
+	{
+		const auto it = _index.find(id);
+		return it == _index.end() ? _list.end() : it->second;
+	}
+	iterator erase(iterator it)
+	{
+		_index.erase(it->first);
+		return _list.erase(it);
+	}
+	void erase(uint32_t id)
+	{
+		if (const auto it = find(id); it != end())
+		{
+			erase(it);
+		}
+	}
+	void clear()
+	{
+		_list.clear();
+		_index.clear();
+	}
+	iterator begin() { return _list.begin(); }
+	iterator end() { return _list.end(); }
+
+private:
+	List _list;
+	std::unordered_map<uint32_t, iterator> _index;
+};
+
+EffectList g_Effects;
+/// GParticleContainer's list (g_game +0x205BCC, next +0x3C): a new one at the head (fn_0063E0F0 0x63E151..0x63E168)
+std::deque<Container> g_Containers;
 uint32_t g_NextId = 1;
 bool g_DebugDone = false;
 } // namespace
@@ -272,7 +329,8 @@ entt::entity CreateSpotVisualFor(int spotVisual, glm::vec3 position, std::option
 	const auto object = registry.Create();
 	registry.Assign<ecs::components::Transform>(object, position, glm::mat3(1.0f), glm::vec3(1.0f));
 	const int life = turns.value_or(info.life);
-	g_Containers.push_back({id, object, owner, life, owner != entt::null});
+	g_Effects[id].inContainer = true;
+	g_Containers.push_front({id, object, owner, life, owner != entt::null});
 	SPDLOG_LOGGER_INFO(spdlog::get("game"), "PSys: spot visual {} ({}) at ({:.1f}, {:.1f}, {:.1f}) for {} turns", spotVisual,
 	                   info.file, position.x, position.y, position.z, life);
 	return object;
@@ -317,6 +375,23 @@ void manager::CloseSpotVisual(entt::entity object)
 void manager::ProcessTurn(float turnSeconds)
 {
 	auto& registry = Locator::entitiesRegistry::value();
+	static const bool trace = std::getenv("OPENBLACK_PSYS_TRACE") != nullptr;
+	static uint32_t turn = 0;
+	++turn;
+	// Process_ returns 5 (delete) when finished, or at once on close-down with DeleteOnCloseDown
+	const auto step = [turnSeconds](uint32_t id, Effect& effect) {
+		effect.Step(turnSeconds);
+		if (trace && turn % 20 == 0)
+		{
+			SPDLOG_LOGGER_INFO(spdlog::get("game"), "PSys trace: effect {} {} age {:.1f} atoms {} closing {}", id,
+			                   effect.GetFile().name, effect.GetAge(), effect.AtomCount(), effect.Closing());
+		}
+		return effect.Finished() || (effect.Closing() && effect.DeleteOnCloseDown());
+	};
+	// GParticleContainer::ProcessParticleContainers 0x63E090: from the head (the newest, fn_0063E0F0 0x63E151..0x63E168),
+	// the next taken first (0x63E0A3); each container's Process 0x63E280 closes its effect when its owner has gone or its
+	// turns are over, sets its origin and steps it (Process_, 0x6736B0); 5 (finished) deletes the container
+	// (ToBeDeleted 0x63E1D0) with its effect
 	for (auto it = g_Containers.begin(); it != g_Containers.end();)
 	{
 		const auto effect = g_Effects.find(it->effect);
@@ -339,6 +414,8 @@ void manager::ProcessTurn(float turnSeconds)
 		{
 			effect->second.effect->CloseDown();
 		}
+		// (pending) 0x63E2F9 sets the container's own stored position (+0x14); openblack follows the owner's Transform
+		// while it has one: who moves the container in the original (0x63E3E0's callers) is not read yet
 		if (it->hadOwner && !ownerGone)
 		{
 			if (const auto* transform = registry.TryGet<const ecs::components::Transform>(it->owner); transform != nullptr)
@@ -353,27 +430,29 @@ void manager::ProcessTurn(float turnSeconds)
 				effect->second.effect->SetOrigin(transform->position);
 			}
 		}
+		if (step(effect->first, *effect->second.effect))
+		{
+			g_Effects.erase(effect);
+			if (registry.Valid(it->object))
+			{
+				registry.Destroy(it->object);
+			}
+			it = g_Containers.erase(it);
+			continue;
+		}
 		++it;
 	}
-	static const bool trace = std::getenv("OPENBLACK_PSYS_TRACE") != nullptr;
-	static uint32_t turn = 0;
-	++turn;
+	// The effects of no container and no spell (the spell dispensers', the flying flock's cast, a test effect): stepped
+	// here once a turn, newest first. (pending) the original steps those two in their owner's Draw with the frame's ms
+	// (SpellDispenser::Draw 0x722940 0x7229FE, FlockFlying::Draw 0x724100 0x7241D1; documentacion/motor/psys_order.md)
 	for (auto it = g_Effects.begin(); it != g_Effects.end();)
 	{
-		if (it->second.ownedBySpell)
+		if (it->second.ownedBySpell || it->second.inContainer)
 		{
 			++it;
 			continue;
 		}
-		auto& effect = *it->second.effect;
-		effect.Step(turnSeconds);
-		if (trace && turn % 20 == 0)
-		{
-			SPDLOG_LOGGER_INFO(spdlog::get("game"), "PSys trace: effect {} {} age {:.1f} atoms {} closing {}", it->first,
-			                   effect.GetFile().name, effect.GetAge(), effect.AtomCount(), effect.Closing());
-		}
-		// Process_ returns 5 (delete) when finished, or at once on close-down with DeleteOnCloseDown
-		if (effect.Finished() || (effect.Closing() && effect.DeleteOnCloseDown()))
+		if (step(it->first, *it->second.effect))
 		{
 			it = g_Effects.erase(it);
 			continue;
@@ -408,7 +487,8 @@ void manager::RunDebugHooks()
 			auto& registry = Locator::entitiesRegistry::value();
 			const auto object = registry.Create();
 			registry.Assign<ecs::components::Transform>(object, glm::vec3(x, ground + height, z), glm::mat3(1.0f), glm::vec3(1.0f));
-			g_Containers.push_back({id, object, entt::null, game_clock::TicksForSeconds(seconds), false});
+			g_Effects[id].inContainer = true;
+			g_Containers.push_front({id, object, entt::null, game_clock::TicksForSeconds(seconds), false});
 		}
 	}
 }

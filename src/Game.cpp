@@ -1869,9 +1869,6 @@ void Game::LoadLandscape(const std::filesystem::path& path)
 	// There is always a player active
 	Locator::playerSystem::value().AddPlayer(ecs::archetypes::PlayerArchetype::Create(PlayerNames::PLAYER_ONE));
 
-	// There is always at least one player active.
-	ecs::archetypes::PlayerArchetype::Create(PlayerNames::PLAYER_ONE);
-
 	Locator::cameraBookmarkSystem::value().Initialize();
 	Locator::dynamicsSystem::value().RegisterIslandRigidBodies(Locator::terrainSystem::value());
 	Locator::playerSystem::value().RegisterPlayers();

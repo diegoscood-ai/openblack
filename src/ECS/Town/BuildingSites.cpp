@@ -13,6 +13,7 @@
 #include <array>
 #include <bit>
 #include <cmath>
+#include <limits>
 
 #include <glm/gtc/constants.hpp>
 #include <glm/mat4x4.hpp>
@@ -26,11 +27,14 @@
 #include "ECS/Abodes.h"
 #include "ECS/AnimalAI.h"
 #include "ECS/Archetypes/AbodeArchetype.h"
+#include "ECS/Archetypes/CitadelArchetype.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/BuildingSite.h"
 #include "ECS/Components/Mesh.h"
+#include "ECS/Components/Temple.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
+#include "ECS/Components/WorshipSite.h"
 #include "ECS/GUtilsAngle.h"
 #include "ECS/GUtilsDistance.h"
 #include "ECS/Life.h"
@@ -80,6 +84,24 @@ Town* TownComponent(entt::entity town)
 {
 	auto& registry = Entities();
 	return town != entt::null && registry.Valid(town) ? registry.TryGet<Town>(town) : nullptr;
+}
+
+/// The CitadelBuildingSite part of a site, null for a StandardBuildingSite
+CitadelBuildingSite* CitadelSiteComponent(entt::entity site)
+{
+	auto& registry = Entities();
+	return site != entt::null && registry.Valid(site) ? registry.TryGet<CitadelBuildingSite>(site) : nullptr;
+}
+
+/// A PlannedTownCitadelHeart's GCitadelHeartInfo (+0x40); null for any other plan
+const GCitadelHeartInfo* HeartInfoOf(entt::entity town, plans::PlanIndex plan)
+{
+	const auto* t = TownComponent(town);
+	if (t == nullptr || plan >= t->plannedAbodes.size() || !t->plannedAbodes.at(plan).citadelHeart)
+	{
+		return nullptr;
+	}
+	return &archetypes::CitadelArchetype::HeartInfo(t->plannedAbodes.at(plan).heartInfo);
 }
 
 // ---- constants (W120) ---------------------------------------------------------------------------------------------
@@ -144,6 +166,16 @@ constexpr uint32_t k_AbodeMask = 2;
 constexpr bool k_FootballEnabled = false;
 /// TownDesire info 14 (ToBuildWonder) for GetDesireToBeBuilt's case 0x100
 constexpr auto k_WonderDesire = TownDesireInfo::ToBuildWonder;
+/// CitadelBuildingSite::GetResourcePosAndYAngle 0x43D470: GetWorshipSiteAngle(index) - 1.1424 ([0x8C6DEC] =
+/// 0x3F923A14), GetPosFromAngle(that, 22.0) (`push 0x41B00000`, 0x43D4B9)
+constexpr float k_CitadelPileAngle = std::bit_cast<float>(0x3F923A14u);
+constexpr float k_CitadelPileMetres = std::bit_cast<float>(0x41B00000u);
+/// Citadel::GetWorshipSiteAngle 0x463610: the heart's Y angle (vt +0x508) + slot x 0.897598 ([0x8C836C] = 0x3F65C8FA,
+/// 2 pi / 7)
+constexpr float k_WorshipSlotAngle = std::bit_cast<float>(0x3F65C8FAu);
+/// StandardBuildingSite::GetResourcePosAndYAngle 0x43C24D..0x43C25D: a worship site's pile at the local point (9, 0,
+/// -50) (0x41100000, 0, 0xC2480000)
+constexpr glm::vec3 k_WorshipSitePile {9.0f, 0.0f, -50.0f};
 
 /// Town +0x740, the town's totem (read by GetDesireToBeBuilt's cases 0x14 / 0x404). (pending) its writer is not read
 /// (inferred: Totem::MakeFunctional); openblack keeps none: null
@@ -413,6 +445,11 @@ const GAbodeInfo* plans::InfoOf(entt::entity town, PlanIndex plan)
 
 AbodeType plans::GetAbodeType(entt::entity town, PlanIndex plan)
 {
+	// PlannedTownCitadelHeart 0x467E30 = 0x804 (bit 2: GetBestPlanned's mask 4 takes it)
+	if (HeartInfoOf(town, plan) != nullptr)
+	{
+		return AbodeType::Citadel;
+	}
 	// PlannedAbode 0x4061E0 = info +0x120 (PlannedMultiMapFixed's 0x465570 = 1 is never a town's plan here)
 	const auto* info = InfoOf(town, plan);
 	return info != nullptr ? info->abodeType : AbodeType::General;
@@ -425,6 +462,10 @@ bool plans::IsCivic(entt::entity town, PlanIndex plan)
 	{
 		return false;
 	}
+	if (t->plannedAbodes.at(plan).citadelHeart)
+	{
+		return false; // PlannedTownCitadelHeart::IsCivic 0x467E10 (`xor eax, eax`)
+	}
 	if (t->plannedAbodes.at(plan).townCentre)
 	{
 		return true; // PlannedTownCentre::IsCivic 0x55DBE0
@@ -434,8 +475,12 @@ bool plans::IsCivic(entt::entity town, PlanIndex plan)
 
 float plans::GetDesireToBeRepaired(entt::entity town, PlanIndex plan)
 {
-	// 0x648910: +0x30 ? info +0x118 : 0.0
+	// 0x648910: +0x30 ? info +0x118 : 0.0 (a PlannedTownCitadelHeart's info: its GCitadelHeartInfo)
 	const auto* t = TownComponent(town);
+	if (const auto* heart = HeartInfoOf(town, plan); heart != nullptr)
+	{
+		return t->plannedAbodes.at(plan).wasBuilt ? heart->desireToBeRepaired : 0.0f;
+	}
 	const auto* info = InfoOf(town, plan);
 	if (t == nullptr || info == nullptr || !t->plannedAbodes.at(plan).wasBuilt)
 	{
@@ -446,14 +491,21 @@ float plans::GetDesireToBeRepaired(entt::entity town, PlanIndex plan)
 
 float plans::GetDesireToBeBuilt(entt::entity town, const GAbodeInfo& info, uint32_t scaffolds)
 {
+	return GetDesireToBeBuilt(town, info, info.abodeType, &info, scaffolds);
+}
+
+float plans::GetDesireToBeBuilt(entt::entity town, const GMultiMapFixedInfo& info, AbodeType abodeType,
+                                const GAbodeInfo* abode, uint32_t scaffolds)
+{
 	auto* t = TownComponent(town);
 	if (t == nullptr)
 	{
 		return 0.0f;
 	}
-	// 0x73A1AC b = info +0x114; 0x73A1BF type = info->GetAbodeType() (vt +0x40)
+	// 0x73A1AC b = info +0x114; 0x73A1BF type = info->GetAbodeType() (vt +0x40: a GAbodeInfo's +0x120, the citadel
+	// heart's 0x464380 = 0x804)
 	float b = info.desireToBeBuilt;
-	const auto type = static_cast<uint32_t>(info.abodeType);
+	const auto type = static_cast<uint32_t>(abodeType);
 	// 0x73A1C2..0x73A1EC: s = the sites (+0x790) whose building's GetAbodeType (vt +0x8C4) is the type
 	uint32_t s = 0;
 	for (const auto site : t->buildingSites)
@@ -481,6 +533,10 @@ float plans::GetDesireToBeBuilt(entt::entity town, const GAbodeInfo& info, uint3
 	{
 	case 0x2: // LIVING_QUARTERS 0x73A2EF
 	{
+		if (abode == nullptr)
+		{
+			break; // (openblack, guard) only a GAbodeInfo has this type
+		}
 		// freePlaces = stats +0x4C (town +0x65C) - town +0x76C (the homeless), signed
 		const int32_t freePlaces = t->stats.freeAdultPlaces - static_cast<int32_t>(t->homelessVillagers.size());
 		// u = (adults + children) / 10 + 1, unsigned (div by 0xCCCCCCCD >> 3)
@@ -495,7 +551,7 @@ float plans::GetDesireToBeBuilt(entt::entity town, const GAbodeInfo& info, uint3
 			const float v = std::min(b - static_cast<float>(freePlaces) / static_cast<float>(u), k_HouseCap);
 			const auto q = static_cast<uint32_t>(
 			    map_coords::FtoL(-std::max(static_cast<float>(freePlaces), k_HouseShortageFloor)));
-			const uint32_t maxVillagers = info.maxVillagersInAbode; // +0x174
+			const uint32_t maxVillagers = abode->maxVillagersInAbode; // +0x174
 			// unsigned compare (jbe)
 			const auto qf = static_cast<float>(q);
 			const auto mf = static_cast<float>(maxVillagers);
@@ -503,7 +559,7 @@ float plans::GetDesireToBeBuilt(entt::entity town, const GAbodeInfo& info, uint3
 			b = (share + k_HouseBase) * v;
 		}
 		// 0x73A3F4..0x73A43D: m = byte stats +0x108[GetAbodeNumber vt +0x44]; b -= b / max(m + 1, 10) x m
-		const auto number = static_cast<size_t>(static_cast<int32_t>(info.abodeNumber));
+		const auto number = static_cast<size_t>(static_cast<int32_t>(abode->abodeNumber));
 		const float m =
 		    number < t->stats.abodesByNumber.size() ? static_cast<float>(t->stats.abodesByNumber.at(number)) : 0.0f;
 		b = b - b / std::max(m + 1.0f, k_HouseCountFloor) * m;
@@ -623,12 +679,20 @@ std::optional<plans::PlanIndex> plans::GetBestPlanned(entt::entity town, float& 
 		{
 			continue;
 		}
-		const auto* info = InfoOf(town, i);
-		if (info == nullptr)
+		// GetDesireToBeBuilt(+0x40, 0): a PlannedTownCitadelHeart's info is its GCitadelHeartInfo (type 0x804)
+		float d = 0.0f;
+		if (const auto* heart = HeartInfoOf(town, i); heart != nullptr)
+		{
+			d = GetDesireToBeBuilt(town, *heart, AbodeType::Citadel, nullptr, 0);
+		}
+		else if (const auto* info = InfoOf(town, i); info != nullptr)
+		{
+			d = GetDesireToBeBuilt(town, *info, 0);
+		}
+		else
 		{
 			continue;
 		}
-		const float d = GetDesireToBeBuilt(town, *info, 0);
 		if (d > best) // test ah, 0x41 jne: strict, the first on ties
 		{
 			best = d;
@@ -657,9 +721,18 @@ std::optional<plans::PlanIndex> plans::GetPlannedAtPos(entt::entity town, const 
 			continue;
 		}
 		const auto* info = InfoOf(town, i);
-		// fn_636E30(info, scale): scale x max(mesh +0x24, mesh +0x2C) of the info's mesh (vt +0x2C, MeshPack 0xE9FE34)
-		const float radius =
-		    info != nullptr ? object::MeshRadius2D(resources::HashIdentifier(info->meshId), plan.scale) : 0.0f;
+		const auto* heart = HeartInfoOf(town, i);
+		// fn_636E30(info, scale): scale x max(mesh +0x24, mesh +0x2C) of the info's mesh (vt +0x2C, MeshPack 0xE9FE34;
+		// the citadel heart's GetMesh 0x464370 = info +0x124)
+		float radius = 0.0f;
+		if (heart != nullptr)
+		{
+			radius = object::MeshRadius2D(resources::HashIdentifier(heart->meshType), plan.scale);
+		}
+		else if (info != nullptr)
+		{
+			radius = object::MeshRadius2D(resources::HashIdentifier(info->meshId), plan.scale);
+		}
 		const float v = gutils::GetDistanceInMetres(pos, PlanCoords(plan)) - (radius + r);
 		if (v <= best) // test ah, 0x41; je skips only v > best: the LAST one on ties
 		{
@@ -672,6 +745,11 @@ std::optional<plans::PlanIndex> plans::GetPlannedAtPos(entt::entity town, const 
 
 entt::entity plans::CreatePlanned(entt::entity town, PlanIndex plan, float life)
 {
+	// PlannedTownCitadelHeart::CreatePlanned 0x467EA0
+	if (HeartInfoOf(town, plan) != nullptr)
+	{
+		return archetypes::CitadelArchetype::CreatePlanned(town, plan, life);
+	}
 	const auto* t = TownComponent(town);
 	const auto* info = InfoOf(town, plan);
 	if (t == nullptr || info == nullptr)
@@ -694,9 +772,14 @@ entt::entity plans::CreatePlannedNoFixedCheck(entt::entity town, PlanIndex plan,
 	{
 		return entt::null;
 	}
+	// PlannedTownCitadelHeart::CreatePlannedNoFixedCheck 0x467EF0 (the life passed on to CitadelHeart::Create)
+	if (t->plannedAbodes.at(plan).citadelHeart)
+	{
+		return archetypes::CitadelArchetype::CreatePlannedNoFixedCheck(town, plan, life);
+	}
 	const PlannedAbode p = t->plannedAbodes.at(plan);
 	const uint32_t townId = t->id;
-	// TODO(H3): a PlannedTownCitadelHeart converts by 0x467EF0 (citadel_plan_spec.md §2.2), not here 1. PlannedAbode
+	// 1. PlannedAbode
 	// 0x4057AC: Abode::Create(&+0x14, info, town, angle, GetScale, food 0, wood 0, life, 1, 1) 0x402E20 -> the class
 	// ctor -> MultiMapFixed ctor 0x52E1E0(..., percent = life, underConstruction = 1), Abode::Init (food and wood 0; no
 	// MakeFunctional as it is not built) and CreateAbodeSurroundingObjects 0x403E00. PlannedTownCentre 0x744550:
@@ -786,6 +869,12 @@ entt::entity building_sites::Create(entt::entity building)
 	{
 		a->buildingSite = site;
 	}
+	// a CitadelPart (the citadel heart, a worship site) keeps its +0x58 / +0x74 in components::CitadelPartBuild
+	if (auto* part = registry.TryGet<CitadelPartBuild>(building); part != nullptr)
+	{
+		s.isRepairSite = (part->buildFlags & CitadelPartBuild::k_NotRepaired) != 0;
+		part->buildingSite = site;
+	}
 	// +0x640 = GetLife (vt +0x11C); no DestructionMesh (vt +0x8B4) and IsBuilt -> 1.1 x life - 0.1
 	const float life = life::LifeOf(building);
 	s.repairBase = life;
@@ -797,12 +886,44 @@ entt::entity building_sites::Create(entt::entity building)
 	ComputeRing(site);
 	// (openblack) IsDrawBuilding holds from now on: the partly built model
 	abodes::RedrawConstruction(building);
+	// CitadelHeart::CreateBuildingSite 0x468DC0 (`new 0x65C`, CitadelHeart.cpp line 0x922): CitadelBuildingSite
+	// (MultiMapFixed*) 0x43D1E0 = this ctor, then CreatePilesOfWood 0x43D2A0. Any other building (a worship site too:
+	// MultiMapFixed::CreateBuildingSite 0x52F590) gets a StandardBuildingSite
+	if (registry.AllOf<CitadelHeart>(building))
+	{
+		registry.Assign<CitadelBuildingSite>(site);
+		CreatePilesOfWood(site);
+	}
 	return site;
 }
 
 void building_sites::ToBeDeleted(entt::entity site)
 {
 	auto& registry = Entities();
+	// CitadelBuildingSite::ToBeDeleted 0x43D220 first, for each of the six slots: SetMultiMapFixed(0) (vt +0x868); with
+	// wood (JustGetResource(WOOD) vt +0x94) and !(g_game +0x14 & 0x8000) Pot::SetupReaction 0x66D660, else its
+	// ToBeDeleted; SetPileWood(0) (vt +0x10C, the no-op 0x43D180: the slots keep the piles, literal). Then
+	// BuildingSite::ToBeDeleted 0x43B960 (below), whose pile step finds GetPileWood(0) = 0
+	if (auto* citadelSite = CitadelSiteComponent(site); citadelSite != nullptr)
+	{
+		citadelSite->pilesUnlinked = true;
+		const auto piles = citadelSite->piles;
+		for (const auto pile : piles)
+		{
+			if (pile == entt::null || !registry.Valid(pile))
+			{
+				continue; // (openblack, guard) a pile already gone
+			}
+			if (object_resources::GetResource(pile, ResourceType::Wood) != 0)
+			{
+				animal_ai::SetupPotReaction(pile);
+			}
+			else
+			{
+				DeletePile(pile);
+			}
+		}
+	}
 	auto* s = SiteComponent(site);
 	// 1. +0xA & 1 -> return. (approximate) the bit is set first here (GameThing::ToBeDeleted sets it at step 9): the
 	//    villagers' exit functions run below and may come back to this site
@@ -879,6 +1000,10 @@ void building_sites::ToBeDeleted(entt::entity site)
 		{
 			a->buildingSite = entt::null;
 		}
+		if (auto* part = registry.Valid(root) ? registry.TryGet<CitadelPartBuild>(root) : nullptr; part != nullptr)
+		{
+			part->buildingSite = entt::null;
+		}
 		s->root = entt::null;
 		abodes::RedrawConstruction(root); // (openblack) IsDrawBuilding no longer holds
 	}
@@ -909,6 +1034,20 @@ bool building_sites::IsAvailable(entt::entity site)
 
 void building_sites::Process(entt::entity site)
 {
+	// CitadelBuildingSite::Process 0x43D660: each slot whose pile's IsAvailable (vt +0x2C) != 1 -> 0. (inferred) not
+	// reached in the original: CitadelHeart::Process 0x4665A0 does not call MultiMapFixed::Process 0x52F700, the only
+	// caller of a site's Process found
+	if (auto* citadelSite = CitadelSiteComponent(site); citadelSite != nullptr)
+	{
+		for (auto& pile : citadelSite->piles)
+		{
+			if (pile != entt::null && !Entities().Valid(pile))
+			{
+				pile = entt::null;
+			}
+		}
+		return;
+	}
 	// StandardBuildingSite::Process 0x43D8D0: +0x644 && its IsAvailable != 1 -> +0x644 = 0
 	if (auto* s = SiteComponent(site); s != nullptr && s->woodPile != entt::null && !Entities().Valid(s->woodPile))
 	{
@@ -1179,10 +1318,7 @@ void building_sites::ForceBuildingOfPlannedAtPos(const map_coords::MapCoords& po
 		{
 			if (const auto site = AddBuildingSiteNoFixedCheck(town, *plan); site != entt::null)
 			{
-				if (auto* s = SiteComponent(site); s != nullptr)
-				{
-					s->desireBoost = desire; // +0x63C (raw float)
-				}
+				SetDesireBoost(site, desire);
 			}
 		}
 		return true;
@@ -1242,7 +1378,8 @@ entt::entity building_sites::GetBuilding(entt::entity site)
 
 entt::entity building_sites::GetTown(entt::entity site)
 {
-	// 0x43C0B0: root ? root->GetTown() : 0. TODO(H3): CitadelHeart::GetTown 0x4220A0 = 0
+	// 0x43C0B0: root ? root->GetTown() : 0. The citadel heart's and a worship site's GetTown are MultiMapFixed's
+	// 0x4220A0 = 0: TownOf answers null for anything that is not an abode
 	const auto root = GetRootBuilding(site);
 	return root != entt::null && Entities().Valid(root) ? abode_villagers::TownOf(root) : entt::null;
 }
@@ -1257,7 +1394,7 @@ int32_t building_sites::GetMaxBuilders(entt::entity site)
 {
 	// fn_43BBD0: GetBuilding ? info +0x110 : 0
 	const auto building = GetBuilding(site);
-	const auto* info = building != entt::null ? abodes::InfoOf(building) : nullptr;
+	const auto* info = building != entt::null ? abodes::MultiMapFixedInfoOf(building) : nullptr;
 	return info != nullptr ? static_cast<int32_t>(info->maxVillagerNeededToBuild) : 0;
 }
 
@@ -1348,17 +1485,14 @@ float building_sites::GetWoodValue(entt::entity site)
 {
 	// 0x43C0C0: (float)(uint32) info +0x6C x GetScale (vt +0x120) / GetPlayer (vt +0x1C) +0x7C (TribalPower[5])
 	const auto building = GetBuilding(site);
-	const auto* info = building != entt::null ? abodes::InfoOf(building) : nullptr;
+	const auto* info = building != entt::null ? abodes::MultiMapFixedInfoOf(building) : nullptr;
 	if (info == nullptr)
 	{
 		return 0.0f;
 	}
-	// (inferred) the site's player is its town's owner (BuildingSite's GetPlayer not read); no town: 1
-	float power = 1.0f;
-	if (const auto* t = TownComponent(GetTown(site)); t != nullptr)
-	{
-		power = magic::players::MagicOf(t->owner).tribalPower.at(5);
-	}
+	// the site's GetPlayer (vt +0x1C, 0x43C0FE) is GameThing::GetPlayer 0x570130 = g_game +0x18 + 0xA60 x byte g_game
+	// +0x205A5B: the neutral player, for every site
+	const float power = magic::players::MagicOf(PlayerNames::NEUTRAL).tribalPower.at(5);
 	return static_cast<float>(info->woodValue) * object::GetScale(building) / power;
 }
 
@@ -1448,6 +1582,20 @@ bool building_sites::ShouldIGetWood(entt::entity site, entt::entity villager,
 
 uint32_t building_sites::GetResource(entt::entity site, ResourceType type)
 {
+	// CitadelBuildingSite::GetResource 0x43D320: the sum of the six slots' JustGetResource(type, 0, 0) (vt +0x94; no
+	// IsAvailable test: openblack skips a pile already gone)
+	if (const auto* citadelSite = CitadelSiteComponent(site); citadelSite != nullptr)
+	{
+		uint32_t sum = 0;
+		for (const auto pile : citadelSite->piles)
+		{
+			if (pile != entt::null && Entities().Valid(pile))
+			{
+				sum += object_resources::GetResource(pile, type);
+			}
+		}
+		return sum;
+	}
 	// 0x43C5B0: pile ? pile->JustGetResource(type, 0, 0) (vt +0x94) : 0. A site pile answers its own amount through
 	// object_resources::GetResource (PotStructure::GetResource 0x66EF47)
 	const auto pile = GetPileWood(site, nullptr);
@@ -1462,6 +1610,27 @@ uint32_t building_sites::GetWoodForStats(entt::entity site)
 uint32_t building_sites::AddResource(entt::entity site, ResourceType type, uint32_t amount,
                                      [[maybe_unused]] const map_coords::MapCoords* pos, bool poisoned)
 {
+	// CitadelBuildingSite::AddResource 0x43D360: pos NULL -> nothing (0x43D370); else the nearest slot
+	// (GetPileWood(pos) vt +0x108), none -> CreatePilesOfWood and once more; JustAddResource(type, n, poisoned) (vt
+	// +0x8C, any type); then GetTown (0 for the heart's site) +0x710 += it
+	if (CitadelSiteComponent(site) != nullptr)
+	{
+		uint32_t taken = 0;
+		if (pos != nullptr)
+		{
+			auto pile = GetPileWood(site, pos);
+			if (pile == entt::null)
+			{
+				CreatePilesOfWood(site);
+				pile = GetPileWood(site, pos);
+			}
+			if (pile != entt::null && Entities().Valid(pile))
+			{
+				taken = pot_resource::JustAddResource(pile, type, amount, poisoned);
+			}
+		}
+		return taken;
+	}
 	// 0x43C490: added = 0; WOOD: no pile -> CreatePileWood; an available pile -> JustAddResource (vt +0x8C)
 	uint32_t added = 0;
 	if (type == ResourceType::Wood)
@@ -1480,8 +1649,41 @@ uint32_t building_sites::AddResource(entt::entity site, ResourceType type, uint3
 	return added;
 }
 
-uint32_t building_sites::RemoveResource(entt::entity site, ResourceType type, uint32_t amount)
+uint32_t building_sites::RemoveResource(entt::entity site, ResourceType type, uint32_t amount,
+                                        const map_coords::MapCoords* interfacePos)
 {
+	// CitadelBuildingSite::RemoveResource 0x43D3F0: with an interface (0x43D3F6) BuildingSite::RemoveResource 0x43C530
+	// (WOOD: GetPileWood(IS->GetPos()), the nearest slot, JustRemoveResource); without one the slots in order, each
+	// available pile JustRemoveResource(type, what is left, 0) (vt +0x90, any type) while something is left (0x43D422)
+	if (const auto* citadelSite = CitadelSiteComponent(site); citadelSite != nullptr)
+	{
+		uint32_t removed = 0;
+		if (interfacePos != nullptr)
+		{
+			if (const auto pile = GetPileWood(site, interfacePos);
+			    type == ResourceType::Wood && pile != entt::null && Entities().Valid(pile))
+			{
+				removed = object_resources::JustRemoveFromPot(pile, amount);
+			}
+			return removed;
+		}
+		const auto piles = citadelSite->piles;
+		uint32_t left = amount;
+		for (const auto pile : piles)
+		{
+			if (left == 0)
+			{
+				break; // test edi, edi; jbe
+			}
+			if (pile != entt::null && Entities().Valid(pile))
+			{
+				const uint32_t n = object_resources::JustRemoveFromPot(pile, left);
+				removed += n;
+				left -= n;
+			}
+		}
+		return removed;
+	}
 	// 0x43C530: WOOD: pile = GetPileWood(status ? status->vt +0x100 : 0) -> JustRemoveResource(WOOD, n, 0) (vt +0x90);
 	// the stats' -= (float) removed: recomputed
 	uint32_t removed = 0;
@@ -1621,8 +1823,35 @@ void building_sites::RemoveBuilder(entt::entity site, entt::entity villager)
 	}
 }
 
-entt::entity building_sites::GetPileWood(entt::entity site, [[maybe_unused]] const map_coords::MapCoords* pos)
+entt::entity building_sites::GetPileWood(entt::entity site, const map_coords::MapCoords* pos)
 {
+	// CitadelBuildingSite::GetPileWood 0x43D500: pos NULL -> 0; else the slot nearest to pos, GetDistance(pos, pile
+	// +0x14) (fn_74CCE0) as (float)(uint32) strictly below the best (FLT_MAX [0x8C6B50]: the first on ties; no
+	// IsAvailable test)
+	if (const auto* citadelSite = CitadelSiteComponent(site); citadelSite != nullptr)
+	{
+		if (pos == nullptr)
+		{
+			return entt::null;
+		}
+		entt::entity nearest = entt::null;
+		float best = std::numeric_limits<float>::max();
+		for (const auto pile : citadelSite->piles)
+		{
+			if (pile == entt::null || !Entities().Valid(pile))
+			{
+				continue; // (openblack, guard) a pile already gone
+			}
+			const auto whole = static_cast<uint32_t>(gutils::GetDistance(*pos, object::MapCoordsOf(pile)));
+			const auto d = static_cast<float>(whole);
+			if (d < best)
+			{
+				best = d;
+				nearest = pile;
+			}
+		}
+		return nearest;
+	}
 	const auto* s = SiteComponent(site);
 	return s != nullptr ? s->woodPile : entt::null; // 0x43D6E0: +0x644
 }
@@ -1640,6 +1869,17 @@ entt::entity building_sites::SiteOfPile(entt::entity pile)
 			found = site;
 		}
 	});
+	// CitadelBuildingSite::IsLinkedToThisBuildingSite 0x43D580: one of the six slots, while the piles are still linked
+	// to the heart (ToBeDeleted 0x43D220's SetMultiMapFixed(0) unlinks them)
+	if (found == entt::null)
+	{
+		Entities().Each<const CitadelBuildingSite>([pile, &found](entt::entity site, const CitadelBuildingSite& s) {
+			if (!s.pilesUnlinked && std::find(s.piles.begin(), s.piles.end(), pile) != s.piles.end())
+			{
+				found = site;
+			}
+		});
+	}
 	return found;
 }
 
@@ -1647,7 +1887,7 @@ void building_sites::CreatePileWood(entt::entity site)
 {
 	auto* s = SiteComponent(site);
 	// 0x43D760: a StandardBuildingSite (dynamic_cast), no pile (GetPileWood(0)) and IsAvailable
-	if (s == nullptr || s->woodPile != entt::null || !IsAvailable(site))
+	if (s == nullptr || CitadelSiteComponent(site) != nullptr || s->woodPile != entt::null || !IsAvailable(site))
 	{
 		return;
 	}
@@ -1671,6 +1911,29 @@ map_coords::MapCoords building_sites::GetResourcePosAndYAngle(entt::entity site,
 	auto& registry = Entities();
 	const auto root = GetRootBuilding(site);
 	const auto rootPos = object::MapCoordsOf(root);
+	// CitadelBuildingSite::GetResourcePosAndYAngle 0x43D470 (any type): root->GetCitadel() (vt +0x114) ->
+	// GetWorshipSiteAngle(index) 0x463610 - 1.1424, the root's MapCoords + GetPosFromAngle(that, 22.0) 0x74D580; the
+	// angle out-parameter is not written
+	if (CitadelSiteComponent(site) != nullptr)
+	{
+		// GetWorshipSiteAngle: the citadel's heart (+0x30) Y angle (vt +0x508) + (fild, unsigned) index x 2 pi / 7;
+		// fsub 1.1424, fstp (0x43D491..0x43D499). The game thread's x87 is at 24 bits (fn_007DEE00 0x7DEE0D): float
+		// steps
+		float heartAngle = 0.0f;
+		const auto* heart = registry.TryGet<const CitadelHeart>(root);
+		if (heart != nullptr && registry.Valid(heart->citadel))
+		{
+			if (const auto* worship = registry.TryGet<const CitadelWorship>(heart->citadel); worship != nullptr)
+			{
+				heartAngle = worship->heartYAngle;
+			}
+		}
+		const auto slot = static_cast<float>(static_cast<uint32_t>(index));
+		const float step = slot * k_WorshipSlotAngle;
+		const float sum = heartAngle + step;
+		const float a = sum - k_CitadelPileAngle;
+		return rootPos + gutils::GetPosFromAngle(a, k_CitadelPileMetres);
+	}
 	// 0x43C220: not WOOD -> angle 0, the root's position
 	if (type != ResourceType::Wood)
 	{
@@ -1680,8 +1943,20 @@ map_coords::MapCoords building_sites::GetResourcePosAndYAngle(entt::entity site,
 		}
 		return rootPos;
 	}
-	// WOOD and root->IsWorshipSite() (vt +0x304): the local point (9, 0, -50) through the root's matrix. An abode never
-	// is one. TODO(H3): the worship sites
+	// WOOD and root->IsWorshipSite() (vt +0x304, WorshipSite 0x55DCA0): the local point (9, 0, -50) through the root's
+	// 3D object matrix (0x43C26A..0x43C2CF) as a MapCoords (0x603160); the angle (when asked) its GetYAngle (vt +0x508)
+	if (const auto* worship = registry.TryGet<const WorshipSite>(root); worship != nullptr)
+	{
+		if (angle != nullptr)
+		{
+			*angle = worship->yAngle;
+		}
+		const auto* transform = registry.TryGet<const Transform>(root);
+		const glm::vec3 point = transform != nullptr
+		                            ? glm::vec3(lh_matrix::Model(*transform) * glm::vec4(k_WorshipSitePile, 1.0f))
+		                            : glm::vec3(0.0f);
+		return map_coords::FromWorld(point);
+	}
 	// WOOD with a pile: its position and Y angle
 	if (const auto pile = GetPileWood(site, nullptr); pile != entt::null && registry.Valid(pile))
 	{
@@ -1708,5 +1983,57 @@ map_coords::MapCoords building_sites::GetResourcePosAndYAngle(entt::entity site,
 		*angle = a - glm::pi<float>();
 	}
 	return rootPos + gutils::GetPosFromAngle(a, d);
+}
+
+bool building_sites::IsLinkedToThisBuildingSite(entt::entity site, entt::entity pot)
+{
+	if (pot == entt::null)
+	{
+		return false;
+	}
+	// CitadelBuildingSite 0x43D580: one of +0x644[0..5]
+	if (const auto* citadelSite = CitadelSiteComponent(site); citadelSite != nullptr)
+	{
+		return std::find(citadelSite->piles.begin(), citadelSite->piles.end(), pot) != citadelSite->piles.end();
+	}
+	// StandardBuildingSite 0x43D830: +0x644; BuildingSite 0x43D0A0: 0
+	const auto* s = SiteComponent(site);
+	return s != nullptr && s->woodPile == pot;
+}
+
+void building_sites::CreatePilesOfWood(entt::entity site)
+{
+	if (CitadelSiteComponent(site) == nullptr)
+	{
+		return;
+	}
+	for (int32_t i = 0; i < static_cast<int32_t>(CitadelBuildingSite::k_Piles); ++i)
+	{
+		// GetResourcePosAndYAngle(&pos, WOOD, i, &angle = 0) (vt +0x114, 0x43D2C9), every slot
+		float angle = 0.0f;
+		const auto pos = GetResourcePosAndYAngle(site, ResourceType::Wood, i, &angle);
+		const auto* citadelSite = CitadelSiteComponent(site);
+		const auto old = citadelSite->piles.at(static_cast<size_t>(i));
+		// a slot with an available pile (vt +0x2C == 1) keeps it
+		if (old != entt::null && Entities().Valid(old))
+		{
+			continue;
+		}
+		// Pot::Create 0x66CF10(pos, GPotInfo 0xD4D1C4 (9 "Magic Wood"), 0, GetBuilding(), town 0, 0, angle, 1.0, 1)
+		// (0x43D303): the MagicWood ctor 0x600E20 keeps neither the angle nor the scale (see CreatePileWood)
+		const auto pile = magic::objects::CreateMagicWood(map_coords::ToWorld(pos), std::nullopt, 0, true);
+		if (auto* again = CitadelSiteComponent(site); again != nullptr)
+		{
+			again->piles.at(static_cast<size_t>(i)) = pile;
+		}
+	}
+}
+
+void building_sites::SetDesireBoost(entt::entity site, float boost)
+{
+	if (auto* s = SiteComponent(site); s != nullptr)
+	{
+		s->desireBoost = boost; // +0x63C (raw float)
+	}
 }
 } // namespace openblack::ecs

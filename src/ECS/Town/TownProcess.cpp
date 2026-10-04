@@ -30,6 +30,7 @@
 #include "InfoConstants.h"
 #include "ECS/Villager/VillagerCore.h"
 #include "Locator.h"
+#include "Worship/Citadel.h"
 #include "Worship/WorshipPercentage.h"
 
 // Town.cpp of runblack.exe W120 (TownProcess.h)
@@ -219,7 +220,7 @@ void ProcessPlayers()
 	// not called here: openblack runs them for every town in milagros2's own turn hook (influence::ProcessTurn ->
 	// influence::ProcessTowns, InfluenceSources.cpp, inside magic::ProcessTurn). (aproximado) so the influence of the
 	// turn is computed after the desires instead of just before each town's; the desires do not read it
-	// GPlayer::ProcessPlayers 0x649A20 -> GPlayer::Process 0x6494E0: Citadel::Process (+0xA48, not ours), then each
+	// GPlayer::ProcessPlayers 0x649A20 -> GPlayer::Process 0x6494E0: Citadel::Process (+0xA48, 0x649525), then each
 	// town of +0xA50 (next +0x75C): Town::Process 0x649551. The player's alignment (0x6496C5) comes after its towns
 	// (For_Children reads the last turn's): ecs::effects::alignment::ProcessPlayers in magic::ProcessTurn
 	// GetNextPlayerAndNeutral 0x550980: the slots 0..7. A town taken over in its fold (step 19, TakeOverTown
@@ -231,6 +232,8 @@ void ProcessPlayers()
 	for (uint8_t p = 0; p < static_cast<uint8_t>(PlayerNames::_COUNT); ++p)
 	{
 		const auto player = static_cast<PlayerNames>(p);
+		// GPlayer::Process 0x6494E0: the player's Citadel::Process 0x462D70 (+0xA48, 0x649525) before its towns
+		worship::citadel::Process(worship::citadel::Of(player));
 		for (const auto town : map_cells::TownsOf(player))
 		{
 			ProcessTown(town);

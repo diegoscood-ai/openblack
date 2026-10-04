@@ -31,6 +31,7 @@
 namespace openblack
 {
 struct GAbodeInfo;
+struct GMultiMapFixedInfo;
 }
 
 namespace openblack::ecs::plans
@@ -46,12 +47,12 @@ using PlanIndex = size_t;
 PlanIndex AddPlanned(entt::entity town, components::PlannedAbode plan);
 /// Town::RemovePlanned 0x73D0D0 (PlannedAbode::ToBeDeleted 0x4056B0): out of the list (the later indexes move down)
 void RemovePlanned(entt::entity town, PlanIndex plan);
-/// PlannedAbode::GetAbodeType 0x4061E0 = info +0x120 (PlannedTownCentre the same). TODO(H3): PlannedTownCitadelHeart
-/// 0x467E30 = 0x804
+/// PlannedAbode::GetAbodeType 0x4061E0 = info +0x120 (PlannedTownCentre the same); PlannedTownCitadelHeart 0x467E30 =
+/// 0x804
 [[nodiscard]] AbodeType GetAbodeType(entt::entity town, PlanIndex plan);
 /// IsCivic vt +0x50C: PlannedAbode 0x4060C0 = the type in {0x14, 0x24, 0x44, 0x84, 0x100, 0x204, 0x404, 0x1004,
-/// 0x2004} (jump table 0x406118 / 0x406120, town_stats::IsCivic's set); PlannedTownCentre 0x55DBE0 = 1. TODO(H3): the
-/// citadel heart's 0x467E10 = 0
+/// 0x2004} (jump table 0x406118 / 0x406120, town_stats::IsCivic's set); PlannedTownCentre 0x55DBE0 = 1; the citadel
+/// heart's 0x467E10 = 0 (its type 0x804 has the civic bit, but TownStats +0x24 does not count it)
 [[nodiscard]] bool IsCivic(entt::entity town, PlanIndex plan);
 /// GetDesireToBeRepaired vt +0x514 0x648910 = +0x30 (wasBuilt) ? info +0x118 desireToBeRepaired : 0
 [[nodiscard]] float GetDesireToBeRepaired(entt::entity town, PlanIndex plan);
@@ -61,6 +62,10 @@ void RemovePlanned(entt::entity town, PlanIndex plan);
 /// Town::GetDesireToBeBuilt(info, n) 0x73A1A0: how much the town wants a building of that info, n scaffolds offered (0
 /// from GetBestPlanned). The switch on the ABODE_TYPE and its constants: the .cpp
 [[nodiscard]] float GetDesireToBeBuilt(entt::entity town, const GAbodeInfo& info, uint32_t scaffolds);
+/// The same for any GMultiMapFixedInfo (the citadel heart's: GetAbodeType 0x464380 = 0x804); `abode` is the
+/// GAbodeInfo when it is one (the case 0x2 reads it)
+[[nodiscard]] float GetDesireToBeBuilt(entt::entity town, const GMultiMapFixedInfo& info, AbodeType abodeType,
+                                       const GAbodeInfo* abode, uint32_t scaffolds);
 /// Town::GetBestPlanned(float& best, mask) 0x73A140: best = 0; the plans oldest first whose GetAbodeType & mask; the
 /// strictly larger GetDesireToBeBuilt(info, 0) (test ah, 0x41 jne) wins, the first on ties. nullopt: none above 0
 [[nodiscard]] std::optional<PlanIndex> GetBestPlanned(entt::entity town, float& best, uint32_t mask);
@@ -75,8 +80,8 @@ entt::entity CreatePlanned(entt::entity town, PlanIndex plan, float life);
 /// CreatePlannedNoFixedCheck(life) vt +0x504: PlannedAbode 0x405770 (Abode::Create under construction,
 /// PostCreatePlanned 0x648C50, +0x30 -> building +0x58 |= 4, the plan deleted) and PlannedTownCentre 0x744550
 /// (TownCentre::Create 0x743C90 directly, without the +0x30 step). The life argument is ignored (underConstruction = 1,
-/// V6_spec §2.2). Returns the building or null (the plan survives). TODO(H3): PlannedTownCitadelHeart 0x467EF0
-/// (citadel_plan_spec.md §2.2)
+/// V6_spec §2.2). Returns the building or null (the plan survives). A PlannedTownCitadelHeart: 0x467EF0
+/// (CitadelArchetype::CreatePlannedNoFixedCheck, the life passed on)
 entt::entity CreatePlannedNoFixedCheck(entt::entity town, PlanIndex plan, float life);
 /// PlannedAbode::Create(Abode*) 0x405660 (from Abode::MoveAbodeToPlannedAbodes 0x40453E): a plan where the building
 /// stands, PlannedMultiMapFixed(MultiMapFixed*) 0x648820: its position, GetYAngle, GetScale, info, the creation turn
@@ -104,7 +109,7 @@ void FlushDeleted();
 /// GameThing::IsAvailable 0x401810 of a site: a valid entity with the component and +0xA bit 0 clear
 [[nodiscard]] bool IsAvailable(entt::entity site);
 /// StandardBuildingSite::Process 0x43D8D0 (vt +0x100, from MultiMapFixed::Process 0x52F700): +0x644 && its IsAvailable
-/// != 1 -> +0x644 = 0. TODO(H3): CitadelBuildingSite::Process 0x43D660
+/// != 1 -> +0x644 = 0; CitadelBuildingSite::Process 0x43D660 the same for its six slots
 void Process(entt::entity site);
 
 // ---- the town list +0x790 / +0x794 -------------------------------------------------------------------------------
@@ -220,12 +225,14 @@ void SetRepairBase(entt::entity site, float base);            ///< +0x640 (Abode
 [[nodiscard]] uint32_t GetWoodForStats(entt::entity site); ///< vt +0x104 0x43C5E0 = GetResource(WOOD)
 /// vt +0x9C AddResource (Standard 0x43C490): WOOD only: the pile (made when missing, CreatePileWood) JustAddResource
 /// (vt +0x8C). `pos` is the villager's position (ArrivesAtBuildingSite 0x758BEB); the Standard site ignores it.
-/// Returns what was added. TODO(H3): CitadelBuildingSite::AddResource 0x43D360 (pos NULL adds nothing)
+/// Returns what was added. CitadelBuildingSite::AddResource 0x43D360: pos NULL adds nothing; else the nearest pile
 uint32_t AddResource(entt::entity site, ResourceType type, uint32_t amount, const map_coords::MapCoords* pos,
                      bool poisoned = false);
 /// vt +0xA0 RemoveResource (Standard 0x43C530): WOOD only: the pile's JustRemoveResource (vt +0x90). Returns what was
-/// removed (Building 0x758D55 passes status 0)
-uint32_t RemoveResource(entt::entity site, ResourceType type, uint32_t amount);
+/// removed (Building 0x758D55 passes status 0). `interfacePos`: an interface's GetPos (vt +0x100) when one removes it
+/// (the citadel's site takes its nearest pile then, 0x43D3F6; else its slots in order, 0x43D410)
+uint32_t RemoveResource(entt::entity site, ResourceType type, uint32_t amount,
+                        const map_coords::MapCoords* interfacePos = nullptr);
 /// fn_43D080 0x43D080: GetBuilding()->BuildBy(x) (vt +0x900, abodes::BuildBy 0x52ED40). Caller Building 0x758D62 (x =
 /// u / GetWoodValue, the wood value read BEFORE RemoveResource)
 void BuildBy(entt::entity site, float amount);
@@ -245,7 +252,8 @@ void AddBuilder(entt::entity site, entt::entity villager);
 /// RemoveBuilder 0x43BE90 (caller ExitBuilding 0x7597F7): every node of the villager out, then +0x634-- once (also
 /// when it was not there)
 void RemoveBuilder(entt::entity site, entt::entity villager);
-/// vt +0x108 GetPileWood(pos) (Standard 0x43D6E0 = +0x644, the position ignored)
+/// vt +0x108 GetPileWood(pos) (Standard 0x43D6E0 = +0x644, the position ignored; CitadelBuildingSite 0x43D500: pos NULL
+/// -> 0, else the slot nearest to pos)
 [[nodiscard]] entt::entity GetPileWood(entt::entity site, const map_coords::MapCoords* pos);
 /// The site whose pile this is (PotStructure's IsLinkedToThisBuildingSite 0x43D830 through the pile's structure +0x74,
 /// 0x66EF12 / 0x66EE1E / 0x66EDB9), or null
@@ -253,7 +261,16 @@ void RemoveBuilder(entt::entity site, entt::entity villager);
 /// CreatePileWood (Standard) 0x43D760: a "Magic Wood" pot (GPotInfo 0xD4D1C4 = 9) at GetResourcePosAndYAngle(WOOD, -1)
 /// when the site is available and has none
 void CreatePileWood(entt::entity site);
-/// GetResourcePosAndYAngle(out, type, index, float* angle) 0x43C220 (vt +0x114, Standard); `angle` may be null
+/// GetResourcePosAndYAngle(out, type, index, float* angle) 0x43C220 (vt +0x114, Standard; a worship site's pile at its
+/// local (9, 0, -50)); CitadelBuildingSite 0x43D470: slot `index` 22 m out. `angle` may be null
 [[nodiscard]] map_coords::MapCoords GetResourcePosAndYAngle(entt::entity site, ResourceType type, int32_t index,
                                                            float* angle);
+/// IsLinkedToThisBuildingSite(Pot*) vt +0x11C: CitadelBuildingSite 0x43D580 = one of its six slots; Standard 0x43D830 =
+/// its pile; BuildingSite 0x43D0A0 = 0
+[[nodiscard]] bool IsLinkedToThisBuildingSite(entt::entity site, entt::entity pot);
+/// CitadelBuildingSite::CreatePilesOfWood 0x43D2A0 (its ctor 0x43D1E0, AddResource 0x43D370): for each slot i,
+/// GetResourcePosAndYAngle(WOOD, i), and an empty "Magic Wood" pot there when the slot is empty or not available
+void CreatePilesOfWood(entt::entity site);
+/// +0x63C = boost (fn_464F50 0x464FCE, ForceBuildingOfPlannedAtPos 0x73E560)
+void SetDesireBoost(entt::entity site, float boost);
 } // namespace openblack::ecs::building_sites

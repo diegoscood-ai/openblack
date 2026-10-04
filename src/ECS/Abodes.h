@@ -21,6 +21,7 @@
 namespace openblack
 {
 struct GAbodeInfo;
+struct GMultiMapFixedInfo;
 }
 
 /// The Abode class of the original (Abode.cpp 0x401350..0x409000): every village building, the fields, the totem, the
@@ -43,6 +44,9 @@ namespace openblack::ecs::abodes
 /// the local player, plays the hand's knocking animation 0x39 (CHand::StartFixedPosAnimation 0x46C050): the town, the
 /// count and the animation are not ported.
 void InterfaceTap(entt::entity abode, const glm::vec3& handPosition);
+/// Abode::InterfaceValidToTap 0x406820 / InterfaceTap 0x406830 in ecs::hand_tap (Register<Abode>). Once: the later
+/// calls do nothing (hand_tap::Register appends without checking). AbodeArchetype::Create calls it
+void RegisterTapHandler();
 
 // ---- life and damage -----------------------------------------------------------------------------------------------
 
@@ -88,11 +92,11 @@ bool MoveAbodeToPlannedAbodes(entt::entity building);
 // ---- construction (V6: MultiMapFixed +0x58 / +0x5C / +0x74, spec dev\documentacion\edificios\V6_spec.md §3) ---------
 
 /// IsBuilt vt +0x890: Abode 0x4016C0 = !(+0x58 & 2) && GetPercentBuilt (+0x5C) >= 1; a Feature 0x422110 (the same on
-/// its percentBuilt; openblack's Feature keeps no +0x58); any other MultiMapFixed 0x438D80 = 1. TODO(H3): CitadelPart
-/// 0x464AD0 (the temple)
+/// its percentBuilt; openblack's Feature keeps no +0x58); CitadelPart 0x464AD0 (the citadel heart) and WorshipSite
+/// 0x77BDD0 the same as Abode's on components::CitadelPartBuild; any other MultiMapFixed 0x438D80 = 1
 [[nodiscard]] bool IsBuilt(entt::entity building);
-/// IsRepaired vt +0x88C: Abode 0x4016A0 = GetPercentRepaired (GetLife) >= 1; any other MultiMapFixed 0x438D70 = 1.
-/// TODO(H3): CitadelPart 0x464AB0
+/// IsRepaired vt +0x88C: Abode 0x4016A0 and CitadelPart 0x464AB0 = GetPercentRepaired (GetLife) >= 1; any other
+/// MultiMapFixed 0x438D70 = 1
 [[nodiscard]] bool IsRepaired(entt::entity building);
 /// GetPercentBuilt vt +0x880 0x4014F0 = +0x5C (an Abode's, a Feature's); 1 for anything else
 [[nodiscard]] float GetPercentBuilt(entt::entity building);
@@ -114,6 +118,9 @@ bool MoveAbodeToPlannedAbodes(entt::entity building);
 /// The abode's GAbodeInfo (+0x28): the record AbodeArchetype made it with, else its number and mesh's
 /// (town_stats::AbodeInfoOf with its town's tribe); null when none
 [[nodiscard]] const GAbodeInfo* InfoOf(entt::entity building);
+/// The building's info (+0x28) as a GMultiMapFixedInfo: an abode's GAbodeInfo (InfoOf), the citadel heart's
+/// GCitadelHeartInfo, a worship site's GWorshipSiteInfo; null otherwise (building_sites reads +0x6C, +0x110, +0x118)
+[[nodiscard]] const GMultiMapFixedInfo* MultiMapFixedInfoOf(entt::entity building);
 /// SetShadowOnTexture (LH3DObject +4 bit 0x1000, vt +0x80 fn_7F9880) of a building: false for an abode without the
 /// built bit (+0x58 bit 8): CallVirtualFunctionsForCreation 0x52EA1E..0x52EA40 turns it off for an unbuilt one,
 /// MultiMapFixed::Built 0x52EC2C on again; true otherwise, drawn or not (RenderingSystem's CastsStaticShadow calls it;

@@ -139,6 +139,7 @@
 #include "Serializer/FotFile.h"
 #include "Video/FallingSpellVideo.h"
 #include "Video/VideoPlayer.h"
+#include "Worship/Citadel.h"
 
 #ifdef __ANDROID__
 #include <spdlog/sinks/android_sink.h>
@@ -1939,6 +1940,8 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	audio::GetScriptAudioState().Reset();
 	// GScript::Reset 0x6EB2FA..0x6EB303: the camera switches (+0x80, +0x78, +0x7C)
 	help::script_control::GetCameraControl().Reset();
+	// GScript::Reset 0x6EB312: +0xA0 = 1 (SET_INTERFACE_CITADEL's value, CitadelEntrance::InterfaceValidToTap)
+	worship::citadel::ResetInterfaceCitadel();
 	script_camera::Reset(); // no script camera mode, the FOV at 70 degrees (GCamera ctor 0x441A78)
 	// GScript::Reset -> CleanGameForScriptReboot 0x6EB330: a hand demo still playing ends (EndPlayBack 0x5DB3F0)
 	hand_demo::End();

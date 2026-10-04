@@ -541,15 +541,16 @@ void FeatureScriptCommands::CreateCitadel(glm::vec3 position, int32_t, const std
 {
 	// Citadel::CreateCitadel 0x463240 passes (angle, scale 1.0, life 1.0, 0) to CitadelHeart::Create: the script's size is
 	// ignored (some lands pass 0, 300 or 4121) and the temple is made built
+	// (the creation indices of the heart, its CitadelEntrance and its TempleLeash: CitadelArchetype::CreateHeart)
 	CitadelArchetype::Create(position, GetPlayerName(playerOwner), GetRotation(rotation), glm::vec3(1.0f));
-	// CitadelHeart, its visual object and the TempleLeash (the worship sites of the player's towns are not made yet)
-	ecs::object_index::Skip(3);
 }
 
-void FeatureScriptCommands::CreatePlannedCitadel(int32_t townId, glm::vec3 position, int32_t, const std::string& playerOwner,
-                                                 int32_t rotation, int32_t /*size*/)
+void FeatureScriptCommands::CreatePlannedCitadel(int32_t townId, glm::vec3 position, int32_t heartInfo,
+                                                 const std::string& playerOwner, int32_t rotation, int32_t size)
 {
-	// 0x715E91: needs the town (FindTownWithID) and a valid player string (GetPlayerFromText, only checked), else nothing
+	// 0x715E91: needs the town (FindTownWithID) and a player string GetPlayerFromText resolves (0x715EBE je 0x717E8A),
+	// else nothing; then the PlannedTownCitadelHeart (ctor 0x467DD0): info 0xC5E270 + N3 x 0x158, angle = N5 x 0.001,
+	// scale = N6 x 0.001
 	const auto town = FindTown(townId);
 	if (town == entt::null || !k_PlayerLookup.contains(playerOwner))
 	{
@@ -557,7 +558,8 @@ void FeatureScriptCommands::CreatePlannedCitadel(int32_t townId, glm::vec3 posit
 		                   townId, playerOwner);
 		return;
 	}
-	CitadelArchetype::CreatePlan(town, position, GetRotation(rotation));
+	CitadelArchetype::CreatePlan(town, position, static_cast<uint32_t>(heartInfo),
+	                             static_cast<float>(rotation) * 0.001f, static_cast<float>(size) * 0.001f);
 }
 
 void FeatureScriptCommands::CreateCreaturePen([[maybe_unused]] glm::vec3 position, int32_t, int32_t, int32_t, int32_t, int32_t)

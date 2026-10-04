@@ -18,6 +18,7 @@
 #include "3D/LandIslandInterface.h"
 #include "3D/LandMorph.h"
 #include "3D/ObjectMatrix.h"
+#include "ECS/Abodes.h"
 #include "ECS/ChimneySmoke.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Fixed.h"
@@ -165,6 +166,8 @@ entt::entity AbodeArchetype::Create(uint32_t townId, const glm::vec3& position, 
                                     float scale, uint32_t foodAmount, uint32_t woodAmount, bool underConstruction)
 {
 	auto& registry = Locator::entitiesRegistry::value();
+	// (openblack) the Abode class's tap handlers, once (the vtable's InterfaceValidToTap / InterfaceTap)
+	abodes::RegisterTapHandler();
 
 	// If there is no town, assign to closest
 	if (registry.Context().towns.find(townId) == registry.Context().towns.end())

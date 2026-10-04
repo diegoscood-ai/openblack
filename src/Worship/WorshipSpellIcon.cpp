@@ -20,6 +20,7 @@
 
 #include "3D/ObjectMatrix.h"
 #include "Audio/Audio.h"
+#include "ECS/Abodes.h"
 #include "ECS/Components/Alpha.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/SpellIcon.h"
@@ -543,7 +544,14 @@ bool icon::ValidForStartCharge(entt::entity iconEntity, PlayerNames player, int 
 
 bool icon::ValidForRequestSpell(entt::entity icon, PlayerNames player, int powerUp, bool requireChants)
 {
-	// vt 0xD4 IsBuilt (WorshipSpellIcon::IsBuilt 0x77FEE0: the site's; openblack's sites are always built)
+	// 0x77FBA6: IsFunctional (vt +0xD4, MultiMapFixed 0x52EF70) != 1 -> 0. Its IsBuilt (vt +0x890 of
+	// ??_7WorshipSpellIcon 0x99D878) is WorshipSpellIcon::IsBuilt 0x77FEE0 = GetWorshipSite (vt +0x30C) ? the site's
+	// IsBuilt (vt +0x890, 0x77FEFD) : 1. (pending) IsFunctional's IsAvailable and life parts (0x52EF76,
+	// 0x52EF8F..0x52EFA7)
+	if (IsIcon(icon) && HasSite(IconOf(icon)) && !ecs::abodes::IsBuilt(IconOf(icon).site))
+	{
+		return false;
+	}
 	if (ValidForPutFullyChargedSeedInHand(icon, player))
 	{
 		return true;

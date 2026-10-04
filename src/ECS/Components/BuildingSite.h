@@ -26,7 +26,7 @@ namespace openblack::ecs::components
 /// head first) and by the building's +0x74 (Abode::buildingSite). ecs::building_sites is its only writer.
 /// Not kept: +0x00..+0x13 GameThing (only the +0xA bit 0, `beingDeleted`), the global list g_game +0x205CAC (head
 /// insert 0x43B809..0x43B82D; openblack walks the components), +0x20..+0x30 the scaffolds (not ported).
-/// TODO(H3): CitadelBuildingSite (0x65C, vtable 0x8C6CC0): six piles +0x644..+0x65B instead of `woodPile`
+/// The citadel heart's site also carries components::CitadelBuildingSite
 struct BuildingSite
 {
 	/// the ring of builder positions: 128 entries (PosBuilder::Process `mov edi, 0x80` 0x43AEF0, GetNearestEdge `&
@@ -56,6 +56,20 @@ struct BuildingSite
 	/// frees the object in the game's deletion pass; openblack destroys the entity in building_sites::FlushDeleted at
 	/// the start of the next town turn, so IsAvailable stays callable (and false) for the rest of the turn
 	bool beingDeleted {false};
+};
+
+/// CitadelBuildingSite (0x65C bytes, vtable 0x8C6CC0): the citadel heart's site (CitadelHeart::CreateBuildingSite
+/// 0x468DC0, ctor 0x43D1E0), a BuildingSite whose own pile (+0x644 of a StandardBuildingSite, `woodPile`) is not used:
+/// six wood piles 22 m out instead (CreatePilesOfWood 0x43D2A0)
+struct CitadelBuildingSite
+{
+	static constexpr size_t k_Piles = 6;
+	/// +0x644..+0x658 Pot* [6] (slot i at GetResourcePosAndYAngle(WOOD, i), 0x43D470); emptied only by Process 0x43D660
+	/// and RemovePotFromStructure 0x43D5B0 (ToBeDeleted keeps them, SetPileWood 0x43D180 is a no-op)
+	std::array<entt::entity, k_Piles> piles {entt::null, entt::null, entt::null, entt::null, entt::null, entt::null};
+	/// (openblack) ToBeDeleted 0x43D220 called each pile's SetMultiMapFixed(0) (vt +0x868): their PotStructure part no
+	/// longer reaches this site (building_sites::SiteOfPile)
+	bool pilesUnlinked {false};
 };
 
 } // namespace openblack::ecs::components

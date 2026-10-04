@@ -248,6 +248,12 @@ float GetScaleField(entt::entity object)
 		// the shield's Object +0x50 (SetScale 0x639200); its Transform carries the drawn scale, which runs behind
 		return shield->objectScale;
 	}
+	if (const auto* heart = registry->TryGet<const CitadelHeart>(object))
+	{
+		// the heart's Object +0x50 is the plan's scale (CitadelHeart::Create 0x464E20 -> MultiMapFixed ctor 0x52E1E0);
+		// its Transform carries the drawn temple's, 1.0 (0x46761F)
+		return heart->scale;
+	}
 	const auto* transform = registry->TryGet<const Transform>(object);
 	// the uniform scale: every game object's Transform scale is glm::vec3(s)
 	return transform != nullptr ? transform->scale.x : 0.0f;

@@ -19,11 +19,14 @@
 #include "ECS/Components/Life.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/StoragePit.h"
+#include "ECS/Components/Temple.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/Components/WorshipSite.h"
 #include "ECS/MapCells.h"
 #include "ECS/Physics/Buildings.h"
 #include "ECS/Physics/CollisionSounds.h"
 #include "ECS/Registry.h"
+#include "ECS/Systems/HandTap.h"
 #include "ECS/Town/AbodeQueries.h"
 #include "3D/L3DMesh.h"
 #include "ECS/Archetypes/AbodeArchetype.h"
@@ -41,6 +44,7 @@
 #include "ECS/Town/TownStats.h"
 #include "ECS/Town/TownStores.h"
 #include "Resources/ResourcesInterface.h"
+#include "Worship/Citadel.h"
 #include "ECS/Town/AbodeVillagers.h"
 #include "ECS/AnimalAI.h"
 #include "ECS/Components/Field.h"
@@ -66,6 +70,11 @@ std::optional<AbodeType> abodes::TypeOf(entt::entity abode)
 	const auto* component = registry.TryGet<const Abode>(abode);
 	if (component == nullptr)
 	{
+		// CitadelHeart::GetAbodeType 0x464B60 and WorshipSite::GetAbodeType 0x55DC70 (vt +0x8C4) = 0x804
+		if (registry.AllOf<CitadelPartBuild>(abode))
+		{
+			return AbodeType::Citadel;
+		}
 		return std::nullopt;
 	}
 	// Abode::GetAbodeType 0x4061F0 reads the info record the abode was made with. openblack keeps the abode number
@@ -348,6 +357,53 @@ Abode* AbodeOf(entt::entity building)
 	return building != entt::null && registry.Valid(building) ? registry.TryGet<Abode>(building) : nullptr;
 }
 
+/// A CitadelPart's building state (the citadel heart, a worship site); null for anything else
+CitadelPartBuild* CitadelPartOf(entt::entity building)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	return building != entt::null && registry.Valid(building) ? registry.TryGet<CitadelPartBuild>(building) : nullptr;
+}
+
+/// MultiMapFixed +0x5C of an abode or a CitadelPart (the two keep it in their own components); null for anything else
+float* PercentBuiltField(entt::entity building)
+{
+	if (auto* a = AbodeOf(building); a != nullptr)
+	{
+		return &a->percentBuilt;
+	}
+	auto* part = CitadelPartOf(building);
+	return part != nullptr ? &part->percentBuilt : nullptr;
+}
+
+/// MultiMapFixed::Built 0x52EBB0 of a CitadelPart, then the class's part: CitadelHeart::Built 0x465000
+/// (worship::citadel::HeartBuilt) or WorshipSite::Built 0x77AC10 (WorshipSiteBuilt)
+bool BuiltCitadelPart(entt::entity building)
+{
+	auto* part = CitadelPartOf(building);
+	// 1. +0x74 -> its ToBeDeleted(0): the builders to 163, the piles released, +0x74 = 0
+	if (part->buildingSite != entt::null)
+	{
+		building_sites::ToBeDeleted(part->buildingSite);
+		part = CitadelPartOf(building);
+	}
+	// 2. the "new building" reaction 15: not for the type 0x804. 3. +0x40 && !vt +0x210: SetShadowOnTexture(1) and
+	// RequestChangeTexture (the heart's LH3DCitadel turns its bit on in SetPercent instead: CastsShadowOnTexture)
+	// 4. +0x58 = (& ~2) | 8, +0x5C = 1.0
+	part->buildFlags = (part->buildFlags & ~CitadelPartBuild::k_UnderConstruction) | CitadelPartBuild::k_Built;
+	part->percentBuilt = 1.0f;
+	auto& registry = Locator::entitiesRegistry::value();
+	if (registry.AllOf<CitadelHeart>(building))
+	{
+		worship::citadel::HeartBuilt(building);
+	}
+	else if (registry.AllOf<WorshipSite>(building))
+	{
+		worship::citadel::WorshipSiteBuilt(building);
+	}
+	abodes::RedrawConstruction(building);
+	return true;
+}
+
 /// [0x8CF3FC] = 0.98: GetPercentRepairedFromWhenDamaged 0x52F010 of a built building without a FragMesh
 constexpr float k_RepairedDrawFactor = 0.98f;
 /// MultiMapFixed::GetPercentRepairedForNonFunctional 0x52EFC0
@@ -443,18 +499,22 @@ bool abodes::IsBuilt(entt::entity building)
 	{
 		return !(feature->percentBuilt < 1.0f); // Feature 0x422110 (feature_build keeps no +0x58)
 	}
-	// TODO(H3): CitadelPart::IsBuilt 0x464AD0 for the temple
+	// CitadelPart::IsBuilt 0x464AD0 (the citadel heart) and WorshipSite::IsBuilt 0x77BDD0 (the same test; its walk of
+	// +0xE0 is dead): !(+0x58 & 2) && GetPercentBuilt >= 1
+	if (const auto* part = CitadelPartOf(building); part != nullptr)
+	{
+		return (part->buildFlags & CitadelPartBuild::k_UnderConstruction) == 0 && !(part->percentBuilt < 1.0f);
+	}
 	return true; // MultiMapFixed 0x438D80
 }
 
 bool abodes::IsRepaired(entt::entity building)
 {
-	if (AbodeOf(building) != nullptr)
+	if (AbodeOf(building) != nullptr || CitadelPartOf(building) != nullptr)
 	{
-		// 0x4016A0: GetPercentRepaired (vt +0x884 = GetLife) >= 1
+		// 0x4016A0 / CitadelPart 0x464AB0: GetPercentRepaired (vt +0x884 = GetLife) >= 1
 		return !(GetPercentRepaired(building) < 1.0f);
 	}
-	// TODO(H3): CitadelPart::IsRepaired 0x464AB0
 	return true; // MultiMapFixed 0x438D70
 }
 
@@ -463,6 +523,10 @@ float abodes::GetPercentBuilt(entt::entity building)
 	if (const auto* a = AbodeOf(building); a != nullptr)
 	{
 		return a->percentBuilt; // 0x4014F0: +0x5C
+	}
+	if (const auto* part = CitadelPartOf(building); part != nullptr)
+	{
+		return part->percentBuilt; // the citadel heart's and the worship sites' vt +0x880 is 0x4014F0 too
 	}
 	auto& registry = Locator::entitiesRegistry::value();
 	if (const auto* feature = registry.Valid(building) ? registry.TryGet<const Feature>(building) : nullptr)
@@ -485,6 +549,10 @@ float abodes::GetPercentRepairedForNonFunctional(entt::entity building)
 
 entt::entity abodes::GetBuildingSite(entt::entity building)
 {
+	if (const auto* part = CitadelPartOf(building); part != nullptr)
+	{
+		return part->buildingSite;
+	}
 	const auto* a = AbodeOf(building);
 	return a != nullptr ? a->buildingSite : entt::null;
 }
@@ -541,6 +609,26 @@ const GAbodeInfo* abodes::InfoOf(entt::entity building)
 	return town_stats::AbodeInfoOf(building, tribe != nullptr ? *tribe : Tribe::CELTIC);
 }
 
+const GMultiMapFixedInfo* abodes::MultiMapFixedInfoOf(entt::entity building)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	if (building == entt::null || !registry.Valid(building))
+	{
+		return nullptr;
+	}
+	// +0x28: the citadel heart's GCitadelHeartInfo (openblack keeps the one record), a worship site's GWorshipSiteInfo
+	if (registry.AllOf<CitadelHeart>(building))
+	{
+		return &Locator::infoConstants::value().citadelHeart;
+	}
+	if (const auto* site = registry.TryGet<const WorshipSite>(building); site != nullptr)
+	{
+		const auto& infos = Locator::infoConstants::value().worshipSite;
+		return site->infoIndex < infos.size() ? &infos.at(site->infoIndex) : nullptr;
+	}
+	return InfoOf(building);
+}
+
 bool abodes::CastsShadowOnTexture(entt::entity building)
 {
 	auto& registry = Locator::entitiesRegistry::value();
@@ -550,22 +638,39 @@ bool abodes::CastsShadowOnTexture(entt::entity building)
 	}
 	// only the creation (0x52EA40) and Built (0x52EC2C) change the bit, never the draw: a NotDrawn built abode keeps
 	// it. +0x58 bit 8: off from the ctor (0x52E24A) until Built (0x52EC3A), the same lifetime as the 0x1000 bit
+	// the citadel heart: the LH3DMeshedObject ctor leaves +4 = 0x10009 (0x816537, bit 0x1000 clear) and only
+	// LH3DCitadel::SetPercent turns it on, vt +0x80(1) = fn_7F9880 when the percent reaches 1 (0x883186): an unbuilt
+	// temple casts no texture shadow. (pending) a worship site's bit (its creation is not read): on
+	if (const auto* heart = registry.TryGet<const CitadelHeart>(building); heart != nullptr)
+	{
+		return !(heart->drawPercent < 1.0f);
+	}
 	const auto* a = AbodeOf(building);
 	return a == nullptr || (a->buildFlags & Abode::k_Built) != 0;
 }
 
 void abodes::BuildBy(entt::entity building, float amount)
 {
-	auto* a = AbodeOf(building);
-	if (a == nullptr)
+	// an abode's +0x5C or a CitadelPart's (the citadel heart's and the worship sites' vt +0x900 is MultiMapFixed's too;
+	// WorshipSite::BuildBy 0x77DC50 then builds its totem +0xDC: (not ported) the WorshipTotem keeps no building state)
+	float* percent = PercentBuiltField(building);
+	if (percent == nullptr)
 	{
-		return; // TODO(H3): the temple's MultiMapFixed::BuildBy (CitadelHeart vt +0x900)
+		return;
 	}
 	if (IsBuilt(building)) // vt +0x890
 	{
 		if (!IsRepaired(building)) // vt +0x88C
 		{
-			IncreaseLife(building, amount); // vt +0x5BC
+			// vt +0x5BC: Abode::IncreaseLife 0x405ED0; a CitadelPart's is Object::IncreaseLife 0x637870
+			if (CitadelPartOf(building) != nullptr)
+			{
+				life::IncreaseLife(building, amount);
+			}
+			else
+			{
+				IncreaseLife(building, amount);
+			}
 			if (!(life::LifeOf(building) < 1.0f))
 			{
 				Repaired(building); // vt +0x8AC
@@ -575,12 +680,12 @@ void abodes::BuildBy(entt::entity building, float amount)
 	else
 	{
 		// +0x5C += x; below 0 -> 0; >= 1 -> Built (vt +0x8A8)
-		a->percentBuilt = a->percentBuilt + amount;
-		if (a->percentBuilt < 0.0f)
+		*percent = *percent + amount;
+		if (*percent < 0.0f)
 		{
-			a->percentBuilt = 0.0f;
+			*percent = 0.0f;
 		}
-		if (!(a->percentBuilt < 1.0f))
+		if (!(*percent < 1.0f))
 		{
 			Built(building);
 		}
@@ -590,18 +695,19 @@ void abodes::BuildBy(entt::entity building, float amount)
 
 void abodes::SetPercentBuilt(entt::entity building, float percent)
 {
-	auto* a = AbodeOf(building);
-	if (a == nullptr)
+	// an abode's +0x5C or a CitadelPart's (SET_PROPERTY 22 on the citadel heart: Land 1's 0.375)
+	float* field = PercentBuiltField(building);
+	if (field == nullptr)
 	{
 		return;
 	}
 	// fn_52EDD0: +0x5C = p; p < 0 -> 0; +0x5C >= 1 -> Built
-	a->percentBuilt = percent;
+	*field = percent;
 	if (percent < 0.0f)
 	{
-		a->percentBuilt = 0.0f;
+		*field = 0.0f;
 	}
-	if (!(a->percentBuilt < 1.0f))
+	if (!(*field < 1.0f))
 	{
 		Built(building);
 	}
@@ -610,6 +716,10 @@ void abodes::SetPercentBuilt(entt::entity building, float percent)
 
 bool abodes::Built(entt::entity building)
 {
+	if (CitadelPartOf(building) != nullptr)
+	{
+		return BuiltCitadelPart(building);
+	}
 	auto* a = AbodeOf(building);
 	if (a == nullptr)
 	{
@@ -712,6 +822,19 @@ void abodes::MakeFunctional(entt::entity building)
 
 bool abodes::Repaired(entt::entity building)
 {
+	if (auto* part = CitadelPartOf(building); part != nullptr)
+	{
+		// MultiMapFixed::Repaired 0x52EC70 (the citadel heart's and the worship sites' vt +0x8AC): +0x74's
+		// ToBeDeleted(0), RemoveDamage (vt +0x8B8, MultiMapFixed 0x422030; (pending) not read), +0x58 &= ~4
+		if (part->buildingSite != entt::null)
+		{
+			building_sites::ToBeDeleted(part->buildingSite);
+			part = CitadelPartOf(building);
+		}
+		part->buildFlags &= ~CitadelPartBuild::k_NotRepaired;
+		RedrawConstruction(building);
+		return true;
+	}
 	auto* a = AbodeOf(building);
 	if (a == nullptr)
 	{
@@ -859,6 +982,19 @@ float abodes::ReduceLife(entt::entity building, float amount, std::optional<Play
 
 float abodes::GetDesireToBeRepaired(entt::entity building)
 {
+	if (CitadelPartOf(building) != nullptr)
+	{
+		// MultiMapFixed::GetDesireToBeRepaired 0x52ECE0 (the citadel heart's and the worship sites' vt +0x8D8):
+		// repaired -> 0; else v = ((1 - GetPercentRepaired) x 0.5 + 0.5) x info +0x118, v below 1 (fcom; test ah, 1),
+		// else 1
+		const auto* base = MultiMapFixedInfoOf(building);
+		if (base == nullptr || IsRepaired(building))
+		{
+			return 0.0f;
+		}
+		const float v = ((1.0f - GetPercentRepaired(building)) * 0.5f + 0.5f) * base->desireToBeRepaired;
+		return v < 1.0f ? v : 1.0f;
+	}
 	const auto* a = AbodeOf(building);
 	const auto* info = InfoOf(building);
 	if (a == nullptr || info == nullptr)
@@ -899,13 +1035,38 @@ bool abodes::MoveAbodeToPlannedAbodes(entt::entity building)
 void abodes::RedrawConstruction(entt::entity building)
 {
 	auto& registry = Locator::entitiesRegistry::value();
-	if (AbodeOf(building) == nullptr)
+	// when the class draws the partly built model and at which percent:
+	// - the citadel heart: LH3DCitadel's draw 0x882A40 (CitadelHeart::DrawNow 0x4670D0; Draw 0x464B90 is a `ret`) while
+	//   +0x9C < 1, fn_816AD0(+0x9C) with the inner walls 1.0 m in ([0xC392AC] = [0xC392B0] = 1.0, 0x882A7B..0x882AA7);
+	// - a worship site: WorshipSite::Draw 0x5193D0, !IsBuilt (vt +0x890) -> DrawBuilding 0x517F90;
+	// - an abode: MultiMapFixed::Draw 0x518090, DrawBuilding while +0x74; with a FragMesh Abode::Draw 0x515F70 is the
+	//   physics' (RedrawBuilding): no construction draw of ours either
+	bool partly = false;
+	float percent = 0.0f;
+	const char* tag = "abode-built";
+	if (const auto* heart = registry.Valid(building) ? registry.TryGet<const CitadelHeart>(building) : nullptr)
+	{
+		partly = heart->drawPercent < 1.0f;
+		percent = heart->drawPercent;
+		tag = "temple-built";
+	}
+	else if (registry.Valid(building) && registry.AllOf<WorshipSite, CitadelPartBuild>(building))
+	{
+		partly = !IsBuilt(building);
+		percent = GetPercentForDrawBuilding(building);
+		tag = "worship-built";
+	}
+	else if (AbodeOf(building) != nullptr)
+	{
+		partly = IsDrawBuilding(building) && !HasDestructionMesh(building);
+		percent = GetPercentForDrawBuilding(building);
+	}
+	else
 	{
 		return;
 	}
 	const auto* mesh = registry.TryGet<const Mesh>(building);
-	// with a FragMesh Abode::Draw 0x515F70 is the physics' (RedrawBuilding): no construction draw of ours either
-	if (!IsDrawBuilding(building) || mesh == nullptr || HasDestructionMesh(building))
+	if (!partly || mesh == nullptr)
 	{
 		// MultiMapFixed::Draw 0x518090's normal draw: the whole model (the Mesh) again (the generated one is erased by
 		// OnDrawMeshDestroyed)
@@ -914,7 +1075,6 @@ void abodes::RedrawConstruction(entt::entity building)
 		return;
 	}
 	// DrawBuilding 0x517F90: pct = GetPercentForDrawBuilding (vt +0x898); rebuilt only when it changed (openblack)
-	const float percent = GetPercentForDrawBuilding(building);
 	if (const auto* state = registry.TryGet<const AbodeConstructionDraw>(building);
 	    state != nullptr && state->percent == percent)
 	{
@@ -922,9 +1082,12 @@ void abodes::RedrawConstruction(entt::entity building)
 	}
 	registry.AssignOrReplace<AbodeConstructionDraw>(building, percent);
 	const auto old = DrawMeshIdOf(building);
-	// 0x517FE0: pct != 0 -> Game3DObject vt +0x110(pct) (fn_816AD0); at 0 nothing of the building is drawn
-	const entt::id_type built = percent != 0.0f
-	                                ? physics::PartialBuild::BuildMesh(building, mesh->id, percent, "abode-built")
+	// 0x517FE0: pct != 0 -> Game3DObject vt +0x110(pct) (fn_816AD0); at 0 nothing of the building is drawn (the
+	// temple's fn_816AD0(0) draws only the scaffold sunk by its whole height; PartialBuild draws nothing at 0, audit
+	// (g)). (openblack) without resources (tests) nothing. TODO(Fisicas Hito 2): the heart passes PartialBuildOptions
+	// {.innerOffset = PartialBuild::k_TempleInnerOffset, .skipZero = false} (the 1.0 m walls)
+	const entt::id_type built = percent != 0.0f && Locator::resources::has_value()
+	                                ? physics::PartialBuild::BuildMesh(building, mesh->id, percent, tag)
 	                                : entt::id_type {0};
 	if (built == 0)
 	{
@@ -952,7 +1115,7 @@ void abodes::RedrawConstruction(entt::entity building)
 
 std::optional<float> abodes::GetBuiltPercentage(entt::entity entity)
 {
-	if (AbodeOf(entity) == nullptr)
+	if (AbodeOf(entity) == nullptr && CitadelPartOf(entity) == nullptr)
 	{
 		return std::nullopt;
 	}
@@ -961,11 +1124,28 @@ std::optional<float> abodes::GetBuiltPercentage(entt::entity entity)
 
 bool abodes::SetBuiltPercentage(entt::entity entity, float value)
 {
-	if (AbodeOf(entity) == nullptr)
+	if (AbodeOf(entity) == nullptr && CitadelPartOf(entity) == nullptr)
 	{
 		return false;
 	}
 	// 0x70EC69 -> fn_0052EDD0. (pending) 0x70EC9B..0x70ECD4, the town's building list part, not read
 	SetPercentBuilt(entity, value);
 	return true;
+}
+
+void abodes::RegisterTapHandler()
+{
+	static bool s_Registered = false;
+	if (s_Registered)
+	{
+		return;
+	}
+	s_Registered = true;
+	// Abode::InterfaceValidToTap 0x406820 (always 1) / Abode::InterfaceTap 0x406830 (knocking on the roof)
+	hand_tap::Register<Abode>(
+	    [](entt::entity abode, const pot_resource::Dropper&) { return InterfaceValidToTap(abode); },
+	    [](entt::entity abode, const pot_resource::Dropper&, glm::vec3 handPos) -> uint32_t {
+		    InterfaceTap(abode, handPos);
+		    return 1;
+	    });
 }

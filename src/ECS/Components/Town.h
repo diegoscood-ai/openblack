@@ -43,6 +43,11 @@ struct PlannedAbode
 	bool wasBuilt {false};
 	/// +0x3C: the creation turn (g_game +0x205A40, 0x6487F6); its age 0x6488E0 = turn - it. plans::AddPlanned writes it
 	uint32_t creationTurn {0};
+	/// a PlannedTownCitadelHeart (vtable 0x8C9D4C, ctor 0x467DD0; CitadelArchetype::CreatePlan): `info` is None and its
+	/// info is the GCitadelHeartInfo of `heartInfo` (+0x40 = 0xC5E270 + N3 x 0x158). GetAbodeType 0x467E30 = 0x804,
+	/// IsCivic 0x467E10 = 0, GetTown 0x56FF10 = 0
+	bool citadelHeart {false};
+	uint32_t heartInfo {0};
 };
 
 /// One entry of TownDesire's two sorted orders (+0x278 / +0x344, 12 bytes as the original's DesireSort)

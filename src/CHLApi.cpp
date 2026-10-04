@@ -81,7 +81,9 @@
 #include "ECS/FeatureBuild.h"
 #include "ECS/GUtilsDistance.h"
 #include "ECS/MapCells.h"
+#include "ECS/MapCoords.h"
 #include "ECS/MobileWalkPaths.h"
+#include "ECS/ObjectResources.h"
 #include "ECS/ObjectMetrics.h"
 #include "ECS/PetitNavire.h"
 #include "ECS/PuzzleGames.h"
@@ -116,6 +118,7 @@
 #include "Magic/Script/ScriptPlayer.h"
 #include "ECS/Effects/Alignment.h"
 #include "ScriptHeaders/ScriptEnums.h"
+#include "Worship/Citadel.h"
 
 namespace openblack::chlapi
 {
@@ -2355,12 +2358,31 @@ void GetResource() // 133 GET_RESOURCE
 
 void AddResource() // 134 ADD_RESOURCE
 {
-	// const auto container = Pop().uintVal;
-	// const auto quantity = Popf();
-	// const auto resource = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushf(0.0f);
+	// GScript::AddResource 0x6FAD10: POP the thing (GetScriptGameThing 0x70D220), POP the amount (ftol 0x6FAD49), POP
+	// the RESOURCE_TYPE (raw). No thing -> "No thing for resource", not an Object (__RTDynamicCast) -> "Not object for
+	// resource" (ScriptErrorMessage 0x6F62B0), both push 0; else Object::AddResource (vt +0x9C)(type, amount, IS 0,
+	// poisoned 0, pos 0, 0) and PUSH (float)(uint64) what it took (VMType 2). (pending, Personas) a villager's
+	// Villager::AddResource 0x7564D0 in object_resources (Land 1's builders, L52628..52703)
+	const auto object = Pop().uintVal;
+	const auto amount = static_cast<uint32_t>(openblack::ecs::map_coords::FtoL(Popf()));
+	const auto type = static_cast<ResourceType>(Pop().intVal);
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto entity = static_cast<entt::entity>(object);
+	if (object == 0 || !registry.Valid(entity))
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "ADD_RESOURCE: No thing for resource");
+		Pushf(0.0f);
+		return;
+	}
+	// (approximate) every entity but a town is an Object here (the towns are GameThingWithPos, not Objects)
+	if (registry.AllOf<openblack::ecs::components::Town>(entity))
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "ADD_RESOURCE: Not object for resource");
+		Pushf(0.0f);
+		return;
+	}
+	const auto added = openblack::ecs::object_resources::AddResource(entity, type, amount);
+	Pushf(static_cast<float>(added));
 }
 
 void RemoveResource() // 135 REMOVE_RESOURCE
@@ -5145,9 +5167,9 @@ void GetHandState() // 413 GET_HAND_STATE
 
 void SetInterfaceCitadel() // 414 SET_INTERFACE_CITADEL
 {
-	// const auto enable = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SetInterfaceCitadel 0x70B9A0: (g_game +0x250090) +0xA0 = POP() (the raw value); its only reader is
+	// CitadelEntrance::InterfaceValidToTap 0x468F50
+	openblack::worship::citadel::SetInterfaceCitadel(Pop().uintVal);
 }
 
 void MapScriptFunction() // 415 MAP_SCRIPT_FUNCTION

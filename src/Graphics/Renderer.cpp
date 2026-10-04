@@ -1584,7 +1584,7 @@ void Renderer::PreloadForLand() const noexcept
 	}
 }
 
-void Renderer::DrawFoliage(const DrawSceneDesc& desc) const
+void Renderer::UpdateFoliage(const DrawSceneDesc& desc) const
 {
 	const auto& config = Locator::config::value();
 	if (config.foliageDensity <= 0.0f || !Locator::terrainSystem::has_value())
@@ -1601,6 +1601,18 @@ void Renderer::DrawFoliage(const DrawSceneDesc& desc) const
 	// (openblack, mod world.foliage) the engine timer, the wall clock since start (FixedClock in replays)
 	const float seconds = static_cast<float>(game_clock::EngineMs()) / 1000.0f;
 	_foliage->UpdateFlyers(island, desc.camera->GetOrigin(), config.foliageDistance, seconds);
+	_foliageSeconds = seconds;
+}
+
+void Renderer::DrawFoliage(const DrawSceneDesc& desc) const
+{
+	// the tests of UpdateFoliage, made just before in PreDraw (the plants were loaded, placed and the flyers moved)
+	const auto& config = Locator::config::value();
+	if (config.foliageDensity <= 0.0f || !Locator::terrainSystem::has_value() || !Locator::mods::has_value() || !_foliage)
+	{
+		return;
+	}
+	auto& island = Locator::terrainSystem::value();
 	Foliage::DrawDesc foliageDesc {};
 	foliageDesc.viewId = static_cast<bgfx::ViewId>(desc.viewId);
 	foliageDesc.program = _shaderManager->GetShader("Foliage");
@@ -1612,7 +1624,7 @@ void Renderer::DrawFoliage(const DrawSceneDesc& desc) const
 	foliageDesc.haze = _hazeUniforms[0];
 	foliageDesc.hazeColour = _hazeUniforms[1];
 	foliageDesc.alphaToCoverage = config.msaa != 0;
-	foliageDesc.seconds = seconds;
+	foliageDesc.seconds = _foliageSeconds;
 	_foliage->Draw(foliageDesc);
 }
 
@@ -1884,6 +1896,36 @@ void Renderer::PreDraw(const DrawSceneDesc& drawDesc) const noexcept
 	{
 		_preClouds = CollectClouds(*drawDesc.camera);
 	}
+	// The main pass's writes that the logic shares, in the order and under the tests the main pass made them (the
+	// reflection pass makes none of them): the foliage after the land blocks (with the land: its MeshTints); with the
+	// entities, the creators of the surfaces of revolution that are gone, then the mists (with the sky, with or
+	// without the entities: Mist.counter, mists::Submit's list), the chimney smoke (with the sprites: after the clouds'
+	// and the night lights' CRT draws, as before), the rain (rain::MarkDrawn) and the influence border's alpha
+	if (drawDesc.drawIsland)
+	{
+		UpdateFoliage(drawDesc);
+	}
+	if (drawDesc.drawEntities)
+	{
+		psys::surf_revol::PruneCreators();
+	}
+	_preMists.clear();
+	if (drawDesc.drawSky)
+	{
+		_preMists = CollectMists(*drawDesc.camera);
+	}
+	_preSmoke.clear();
+	if (drawDesc.drawEntities && drawDesc.drawSprites)
+	{
+		_preSmoke = CollectChimneySmoke(*drawDesc.camera);
+	}
+	_preRain.clear();
+	_preInfluenceScroll.reset();
+	if (drawDesc.drawEntities)
+	{
+		_preRain = CollectRain(*drawDesc.camera);
+		UpdateInfluenceCurtain(*drawDesc.camera);
+	}
 }
 
 void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
@@ -1903,7 +1945,8 @@ void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
 		return;
 	}
 	// (Renderer::PreDraw: the sky type, the dome, the land light, the frame's light, the shadows and the clouds of this
-	// frame were made just before this, in this order)
+	// frame were made just before this, in this order, then the haze, the clouds, the foliage, the surfaces' creators,
+	// the mists, the chimney smoke, the rain and the influence border of the main view)
 	{
 		auto section = Locator::profiler::value().BeginScoped(Profiler::Stage::FootprintPass);
 		DrawStaticShadowPass(drawDesc);
@@ -3188,7 +3231,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					sorted.Submit({.psysMesh = static_cast<int>(i)}, zsorter::Key(atom.key, cameraOrigin));
 				}
 				// each mist: fn_007FA7F0 from 0x67A782, its own Z object at mist +0x38 (NewZObject 0x7FA87B): they come
-				// through mists::Submit (mist_atoms::SubmitFrame) and CollectMists below.
+				// through mists::Submit (mist_atoms::SubmitFrame) and CollectMists (PreDraw).
 				// each chain: fn_0067B380 from 0x6798DF, keyed at the joint n / 2 (0x67B389..0x67B3D7)
 				for (size_t i = 0; i < psysSorted.chains.size(); ++i)
 				{
@@ -3212,14 +3255,14 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			}
 			if (mistsSorted)
 			{
-				for (const auto& [key, index] : CollectMists(*desc.camera))
+				for (const auto& [key, index] : _preMists) // collected by PreDraw
 				{
 					sorted.Submit({.mist = static_cast<int>(index)}, key);
 				}
 			}
 			if (spritesSorted)
 			{
-				for (const auto& [key, index] : CollectChimneySmoke(*desc.camera))
+				for (const auto& [key, index] : _preSmoke) // collected by PreDraw
 				{
 					sorted.Submit({.smoke = static_cast<int>(index)}, key);
 				}
@@ -3228,7 +3271,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			{
 				// LH3DAtmos::Render3D 0x836250: one Z object per raining tile (fn_008341B0, NewZObject call 0x83427F);
 				// they used to be drawn as one group after the queue
-				for (const auto& [key, index] : CollectRain(*desc.camera))
+				for (const auto& [key, index] : _preRain) // collected by PreDraw
 				{
 					sorted.Submit({.rain = static_cast<int>(index)}, key);
 				}
@@ -3355,7 +3398,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			// draw (RendererInfluence.cpp)
 			if (sortBlended)
 			{
-				DrawInfluenceCircles(desc.viewId, *desc.camera);
+				DrawInfluenceCircles(desc.viewId); // its camera gate, scroll and alpha: PreDraw
 			}
 
 			// The drain, far to near (fn_0082F280; the full queue dropped the entries over 0x800, NewZObject 0x83F31C), in
@@ -3525,7 +3568,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 		{
 			// without the entities the models' section did not drain the queue: the mists join the clouds in it here and
 			// it is drained (fn_0082F280); nothing else can be in it
-			for (const auto& [key, index] : CollectMists(*desc.camera))
+			for (const auto& [key, index] : _preMists) // collected by PreDraw
 			{
 				sorted.Submit({.mist = static_cast<int>(index)}, key);
 			}

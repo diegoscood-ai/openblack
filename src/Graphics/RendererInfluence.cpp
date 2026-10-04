@@ -52,8 +52,9 @@ const auto k_SmokeAlpha = entt::hashed_string("raw/smokea");
 constexpr int k_RippleCell = 63;
 } // namespace
 
-void Renderer::DrawInfluenceCircles(RenderPass viewId, const Camera& camera) const
+void Renderer::UpdateInfluenceCurtain(const Camera& camera) const
 {
+	_preInfluenceScroll.reset();
 	// Draw(1): the camera gate and the middle row's alpha from g_camera.y [0xEA1DBC] (0x826CA9..0x826CF3)
 	const auto alpha = influence::CurtainAlpha(camera.GetOrigin().y);
 	if (!alpha.has_value())
@@ -62,10 +63,20 @@ void Renderer::DrawInfluenceCircles(RenderPass viewId, const Camera& camera) con
 	}
 	// 0x826D0E..0x826D2A: the material [0xEB9A18] is made on the first draw, render_modes::materials::k_InfluenceCircle.
 	// 0x826D2D..0x826D83: the scroll clock, [0xECA628] = 1 and the offset; it advances with or without circles
-	const auto offset = frame_anim::InfluenceScroll(_influenceScrollMs, game_clock::FrameGameMs());
-	// 0x826D8F..0x826E11: [0xEA9EA0] = a copy of g_world_to_clipping, the plain world space (vs_blob's u_viewProj)
+	_preInfluenceScroll = frame_anim::InfluenceScroll(_influenceScrollMs, game_clock::FrameGameMs());
 	// 0x826F0D..0x826F57: the middle rows' alpha, for the players whose border is shown
 	influence::SetCurtainAlpha(*alpha);
+}
+
+void Renderer::DrawInfluenceCircles(RenderPass viewId) const
+{
+	// the camera gate, the scroll and the middle rows' alpha of this frame: UpdateInfluenceCurtain (PreDraw)
+	if (!_preInfluenceScroll.has_value())
+	{
+		return;
+	}
+	const auto offset = *_preInfluenceScroll;
+	// 0x826D8F..0x826E11: [0xEA9EA0] = a copy of g_world_to_clipping, the plain world space (vs_blob's u_viewProj)
 	const auto circles = influence::Circles();
 	if (circles.empty() || !Locator::resources::has_value())
 	{

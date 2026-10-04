@@ -97,7 +97,9 @@ struct Surface
 	uint32_t effect {0};        ///< the effect's id
 	const Atom* atom {nullptr}; ///< the ZR_SurfRevol atom
 };
-/// Every ZR_SurfRevol atom of the running effects
+/// The creators of the effects that are gone go with them (once a frame, Renderer::PreDraw, before Collect)
+void PruneCreators();
+/// Every ZR_SurfRevol atom of the running effects (reads only)
 [[nodiscard]] std::vector<Surface> Collect();
 } // namespace surf_revol
 

@@ -95,7 +95,7 @@ std::vector<std::pair<float, uint32_t>> Renderer::CollectMists(const Camera& cam
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	// g_game_time_inc [0xEA9EC0] (game_clock::FrameGameMs, fn_007FA300 0x7FA3BE): game time, whole ms, 0 while
-	// paused, so the animation stops while the game is paused. Collected once a frame (the main view)
+	// paused, so the animation stops while the game is paused. Collected once a frame for the main view (PreDraw)
 	const bool paused = Game::Instance() == nullptr || Game::Instance()->IsPaused();
 	const float milliseconds = paused ? 0.0f : static_cast<float>(game_clock::FrameGameMs());
 
@@ -161,8 +161,7 @@ void Renderer::DrawEffectMist(graphics::RenderPass viewId, const Camera& camera,
 	{
 		return;
 	}
-	_frameMists.push_back(mist);
-	DrawMist(viewId, camera, static_cast<uint32_t>(_frameMists.size() - 1));
+	DrawMist(viewId, camera, mist);
 }
 
 void Renderer::DrawMist(graphics::RenderPass viewId, const Camera& camera, uint32_t index) const
@@ -171,7 +170,11 @@ void Renderer::DrawMist(graphics::RenderPass viewId, const Camera& camera, uint3
 	{
 		return;
 	}
-	const auto& mist = _frameMists[index];
+	DrawMist(viewId, camera, _frameMists[index]);
+}
+
+void Renderer::DrawMist(graphics::RenderPass viewId, const Camera& camera, const mists::MistDesc& mist) const
+{
 	const auto& mesh = Locator::skySystem::value().GetCloudMesh();
 	const auto& textures = Locator::resources::value().GetTextures();
 	static const auto k_Smoke = entt::hashed_string("raw/smoke");

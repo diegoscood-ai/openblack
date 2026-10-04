@@ -46,6 +46,7 @@ const auto k_AtmosAlpha = entt::hashed_string("raw/ATMOSA");
 
 std::vector<std::pair<float, uint32_t>> Renderer::CollectRain(const Camera& camera) const
 {
+	// once a frame for the main view (PreDraw): MarkDrawn lets the next rain::Update step the streaks
 	namespace rain = weather::rain;
 	std::vector<std::pair<float, uint32_t>> order;
 	_frameRain = rain::CollectTiles(camera.GetOrigin());

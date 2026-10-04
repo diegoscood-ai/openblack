@@ -420,13 +420,17 @@ uint32_t surf_revol::PlayerColour(int player)
 	return k_Colours[static_cast<size_t>(std::clamp(player, 0, 7))] | 0xFF000000u; // GetPlayer3DColor: alpha 0xFF
 }
 
-std::vector<surf_revol::Surface> surf_revol::Collect()
+void surf_revol::PruneCreators()
 {
 	// the creators of the effects that are gone go with them
 	for (auto it = g_Creators.begin(); it != g_Creators.end();)
 	{
 		it = manager::Find(it->first) == nullptr ? g_Creators.erase(it) : std::next(it);
 	}
+}
+
+std::vector<surf_revol::Surface> surf_revol::Collect()
+{
 	std::vector<Surface> result;
 	const auto ground = land_morph::CurrentAltitude();
 	for (const auto& drawable : manager::Collect(Creator::Kind::Other))

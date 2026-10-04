@@ -91,7 +91,7 @@ bool Renderer::LoadChimneySmokeAlpha() const
 std::vector<std::pair<float, uint32_t>> Renderer::CollectChimneySmoke(const Camera& camera) const
 {
 	// g_game_time_inc [0xEA9EC0] in milliseconds (game_clock::FrameGameMs, fn_007F8E00 0x7F8F25): it stops while the
-	// game is paused (as CollectMists). Collected once a frame (the main view)
+	// game is paused (as CollectMists). Collected once a frame for the main view (PreDraw)
 	const bool paused = Game::Instance() == nullptr || Game::Instance()->IsPaused();
 	const float milliseconds = paused ? 0.0f : static_cast<float>(game_clock::FrameGameMs());
 

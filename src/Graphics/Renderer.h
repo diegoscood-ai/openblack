@@ -147,8 +147,10 @@ class Renderer final: public RendererInterface
 	std::vector<std::pair<float, uint32_t>> CollectMists(const Camera& camera) const;
 	/// One mist of _frameMists, as the Z-sorter's callback 0x7FA980 (fn_007FA300)
 	void DrawMist(graphics::RenderPass viewId, const Camera& camera, uint32_t index) const;
+	/// One mist, LH3DMist::Draw fn_007FA300
+	void DrawMist(graphics::RenderPass viewId, const Camera& camera, const mists::MistDesc& mist) const;
 	/// The mist of a Queued or Immediate effect, drawn at once inside its effect (RenderParticleMist::DrawAt 0x67A78C ->
-	/// LH3DMist vt+0x104 fn_007FA790: the screen test, then Draw); appended to _frameMists
+	/// LH3DMist vt+0x104 fn_007FA790: the screen test, then Draw); not kept in _frameMists
 	void DrawEffectMist(graphics::RenderPass viewId, const Camera& camera, const mists::MistDesc& mist) const;
 	/// The mists of this frame, filled by CollectMists
 	mutable std::vector<mists::MistDesc> _frameMists;
@@ -181,7 +183,10 @@ class Renderer final: public RendererInterface
 	/// InfluenceCircle::Draw(1) 0x826C90 (GGame::Process3dEngine 0x54E3D2..0x54E3DE: every frame of the world view, no
 	/// option): every circle of influence::Circles() at once, after everything else drawn at once and before the
 	/// Z-sorter's drain (RendererInfluence.cpp)
-	void DrawInfluenceCircles(graphics::RenderPass viewId, const Camera& camera) const;
+	void DrawInfluenceCircles(graphics::RenderPass viewId) const;
+	/// Draw(1)'s writes before it draws (PreDraw): the camera gate, the scroll clock and the middle rows' alpha
+	/// (influence::SetCurtainAlpha); the scroll goes to _preInfluenceScroll, none when the gate fails
+	void UpdateInfluenceCurtain(const Camera& camera) const;
 	/// [0xEB9A40]: the border's scroll clock (frame_anim::InfluenceScroll), a global of the original
 	mutable int32_t _influenceScrollMs {0};
 	/// The NewZObject of fn_008274A0 for every ripple of influence::Ripples() (callback 0x827500): their Z-sorter keys
@@ -215,7 +220,10 @@ class Renderer final: public RendererInterface
 	/// The fish puzzle's nets of floats (FishPlot), cut by the plane: KeepBelow the part under the water (fn_00829BC0,
 	/// into the reflection target, mirrored back), KeepAbove the part over it (fn_00829B50) (RendererFishPlot.cpp)
 	void DrawFishPlots(graphics::RenderPass viewId, sea_pass::SeaPlane plane) const;
-	/// Mod world.foliage: loads Mods/world.foliage on first use, places the plants for the island and draws them
+	/// Mod world.foliage: loads Mods/world.foliage on first use (and again when its modules change), places the plants
+	/// for the island and moves the flyers (PreDraw, main view)
+	void UpdateFoliage(const DrawSceneDesc& desc) const;
+	/// Mod world.foliage: draws the plants placed by UpdateFoliage
 	void DrawFoliage(const DrawSceneDesc& desc) const;
 	/// The world.foliage mod loaded again when its modules or densities changed (DrawFoliage, PreloadForLand)
 	void LoadFoliageIfChanged() const;
@@ -326,12 +334,21 @@ private:
 	mutable haze::Params _haze;                         ///< the haze of the frame (graphics::haze::Frame, PreDraw)
 	/// The clouds of the main view this frame, collected by PreDraw (CollectClouds: their animation counters advance)
 	mutable std::vector<std::pair<float, uint32_t>> _preClouds;
+	/// The main view's mists, chimney smoke and raining tiles this frame (their Z-sorter keys and indices in _frameMists,
+	/// _frameSmoke and _frameRain), collected by PreDraw: CollectMists, CollectChimneySmoke and CollectRain advance
+	/// what they collect
+	mutable std::vector<std::pair<float, uint32_t>> _preMists;
+	mutable std::vector<std::pair<float, uint32_t>> _preSmoke;
+	mutable std::vector<std::pair<float, uint32_t>> _preRain;
+	/// The influence border's UV offset this frame (UpdateInfluenceCurtain), none when its camera gate failed
+	mutable std::optional<glm::vec2> _preInfluenceScroll;
 	/// RawTextureIds' cache (draw-owned)
 	mutable std::unordered_map<std::string, std::pair<entt::id_type, entt::id_type>> _rawTextureIds;
 	mutable float _sunGlare {0.0f};                     ///< [0xFA2778]: sun glare visibility 0..255, smoothed
 	mutable std::unique_ptr<Clouds> _clouds;
 	mutable std::unique_ptr<Foliage> _foliage;
 	mutable std::string _foliageLoadKey; ///< what _foliage was loaded with (its modules), empty: not tried yet
+	mutable float _foliageSeconds {0.0f}; ///< the flyers' clock of this frame (UpdateFoliage), read by DrawFoliage
 	mutable glm::u16vec2 _resolution {0, 0}; ///< of the main view
 	/// The projected shadows, the ShadowInfo list [0xFAA7E0] (shadow_list)
 	std::unique_ptr<shadow_list::List> _shadows;

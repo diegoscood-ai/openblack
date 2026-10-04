@@ -83,6 +83,11 @@ bool LoadAlpha()
 using openblack::graphics::region_on_screen::SphereInView;
 } // namespace
 
+bool Renderer::LoadChimneySmokeAlpha() const
+{
+	return LoadAlpha();
+}
+
 std::vector<std::pair<float, uint32_t>> Renderer::CollectChimneySmoke(const Camera& camera) const
 {
 	// g_game_time_inc [0xEA9EC0] in milliseconds (game_clock::FrameGameMs, fn_007F8E00 0x7F8F25): it stops while the

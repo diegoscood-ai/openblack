@@ -217,6 +217,10 @@ class Renderer final: public RendererInterface
 	void DrawFishPlots(graphics::RenderPass viewId, sea_pass::SeaPlane plane) const;
 	/// Mod world.foliage: loads Mods/world.foliage on first use, places the plants for the island and draws them
 	void DrawFoliage(const DrawSceneDesc& desc) const;
+	/// The world.foliage mod loaded again when its modules or densities changed (DrawFoliage, PreloadForLand)
+	void LoadFoliageIfChanged() const;
+	/// Data/Textures/smokea.raw for the chimney smoke (RendererSmoke.cpp)
+	bool LoadChimneySmokeAlpha() const;
 	/// The water rings (fn_005E5100, after the landscape): flat smoke.raw sprites, mode 13
 	void DrawWaterRings(graphics::RenderPass viewId) const;
 	/// The villagers' ground blobs ("human shadow", fn_0081FFF0 / fn_0081FE50)
@@ -288,6 +292,7 @@ public:
 
 	void ConfigureView(RenderPass viewId, glm::u16vec2 resolution, uint32_t clearColor) const noexcept final;
 
+	void PreloadForLand() const noexcept final;
 	void DrawScene(const DrawSceneDesc& drawDesc) const noexcept final;
 	[[nodiscard]] glm::u16vec2 GetResolution() const noexcept final { return _resolution; }
 	[[nodiscard]] float MeasureText(help::TextFont font, std::u16string_view text, float size) const noexcept final;

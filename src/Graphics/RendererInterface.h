@@ -120,6 +120,8 @@ public:
 
 	virtual void ConfigureView(graphics::RenderPass viewId, glm::u16vec2 resolution, uint32_t clearColor) const noexcept = 0;
 	virtual void Reset(glm::u16vec2 resolution) const noexcept = 0;
+	/// (openblack engine) a new land: what the draw would load lazily (chimney smoke alpha, the foliage mod)
+	virtual void PreloadForLand() const noexcept = 0;
 	virtual void DrawScene(const DrawSceneDesc& drawDesc) const noexcept = 0;
 	/// The size of the Main view (ConfigureView), what the overlays are laid out for; 0 x 0 before it.
 	/// Called from the logic side (the OverlayFrame filled before the draw): read-only, no bgfx calls

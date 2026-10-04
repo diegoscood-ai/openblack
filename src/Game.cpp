@@ -2010,6 +2010,11 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	game_clock::Start(std::getenv("OPENBLACK_START_PAUSED") != nullptr);
 
 	// mods: the land is ready (their land_loaded event)
+	// (openblack engine) the draw's lazy loads now, not in the middle of a frame (Texture2D::Create flushes one)
+	if (Locator::rendererInterface::has_value())
+	{
+		Locator::rendererInterface::value().PreloadForLand();
+	}
 	mods::lua::OnLandLoaded(path.stem().string());
 	mods::native::OnLandLoaded(path.stem().string());
 

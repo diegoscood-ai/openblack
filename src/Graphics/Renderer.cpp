@@ -1537,20 +1537,15 @@ void Renderer::DrawFishShoals(graphics::RenderPass viewId) const
 	bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
 }
 
-void Renderer::DrawFoliage(const DrawSceneDesc& desc) const
+void Renderer::LoadFoliageIfChanged() const
 {
-	const auto& config = Locator::config::value();
-	if (config.foliageDensity <= 0.0f || !Locator::terrainSystem::has_value())
-	{
-		return;
-	}
-	// loaded again when a module of the mod is turned on or off
 	if (!Locator::mods::has_value())
 	{
 		return;
 	}
 	const auto& mods = Locator::mods::value();
-	// and when a module's density option changes (as the mod's own: low 0.5, medium 1, high 2, very high 4)
+	// loaded again when a module of the mod is turned on or off, and when a module's density option changes (as the
+	// mod's own: low 0.5, medium 1, high 2, very high 4)
 	std::vector<std::filesystem::path> modules;
 	std::vector<float> moduleDensities;
 	std::string loadKey = "loaded";
@@ -1576,6 +1571,27 @@ void Renderer::DrawFoliage(const DrawSceneDesc& desc) const
 			_foliage = std::move(foliage);
 		}
 	}
+}
+
+void Renderer::PreloadForLand() const noexcept
+{
+	// (openblack engine) what the draw would load lazily, loaded with the land: the chimney smoke's alpha texture and
+	// the world.foliage mod (with a foliage density, as DrawFoliage)
+	LoadChimneySmokeAlpha();
+	if (Locator::config::value().foliageDensity > 0.0f && Locator::terrainSystem::has_value())
+	{
+		LoadFoliageIfChanged();
+	}
+}
+
+void Renderer::DrawFoliage(const DrawSceneDesc& desc) const
+{
+	const auto& config = Locator::config::value();
+	if (config.foliageDensity <= 0.0f || !Locator::terrainSystem::has_value())
+	{
+		return;
+	}
+	LoadFoliageIfChanged();
 	if (!_foliage)
 	{
 		return;

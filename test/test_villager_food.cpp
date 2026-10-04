@@ -153,7 +153,6 @@ protected:
 	void TearDown() override
 	{
 		villager::SetTemporaryStoreForTests({});
-		villager::ForgetDeathsForTests();
 		villager::SetRandForTests({}, {});
 		villager::SetTurnForTests(std::nullopt);
 		Locator::livingActionSystem::reset();
@@ -310,12 +309,12 @@ TEST_F(VillagerFoodTest, HungerInterrupts)
 	V(d).food = 0.2f;
 	V(d).life = 0.0005f;
 	EXPECT_TRUE(villager::CheckHungry(d, 1001));
-	EXPECT_EQ(villager::PendingDeathReason(d), DeathReason::Starving);
+	EXPECT_EQ(villager::GetDeathReason(d), DeathReason::Starving);
 	auto e = MakeVillager({100.0f, 130.0f}, 248);
 	V(e).food = 0.2f;
 	V(e).life = 0.0005f;
 	EXPECT_TRUE(villager::CheckHungry(e, 1001));
-	EXPECT_EQ(villager::PendingDeathReason(e), DeathReason::Chant);
+	EXPECT_EQ(villager::GetDeathReason(e), DeathReason::Chant);
 }
 
 TEST_F(VillagerFoodTest, Amounts)

@@ -172,7 +172,6 @@ protected:
 
 	void TearDown() override
 	{
-		villager::ForgetDeathsForTests();
 		villager::SetGoHomeEnabledForTests(true);
 		villager::SetRandForTests({}, {});
 		villager::SetTurnForTests(std::nullopt);
@@ -516,24 +515,24 @@ TEST_F(VillagerCoreTest, DeathReasons)
 	V(a).life = 0.0f;
 	Table().calls.clear();
 	villager::ProcessState(a, 100);
-	EXPECT_EQ(villager::PendingDeathReason(a), DeathReason::Exhaustion);
-	EXPECT_EQ(Table().Count("state 36"), 0u); // no CallState after the death
+	EXPECT_EQ(villager::GetDeathReason(a), DeathReason::Exhaustion);
+	EXPECT_EQ(Table().Count("state 36"), 0u); // the death left 36 (SetDying: TOP 14) before CallState
 	auto b = MakeVillager(36);
 	V(b).life = 0.0f;
 	V(b).flags = Villager::k_FlagAtWorshipSite;
 	villager::CheckEveryTime(b, 100);
-	EXPECT_EQ(villager::PendingDeathReason(b), DeathReason::Chant);
+	EXPECT_EQ(villager::GetDeathReason(b), DeathReason::Chant);
 	// the bit as Milagros keeps it today: WorshipVillager::atSite
 	auto d = MakeVillager(36);
 	V(d).life = 0.0f;
 	Locator::entitiesRegistry::value().Assign<WorshipVillager>(d).atSite = true;
 	villager::CheckEveryTime(d, 100);
-	EXPECT_EQ(villager::PendingDeathReason(d), DeathReason::Chant);
+	EXPECT_EQ(villager::GetDeathReason(d), DeathReason::Chant);
 	// GetFinalState 248 GO_HOME_FROM_WORSHIP
 	auto c = MakeVillager(248);
 	V(c).life = 0.0f;
 	villager::CheckEveryTime(c, 100);
-	EXPECT_EQ(villager::PendingDeathReason(c), DeathReason::Chant);
+	EXPECT_EQ(villager::GetDeathReason(c), DeathReason::Chant);
 }
 
 TEST_F(VillagerCoreTest, HurtGoesHome)

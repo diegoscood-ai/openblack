@@ -349,9 +349,12 @@ Report: `documentacion\render\animal_notes.txt`, data `animal_ebone_dump.txt`.
   The order of a forest's grown trees (`GrownTreesByDistance`, from "arboles") uses the 3D distance to the
   centre; the original (`DistanceToForest` 0x53A890 = `GetDistanceInMetres`) measures it only in x / z: on slopes it can
   change which tree is the lair.
-- Eaten villager: dies via `VillagerDead`, but until milestone V12 of maps without a carcass, alignment, village notices
-  nor mourning by the neighbours; the villagers do not
-  flee from predators nor take reactions.
+- Eaten villager: dies via `VillagerDead` (3 ANIMAL, its owner) and since V12 lies as a normal corpse (600 turns, the
+  owner's alignment, the town's counters and help sprites, the neighbours' REACT_TO_DEATH: villagers.md, Death); the
+  villagers do not flee from predators nor take other reactions. A corpse is reachable, so a predator may pounce on it:
+  fn_005EC480 gives it the downed mark and life 0.05 as to any Living, and its SetTopState(17) (Villager::SetTopState) is
+  refused by DEAD's exit (V12 spec Q-4: to check in the game). The corpse
+  counter of animals and villagers is the shared `living::DeadTick` (Living::Dead 0x5EC400).
 - Scripts (script_flags.md): the vortex does not exist in openblack, so nothing has the "cannot be eaten" flag yet
   (it needs Milagros: `script_held::SetCannotBeEaten` on what comes out of the vortex); there are no script flocks
   (FLOCK_CREATE / FLOCK_ATTACH not implemented: neither DisbandId nor its references); when releasing a villager

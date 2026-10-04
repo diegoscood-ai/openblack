@@ -187,7 +187,6 @@ protected:
 	{
 		villager::SetDroppedLogForTests({});
 		villager::SetTemporaryStoreForTests({});
-		villager::ForgetDeathsForTests();
 		villager::SetRandForTests({}, {});
 		villager::SetTurnForTests(std::nullopt);
 		Locator::livingActionSystem::reset();

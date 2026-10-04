@@ -234,10 +234,9 @@ bool IsAtHome(entt::entity villager)
 
 bool IsReachable(entt::entity villager)
 {
-	// 0x756465 IsAvailable (Villager 0x751D50: not being deleted, the final state not 14 DYING). (aproximado hasta V12)
-	// IsDying: openblack's provisional death of this turn (VillagerDead, V1); in the original SET_DYING would already
-	// make the final state 14
-	if (!IsAvailable(villager) || IsDying(villager))
+	// 0x756465 IsAvailable (Villager 0x751D50: not being deleted, the final state not 14 DYING): a corpse playing its
+	// dying clip (TOP 23, FINAL 15) or lying in 15 is reachable (literal, V12 spec §5.6)
+	if (!IsAvailable(villager))
 	{
 		return false;
 	}

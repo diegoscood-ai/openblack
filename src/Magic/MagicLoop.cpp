@@ -38,6 +38,7 @@
 #include "ECS/Systems/Implementations/HandGrain.h"
 #include "ECS/Systems/Implementations/VillagerFire.h"
 #include "ECS/Systems/Implementations/VillagerShield.h"
+#include "ECS/Villager/VillagerMourning.h"
 #include "ECS/Town/TownProcess.h"
 #include "ECS/Weather/WeatherLoop.h"
 #include "GameClock.h"
@@ -73,6 +74,7 @@ void magic::OnLoadMap()
 	spell_storm::Clear();  // Magic/Spells/SpellStormAndTornado
 	ecs::villager_fire::Clear();          // also registers the REACT_TO_FIRE spread
 	ecs::villager_shield::Clear();        // ECS/Systems/Implementations/VillagerShield: the shield reaction states
+	ecs::villager_mourning::Clear();      // ECS/Villager/VillagerMourning: the REACT_TO_DEATH followers and takers
 	spell_grid::Clear();
 	magic_tree::Clear(); // Magic/Objects/MagicTree (the forests that lost a magic tree)
 	ecs::systems::hand_grain::Reset();

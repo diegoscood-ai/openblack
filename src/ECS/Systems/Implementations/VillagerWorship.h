@@ -43,6 +43,12 @@ bool CheckWorshipActivity(entt::entity villager, bool requireReachable);
 [[nodiscard]] bool IsAtOrOnTheWayToWorshipSite(entt::entity villager);
 /// Villager::SetState(163 DECIDE_WHAT_TO_DO), vt 0x8E8, as Town::AdjustWorshipersWorshipping sends them back
 void SendBackToTown(entt::entity villager);
+/// Villager +0xE0 & 2: at the worship site (components::WorshipVillager::atSite)
+[[nodiscard]] bool IsAtWorshipSite(entt::entity villager);
+/// Villager::RemoveVillagerFromWorshipSite 0x76C440: the town's worshipper count (fn_0073E3F0) when at the site, off
+/// the site's count (0x77D0A0) and out of its dance (vt 0x978 / 0xB08), +0xE0 & 2 cleared. Sets no state. Called by
+/// the worship states and by Town::RemoveVillager 0x73E2A7..0x73E2B2
+void RemoveVillagerFromWorshipSite(entt::entity villager);
 
 // the state table entries (LivingActionSystem.cpp k_VillagerStateTable)
 uint32_t GotoWorshipSiteForWorshipState(components::LivingAction& action); ///< 58, 0x76BCC0 (the walk, resumed)

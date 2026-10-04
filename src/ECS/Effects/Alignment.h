@@ -19,6 +19,11 @@
 // and trees add to the change pending this turn, and the player's turn that folds it in. The one API for it (the
 // "arboles" session's ECS/Alignment was folded in here). Wiki: docs/bw1-notes/magic.md, objects-and-resources.md.
 
+namespace openblack
+{
+struct GPlayerInfo;
+}
+
 namespace openblack::ecs::effects
 {
 struct EffectValues;
@@ -53,6 +58,12 @@ void UpdateForTree(PlayerNames player, bool good);
 /// (0x41452F..0x414555), `pending` += ScaleChange(delta x k) (0x414566, 0x414585). The alignment history
 /// (fn_004153C0), the only reader of the type, is not kept, as everywhere here: no type argument
 void UpdateForResource(PlayerNames player, entt::entity abode, int32_t amount, float change);
+/// GAlignment::Update(GPlayer* p, Object* o, DEATH_REASON r) 0x4143B0, the change: v = GPlayerInfo +0x20 + 4r
+/// (dealthReason[r]); a child (vt +0x458) v + v (`fadd st0, st0`); an animal (vt +0x454) v x 0.5. No ScaleChange
+[[nodiscard]] float DeathAlignmentChange(const GPlayerInfo& info, DeathReason reason, bool child, bool animal);
+/// GAlignment::Update 0x4143B0 (Villager::VillagerDead 0x750818, on the owner's GAlignment, p = the owner): `pending` +=
+/// DeathAlignmentChange, no clamp here (ProcessForPlayer folds it in)
+void UpdateForDeath(PlayerNames owner, DeathReason reason, bool child, bool animal);
 /// GAlignment::ProcessForPlayer 0x4141A0 -> GAlignment::Process 0x414140: the pending change clamped to -1..1, times
 /// GPlayerInfo::maxAlignmentChangePerGameTurn, is CrudeUpdate-d and the pending change goes back to 0
 void ProcessForPlayer(PlayerNames player);

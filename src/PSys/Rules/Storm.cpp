@@ -47,6 +47,7 @@
 #include "ECS/Fire/FireObjectTraits.h"
 #include "ECS/GUtilsDistance.h"
 #include "ECS/Life.h"
+#include "ECS/Villager/VillagerDeath.h"
 #include "ECS/Map.h"
 #include "ECS/MapCells.h"
 #include "ECS/MapCoords.h"
@@ -814,7 +815,8 @@ void TornadoCarrier::Release(const glm::vec3& position)
 		}
 		if (registry.AllOf<ecs::components::Villager>(object))
 		{
-			ecs::life::Kill(object, "tornado"); // Villager::DestroyedByEffect 0x7502D0 -> VillagerDead
+			// Villager::DestroyedByEffect 0x7502D0 (fn_006C9EF0's player, 1.0) -> VillagerDead(2 SPELL)
+			ecs::villager::DestroyedByEffect(object, hasPlayer ? std::optional<PlayerNames>(player) : std::nullopt, 1.0f);
 		}
 		else
 		{

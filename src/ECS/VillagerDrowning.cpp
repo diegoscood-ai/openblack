@@ -27,6 +27,7 @@
 #include "ECS/VillagerAnimations.h"
 #include "ECS/VillagerSpeed.h"
 #include "ECS/Villager/VillagerCore.h"
+#include "ECS/Villager/VillagerScript.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 
@@ -103,8 +104,25 @@ bool HasSunk(entt::entity entity)
 	auto& registry = Locator::entitiesRegistry::value();
 	if (registry.AllOf<Villager>(entity))
 	{
-		// Villager::HasSunk 0x750AB0. The DYING branch (flag +0xB4 bit 0, already dead: DYING and
-		// dyingTimeWithoutGraveyard) is not reachable in openblack: a villager at 0 life is removed at once.
+		// Villager::HasSunk 0x750AB0: 0x750AB5 IsAvailable (vt +0x2C) == 0 -> 0 (not sunk). (not ported) 0x750AC1..0x750AED
+		// the player who last dropped it: ConsiderMakingCreatureMimicPlayer
+		if (!villager::IsAvailable(entity))
+		{
+			return false;
+		}
+		// 0x750AF5..0x750B0F: the status bit alone (+0xB4 & 1, not Living::IsDead) -> SetTopState(14 DYING) and the
+		// counter = dyingTimeWithoutGraveyard (+0x290, 0x750B1E)
+		const auto& component = registry.Get<const Villager>(entity);
+		if ((component.status & Villager::k_StatusDead) != 0)
+		{
+			villager::SetTopState(entity, VillagerStates::Dying);
+			if (auto* action = ActionOf(entity))
+			{
+				action->turnsUntilStateChange = static_cast<uint16_t>(villager::InfoOf(entity).dyingTimeWithoutGraveyard);
+			}
+			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Physics: dead villager {} sank: DYING", static_cast<uint32_t>(entity));
+			return true;
+		}
 		StartDrowning(entity);
 		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Physics: villager {} sank: DROWNING for {} turns", static_cast<uint32_t>(entity),
 		                   DrowningTime(entity));
@@ -131,14 +149,23 @@ void VillagerEndPhysicsInWater(entt::entity villager)
 	// GetLife (vt +0x11C) > 0 -> stateCounter = drowningTime, lastPlayerToInteract (+0x104) = PhysicsObject::GetPlayer
 	// 0x647460 (the player of the GInterfaceStatus at po +0x24: the hand that dropped or threw it, inherited through
 	// what it hit; 0 without a PhysicsObject), SetTopState(DROWNING). Its only reader is Drowning's VillagerDead
-	// (TODO(players): openblack has no players to keep there). At 0 life Living::IsDead (vt +0xAF4) would give DYING
-	// with dyingTimeWithoutGraveyard; openblack has no dead-but-kept villager, so it is the VillagerDead branch
-	// (stateCounter 0, the physics' player or the local player g_game +0x205A5B).
+	// (TODO(players): openblack has no players to keep there). At 0 life (0x5F0BC0..0x5F0C41): Living::IsDead (vt +0xAF4)
+	// -> SetTopState(14 DYING) and the counter = dyingTimeWithoutGraveyard (+0x290; never the graveyard's time); else the
+	// counter 0 and VillagerDead (the physics' player or the neutral player g_game +0x205A5B, 0.01, 1).
 	if (life::LifeOf(villager) > 0.0f)
 	{
 		StartDrowning(villager);
 		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Physics: villager {} at rest in the water: DROWNING for {} turns",
 		                   static_cast<uint32_t>(villager), DrowningTime(villager));
+		return;
+	}
+	if (villager::IsDead(villager))
+	{
+		villager::SetTopState(villager, VillagerStates::Dying);
+		if (auto* action = ActionOf(villager))
+		{
+			action->turnsUntilStateChange = static_cast<uint16_t>(villager::InfoOf(villager).dyingTimeWithoutGraveyard);
+		}
 		return;
 	}
 	if (auto* action = ActionOf(villager))

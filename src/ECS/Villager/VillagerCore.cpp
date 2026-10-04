@@ -61,13 +61,6 @@ namespace
 {
 std::optional<uint32_t> g_TurnForTests;
 
-/// The villagers VillagerDead marked this turn (FlushDeaths kills them after the turn)
-struct PendingDeath
-{
-	entt::entity villager;
-	DeathReason reason;
-};
-std::vector<PendingDeath> g_Deaths;
 /// Whether CheckEveryTime's hurt rule enters 36 GO_HOME (on since V2: 36 walks to the door; the tests may turn it off)
 bool g_GoHomeEnabled = true;
 
@@ -75,16 +68,6 @@ bool g_GoHomeEnabled = true;
 /// NONE 0, FARMER 1, FORESTER 1, FISHERMAN 1, BUILDER 1, BREEDER 1, PROTECTION 1, MISSIONARY 0, CRAFTSMAN 1, TRADER 1,
 /// CHANGE_HOUSE 0, WORSHIP 0, FROM_VORTEX 0
 constexpr std::array<uint32_t, 13> k_DiscipleIgnoresNeeds = {0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0};
-
-/// DEATH_REASON's names (Enums.h DeathReason)
-constexpr std::array<const char*, static_cast<size_t>(DeathReason::_COUNT)> k_DeathReasonNames = {
-    "NONE", "STARVING", "SPELL", "ANIMAL", "CHANT", "PLAYER_INTERACTION", "PLAYER_INTERACTION_DROWN", "SACRIFICE",
-    "EXHAUSTION", "OLD_AGE"};
-
-const char* DeathName(DeathReason reason)
-{
-	return k_DeathReasonNames.at(std::min<size_t>(static_cast<size_t>(reason), k_DeathReasonNames.size() - 1));
-}
 
 Registry& Entities()
 {
@@ -394,8 +377,11 @@ void Construct(entt::entity villager, const GVillagerInfo& info, uint32_t age, u
 	// 0x74FADC..0x74FAF5: MapCoords::IsWater 0x6035B0 -> SetState(0, 16 DROWNING), else SetState(0, 85 CREATED):
 	// Villager::SetState only (no entry, clips or speed; nothing of the water's: Villager::Drowning does the rest)
 	SetState(villager, Index::Top, inWater ? VillagerStates::Drowning : VillagerStates::Created);
-	// 0x74FAFF ++g_game +0x205A54 (the villager count). TODO(V12): openblack keeps no such counter
-	// 0x74FB0C SetSkeleton(arg 4) 0x7562C0. TODO(V12): no villager skeletons
+	// 0x74FAFF ++g_game +0x205A54 (the world population): openblack counts the Villager entities that are not counted out
+	// (magic::players::WorldPopulation, villager::IsCountedOut)
+	// 0x74FB0C SetSkeleton(arg 4) 0x7562C0 (VillagerDeath.h). (pending) not called here: the archetype has no skeleton
+	// argument and assigns the Mesh after Construct, and SetSkeleton's SetScaleForAge draws GameFloatRand once more
+	// (0x756436), which would move every later draw; to be done with VillagerArchetype's draw order
 	if (TraceOn(villager))
 	{
 		const auto* transform = Entities().TryGet<const Transform>(villager);
@@ -445,11 +431,10 @@ uint32_t ProcessState(entt::entity villager, uint32_t turn)
 	{
 		return 1;
 	}
-	// 0x750049 (the result is unused)
+	// 0x750049 (the result is unused). A death there (VillagerDead -> SetDying: TOP 14) keeps the villager, and CallState
+	// runs the new TOP's function (Villager::Dying) this same turn
 	CheckEveryTime(villager, turn);
-	// (aproximado until V12) the original keeps the villager after VillagerDead (SetDying -> 13 SET_DYING) and calls
-	// CallState anyway; openblack kills it after the turn, so its state does not run again
-	if (IsDying(villager) || !Entities().Valid(villager))
+	if (!Entities().Valid(villager))
 	{
 		return 1;
 	}
@@ -501,8 +486,8 @@ uint32_t CheckEveryTime(entt::entity villager, uint32_t turn)
 			const auto final = GetFinalState(villager);
 			const bool chant = final == VillagerStates::GoHomeFromWorship || final == VillagerStates::ArrivesHomeFromWorship ||
 			                   final == VillagerStates::SleepInTentFromWorship || AtWorshipSite(villager, *v);
-			// 0x7504EF..0x7504FE: VillagerDead(reason, GetPlayer(), 0.0, 1). TODO(V12): GetPlayer (vt +0x1C)
-			VillagerDead(villager, chant ? DeathReason::Chant : DeathReason::Exhaustion, PlayerNames::NEUTRAL, 0.0f, 1);
+			// 0x7504EF..0x7504FE: VillagerDead(reason, GetPlayer() (vt +0x1C, Villager::GetPlayer 0x7502F0), 0.0, 1)
+			VillagerDead(villager, chant ? DeathReason::Chant : DeathReason::Exhaustion, GetPlayerOf(villager), 0.0f, 1);
 			return 1;
 		}
 		// 0x75050E..0x75051E: turns since the last check > processChecksEvery (+0x2DC), strictly (jbe)
@@ -594,6 +579,18 @@ bool IsStateExitFunctionSameAs(entt::entity villager, VillagerStates next)
 	}
 	// 0x752585..0x7525A5: Infos[next] final (0xDB9E84, file 0x0C) -> 0, else 1
 	return !state_info::IsFinal(StateInfo(next));
+}
+
+bool IsAvailableForReaction(entt::entity villager)
+{
+	// 0x763390 (the part ported): not held or thrown, and the final
+	// state takes reactions (state table +0xEC)
+	const auto top = GetState(villager, Index::Top);
+	if (top == VillagerStates::Flying || top == VillagerStates::InHand)
+	{
+		return false;
+	}
+	return StateInfo(GetFinalState(villager)).field0xec != 0;
 }
 
 bool CanPauseForASecond(entt::entity villager, VillagerStates state)
@@ -999,70 +996,5 @@ uint32_t PauseForASecond(LivingAction& action)
 
 // ---- the periodic checks are in VillagerFood.cpp and VillagerAge.cpp (V4) ---------------------------------------
 
-// ---- death (provisional until V12) -------------------------------------------------------------------------------
-
-void VillagerDead(entt::entity villager, DeathReason reason, [[maybe_unused]] PlayerNames player,
-                  [[maybe_unused]] float amount, int flag)
-{
-	// TODO(V12, villager death): Villager::VillagerDead 0x7506C0 (the alignment, the town's counts, the texts,
-	// SetDying -> 13). Meanwhile it is marked and killed at the end of the turn (FlushDeaths)
-	if (IsDying(villager))
-	{
-		return;
-	}
-	// 0x7507C0..0x7507E2: the last argument != 0 -> CreateDroppedResource(0, 0, 0) 0x750940; then DropWood(0) 0x751240
-	// and DropFood(0) 0x7511E0 always (the town's carried totals go down). (approximate until V12) here, before the
-	// provisional mark
-	if (flag != 0)
-	{
-		CreateDroppedResource(villager, std::nullopt, std::nullopt, std::nullopt);
-	}
-	DropWood(villager, 0);
-	DropFood(villager, 0);
-	g_Deaths.push_back({villager, reason});
-	const auto text = fmt::format("died ({})", DeathName(reason));
-	if (TraceOn(villager))
-	{
-		Trace(villager, text);
-	}
-	else if (auto logger = spdlog::get("game"); logger != nullptr)
-	{
-		SPDLOG_LOGGER_INFO(logger, "Villager {} {}", object_index::Of(villager), text);
-	}
-}
-
-bool IsDying(entt::entity villager)
-{
-	return std::any_of(g_Deaths.begin(), g_Deaths.end(), [villager](const auto& d) { return d.villager == villager; });
-}
-
-std::optional<DeathReason> PendingDeathReason(entt::entity villager)
-{
-	const auto it =
-	    std::find_if(g_Deaths.begin(), g_Deaths.end(), [villager](const auto& d) { return d.villager == villager; });
-	return it != g_Deaths.end() ? std::optional<DeathReason>(it->reason) : std::nullopt;
-}
-
-void ForgetDeathsForTests()
-{
-	g_Deaths.clear();
-}
-
-void FlushDeaths()
-{
-	auto deaths = std::move(g_Deaths);
-	g_Deaths.clear();
-	auto& registry = Entities();
-	for (const auto& death : deaths)
-	{
-		if (registry.Valid(death.villager))
-		{
-			// (aproximado hasta V12) in the original the dying villager stays and its state's exit (to 13 SET_DYING, whose
-			// +0xC0 is 0) runs ExitAtHome's LeaveHome; SetDying is not read (R4). openblack deletes it: LeaveHome first,
-			// so PresentAtHome (+0xB6) does not stay up
-			LeaveHome(death.villager);
-			life::Kill(death.villager, DeathName(death.reason));
-		}
-	}
-}
+// ---- death: VillagerDeath.cpp (V12) ---------------------------------------------------------------------------------
 } // namespace openblack::ecs::villager

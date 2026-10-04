@@ -169,6 +169,41 @@ void alignment::UpdateForResource(PlayerNames player, entt::entity abode, int32_
 	}
 }
 
+float alignment::DeathAlignmentChange(const GPlayerInfo& info, DeathReason reason, bool child, bool animal)
+{
+	// 0x4143B9: no player -> nothing (the caller's); 0x4143BB..0x4143C2: fld [p +0x64 (its info) +0x20 + 4r]
+	const auto r = std::min<size_t>(static_cast<size_t>(reason), info.dealthReason.size() - 1);
+	float change = info.dealthReason.at(r);
+	// 0x4143D3..0x4143E3: IsAChild (vt +0x458) -> fadd st0, st0
+	if (child)
+	{
+		change = change + change;
+	}
+	// 0x4143EB..0x4143FA: IsAnimal (vt +0x454) -> fmul 0.5 (0x8AA3B4)
+	if (animal)
+	{
+		change *= 0.5f;
+	}
+	return change;
+}
+
+void alignment::UpdateForDeath(PlayerNames owner, DeathReason reason, bool child, bool animal)
+{
+	if (!Locator::infoConstants::has_value())
+	{
+		return;
+	}
+	// 0x414400..0x414403: this +0xC (pending) += the change (fadd, fstp)
+	const float change = DeathAlignmentChange(Locator::infoConstants::value().player, reason, child, animal);
+	auto& alignment = Of(owner);
+	alignment.pending += change;
+	if (Trace())
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Alignment: player {} death {} {:+.5f} (pending {:+.5f}, alignment {:+.4f})",
+		                   static_cast<int>(owner), static_cast<int>(reason), change, alignment.pending, alignment.value);
+	}
+}
+
 void alignment::ProcessForPlayer(PlayerNames player)
 {
 	if (!Locator::infoConstants::has_value())

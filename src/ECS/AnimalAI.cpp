@@ -52,6 +52,7 @@
 #include "ECS/SeaCells.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "ECS/SmokyStuff.h"
+#include "ECS/Villager/VillagerDeath.h"
 #include "ECS/VillagerAnimations.h"
 #include "InfoConstants.h"
 #include "GameClock.h"
@@ -1297,11 +1298,16 @@ void SetDying(entt::entity entity, AnimalBrain& brain)
 }
 
 /// Living::StateDead (0x5EC400): off the flock; the corpse lies 600 turns, then its smoke puff and it goes. A
-/// script-controlled one (+0x25 & 4, 0x5EC41E) never times out (the death reason SACRIFICE 7 is not tracked).
+/// script-controlled one (+0x25 & 4, 0x5EC41E) never times out. The counter is living::DeadTick (ECS/Villager/
+/// VillagerDeath.h), shared with the villagers; (pending, V12 spec Q-5) Animal::GetDeathReason 0x417890 (+0x10C) is not
+/// kept, so the SACRIFICE 7 rule never applies to an animal yet
 bool Dead(Context& ctx)
 {
 	LeaveFlock(ctx.entity, ctx.animal);
-	if (script_held::IsControlledByScript(ctx.entity) || ctx.brain.counter-- != 0)
+	const auto tick = living::DeadTick(static_cast<uint16_t>(ctx.brain.counter), script_held::IsControlledByScript(ctx.entity),
+	                                   DeathReason::None);
+	ctx.brain.counter = static_cast<decltype(ctx.brain.counter)>(tick.counter);
+	if (!tick.vanish)
 	{
 		return false;
 	}

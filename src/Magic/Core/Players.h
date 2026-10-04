@@ -50,8 +50,8 @@ void SetMagicTypeEverBeenEnabled(PlayerNames player, MagicType type);
 [[nodiscard]] bool HasMagicTypeEverBeenEnabled(PlayerNames player, MagicType type);
 
 /// g_game+0x205A54, the world's villagers: + 1 in the Villager ctor (0x74FAFF), - 1 in SetDying (0x76A552) or in the
-/// dtor (0x74FBD4) of one not yet counted out (+0xE0 & 0x40). (aproximado) openblack keeps no counter: the villager
-/// entities are counted (a dying villager is removed at once, ecs::life::Kill)
+/// dtor (0x74FBD4) of one not yet counted out (+0xE0 & 0x40). openblack keeps no counter: the villager entities without
+/// that flag are counted (a corpse stays an entity, counted out by SetDying; a deleted one is gone)
 [[nodiscard]] uint32_t WorldPopulation();
 /// GPlayer::GetProportionOfWorldPopulationWhoBelieveInMe 0x64B680: the men and women (TownStats +0x54 / +0x58, Town
 /// +0x664 / +0x668) of the player's towns (+0xA50) over WorldPopulation (fild qword of each, a float division); 0 when

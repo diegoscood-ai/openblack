@@ -43,8 +43,6 @@ struct TownMagic
 	std::vector<entt::entity> onWayVillagers;
 	/// +0x5F0 "the script forbids a worship site" (= !SET_CAN_BUILD_WORSHIPSITE)
 	bool forbidWorshipSite {false};
-	/// the deaths with reason 4 (worship), Town::GetDeathsFromWorshipping 0x740D60 (GET_TOWN_WORSHIP_DEATHS)
-	int32_t deathsFromWorship {0};
 };
 
 /// The worship part of a TotemStatue (on its plinth's entity, next to components::TotemStatue): TotemStatue +0x80 the

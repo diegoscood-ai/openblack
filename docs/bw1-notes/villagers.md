@@ -156,8 +156,10 @@ SetTopState do not roll the pause. It can only come out when PopFromPrevious ret
   (unported: 203 has no state function); with a reaction (+0x94): out of the reaction's list,
   `fn_005F0FE0(tipo)` = the type's record receives the turn (`reactions::RefreshRecord`), +0x94 = 0; +0xBC = 0 always.
   In openblack `villager_reactions::StopReacting` calls `villager_fire::StopReacting` (reaction 0, null object,
-  RefreshRecord of REACT_TO_FIRE) and `villager_teleport::StopReacting` (clears its state, RefreshRecord of
-  REACT_TO_TELEPORT). EnterPutOutFire (0x75AE55) also uses it.
+  RefreshRecord of REACT_TO_FIRE), `villager_teleport::StopReacting` (clears its state, RefreshRecord of
+  REACT_TO_TELEPORT), `villager_shield::StopReacting` and `villager_mourning::StopReacting` (one taker fewer: 0x5F1186
+  `dec` reaction +0x1C); `villager_reactions::IsReacting` is true for any of the four. EnterPutOutFire (0x75AE55) also
+  uses it.
 - **ExitReactToTeleport 0x766390** (exit of 201, 202 and 251): if not `IsStateExitFunctionSameAs(s)` (vt +0x96C
   0x752530), it leaves its town's on-the-way-to-worship list (GetTown vt +0x48 → 0x73E360) and +0xE0 &= ~0x10 (also
   without a town); then ExitReaction(s) and its result.
@@ -194,7 +196,7 @@ original; until the water state function arrives they stay still in the water.
 ## The turn (Villager::ProcessState 0x74FF70)
 
 `LivingActionSystem::Update`: first the test hooks, then for each villager (registry order)
-`ProcessReaction` 0x5F1270 (no-op: TODO Milagros M-5) and `ProcessState`; at the end `FlushDeaths`.
+`ProcessReaction` 0x5F1270 (no-op: TODO Milagros M-5) and `ProcessState`; at the end the souls (V12, once a turn).
 **(approximate)** the original keeps villagers and animals in a single list (g_game +0x205BBC) and the path step
 (Living::MoveToPos 0x5EC270) goes inside the state function; openblack moves everyone first (PathfindingSystem) and
 processes the animals afterwards.
@@ -620,12 +622,77 @@ already left. Previously, after a pause, ProcessInWorship carried on with a vill
 (again in the return queue, one more worshipper requested, extra chant damage and a stale entry at the front of the
 queue).
 
-## Death (provisional until V12)
+## Death (V12)
 
-`villager::VillagerDead` marks the villager, writes `Villager <n> died (<motivo>)` and `FlushDeaths` kills it at the end
-of the turn (`ecs::life::Kill`). The original leaves it alive (SetDying → 13) and keeps calling CallState; here it no
-longer does **(approximate until V12)**. V4: before the Kill, `LeaveHome` (if it was inside), so that `presentAtHome` does
-not stay high (in the original the exit of the state towards 13 would do it).
+Full spec: `dev\documentacion\aldeanos\V12_spec.md` (dumps in its `v12\`). Code: `Villager/VillagerDeath.{h,cpp}`
+(VillagerDead, SetDying, the states 13 / 14 / 15, IsDead, GetPlayerOf, DeleteDependancys, Delete, SetSkeleton, the shared
+`living::DeadTick`), `Villager/VillagerMourning.{h,cpp}` (REACT_TO_DEATH, 205-208, the orphans and 131),
+`Villager/VillagerSoul.{h,cpp}` (the soul), `Components/TownDeaths.h` (the town's death counters); the dead branches of
+`LivingPhysics.cpp` (land) and `VillagerDrowning.cpp` (water); test `test/test_villager_death.cpp`.
+
+- **VillagerDead 0x7506C0** (reason, killer, amount, drop): nothing while the villager flies (+0x24 & 0x40; openblack: a
+  flying body, `PhysicsObjects::IsFlying`) or once dead (`Living::IsDead` 0x417270: status & 1 or TOP 15). Then: the
+  help sprites (table 0x99A368, A / B / C per reason: KillingPeople when the killer is the local player, else
+  DeathInVillageSFX when the owner is; with a town WorshippersDying for CHANT, LosingVillagers above GTownInfo +0x150
+  adults, else LowOnPeople), the drops (CreateDroppedResource only with `drop`; DropWood / DropFood always), the
+  **owner's** alignment (`effects::alignment::UpdateForDeath`: GPlayerInfo +0x20 + 4r, twice for a child, no
+  ScaleChange; a villager without a town changes none), the town's counters (`TownDeaths`: +0x38, +0x5C[0],
+  +0x7C[reason], +0xA4[killer, none = neutral], +0xD8 = the turn, +0xDC), the town's pulse (+0x5EC = 0, +0x5E8 = 1),
+  SetDying and then the reason (+0x118). The killer and owner are `std::optional<PlayerNames>` (none = neutral); the
+  local player is PLAYER_ONE **(inferred)**.
+- **SetDying 0x76A4C0** (also row 13): life 0, SetTopState(14) (the exits of the state left run; the dying clip is chosen
+  with the landType of the last landing), status |= 1, DeleteDependancys (out of the abode and town, a mother's orphans),
+  status |= 0x30, the counter = 600 (120 with a functional graveyard in the town), out of the world population (+0xE0 &
+  0x40, which `magic::players::WorldPopulation` skips).
+- **14 DYING 0x76A570**: SACRIFICE -> 15 at once; else PlayAnimThenSetState(15): 23 WAIT_FOR_ANIMATION plays the dying
+  clip (253 P_DYING, 246 P_DEAD2 after landing on the left side, 283 in the water). Not at home: REACT_TO_DEATH. It runs
+  the same turn as the death (ProcessState calls CallState after CheckEveryTime).
+- **15 DEAD 0x76A5E0**, then Living::Dead 0x5EC400: a fire on it goes; not script-controlled: on the first DEAD turn a
+  smoke puff (`SmokyStuff`, half its height up), out of the water a soul (`villager_soul`: a child's ChildMeshHigh forced
+  to heaven, else StdDetail; Random(0, 100) < 50 heaven; the clip pair 244 / 245, or 247 / 248 when the corpse's clip is
+  named "M_P_DEAD1", literal) and the mesh becomes the skeleton 0x1FF PersonSkeletonMale (every turn). The counter runs
+  down one per turn (`living::DeadTick`, shared with the animals); at 0 (counter + 1 turns) or for SACRIFICE a second puff
+  and Villager::ToBeDeleted. A script-controlled corpse never smokes, never turns skeleton and never times out (except
+  7). The dead clip is 243 P_DEAD1 (landType 3 after SetDying), 246 for a corpse thrown back on its left side, 249 in the
+  water. DEAD's exit is CannotExitState 0x768640 (only IN_HAND 24, FLYING 10 or a state with the same exit).
+- **Corpses, the hand and the physics**: a corpse in 15 (or playing its dying clip, FINAL 15) is available and reachable
+  (IsAvailable is false only with FINAL 14). In the hand or flying it does not count down. Landing on land
+  (Villager::EndPhysics 0x5F0A60): the landType (the turn-start matrix's right row y: < -0.5 -> 1, > 0.5 -> 2, else 0)
+  into status bits 4-5; life <= 0: already dead -> 15 with its remaining counter, else VillagerDead(5 PLAYER_INTERACTION,
+  the hand's player); then the landType again. In the water: dead -> 14 with 600 (never the graveyard's time), else
+  VillagerDead(6). A villager killed in flight (impact, spell, fire) dies at rest with reason 5 / 6 (literal).
+  Villager::HasSunk 0x750AB0: not available (FINAL 14) -> not sunk; the status bit alone (+0xB4 & 1, not IsDead) -> 14,
+  600; else DROWNING.
+- **A predator's pounce** (fn_005EC480): every Living, a corpse too, gets the downed mark, life 0.05 and SetTopState(17)
+  (Villager::SetTopState); DEAD's exit refuses the state of a corpse (V12 spec Q-4: to check in the game).
+- **Mourning**: REACT_TO_DEATH (23) spreads once over 60 m. Priority (0x766440) 100 unless my town has a functional
+  graveyard, I am the dead one or 10 follow it now (reaction +0x1C: AddReaction `inc`, StopReacting `dec`). Setup (0x7665B0): GameRand(2) 0 -> 205 with the counter 0, 1 ->
+  206. 205 points (clip 395) once facing it, for ftol((GameFloatRand(20) + 2) x (1000 / ms per turn = 10)) facing turns
+(x87 precision, one truncation); 206 walks to 4 m
+  (maxDistanceToRunAwayFromObject) from it when farther than 4.8 m; 207 turns to face it; 208 mourns (285 -> 313 -> 321)
+  for ftol((GameFloatRand(3) + 4) x 10) turns, then StopReactingAndSetState. The exit is ExitReaction, the validate
+  ReactionValidate (the corpse gone, unavailable or in the hand -> PopFromPrevious).
+- **Orphans**: FindChildrenAndOrphanThem 0x756BE0 (DeleteDependancys of a woman, Town::RemoveVillager): every villager of
+  the town's abodes and homeless list whose mother she is -> 131 MORN_DEATH (GoHome with the mourning clips) if
+  available, and the mother link cleared (grown-up children too, literal).
+- **Deletion**: `villager::Delete` = `ecs::ToBeDeleted` = Villager::ToBeDeleted 0x7521B0 (no death: no reason, counters
+  or corpse): its villager branch calls `villager::ToBeDeletedOverride` when it is marked: DeleteDependancys 0x74FD60
+  (SET_DYING through the real exits unless already 13-15, the orphans, out of the abode / town / vagrants), then
+  Living::ToBeDeleted 0x5EC0A0's StopReacting (any reaction, the mourning too). Town::RemoveVillager 0x73E210 calls
+  RemoveVillagerFromWorshipSite 0x76C440 when the villager is at the site (+0xE0 & 2), before SetTown(0). The beam
+  (Explosion) deletes. A new map clears the mourning in MagicLoop's OnLoadMap.
+- **Callers**: CheckEveryTime (EXHAUSTION / CHANT, owner), CheckHungry (STARVING / CHANT, owner), old age (9, none),
+  Drowning and EndPhysics in the water (6), EndPhysics on land (5), BeingEaten (3, owner: then a normal corpse),
+  ReduceVillagerLifeByChant (4, owner; GET_TOWN_WORSHIP_DEATHS reads `TownDeaths::byReason[4]`), DestroyedByEffect
+  (2: spells with the effect's player and damage, fire with its player and 0 (0x72F506), tornado (player, 1.0),
+  impacts).
+- The graveyard: Town +0x748 is `graveyard::GetGraveyard(town)` and its IsFunctional `abode_queries::IsFunctional`
+  (SetDying's 120 / 600, ReactToDeathPriority); fn_0073E440 calls `graveyard::AddDead` when +0x748 is set (0x73E48B;
+  AddDead tests IsFunctional and the 50 itself).
+- Not ported / pending: GameStats (+0x4C, +0x106C, +0x1124), Town +0xA08 (no reader), the
+  multiplayer FUN_0064DA80, disciples (V14), the footpath walker list, the soul's per-frame update (openblack: once a turn,
+  the clip runs per frame), SetSkeleton in the constructor (draw order), the sacrifice, ReleaseFromScript's and the
+  creature's VillagerDead; the soul's alpha goes through `components::Alpha`, not the object colour (inferred).
 
 ## Test hooks
 
@@ -640,6 +707,12 @@ not stay high (in the original the exit of the state towards 13 would do it).
 - `OPENBLACK_TEST_VILLAGER_STATE="<estado>[,<n>]"`: on turn 2 calls `villager::SetTopState` and writes the code.
 - `OPENBLACK_TEST_VILLAGER_BORN_IN_WATER="x,z"`: on turn 2 creates a Celtic villager (Housewife, 25 years old) there.
 - `OPENBLACK_TEST_VILLAGER_POISONED=<n>`: on turn 2 poisons villager n.
+- `OPENBLACK_TEST_VILLAGER_KILL="<reason 0-9>[,<n>[,<turn>]]"` (V12): at turn 2 (or `<turn>`) VillagerDead(reason,
+  GetPlayerOf, its life, 1) of villager n (or all); with `OPENBLACK_TEST_CORPSE_TURNS=<n>` the corpse's counter is n.
+  The trace adds `death: <reason> killer <p> owner <p> amount <a> drop <d> help <kvwlp>`, `death: town <id> deaths[<r>]
+  = <n> total <n>`, `setdying: counter <c> (graveyard <0|1>)`, `dying: -> 15 (reaction ...)`, `dead: smoke, soul <clip>
+  mesh <m>, skeleton` / `dead: smoke, water, skeleton`, `dead: <counter>` every 100 turns, `dead: vanish`, `mourn: <state>
+  of <dead>`, `orphan: -> 131`; the alignment trace adds `Alignment: player <p> death <r> <v>`.
 - `OPENBLACK_TOWN_TRACE=1[,<cada>][,raw]` (V3): per town, every `<cada>` turns (50) and whenever the first of order 1
   changes: `town <id> turn <t> pop <p>: [16 Sleep 1.000 raw 6.250] [15 Relaxation 0.100] …` (the 17, order 1) and
   `avg <a>` on the 50-turn turns; with `,raw` also order 2.
@@ -719,6 +792,11 @@ the score and FindAbodeWithSpaceInTown, the home's list, CheckNeedNewAbode → 1
 Abode::Process (1001 turns). `test/test_villager_age.cpp`: the pure layer (63 years, r³), SetScaleForAge with scripted
 GameFloatRand, the 13-year-old child (18 years, counts, 234), old age and WomanSpecial. In `test_villager_decide.cpp`
 two V2 cases change (a hungry villager eats immediately, 117; one without a home or town goes to 130).
+`test/test_villager_death.cpp` (V12): the help table, the dying time and clips, DeadTick, the soul's clip / alpha /
+expiry, the death alignment and the mourning turns; VillagerDead's guards, fields and order, the owner / killer / town
+counters / pulse, the help sprites, the world population, Dying, Dead (smoke, skeleton, vanish, script-controlled,
+SACRIFICE), CannotExitState, DeleteDependancys, the orphans, the mourning priority, setup and states 205-208 (no
+landscape in the tests: everything is water there, so no soul).
 
 ## Assumptions (inferred / approximate)
 
@@ -736,8 +814,8 @@ two V2 cases change (a hungry villager eats immediately, 117; one without a home
 6. The game turn is `Game::GetTurn` (g_game +0x205A40); without Game (tests) it is 0 or that of `SetTurnForTests`.
 7. **(approximate)** Turn order: villagers and animals in two passes, everyone's movement before the logic, and
    the villagers in registry order (not that of the list g_game +0x205BBC).
-8. **(approximate until V12)** VillagerDead kills at the end of the turn and the state function no longer runs after
-   death; the player of VillagerDead (GetPlayer, vt +0x1C) is not passed (NEUTRAL).
+8. (V12: no longer an assumption.) VillagerDead keeps the villager as a corpse (SetDying, 14, 15) and CallState runs
+   after a death; the player of VillagerDead is GetPlayer (the town's owner).
 9. **(approximate)** The TOP changes of the hand, physics, animals, LANDED and the Gui do not go through exits or
    entries (their Enter/Exit of the original are not ported). Those of fire and teleport now do (core).
 10. (V2: the invented idle walk has been removed.) A walk with FINAL 0 (only debugging tools) returns to 163
@@ -753,7 +831,8 @@ two V2 cases change (a hungry villager eats immediately, 117; one without a home
 16. (V2: no longer an assumption.) The "hurt → 36 GO_HOME" rule of CheckEveryTime (0x7505C3) is switched on: 36 walks to
     the door. (V4: 37 ARRIVES_HOME is now ported.)
 17. Neutral until their milestone (they do not invent behaviour): ProcessReaction (Milagros M-5), Town +0x5E8 (V3),
-    SpecialVillager (V14), villager counter and skeleton (V12), DROWNING 16 (water). (V4: CheckHungry, CheckChildGrownUp,
+    SpecialVillager (V14), DROWNING 16 (water). (V12: the world population and the skeleton are in; the constructor
+    does not call SetSkeleton yet.) (V4: CheckHungry, CheckChildGrownUp,
     WomanSpecial and CheckDeathFromOldAge are now in.)
 18. V2 neutrals (return 0 / do nothing, with TODO and address) (V4: CheckHomelessMoveIntoAbode,
     ChangeStateToFindFoodToEat, CheckWhenGoingToBed, CheckNeedNewAbode, the homeless branch of DoGoingHome and ExitAtHome

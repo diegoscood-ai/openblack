@@ -118,10 +118,14 @@ uint8_t FinalStateOf(const AnimalBrain& brain)
 	return info.field0xc != 0 ? brain.topState : brain.finalState;
 }
 
-/// Living::IsAvailableForReaction (0x5F11F0)
+/// Living::IsAvailableForReaction (0x5F11F0), vt +0x984 of every Animal class (vt_*.txt; the villager's is
+/// Villager::IsAvailableForReaction 0x763390, villager::IsAvailableForReaction): IsFunctional (vt +0xD4, 0x5F1202;
+/// an animal always is), not controlled by a script (+0x24 & 0x400, 0x5F120C), not in the dance editor (0x5F121E;
+/// none in openblack), the final state (vt +0xB04, Animal 0x41A240) not one of the list (0x5F1227..0x5F1248), not
+/// dying (+0xB4 & 1, 0x5F124A) and not on a structure (+0x24 & 0x80, 0x5F1258; only Living::MoveOnStructure sets it,
+/// not ported: never set)
 bool IsAvailableForReaction(entt::entity entity, const AnimalBrain& brain)
 {
-	// 0x5F120C: not while a script controls it (+0x24 & 0x400)
 	if ((brain.status & 1) != 0 || script_held::IsControlledByScript(entity))
 	{
 		return false;
@@ -315,6 +319,8 @@ void StartReacting(entt::entity entity, AnimalBrain& brain, const Reaction& reac
 void AnimalReaction(entt::entity entity, const Reaction& reaction, float d)
 {
 	auto* brain = detail::BrainOf(entity);
+	// the check of ApplyReactionToLivingObjectsAtSquare 0x6E3F90 (0x6E401D) for every reaction type: vt +0x984 =
+	// Living::IsAvailableForReaction 0x5F11F0 for an animal
 	if (brain == nullptr || !IsAvailableForReaction(entity, *brain))
 	{
 		return;

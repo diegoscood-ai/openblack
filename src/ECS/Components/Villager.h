@@ -77,6 +77,9 @@ struct Villager
 		k_FlagChild = 0x8,
 		k_FlagOnWayToWorshipSite = 0x10,
 		k_FlagInHand = 0x20,
+		/// out of the world population g_game +0x205A54: set by Villager::SetDying 0x76A558 (once), read by ~Villager
+		/// 0x74FBCD (openblack counts the entities instead: magic::players::WorldPopulation skips these)
+		k_FlagCountedOut = 0x40,
 		k_FlagFootball = 0x80,
 		k_FlagDisciple = 0x200,
 		k_FlagDiscipleFollower = 0x400,
@@ -87,11 +90,26 @@ struct Villager
 	};
 	static constexpr uint16_t k_TreeTypeShift = 14; ///< +0xE0 >> 14 (GetWoodCarriedObject 0x7502A9)
 
+	/// Living +0xB4 (u16) bits a villager keeps here (docs/bw1-notes/villagers.md, section Death): 0x1 dead
+	/// (Villager::SetDying 0x76A4F1, Living::IsDead 0x417270), 0x30 the landType of the last landing (Villager::EndPhysics
+	/// 0x5F0A60: 0 on its feet, 1 / 2 on a side, 3 none; SetDying 0x76A4FF ors in 3), 0x40 a skeleton (SET_SKELETON,
+	/// Villager::SetSkeleton 0x7562C0; Living::IsSkeleton 0x416FF0), 0x400 special (EndPhysics 0x5F0D11 -> TestSpecial).
+	/// The other bits are elsewhere: 0x2 poisoned (components::Poisoned), 0x80 downed (components::DownedVillager)
+	enum Status : uint16_t
+	{
+		k_StatusDead = 0x1,
+		k_StatusLandTypeMask = 0x30,
+		k_StatusSkeleton = 0x40,
+		k_StatusSpecial = 0x400,
+	};
+	static constexpr uint16_t k_LandTypeShift = 4; ///< (+0xB4 & 0x30) >> 4
+
 	float life; ///< Object +0x48, 0..1 (Object::GetLife; ecs::life has the setters)
 	/// Living +0xA0: the turn it was born (Living::SetAge 0x5ED2C0: turn - age * 1500); its age is
 	/// ecs::villager::GetAge (Living::GetAge 0x5ECAF0)
 	int32_t birthTurn {0};
 	uint16_t flags {0};           ///< +0xE0, the Flags above
+	uint16_t status {0};          ///< Living +0xB4, the Status bits above
 	float food {0.0f};            ///< +0xE8, the food in its belly (the constructor: 0.5 .. 1.1)
 	uint32_t lastCheckTurn {0};   ///< +0xEC, the turn of the last periodic check (CheckHungry resets it)
 	uint8_t foodSpeedUp {0};      ///< +0xF0, IsFoodSpeedUp 0x55C980; ProcessFoodSpeedup 0x753430
@@ -100,6 +118,9 @@ struct Villager
 	int16_t pregnancy {0};        ///< +0xF8, turns left of a pregnancy (0 none)
 	entt::entity mother {entt::null};      ///< +0x100
 	entt::entity targetThing {entt::null}; ///< +0x118 TargetThing (bw1-decomp Villager.h), what the jobs work on
+	/// +0x118 (u8) too: the death reason VillagerDead 0x750929 writes after SetDying (GetDeathReason 0x55CB10; SaveDead
+	/// 0x754CC0). (inferred) a union with the low byte of TargetThing; kept apart, nothing reads TargetThing after death
+	DeathReason deathReason {DeathReason::None};
 	// +0x11C (a union: Football* / TradeTown / WanderArea, bw1-decomp Villager.h) is left out until a job reads it;
 	// the scripts use its first two dwords:
 	/// +0x11C: SET_SCRIPT_ULONG's clip (GScript::SetScriptUlong 0x6F8855), SCRIPT_PLAY_ANIM's (ScriptAnimation 0x768A00)

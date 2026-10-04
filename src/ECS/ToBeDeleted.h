@@ -17,8 +17,8 @@ namespace openblack::ecs
 /// GameThing::ToBeDeleted (vt +0xC) per class, the common "this object goes" (the physics' -4R deletion 0x645B22, a sunk
 /// animal, a drowned villager...): the class's own clean-up, then out of the physics and out of the registry.
 ///
-/// - Villager::ToBeDeleted 0x7521B0 -> DeleteDependancys 0x74FD60: openblack's part is leaving its home and its town's
-///   homeless list;
+/// - Villager::ToBeDeleted 0x7521B0: villager::ToBeDeletedOverride (DeleteDependancys 0x74FD60, then Living::ToBeDeleted
+///   0x5EC0A0's StopReacting; ECS/Villager/VillagerDeath.h);
 /// - Animal::ToBeDeleted 0x417B60 -> DeleteDependancys 0x417BA0: the animal AI forgets it (flock, prey, hunter);
 /// - Tree::ToBeDeleted 0x74A210: out of its forest (fn_0053A220) and of the game's tree list [g_game+0x205CDC]; in
 ///   openblack a tree only carries its forest id, so nothing is left to unlink;

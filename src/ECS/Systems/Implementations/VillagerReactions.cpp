@@ -18,6 +18,7 @@
 #include "ECS/Fire/FireObjectTraits.h"
 #include "ECS/Registry.h"
 #include "ECS/Villager/VillagerCore.h"
+#include "ECS/Villager/VillagerMourning.h"
 #include "ECS/Villager/VillagerStateInfo.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -43,6 +44,10 @@ void VillagerReaction(entt::entity villager, const effects::reactions::Reaction&
 		break;
 	case openblack::Reaction::ReactToMagicShield:
 		villager_shield::ApplyReaction(villager, reaction);
+		break;
+	case openblack::Reaction::ReactToDeath:
+		// Villager::ReactToDeathPriority 0x766440 / SetupReactToDeath 0x7665B0 (ECS/Villager/VillagerMourning.h)
+		villager_mourning::ApplyReaction(villager, reaction);
 		break;
 	default:
 		break;
@@ -186,16 +191,17 @@ bool villager_reactions::ReactionValidate(LivingAction& action)
 
 bool villager_reactions::IsReacting(entt::entity villager)
 {
+	// Living +0x94 is one slot: the fire's, the teleport's, the shield's or the mourning's (VillagerMourning.h)
 	return villager_fire::IsReacting(villager) || villager_teleport::IsReacting(villager) ||
-	       villager_shield::IsReacting(villager);
+	       villager_shield::IsReacting(villager) || villager_mourning::IsReacting(villager);
 }
 
 void villager_reactions::StopReacting(entt::entity villager)
 {
 	// Villager::StopReacting 0x7637D0: TOP 203 DANCE_WHILE_REACTING (0x7637D8) and IsDancing (vt +0x978) ->
 	// RemoveFromDance(1) (vt +0xB08). TODO(dance): 203 has no state function in openblack, so no villager is there.
-	// Then Living::StopReacting 0x5F1140 (0x7637F8) for the reaction it follows: the fire's, the teleport's or the
-	// shield's
+	// Then Living::StopReacting 0x5F1140 (0x7637F8) for the reaction it follows: the fire's, the teleport's, the
+	// shield's or the mourning's (which also does 0x5F1186 `dec` reaction +0x1C)
 	if (villager::TraceOn(villager) && IsReacting(villager))
 	{
 		villager::Trace(villager, "StopReacting");
@@ -203,6 +209,7 @@ void villager_reactions::StopReacting(entt::entity villager)
 	villager_fire::StopReacting(villager);
 	villager_teleport::StopReacting(villager);
 	villager_shield::StopReacting(villager);
+	villager_mourning::StopReacting(villager);
 }
 
 uint32_t villager_reactions::ExitReaction(LivingAction& action, VillagerStates next)

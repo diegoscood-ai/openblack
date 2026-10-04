@@ -123,7 +123,6 @@ protected:
 
 	void TearDown() override
 	{
-		villager::ForgetDeathsForTests();
 		villager::SetRandForTests({}, {});
 		villager::SetTurnForTests(std::nullopt);
 		Locator::livingActionSystem::reset();
@@ -299,8 +298,11 @@ TEST_F(VillagerAgeTest, OldAge)
 	auto b = MakeVillager(63, false);
 	SetDraws({38}, {65534.0f / 65535.0f});
 	EXPECT_TRUE(villager::CheckDeathFromOldAge(b));
-	EXPECT_EQ(villager::PendingDeathReason(b), DeathReason::OldAge);
-	EXPECT_EQ(_draws, std::vector<std::string>({"F1.00", "R39"}));
+	EXPECT_EQ(villager::GetDeathReason(b), DeathReason::OldAge);
+	// then VillagerDead -> SetDying: SetLife(0) and SetTopState(DYING) 0x76A4EB, whose Living::SetTopState calls
+	// Villager::SetStateSpeed (vt +0x8F0, 0x5F291B) with no test: life 0 <= lifeWhenCrawlsWounded -> GameFloatRand(0.2)
+	// (0x7538D3, Villager.cpp 0xB18)
+	EXPECT_EQ(_draws, std::vector<std::string>({"F1.00", "R39", "F0.20"}));
 	// 70 with r = 0.9: n 29, d at most 28 -> lives
 	auto c = MakeVillager(70, false);
 	SetDraws({28}, {0.9f});

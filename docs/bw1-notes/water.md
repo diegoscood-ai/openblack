@@ -188,8 +188,8 @@ pending (the villager's complete death, see [Pending](#pending)).
     thrown into the sea looked cut off.
   - `Living::HasSunk` 0x5ED370 (animals) → `SetDying`, state LIVING_DEAD 15 and `ToBeDeleted(0)`: the animal disappears.
   - `Villager::HasSunk` 0x750AB0 → `stateCounter = GVillagerInfo::drowningTime` (**600** turns = 60 s) and state
-    **DROWNING (16)**. (If the villager was already dead: state DYING 14 with `dyingTimeWithoutGraveyard`, a branch that
-    openblack does not reach because a lifeless villager is removed immediately.)
+    **DROWNING (16)**. Not available (FINAL 14 DYING, 0x750AB5) → not sunk. With the dead status bit (+0xB4 & 1, a
+    corpse, V12): state DYING 14 with `dyingTimeWithoutGraveyard` (`VillagerDrowning.cpp`, villagers.md Death).
   - Missing in both `Living`s: notifying the creature so that it learns from the player who dropped it
     (`ConsiderMakingCreatureMimicPlayer`, `DETECTED_PLAYER_ACTION_THROW_IN_THE_SEA` 0x15) — depends on the creature.
 - **`Villager::EndPhysics` 0x5F0A60, water branch** (0x5F0BAF): every villager that **ends physics in a cell with the
@@ -560,12 +560,10 @@ plan and the reports are in `dev\documentacion\agua\PLAN.md`.
 - Villagers («mapas» session): fishermen (`FishermanLookForWater` 0x75B4C0 and its state machine, with
   `RemoveFishFarmFood`), drinking (`FindNearestDrinkingWater`, `CREATE_DRINK_WAYPOINT`), the shepherd who takes the flock
   to the water (`ShepherdMoveFlockToWater` 0x768CC0), `Villager::CreateDroppedResource` and reaction 9
-  `REACT_TO_FLYING_OBJECT` when dropping with the hand, and the complete death: `VillagerDead` 0x7506C0 is already called with
-  reason 6, but the DEAD state (`Villager::Dead` 0x76A5E0: smoke, skeleton 0x1FF and, out of the water, the soul from
-  `fn_00828790`: a 12-byte record in the list 0xEB9A7C with a new `LH3DObject` of the villager's mesh, the
-  child one `GVillagerInfo`+0x204 below age +0x138, which plays the soul clip P_DEAD1/2_GOTO_HEAVEN or _HELL,
-  244/245 or 247/248, and then the mesh becomes 0x1FF `PersonSkeletonMale` [0xDCB164]; in the water, smoke and skeleton
-  without a soul) belongs to the «mapas» death milestone.
+  `REACT_TO_FLYING_OBJECT` when dropping with the hand. The complete death is V12 (villagers.md, Death): `VillagerDead`
+  0x7506C0 with reason 6, the corpse in the water (dying clip 283, dead clip 249), smoke and skeleton 0x1FF without a
+  soul; out of the water the soul of `fn_00828790` (the child one `GVillagerInfo`+0x204 below age +0x138, the adult one
+  GetMesh 0x74F880 = +0x214 StdDetail) plays P_DEAD1/2_GOTO_HEAVEN or _HELL, 244/245 or 247/248.
 - `lastPlayerToInteract` (+0x104) and `GetPlayerWhoLastDroppedMe`: with a single player, the hand gives PLAYER_ONE
   (inferred) until there are several players.
 - SuperVillager swimmers (`M_P_Swim2`, `DrawCutByPlane` and their ring every 1000 ms): they need the Land 1-2 scripts

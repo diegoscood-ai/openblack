@@ -31,7 +31,6 @@
 #include "ECS/Map.h"
 #include "ECS/MapCells.h"
 #include "ECS/Registry.h"
-#include "ECS/Systems/HandSystemInterface.h"
 #include "ECS/Systems/LivingActionSystemInterface.h"
 #include "ECS/Villager/VillagerCore.h"
 #include "ECS/VillagerSpeed.h"
@@ -168,37 +167,15 @@ bool MayReactAgain(entt::entity villager, openblack::Reaction type, uint32_t aga
 	return effects::reactions::Records(villager, static_cast<uint8_t>(type), again, effects::reactions::Turn());
 }
 
-/// Villager::IsAvailableForReaction 0x763390: its final state takes reactions (table +0xEC), not held or thrown
-bool IsAvailableForReaction(entt::entity villager)
-{
-	const auto* action = ActionOf(villager);
-	if (action == nullptr)
-	{
-		return false;
-	}
-	if (Locator::handSystem::has_value())
-	{
-		const auto held = Locator::handSystem::value().GetHeldObject();
-		if (held.has_value() && *held == villager)
-		{
-			return false;
-		}
-	}
-	const auto top = Get(*action, LivingAction::Index::Top);
-	if (top == VillagerStates::Flying || top == VillagerStates::InHand)
-	{
-		return false;
-	}
-	const auto* info = TableOf(FinalState(*action));
-	return info != nullptr && info->field0xec != 0;
-}
-
 /// The REACT_TO_TELEPORT part of ApplyReactionToLivingObjectsAtSquare 0x6E3F90 for one villager of the cell (as the
 /// fire's: with no reaction of its own, fn_006E4620's score above 0 and not reacted to a teleport lately)
 void ApplyTeleportReaction(entt::entity villager, const effects::reactions::Reaction& reaction)
 {
 	auto& registry = Reg();
-	if (!registry.AllOf<Villager>(villager) || villager == reaction.initiator || !IsAvailableForReaction(villager))
+	// the check of ApplyReactionToLivingObjectsAtSquare 0x6E3F90 (0x6E401D) for every reaction type: vt +0x984 =
+	// Villager::IsAvailableForReaction 0x763390, the common one
+	if (!registry.AllOf<Villager, LivingAction>(villager) || villager == reaction.initiator ||
+	    !villager::IsAvailableForReaction(villager))
 	{
 		return;
 	}

@@ -29,12 +29,15 @@
 #include "ECS/VillagerAnimations.h"
 #include "ECS/Villager/VillagerAge.h"
 #include "ECS/Villager/VillagerCore.h"
+#include "ECS/Villager/VillagerDeath.h"
 #include "ECS/Villager/VillagerDecide.h"
 #include "ECS/Villager/VillagerFood.h"
 #include "ECS/Villager/VillagerHome.h"
+#include "ECS/Villager/VillagerMourning.h"
 #include "ECS/Villager/VillagerOriginalFns.h"
 #include "ECS/Villager/VillagerResources.h"
 #include "ECS/Villager/VillagerScript.h"
+#include "ECS/Villager/VillagerSoul.h"
 #include "ECS/Villager/VillagerStateTable.h"
 #include "VillagerFire.h"
 #include "VillagerReactions.h"
@@ -43,6 +46,7 @@
 #include "VillagerWorship.h"
 #include "ECS/VillagerDrowning.h"
 #include "Enums.h"
+#include "GameClock.h"
 #include "Locator.h"
 
 using namespace openblack;
@@ -240,9 +244,20 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* FLYING */ {.state = &VillagerCarried},
     /* LANDED */ {.state = &VillagerLanded},
     /* LOOK_AT_FLYING_OBJECT_REACTION */ k_TodoEntry,
-    /* SET_DYING */ k_TodoEntry,
-    /* DYING */ k_TodoEntry,
-    /* DEAD */ k_TodoEntry,
+    // V12, the death (ECS/Villager/VillagerDeath.cpp): no entry; DEAD's exit is Living::CannotExitState 0x768640
+    /* SET_DYING: StateSetDying 0x5AFF40 = jmp [vt +0x6A4] = Villager::SetDying 0x76A4C0 */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::SetDyingState,
+    },
+    /* DYING: StateDying 0x5AFE30 = jmp [vt +0x89C] = Villager::Dying 0x76A570 (clip DyingAnimation 0x423770) */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::Dying,
+    },
+    /* DEAD: StateDead 0x5AFE90 = jmp [vt +0x8A0] = Villager::Dead 0x76A5E0 (clip DeadAnimation 0x4237A0) */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::Dead,
+        .exitState = &ecs::villager::CannotExitState,
+    },
     // the water's state (Villager::Drowning 0x76A780, ECS/VillagerDrowning). EnterDrowning 0x767410 (`mov eax, 1; ret 8`) and
     // ExitDrowning 0x767420 (`mov eax, 1; ret 4`) only accept
     /* DROWNING */ {.state = &openblack::ecs::VillagerDrowningState,
@@ -462,7 +477,11 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
         .state = &ecs::villager::VagrantStartState,
         .field0x50 = k_TodoEntry.field0x50,
     },
-    /* MORN_DEATH */ k_TodoEntry,
+    /* MORN_DEATH: Villager::MornDeath 0x76AA60 = jmp GoHome 0x760270 (no entry or exit; into / out-of clip
+       MournIntoOutofAnimation 0x424300) */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::GoHomeState,
+    },
     /* PERFORM_INSPECTION_REACTION */ k_TodoEntry,
     /* APPROACH_OBJECT_REACTION */ k_TodoEntry,
     /* INITIALISE_TELL_OTHERS_ABOUT_OBJECT */ k_TodoEntry,
@@ -551,10 +570,32 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     {.state = &ecs::villager_teleport::TeleportReaction, .exitState = &ecs::villager_teleport::ExitReactToTeleport},
     /* DANCE_WHILE_REACTING */ TodoWithExitReaction(),
     /* CONTROLLED_BY_CREATURE */ k_TodoEntry,
-    /* POINT_AT_DEAD_PERSON */ k_TodoEntry,
-    /* GO_TOWARDS_DEAD_PERSON */ k_TodoEntry,
-    /* LOOK_AT_DEAD_PERSON */ k_TodoEntry,
-    /* MOURN_DEAD_PERSON */ k_TodoEntry,
+    // V12, the mourning (ECS/Villager/VillagerMourning.cpp): exit the thunk 0x5B0100 = Villager::ExitReaction 0x7527A0,
+    // validate Villager::ReactionValidate 0x756A00, both for REACT_TO_DEATH's +0xBC
+    /* POINT_AT_DEAD_PERSON: 0x766680 */
+    VillagerStateTableEntry {
+        .state = &ecs::villager_mourning::PointAtDeadPerson,
+        .exitState = &ecs::villager_mourning::ExitReaction,
+        .validate = &ecs::villager_mourning::ReactionValidate,
+    },
+    /* GO_TOWARDS_DEAD_PERSON: 0x766700 */
+    VillagerStateTableEntry {
+        .state = &ecs::villager_mourning::GoTowardsDeadPerson,
+        .exitState = &ecs::villager_mourning::ExitReaction,
+        .validate = &ecs::villager_mourning::ReactionValidate,
+    },
+    /* LOOK_AT_DEAD_PERSON: 0x766810 */
+    VillagerStateTableEntry {
+        .state = &ecs::villager_mourning::LookAtDeadPerson,
+        .exitState = &ecs::villager_mourning::ExitReaction,
+        .validate = &ecs::villager_mourning::ReactionValidate,
+    },
+    /* MOURN_DEAD_PERSON: 0x766850 (into / out-of clip MournIntoOutofAnimation 0x424300) */
+    VillagerStateTableEntry {
+        .state = &ecs::villager_mourning::MournDeadPerson,
+        .exitState = &ecs::villager_mourning::ExitReaction,
+        .validate = &ecs::villager_mourning::ReactionValidate,
+    },
     /* NOTHING_TO_DO: Villager::NothingToDo 0x760000 (no entry or exit; +0x50 AlwaysReactToTownEmergency) */
     VillagerStateTableEntry {
         .state = &ecs::villager::NothingToDo,
@@ -706,8 +747,9 @@ void LivingActionSystem::Update()
 		ecs::villager::ProcessReaction(entity);
 		ecs::villager::ProcessState(entity, turn);
 	}
-	// the deaths of the turn (TODO(V12): VillagerDead keeps them alive in the dying states)
-	ecs::villager::FlushDeaths();
+	// the souls of the dead (fn_00828950, V12): (approximate) once a game turn with its ms ([0xD01A38],
+	// game_clock::MsPerTurn); the original runs it every frame (fn_005E5CD0 0x5E6171) with g_game_time_inc
+	ecs::villager_soul::Update(game_clock::MsPerTurn());
 }
 
 VillagerStates LivingActionSystem::VillagerGetState(const LivingAction& action, LivingAction::Index index) const

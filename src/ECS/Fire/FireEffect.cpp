@@ -489,9 +489,10 @@ void Process(FireEffect& fire)
 						SPDLOG_LOGGER_INFO(spdlog::get("game"), "Fire: object {} burnt down (T {:.0f})",
 						                   static_cast<int>(fire.object), fire.temperature);
 					}
-					// vt 0x5F8 (0x72F510) gets the fire's GetPlayer (0x72F509). (aproximado: the player is not passed:
-					// VillagerDead and the abode/animal handlers lose who burnt it)
-					traits::DestroyedByEffect(fire.object);
+					// vt 0x5F8 (0x72F510) gets the fire's GetPlayer (0x72F509) and 0 (0x72F506 `push ebp`, ebp = 0 since
+					// 0x72F216 `xor ebp, ebp`): not the burn damage
+					traits::DestroyedByEffect(fire.object,
+					                          fire.hasPlayer ? std::optional<PlayerNames>(fire.player) : std::nullopt, 0.0f);
 					if (!registry.Valid(fire.object))
 					{
 						ToBeDeleted(fire); // Object::ToBeDeleted took the fire with it

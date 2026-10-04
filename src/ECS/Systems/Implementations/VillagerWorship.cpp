@@ -30,6 +30,7 @@
 #include "ECS/Systems/Implementations/VillagerTeleport.h"
 #include "ECS/Systems/LivingActionSystemInterface.h"
 #include "ECS/Villager/VillagerCore.h"
+#include "ECS/Villager/VillagerDeath.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Magic/Core/Spell.h"
@@ -216,8 +217,16 @@ void RemoveVillagerFromWorshipCount(WorshipSite& site, entt::entity villager)
 	--site.villagersAtSite;
 }
 
-/// Villager::RemoveVillagerFromWorshipSite 0x76C440
-void RemoveVillagerFromWorshipSite(entt::entity villager)
+} // namespace
+
+bool villager_worship::IsAtWorshipSite(entt::entity villager)
+{
+	const auto* state = Entities().TryGet<const WorshipVillager>(villager);
+	return state != nullptr && state->atSite;
+}
+
+/// Villager::RemoveVillagerFromWorshipSite 0x76C440 (public for Town::RemoveVillager 0x73E2B2)
+void villager_worship::RemoveVillagerFromWorshipSite(entt::entity villager)
 {
 	auto& state = StateOf(villager);
 	const auto town = TownOf(villager);
@@ -240,6 +249,9 @@ void RemoveVillagerFromWorshipSite(entt::entity villager)
 	state.dancing = false;
 	state.requestedGoHome = false;
 }
+
+namespace
+{
 
 /// WorshipSite::RemoveVillagerRequestingToGoHome 0x77E1D0
 void RemoveGoHomeRequest(entt::entity siteEntity, entt::entity villager)
@@ -486,15 +498,10 @@ uint32_t ReduceVillagerLifeByChant(entt::entity villager)
 	{
 		return 1;
 	}
-	if (const auto town = TownOf(villager); town != entt::null)
-	{
-		if (auto* magic = Entities().TryGet<TownMagic>(town); magic != nullptr)
-		{
-			++magic->deathsFromWorship; // Town::GetDeathsFromWorshipping 0x740D60 counts reason 4
-		}
-	}
-	RemoveVillagerFromWorshipSite(villager);
-	life::Kill(villager, "worship");
+	// 0x76C873: VillagerDead(4 CHANT, town ? town's player : none, chantDamage x chantLifeRate, 1) (ECS/Villager/
+	// VillagerDeath.h); 0x21. The worship-death count is the town's TownDeaths::byReason[4] (Town::GetDeathsFromWorshipping
+	// 0x740D60), and the site lets the villager go through the worship state's exit (SetDying's SetTopState(14))
+	ecs::villager::VillagerDead(villager, DeathReason::Chant, ecs::villager::GetPlayerOf(villager), site.chantDamage * rate, 1);
 	return 0x21;
 }
 

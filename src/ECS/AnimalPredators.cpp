@@ -638,9 +638,12 @@ void TargetPounce(Context& ctx)
 		// fn_005EC480: the prey falls, with 0.05 of its life
 		if (auto* villager = registry.TryGet<Villager>(target); villager != nullptr)
 		{
+			// 0x5EC485 +0xB4 |= 0x80, 0x5EC491 SetLife(0.05) (vt +0x5B0), 0x5EC49D SetTopState(0x11 DOWNED) (vt +0x8E8 =
+			// Villager::SetTopState 0x752010), for every Living, a corpse too (no IsDead test): DEAD's exit
+			// (Living::CannotExitState 0x768640) refuses the state of a corpse. (pending, V12 spec Q-4: to check in the game)
 			villager->life = 0.05f;
 			registry.AssignOrReplace<DownedVillager>(target);
-			SetVillagerState(target, VillagerStates::Downed);
+			ecs::villager::SetTopState(target, VillagerStates::Downed);
 			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Animals: villager {} downed by animal {}", static_cast<uint32_t>(target),
 			                   static_cast<uint32_t>(ctx.entity));
 		}
@@ -709,13 +712,12 @@ void ProcessDownedVillagers()
 			continue;
 		}
 		// Villager::BeingEaten (0x76B380): l = GetLife(); SetLife(0); VillagerDead(ANIMAL 3, GetPlayer() (the villager's:
-		// its town's owner), l, 1). ecs::villager kills it at the end of the turn (life::Kill -> ToBeDeleted)
+		// Villager::GetPlayer 0x7502F0, its town's owner), l, 1) 0x76B3DB: it lies as a corpse (SetDying, 600 / 120 turns)
 		const float life = villager->life;
 		villager->life = 0.0f;
-		const auto* town = registry.TryGet<const Town>(villager->town);
 		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Animals: villager {} eaten", static_cast<uint32_t>(entity));
 		registry.Remove<DownedVillager>(entity);
-		ecs::villager::VillagerDead(entity, DeathReason::Animal, town != nullptr ? town->owner : PlayerNames::NEUTRAL, life, 1);
+		ecs::villager::VillagerDead(entity, DeathReason::Animal, ecs::villager::GetPlayerOf(entity), life, 1);
 	}
 }
 

@@ -47,6 +47,7 @@
 #include "ECS/GUtilsDistance.h"
 #include "ECS/GroundMarks.h"
 #include "ECS/Life.h"
+#include "ECS/Villager/VillagerDeath.h"
 #include "ECS/Map.h"
 #include "ECS/MapCells.h"
 #include "ECS/MapCoords.h"
@@ -755,8 +756,8 @@ void explosion::DestroyedByBeam(entt::entity object)
 	}
 	if (registry.AllOf<Villager>(object))
 	{
-		// (aproximado) Villager::ToBeDeleted takes it out of its town and the world; life::Kill does that here
-		ecs::life::Kill(object, "destroyed by the beam");
+		// Villager::ToBeDeleted 0x7521B0 (vt 0xC): DeleteDependancys and the deletion, no death (ECS/Villager/VillagerDeath.h)
+		ecs::villager::Delete(object);
 		return;
 	}
 	// the rest (rocks, mobile objects and statics, features, piles): Object::ToBeDeleted, as DestroyedByEffect's

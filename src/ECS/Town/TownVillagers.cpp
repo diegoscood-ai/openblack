@@ -26,14 +26,17 @@
 #include "ECS/MapCells.h"
 #include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
+#include "ECS/Systems/Implementations/VillagerWorship.h"
 #include "ECS/Town/AbodeQueries.h"
 #include "ECS/Town/AbodeVillagers.h"
 #include "ECS/Town/TownStats.h"
 #include "ECS/Villager/VillagerCore.h"
 #include "ECS/Villager/VillagerHome.h"
+#include "ECS/Villager/VillagerMourning.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Worship/TownMagic.h"
+#include "Worship/WorshipPercentage.h"
 
 // Town.cpp of runblack.exe W120 (TownVillagers.h)
 
@@ -167,16 +170,6 @@ void ClearVagrants()
 	g_Vagrants.clear();
 }
 
-void ForgetVillager(entt::entity villager)
-{
-	auto& registry = Entities();
-	if (const auto* v = registry.TryGet<const Villager>(villager); v != nullptr && v->town != entt::null)
-	{
-		RemoveFromHomelessList(v->town, villager);
-	}
-	RemoveFromVagrants(villager);
-}
-
 // ---- joining, moving, eating -------------------------------------------------------------------------------------
 
 bool AddVillagerToTown(entt::entity town, entt::entity villager)
@@ -291,7 +284,9 @@ void RemoveVillager(entt::entity town, entt::entity villager)
 	{
 		return;
 	}
-	// 0x73E21C FindChildrenAndOrphanThem 0x756BE0. TODO(V14): the children keep their mother
+	// 0x73E21C FindChildrenAndOrphanThem 0x756BE0 (V12, ecs::villager_mourning): the children whose mother it is go to
+	// 131 MORN_DEATH and lose her
+	villager_mourning::FindChildrenAndOrphanThem(villager);
 	// 0x73E231 TownStats::Remove 0x7493C0
 	CountVillager(t->stats, villager, -1);
 	// 0x73E238..0x73E24C: an abode -> RemoveAliveVillagerFromAbode, SetAbode(0); else out of the homeless list
@@ -305,11 +300,22 @@ void RemoveVillager(entt::entity town, entt::entity villager)
 	{
 		RemoveFromHomelessList(town, villager);
 	}
-	// 0x73E29F RemoveVillagerOnWayToWorshipSite 0x73E360, 0x73E2A7..0x73E2B2 flags & 2 -> RemoveVillagerFromWorshipSite
-	// 0x76C440. TODO(milagros2): their worship lists are kept by VillagerWorship / TownMagic
+	// 0x73E29F RemoveVillagerOnWayToWorshipSite 0x73E360 (milagros2's worship::percentage, the town's on-the-way list)
+	worship::percentage::RemoveVillagerOnWay(town, villager);
+	// 0x73E2A7..0x73E2B2: flags (+0xE0) & 2 -> RemoveVillagerFromWorshipSite 0x76C440 (it needs the town still set:
+	// fn_0073E3F0 through GetTown); it sets no state
+	if (villager_worship::IsAtWorshipSite(villager))
+	{
+		villager_worship::RemoveVillagerFromWorshipSite(villager);
+	}
 	// 0x73E2B7 SetTown(0)
 	villager::SetTown(villager, entt::null);
-	// 0x73E2BF..0x73E2CD: adults + children == 0 -> +0xF20 = 50. TODO(V12): the empty town (SetTownEmpty) is V12
+	// 0x73E2BF..0x73E2CD: adults + children == 0 -> +0xF20 = 50 (TownProcess counts it down; Town::SetTownEmpty
+	// 0x741080 at 0 is TODO(towns))
+	if (auto* now = TownComponent(town); now != nullptr && now->stats.adults + now->stats.children == 0)
+	{
+		now->emptyCountdown = 50;
+	}
 	// 0x73E2D8: mother (+0x100) = 0
 	if (auto* v = registry.TryGet<Villager>(villager))
 	{

@@ -27,6 +27,8 @@
 #include "ECS/Registry.h"
 #include "ECS/SeaCells.h"
 #include "ECS/StoragePitStore.h"
+#include "ECS/Villager/VillagerCore.h"
+#include "ECS/Villager/VillagerDeath.h"
 #include "ECS/Villager/VillagerResources.h"
 #include "ECS/VillagerAnimations.h"
 #include "ECS/VillagerDrowning.h"
@@ -37,7 +39,6 @@ using namespace openblack;
 using namespace openblack::ecs;
 using namespace openblack::ecs::components;
 using namespace openblack::ecs::physics;
-using openblack::ecs::life::Kill;
 using openblack::ecs::life::LifeOf;
 using openblack::ecs::life::ReduceLife;
 
@@ -45,7 +46,8 @@ namespace
 {
 
 /// Living::ReactToPhysicsImpact's damage: Object::ApplyEffect with the crush preset g_EffectInfo[3] (crush 1.0) x the
-/// object's defenceMultiplierCrush, then Object::ReduceLife. It dies at 0 (the dying states are not ported).
+/// object's defenceMultiplierCrush, then Object::ReduceLife; at 0 life with a damage (Object::ApplyEffect 0x637A79) the
+/// class's DestroyedByEffect (vt +0x5F8).
 void HurtByImpact(entt::entity entity, float damage)
 {
 	const bool villager = Locator::entitiesRegistry::value().AllOf<Villager>(entity);
@@ -60,7 +62,10 @@ void HurtByImpact(entt::entity entity, float damage)
 			ecs::animal_ai::DestroyedByEffect(entity);
 			return;
 		}
-		Kill(entity, "impact");
+		// Villager::DestroyedByEffect 0x7502D0 -> VillagerDead(2 SPELL): nothing while it flies (+0x24 & 0x40, 0x7506C3),
+		// and a corpse is dead already; the landing's EndPhysics kills a flying one (reason 5 / 6). (approximate) the
+		// impact's EffectValues player is not kept here: none
+		ecs::villager::DestroyedByEffect(entity, std::nullopt, damage);
 	}
 }
 
@@ -120,11 +125,31 @@ entt::entity AnimalEndPhysics(entt::entity entity, PhysicsObject& po)
 	return entt::null;
 }
 
+/// Villager::EndPhysics 0x5F0A60, the landType (0x5F0A68..0x5F0B18): the turn-start matrix's right row y (po +0xD8)
+/// < -0.5 (0x5F0A7D) -> 1, > 0.5 (0x5F0AC7) -> 2, else 0 (on its feet); 3 without a PhysicsObject (never here)
+uint16_t VillagerLandType(const PhysicsObject& po)
+{
+	const float a = po.turnStartRotation[0].y;
+	return static_cast<uint16_t>(a < -0.5f ? 1 : (a > 0.5f ? 2 : 0));
+}
+
+/// Living +0xB4 bits 4-5 = the landType
+void SetLandType(entt::entity entity, uint16_t landType)
+{
+	if (auto* v = Locator::entitiesRegistry::value().TryGet<Villager>(entity))
+	{
+		const auto bits = static_cast<uint16_t>(landType << Villager::k_LandTypeShift);
+		v->status = static_cast<uint16_t>((v->status & ~Villager::k_StatusLandTypeMask) | bits);
+	}
+}
+
 /// Villager::EndPhysics, the class's part.
 entt::entity VillagerEndPhysics(entt::entity entity, PhysicsObject& po)
 {
 	auto& registry = Locator::entitiesRegistry::value();
-	// Villager/Animal::EndPhysics: stands up where it landed (the three landing poses are not done yet)
+	// Object::EndPhysics 0x6375A0 has cleared +0x24 & 0x40 before the dead branches below (VillagerDead's first test)
+	const ecs::villager::EndingPhysicsScope ending(entity);
+	// Villager/Animal::EndPhysics: stands up where it landed (the three landing poses are V13)
 	auto& transform = registry.Get<Transform>(entity);
 	const auto forward = transform.rotation[2];
 	const float yaw = std::atan2(forward.x, forward.z);
@@ -134,6 +159,10 @@ entt::entity VillagerEndPhysics(entt::entity entity, PhysicsObject& po)
 	{
 		transform.position.y = Locator::terrainSystem::value().GetHeightAt(glm::vec2(transform.position.x, transform.position.z));
 	}
+	// 0x5F0B88..0x5F0BA1: the landType into the status bits 4-5, after Object::EndPhysics 0x5F0B81
+	// (MakeCreatureEmpathiseWithPlayer 0x5F0B53 of the three branches: TODO(creature))
+	const auto landType = VillagerLandType(po);
+	SetLandType(entity, landType);
 	// 0x5F0BAF: MapCoords::IsWater of Pos (the cell's water bit, the shallow shore too; not the body's inWater)
 	if (ecs::sea_cells::IsWater(transform.position))
 	{
@@ -141,9 +170,28 @@ entt::entity VillagerEndPhysics(entt::entity entity, PhysicsObject& po)
 		ecs::VillagerEndPhysicsInWater(entity);
 		return entt::null;
 	}
+	// 0x5F0CA0..0x5F0CEC: on land with life <= 0 (test ah, 0x41): player = po.GetPlayer() (0x647460: the hand's, PLAYER_ONE
+	// when the hand threw it, (inferred) as VillagerDrowning's +0x104); dead (+0xB4 & 1) -> SetTopState(15) with its
+	// counter kept, else VillagerDead(5 PLAYER_INTERACTION, player, 0.0, 1); then the landType again (SetDying's 0x30
+	// undone, 0x5F0CEC)
 	if (LifeOf(entity) <= 0.0f)
 	{
-		Kill(entity, "landed dead");
+		std::optional<PlayerNames> player;
+		if (po.byPlayer)
+		{
+			player = PlayerNames::PLAYER_ONE;
+		}
+		const auto* v = registry.TryGet<const Villager>(entity);
+		if (v != nullptr && (v->status & Villager::k_StatusDead) != 0)
+		{
+			ecs::villager::SetTopState(entity, VillagerStates::Dead);
+		}
+		else
+		{
+			ecs::villager::VillagerDead(entity, DeathReason::PlayerInteraction, player, 0.0f, 1);
+		}
+		SetLandType(entity, landType);
+		registry.SetDirty();
 		return entt::null;
 	}
 	// Villager::EndPhysics: LANDED, its landing clip, then deciding what to do

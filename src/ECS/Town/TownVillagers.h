@@ -49,9 +49,6 @@ bool RemoveFromHomelessList(entt::entity town, entt::entity villager);
 bool RemoveFromVagrants(entt::entity villager);
 /// A new map / the tests: no vagrants
 void ClearVagrants();
-/// The deletion of a villager (Villager::DeleteDependancys 0x74FD60's list part): out of its town's homeless list and
-/// out of the vagrants
-void ForgetVillager(entt::entity villager);
 
 // ---- joining, moving, eating -------------------------------------------------------------------------------------
 
@@ -69,10 +66,10 @@ void ChildToAdult(entt::entity town, entt::entity villager);
 /// Town::UseFood 0x73B5E0: +0x6F8 (Town::foodUsed) += n (fild qword, fadd); the player's statistics (+0xA44 -> +0xA4)
 /// TODO(estadísticas)
 void UseFood(entt::entity town, uint32_t amount);
-/// Town::RemoveVillager 0x73E210, the part V4 has: TownStats::Remove (the counts), an abode -> RemoveAliveVillager and
-/// SetAbode(0), else out of the homeless list; SetTown(0); mother = 0. TODO(V12/V14/milagros2): FindChildrenAndOrphanThem
-/// 0x756BE0, RemoveVillagerOnWayToWorshipSite 0x73E360, RemoveVillagerFromWorshipSite 0x76C440 and the empty town's
-/// countdown +0xF20 = 50 (0x73E2CD)
+/// Town::RemoveVillager 0x73E210: FindChildrenAndOrphanThem 0x756BE0 (V12), TownStats::Remove (the counts), an abode ->
+/// RemoveAliveVillager and SetAbode(0), else out of the homeless list; RemoveVillagerOnWayToWorshipSite 0x73E360;
+/// SetTown(0); the empty town's countdown +0xF20 = 50 (0x73E2CD); mother = 0. TODO(milagros2):
+/// RemoveVillagerFromWorshipSite 0x76C440 (private to VillagerWorship.cpp; the worship states' exits do it)
 void RemoveVillager(entt::entity town, entt::entity villager);
 
 // ---- the shuffle (Town::Process step 24) ------------------------------------------------------------------------

@@ -315,24 +315,6 @@ bool MayReactAgain(entt::entity villager, openblack::Reaction type, uint32_t aga
 	return effects::reactions::Records(villager, static_cast<uint8_t>(type), again, effects::reactions::Turn());
 }
 
-/// Villager::IsAvailableForReaction 0x763390: its final state takes reactions (table +0xEC), and it is not held or
-/// thrown (the +0xE0 flags, the life threshold and Living::IsAvailableForReaction are not ported)
-bool IsAvailableForReaction(entt::entity villager)
-{
-	const auto* action = ActionOf(villager);
-	if (action == nullptr || fire::traits::InHand(villager))
-	{
-		return false;
-	}
-	const auto top = Get(*action, LivingAction::Index::Top);
-	if (top == VillagerStates::Flying || top == VillagerStates::InHand)
-	{
-		return false;
-	}
-	const auto* info = TableOf(FinalState(*action));
-	return info != nullptr && info->field0xec != 0;
-}
-
 /// The REACT_TO_FIRE part of ApplyReactionToLivingObjectsAtSquare 0x6E3F90 for one villager of the cell: with no
 /// reaction of its own, fn_006E4620's score (the priority x (1 + 0.5 howImportantIsDistance (R - d) / R), 0 beyond
 /// maxReactionDistance) above 0 and not reacted to a fire lately, it starts reacting (StartReacting -> SetupReactToFire).
@@ -340,7 +322,10 @@ bool IsAvailableForReaction(entt::entity villager)
 void ApplyFireReaction(entt::entity villager, const effects::reactions::Reaction& reaction)
 {
 	auto& registry = Locator::entitiesRegistry::value();
-	if (!registry.AllOf<Villager>(villager) || villager == reaction.initiator || !IsAvailableForReaction(villager))
+	// the check of ApplyReactionToLivingObjectsAtSquare 0x6E3F90 (0x6E401D) for every reaction type: vt +0x984 =
+	// Villager::IsAvailableForReaction 0x763390, the common one
+	if (!registry.AllOf<Villager, LivingAction>(villager) || villager == reaction.initiator ||
+	    !villager::IsAvailableForReaction(villager))
 	{
 		return;
 	}

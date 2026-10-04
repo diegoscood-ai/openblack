@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <optional>
+
 #include <entt/entity/entity.hpp>
 #include <glm/vec3.hpp>
 
@@ -88,8 +90,10 @@ void SetNotHurtByFire(entt::entity object, bool value);
 float ReduceLifeDueToBurning(entt::entity object, float damage, bool hasPlayer, PlayerNames player);
 /// DestroyedByEffect (vt 0x5F8): Object 0x6378E0 = ToBeDeleted (features too); Villager 0x7502D0 dies; Field 0x52A010
 /// empties and deletes its fire;
-/// Abode 0x403F80 (building site, ghost) is not ported yet (the abode stays at life 0)
-void DestroyedByEffect(entt::entity object);
+/// Abode 0x403F80 (building site, ghost) is not ported yet (the abode stays at life 0). `player` / `amount`: the
+/// original's two arguments (the fire passes its GetPlayer 0x72F509 and 0, 0x72F506 `push ebp`); only the villager
+/// uses them so far
+void DestroyedByEffect(entt::entity object, std::optional<PlayerNames> player = std::nullopt, float amount = 0.0f);
 /// StartOnFire (vt 0x6BC): MultiMapFixed 0x52EC60 / DeadTree 0x510E20 drop their reactions; Pot 0x66D6C0 its own
 void StartOnFire(entt::entity object);
 /// EndOnFire (vt 0x6C0): DeadTree 0x510E60 creates REACT_TO_WOOD; Pot 0x66D6D0 re-creates its reaction (not ported)

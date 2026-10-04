@@ -20,6 +20,7 @@
 
 #include "ECS/Components/LivingAction.h"
 #include "ECS/Villager/VillagerAge.h"
+#include "ECS/Villager/VillagerDeath.h"
 #include "Enums.h"
 
 namespace openblack
@@ -145,6 +146,10 @@ uint32_t CallEntryStateFunction(entt::entity villager, VillagerStates current, V
 /// function (+0x20, 0xD091B8, the 16-byte member pointers compared whole: the original's addresses in
 /// VillagerOriginalFns.h, 0 = none, two 0s are the same), or else `next` is not a final state (0xDB9E84)
 [[nodiscard]] bool IsStateExitFunctionSameAs(entt::entity villager, VillagerStates next);
+/// Villager::IsAvailableForReaction 0x763390: its final state takes reactions (table +0xEC) and it is not held or
+/// thrown (the +0xE0 flags, the life threshold and Living::IsAvailableForReaction 0x5F11F0 are not ported). The one
+/// copy, as ApplyReactionToLivingObjectsAtSquare 0x6E3F90 (vt +0x984) uses it for every reaction (fire, shield, ...)
+[[nodiscard]] bool IsAvailableForReaction(entt::entity villager);
 /// Villager::CanPauseForASecond 0x752120
 [[nodiscard]] bool CanPauseForASecond(entt::entity villager, VillagerStates state);
 /// Villager::SetupPauseForASecond 0x76B090: SetCurrentAndDestinationState(239, state) == 1
@@ -176,18 +181,9 @@ uint32_t PauseForASecond(components::LivingAction& action);
 // CheckHungry 0x75BCC0 is in VillagerFood.h; CheckChildGrownUp 0x751050, WomanSpecial 0x752240 and
 // CheckDeathFromOldAge 0x760CA0 are in VillagerAge.h (included above)
 
-// ---- death (provisional until V12) -------------------------------------------------------------------------------
-
-/// Villager::VillagerDead 0x7506C0. TODO(V12, villager death): marks it and kills it at the end of the turn
-/// (FlushDeaths: ecs::life::Kill). The original keeps it alive (SetDying -> 13), which openblack has not ported. The
-/// drops (V5): flag != 0 -> CreateDroppedResource(0, 0, 0); then DropWood(0) and DropFood(0) always (0x7507C0..0x7507E2)
-void VillagerDead(entt::entity villager, DeathReason reason, PlayerNames player, float amount, int flag);
-[[nodiscard]] bool IsDying(entt::entity villager);
-/// The reason VillagerDead was given this turn, if any
-[[nodiscard]] std::optional<DeathReason> PendingDeathReason(entt::entity villager);
-void FlushDeaths();
-/// The tests: forget the deaths of the turn without killing (FlushDeaths needs the physics and the animals)
-void ForgetDeathsForTests();
+// ---- death (V12) ----------------------------------------------------------------------------------------------------
+// VillagerDead 0x7506C0, SetDying, the states 13 / 14 / 15, IsDead, GetPlayerOf, DeleteDependancys and Delete are in
+// VillagerDeath.h (included above)
 
 // ---- test hooks (VillagerDebugHooks.cpp) -------------------------------------------------------------------------
 

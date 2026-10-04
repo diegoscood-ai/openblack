@@ -172,25 +172,6 @@ bool AttackedRecently(entt::entity town)
 	return since <= Locator::infoConstants::value().villager.at(0).numGameTurnsAfterAggressionInterestedInShield;
 }
 
-/// Villager::IsAvailableForReaction 0x763390: its final state takes reactions (table +0xEC), and it is not held or
-/// thrown (as VillagerFire.cpp / VillagerTeleport.cpp: the +0xE0 flags, the life threshold and
-/// Living::IsAvailableForReaction are not ported)
-bool IsAvailableForReaction(entt::entity villager)
-{
-	const auto* action = ActionOf(villager);
-	if (action == nullptr)
-	{
-		return false;
-	}
-	const auto top = Get(*action, LivingAction::Index::Top);
-	if (top == VillagerStates::Flying || top == VillagerStates::InHand)
-	{
-		return false;
-	}
-	const auto* info = TableOf(FinalState(*action));
-	return info != nullptr && info->field0xec != 0;
-}
-
 /// fn_006E4340 on the villager's records (Living +0x98): may it react to this type again?
 bool MayReactAgain(entt::entity villager, uint32_t again)
 {
@@ -282,7 +263,10 @@ void UpdateAmazedClip(entt::entity villager, LivingAction& action)
 void ApplyShieldReaction(entt::entity villager, const effects::reactions::Reaction& reaction)
 {
 	auto& registry = Reg();
-	if (!registry.AllOf<Villager>(villager) || villager == reaction.initiator || !IsAvailableForReaction(villager))
+	// the check of ApplyReactionToLivingObjectsAtSquare 0x6E3F90 (0x6E401D) for every reaction type: vt +0x984 =
+	// Villager::IsAvailableForReaction 0x763390, the common one
+	if (!registry.AllOf<Villager, LivingAction>(villager) || villager == reaction.initiator ||
+	    !villager::IsAvailableForReaction(villager))
 	{
 		return;
 	}

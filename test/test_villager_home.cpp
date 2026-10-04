@@ -199,7 +199,6 @@ protected:
 		villager::SetWorshipCheckForTests({});
 		villager::SetTentQueriesForTests({}, {});
 		tq::SetCellObjectsForTests({}, {});
-		villager::ForgetDeathsForTests();
 		villager::SetRandForTests({}, {});
 		villager::SetTurnForTests(std::nullopt);
 		Locator::livingActionSystem::reset();
@@ -523,7 +522,7 @@ TEST_F(VillagerHomeTest, CheckWhenGoingToBed)
 	V(b).birthTurn = villager::BirthTurnForAge(63, 1000);
 	SetDraws({38}, {65534.0f / 65535.0f});
 	EXPECT_EQ(villager::CheckWhenGoingToBed(b), 0u);
-	EXPECT_EQ(villager::PendingDeathReason(b), DeathReason::OldAge);
+	EXPECT_EQ(villager::GetDeathReason(b), DeathReason::OldAge);
 }
 
 TEST_F(VillagerHomeTest, TentNextToTree)

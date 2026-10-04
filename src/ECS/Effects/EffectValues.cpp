@@ -35,6 +35,7 @@
 #include "ECS/Map.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
+#include "ECS/Villager/VillagerDeath.h"
 #include "ECS/Villager/VillagerScript.h"
 #include "ECS/AnimalAI.h"
 #include "InfoConstants.h"
@@ -103,29 +104,28 @@ float HealEffect(entt::entity object, const EffectValues& values)
 	return amount > 0.0f ? amount : 0.0f;
 }
 
-/// GetPlayer (vt 0x1C) of an effect receiver: a villager's town's owner (Town +0x2C); the others NEUTRAL (inf: not
-/// ported per class yet)
+/// GetPlayer (vt 0x1C) of an effect receiver: a villager's town's owner (Villager::GetPlayer 0x7502F0,
+/// villager::GetPlayerOf); the others NEUTRAL (inf: not ported per class yet)
 PlayerNames PlayerOf(entt::entity object)
-{
-	auto& registry = Locator::entitiesRegistry::value();
-	if (const auto* villager = registry.TryGet<const Villager>(object); villager != nullptr && registry.Valid(villager->town))
-	{
-		if (const auto* town = registry.TryGet<const Town>(villager->town); town != nullptr)
-		{
-			return town->owner;
-		}
-	}
-	return PlayerNames::NEUTRAL;
-}
-
-/// Object::DestroyedByEffect (vt 0x5F8): Villager -> its death (no corpse or death states yet: life::Kill); Animal
-/// 0x41B1B0 -> Living::SetDying (ECS/AnimalAI). TODO(M5/M6): Abode::DestroyedByEffect 0x403F80 and the other classes.
-void DestroyedByEffect(entt::entity object)
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	if (registry.AllOf<Villager>(object))
 	{
-		life::Kill(object, "spell effect");
+		return villager::GetPlayerOf(object).value_or(PlayerNames::NEUTRAL);
+	}
+	return PlayerNames::NEUTRAL;
+}
+
+/// Object::DestroyedByEffect (vt 0x5F8) with Object::ApplyEffect 0x637A79's player (EffectValues::GetPlayer 0x5254C0)
+/// and damage ([esp + 0xC]): Villager 0x7502D0 -> VillagerDead(2 SPELL) (ECS/Villager/VillagerDeath.h); Animal
+/// 0x41B1B0 -> Living::SetDying (ECS/AnimalAI). TODO(M5/M6): Abode::DestroyedByEffect 0x403F80 and the other classes.
+void DestroyedByEffect(entt::entity object, const EffectValues& values, float damage)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	if (registry.AllOf<Villager>(object))
+	{
+		villager::DestroyedByEffect(object, values.hasPlayer ? std::optional<PlayerNames>(values.player) : std::nullopt,
+		                            damage);
 	}
 	else if (registry.AllOf<Animal>(object))
 	{
@@ -226,7 +226,7 @@ float effects::ApplyEffect(entt::entity object, EffectValues& values)
 	}
 	if (killed)
 	{
-		DestroyedByEffect(object);
+		DestroyedByEffect(object, values, damage);
 	}
 	return result;
 }

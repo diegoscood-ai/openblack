@@ -267,8 +267,8 @@ bool CheckDeathFromOldAge(entt::entity villager)
 	{
 		return false;
 	}
-	// 0x760D3F..0x760D51: VillagerDead(9 OLD_AGE, 0, info +0x128 life, 1)
-	VillagerDead(villager, DeathReason::OldAge, PlayerNames::NEUTRAL, info.life, 1);
+	// 0x760D3F..0x760D51: VillagerDead(9 OLD_AGE, 0 (0x760D4B push 0: no player), info +0x128 life, 1)
+	VillagerDead(villager, DeathReason::OldAge, std::nullopt, info.life, 1);
 	return true;
 }
 

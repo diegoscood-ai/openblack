@@ -16,6 +16,7 @@
 #include "ECS/Components/Villager.h"
 #include "ECS/MapCells.h"
 #include "ECS/Registry.h"
+#include "ECS/Villager/VillagerDeath.h"
 #include "Locator.h"
 #include "Magic/MagicTables.h"
 
@@ -133,8 +134,14 @@ uint32_t magic::players::WorldPopulation()
 	{
 		return 0;
 	}
+	// the Villager entities not counted out (+0xE0 & 0x40: Villager::SetDying 0x76A54C took them off; corpses stay)
 	uint32_t count = 0;
-	Locator::entitiesRegistry::value().Each<const Villager>([&count](const Villager&) { ++count; });
+	Locator::entitiesRegistry::value().Each<const Villager>([&count](entt::entity villager, const Villager&) {
+		if (!ecs::villager::IsCountedOut(villager))
+		{
+			++count;
+		}
+	});
 	return count;
 }
 

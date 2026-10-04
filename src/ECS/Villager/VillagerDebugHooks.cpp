@@ -157,6 +157,42 @@ void RunDebugHooks(uint32_t turn)
 			break;
 		}
 	}
+	// OPENBLACK_TEST_VILLAGER_KILL="<reason 0-9>[,<n>[,<turn>]]" (V12): at turn 2 (or <turn>) VillagerDead(reason,
+	// GetPlayerOf, its life, 1) of the villager with creation index n (empty or absent: all); the rest is the original's.
+	// With OPENBLACK_TEST_CORPSE_TURNS=<n> the corpse's counter is n afterwards (test only)
+	if (const char* kill = std::getenv("OPENBLACK_TEST_VILLAGER_KILL"); kill != nullptr && *kill != '\0')
+	{
+		const std::string text(kill);
+		std::vector<std::string> parts;
+		size_t start = 0;
+		while (start <= text.size())
+		{
+			const auto end = std::min(text.find(',', start), text.size());
+			parts.push_back(text.substr(start, end - start));
+			start = end + 1;
+		}
+		const auto reason = static_cast<DeathReason>(std::clamp(std::atoi(parts[0].c_str()), 0, 9));
+		const std::optional<int64_t> who =
+		    parts.size() > 1 && !parts[1].empty() ? std::optional<int64_t>(std::atoll(parts[1].c_str())) : std::nullopt;
+		const auto at = parts.size() > 2 && !parts[2].empty() ? static_cast<uint32_t>(std::atoi(parts[2].c_str())) : 2u;
+		if (turn == at)
+		{
+			for (const auto entity : Villagers())
+			{
+				if (registry.Valid(entity) && (!who || object_index::Of(entity) == *who))
+				{
+					VillagerDead(entity, reason, GetPlayerOf(entity), life::LifeOf(entity), 1);
+					if (const char* quick = std::getenv("OPENBLACK_TEST_CORPSE_TURNS"); quick != nullptr && IsDead(entity))
+					{
+						registry.Get<LivingAction>(entity).turnsUntilStateChange = static_cast<uint16_t>(std::atoi(quick));
+					}
+					Trace(entity, fmt::format("test: killed, reason {} -> top {} counter {}", static_cast<uint32_t>(reason),
+					                          static_cast<uint32_t>(GetState(entity, Index::Top)),
+					                          registry.Get<LivingAction>(entity).turnsUntilStateChange));
+				}
+			}
+		}
+	}
 	if (turn == 2)
 	{
 		// OPENBLACK_TEST_VILLAGER_LIFE="<life>[,<n>]"

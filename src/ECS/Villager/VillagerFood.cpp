@@ -225,7 +225,8 @@ bool CheckHungry(entt::entity villager, uint32_t turn)
 			const bool chant = now == VillagerStates::GoHomeFromWorship || now == VillagerStates::ArrivesHomeFromWorship ||
 			                   now == VillagerStates::SleepInTentFromWorship ||
 			                   (last != nullptr && (last->flags & Villager::k_FlagAtWorshipSite) != 0);
-			VillagerDead(villager, chant ? DeathReason::Chant : DeathReason::Starving, PlayerNames::NEUTRAL,
+			// GetPlayer (vt +0x1C, Villager::GetPlayer 0x7502F0: the town's owner, none without a town)
+			VillagerDead(villager, chant ? DeathReason::Chant : DeathReason::Starving, GetPlayerOf(villager),
 			             life::LifeOf(villager), 1);
 			result = 1;
 		}

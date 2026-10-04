@@ -39,6 +39,7 @@
 #include "ECS/Effects/Reactions.h"
 #include "ECS/Fields.h"
 #include "ECS/Life.h"
+#include "ECS/Villager/VillagerDeath.h"
 #include "ECS/MapCells.h"
 #include "ECS/ObjectMetrics.h"
 #include "ECS/Physics/PhysicsObjects.h"
@@ -356,7 +357,7 @@ float fire::traits::ReduceLifeDueToBurning(entt::entity object, float damage, [[
 	return life::ReduceLife(object, damage);
 }
 
-void fire::traits::DestroyedByEffect(entt::entity object)
+void fire::traits::DestroyedByEffect(entt::entity object, std::optional<PlayerNames> player, float amount)
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	if (!registry.Valid(object))
@@ -365,7 +366,9 @@ void fire::traits::DestroyedByEffect(entt::entity object)
 	}
 	if (registry.AllOf<Villager>(object))
 	{
-		life::Kill(object, "burnt"); // Villager 0x7502D0 -> VillagerDead (reason 2); no corpse yet
+		// Villager::DestroyedByEffect 0x7502D0 -> VillagerDead(2 SPELL) with the caller's player and amount (the fire:
+		// its GetPlayer 0x72F509 and 0, 0x72F506 `push ebp` with ebp = 0 since 0x72F216, as in the original)
+		villager::DestroyedByEffect(object, player, amount);
 		return;
 	}
 	if (registry.AllOf<Animal>(object))

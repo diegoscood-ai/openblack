@@ -18,6 +18,7 @@
 #include "ECS/Components/SpellIcon.h"
 #include "ECS/Components/Temple.h"
 #include "ECS/Components/Town.h"
+#include "ECS/Components/TownDeaths.h"
 #include "ECS/Components/TownMagic.h"
 #include "ECS/Components/WorshipSite.h"
 #include "ECS/Registry.h"
@@ -238,7 +239,10 @@ void script::GetTownWorshipDeaths()
 		vm.Pushf(0.0f);
 		return;
 	}
-	vm.Pushf(static_cast<float>(Registry().Get<const TownMagic>(thing).deathsFromWorship));
+	// Town::GetDeathsFromWorshipping 0x740D60 -> GetDeaths 0x740D70: TownStats +0x7C[4 CHANT] (ECS/Components/TownDeaths.h,
+	// written by Villager::VillagerDead; none before the town's first death)
+	const auto* deaths = Registry().TryGet<const TownDeaths>(thing);
+	vm.Pushf(static_cast<float>(deaths != nullptr ? deaths->byReason.at(static_cast<size_t>(DeathReason::Chant)) : 0u));
 }
 
 void script::SetMagicProperties()

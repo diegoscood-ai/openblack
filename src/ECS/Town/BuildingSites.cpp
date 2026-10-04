@@ -725,6 +725,45 @@ entt::entity plans::CreatePlannedNoFixedCheck(entt::entity town, PlanIndex plan,
 	return building;
 }
 
+std::optional<plans::PlanIndex> plans::CreateFromBuilding(entt::entity town, entt::entity building)
+{
+	auto& registry = Entities();
+	const auto* a =
+	    building != entt::null && registry.Valid(building) ? registry.TryGet<const Abode>(building) : nullptr;
+	const auto* info = a != nullptr ? abodes::InfoOf(building) : nullptr;
+	const auto* transform = a != nullptr ? registry.TryGet<const Transform>(building) : nullptr;
+	// the record's number in info.dat (abodes::InfoOf answers a record of this table)
+	const auto& infos = Locator::infoConstants::value().abode;
+	std::optional<size_t> index;
+	for (size_t i = 0; info != nullptr && i < infos.size(); ++i)
+	{
+		if (&infos.at(i) == info)
+		{
+			index = i;
+			break;
+		}
+	}
+	// (openblack, guard) the original only fails on allocation (`new 0x4C`, Abode.cpp line 0x560, 0x405662)
+	if (!index.has_value() || transform == nullptr)
+	{
+		return std::nullopt;
+	}
+	// PlannedAbode(Abode*) 0x405580 -> PlannedMultiMapFixed(MultiMapFixed*) 0x648820 (+0x48 = 0, then Init's town)
+	PlannedAbode plan {};
+	plan.info = static_cast<AbodeInfo>(*index);              // +0x40 = b +0x28 (0x64889F)
+	plan.position = transform->position;                     // +0x14 = b +0x14 (0x648875..0x648882)
+	plan.yAngleRadians = map_cells::detail::YAngleOf(transform->rotation); // +0x28 = GetYAngle (vt +0x508, 0x648889)
+	plan.scale = object::GetScale(building);                              // +0x2C = GetScale (vt +0x120, 0x648896)
+	// a PlannedAbode, not a PlannedTownCentre, whatever the building's class (0x405681)
+	plan.townCentre = false;
+	// 0x6488B4..0x6488CB: +0x30 = (b +0x58 & 8) ? 1 : 0, the built bit
+	plan.wasBuilt = (a->buildFlags & Abode::k_Built) != 0;
+	// 0x40568C..0x405696: +0x38 = b +0x64; b +0x64 = 0 (the footpath link). TODO(footpaths): not ported
+	// 0x40569D..0x4056A3: PlannedAbode::Init(b->GetTown()) 0x4055A0: +0x48 = town; town -> Town::AddPlanned 0x73D080
+	// (the creation turn +0x3C, 0x6488AB, is written there)
+	return AddPlanned(town, plan);
+}
+
 // =====================================================================================================================
 // building sites
 // =====================================================================================================================
@@ -1040,6 +1079,72 @@ entt::entity building_sites::GetBestRepairBuildingSite(entt::entity town)
 		}
 	}
 	return best;
+}
+
+building_sites::TownRepairChoice building_sites::ChooseTownRepair(entt::entity town)
+{
+	TownRepairChoice choice;
+	const auto* t = TownComponent(town);
+	if (t == nullptr)
+	{
+		return choice;
+	}
+	// 0x747DE6..0x747DF3: best = 0
+	float best = 0.0f;
+	// 0x747DFD..0x747E28: each plan of +0x9A8 (next +0x44) with +0x30: vt +0x514 (0x648910) > best (fcom; test ah,
+	// 0x41; jne: strictly, a NaN never wins)
+	for (plans::PlanIndex i = 0; i < t->plannedAbodes.size(); ++i)
+	{
+		if (!t->plannedAbodes.at(i).wasBuilt)
+		{
+			continue;
+		}
+		const float v = plans::GetDesireToBeRepaired(town, i);
+		if (v > best)
+		{
+			best = v;
+			choice.plan = i;
+		}
+	}
+	// 0x747E2A..0x747E68: each structure of +0x754 (next +0x9C) with no site (+0x74, 0x747E39) and no +0x58 bit 2
+	// (0x747E3F): vt +0x8D8 (Abode::GetDesireToBeRepaired 0x406970) > the SAME best
+	for (const auto abode : town_stats::AbodesOf(town))
+	{
+		const auto* a = Entities().TryGet<const Abode>(abode);
+		if (a == nullptr || a->buildingSite != entt::null || (a->buildFlags & Abode::k_NotRepaired) != 0)
+		{
+			continue;
+		}
+		const float v = abodes::GetDesireToBeRepaired(abode);
+		if (v > best)
+		{
+			best = v;
+			choice.abode = abode;
+		}
+	}
+	return choice;
+}
+
+void building_sites::ProcessTownRepairs(entt::entity town)
+{
+	const auto choice = ChooseTownRepair(town);
+	// 0x747E6A..0x747E7F: an abode -> +0x58 |= 4 (0x747E6E), AddBuildingSite(MultiMapFixed*) 0x73B8E0 (its site copies
+	// the bit: +0x638 = 1, a repair site for GetBestRepairBuildingSite) and return, also when a plan was better before
+	if (choice.abode != entt::null)
+	{
+		if (auto* a = Entities().TryGet<Abode>(choice.abode); a != nullptr)
+		{
+			a->buildFlags |= Abode::k_NotRepaired;
+		}
+		AddBuildingSite(town, choice.abode);
+		return;
+	}
+	// 0x747E80..0x747E87: else a plan -> AddBuildingSite(PlannedMultiMapFixed*) 0x73B860 (CreatePlanned WITH the fixed
+	// check; a rebuild plan's building gets bit 2 at 0x4057CC, so its site is a repair site too)
+	if (choice.plan.has_value())
+	{
+		AddBuildingSiteFromPlan(town, *choice.plan);
+	}
 }
 
 bool building_sites::RequestBestPlanned(entt::entity town)

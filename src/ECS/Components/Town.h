@@ -217,8 +217,11 @@ struct Town
 	glm::ivec2 congregationPos {0, 0};
 	float congregationPosY {0.0f};
 	/// +0xF1C: the turn the town's emergency started (Town::IsInStateOfEmergency 0x747970 reads it; 0 = none).
-	/// TODO(Milagros): written by ProcessTownEmergency; nobody writes it in openblack yet, so 242 is never reached
+	/// Written by Town::SetInStateOfEmergency 0x7479A0, cleared by ProcessTownEmergency 0x747873 (ecs::town_emergency)
 	uint32_t emergencyStartTurn {0};
+	/// +0xEC4: the worship percentage (+0x5C0) saved while the emergency lasts (ProcessTownEmergency 0x7477EA), given
+	/// back after it (0x747864) and then 0 (0x747869). 0 at creation (the zero-filled town)
+	float savedWorshipPercentage {0.0f};
 	/// +0xEAC / +0xEB0: the player of the last aggression against the town and the game turn of it (Town::UpdateAggressor
 	/// 0x73C9B0, 0x73CA82 / 0x73CA98; read by Villager::ReactToMagicShieldPriority 0x765C28). Only the record is ported:
 	/// the per-player aggression slots (town + n x 0x80 + 0x9F4, fn_0073E0F0), the 0.9 decay of +0xEB4 / +0xEB8 and the

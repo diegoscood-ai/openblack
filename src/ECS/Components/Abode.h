@@ -46,7 +46,8 @@ struct Abode
 	/// smoke (Abode::Draw 0x516288) and the night windows (0x515F78)
 	uint8_t presentAtHome {0};
 	uint8_t childCount {0};
-	/// +0xB9: counts up to 200 in each Abode::Process (0x404503..0x40450F); no reader found (P-8)
+	/// +0xB9: counts up to 200 in each Abode::Process (0x404503..0x40450F); read by Abode::StopBeingFunctional 0x4073C8
+	/// (>= 200 with a player: the player's statistic, not ported)
 	uint8_t field0xB9 {0};
 
 	// ---- the construction state (MultiMapFixed +0x58 / +0x5C / +0x74, Abode +0x7C, +0x28; V6_spec §3.1) ---------

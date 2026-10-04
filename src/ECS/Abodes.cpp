@@ -42,7 +42,17 @@
 #include "ECS/Town/TownStores.h"
 #include "Resources/ResourcesInterface.h"
 #include "ECS/Town/AbodeVillagers.h"
+#include "ECS/AnimalAI.h"
+#include "ECS/Components/Field.h"
+#include "ECS/Components/Tree.h"
+#include "ECS/Components/Villager.h"
+#include "ECS/Rocks.h"
+#include "ECS/Villager/VillagerDeath.h"
+#include "ECS/Effects/EffectValues.h"
+#include "ECS/ObjectResources.h"
+#include "ECS/Town/TownEmergency.h"
 #include "InfoConstants.h"
+#include "Worship/WorshipPercentage.h"
 #include "Locator.h"
 #include "Resources/ResourceManager.h"
 
@@ -96,6 +106,10 @@ bool abodes::InterfaceValidToTap(entt::entity abode)
 
 void abodes::InterfaceTap(entt::entity abode, const glm::vec3& handPosition)
 {
+	// 0x40683A..0x406844: GetTown -> [0xC4CC6C], HowManyPeople::KnockKnock 0x829690 (not ported). 0x406849..0x406862:
+	// for any abode, before the type test, each inhabitant of +0xA0 (next +0xE4) SetStateWhenTappedOnAbode 0x752B80
+	// TODO(Personas HEAD): for (auto v : Locator::entitiesRegistry::value().Get<Abode>(abode).inhabitants)
+	//                          villager::SetStateWhenTappedOnAbode(v); // VillagerHome.h, V11_spec §5
 	// 0x406864..0x406870: only an abode whose ABODE_TYPE has the living-quarters bit (test al, 2) knocks; the houses A..F
 	// and the windmill have it, the civic buildings (totem, storage pit, creche, workshop, wonder, graveyard, town
 	// centre, football pitch, spell dispenser, field) do not.
@@ -117,18 +131,93 @@ void abodes::InterfaceTap(entt::entity abode, const glm::vec3& handPosition)
 	audio::PlaySoundEffect(options);
 }
 
-// ---- life and damage (moved unchanged from ECS/Physics/Buildings.cpp, session Edificios) ----------------------
+// ---- life and damage (V11, session Edificios; spec dev\documentacion\edificios\repair_spec.md §1, §2, §4) ------
 
-void abodes::StopBeingFunctional(entt::entity building)
+namespace
 {
-	// TODO: villagers leave, stores' piles come loose, the town's emergency, a repair site (Abode::ReduceLife 0x405D90)
-	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Buildings: {} no longer works", static_cast<uint32_t>(building));
+/// [0x8AB230] = 1.1 and [0x8AB22C] = 0.1: the repair base 1.1 x life - 0.1 (Abode::ReduceLife 0x405E9B..0x405EA1)
+constexpr float k_RepairBaseScale = 1.1f;
+constexpr float k_RepairBaseOffset = 0.1f;
+/// EffectValues(3, ...) 0x406732: the preset g_EffectInfo[3] (0xCC94C8 + 3 x 0x34, info.dat effect[3]: crush 1,
+/// alignment modification 1, radius 1)
+constexpr size_t k_PhysicalDestructionEffect = 3;
+/// Abode::StopBeingFunctional 0x4073C8: the age byte +0xB9 from which the player's statistic counts (cmp 0xC8; jb)
+constexpr uint8_t k_StatisticAge = 200;
+
+/// GetPlayer (vt +0x1C) of the hitter: what EffectValues::GetPlayer 0x5254C0 answers when AppliedBy (+0x28) is set
+/// (it is taken before +0x3C). The hitters of ReactToPhysicsImpact's path (PhysicsConstantsType 3 / 20) are mobile
+/// statics: Rock::GetPlayer 0x6E77A0 = +0x90 (Rock::SetPlayer vt +0x20 0x439720; (pending) its writers: none on the
+/// hand's path, null here), MobileStatic::GetPlayer 0x6088B0 = the +0x7C object's player ((not ported) null) else the
+/// neutral player (g_game +0x205A5B). Also a villager (Villager::GetPlayer 0x7502F0) and a tree (0x55D8C0 = 0)
+std::optional<PlayerNames> HitterPlayer(entt::entity hitter)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	if (hitter == entt::null || !registry.Valid(hitter) || registry.AllOf<Tree>(hitter) || Rocks::IsRock(hitter))
+	{
+		return std::nullopt;
+	}
+	if (registry.AllOf<Villager>(hitter))
+	{
+		return villager::GetPlayerOf(hitter);
+	}
+	return PlayerNames::NEUTRAL;
+}
+} // namespace
+
+void abodes::StopBeingFunctional(entt::entity building, std::optional<PlayerNames> player)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	auto logger = spdlog::get("game");
+	// Abode::StopBeingFunctional 0x4073C0: player && byte +0xB9 >= 200 -> the player's GameStats (+0xA44) +0x1080++
+	// and FUN_004073F0(player) (unless +0x7C & 0x40: GPlayer::FUN_0064DA80(+0x7C & 0x20 ? 10 : 9, 1), multiplayer
+	// only). (not ported) openblack keeps no GameStats. Nothing else: the villagers stay, no site
+	const auto* a = registry.TryGet<const Abode>(building);
+	if (player.has_value() && a != nullptr && a->field0xB9 >= k_StatisticAge && logger != nullptr)
+	{
+		SPDLOG_LOGGER_DEBUG(logger, "Buildings: {} stops, the player's statistic not ported",
+		                    static_cast<uint32_t>(building));
+	}
+	if (logger != nullptr)
+	{
+		SPDLOG_LOGGER_INFO(logger, "Buildings: {} no longer works", static_cast<uint32_t>(building));
+	}
+	if (const auto* pit = registry.TryGet<const StoragePit>(building); pit != nullptr)
+	{
+		// StoragePit::StopBeingFunctional 0x733960, after the base: the food pile +0xC4 with JustGetResource(FOOD) != 0
+		// (vt +0x94) -> Pot::SetupReaction 0x66D660; then the five wood piles +0xC8.. with JustGetResource(WOOD) != 0
+		const StoragePit piles = *pit;
+		const auto setup = [&registry](entt::entity pile, ResourceType type) {
+			// (openblack, guard) a pile that is gone
+			if (pile != entt::null && registry.Valid(pile) && object_resources::JustGetResource(pile, type) != 0)
+			{
+				animal_ai::SetupPotReaction(pile);
+			}
+		};
+		setup(piles.foodPile, ResourceType::Food);
+		for (const auto pile : piles.woodPiles)
+		{
+			setup(pile, ResourceType::Wood);
+		}
+	}
+	else if (TypeOf(building) == AbodeType::TownCentre)
+	{
+		// TownCentre::StopBeingFunctional 0x744A00, after the base: GetTown() (vt +0x48) -> SetWorshipPercentage(0)
+		// 0x73C060
+		if (const auto town = abode_villagers::TownOf(building); town != entt::null)
+		{
+			worship::percentage::SetWorshipPercentage(town, 0.0f);
+		}
+	}
 }
 
 void abodes::DestroyedByEffect(entt::entity building)
 {
 	auto& registry = Locator::entitiesRegistry::value();
-	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Buildings: {} destroyed", static_cast<uint32_t>(building));
+	// 0x403F85: GoolooGooloo 0x5E6540, the fading ghost of the mesh. (pending) graphics::frame_anim::GoolooFrame exists
+	if (auto logger = spdlog::get("game"); logger != nullptr)
+	{
+		SPDLOG_LOGGER_INFO(logger, "Buildings: {} destroyed", static_cast<uint32_t>(building));
+	}
 	// Abode::RemoveAllVillagersFromAbode 0x404560: Villager::HomeDeleted 0x7611F0 of each (MakeHomeless: out of the
 	// abode, the town's homeless list, 129 HOMELESS_START)
 	if (registry.AllOf<Abode>(building))
@@ -157,7 +246,14 @@ void abodes::DestroyedByEffect(entt::entity building)
 	{
 		graveyard::DeleteDependancys(building);
 	}
-	// (inferred, repair_spec §9) MultiMapFixed::ToBeDeleted deletes its building site (+0x74) with it
+	// Abode::ToBeDeleted 0x402C60, after DeleteDependancys (vt +0x910): with a town and !(g_game +0x14 & 0x8000)
+	// ((pending) the bit taken as clear, as in BuildingSite::ToBeDeleted) MoveAbodeToPlannedAbodes (vt +0x90C,
+	// 0x402C8A), then Town::RemoveStructureFromTown 0x739A60 (openblack: the abode's townId, gone with the entity)
+	if (registry.AllOf<Abode>(building) && abode_villagers::TownOf(building) != entt::null)
+	{
+		MoveAbodeToPlannedAbodes(building);
+	}
+	// MultiMapFixed::ToBeDeleted 0x52E2B0 deletes its building site (+0x74) with it (0x52E348)
 	if (const auto site = GetBuildingSite(building); site != entt::null)
 	{
 		building_sites::ToBeDeleted(site);
@@ -172,25 +268,69 @@ void abodes::DestroyedByEffect(entt::entity building)
 bool abodes::OnPhysicalDamage(entt::entity building, const PhysicalDamage& hit)
 {
 	auto& registry = Locator::entitiesRegistry::value();
-	// 0x406640..0x40671D: SamplePlayAnimEffect(this, the camera's distance, {1, 0, 0x16, 9, 75}, 0, editor.sad, track 0)
-	// (G_Crash_Abode_01..09 in editor.sad's table)
-	physics::CollisionSounds::PlayAnimEffect({1, 0, 0x16, 9, 75}, building, registry.Get<const Transform>(building).position, false);
-	auto& life = registry.AllOf<Life>(building) ? registry.Get<Life>(building) : registry.Assign<Life>(building);
-	const float before = life.value;
+	// 0x406670..0x406677: no camera (GGame::GetCamera 0x54C180) -> return before the sound and the damage. (openblack)
+	// the game always has one: taken as present (headless callers get the damage)
+	// 0x40667D..0x40671D: SamplePlayAnimEffect(this, the camera's distance, {1, 0, 0x16, 9, 75}, 0, editor.sad,
+	// track 0) (G_Crash_Abode_01..09 in editor.sad's table)
+	const auto& at = registry.Get<const Transform>(building).position;
+	physics::CollisionSounds::PlayAnimEffect({1, 0, 0x16, 9, 75}, building, at, false);
+	if (!registry.AllOf<Life>(building))
+	{
+		registry.Assign<Life>(building);
+	}
+	const float before = life::LifeOf(building);
+	// 0x406722..0x406738: EffectValues(3, hitter, player) 0x524FE0: the preset's numbers and radius (fn_005250A0), the
+	// applier (fn_005256C0) and the player (+0x3C)
+	auto values =
+	    effects::EffectValues::FromEffectInfo(Locator::infoConstants::value().effect.at(k_PhysicalDestructionEffect));
+	values.appliedBy = hit.hitter;
+	// GetPlayer 0x5254C0 (ReduceLife's player, the alignment's GAlignment::Update 0x637BB9): AppliedBy's, so the
+	// hitter's (a hand-thrown rock moves nobody's alignment); GetCausedPlayer 0x525910 (Town::UpdateAggressor): +0x3C,
+	// the hand's
+	const auto hitterPlayer = HitterPlayer(hit.hitter);
+	values.hasPlayer = hitterPlayer.has_value();
+	values.player = hitterPlayer.value_or(PlayerNames::NEUTRAL);
+	values.causedPlayer = hit.player;
+	// 0x40673D..0x406745: with a DestructionMesh (+0x90)
+	if (hit.remaining.has_value() && HasDestructionMesh(building))
+	{
+		// 0x40674B..0x406781: r = +0x18 (FragMesh::GetRemaining); r < 0.4 [0x980188] && player &&
+		// IsMemberOfThisPlayer(MyInterfaceStatus) -> GGuidance::HelpSpritesDestroyBuilding 0x71D070. (not ported, §6)
+		const float remaining = *hit.remaining;
+		// 0x406786..0x4067AE: f = GetLife - r; f < 0 (test ah, 1) -> 0
+		float factor = before - remaining;
+		if (factor < 0.0f)
+		{
+			factor = 0.0f;
+		}
+		// 0x4067B7: EffectNumbers::operator*= 0x525720 (f); 0x4067C3..0x4067CD: EffectValues::operator/= 0x525950 by
+		// GetDefenseMultiplier 0x637930, number by number (fdiv; a 0 multiplier divides by 0, literal)
+		values.Scale(factor);
+		const auto defence = effects::GetDefenseMultiplier(building);
+		for (size_t i = 0; i < values.numbers.size(); ++i)
+		{
+			values.numbers.at(i) = values.numbers.at(i) / defence.at(i);
+		}
+	}
+	// 0x4067D2..0x4067DD: ApplyEffect(e, 0) (vt +0x5CC, Object 0x637980): the heal -> IncreaseLife, the damage ->
+	// ReduceLife (the site, StopBeingFunctional, the town's emergency), the alignment (GAlignment::Update 0x414410)
+	effects::ApplyEffect(building, values);
+	const float now = life::LifeOf(building);
+	// (openblack) physics::Buildings::RedrawBuilding still reads BuildingDamage::repairBase: the site's +0x640 formula
+	// as Abode::ReduceLife writes it (0x405E9B..0x405EA7). TODO(Fisicas): read GetPercentForDrawBuilding instead
 	if (auto* damage = registry.TryGet<BuildingDamage>(building); damage != nullptr && hit.remaining)
 	{
-		life.value = std::min(life.value, *hit.remaining);
-		// Abode::ReduceLife 0x405D90: a repair site whose baseline is 1.1 x life - 0.1
-		damage->repairBase = 1.1f * life.value - 0.1f;
+		const float scaled = k_RepairBaseScale * now;
+		damage->repairBase = scaled - k_RepairBaseOffset;
 	}
-	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Buildings: {} hit, life {:.2f} -> {:.2f}", static_cast<uint32_t>(building), before,
-	                   life.value);
-	// TODO: GAlignment::Update (an evil act), Town::UpdateAggressor, GPlayer::DamageFromPlayer, creature mimic
-	if (before >= 0.75f && life.value < 0.75f) // info.dat ThresholdForStopBeingFunctional
+	if (auto logger = spdlog::get("game"); logger != nullptr)
 	{
-		StopBeingFunctional(building);
+		SPDLOG_LOGGER_INFO(logger, "Buildings: {} hit, life {:.2f} -> {:.2f}", static_cast<uint32_t>(building), before,
+		                   now);
 	}
-	if (life.value <= 0.0f)
+	// Object::ApplyEffect 0x637A36..0x637A8A: old != 0 && GetLife == 0 -> DestroyedByEffect (vt +0x5F8). (openblack)
+	// called here: effects::ApplyEffect's own DestroyedByEffect has no abode branch yet (its TODO(M5/M6))
+	if (before != 0.0f && now == 0.0f)
 	{
 		DestroyedByEffect(building);
 		return false;
@@ -611,10 +751,28 @@ float abodes::IncreaseLife(entt::entity building, float amount)
 
 void abodes::RestartBeingFunctional(entt::entity building)
 {
-	// vt +0x91C 0x401680. (pending) not read
+	auto& registry = Locator::entitiesRegistry::value();
 	if (auto logger = spdlog::get("game"); logger != nullptr)
 	{
 		SPDLOG_LOGGER_INFO(logger, "Buildings: {} works again", static_cast<uint32_t>(building));
+	}
+	// Abode 0x401680: `ret`. StoragePit::RestartBeingFunctional 0x7339D0: the food pile +0xC4, then the five wood piles
+	// +0xC8.., each when available (vt +0x2C) -> Pot::RemoveReaction 0x66D6A0
+	if (const auto* pit = registry.TryGet<const StoragePit>(building); pit != nullptr)
+	{
+		const StoragePit piles = *pit;
+		const auto remove = [&registry](entt::entity pile) {
+			// (inferred) IsAvailable: openblack deletes a pile at once (ecs::ToBeDeleted), a valid one is available
+			if (pile != entt::null && registry.Valid(pile))
+			{
+				animal_ai::RemovePotReaction(pile);
+			}
+		};
+		remove(piles.foodPile);
+		for (const auto pile : piles.woodPiles)
+		{
+			remove(pile);
+		}
 	}
 }
 
@@ -625,11 +783,16 @@ bool abodes::CausesTownEmergencyIfDamaged(entt::entity building)
 	return type == AbodeType::StoragePit || type == AbodeType::TownCentre;
 }
 
-float abodes::ReduceLife(entt::entity building, float amount, [[maybe_unused]] std::optional<PlayerNames> player)
+float abodes::ReduceLife(entt::entity building, float amount, std::optional<PlayerNames> player)
 {
 	if (AbodeOf(building) == nullptr)
 	{
 		return life::ReduceLife(building, amount);
+	}
+	// vt +0x5B8 of a field (it carries an Abode too): Field::ReduceLife 0x52A0A0 = GetLife; ret 8: nothing changes
+	if (Locator::entitiesRegistry::value().AllOf<Field>(building))
+	{
+		return life::LifeOf(building);
 	}
 	// Abode::ReduceLife 0x405D90: old = GetLife; wasFunctional = (vt +0x894 < old) (0x405D98..0x405DBC)
 	const float threshold = GetPercentRepairedForNonFunctional(building);
@@ -659,19 +822,20 @@ float abodes::ReduceLife(entt::entity building, float amount, [[maybe_unused]] s
 	{
 		return l;
 	}
-	// 0x405DE2..0x405E05: every inhabitant (+0xA0, next +0xE4) SetStateWhenTappedOnAbode 0x752B80. (pending) Personas' V11
-	// (Hito 3): villager::SetStateWhenTappedOnAbode(entt::entity) in ECS/Villager/VillagerEmergency.h, state 197
-	// 0x405E07..0x405E59
+	// 0x405DE6..0x405E02: every inhabitant (+0xA0, next +0xE4) SetStateWhenTappedOnAbode 0x752B80 (VillagerHome.h)
+	// TODO(Personas HEAD): for (auto v : AbodeOf(building)->inhabitants) villager::SetStateWhenTappedOnAbode(v);
+	// 0x405E07..0x405E43: the threshold crossed downwards (vt +0x894 read again at 0x405E0B; fcomp; test ah, 1). Also
+	// an unbuilt one whose percent reached 0: its life went 1 -> 0 above (repair_spec §5.4)
 	if (wasFunctional && !(threshold < l))
 	{
-		StopBeingFunctional(building); // vt +0x918
+		StopBeingFunctional(building, player); // vt +0x918
+		// CausesTownEmergencyIfDamaged (vt +0x920) -> GetTown()->SetInStateOfEmergency 0x7479A0 (no NULL check,
+		// literal; (openblack, guard) nothing without a town)
 		if (CausesTownEmergencyIfDamaged(building))
 		{
-			// GetTown()->SetInStateOfEmergency 0x7479A0 (no NULL check, literal). TODO(Milagros): town_emergency
-			if (auto logger = spdlog::get("game"); logger != nullptr)
+			if (const auto town = abode_villagers::TownOf(building); town != entt::null)
 			{
-				SPDLOG_LOGGER_INFO(logger, "Buildings: {} damaged, town emergency not ported",
-				                   static_cast<uint32_t>(building));
+				town_emergency::SetInStateOfEmergency(town);
 			}
 		}
 	}
@@ -685,7 +849,8 @@ float abodes::ReduceLife(entt::entity building, float amount, [[maybe_unused]] s
 	// 0x405E7F..0x405EA7: a site and built -> site +0x640 = 1.1 x l - 0.1 ([0x8AB230], [0x8AB22C])
 	if (const auto site = GetBuildingSite(building); site != entt::null && IsBuilt(building))
 	{
-		building_sites::SetRepairBase(site, 1.1f * l - 0.1f);
+		const float scaled = k_RepairBaseScale * l;
+		building_sites::SetRepairBase(site, scaled - k_RepairBaseOffset);
 	}
 	// 0x405EBE: l == 0 -> FUN_00405D80, `mov eax, 1; ret` (no effect)
 	RedrawConstruction(building);
@@ -708,6 +873,27 @@ float abodes::GetDesireToBeRepaired(entt::entity building)
 	input.inhabitants = static_cast<uint32_t>(a->inhabitants.size()); // +0xA4
 	input.desireToBeRepaired = info->desireToBeRepaired;              // +0x118
 	return town_desire::AbodeDesireToBeRepaired(input, Locator::infoConstants::value().town);
+}
+
+bool abodes::MoveAbodeToPlannedAbodes(entt::entity building)
+{
+	// 0x404520: town = GetTown() (vt +0x48); none -> 0
+	const auto town = abode_villagers::TownOf(building);
+	if (AbodeOf(building) == nullptr || town == entt::null)
+	{
+		return false;
+	}
+	// 0x40452F..0x404551: !GetShouldNotBeAddedToPlanned (vt +0x8F8, 0x401650: +0x7C bit 2) &&
+	// PlannedAbode::Create(this) 0x405660 != 0 -> 1. The bit's only writer, SetShouldNotBeAddedToPlanned (vt +0x8FC),
+	// is called by the scaffolds (Scaffold::TryToBuildPlannedBuilding 0x6E9171, DestroyThingsInWay 0x6EAE2F): not
+	// ported, always clear
+	if (plans::CreateFromBuilding(town, building).has_value())
+	{
+		return true;
+	}
+	// 0x404552..0x40455E: Town::RemoveBuildingSite(this) 0x73BA20; 0
+	building_sites::RemoveBuildingSite(town, building);
+	return false;
 }
 
 void abodes::RedrawConstruction(entt::entity building)

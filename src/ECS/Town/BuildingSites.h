@@ -78,6 +78,12 @@ entt::entity CreatePlanned(entt::entity town, PlanIndex plan, float life);
 /// V6_spec §2.2). Returns the building or null (the plan survives). TODO(H3): PlannedTownCitadelHeart 0x467EF0
 /// (citadel_plan_spec.md §2.2)
 entt::entity CreatePlannedNoFixedCheck(entt::entity town, PlanIndex plan, float life);
+/// PlannedAbode::Create(Abode*) 0x405660 (from Abode::MoveAbodeToPlannedAbodes 0x40453E): a plan where the building
+/// stands, PlannedMultiMapFixed(MultiMapFixed*) 0x648820: its position, GetYAngle, GetScale, info, the creation turn
+/// and +0x30 = the building's +0x58 bit 3 (a rebuild plan when it was built). Always a PlannedAbode (a town centre's
+/// too). The footpath link +0x64 moves to it (TODO(footpaths)); Init(GetTown) 0x4055A0 -> AddPlanned. nullopt only
+/// without the building's info or Transform (the original fails only on allocation)
+std::optional<PlanIndex> CreateFromBuilding(entt::entity town, entt::entity building);
 } // namespace openblack::ecs::plans
 
 namespace openblack::ecs::building_sites
@@ -113,8 +119,10 @@ void Process(entt::entity site);
 void InsertBuildingSite(entt::entity town, entt::entity site);
 /// fn_73B990 0x73B990: every node of the site out (TownStats remove fn_749B50: recomputed)
 void RemoveBuildingSiteFromList(entt::entity town, entt::entity site);
-/// Town::AddBuildingSite(MultiMapFixed*) 0x73B8E0: Create(building), InsertBuildingSite (a repair site on an existing
-/// building; also Abode::ReduceLife 0x405E7A, ProcessTownRepairs 0x747E75, Villager::SetupBuildingObject 0x758565)
+/// Town::AddBuildingSite(MultiMapFixed*) 0x73B8E0: Create(building), InsertBuildingSite. A site on an existing
+/// building (also Abode::ReduceLife 0x405E7A, ProcessTownRepairs 0x747E75, Villager::SetupBuildingObject 0x758565);
+/// +0x638 is the building's +0x58 bit 2: a repair site only after ProcessTownRepairs 0x747E6E or a rebuild plan's
+/// conversion 0x4057CC (a rock-damaged house's is an ordinary one, repair_spec §5.4)
 entt::entity AddBuildingSite(entt::entity town, entt::entity building);
 /// Town::AddBuildingSite(PlannedMultiMapFixed*) 0x73B860: plans::CreatePlanned(0.0) (WITH the fixed check), Create,
 /// InsertBuildingSite; null when the plan could not be built
@@ -135,6 +143,21 @@ bool RemoveBuildingSite(entt::entity town, entt::entity building);
 /// Town::GetBestRepairBuildingSite 0x747EA0: among the sites with +0x638, the strictly largest GetDesireToBeRepaired
 /// above 0 (first on ties). (V11's caller CheckSatisfyToRepair 0x75937E)
 [[nodiscard]] entt::entity GetBestRepairBuildingSite(entt::entity town);
+/// What Town::ProcessTownRepairs 0x747DE0 picks (0x747DE6..0x747E68): the abode (it wins over a plan) or the plan; both
+/// empty: nothing
+struct TownRepairChoice
+{
+	entt::entity abode {entt::null};
+	std::optional<plans::PlanIndex> plan;
+};
+/// The two loops of ProcessTownRepairs sharing one best (0 to start, the strictly larger wins, the first on ties): the
+/// plans with +0x30 by GetDesireToBeRepaired (vt +0x514, 0x648910), oldest first; then the abodes of +0x754 without a
+/// site (+0x74) and without +0x58 bit 2 by Abode::GetDesireToBeRepaired (vt +0x8D8): an abode must beat the best plan
+[[nodiscard]] TownRepairChoice ChooseTownRepair(entt::entity town);
+/// Town::ProcessTownRepairs 0x747DE0 (Town::Process step 14, 0x74743D): ChooseTownRepair; an abode -> +0x58 |= 4 and
+/// AddBuildingSite(MultiMapFixed*) 0x73B8E0 (a repair site, +0x638 = 1); else a plan -> AddBuildingSiteFromPlan
+/// 0x73B860 (with the fixed check). At most one site a town turn
+void ProcessTownRepairs(entt::entity town);
 /// Town::RequestBestPlanned 0x73A650: GetBestPlanned(mask 4) -> AddBuildingSiteNoFixedCheck; true when a site was made
 /// (caller CheckSatisfyCivicBuildings 0x758ECA). The +0x5E4 flag is the caller's (Town::requestedPlanThisTurn)
 bool RequestBestPlanned(entt::entity town);

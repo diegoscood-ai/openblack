@@ -38,10 +38,10 @@ namespace openblack::ecs::abodes
 
 /// Abode::InterfaceTap 0x406830, the packet 0x20 of a tap (GInterface::SendTap 0x5D38A0). `handPosition` is the tapping
 /// interface status' +0xC8 (the hand's point). The original also remembers the abode's town in [0xC4CC6C] (0x40683F),
-/// counts the knock in HowManyPeople::KnockKnock 0x829690, wakes the abode's villagers
-/// (Villager::SetStateWhenTappedOnAbode 0x752B80 for the whole +0xA0 list) and, for the local player, plays the hand's
-/// knocking animation 0x39 (CHand::StartFixedPosAnimation 0x46C050): none of those exist in openblack yet, so only the
-/// sound is here.
+/// counts the knock in HowManyPeople::KnockKnock 0x829690, wakes the abode's villagers (Villager::
+/// SetStateWhenTappedOnAbode 0x752B80 for the whole +0xA0 list, any abode: TODO(Personas HEAD), V11_spec §5) and, for
+/// the local player, plays the hand's knocking animation 0x39 (CHand::StartFixedPosAnimation 0x46C050): the town, the
+/// count and the animation are not ported.
 void InterfaceTap(entt::entity abode, const glm::vec3& handPosition);
 
 // ---- life and damage -----------------------------------------------------------------------------------------------
@@ -58,17 +58,30 @@ struct PhysicalDamage
 	/// the thrower is a creature (0x4064BA..: the Abode +0x7C bit 0x20 is set around the call)
 	bool byCreature {false};
 };
-/// Abode::ApplyEffectsDueToPhysicalDestruction 0x406640: the crash (SamplePlayAnimEffect {1, 0, 0x16, 9, 75}) and the
-/// life. (approximate) Still openblack's first version: life = min(life, remaining), the repair base 1.1 x life - 0.1,
-/// StopBeingFunctional below 0.75 and DestroyedByEffect at 0; the original's EffectValues(3) / GetDefenseMultiplier /
-/// ApplyEffect path is (pending). False when the building is gone
+/// Abode::ApplyEffectsDueToPhysicalDestruction 0x406640: the crash (SamplePlayAnimEffect {1, 0, 0x16, 9, 75}), then
+/// EffectValues(3) (info.dat effect[3]: crush 1, alignment 1) applied by the hitter: GetPlayer is the hitter's (a
+/// rock's none, another mobile static's the neutral player), +0x3C the hand's (the town's aggressor); with a
+/// DestructionMesh scaled by max(life - remaining, 0) and divided by GetDefenseMultiplier 0x637930; applied by
+/// Object::ApplyEffect
+/// 0x637980 (effects::ApplyEffect: the damage is ReduceLife below, the alignment moves) and, at life 0 from above,
+/// DestroyedByEffect. Without one (not built yet) the preset as it is: its crush x the crush defence off the percent
+/// built. False when the building is gone
 bool OnPhysicalDamage(entt::entity building, const PhysicalDamage& hit);
-/// Abode::StopBeingFunctional 0x4073C0. (pending) only logs: the villagers leaving, the store's piles, the town's
-/// emergency and the repair site are not ported
-void StopBeingFunctional(entt::entity building);
-/// Abode::DestroyedByEffect 0x403F80: the villagers become homeless (RemoveAllVillagersFromAbode 0x404560), a store
-/// loses its piles, the physics forgets it (physics::Buildings::OnBuildingDeleted) and the building goes
+/// StopBeingFunctional vt +0x918: Abode 0x4073C0 (a player and +0xB9 >= 200: the player's statistics, not ported;
+/// nothing else), StoragePit 0x733960 (then Pot::SetupReaction on its piles that hold something), TownCentre 0x744A00
+/// (then the town's worship percentage 0). The villagers stay and no site is made here (ReduceLife makes it)
+void StopBeingFunctional(entt::entity building, std::optional<PlayerNames> player);
+/// Abode::DestroyedByEffect 0x403F80 -> Abode::ToBeDeleted 0x402C60: the villagers become homeless
+/// (RemoveAllVillagersFromAbode 0x404560), a store loses its piles, the graveyard hands on, the town keeps a plan of
+/// it (MoveAbodeToPlannedAbodes), the site goes, the physics forgets it (physics::Buildings::OnBuildingDeleted) and the
+/// building goes. (not ported) GoolooGooloo 0x5E6540, the script abode's keep path (IsInScript vt +0x448) and the
+/// scaffolds' restart
 void DestroyedByEffect(entt::entity building);
+/// Abode::MoveAbodeToPlannedAbodes 0x404520 (vt +0x90C, from ToBeDeleted 0x402C8A): no town -> false; not
+/// GetShouldNotBeAddedToPlanned (+0x7C bit 2: only the scaffolds set it, not ported, clear) and PlannedAbode::Create
+/// (Abode*) 0x405660 (plans::CreateFromBuilding: a rebuild plan, +0x30 = 1, when it was built) -> true; else the
+/// town's RemoveBuildingSite(this) 0x73BA20 and false
+bool MoveAbodeToPlannedAbodes(entt::entity building);
 /// MultiMapFixed::GetPercentForDrawBuilding 0x52EFD0 (vt +0x898) = GetPercentBuilt (vt +0x880) <=
 /// GetPercentRepairedFromWhenDamaged (vt +0x888) ? GetPercentBuilt : GetPercentRepairedFromWhenDamaged
 [[nodiscard]] float GetPercentForDrawBuilding(entt::entity building);
@@ -128,14 +141,18 @@ bool Repaired(entt::entity building);
 /// Abode::IncreaseLife(x) 0x405ED0 (vt +0x5BC): wasAbove = vt +0x894 < life; Object::IncreaseLife 0x637870 (cap 1);
 /// !wasAbove && vt +0x894 < the new life -> RestartBeingFunctional (vt +0x91C 0x401680). Returns the new life
 float IncreaseLife(entt::entity building, float amount);
-/// RestartBeingFunctional vt +0x91C 0x401680. (pending) its body is not read: only logs
+/// RestartBeingFunctional vt +0x91C: Abode 0x401680 = `ret`; StoragePit 0x7339D0: Pot::RemoveReaction on its available
+/// piles (the food pile +0xC4, the five wood piles +0xC8)
 void RestartBeingFunctional(entt::entity building);
 /// CausesTownEmergencyIfDamaged vt +0x920: Abode 0x4016F0 = 0, StoragePit 0x55CCE0 = 1, TownCentre 0x55DB30 = 1
 [[nodiscard]] bool CausesTownEmergencyIfDamaged(entt::entity building);
 /// Abode::ReduceLife(amount, player) 0x405D90 around MultiMapFixed::ReduceLife 0x52F5E0 (repair_spec.md §2.1, §2.2):
 /// built -> Object::ReduceLife; not built -> +0x5C - amount (>= 0) through SetPercentBuilt, at 0 the life too; then the
-/// stop-being-functional / repair-site part. The villagers' SetStateWhenTappedOnAbode (TODO(V7, Personas)) and the
-/// town's emergency (TODO(Milagros)) are not called. Returns the new life. (V11 hooks the physics' damage here)
+/// stop-being-functional part with the town's emergency (town_emergency::SetInStateOfEmergency for a storage pit or a
+/// town centre, also an unbuilt one at 0 %) and the building site (+0x638 = 0 here: an ordinary site, repaired by the
+/// builders of GetBestBuildingSite, repair_spec §5.4). A field's vt +0x5B8 (Field::ReduceLife 0x52A0A0) changes
+/// nothing. The inhabitants' SetStateWhenTappedOnAbode is TODO(Personas HEAD). Returns the new life. The physics',
+/// the effects', the fire's and the beam's damage comes here
 float ReduceLife(entt::entity building, float amount, std::optional<PlayerNames> player);
 /// Abode::GetDesireToBeRepaired 0x406970 (vt +0x8D8, with MultiMapFixed's 0x52ECE0):
 /// town_desire::AbodeDesireToBeRepaired on this abode; 0 for anything else

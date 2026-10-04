@@ -24,6 +24,7 @@
 #include "ECS/Town/BuildingSites.h"
 #include "ECS/Town/TownBelief.h"
 #include "ECS/Town/TownDesire.h"
+#include "ECS/Town/TownEmergency.h"
 #include "ECS/Town/TownStats.h"
 #include "ECS/Town/TownVillagers.h"
 #include "InfoConstants.h"
@@ -156,8 +157,15 @@ void ProcessTown(entt::entity town)
 	//    TODO(banderas): openblack does not make the 7 TownDesireFlags (CREATE_TOWN only skips their index)
 	// 13 0x747436 Town::ProcessPlayerInteract 0x73DEC0 (Protection +0xEC0 / Mercy +0xEBC from the aggression slots).
 	//    TODO(agresiones): they stay 0
-	// 14 0x74743D Town::ProcessTownRepairs 0x747DE0. TODO(V11)
-	// 15 0x747444 Town::ProcessTownEmergency 0x7477A0 (+0xF1C). TODO(Milagros, M-7): the fire
+	// 14 0x74743D Town::ProcessTownRepairs 0x747DE0: at most one new site (a repair site or a rebuild plan's)
+	building_sites::ProcessTownRepairs(town);
+	// 15 0x747444 Town::ProcessTownEmergency 0x7477A0 (+0xF1C, +0xEC4; the fire through ecs::fire::IsOnFire)
+	town_emergency::ProcessTownEmergency(town);
+	t = registry.TryGet<Town>(town);
+	if (t == nullptr)
+	{
+		return;
+	}
 	// 16 0x74744B Town::UpdateAttitudeToCreature 0x7437F0. TODO(criatura)
 	// 17 0x747450..0x7474A0: the temporary pots +0x600 / +0x604: available, empty (+0x70 == 0) and a functional
 	//    storage pit -> ToBeDeleted, null; not available -> null. TODO(V5): openblack has no temporary pots

@@ -10,6 +10,7 @@
 #pragma once
 
 #include <array>
+#include <optional>
 #include <vector>
 
 #include <entt/entity/entity.hpp>
@@ -52,6 +53,11 @@ struct EffectValues
 	/// +0x3C / GetPlayer 0x5254C0 (the applier's player)
 	bool hasPlayer {false};
 	PlayerNames player {PlayerNames::NEUTRAL};
+	/// +0x3C when it differs from GetPlayer's answer: EffectValues::GetCausedPlayer 0x525910 takes +0x3C first (else
+	/// AppliedBy's GetPlayer), GetPlayer 0x5254C0 takes AppliedBy's first. Unset: hasPlayer / player (the spells, where
+	/// both are the caster). Set by Abode::ApplyEffectsDueToPhysicalDestruction (the hand's player; GetPlayer is the
+	/// hitter's). Read by Town::UpdateAggressor 0x73C9BC
+	std::optional<PlayerNames> causedPlayer;
 
 	/// fn_005250A0 -> fn_005250D0: the 7 numbers and the radius of a GEffectInfo (GMagicEffectInfo's base)
 	static EffectValues FromEffectInfo(const GEffectInfo& info);
@@ -75,6 +81,10 @@ struct EffectValues
 /// a kill is DestroyedByEffect, a crush creates REACT_TO_OBJECT_CRUSHED, and the caster's alignment moves
 /// (GAlignment::Update). Returns the original's "effectiveness": (1 - life0) / heal + life0 / damage.
 float ApplyEffect(entt::entity object, EffectValues& values);
+/// Object::GetDefenseMultiplier 0x637930: the seven numbers of the object's info at +0x90 (EffectNumbers), 1 each
+/// without an info (the same table ApplyEffect multiplies by). Abode::ApplyEffectsDueToPhysicalDestruction 0x4067C3
+/// divides by it
+[[nodiscard]] std::array<float, EffectValues::_COUNT> GetDefenseMultiplier(entt::entity object);
 
 /// FireEffect::ConvertTemperatureToDamage 0x72EEC0: 0 below the combustion temperature Tc, else
 /// (T - Tc) / Tc x defenceMultiplierBurn x 0.1

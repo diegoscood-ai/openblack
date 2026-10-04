@@ -31,6 +31,9 @@ namespace openblack::ecs::object_resources
 /// IsPartOfStructure vt +0x860, the building-site test before it); any other pot its own amount when the resource is
 /// its own (Pot::JustGetResource 0x66D390); a building site's pile its own amount (0x66EF12..0x66EF47, V6)
 [[nodiscard]] uint32_t GetResource(entt::entity object, ResourceType type);
+/// Pot::JustGetResource 0x66D390 (vt +0x94 of every pot and pile, a PotStructure's too): +0x70 when the type is the
+/// pot's own (GetResourceType vt +0x690), else 0; 0 for what is not a pot. The out poison flag is not returned
+[[nodiscard]] uint32_t JustGetResource(entt::entity pot, ResourceType type);
 /// Object::RemoveResource (vt +0xA0): StoragePit 0x7332A0 (StoragePitStore); Abode 0x404F10 -> DoResourceRemoving
 /// 0x404F60 (JustRemoveResource 0x404D60: min(amount, what it has)); a pile of a storage pit
 /// PotStructure::RemoveResource 0x66EE10 (the touched pile gives n - min(over, n), over = the pit's amount above its

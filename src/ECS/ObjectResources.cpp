@@ -94,18 +94,27 @@ uint32_t GetResource(entt::entity object, ResourceType type)
 		// (0x66EF12..0x66EF47); else that structure's GetResource (a pit's mirror, its whole total; 0x66EF2F)
 		if (building_sites::SiteOfPile(object) != entt::null)
 		{
-			const auto& own = Locator::infoConstants::value().pot.at(static_cast<size_t>(pot->type));
-			return own.resourceType == type ? pot->amount : 0;
+			return JustGetResource(object, type);
 		}
 		if (const auto owner = StoragePitStore::OwnerOf(object); owner != entt::null)
 		{
 			return StoragePitStore::GetResource(owner, type);
 		}
-		// Pot::JustGetResource 0x66D390: 0 unless the type is the pot's own (GetResourceType vt +0x690), else +0x70
-		const auto& info = Locator::infoConstants::value().pot.at(static_cast<size_t>(pot->type));
-		return info.resourceType == type ? pot->amount : 0;
+		return JustGetResource(object, type);
 	}
 	return 0;
+}
+
+uint32_t JustGetResource(entt::entity pot, ResourceType type)
+{
+	const auto* p = PotComponent(pot);
+	if (p == nullptr)
+	{
+		return 0;
+	}
+	// Pot::JustGetResource 0x66D390: 0 unless the type is the pot's own (GetResourceType vt +0x690), else +0x70
+	const auto& info = Locator::infoConstants::value().pot.at(static_cast<size_t>(p->type));
+	return info.resourceType == type ? p->amount : 0;
 }
 
 uint32_t JustRemoveFromPot(entt::entity object, uint32_t amount)

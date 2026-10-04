@@ -19,6 +19,8 @@
 
 #include "3D/LandIslandInterface.h"
 #include "Alignment.h"
+#include "ECS/Abodes.h"
+#include "ECS/Components/Abode.h"
 #include "ECS/Components/Animal.h"
 #include "ECS/Components/Fixed.h"
 #include "ECS/Components/Town.h"
@@ -35,6 +37,8 @@
 #include "ECS/Map.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
+#include "ECS/Town/AbodeVillagers.h"
+#include "ECS/Town/TownEmergency.h"
 #include "ECS/Villager/VillagerDeath.h"
 #include "ECS/Villager/VillagerScript.h"
 #include "ECS/AnimalAI.h"
@@ -102,6 +106,22 @@ float HealEffect(entt::entity object, const EffectValues& values)
 {
 	const float amount = values.numbers[EffectValues::Heal] * DefenceMultipliers(object)[EffectValues::Heal];
 	return amount > 0.0f ? amount : 0.0f;
+}
+
+/// GetTown (vt +0x48) of an effect receiver: an abode's (abode_villagers::TownOf) and a villager's (+0x48 town).
+/// (approximate) none for the other classes
+entt::entity TownOfObject(entt::entity object)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	if (registry.AllOf<Abode>(object))
+	{
+		return abode_villagers::TownOf(object);
+	}
+	if (const auto* villager = registry.TryGet<const Villager>(object); villager != nullptr)
+	{
+		return registry.Valid(villager->town) ? villager->town : entt::null;
+	}
+	return entt::null;
 }
 
 /// GetPlayer (vt 0x1C) of an effect receiver: a villager's town's owner (Villager::GetPlayer 0x7502F0,
@@ -185,23 +205,49 @@ float effects::ConvertTemperatureToDamage(entt::entity object, float temperature
 	return (temperature - combustion) / combustion * info->defenceMultiplierBurn * 0.1f;
 }
 
+std::array<float, EffectValues::_COUNT> effects::GetDefenseMultiplier(entt::entity object)
+{
+	return DefenceMultipliers(object); // 0x637930: info +0x90.. (rep movsd of 7 dwords)
+}
+
 float effects::ApplyEffect(entt::entity object, EffectValues& values)
 {
 	const float life0 = life::LifeOf(object);
+	// the class of vt 0x5BC / 0x5B8: every Abode class (houses, storage pit, town centre, creche, workshop ...)
+	const bool isAbode = Locator::entitiesRegistry::value().AllOf<Abode>(object);
 	const float damage = DamageEffect(object, values);
 	const float heal = HealEffect(object, values);
 	float result = 0.0f;
 	if (heal > 0.0f)
 	{
 		result = (1.0f - life0) / heal;
-		life::IncreaseLife(object, heal); // vt 0x5BC (Villager::IncreaseLife 0x753460)
+		// vt 0x5BC: Abode::IncreaseLife 0x405ED0 (ecs::abodes: RestartBeingFunctional when it crosses the threshold);
+		// Villager::IncreaseLife 0x753460 / Object 0x637870 for the rest
+		if (isAbode)
+		{
+			abodes::IncreaseLife(object, heal);
+		}
+		else
+		{
+			life::IncreaseLife(object, heal);
+		}
 	}
 	if (damage > 0.0f)
 	{
 		result += life0 / damage;
-		// vt 0x5B8. (aproximado) Object::ReduceLife 0x637810 for every class: MultiMapFixed 0x52F5E0 (the building-damage
-		// path), Abode 0x405D90 (the repair site) and Creature 0x47DD00 are not ported (destructive.md 7.3)
-		life::ReduceLife(object, damage);
+		// vt 0x5B8 with the EffectValues' player (GetPlayer 0x5254C0): Abode::ReduceLife 0x405D90 (ecs::abodes: the
+		// MultiMapFixed part 0x52F5E0, the building site, StopBeingFunctional, the town's emergency) for the abodes,
+		// Field::ReduceLife 0x52A0A0 (no change, no site) for the fields, which carry an Abode too: abodes::ReduceLife
+		// dispatches both; Object::ReduceLife 0x637810 for the rest. (aproximado) Creature 0x47DD00 is not ported
+		// (destructive.md 7.3)
+		if (isAbode)
+		{
+			abodes::ReduceLife(object, damage, values.hasPlayer ? std::optional(values.player) : std::nullopt);
+		}
+		else
+		{
+			life::ReduceLife(object, damage);
+		}
 	}
 	auto& registry = Locator::entitiesRegistry::value();
 	const bool killed = registry.Valid(object) && life::LifeOf(object) == 0.0f && life0 != 0.0f;
@@ -214,7 +260,21 @@ float effects::ApplyEffect(entt::entity object, EffectValues& values)
 		// CreateReaction(initiator, 0x12, object->GetPlayer(), 1)
 		reactions::CreateReaction(initiator, Reaction::ReactToObjectCrushed, PlayerOf(object), true);
 	}
-	// TODO(belief): the town's aggressor (Town::UpdateAggressor 0x73C9B0) with ConvertTemperatureToDamage(burn) + damage
+	// 0x637AFE..0x637B7D: IsDestructive 0x5258C0, a town (GetTown vt +0x48), AppliedBy (+0x28, a GameThingWithPos) and
+	// ConvertTemperatureToDamage(burn) + damage != 0 -> Town::UpdateAggressor(e, vt +0x588(it)) 0x73C9B0 with
+	// EffectValues::GetCausedPlayer 0x525910. Only its record is ported (town_emergency::UpdateAggressor)
+	if (values.IsDestructive() && registry.Valid(object) && values.appliedBy != entt::null &&
+	    registry.Valid(values.appliedBy))
+	{
+		const float aggression = ConvertTemperatureToDamage(object, values.numbers[EffectValues::Burn]) + damage;
+		if (const auto town = TownOfObject(object); town != entt::null && aggression != 0.0f)
+		{
+			const auto caused = values.causedPlayer.has_value()
+			                        ? values.causedPlayer
+			                        : (values.hasPlayer ? std::optional(values.player) : std::nullopt);
+			town_emergency::UpdateAggressor(town, caused);
+		}
+	}
 	// Whose alignment moves: the creature's (creature +0x168, M8) or the caster player's (+0x60). The per-player damage
 	// statistic (+0x94[caster]) is not kept.
 	// TODO(M8): Object::ApplyEffect 0x637980's creature(AppliedBy) +0x11C0 kill counter on a kill, and the creature's own

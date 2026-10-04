@@ -14,6 +14,7 @@
 
 #include "3D/L3DMesh.h"
 #include "3D/LandIslandInterface.h"
+#include "ECS/Abodes.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Animal.h"
 #include "ECS/Components/AnimatedStatic.h"
@@ -337,8 +338,7 @@ void fire::traits::SetNotHurtByFire(entt::entity object, bool value)
 	}
 }
 
-float fire::traits::ReduceLifeDueToBurning(entt::entity object, float damage, [[maybe_unused]] bool hasPlayer,
-                                           [[maybe_unused]] PlayerNames player)
+float fire::traits::ReduceLifeDueToBurning(entt::entity object, float damage, bool hasPlayer, PlayerNames player)
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	if (registry.AllOf<Field>(object))
@@ -353,6 +353,12 @@ float fire::traits::ReduceLifeDueToBurning(entt::entity object, float damage, [[
 	if (NotHurtByFire(object))
 	{
 		return life::LifeOf(object);
+	}
+	// 0x637C2F..0x637C3B: vt +0x5B8 ReduceLife(damage, player): Abode::ReduceLife 0x405D90 for the abodes
+	// (ecs::abodes: the site, StopBeingFunctional, the town's emergency); Object::ReduceLife 0x637810 for the rest
+	if (registry.AllOf<Abode>(object))
+	{
+		return abodes::ReduceLife(object, damage, hasPlayer ? std::optional(player) : std::nullopt);
 	}
 	return life::ReduceLife(object, damage);
 }

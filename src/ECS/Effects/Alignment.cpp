@@ -16,6 +16,7 @@
 #include <spdlog/spdlog.h>
 
 #include "Audio/Services/Guidance.h"
+#include "ECS/Abodes.h"
 #include "ECS/Life.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "EffectValues.h"
@@ -98,8 +99,14 @@ void alignment::Update(ecs::components::PlayerAlignment& alignment, entt::entity
 		return;
 	}
 	const auto& info = Locator::infoConstants::value();
-	const auto* objectInfo = physics::PhysicsObjects::ObjectInfo(object);
-	// the info's vt 0x34: GObjectInfo.alignmentType (inf: Unimportant without an info)
+	const GObjectInfo* objectInfo = physics::PhysicsObjects::ObjectInfo(object);
+	// an abode's (a field's) info is its GAbodeInfo (Abode +0x28, abodes::InfoOf), which PhysicsObjects does not keep
+	if (objectInfo == nullptr)
+	{
+		objectInfo = abodes::InfoOf(object);
+	}
+	// the info's (+0x28) vt 0x34, GObjectInfo::GetAlignmentType 0x4012A0 (GAlignment::Update 0x41443E..0x414445):
+	// alignmentType (inf: Unimportant without an info)
 	const auto type = objectInfo != nullptr ? objectInfo->alignmentType : AlignmentType::Unimportant;
 	const float k = std::abs(lifeChange) + info.player.applyEffectAlignmentChangeAddition;
 	for (size_t i = EffectValues::Crush; i <= EffectValues::FlyAway; ++i)

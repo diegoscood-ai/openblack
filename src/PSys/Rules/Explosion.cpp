@@ -46,6 +46,7 @@
 #include "ECS/Fire/FireObjectTraits.h"
 #include "ECS/GUtilsDistance.h"
 #include "ECS/GroundMarks.h"
+#include "ECS/Abodes.h"
 #include "ECS/Life.h"
 #include "ECS/Villager/VillagerDeath.h"
 #include "ECS/Map.h"
@@ -739,8 +740,9 @@ void explosion::DestroyedByBeam(entt::entity object)
 		// 0x52F0C0 (+0x74 != 0) holds and, with no DestructionMesh, GetPercentForDrawBuilding 0x52EFD0 = min(the built
 		// percentage, GetPercentRepairedFromWhenDamaged 0x52F010 = 0.98 x life (0x52F0A6, [0x8CF3FC])) = 0: Abode::Draw
 		// 0x515F70 -> MultiMapFixed::Draw 0x518090 draws nothing, the building is gone from view until it is repaired.
-		// (pendiente) openblack's towns have no building sites: the life goes to 0 and the building is still drawn whole
-		ecs::life::ReduceLife(object, ecs::life::LifeOf(object));
+		// 0x402CB4..0x402CC4: ReduceLife(GetLife(), NULL) through ecs::abodes::ReduceLife (a field's vt +0x5B8 0x52A0A0
+		// changes nothing). (approximate) TotemStatue::ReduceLife 0x737C90 and a dispenser without an Abode: Object's
+		ecs::abodes::ReduceLife(object, ecs::life::LifeOf(object), std::nullopt);
 		return;
 	}
 	// Object::DestroyedByBeam 0x63AB20: ToBeDeleted(0) (vt 0xC)

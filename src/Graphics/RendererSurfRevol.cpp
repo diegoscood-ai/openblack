@@ -22,8 +22,8 @@
 // vertex (colour / specular pairs, 0x81C9B9..0x81C9C4; Draw3DWorldTriangle writes 0, 0x81C2BF), always through
 // g_world_to_clipping (0x81C783), the material's culling (+5 bit 0, 0x81CA0C..0x81CA1C; CULLMODE 0x81CC5E..0x81CC6E)
 // and SetMaterial through the current table (0x81CB8F..0x81CBA1). So the surfaces stay here and do not go through
-// graphics::world_triangles (WorldTriangles.h): that one has no specular and takes an L3D primitive's material, while a
-// surface has its CreateMaterial(6) with the .raw texture and its alpha file.
+// graphics::world_triangles (WorldTriangles.h): that one takes an L3D primitive's material (its per-vertex specular is
+// the FragMesh's, fn_007F7ED0), while a surface has its CreateMaterial(6) with the .raw texture and its alpha file.
 //
 // RenderParticleGJMeshRotatingUV::DrawAt 0x67CBA0 never reads [0xC0215D] (the manager's +0xAE): a surface has no Z
 // object of its own on any path. A Sorted effect's (Draw_(t, 1): the teleport pool, MagicTeleport::Draw 0x5FCDC5; the

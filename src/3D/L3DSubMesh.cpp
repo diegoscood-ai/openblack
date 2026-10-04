@@ -243,11 +243,13 @@ bool L3DSubMesh::Load(const l3d::L3DFile& l3d, uint32_t meshIndex, std::span<con
 
 	_collisionPositions.resize(nVertices);
 	_collisionUVs.resize(nVertices);
+	_collisionNormals.resize(nVertices);
 	_skinBones.assign(nVertices, 0);
 	for (uint32_t i = 0; i < nVertices; ++i)
 	{
 		_collisionPositions[i] = verticesMemAccess[i].pos;
 		_collisionUVs[i] = verticesMemAccess[i].uv;
+		_collisionNormals[i] = verticesMemAccess[i].norm;
 		_skinBones[i] = static_cast<uint16_t>(std::max<int32_t>(0, verticesMemAccess[i].index[0]));
 	}
 	// before the rest pose below and the hd-tweaks smoothing, which changes the vertex buffer (not these)
@@ -286,6 +288,7 @@ bool L3DSubMesh::Load(const l3d::L3DFile& l3d, uint32_t meshIndex, std::span<con
 		});
 		ApplyMode(added, static_cast<uint32_t>(primitive.material.type));
 		_collisionRanges.emplace_back(startIndex, primitive.numTriangles * 3);
+		_collisionVertexRanges.emplace_back(startVertex, primitive.numVertices);
 
 		startVertex += static_cast<uint16_t>(primitive.numVertices);
 		startIndex += static_cast<uint16_t>(primitive.numTriangles * 3);
@@ -319,6 +322,7 @@ bool L3DSubMesh::Load(const l3d::L3DFile& l3d, uint32_t meshIndex, std::span<con
 			for (uint32_t j = 0; j < vertexGroupSpan.vertexCount && vertex < nVertices; ++j, ++vertex)
 			{
 				_collisionPositions[vertex] = glm::xyz(matrix * glm::vec4(_collisionPositions[vertex], 1.0f));
+				_collisionNormals[vertex] = glm::mat3(matrix) * _collisionNormals[vertex];
 			}
 		}
 	}

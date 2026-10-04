@@ -37,6 +37,7 @@
 #include "ECS/Registry.h"
 #include "ECS/SeaCells.h"
 #include "ECS/VillagerAnimations.h"
+#include "ECS/Villager/VillagerResources.h"
 #include "ECS/VillagerDrowning.h"
 #include "ECS/WaterRings.h"
 #include "InfoConstants.h"
@@ -69,13 +70,6 @@ glm::vec2 TiltXZ(const glm::mat3& rotation)
 	return glm::vec2(std::atan2(r2.y, std::sqrt(r2.x * r2.x + r2.z * r2.z)), std::atan2(-r0.y, r1.y));
 }
 
-/// Villager::CreateDroppedResource 0x750940, called for a villager released without landing: a villager whose
-/// carrying type (+0xF1) is 2..15 and whose wood (+0xF6) is over GVillagerInfo::minWoodToShowGraphic (+0x26C) lets
-/// his log fall: a DeadTree (fn_00510BB0, the mesh of table 0xC5E19C, scale 1, angle pi/2, woodValue = wood /
-/// GetWoodValue) put into physics with the villager's velocity and angular velocity, flag 0x10,
-/// AdjustToGroundLevel(false, true), RaiseUntilNotIntersecting, then DropWood(0).
-/// TODO(villager-jobs): openblack's villagers carry no wood yet, so there is nothing to drop.
-void CreateDroppedResource([[maybe_unused]] entt::entity villager, [[maybe_unused]] glm::vec3 velocity) {}
 } // namespace
 
 void SetHandHooks(HandHooks hooks)
@@ -197,7 +191,9 @@ std::optional<bool> InitialisePhysicsFromHand(entt::entity entity, glm::vec3 vel
 	{
 		if (registry.AllOf<Villager>(entity))
 		{
-			CreateDroppedResource(entity, velocity);
+			// 0x6373F4..0x6373FA: Villager::CreateDroppedResource 0x750940(&velocity, NULL, &angular_velocity) (session
+			// Personas, ECS/Villager); the hand's angular velocity is 0 (ThrowAngularVelocity, step2_throw.md)
+			ecs::villager::CreateDroppedResource(entity, velocity, std::nullopt, glm::vec3(0.0f));
 		}
 		// Reaction::CreateReaction(this, REACTION_REACT_TO_FLYING_OBJECT 9, player, 0) 0x637412: spread once
 		// (SpreadReaction 0x6E3E10) to the Livings near it; the thrower is the hand's player (PLAYER_ONE's interface)

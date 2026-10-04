@@ -120,6 +120,11 @@ entt::entity AnimalEndPhysics(entt::entity entity, PhysicsObject& po)
 	{
 		transform.position.y = Locator::terrainSystem::value().GetHeightAt(glm::vec2(transform.position.x, transform.position.z));
 	}
+	// 0x5F0E01: Object::EndPhysics after SetYAngle, before the landType / life / state work
+	if (!PhysicsObjects::BackInMap(entity))
+	{
+		return entt::null; // (approximate) the original goes on with a ToBeDeleted object; openblack's ToBeDeleted destroys at once
+	}
 	ecs::animal_ai::EndPhysics(entity, rotation, po.turnStartRotation);
 	registry.SetDirty();
 	return entt::null;
@@ -158,6 +163,11 @@ entt::entity VillagerEndPhysics(entt::entity entity, PhysicsObject& po)
 	if (Locator::terrainSystem::has_value())
 	{
 		transform.position.y = Locator::terrainSystem::value().GetHeightAt(glm::vec2(transform.position.x, transform.position.z));
+	}
+	// 0x5F0B81: Object::EndPhysics after SetYAngle, before the landType, IsWater 0x5F0BAF and the state / death work
+	if (!PhysicsObjects::BackInMap(entity))
+	{
+		return entt::null; // (approximate) the original goes on with a ToBeDeleted object; openblack's ToBeDeleted destroys at once
 	}
 	// 0x5F0B88..0x5F0BA1: the landType into the status bits 4-5, after Object::EndPhysics 0x5F0B81
 	// (MakeCreatureEmpathiseWithPlayer 0x5F0B53 of the three branches: TODO(creature))

@@ -28,6 +28,7 @@
 #include "3D/LandBlock.h"
 #include "3D/LandIslandInterface.h"
 #include "ECS/Animations.h"
+#include "ECS/Abodes.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Alpha.h"
 #include "ECS/Components/Animal.h"
@@ -79,6 +80,12 @@ bool CastsPhysicsShadow(const ecs::Registry& registry, entt::entity entity)
 	using namespace ecs::components;
 	// building fragments: SetShadowOnTexture(0) clears the 0x1000 that fn_007FCE80 needs
 	if (registry.AnyOf<Fragment>(entity))
+	{
+		return false;
+	}
+	// the 0x1000 (IsShadowOnTexture, vt +0x84) is also off for what is not drawn and for an Abode not built yet
+	// (SetShadowOnTexture until Built 0x52EC2C): session Edificios' rule, the same as CastsStaticShadow's
+	if (!ecs::abodes::CastsShadowOnTexture(entity))
 	{
 		return false;
 	}

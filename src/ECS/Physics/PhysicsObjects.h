@@ -117,6 +117,9 @@ public:
 		std::function<bool(entt::entity, PhysicsObject&)> hasSunk;
 		/// Every frame while the object moves (roots follow a tree...).
 		std::function<void(entt::entity)> moved;
+		/// DropSfx (vt +0x794): RemoveObject 0x646B2E..0x646B48 plays it for the object EndPhysics returned, when LANDED
+		/// and on land (only Tree has one, 0x74BC60; Object::DropSfx 0x63A7B0 is nothing)
+		std::function<void(entt::entity)> dropSfx;
 	};
 
 	/// The class whose handlers an object takes.
@@ -153,9 +156,13 @@ public:
 	/// RemoveObject (0x646A00) without EndPhysics.
 	static void RemoveObject(entt::entity entity);
 	/// RemoveObject(obj, true, true) (0x646A00): the object takes the body's pose (angles, position, altitude), its
-	/// EndPhysics runs (vt +0x790), then Tree::DropSfx if LANDED on land (0x646B2E; the tree's is in its replanting),
-	/// the flying-object reactions go (TODO(reactions)) and the body is removed.
+	/// EndPhysics runs (vt +0x790), then the DropSfx (ClassHandlers::dropSfx) of the object it returned if LANDED and on
+	/// land (0x646B2E..0x646B48), the flying-object reactions go (TODO(reactions)) and the body is removed.
 	static void RemoveObjectWithEndPhysics(entt::entity entity);
+	/// Object::EndPhysics 0x6375A0, its map part (0x637613..0x63763A): inside MapCoords::InBounds 0x6042C0 the object goes
+	/// back in the map cells (InsertMapObject vt +0x544), outside it is deleted (ToBeDeleted(0) vt +0xC). Villager
+	/// (0x5F0B81) and Animal (0x5F0E01) call it themselves in the middle of their EndPhysics. False when deleted.
+	static bool BackInMap(entt::entity entity);
 	/// RaiseUntilNotIntersecting (0x644800): resting bodies are made for the objects of the map cells under the body's
 	/// square (C +- R) that InteractsWithPhysicsObjects (ShouldPhysicsRaiseObjectUntilNotIntersectingThis 0x6377D0),
 	/// then the body goes up by max(fn_007FDD60 both ways) until no overlapping body pushes it more than 0.001.

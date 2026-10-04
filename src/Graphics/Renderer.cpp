@@ -62,6 +62,8 @@
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/Sprite.h"
 #include "ECS/Components/Stream.h"
+#include "ECS/Physics/Buildings.h"
+#include "ECS/Physics/FragMesh.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
 #include "ECS/WaterRings.h"
@@ -449,6 +451,14 @@ void Renderer::DrawSubMesh(const graphics::L3DMesh& mesh, const graphics::L3DSub
 	const bool window = subMesh.GetFlags().isWindow && desc.instanceDesc != nullptr;
 	if (!desc.drawAll &&
 	    (subMesh.IsPhysics() || subMesh.GetFlags().status != 0 || ((subMesh.GetFlags().lodMask & 1) != 1 && !window)))
+	{
+		return;
+	}
+	// A FragMesh's triangles: the main view gets them lit and drawn on the CPU (FragMesh::AppendDraw, fn_007F7ED0 ->
+	// fn_0081C780, in DrawPass); its sub-meshes stay for the other views. Also out of the projected shadows over the
+	// object (DrawShadowsOnObject, the same view): fn_007F7ED0 is no LH3DObject draw, so the shadow loop of fn_0080DB30
+	// (0x80E457) never runs over it (inferido: that FragMesh receives none)
+	if (subMesh.IsCpuDrawn() && (desc.viewId == RenderPass::Main || desc.viewId == RenderPass::MainBlended))
 	{
 		return;
 	}
@@ -1405,8 +1415,11 @@ void Renderer::DrawObjectReflections(graphics::RenderPass viewId) const
 	// DrawUnderWater of the held object (CHand, after the hand, in its own colour) and of the physics objects
 	// (fn_00646FE0, while not wholly under water: y > -r, r = the farthest vertex). "Own colour" is obj+0x4C / +0x50 as
 	// the last Draw left them: the land light and cell specular of fn_00801C90 (PhysicsObject::DrawAll 0x646F9F)
-	// The physics objects are the whole list 0xD47814 (thrown, knocked, the resting proxies); r is the body's radius
-	// (PhysOb: the farthest vertex). The hand's thrown objects that are not in the physics keep the bounding box radius.
+	// The physics objects are the awake entries of the list 0xD47814 (fn_00646FE0 0x647004..0x647011 skips the asleep
+	// byte +0x19C: no resting proxy, so no broken house); r is the body's radius (PhysOb: the farthest vertex). (pending)
+	// a fragment's own LH3DObject is the Rock (info 0xD3A930, 0x76E9EC) in the ctor colour 0xFFFFFFFF / 0 (0x8164F7):
+	// the original mirrors that rock, openblack the piece (documentacion/physics/fragmesh_views.md). The hand's thrown
+	// objects that are not in the physics keep the bounding box radius.
 	struct Reflected
 	{
 		entt::entity entity;
@@ -1419,7 +1432,7 @@ void Renderer::DrawObjectReflections(graphics::RenderPass viewId) const
 		objects.push_back({*held, -1.0f, 0.0f});
 	}
 	ecs::physics::PhysicsObjects::ForEach([&objects](const ecs::physics::PhysicsObject& po) {
-		if (po.entity != entt::null)
+		if (po.entity != entt::null && !po.body.resting)
 		{
 			objects.push_back({po.entity, po.body.Radius(), po.body.Centre().y});
 		}
@@ -2977,6 +2990,23 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				}
 			}
 
+			// The broken buildings and their fragments (Abode::Draw 0x5160E9, Fragment::Draw 0x76EC2A, PhysicsObject::DrawAll
+			// 0x646E77 -> FragMesh::Draw fn_007F7960 -> fn_007F7ED0 -> fn_0081C780): lit per face on the CPU and drawn at
+			// once in the object loop, no Z object. (aproximado) here after every model instead of in the loop's order
+			if (desc.viewId == graphics::RenderPass::Main && desc.drawEntities && desc.camera != nullptr)
+			{
+				static world_triangles::Frame s_fragMeshes; // refilled every frame, kept for its capacity
+				s_fragMeshes.Clear();
+				ecs::physics::FragMesh::FrameLight frameLight;
+				frameLight.lit = _landLight && _landLight->IsLoaded();
+				frameLight.light = model_light::Light();
+				frameLight.ambient = model_light::Ambient();
+				frameLight.haze = _haze;
+				frameLight.view = desc.camera->GetViewMatrix(Camera::Interpolation::Current);
+				ecs::physics::Buildings::AppendFragMeshes(s_fragMeshes, frameLight);
+				// (approximate) every primitive, blended ones too, goes in Main (rendering-objects.md, FragMesh light)
+				world_triangles::Submit(graphics::RenderPass::Main, s_fragMeshes, *_shaderManager);
+			}
 			// ---- milagros2 pieces (pieces_shadows_PLAN.md §1.3 d) ----
 			// RenderParticleGJMesh::DrawAt 0x67C150 of the exploded pieces (PSysGlobal::DrawLoop 0x68F60C -> fn_006718A0
 			// Draw_(1)): at once, no Z object (0x67C150 does not read [0xC0215D]), after the models GGame::Draw 0x54E00A

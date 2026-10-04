@@ -19,12 +19,17 @@
 
 #include "3D/L3DMesh.h"
 #include "3D/LandIslandInterface.h"
+#include "3D/LandLight.h"
+#include "3D/LandLightTable.h"
 #include "3D/LandMorph.h"
 #include "Common/GameRandom.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/MorphWithTerrain.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
+#include "Graphics/Lh3dColour.h"
+#include "3D/ObjectMatrix.h"
+#include "Graphics/ModelLight.h"
 #include "Locator.h"
 #include "Resources/Loaders.h"
 #include "Resources/ResourceManager.h"
@@ -39,6 +44,8 @@ namespace
 constexpr float k_Near = 0.01f;       // the double at 0x8C7A10
 constexpr size_t k_MaxTriangles = 2048; // g_kept / g_broken, per primitive and impact
 constexpr int k_MaxGroups = 64;
+constexpr float k_BackOffset = 0.45f;      // [0x8C7C78] = 0x3EE66666 (fn_007F7ED0 0x7F83BE)
+constexpr uint32_t k_NoTint = 0xFFFFFFFFu; // the FragMesh ctor's +0x10 (fn_007F6EE0 0x7F6EE5), Abode::Draw's 0x5160D1
 
 // The land height under a point (GetAltitude 0x803090), for the anchor test below: a point sample, not the morph
 float Ground(glm::vec3 p)
@@ -195,8 +202,10 @@ std::shared_ptr<FragMesh> FragMesh::FromEntity(entt::entity entity)
 	const auto ground = land_morph::CurrentAltitude();
 	const float originGround = ground(glm::vec2(transform.position.x, transform.position.z));
 	auto result = std::make_shared<FragMesh>();
-	for (const auto& subMesh : mesh->GetSubMeshes())
+	const auto& subMeshes = mesh->GetSubMeshes();
+	for (size_t subMeshIndex = 0; subMeshIndex < subMeshes.size(); ++subMeshIndex)
 	{
+		const auto& subMesh = subMeshes[subMeshIndex];
 		// LOD 0, status 0 (flags & 0x20000000 && !(flags & 0x3F0))
 		if ((subMesh->GetFlags().lodMask & 1) == 0 || subMesh->GetFlags().status != 0 || subMesh->IsPhysics())
 		{
@@ -205,9 +214,13 @@ std::shared_ptr<FragMesh> FragMesh::FromEntity(entt::entity entity)
 		const auto& positions = subMesh->GetCollisionPositions();
 		const auto& uvs = subMesh->GetCollisionUVs();
 		const auto& indices = subMesh->GetCollisionIndices();
-		for (const auto& primitive : subMesh->GetPrimitives())
+		const auto& primitives = subMesh->GetPrimitives();
+		for (size_t primitiveIndex = 0; primitiveIndex < primitives.size(); ++primitiveIndex)
 		{
-			Primitive fp {primitive, {}};
+			const auto& primitive = primitives[primitiveIndex];
+			Primitive fp {primitive,
+			              {},
+			              {meshComponent->id, static_cast<uint16_t>(subMeshIndex), static_cast<uint16_t>(primitiveIndex)}};
 			for (uint32_t i = primitive.indicesOffset; i + 2 < primitive.indicesOffset + primitive.indicesCount; i += 3)
 			{
 				Triangle t;
@@ -357,7 +370,7 @@ std::vector<FragMesh::Piece> FragMesh::Impact(glm::vec3 pos, glm::vec3 vel, floa
 		}
 		if (!kept.empty())
 		{
-			Primitive k {p.material, std::move(kept)};
+			Primitive k {p.material, std::move(kept), p.source};
 			ComputeAdjacency(k);
 			remaining.push_back(std::move(k));
 		}
@@ -366,7 +379,7 @@ std::vector<FragMesh::Piece> FragMesh::Impact(glm::vec3 pos, glm::vec3 vel, floa
 			// FragPrimitive::Impact 0x76E2D0: the broken triangles of the primitive fly as one Fragment with the
 			// hitter's velocity; its unconnected parts come off it at rest (CreateFragment -> SplitUnconnectedGroups)
 			auto piece = std::make_shared<FragMesh>();
-			Primitive b {p.material, std::move(broken)};
+			Primitive b {p.material, std::move(broken), p.source};
 			piece->ComputeAdjacency(b);
 			piece->_primitives.push_back(std::move(b));
 			piece->_originalTriangleCount = static_cast<int>(piece->TriangleCount());
@@ -482,7 +495,7 @@ std::vector<FragMesh::Piece> FragMesh::SplitUnconnectedGroups(bool groundCheck, 
 		}
 		for (const auto& p : _primitives)
 		{
-			Primitive part {p.material, {}};
+			Primitive part {p.material, {}, p.source};
 			for (const auto& t : p.triangles)
 			{
 				if (t.group == static_cast<int>(g))
@@ -555,6 +568,7 @@ entt::id_type FragMesh::BuildMesh(const glm::mat4& worldToLocal, const std::stri
 		graphics::L3DSubMesh::GeneratedPrimitive out;
 		out.material = p.material;
 		out.material.twoSided = true;
+		out.cpuDrawn = true;
 		const auto add = [&](glm::vec3 world, glm::vec2 uv, glm::vec3 normal) {
 			out.positions.push_back(glm::vec3(worldToLocal * glm::vec4(world, 1.0f)));
 			out.uvs.push_back(uv);
@@ -571,6 +585,7 @@ entt::id_type FragMesh::BuildMesh(const glm::mat4& worldToLocal, const std::stri
 				out = graphics::L3DSubMesh::GeneratedPrimitive {};
 				out.material = p.material;
 				out.material.twoSided = true;
+				out.cpuDrawn = true;
 			}
 			auto n = glm::cross(t.v[1].pos - t.v[0].pos, t.v[2].pos - t.v[0].pos);
 			n = LengthSquared(n) > 0.0f ? glm::normalize(n) : glm::vec3(0.0f, 1.0f, 0.0f);
@@ -635,4 +650,119 @@ entt::id_type FragMesh::BuildMesh(const glm::mat4& worldToLocal, const std::stri
 		return 0;
 	}
 	return id;
+}
+
+glm::vec3 FragMesh::LightDirection(glm::vec3 light, glm::vec3 position)
+{
+	// 0x7F7ED9..0x7F7F18: [0xEA9E90] - position, axis by axis, each stored as a float
+	const glm::vec3 d(light.x - position.x, light.y - position.y, light.z - position.z);
+	// 0x7F7F1B..0x7F7F37: (y y + z z) + x x into InverseSquareRoot 0x841170; 0x7F7F3C..0x7F7F5A: each axis times it
+	const float inverse = lh_matrix::InverseSquareRoot((d.y * d.y + d.z * d.z) + d.x * d.x);
+	return {d.x * inverse, d.y * inverse, d.z * inverse};
+}
+
+FragMesh::DrawLight FragMesh::ObjectLight(glm::vec3 position, uint32_t tint, uint32_t tintSpecular,
+                                          const FrameLight& frame)
+{
+	DrawLight out;
+	out.lit = frame.lit;
+	out.ambient = frame.ambient;
+	out.direction = LightDirection(frame.light, position);
+	if (!frame.lit)
+	{
+		return out; // openblack guard: no land light table loaded, the face is drawn unlit
+	}
+	// 0x7F7F5F: fn_00801C90(position, &colour, &specular)
+	const auto sample = land_light::At(LandLightTable::Current(), glm::vec2(position.x, position.z));
+	out.colour = sample.diffuse;
+	out.specular = sample.specular;
+	// 0x7F7F64..0x7F7F86: [0xC371B4] (1 in .data, never written) and not the pair [0xC371B0] = -1 / [0xE9A0F8] = 0
+	if (tint != k_NoTint || tintSpecular != 0)
+	{
+		out.colour = lh3d_colour::MulShr8_4(out.colour, tint);            // 0x7F7F8C..0x7F7FF1
+		out.specular = lh3d_colour::AddSat_4(out.specular, tintSpecular); // 0x7F7FEE..0x7F806E
+	}
+	// 0x7F8074..0x7F8085: fn_007FEB30(position, specular, &colour) returns the new specular
+	out.specular = graphics::haze::ApplyObject(frame.haze, graphics::haze::Depth(frame.view, position), out.specular,
+	                                           &out.colour);
+	return out;
+}
+
+void FragMesh::AppendTriangle(std::vector<graphics::world_triangles::Vertex>& out, const Triangle& triangle,
+                              const glm::mat4* matrix, const DrawLight& light)
+{
+	namespace wt = graphics::world_triangles;
+	std::array<glm::vec3, 3> front;
+	for (size_t k = 0; k < front.size(); ++k)
+	{
+		const auto& v = triangle.v.at(k).pos;
+		if (matrix == nullptr)
+		{
+			front.at(k) = v;
+			continue;
+		}
+		// 0x7F80BC..0x7F8113: the LHMatrix rows are glm's columns
+		const auto& m = *matrix;
+		front.at(k) = {((v.z * m[2].x + v.y * m[1].x) + m[0].x * v.x) + m[3].x,
+		               ((v.y * m[1].y + m[0].y * v.x) + m[2].y * v.z) + m[3].y,
+		               ((v.y * m[1].z + m[0].z * v.x) + m[2].z * v.z) + m[3].z};
+	}
+	// 0x7F8118..0x7F81A1 / 0x7F81DA..0x7F8234: a = v2 - v0, b = v1 - v0, n = b x a
+	const glm::vec3 a(front[2].x - front[0].x, front[2].y - front[0].y, front[2].z - front[0].z);
+	const glm::vec3 b(front[1].x - front[0].x, front[1].y - front[0].y, front[1].z - front[0].z);
+	glm::vec3 n(b.y * a.z - b.z * a.y, b.z * a.x - b.x * a.z, b.x * a.y - b.y * a.x);
+	// 0x7F81A7..0x7F81CA / 0x7F823C..0x7F825F: (x x + y y) + z z into InverseSquareRoot; 0x7F826A..0x7F8280
+	const float inverse = lh_matrix::InverseSquareRoot((n.x * n.x + n.y * n.y) + n.z * n.z);
+	n = {n.x * inverse, n.y * inverse, n.z * inverse};
+	// 0x7F8283..0x7F829F: (l.z n.z + l.y n.y) + l.x n.x, x 255 in Intensity; 0x7F82A8..0x7F8363 the two sides
+	model_light::TwoSidedColours colours {light.colour, light.colour};
+	if (light.lit)
+	{
+		const float dot = (light.direction.z * n.z + light.direction.y * n.y) + light.direction.x * n.x;
+		colours = model_light::TwoSided(light.colour, dot, light.ambient);
+	}
+	// 0x7F83B1..0x7F8498: the back copy, v - 0.45 n with 0.45 n stored first
+	const glm::vec3 offset(k_BackOffset * n.x, k_BackOffset * n.y, k_BackOffset * n.z);
+	std::array<glm::vec3, 3> back;
+	for (size_t k = 0; k < back.size(); ++k)
+	{
+		back.at(k) = {front.at(k).x - offset.x, front.at(k).y - offset.y, front.at(k).z - offset.z};
+	}
+	const uint32_t specular = wt::ToAbgr(light.specular);
+	const uint32_t frontColour = wt::ToAbgr(colours.front);
+	const uint32_t backColour = wt::ToAbgr(colours.back);
+	const auto frontVertex = [&](size_t k) {
+		return wt::Vertex {front.at(k), triangle.v.at(k).uv, frontColour, specular};
+	};
+	const auto backVertex = [&](size_t k) {
+		return wt::Vertex {back.at(k), triangle.v.at(k).uv, backColour, specular};
+	};
+	// 0x7F8587..0x7F859F: (f0, f1, f2) and (b2, b1, b0)
+	out.insert(out.end(), {frontVertex(0), frontVertex(1), frontVertex(2), backVertex(2), backVertex(1), backVertex(0)});
+	// 0x7F8621..0x7F8698: the walls of the open edges
+	for (size_t k = 0; k < 3; ++k)
+	{
+		if (triangle.neighbour.at(k) != -1)
+		{
+			continue;
+		}
+		const size_t next = (k + 1) % 3;
+		out.insert(out.end(),
+		           {frontVertex(k), backVertex(k), frontVertex(next), frontVertex(next), backVertex(k), backVertex(next)});
+	}
+}
+
+void FragMesh::AppendDraw(graphics::world_triangles::Frame& out, const glm::mat4* matrix, const DrawLight& light) const
+{
+	std::vector<graphics::world_triangles::Vertex> vertices;
+	for (const auto& p : _primitives)
+	{
+		vertices.clear();
+		for (const auto& t : p.triangles)
+		{
+			AppendTriangle(vertices, t, matrix, light);
+		}
+		// pass 0: the FragPrimitive's material through the current (normal) table, 0x7F86BE
+		out.Append(p.source, graphics::render_modes::Table::Normal, 0xFF, vertices);
+	}
 }

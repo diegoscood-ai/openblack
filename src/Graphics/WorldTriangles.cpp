@@ -46,6 +46,7 @@ const bgfx::VertexLayout& world_triangles::Layout()
 		    .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
 		    .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
 		    .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true)
+		    .add(bgfx::Attrib::Color1, 4, bgfx::AttribType::Uint8, true)
 		    .end();
 		return layout;
 	}();
@@ -159,7 +160,7 @@ uint32_t world_triangles::Submit(RenderPass view, const Frame& frame, const Shad
 	bgfx::TransientVertexBuffer buffer;
 	bgfx::allocTransientVertexBuffer(&buffer, uploaded, layout);
 	auto* out = reinterpret_cast<Vertex*>(buffer.data);
-	static_assert(sizeof(Vertex) == 24, "Layout(): 3 + 2 floats and 4 bytes");
+	static_assert(sizeof(Vertex) == 28, "Layout(): 3 + 2 floats and 2 x 4 bytes");
 
 	auto& meshes = Locator::resources::value().GetMeshes();
 	uint32_t start = 0;
@@ -253,7 +254,7 @@ bool world_triangles::SubmitRaw(RenderPass view, std::span<const Vertex> vertice
 	bgfx::TransientIndexBuffer indexBuffer;
 	bgfx::allocTransientVertexBuffer(&vertexBuffer, vertexCount, layout);
 	bgfx::allocTransientIndexBuffer(&indexBuffer, indexCount);
-	static_assert(sizeof(Vertex) == 24, "Layout(): 3 + 2 floats and 4 bytes");
+	static_assert(sizeof(Vertex) == 28, "Layout(): 3 + 2 floats and 2 x 4 bytes");
 	std::memcpy(vertexBuffer.data, vertices.data(), vertexCount * sizeof(Vertex));
 	std::memcpy(indexBuffer.data, indices.data(), indexCount * sizeof(uint16_t));
 	program->SetTextureSampler("s_diffuse", 0, diffuse);

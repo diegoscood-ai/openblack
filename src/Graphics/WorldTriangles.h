@@ -33,6 +33,11 @@ struct VertexLayout;
 // specular (0x81C2BF), the culling of the material (g_NoBackfaceCull = material +5 bit 0, 0x81C30C..0x81C319; CULLMODE
 // ((~m[5]) & 1) * 2 + 1, 0x81C556..0x81C58F), SetMaterial through the current mode table (0x81C48E..0x81C4A0) and ONE
 // LH3DRender::DrawTriangle 0x82F810 for the whole primitive (0x81C5B1), at once: no Z object.
+// Its indexed sibling fn_0081C780 (FragMesh fn_007F7ED0 0x7F86D8 / 0x7F8730, RenderParticleGJMesh::DrawAt 0x67CAEE)
+// is the same T&L with g_world_to_clipping (0x81C783..0x81C80A), the same culling (0x81CA0A..0x81CA1C, 0x81CC57..
+// 0x81CC90; without the two-sided bit a backface test on the screen points, 0x81CBC7..0x81CC11, which keeps what that
+// CULLMODE keeps) and the same SetMaterial (0x81CB79..0x81CBA1), but it also copies each vertex's specular (the 8-byte
+// colour + specular pairs, 0x81C9B9..0x81C9D0): Vertex::specular.
 //
 // A frame's batches go up in one transient vertex buffer (no bgfx handle per piece: the 4096 handles were the cause
 // of the old crash, tmp_dis\miracles\polish\PENDIENTE.md) and are submitted in the order they were appended. The
@@ -49,14 +54,15 @@ namespace openblack::graphics::world_triangles
 {
 
 /// One vertex of Draw3DWorldTriangle 0x81C090: in the world, with its colour already lit (D3DCOLOR 0xAARRGGBB turned to
-/// bgfx's Color0 ABGR), no specular (0x81C2BF)
+/// bgfx's Color0 ABGR), no specular (0x81C2BF); fn_0081C780's has one (`specular`, Color1 ABGR, 0 for the pieces)
 struct Vertex
 {
 	glm::vec3 position;
 	glm::vec2 uv;
 	uint32_t abgr;
+	uint32_t specular {0}; ///< ABGR, added after the texture (fs_object), its alpha unused
 };
-/// Position 3 floats, TexCoord0 2 floats, Color0 4 normalised bytes (the layout of vs_blob's quads too)
+/// Position 3 floats, TexCoord0 2 floats, Color0 and Color1 4 normalised bytes each
 [[nodiscard]] const bgfx::VertexLayout& Layout();
 
 /// 0xAARRGGBB (LH3DColor) to the ABGR bytes bgfx reads for Color0

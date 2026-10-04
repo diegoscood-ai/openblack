@@ -107,3 +107,10 @@ uint32_t model_light::Apply(uint32_t colour, int intensity, int ambient)
 	// 0x84BBEA..0x84BC1D: one imul per channel and the bits of the byte kept, so each channel is (c f) >> 8 truncated
 	return lh3d_colour::ScaleShr8_3KeepA(colour, static_cast<uint32_t>(Factor(intensity, ambient)));
 }
+
+model_light::TwoSidedColours model_light::TwoSided(uint32_t colour, float dot, int ambient)
+{
+	// 0x7F82A8 fistp once, 0x7F82AF neg for the back
+	const int intensity = Intensity(dot);
+	return {Apply(colour, intensity, ambient), Apply(colour, -intensity, ambient)};
+}

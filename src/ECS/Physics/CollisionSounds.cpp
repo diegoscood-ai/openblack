@@ -149,7 +149,9 @@ void CollisionSounds::AttemptToAddSoundEvent(const PhysicsObject& po)
 		}
 		if (!land)
 		{
-			const float radius = std::max(po.body.Radius(), 0.01f);
+			// 0x6466AA / 0x6466B3: PhysicsObject +0x178 = PhysOb +0x150, the body radius (max |vertex - CoM| x scale);
+			// rate 1 / r and growth 2 r with no guard
+			const float radius = po.body.Radius();
 			ecs::WaterRing ring;
 			ring.position = glm::vec3(at.x, 0.1f, at.z);
 			ring.growth = 2.0f * radius;

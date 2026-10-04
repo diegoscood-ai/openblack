@@ -85,6 +85,9 @@ public:
 		std::vector<glm::vec2> uvs;
 		std::vector<glm::vec3> normals;
 		std::vector<uint16_t> indices; ///< into this primitive's vertices
+		/// Lit and drawn on the CPU in the main view instead (FragMesh::AppendDraw, fn_007F7ED0): the sub-mesh is kept
+		/// for the other views and for picking, and Renderer::DrawSubMesh leaves it out of RenderPass::Main
+		bool cpuDrawn {false};
 	};
 	bool LoadGenerated(const std::vector<GeneratedPrimitive>& primitives) noexcept;
 
@@ -93,6 +96,8 @@ public:
 	/// Mod graphics.hd-tweaks: a sub-mesh it smooths and lights per pixel, a villager's (boned, all its textures in
 	/// EngineConfig::hdTweaksSkins) or the hand's
 	[[nodiscard]] bool IsHdTweaked() const { return _hdTweaked; }
+	/// Generated from primitives that are drawn on the CPU in the main view (GeneratedPrimitive::cpuDrawn)
+	[[nodiscard]] bool IsCpuDrawn() const { return _cpuDrawn; }
 	[[nodiscard]] graphics::Mesh& GetMesh() const;
 	[[nodiscard]] const AxisAlignedBoundingBox& GetBoundingBox() const { return _boundingBox; }
 	[[nodiscard]] const std::vector<Primitive>& GetPrimitives() const { return _primitives; }
@@ -110,12 +115,22 @@ public:
 	/// Each primitive's triangles in GetCollisionIndices (first index, index count), in the order of GetPrimitives: the
 	/// file's, which the hd-tweaks smoothing does not keep in the primitives' own offsets
 	[[nodiscard]] const std::vector<std::pair<uint32_t, uint32_t>>& GetCollisionRanges() const { return _collisionRanges; }
+	/// The file's vertex normal of each collision position (L3D vertex +0x14, what the inner walls of the partly built
+	/// draw are pushed along, fn_0085C0E0 0x85C0EB..0x85C111), before the hd-tweaks smoothing
+	[[nodiscard]] const std::vector<glm::vec3>& GetCollisionNormals() const { return _collisionNormals; }
+	/// Each primitive's vertices in GetCollisionPositions (first vertex, count), in the order of GetPrimitives: the
+	/// original keeps one vertex array per primitive (+0x10 count, +0x14 vertices)
+	[[nodiscard]] const std::vector<std::pair<uint32_t, uint32_t>>& GetCollisionVertexRanges() const
+	{
+		return _collisionVertexRanges;
+	}
 
 private:
 	graphics::L3DMesh& _l3dMesh;
 
 	openblack::l3d::L3DSubmeshHeader::Flags _flags;
 	bool _hdTweaked {false};
+	bool _cpuDrawn {false};
 
 	std::unique_ptr<graphics::Mesh> _mesh;
 	std::vector<Primitive> _primitives;
@@ -127,5 +142,7 @@ private:
 	std::vector<uint16_t> _skinBones;
 	std::vector<glm::vec3> _skinLocalPositions;
 	std::vector<std::pair<uint32_t, uint32_t>> _collisionRanges;
+	std::vector<glm::vec3> _collisionNormals;
+	std::vector<std::pair<uint32_t, uint32_t>> _collisionVertexRanges;
 };
 } // namespace openblack::graphics

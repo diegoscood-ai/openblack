@@ -43,6 +43,7 @@
 #include "3D/LandMorph.h"
 #include "Camera/Camera.h"
 #include "ECS/Animations.h"
+#include "ECS/Components/Fragment.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/ObjectMetrics.h"
 #include "ECS/Registry.h"
@@ -170,6 +171,18 @@ void Renderer::CollectShadowReceivers(bool mainView) const
 	{
 		// the receiver: vt+0x7C (Flags1 0x40, RenderingSystem's ReceivesDynamicShadow), 0x80E457..0x80E460
 		if (!instance.receivesDynamicShadow || (held.has_value() && *held == entity) || !meshes.Contains(instance.meshId))
+		{
+			continue;
+		}
+		// a broken house's FragMesh and a fragment are drawn by fn_007F7ED0, not an LH3DObject Draw, so fn_0080DB30's
+		// shadow loop (0x80E457..0x80E4D7) never runs over them; the partly built part over it is drawn by fn_00816AD0,
+		// which has none either (documentacion/physics/fragmesh_views.md)
+		if (registry.AllOf<ecs::components::Fragment>(entity))
+		{
+			continue;
+		}
+		if (const auto* damage = registry.TryGet<const ecs::components::BuildingDamage>(entity);
+		    damage != nullptr && damage->generatedMesh == instance.meshId)
 		{
 			continue;
 		}

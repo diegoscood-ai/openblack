@@ -39,6 +39,8 @@ bool L3DSubMesh::LoadGenerated(const std::vector<GeneratedPrimitive>& primitives
 {
 	_flags = {};
 	_flags.lodMask = 1;
+	// L3DMesh::LoadGenerated never mixes the two kinds in one sub-mesh
+	_cpuDrawn = !primitives.empty() && primitives.front().cpuDrawn;
 	uint32_t nVertices = 0;
 	uint32_t nIndices = 0;
 	for (const auto& p : primitives)
@@ -60,6 +62,8 @@ bool L3DSubMesh::LoadGenerated(const std::vector<GeneratedPrimitive>& primitives
 	_collisionIndices.clear();
 	_collisionUVs.clear();
 	_collisionRanges.clear();
+	_collisionNormals.clear();
+	_collisionVertexRanges.clear();
 	_primitives.clear();
 	uint32_t vertex = 0;
 	uint32_t index = 0;
@@ -72,10 +76,12 @@ bool L3DSubMesh::LoadGenerated(const std::vector<GeneratedPrimitive>& primitives
 			                    i < p.normals.size() ? p.normals[i] : glm::vec3(0.0f, 1.0f, 0.0f), glm::i16vec2(-1, -1)};
 			_collisionPositions.push_back(p.positions[i]);
 			_collisionUVs.push_back(vertices[vertex].uv);
+			_collisionNormals.push_back(vertices[vertex].norm);
 			_boundingBox.maxima = glm::max(_boundingBox.maxima, p.positions[i]);
 			_boundingBox.minima = glm::min(_boundingBox.minima, p.positions[i]);
 		}
 		_collisionRanges.emplace_back(index, static_cast<uint32_t>(p.indices.size()));
+		_collisionVertexRanges.emplace_back(base, static_cast<uint32_t>(p.positions.size()));
 		auto material = p.material;
 		material.indicesOffset = index;
 		material.indicesCount = static_cast<uint32_t>(p.indices.size());
@@ -129,7 +135,9 @@ bool L3DMesh::LoadGenerated(const std::vector<L3DSubMesh::GeneratedPrimitive>& p
 	};
 	for (const auto& p : primitives)
 	{
-		if (vertices + p.positions.size() > 0xFFFF && !flush())
+		// a new sub-mesh too where the primitives drawn on the CPU start or stop (L3DSubMesh::IsCpuDrawn)
+		if ((vertices + p.positions.size() > 0xFFFF || (!group.empty() && group.back().cpuDrawn != p.cpuDrawn)) &&
+		    !flush())
 		{
 			return false;
 		}

@@ -106,9 +106,10 @@ void UpdateFrameLight(glm::vec3 focus, const glm::vec3& cameraPosition, float sk
 /// ambient [0xC39264]
 [[nodiscard]] glm::vec4 Uniform();
 
-/// The CPU side of the rule. No openblack path calls Intensity / Factor / Apply yet: they wait for the deferred CPU-lit
-/// meshes (FragMesh::BuildMesh, fn_007F7ED0, and the special primitives of fn_00859530 / fn_00859D90, which use the
-/// __ftol variant); the GPU paths use their twins in model_light.sh.
+/// The CPU side of the rule: the exploded pieces (gj_mesh::AppendPiece, RenderParticleGJMesh::DrawAt 0x67C602) and the
+/// broken buildings and their fragments (FragMesh::AppendDraw, fn_007F7ED0, through TwoSided); still waiting: the
+/// special primitives of fn_00859530 / fn_00859D90, which use the __ftol variant. The GPU paths use their twins in
+/// model_light.sh.
 ///
 /// I = fistp(255 (n . l)) (0x84BBAF..0x84BBBE): to the nearest, halves to even. `truncate` is the __ftol variant of
 /// the same rule (0x859649).
@@ -117,5 +118,17 @@ void UpdateFrameLight(glm::vec3 focus, const glm::vec3& cameraPosition, float sk
 [[nodiscard]] int Factor(int intensity, int ambient);
 /// The whole rule on one colour: each channel of c times f >> 8, the alpha untouched (0x84BBEA..0x84BC1D)
 [[nodiscard]] uint32_t Apply(uint32_t colour, int intensity, int ambient);
+
+/// The two sides of one face, lit once: what fn_007F7ED0 gives the front and the back copy of a FragMesh triangle
+struct TwoSidedColours
+{
+	uint32_t front {0};
+	uint32_t back {0};
+};
+/// fn_007F7ED0 0x7F829F..0x7F8363: one I = fistp(255 dot) for the whole face (0x7F82A8), the factor of I for the front
+/// and the factor of -I for the back (`neg edx` 0x7F82AF; the two ambient branches 0x7F82B1..0x7F82BD and
+/// 0x7F82D4..0x7F82D8, the same rule as Factor), each channel of the colour times its factor >> 8 with the colour's
+/// alpha kept (0x7F82EF..0x7F8363, the masks of Apply). So a face lit at I > 0 has its back at the bare ambient
+[[nodiscard]] TwoSidedColours TwoSided(uint32_t colour, float dot, int ambient);
 
 } // namespace openblack::model_light

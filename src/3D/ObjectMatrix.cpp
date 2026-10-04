@@ -11,7 +11,10 @@
 
 #include <glm/geometric.hpp>
 
+#include <array>
+#include <bit>
 #include <cmath>
+#include <cstdint>
 
 #include "ECS/Components/Transform.h"
 
@@ -106,12 +109,50 @@ void lh_matrix::RotateZ(glm::mat3& m, float a)
 	TurnRowPair(m, 0, 1, std::cos(static_cast<double>(a)), -std::sin(static_cast<double>(a)));
 }
 
+namespace
+{
+/// MakeInverseSqrtLookupTable 0x8411D0, [0xEEA394]
+const std::array<uint8_t, 128>& InverseSqrtTable()
+{
+	static const std::array<uint8_t, 128> k_Table = [] {
+		std::array<uint8_t, 128> table {};
+		for (uint32_t i = 0; i < table.size(); ++i)
+		{
+			// 0x8411E7..0x8411F2: (i | 0x1F80) << 17, 0.5 .. 2; fsqrt and fdivr of the double 1.0 [0x8AB680], each
+			// rounded to a float by the 24-bit precision, then fstp
+			const float x = std::bit_cast<float>((i | 0x1F80u) << 17);
+			const float y = 1.0f / std::sqrt(x);
+			// 0x841206..0x841213: + 0x2000, >> 15, the low byte
+			table.at(i) = static_cast<uint8_t>((std::bit_cast<uint32_t>(y) + 0x2000u) >> 15);
+		}
+		table[0x40] = 0xFF; // 0x841224
+		return table;
+	}();
+	return k_Table;
+}
+} // namespace
+
+float lh_matrix::InverseSquareRoot(float value)
+{
+	const auto bits = std::bit_cast<uint32_t>(value);
+	// 0x841179..0x8411AA
+	const uint32_t exponent = ((bits >> 23) & 0xFFu) << 22;
+	const uint32_t guess = ((0x5F000000u - exponent) & 0xFF800000u) |
+	                       (static_cast<uint32_t>(InverseSqrtTable()[(bits >> 17) & 0x7Fu]) << 15);
+	const float y = std::bit_cast<float>(guess);
+	// 0x8411B0..0x8411C2: fmul y, fmul y, fsubr 3, fmul y, fmul 0.5
+	float r = value * y;
+	r = r * y;
+	r = 3.0f - r;
+	r = r * y;
+	return r * 0.5f;
+}
+
 void lh_matrix::NormaliseRows(glm::mat3& m)
 {
 	for (int row = 0; row < 3; ++row)
 	{
-		const float inverse = 1.0f / std::sqrt(glm::dot(m[row], m[row]));
-		m[row] *= inverse;
+		m[row] *= InverseSquareRoot(glm::dot(m[row], m[row]));
 	}
 }
 

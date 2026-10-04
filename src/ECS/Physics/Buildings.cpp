@@ -24,14 +24,19 @@
 #include "3D/ObjectMatrix.h"
 #include "ECS/Abodes.h"
 #include "ECS/Components/Abode.h"
+#include "ECS/Components/DrawMesh.h"
 #include "ECS/Components/Fragment.h"
 #include "ECS/Components/Life.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/MorphWithTerrain.h"
+#include "ECS/Components/NotDrawn.h"
+#include "ECS/Components/PhysicsDrawPose.h"
 #include "ECS/Components/StoragePit.h"
 #include "ECS/Components/Town.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
+#include "ECS/Fire/FireEffect.h"
+#include "ECS/Fire/FireGraphic.h"
 #include "ECS/MapCells.h"
 #include "ECS/Registry.h"
 #include "ECS/Town/AbodeQueries.h"
@@ -39,6 +44,9 @@
 #include "CollisionSounds.h"
 #include "Dust.h"
 #include "FragMesh.h"
+#include "GameClock.h"
+#include "Graphics/Lh3dColour.h"
+#include "Graphics/WorldTriangles.h"
 #include "PartialBuild.h"
 #include "Locator.h"
 #include "PhysicsObjects.h"
@@ -65,12 +73,22 @@ void RedrawBuilding(entt::entity building, BuildingDamage& damage)
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto& transform = registry.Get<const Transform>(building);
 	const auto toWorld = lh_matrix::Model(transform);
-	// Abode::Draw: the FragMesh, then the intact model partly built at GetPercentForDrawBuilding (no repair yet: the
-	// percent stays where the last hit left it, 1/11)
+	// Abode::Draw 0x515F70: the FragMesh, then the intact model partly built at GetPercentForDrawBuilding. (pending, with
+	// the repairs of V11) the FragMesh made anew from the intact model when the percent is in [0.2, 1) at the next hit
+	// (Abode::ReactToPhysicsImpact 0x4062FA..0x40633C)
+	// GetPercentForDrawBuilding 0x52EFD0 -> GetPercentRepairedFromWhenDamaged 0x52F010 with a DestructionMesh and a
+	// building site: (life - site +0x640) / (1 - site +0x640). (approximate until V11) openblack makes no site for the
+	// damage yet (Abode::ReduceLife 0x405E7A), so +0x640 is BuildingDamage::repairBase and abodes::GetPercentForDrawBuilding
+	// (which would take the no-site branch, life x 0.98) is not used here yet (agreed with session Edificios)
 	const auto* life = registry.TryGet<const Life>(building);
 	const float l = life != nullptr ? life->value : 1.0f;
-	const float percent = l >= 1.0f ? 1.0f : std::clamp((l - damage.repairBase) / (1.0f - damage.repairBase), 0.0f, 1.0f);
-	auto partial = percent < 1.0f ? PartialBuild::Build(building, damage.intactMesh, percent)
+	const float a = 1.0f - damage.repairBase;
+	const float b = l - damage.repairBase;
+	const float percent = (a == 0.0f || b == 0.0f) ? 0.0f : b / a;
+	// the morphable's melting stream (vt +0x1F0, obj +0x80): the land deltas stay once MorphWithTerrain is taken off below
+	PartialBuildOptions options;
+	options.melting = damage.morphed || registry.AllOf<MorphWithTerrain>(building);
+	auto partial = percent < 1.0f ? PartialBuild::Build(building, damage.intactMesh, percent, options)
 	                              : std::vector<graphics::L3DSubMesh::GeneratedPrimitive> {};
 	const auto id = damage.mesh->BuildMesh(glm::inverse(toWorld), "fragmesh", std::move(partial));
 	auto& meshes = Locator::resources::value().GetMeshes();
@@ -79,12 +97,22 @@ void RedrawBuilding(entt::entity building, BuildingDamage& damage)
 		// the building's mark on the landscape stays (a broken building can still be repaired)
 		meshes.Handle(id)->SetFootprintSource(meshes.Handle(damage.intactMesh).handle());
 	}
-	auto& mesh = registry.Get<Mesh>(building);
+	// the Mesh stays the intact model (session Edificios' components::DrawMesh: sizes, map cells, the static shadow, the
+	// body); the FragMesh's model is the building's DrawMesh. With a DestructionMesh Abode::Draw 0x515F70 draws it
+	// instead of DrawBuilding's partly built model, so V6's construction draw goes as abodes::RedrawConstruction takes
+	// it away for HasDestructionMesh. Removed before the Assign: the on_destroy<DrawMesh> (Abodes.cpp
+	// OnDrawMeshDestroyed) erases the model it held, ours or V6's
 	const auto old = damage.generatedMesh;
+	registry.Remove<AbodeConstructionDraw, DrawMesh, NotDrawn>(building);
 	damage.generatedMesh = id;
-	mesh.id = id != 0 ? id : damage.intactMesh;
-	// every sub-mesh of the generated one (a big building needs several)
-	mesh.submeshId = id != 0 && meshes.Handle(id)->GetNumSubMeshes() > 1 ? static_cast<int8_t>(-1) : static_cast<int8_t>(0);
+	if (id != 0)
+	{
+		// every sub-mesh of the generated one (a big building needs several)
+		const auto submesh = meshes.Handle(id)->GetNumSubMeshes() > 1 ? static_cast<int8_t>(-1) : static_cast<int8_t>(0);
+		registry.Assign<DrawMesh>(building, id, submesh, registry.Get<const Mesh>(building).bbSubmeshId);
+	}
+	// that sink is connected only once V6 has drawn some building site: the previous model is erased here as well
+	// (EraseMesh checks Contains: nothing to do after OnDrawMeshDestroyed)
 	EraseMesh(old);
 	// the FragMesh has the landscape morph baked in
 	if (registry.AllOf<MorphWithTerrain>(building))
@@ -219,21 +247,7 @@ bool Buildings::ReactToPhysicsImpact(entt::entity building, PhysicsObject& po)
 		{
 			// nothing counted as lost (the broken part was only halved triangles): the FragMesh goes and the building
 			// draws whole again, with no damage and no sound
-			damage->mesh.reset();
-			if (registry.Get<const Mesh>(building).id != damage->intactMesh)
-			{
-				auto& mesh = registry.Get<Mesh>(building);
-				EraseMesh(damage->generatedMesh);
-				damage->generatedMesh = 0;
-				mesh.id = damage->intactMesh;
-				mesh.submeshId = 0;
-				if (damage->morphed && !registry.AllOf<MorphWithTerrain>(building))
-				{
-					registry.Assign<MorphWithTerrain>(building);
-				}
-				damage->morphed = false;
-				registry.SetDirty();
-			}
+			Buildings::RemoveDamage(building);
 			return true;
 		}
 		// the life (and the repair baseline) first: the redraw's partly built percent comes from them.
@@ -277,8 +291,50 @@ entt::entity Buildings::FragmentEndPhysics(entt::entity fragment, const PhysicsO
 	return fragment;
 }
 
+void Buildings::Redraw(entt::entity building)
+{
+	if (auto* damage = Locator::entitiesRegistry::value().TryGet<BuildingDamage>(building); damage != nullptr && damage->mesh)
+	{
+		RedrawBuilding(building, *damage);
+	}
+}
+
+void Buildings::RemoveDamage(entt::entity building)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	auto* damage = registry.TryGet<BuildingDamage>(building);
+	if (damage == nullptr)
+	{
+		return;
+	}
+	damage->mesh.reset();
+	if (damage->generatedMesh != 0 || damage->morphed)
+	{
+		// the FragMesh's DrawMesh goes (only ours: the Mesh was never changed), then its model (a no-op when
+		// OnDrawMeshDestroyed has erased it)
+		if (const auto* draw = registry.TryGet<const DrawMesh>(building);
+		    draw != nullptr && draw->id == damage->generatedMesh)
+		{
+			registry.Remove<DrawMesh>(building);
+		}
+		EraseMesh(damage->generatedMesh);
+		damage->generatedMesh = 0;
+		if (damage->morphed && !registry.AllOf<MorphWithTerrain>(building))
+		{
+			registry.Assign<MorphWithTerrain>(building);
+		}
+		damage->morphed = false;
+		// without the DestructionMesh a building with a site takes MultiMapFixed::Draw 0x518090's DrawBuilding
+		// again (V6's partly built DrawMesh; nothing for one without a site)
+		ecs::abodes::RedrawConstruction(building);
+		registry.SetDirty();
+	}
+}
+
 void Buildings::OnBuildingDeleted(entt::entity building)
 {
+	// the FragMesh's model, also when its DrawMesh is already gone; Registry::Destroy's on_destroy<DrawMesh> then finds it
+	// erased (EraseMesh checks Contains)
 	if (const auto* damage = Locator::entitiesRegistry::value().TryGet<const BuildingDamage>(building))
 	{
 		EraseMesh(damage->generatedMesh);
@@ -304,12 +360,6 @@ void Buildings::ProcessTurn()
 	{
 		DestroyFragment(entity);
 	}
-}
-
-entt::id_type Buildings::BodyMesh(entt::entity entity, entt::id_type drawn)
-{
-	const auto* damage = Locator::entitiesRegistry::value().TryGet<const BuildingDamage>(entity);
-	return damage != nullptr && damage->intactMesh != 0 ? damage->intactMesh : drawn;
 }
 
 void Buildings::ForgetHitter(entt::entity hitter, entt::entity building)
@@ -346,4 +396,48 @@ void Buildings::DestroyFragment(entt::entity fragment)
 	ecs::map_cells::RemoveMapObject(fragment); // CleanupWhenDeleted 0x6377F0: RemoveMapObject vt +0x548
 	registry.Destroy(fragment);
 	registry.SetDirty();
+}
+
+void Buildings::AppendFragMeshes(graphics::world_triangles::Frame& out, const FragMesh::FrameLight& frame)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	// Abode::Draw 0x516080..0x5160E9: the DestructionMesh +0x90 (only while it is what the building draws)
+	registry.Each<const BuildingDamage, const Transform, const DrawMesh>(
+	    [&](entt::entity entity, const BuildingDamage& damage, const Transform& transform, const DrawMesh& draw) {
+		    if (!damage.mesh || damage.generatedMesh == 0 || draw.id != damage.generatedMesh)
+		    {
+			    return;
+		    }
+		    // 0x5160A6..0x5160D8: with a fire (+0x44) +0x10 = fn_00730570 (the charring grey) and +0x14 =
+		    // GetFireEffectCharingColor 0x730480 (the glow), both with alpha 0xFF (0x7305DE, 0x73055A); else 0xFFFFFFFF / 0.
+		    // The same pair as the other burning objects (RenderingSystem's Burning)
+		    uint32_t tint = 0xFFFFFFFFu;
+		    uint32_t tintSpecular = 0;
+		    if (const auto* fire = ecs::fire::Find(entity); fire != nullptr)
+		    {
+			    const uint32_t grey = ecs::fire::graphic::CharringGrey(*fire);
+			    const auto glow = ecs::fire::graphic::CharringGlow(
+			        *fire, static_cast<float>(game_clock::Turn()) + game_clock::TurnFraction());
+			    tint = lh3d_colour::Argb(grey, grey, grey, 0xFF);
+			    tintSpecular = lh3d_colour::Argb(glow.r, glow.g, glow.b, 0xFF);
+		    }
+		    // 0x5160DB..0x5160E9: no matrix (the triangles are in the world), the position of the LH3DObject (+0x40 + 0x38)
+		    damage.mesh->AppendDraw(out, nullptr, FragMesh::ObjectLight(transform.position, tint, tintSpecular, frame));
+	    });
+	// Fragment::Draw 0x76EC00 (GetWorldMatrix vt+0x63C, then its translation) and PhysicsObject::DrawAll 0x646E57..
+	// 0x646E77 (the LH3DObject's matrix +0x14 and translation +0x38): the same matrix; the FragMesh +0x94 keeps the
+	// ctor's 0xFFFFFFFF / 0 (fn_007F6EE0 0x7F6EE5..0x7F6EEC), nothing sets it again. While it flies that matrix is the
+	// pose between its last two turns (fn_00646FE0 -> fn_007FCE80, components::PhysicsDrawPose), the scale Transform's
+	registry.Each<const Fragment, const Transform>(
+	    [&](entt::entity entity, const Fragment& fragment, const Transform& transform) {
+		    if (!fragment.mesh)
+		    {
+			    return;
+		    }
+		    const auto* flying = registry.TryGet<const PhysicsDrawPose>(entity);
+		    const auto position = flying != nullptr ? flying->position : transform.position;
+		    const auto matrix = flying != nullptr ? lh_matrix::Model(flying->position, flying->rotation, transform.scale)
+		                                          : lh_matrix::Model(transform);
+		    fragment.mesh->AppendDraw(out, &matrix, FragMesh::ObjectLight(position, 0xFFFFFFFFu, 0, frame));
+	    });
 }

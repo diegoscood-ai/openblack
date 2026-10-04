@@ -59,7 +59,7 @@ drowning) is in [water.md](water.md).
 - **Drawn between turns** (fn_00646FE0 from `GLandscape::Draw` 0x5E49DC, every frame, each awake body):
   fn_007FCE80 lerps the 12 floats of the turn-start matrix (PhysOb +0xAC, copied from +0x7C at 0x645187) to the end
   one cell by cell with the turn fraction (g_game +0x205D64, `game_clock::TurnFraction`), normalises each row
-  (fn_007FB5C0, `lh_matrix::NormaliseRows`; (approximate) exact 1 / sqrt, not the table of 0x841170), and takes
+  (fn_007FB5C0, `lh_matrix::NormaliseRows`, with LH3DMath's `InverseSquareRoot` 0x841170 and its table), and takes
   `T − R·s·com` as the origin. `PhysicsDrawPose` carries it to the drawing (instances, blob shadows, a villager's carried prop, the
   trees' bending sources); a body at rest is drawn at its Transform. (pending) the −Radius < T.y filter of the drawing (0x647017), the
   π/2 turn of animated meshes (vt +0x1AC, 0x7FD009) and vt +0x184, the flames of a burning flying object
@@ -103,7 +103,12 @@ Code: `src/ECS/Physics/Buildings.*`, `FragMesh.*`, components `BuildingDamage` a
   the villagers coming out and the village emergency); at 0 it disappears: its villagers are left homeless and a storehouse
   loses its piles. The collapse sound plays (`editor.sad` 443–447).
 - The damaged building is drawn with its FragMesh: each triangle flat, with a back face 0.45 behind and a wall on
-  each open edge (its own generated mesh). Its physics body keeps the intact mesh; if the same rock
+  each open edge, lit per face and two-sided on the CPU every frame as the original does (`fn_007F7ED0`; see
+  [rendering-objects.md](rendering-objects.md#model-lighting)); its own generated mesh (with the partly built part
+  over it) stays for the reflections. That mesh is the building's `components::DrawMesh` (session Edificios' drawing-only
+  model, the same one a building site's partly built model uses); the `Mesh` component stays the intact model, so the
+  physics body, the map cells, the sizes and the static shadow keep it. A hit that leaves the whole building
+  (remaining 1) takes the DrawMesh away and hands the draw back to `abodes::RedrawConstruction`. If the same rock
   hits it again, they stop colliding (it passes through on the third contact).
 - **Pieces**: body = its distinct vertices and a copy of each one 0.45 behind (no faces: nothing collides with them),
   around its origin; the original's ×2 (0x76F2DB) goes to the **drag**, not to the inertia; the rest counter uses
@@ -149,8 +154,8 @@ Code: `src/ECS/Physics/CollisionSounds.*`, `Dust.*`, `PartialBuild.*`. Reports `
   the material is two-sided), a cap on the cut and the scaffolding (the submesh with the highest status) coming out of the ground; nothing
   if the cut ends up below 0.2. Without repair by the villagers, it stays like that.
 - **Shadows**: pieces do not cast any; the broken building keeps the static shadow of its intact model.
-- **Pending** (they depend on systems that do not exist yet): snow on the FragMesh (weather storms, snow map)
-  and charring/glow from fire; the 0.75 colour of the cap.
+- **Pending** (they depend on systems that do not exist yet): snow on the FragMesh (weather storms, snow map);
+  the 0.75 colour of the cap. The charring/glow of a burning house's FragMesh goes in `Buildings::AppendFragMeshes`.
 
 ## Water in impacts and when dropping
 
@@ -216,6 +221,10 @@ Villager, Animal, Tree, DeadTree, Pot, Rock, Fragment, Building, Shield, Other),
 keeps the physics' own code for the class. The hand registers Tree, DeadTree and Pot (`HandPhysics.cpp`); the villagers'
 and animals' parts are still inside `PhysicsObjects.cpp` until session Personas moves them.
 
+A class's `dropSfx` (DropSfx vt +0x794) is played by `RemoveObjectWithEndPhysics` (RemoveObject 0x646B2E..0x646B48) for
+the object EndPhysics returned, when LANDED and on land; only the tree has one (`Tree::DropSfx` 0x74BC60, registered by
+`HandPhysics.cpp`), and a body that comes to rest in GameTurnUpdate (0x645EB5) never plays it.
+
 The hand calls `physics::from_hand::Throw(object, spring velocity, dont_replant)` (`Object::ThrowObjectFromHand`
 0x6385E0, after it took the object out of the hand) and `ForceDrop` (`GInterface::ForceDropHeld` 0x5D4350); what the
 throw needs from the hand (putting a hand pot down, wood stores, dead trees, roots) comes through
@@ -238,8 +247,12 @@ openblack cannot make a body for (no mesh; the original would crash in `PhysOb::
 
 ## Pending
 
-- Snow on the FragMesh (needs the weather: snow storms and the 128×128 snow map) and charring/glow from
-  fire (needs the fire system); the 0.75 colour of the cap of the "half-built".
+- (not verified) the angular damping step `pow(d4, 0.005)` of `PhysOb::SetUpConstants` 0x7FB810: openblack takes the
+  float overload of `std::pow`; the original's CRT pow under the game's 24-bit FPU precision (fn_007DEE00, 0x7DEE0D) may
+  differ in the last bit.
+
+- Snow on the FragMesh (needs the weather: snow storms and the 128×128 snow map); the 0.75 colour of the cap of the
+  "half-built".
 - Buildings: repair by villagers (building site, wood), creature hits; what happens to the building itself (alignment,
   aggressor, inhabitants, the town's emergency, −0.2 of a building site) is session Edificios' (`ECS/Abodes`).
 - Villagers and animals on landing: the original's three postures and the corpses (today they get up or disappear).

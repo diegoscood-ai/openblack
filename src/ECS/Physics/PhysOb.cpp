@@ -78,7 +78,9 @@ void PhysOb::Initialise(float scale, float meshHeight)
 	angularMomentum = glm::vec3(0.0f);
 	velocity = glm::vec3(0.0f);
 	_speed = 0.0f;
-	restCounter = -static_cast<int>(scale * meshHeight * 1000.0f); // 0x7FB7D6: mesh+0x28 is the half height
+	// 0x7FB7D6..0x7FB7FF: GetScale x mesh+0x28 (the drawn mesh's half extent y) x 1000 [0x8AB228], fstp float, fistp
+	// (x87 round to nearest), neg; Initialise runs in AddObject 0x6445CA / AddProxy 0x644E42 before SetUpPhysOb
+	restCounter = -static_cast<int>(std::nearbyint(scale * meshHeight * 1000.0f));
 }
 
 void PhysOb::SetUpConstants(float mass, const PhysicsData& data, bool dynamic)
@@ -470,8 +472,10 @@ void PhysOb::CollideVertices(PhysOb& b)
 		q.contact = hit;
 		q.other = &b;
 		q.normal = normal;
-		const float len = std::max(q.len, 1e-6f);
-		const float pen = q.len - glm::dot(hit - _centre, direction) / len;
+		// 0x7FDCF5 / 0x7FDD01: fdiv and fsubr read the vertex's +0x20, the predicted length (ZeroForces 0x7FD321, at
+		// least 0.001), not +0x1C: pen = predLen - ((hit - centre) . dir) / predLen, so the 0.06 s look-ahead stops fast
+		// bodies at thin walls (the physical shield, documentacion/physics/shield_physics.md)
+		const float pen = q.predLen - glm::dot(hit - _centre, direction) / q.predLen;
 		if (pen > q.pen)
 		{
 			q.pen = pen;

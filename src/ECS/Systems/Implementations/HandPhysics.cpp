@@ -84,24 +84,22 @@ void HandSystem::RegisterPhysicsHandlers() noexcept
 				UpdateRoots(entity, true);
 				MakeDeadTree(entity, po.body.velocity, false);
 			}
-			// PhysicsObject::RemoveObject 0x646B2E..0x646B44: LANDED on land -> Tree::DropSfx 0x74BC60, replanted or not:
-			// GAudio::PlaySoundEffect 0x429E30 (0x74BD03) with bank InGame (GAudio+0x3AC), owner the tree (+0x20), is3D 1,
-			// track 0, sample 83 G_PlantTree_01 + GetTickCount() % 3, at the tree's point (x, altitude + height, z)
-			if (landedOnLand)
-			{
-				audio::PlayOptions options;
-				options.sample = {audio::Bank(audio::SfxBank::InGame), 83 + static_cast<int>(audio::TickCount() % 3)};
-				options.owner = audio::Owner::Thing(entity);
-				options.is3D = true;
-				options.track = false;
-				const auto* now = registry.TryGet<const Transform>(entity);
-				options.position = now != nullptr ? now->position : position;
-				audio::PlaySoundEffect(options);
-			}
 			return entity;
 		}
 	};
 	tree.moved = [this](entt::entity entity) { UpdateRoots(entity); };
+	// Tree::DropSfx 0x74BC60 (PhysicsObject::RemoveObject 0x646B48: LANDED on land, the object EndPhysics returned is
+	// still a Tree): GAudio::PlaySoundEffect 0x429E30 (0x74BD03) with bank InGame (GAudio+0x3AC), owner the tree (+0x20),
+	// is3D 1, track 0, sample 83 G_PlantTree_01 + GetTickCount() % 3, at the tree's point (x, altitude + its +0x1C, z)
+	tree.dropSfx = [](entt::entity entity) {
+		audio::PlayOptions options;
+		options.sample = {audio::Bank(audio::SfxBank::InGame), 83 + static_cast<int>(audio::TickCount() % 3)};
+		options.owner = audio::Owner::Thing(entity);
+		options.is3D = true;
+		options.track = false;
+		options.position = Locator::entitiesRegistry::value().Get<const Transform>(entity).position;
+		audio::PlaySoundEffect(options);
+	};
 	PhysicsObjects::SetClassHandlers(PhysicsClass::Tree, std::move(tree));
 	PhysicsObjects::ClassHandlers deadTree;
 	deadTree.reactToImpact = treeImpact;

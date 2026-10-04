@@ -69,8 +69,16 @@ void TurnRows(glm::mat3& m, int axis, float a);
 /// 0x7FB1E7..0x7FB26E) = glm::rotate(-a, axis); the translation 0 (0x7FB273..0x7FB279). `axis` is unit length
 [[nodiscard]] glm::mat3 AxisAngle(const glm::vec3& axis, float a);
 
-/// fn_007FB5C0 0x7FB5C0, in place: each row (glm's column) times InverseSquareRoot 0x841170 of its length squared, no
-/// re-orthogonalisation. (approximate) an exact 1 / sqrt, not LH3DMath's table [0xEEA394]
+/// LH3DMath's InverseSquareRoot 0x841170: 1 / sqrt(x) from a 128-byte table of the exponent's last bit and the
+/// mantissa's first 6 (index (bits >> 17) & 0x7F, 0x84118E..0x84119D) under the exponent (0x5F000000 - (e << 22)) &
+/// 0xFF800000 (0x841179..0x8411A0), then one Newton step ((3 - (x y) y) y) 0.5 ([0x8C2C50] = 3, [0x8AA3B4] = 0.5,
+/// 0x8411B0..0x8411C2), every product a float one (the FPU at 24 bits). The table is MakeInverseSqrtLookupTable's
+/// (0x8411D0): ((bits(1 / sqrt(x)) + 0x2000) >> 15) & 0xFF for x = bits((i | 0x1F80) << 17) (0.5 <= x < 2), and then
+/// entry 0x40 = 0xFF (0x841224). It comes out a little below the true value
+[[nodiscard]] float InverseSquareRoot(float x);
+
+/// fn_007FB5C0 0x7FB5C0, in place: each row (glm's column) times InverseSquareRoot 0x841170 of its length squared
+/// (0x7FB5E5 / 0x7FB620 / 0x7FB65B), no re-orthogonalisation
 void NormaliseRows(glm::mat3& m);
 
 /// LHMatrix::SetInverse 0x7FB290 of an LHMatrix (glm::mat4x3: the 3 rows, then the translation): the adjugate over the

@@ -54,7 +54,6 @@
 #include "ECS/Components/WorshipSite.h"
 #include "ECS/Components/Alpha.h"
 #include "ECS/Components/AnimatedStatic.h"
-#include "ECS/Components/Fragment.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/MorphWithTerrain.h"
 #include "ECS/Components/OneOffSpellSeed.h"
@@ -351,21 +350,14 @@ DrawColours DrawColoursOf(const openblack::ecs::Registry& registry, entt::entity
 	}
 	// the other classes with a fire (Burning). (inferido) every class drawn here that can burn goes through one of those
 	// Draws (fn_00518050, DrawBuilding) or carries the same pair inline (SpellWolf 0x51C751, above); the creature
-	// (LH3DCreature) and the hand do not. Not ported: the damaged Abode's FragMesh (0x5160AF; 0xFFFFFFFF / 0 when not
-	// burning, 0x5160CB..0x5160D8), Object::DrawOutOfMap's own pair (0x51C839), the PhysicsObject prediction object
-	// (0x646F8C) and CitadelHeart::DrawNow (0x4670DD..0x4670EE: tint +0xA4, specular vt 0x5A4)
+	// (LH3DCreature) and the hand do not; the damaged Abode's FragMesh takes its pair (0x5160AF) in
+	// Buildings::AppendFragMeshes. Not ported: Object::DrawOutOfMap's own pair (0x51C839), the PhysicsObject prediction
+	// object (0x646F8C) and CitadelHeart::DrawNow (0x4670DD..0x4670EE: tint +0xA4, specular vt 0x5A4)
 	if (fire != nullptr && !registry.AnyOf<Tree, Field, Creature, Hand>(entity))
 	{
 		return Burning(*fire);
 	}
 	return {};
-}
-/// A broken building keeps the static shadow of its intact mesh (the FragMesh casts none); fragments cast none either
-/// (Fragment: SetShadowOnTexture(0)), which CastsStaticShadow already leaves out.
-entt::id_type ShadowMeshOf(const openblack::ecs::Registry& registry, entt::entity entity, entt::id_type drawn)
-{
-	const auto* damage = registry.TryGet<const openblack::ecs::components::BuildingDamage>(entity);
-	return damage != nullptr && damage->intactMesh != 0 ? damage->intactMesh : drawn;
 }
 /// The receivers of the projected shadows: the LH3DObject's +4 bit 0x40, read by vt+0x7C (fn_007F9870, +4 >> 6 & 1)
 /// and set only by vt+0x78(1) (fn_008168A0: 0x40 when [0xC38220] != 0 and the argument != 0). A new LH3DObject has it
@@ -473,7 +465,9 @@ void RenderingSystem::PrepareDrawDescs(bool drawBoundingBox)
 	                                                                                        const Transform& /*unused*/) {
 		if (CastsStaticShadow(registry, entity))
 		{
-			++shadowCasterIds[ShadowMeshOf(registry, entity, mesh.id)];
+			// the Mesh: a broken building keeps the static shadow of its intact model (its FragMesh, a DrawMesh, casts
+			// none); fragments cast none either (Fragment: SetShadowOnTexture(0)), which CastsStaticShadow leaves out
+			++shadowCasterIds[mesh.id];
 			++instanceCount;
 		}
 	});
@@ -624,7 +618,7 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		                                               ReceivesDynamicShadow(registry, entity, mesh.id)});
 		    if (CastsStaticShadow(registry, entity))
 		    {
-			    const auto casterMesh = ShadowMeshOf(registry, entity, intactMesh.id);
+			    const auto casterMesh = intactMesh.id;
 			    auto casterOffset = shadowCasterOffsets.insert(std::make_pair(casterMesh, 0));
 			    const auto casterDesc = _renderContext.shadowCasterDrawDescs.find(casterMesh);
 			    if (casterDesc != _renderContext.shadowCasterDrawDescs.end())
@@ -795,7 +789,7 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		    // its baked shadow, as the main loop writes it for the drawn ones (the shadow count loop takes every Mesh)
 		    if (CastsStaticShadow(registry, entity))
 		    {
-			    const auto casterMesh = ShadowMeshOf(registry, entity, mesh.id);
+			    const auto casterMesh = mesh.id;
 			    auto casterOffset = shadowCasterOffsets.insert(std::make_pair(casterMesh, 0));
 			    if (const auto casterDesc = _renderContext.shadowCasterDrawDescs.find(casterMesh);
 			        casterDesc != _renderContext.shadowCasterDrawDescs.end())

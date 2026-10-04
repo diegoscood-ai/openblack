@@ -143,8 +143,8 @@ const graphics::L3DMesh* MeshOf(entt::entity entity)
 	{
 		return nullptr;
 	}
-	// a broken building's body keeps its intact mesh
-	const auto id = Buildings::BodyMesh(entity, mesh->id);
+	// the Mesh component: a broken building's stays its intact model (its FragMesh is a components::DrawMesh)
+	const auto id = mesh->id;
 	auto& meshes = Locator::resources::value().GetMeshes();
 	if (!meshes.Contains(id))
 	{
@@ -320,14 +320,17 @@ bool SetUpBody(entt::entity entity, PhysOb& body, bool dynamic)
 			local.push_back(points[i] - 0.45f * normals[i]);
 			r = std::max({r, glm::length(local[local.size() - 2]), glm::length(local.back())});
 		}
-		// Initialise takes the half height of the Rock info's mesh (GMobileStaticInfo[2], 0x76E9E4), not the piece's
+		// Initialise takes the half height (mesh+0x28) of the LH3DObject Fragment's ctor builds as a Rock: Rock(coords,
+		// &MS[2] = 0xD3A930 = 0xD3A6D8 + 2 x 300, ...) 0x76E9E4, scale 1 0x76EA32, then
+		// MobileStatic::CallVirtualFunctionsForCreation 0x76EB61 with MobileStatic::GetMesh = info +0x120 (0x6084E0).
+		// openblack guard: the piece's own half height without info.dat
 		float rockHalfHeight = 0.5f * size.y;
 		if (Locator::infoConstants::has_value())
 		{
 			const auto rockMesh = resources::HashIdentifier(Locator::infoConstants::value().mobileStatic.at(2).meshId);
-			if (auto& meshes = Locator::resources::value().GetMeshes(); meshes.Contains(rockMesh))
+			if (const auto half = ecs::object::MeshHalfExtents(rockMesh))
 			{
-				rockHalfHeight = 0.5f * meshes.Handle(rockMesh)->GetBoundingBox().Size().y;
+				rockHalfHeight = half->y;
 			}
 		}
 		body.Initialise(scale, rockHalfHeight);
@@ -457,30 +460,33 @@ entt::entity EndPhysicsOfClass(PhysicsObject& po)
 
 /// EndPhysics (vt +0x790) at rest: the class's part, then Object::EndPhysics 0x6375A0 puts the object back in the map
 /// cells (InsertMapObject vt +0x544 at 0x63762C; Fixed::EndPhysics reaches it through 0x52E054 / 0x52E0CB), a
-/// fragment that stays (FragmentEndPhysics) too; nothing for one that is gone. (inferido) after the class's part:
-/// where Villager / Animal::EndPhysics call it is not read; Tree::EndPhysics 0x74B830 searches the cells (0x74B9C0)
-/// before its insert, so a replanted tree does not see itself.
+/// fragment that stays (FragmentEndPhysics) too; nothing for one that is gone. After the class's part, but Villager
+/// (0x5F0B81) and Animal (0x5F0E01) call it themselves in the middle of theirs (BackInMap, ECS/LivingPhysics), and a tree
+/// that becomes a DeadTree never calls it (Tree::EndPhysics 0x74BBD9..0x74BC3A: the DeadTree is inserted with no InBounds
+/// test at 0x74BC0A and returned). Tree::EndPhysics 0x74B830 searches the cells (0x74B9C0) before its insert, so a
+/// replanted tree does not see itself. Object::EndPhysics 0x6375A0 always returns the object, never NULL.
 /// 0x637613..0x63763A: with insert and the object not UNAVAILABLE (GameThing +0xA bit 0, 0x637617: here, still in the
 /// registry), MapCoords::InBounds 0x6042C0 of its MapCoords (+0x14): inside the 512 x 512 cells it goes back in the map
 /// cells, outside it is deleted (ToBeDeleted(0), vt +0xC at 0x63763A). Returns entt::null when the object that stays
-/// is the deleted one. (inferido) a different object that stays (Tree -> DeadTree) is not tested here
+/// is the deleted one; GameTurnUpdate makes the returned object the resting proxy (0x645EE0).
 entt::entity EndPhysics(PhysicsObject& po)
 {
 	const auto entity = po.entity;
-	const auto kept = EndPhysicsOfClass(po);
 	auto& registry = Locator::entitiesRegistry::value();
-	if (registry.Valid(entity))
+	// Villager 0x5F0B81 / Animal 0x5F0E01 call Object::EndPhysics themselves, between their own work (ECS/LivingPhysics)
+	const bool living = registry.AnyOf<Villager, Animal>(entity) && HandlersOf(entity).endPhysics;
+	const bool wasTree = registry.AllOf<Tree>(entity);
+	const auto kept = EndPhysicsOfClass(po);
+	if (wasTree && registry.Valid(kept) && registry.AllOf<DeadTree>(kept))
 	{
-		const auto* transform = registry.TryGet<const Transform>(entity);
-		if (transform == nullptr || map_coords::InBounds(map_coords::FromWorld(nullptr, transform->position)))
-		{
-			map_cells::InsertMapObject(entity);
-		}
-		else
-		{
-			ToBeDeleted(entity);
-			return kept == entity ? entt::null : kept;
-		}
+		// Tree::EndPhysics 0x74BBD9..0x74BC3A: the DeadTree from fn_00510B70 goes in the cells with no InBounds test
+		// (InsertMapObject vt +0x544 at 0x74BC0A) and is returned; Object::EndPhysics is not called
+		map_cells::InsertMapObject(kept);
+		return kept;
+	}
+	if (!living && registry.Valid(entity) && !PhysicsObjects::BackInMap(entity))
+	{
+		return kept == entity ? entt::null : kept;
 	}
 	return kept;
 }
@@ -582,7 +588,7 @@ void BeginTurn()
 		}
 		if (LifeOf(po.entity) < 0.01f)
 		{
-			po.body.density += 0.01f; // GameTurnUpdate housekeeping: GetLife() < 0.01 -> sink factor +0.01 a turn (corpses sink)
+			po.body.density += 0.01f; // GameTurnUpdate 0x644FEE: GetLife() < 0.01 -> sink factor +0.01 a turn (corpses sink)
 		}
 		po.forceSum = glm::vec3(0.0f);
 		// 0x645187..0x64519B: the end matrix (PhysOb +0x7C) becomes the turn-start one (+0xAC)
@@ -1277,10 +1283,19 @@ void PhysicsObjects::RemoveObjectWithEndPhysics(entt::entity entity)
 			continue;
 		}
 		auto* self = g_Objects[i].get();
-		// SetXYZAngles / Pos / altitude from the body, then EndPhysics(po, insert_back_into_map = true). DropSfx
-		// (vt +0x794, 0x646B48) is Object's "return 0" except Tree::DropSfx 0x74BC60 (G_PlantTree_01 + tick % 3),
-		// which openblack plays where the tree is replanted (the same LANDED-on-land condition).
-		EndPhysics(*self);
+		// SetXYZAngles / Pos / altitude from the body, then EndPhysics(po, insert_back_into_map = true)
+		const bool landed = (self->flags & PhysicsObject::Landed) != 0;
+		const auto kept = EndPhysics(*self);
+		// 0x646B2E..0x646B48: LANDED and the returned object's Pos IsLand -> its DropSfx (vt +0x794); the GameTurnUpdate
+		// stop (0x645EB5..0x645F33) never calls it
+		if (auto& registry = Locator::entitiesRegistry::value(); landed && registry.Valid(kept))
+		{
+			if (const auto& handlers = HandlersOf(kept);
+			    handlers.dropSfx && sea_cells::IsLand(registry.Get<const Transform>(kept).position))
+			{
+				handlers.dropSfx(kept);
+			}
+		}
 		for (size_t j = 0; j < g_Objects.size(); ++j)
 		{
 			if (g_Objects[j].get() == self)
@@ -1377,6 +1392,21 @@ void PhysicsObjects::RaiseUntilNotIntersecting(PhysicsObject& po)
 			break;
 		}
 	}
+}
+
+bool PhysicsObjects::BackInMap(entt::entity entity)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	// 0x637613..0x63763A: with insert and the object not UNAVAILABLE (here: still in the registry), MapCoords::InBounds
+	// 0x6042C0 of its MapCoords (+0x14)
+	const auto* transform = registry.TryGet<const Transform>(entity);
+	if (transform == nullptr || map_coords::InBounds(map_coords::FromWorld(nullptr, transform->position)))
+	{
+		map_cells::InsertMapObject(entity);
+		return true;
+	}
+	ToBeDeleted(entity);
+	return false;
 }
 
 PhysicsObject* PhysicsObjects::Find(entt::entity entity)

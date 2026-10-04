@@ -109,9 +109,58 @@ deviations stated in each section and what is in [Pending](#pending).
   pixel-to-light direction **(approximate)**: there is no free varying left for the local light. It only matches with the
   light far away (by day, the sun at 500000); in full night, with the light 3 units from the hand, the pixel→light direction and the
   origin→light one differ a lot on a nearby villager (known night-time difference of the mod).
-- `model_light::Intensity/Factor/Apply` have no caller yet: they await the deferred CPU paths (`FragMesh`,
-  primitives of `fn_00859530`); `Renderer::DrawCloud` uses `ScopedLight` + `ScopedAmbient(k_MistAmbient)` and passes
-  `Ambient()` to `u_cloud.z`.
+- `model_light::Intensity/Factor/Apply` on the CPU: the pieces of the explosions (`gj_mesh::AppendPiece`) and the
+  FragMesh (below, with `TwoSided`); the path of the primitives of `fn_00859530` (the `__ftol` variant) is still
+  missing. `Renderer::DrawCloud` uses `ScopedLight` + `ScopedAmbient(k_MistAmbient)` and passes `Ambient()` to
+  `u_cloud.z`.
+- **Broken buildings and their fragments: per-face light, two-sided, on the CPU** (**faithful**). `FragMesh::Draw`
+  (`fn_007F7960`) calls `fn_007F7ED0(matrix, position, pass)` for each primitive; three sites call it and there are only
+  two object classes: the damaged house (`Abode::Draw` 0x5160E9: the DestructionMesh +0x90, **no matrix** because its
+  triangles are already in the world, and the position of its LH3DObject +0x40 + 0x38) and the fragment (`Fragment`
+  +0x94: `Fragment::Draw` 0x76EC2A with `GetWorldMatrix` and its translation, and `PhysicsObject::DrawAll` 0x646E77 in
+  flight with the LH3DObject's matrix +0x14 and translation +0x38). What `fn_007F7ED0` does, pass 0:
+  - **Light**: `L = (light [0xEA9E90] − position)` axis by axis, times `InverseSquareRoot((y·y + z·z) + x·x)`
+    (0x7F7ED9..0x7F7F5A), in the **world**. `InverseSquareRoot` 0x841170 is a 128-byte table
+    (`MakeInverseSqrtLookupTable` 0x8411D0) and one Newton step `((3 − (x·y)·y)·y)·0.5`, a little below the exact
+    value: `lh_matrix::InverseSquareRoot`.
+  - **Base colour, one per draw**: `fn_00801C90` at the position (0x7F7F5F, the bilinear land light), times the tint
+    +0x10 `(c·t) >> 8` in the 4 channels and the specular + the +0x14 saturated in the 4, except with the pair
+    0xFFFFFFFF / 0 (0x7F7F64..0x7F806E; the flag [0xC371B4] is 1 in .data and nothing writes it); then the haze
+    `fn_007FEB30` at the position (0x7F807D). Abode::Draw sets the pair every time: with a fire the charring grey
+    `fn_00730570` and the glow 0x730480 (both with alpha 0xFF), without a fire 0xFFFFFFFF / 0 (0x5160A6..0x5160D8); the
+    fragment keeps the one of the constructor `fn_007F6EE0` (0xFFFFFFFF / 0).
+  - **Per triangle** (0x7F809B..0x7F869B): with a matrix, each vertex `((z·r2 + y·r1) + r0·x) + t`; the **face** normal
+    `n = (v1 − v0) × (v2 − v0)` normalised with `InverseSquareRoot((x·x + y·y) + z·z)`; **one single**
+    `I = fistp(255·((l.z·n.z + l.y·n.y) + l.x·n.x))` (0x7F82A8); the front gets the factor of `I`, the back that of `−I`
+    (`neg` 0x7F82AF, the two ambient branches 0x7F82B1..0x7F82EC: the rule of `Factor`) and each channel `(c·f) >> 8`
+    with the colour's alpha (0x7F82EF..0x7F8363): `model_light::TwoSided`. So a lit face has its back at the bare
+    ambient.
+  - **Geometry**: the face in front (v0, v1, v2); the copy 0.45 ([0x8C7C78]) behind along −n, drawn (b2, b1, b0)
+    ([0xC371AC] = 1); and with [0xC371A8] = 1, on each edge k with no neighbour (+0x40 + 4k = −1) the wall (fk, bk, fk+1),
+    (fk+1, bk, bk+1) **on those same vertices**, so the wall carries the front colour on top and the back colour below.
+    Both copies carry the triangle's uv and the draw's specular. Everything goes to `fn_0081C780` every 256 vertices or
+    triangles: the indexed sibling of `Draw3DWorldTriangle`, with `g_world_to_clipping` (vertices in the world), the
+    material's cull (+5 bit 0; without it, a backface test on the screen 0x81CBC7..0x81CC11 and CULLMODE CCW) and which
+    **does copy the specular** of each vertex (0x81C9B9..0x81C9D0).
+  - Pass 1 (0x7F7A0F..0x7F7CC6) is the snow on top (texture [0xEDD394], map [0xEDC344]): not ported (see
+    [physics.md](physics.md#pending)).
+  - openblack: `FragMesh::LightDirection`, `ObjectLight` (base colour), `AppendTriangle` (one triangle) and `AppendDraw`
+    (one primitive per batch, in its source material `Primitive::source`), in `world_triangles::Vertex` with
+    `specular` (Color1, which `vs_world_triangles` passes to `fs_object`); `Buildings::AppendFragMeshes` gathers the
+    broken houses and the fragments every frame (a flying fragment at its `PhysicsDrawPose`, the pose between its last
+    two turns that fn_00646FE0 puts in its Game3DObject matrix, as the instances) and `Renderer::DrawPass` sends them to
+    the main view with the `WorldTriangles` program (vs_world_triangles + fs_object). The generated L3D mesh
+    (`FragMesh::BuildMesh`) stays for the other views (reflections), the picking and the bounds: its FragMesh sub-meshes
+    are marked `cpuDrawn` and `Renderer::DrawSubMesh` skips them in Main and MainBlended, also in the projected shadows
+    over the object (`DrawShadowsOnObject`): `fn_007F7ED0` is no LH3DObject draw and the shadow loop of `fn_0080DB30`
+    does not go through it **(inferred)**. The rebuilt part of a damaged house (that of `DrawBuilding`) still goes
+    through the object program. `test_fragmesh_light` compares `TwoSided` with the instructions 0x7F82AA..0x7F8363
+    emulated (200 000 cases), the root with values of the table and the vertices of one triangle with and without a
+    matrix.
+  - **(approximate)** openblack draws them after all the models and not in the order of the object loop; the blended
+    primitives go in the Main view (as the pieces of the explosions), not in MainBlended. The FragMesh reflections keep
+    the generated mesh and the object program's light (vertex light in mesh space, the same rule; the original's
+    reflection of it is not checked).
 - **Trap**: `vs_object` is also used by the sky (`fs_sky`); adding a new varying to it leaves the sky white. The
   specular travels in `v_texcoord0.zw` and `v_position.w` (after computing `gl_Position`).
 
@@ -225,8 +274,9 @@ with rgb 0 keep the white tint; openblack removes `SpecularColour` with rgb 0 (`
 frames go with the land light alone.
 
 **(inferred)** Every instance class that can burn goes through `fn_00518050` or `DrawBuilding`, or carries the same
-pair inline (the wolf 0x51C751); still to be ported are the inline pairs of the house's FragMesh (0x5160AF), of
-`Object::DrawOutOfMap` (0x51C839) and of the physics prediction object (0x646F8C) (see Pending).
+pair inline (the wolf 0x51C751; that of the house's FragMesh, 0x5160AF, now goes in `Buildings::AppendFragMeshes`);
+still to be ported are the inline pairs of `Object::DrawOutOfMap` (0x51C839) and of the physics prediction object
+(0x646F8C) (see Pending).
 
 ## Texture wrapping or clamping
 
@@ -534,8 +584,10 @@ The original has three mechanisms and a single plane:
   (the hand does not use it: the 0x65 alpha has no effect with its mode 4 material).
   - Hand: skipped if hand+0xAC; 0x65A0A0A0; then what it holds (hand+0x8C) **with its own colour**.
   - Creature: its LH3D body if its block is visible, y < 6 and obj+0xA0 < 0.2 (unidentified field); 0x65A0A0D0, specular 0x30.
-  - Physics objects (`fn_00646FE0`, array 0xD47814, stride 0x1DC): if y > −r (r = maximum distance from a vertex to the
-    centre of mass), with no distance limit.
+  - Physics objects (`fn_00646FE0`, array 0xD47814, stride 0x1DC): the awake ones only (the asleep byte +0x19C,
+    0x647004..0x647011: no resting proxy, so never a broken house), if y > −r (r = maximum distance from a vertex to the
+    centre of mass), with no distance limit. A fragment mirrors its own LH3DObject, the Rock of info 0xD3A930 (0x76E9EC)
+    in the ctor colour 0xFFFFFFFF / 0 (0x8164F7), not its FragMesh (inferred; openblack mirrors the piece: pending).
   - The "own colour" is what `fn_00801C90` left in obj+0x4C/+0x50 in its last Draw (called by `PhysicsObject::DrawAll`
     0x646F9F, `MobileObject::Draw`, `Rock::Draw`...): the bilinear land light and the cells' specular, without N·L or fog.
   - Boats (`PetitNavire::PreDraw` 0x5DFF20): **one** `DrawUnderWater` per frame of the hull in 0xFF303070 (then
@@ -543,8 +595,8 @@ The original has three mechanisms and a single plane:
     `GetAltitude` and the shadow) and 0x5E0380-0x5E03EE (mode 1, voyage) are mutually exclusive via +0x30, both with the mirror
     diag(−1, 1, 1) on the hull's track (determinant −1) and the `RotateY(π/2)`: there is no second part. openblack:
     `Renderer::DrawBoatReflection` (mode 2 of `vs_object` with the packed rgb). See [water.md](water.md#the-missionaries-boat-petitnavire).
-  - openblack: `Renderer::DrawObjectReflections` in the reflection pass (what the hand holds and **the whole** physics
-    list 0xD47814 via `PhysicsObjects::ForEach`: thrown, struck and the resting proxies, with centre y > −r,
+  - openblack: `Renderer::DrawObjectReflections` in the reflection pass (what the hand holds and the awake bodies of the
+    physics list 0xD47814 via `PhysicsObjects::ForEach`, with centre y > −r,
     r = `PhysOb::Radius`; those thrown from the hand that are not in physics, with the box radius), each through
     `Renderer::DrawUnderWater(vista, entidad, sea_pass::UnderWaterLastDraw())` (mode 3 of `u_objectLight` in
     `vs_object`, plane KeepAbove).
@@ -1299,24 +1351,17 @@ cut-off 0x96: a little thinner).
 
 ## Pending
 
+- FragMesh draw (session Fisicas): `Abode::Draw`'s on-screen gate `CheckRegionOnScreen` 0x51609D is not ported (it only
+  saves time); the fire tint of a burning broken building is taken from `Burning()` (not verified against 0x5160A6);
+  (not verified) whether leaving the CPU-drawn sub-meshes out of RenderPass::Main / MainBlended also drops a broken
+  building from the Main view's special draws (the sea cut `DrawCutByPlane` and the under-water pass of a held or
+  flying object), which the original draws through the object's own LH3DObject (to check with the Hito 2 captures).
+
 - Model lighting: fog (`fn_007FEB30`), tints (poison, fire, `fn_0080BF10`), night window colour, hand light
   stamped on the land (`light_hand.raw`, `fn_008229B0`). Check whether this still applies: model fog is already
   applied ([rendering.md](rendering.md#distance-haze-original-fog-detail-levels-36)) and the night windows and
   the stamped hand light are in [day-night-weather.md](day-night-weather.md).
 - Model lighting, copies still to be unified with `model_light`:
-  - `FragMesh::BuildMesh` (`src/ECS/Physics/FragMesh.h`): the original does it per face and two-sided on the CPU
-    (`fn_007F7ED0`, `fistp` 0x7F82A8, `neg` 0x7F82AF, the two ambient branches 0x7F82B1..0x7F82EC); openblack generates the
-    back face as separate geometry and leaves it to the object program, which now does use the integer rule and the shared
-    light. Moving it to `model_light::Apply` requires per-vertex colour in the generated mesh.
-    **In progress, paused (2026-10-03, session "shaders", at the user's request):** branch `local/fragmesh-wip`
-    (commit `52ef177f`, on top of `ba5e6b64`), compiled but WITHOUT audit, without reviewed tests and without captures. It paints
-    broken buildings (Abode::Draw 0x5160E9) and fragments
-    (Fragment::Draw 0x76EC2A, PhysicsObject::DrawAll 0x646E77) every frame as world triangles: L = normalize(light − position) with InverseSquareRoot
-    0x841170, land light fn_00801C90 × tint (charred / glow, or 0xFFFFFFFF / 0) and fog fn_007FEB30 once
-    per draw, one `fistp` I per face (0x7F82A8), front with I and back with −I (`model_light::TwoSided`),
-    per-vertex specular like fn_0081C780; test `test_fragmesh_light` (emulates 0x7F82AA..0x7F8363). Missing: audit
-    of assumptions, review, before/after captures of fragments and broken buildings, diff to systems
-    (`WorldTriangles`, `Renderer.cpp`) and merge.
   - `RendererSurfRevol.cpp`: the GJ mesh goes unlit (`UseLighting` not ported; that it is active is **(inferred)**).
 - LH3DColor arithmetic, what is still to be moved to `lh3d_colour`:
   - after the instance repacking: (the `u_objectLight` transport already goes through `sea_pass::SeaDraw` and
@@ -1327,9 +1372,8 @@ cut-off 0x96: a little thinner).
     MultiMapFixed 0x5180A6, WorshipSite 0x5193E9, SpellIcon 0x519668, Totem 0x51ABC3; the "fix 7" of `LandLightOf`);
     `LandLightOf` gives all `SpellIcon`s {Cell, no fog}, but those of a town centre (`TownCentre::Draw`
     0x5164B2 → `fn_0080BEC0`) go with bilinear light and fog; the inline colours not ported: the burning physics
-    prediction object (`PhysicsObject::DrawAll` 0x646F81..0x646F8C: white + glow), the damaged house's
-    FragMesh (`Abode::Draw` 0x5160A6..0x5160E9, via `fn_007F7960`: +0x10 = 0xFFFFFFFF / +0x14 = 0 without fire,
-    charred / glow when burning), `Object::DrawOutOfMap` (0x51C837..0x51C84F) and `CitadelHeart::DrawNow`
+    prediction object (`PhysicsObject::DrawAll` 0x646F81..0x646F8C: white + glow), `Object::DrawOutOfMap`
+    (0x51C837..0x51C84F) and `CitadelHeart::DrawNow`
     (0x4670DD..0x4670EE: tint +0xA4, specular vt 0x5A4); the +0xD0 specular with alpha (see above, `Heal.cpp`);
   - in other sessions' areas: the copies in `src/PSys` (Mist 0x67A6C1, `TintWithPlayerColour` 0x6A865C, Storm
     0x6D2C21, SurfRevol, Heal), `NightLights`, `LandLightTable` and `RendererChain` / `RendererPSys` (`ToAbgr`);
@@ -1399,8 +1443,8 @@ cut-off 0x96: a little thinner).
 - `world_triangles` (session "sistemas" closed on 2026-10-03): `RendererSurfRevol.cpp` already uses the
   material's culling; the discs' lighting (`UseLighting`) and the specular distribution of fn_0081C780 are still pending
   ([SF_TeleportVortex and ZR_SurfRevol](miracles.md#sf_teleportvortex-and-zr_surfrevol-srcpsysrulessurfrevol-srcgraphicsrenderersurfrevolcpp)).
-  FragMesh's two-sided lighting (branch `local/fragmesh-wip`) touches `WorldTriangles` and `Renderer.cpp`: its diff
-  is reviewed before merging (see above).
+  FragMesh's two-sided lighting uses fn_0081C780's per-vertex specular (`world_triangles::Vertex::specular`, Color1);
+  the pieces and the SurfRevol discs pass 0.
 - Photos and scripts of the "sistemas" session cited by the wiki: `dev\documentacion\unify\shots\` (u7, drawpath, video,
   wtri) and `dev\documentacion\unify\scripts\`; the plan and the U1-U9 notes in `dev\documentacion\unify\` (the paths
   `dev\_audit\sistemas\...` cited by those notes no longer exist).

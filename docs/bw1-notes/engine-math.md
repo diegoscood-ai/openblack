@@ -755,8 +755,11 @@ single-cell object is only reinserted if it changes cell (0x636A40); a MultiMapF
   PhysicsObjects.cpp): if the object is still available, `MapCoords::InBounds` 0x6042C0 of its position. Inside the
   512 × 512 cells it goes back into the lists (`InsertMapObject`, vt+0x544); outside **it is deleted** (`ToBeDeleted(0)`, vt+0xC).
   Everything that lands goes through there: villagers, animals, pots, scaffolds, grain and the fixed ones (rocks, trees,
-  fragments). It is (inferred) that this is done after the class part, and the case in which the object that
-  remains is a different one (tree → dead tree) is not looked at.
+  fragments). Object::EndPhysics always returns the object itself (never NULL). The villager (0x5F0B81) and the animal
+  (0x5F0E01) call it in the middle of their EndPhysics, after SetYAngle and before their landing, water and death work
+  (`PhysicsObjects::BackInMap` from ECS/LivingPhysics); the other classes after their part. A tree that becomes a dead
+  tree (Tree::EndPhysics 0x74BBD9..0x74BC3A) never calls it: the DeadTree goes in the cells with no InBounds test
+  (0x74BC0A) and is returned, and GameTurnUpdate makes it the resting proxy (0x645EE0). `documentacion/physics/step4_doubts.md` §5.
 - **The C22 angle** is the +0x48 of the LH3DObject (0x8294A3), the Y of `LHMatrix::GetYXZ` 0x7FAB30 (row 2), not
   row 0. What follows (approximate): the centre of the box rotates only in xz by that Y, whereas the original goes through
   the full matrix (0x8293CE..0x829413).
@@ -1282,9 +1285,14 @@ have been deleted.
 **From «audio» (milestone B11):** `Audio/Services/LanternSounds.cpp:92, :131` call `Rocks::Height`, which is now
 `object::GetHeight`: the value is already the API's; it only remains to call the API directly.
 
+**Closed by session Fisicas (`documentacion/physics/step4_doubts.md`):** the body's rest counter (PhysOb::Initialise
+0x7FB7D9 reads mesh+0x28, the drawn mesh's half height y, × scale × 1000, rounded to nearest by the fistp at 0x7FB7F1;
+0x5F0007 in Villager::SetUpPhysOb is GetHeight for the body's shape, not a second half height); the fragments' half
+height (the Rock info MS[2] = 0xD3A930's mesh, scale 1, 0x76E9E4 / 0x76EA32); the broad phase's box (half size
+`|v.xz| · 0.1 + R` with R = PhysOb +0x150, the 3D radius; fn_006E8160 is the xz length; RaiseUntilNotIntersecting uses R
+alone); the water ring of a thrown object (+0x178 = PhysOb +0x150, the body radius, with no guard).
+
 **PLAUSIBLE, not closed, not touched:**
-- `Physics/PhysicsObjects.cpp:282-284` (`SetUpBody`, R5/H4): the original mixes the inline half-height of
-  `PhysOb::Initialise` 0x7FB7D9 (`escala·[m+0x28]·1000`) with vt+0x42C (`SetUpPhysOb@Villager` 0x5F0007).
 - `HandHolding.cpp:187-192` (picking up a tree: `maxima.y`, not max − min) and `PSys/TownBelief.cpp:191` (`maxima.y` of the
   town centre): it remains to read `UR_TownCentreBelief` 0x69C17A.
 - `ComputeHoldParameters` still has its own table of hold types instead of `object::GetHoldRadius` (the hand's
@@ -1292,13 +1300,9 @@ have been deleted.
 - MagicFireBall in physics and in Storm: it depends on whether the ball is an entity with a `Mesh` in those queries.
 
 **Doubtful, not migrated** (there is no record of what the original does at that place):
-- `HandHolding.cpp` (the water ring of what is thrown, `0,5 × |Size| × escala`, 1 without a mesh) and
-  the shadow of thrown objects (formerly `Graphics/PhysicsShadows.cpp:155`; now `ShadowList.cpp` uses mesh+0x30 × obj+0x44, the radius of `fn_00874600`): in the original the ring uses field +0x178 of the
-  `PhysicsObject` (0x6466AA: `1 / r` and `2 r`), which comes from its initialisation; it has not been read where it comes from.
-- `Physics/PhysicsObjects.cpp:302, :308` (`rockHalfHeight = 0,5 × Size().y`): is it the inline half-height of
-  `PhysOb::Initialise` 0x7FB7D9 (`MeshHalfHeight`, unscaled)? Not checked.
+- The shadow of thrown objects (formerly `Graphics/PhysicsShadows.cpp:155`; now `ShadowList.cpp` uses mesh+0x30 ×
+  obj+0x44, the radius of `fn_00874600`).
 - `HandTrees.cpp:375, :409` (`0,5 × Size().x`): no address (and the file belongs to «sistemas»).
-- `Physics/PhysicsObjects.cpp:554-563` (`Radius2D`, used at :638 and :1227): openblack's broad phase, no address.
 - `PSys/TownBelief.cpp:183-196` (the height of the top of the totem): no address.
 - `ECS/FireFlies.cpp:98-108` (`MeshHeight` + 2 of houses and street lamps): fn_0052B1D0 is only the filter (`IsAbode` /
   `IsStreetLight`); it has not been read where the height is added.

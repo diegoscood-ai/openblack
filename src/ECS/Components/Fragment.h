@@ -25,8 +25,12 @@ namespace openblack::ecs::components
 struct BuildingDamage
 {
 	std::shared_ptr<physics::FragMesh> mesh;
-	entt::id_type intactMesh {0};    ///< the building's own mesh (its physics body keeps using it)
-	entt::id_type generatedMesh {0}; ///< the drawn FragMesh
+	entt::id_type intactMesh {0}; ///< the building's own mesh: its Mesh component, which the damage never changes
+	/// the FragMesh's model (FragMesh::BuildMesh, with the partly built draw over it), drawn as the building's
+	/// components::DrawMesh while that DrawMesh holds this id. Kept here as well because the DrawMesh can be taken away
+	/// without erasing it (abodes::RedrawConstruction's Remove before its on_destroy sink is connected): physics erases
+	/// it again (a no-op once OnDrawMeshDestroyed has done it)
+	entt::id_type generatedMesh {0};
 	bool morphed {false};            ///< it had MorphWithTerrain (the FragMesh bakes the morph in)
 	/// the repair site's baseline (site +0x640 = 1.1 x life - 0.1, set by Abode::ReduceLife at every hit):
 	/// GetPercentForDrawBuilding = min(PercentBuilt, (life - s) / (1 - s))

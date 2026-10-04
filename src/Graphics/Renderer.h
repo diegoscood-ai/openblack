@@ -293,6 +293,7 @@ public:
 	void ConfigureView(RenderPass viewId, glm::u16vec2 resolution, uint32_t clearColor) const noexcept final;
 
 	void PreloadForLand() const noexcept final;
+	void PreDraw(const DrawSceneDesc& drawDesc) const noexcept final;
 	void DrawScene(const DrawSceneDesc& drawDesc) const noexcept final;
 	[[nodiscard]] glm::u16vec2 GetResolution() const noexcept final { return _resolution; }
 	[[nodiscard]] float MeasureText(help::TextFont font, std::u16string_view text, float size) const noexcept final;

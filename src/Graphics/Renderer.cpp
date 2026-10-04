@@ -1818,20 +1818,14 @@ void Renderer::DrawHumanShadows(graphics::RenderPass viewId) const
 	bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(program->GetRawHandle()));
 }
 
-void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
+void Renderer::PreDraw(const DrawSceneDesc& drawDesc) const noexcept
 {
-	// Process3dEngine 0x54DD5E..0x54DD7D: with the full screen film, alpha == 1.0 and not the falling spell's film, the
-	// 3D world is not drawn (0x54DD7D jumps to 0x54E2A4); the film, the script fade and HelpSystem::Draw3D's bars still
-	// are (0x54E2D7..0x54E2ED), in FinishFrame's order: bars, film, fade (DrawFinishFrameOverlays). (aproximado) the main
-	// view is cleared to openblack's colour as always (the original does not clear: the film covers the screen).
-	// In mode 2 (+0x205A28, the falling spell, Video/FallingSpellVideo.h) case 2 0x54DD9B..0x54DE02 draws no land
-	// either: the film with base alpha 0x50 (FallingSpell::Draw's thedraw 0x52689F) and, not ported, the falling
-	// creature, its sprites and the liquid particles. (inferido) what lies under that 31 % film in the original (no
-	// clear read): here openblack's clear colour
+	// (openblack engine) what DrawScene wrote before it drew, in the same order: the sky type of the frame, the dome,
+	// the land light table, the frame's light, the dynamic shadows and the clouds (CRT draws in UpdateClouds). Kept on
+	// the logic side so that the draw only reads (docs/bw1-notes/engine-loop.md §6). Not with the full screen film
+	// (DrawScene's first test), as before
 	if (video::Get().CoversScreen() || video::GetFallingSpell().HidesWorld())
 	{
-		bgfx::touch(static_cast<bgfx::ViewId>(graphics::RenderPass::Main));
-		DrawFinishFrameOverlays(drawDesc.overlay);
 		return;
 	}
 	// DrawSky 0x5E21FD..0x5E222B, once a frame from GLandscape::Draw (0x5E48AE): fn_0086A2C0 samples the sky type of
@@ -1879,6 +1873,26 @@ void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
 	{
 		UpdateClouds();
 	}
+}
+
+void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
+{
+	// Process3dEngine 0x54DD5E..0x54DD7D: with the full screen film, alpha == 1.0 and not the falling spell's film, the
+	// 3D world is not drawn (0x54DD7D jumps to 0x54E2A4); the film, the script fade and HelpSystem::Draw3D's bars still
+	// are (0x54E2D7..0x54E2ED), in FinishFrame's order: bars, film, fade (DrawFinishFrameOverlays). (aproximado) the main
+	// view is cleared to openblack's colour as always (the original does not clear: the film covers the screen).
+	// In mode 2 (+0x205A28, the falling spell, Video/FallingSpellVideo.h) case 2 0x54DD9B..0x54DE02 draws no land
+	// either: the film with base alpha 0x50 (FallingSpell::Draw's thedraw 0x52689F) and, not ported, the falling
+	// creature, its sprites and the liquid particles. (inferido) what lies under that 31 % film in the original (no
+	// clear read): here openblack's clear colour
+	if (video::Get().CoversScreen() || video::GetFallingSpell().HidesWorld())
+	{
+		bgfx::touch(static_cast<bgfx::ViewId>(graphics::RenderPass::Main));
+		DrawFinishFrameOverlays(drawDesc.overlay);
+		return;
+	}
+	// (Renderer::PreDraw: the sky type, the dome, the land light, the frame's light, the shadows and the clouds of this
+	// frame were made just before this, in this order)
 	{
 		auto section = Locator::profiler::value().BeginScoped(Profiler::Stage::FootprintPass);
 		DrawStaticShadowPass(drawDesc);

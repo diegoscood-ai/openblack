@@ -26,6 +26,8 @@
 #include <glm/gtx/transform.hpp>
 #include <spdlog/spdlog.h>
 
+#include "Audio/Services/Guidance.h"
+#include "Audio/Services/SpookyVoices.h"
 #include "3D/Billboard.h"
 #include "3D/FrameAnim.h"
 #include "3D/L3DAnim.h"
@@ -1078,12 +1080,12 @@ void Renderer::DrawSun(graphics::RenderPass viewId, const Camera& camera, bool g
 			}
 		}
 	}
-	static auto lastTime = std::chrono::steady_clock::now();
-	const auto now = std::chrono::steady_clock::now();
-	const float milliseconds = std::chrono::duration<float, std::milli>(now - lastTime).count();
-	lastTime = now;
 	const float target = (1.0f - 0.2f * static_cast<float>(hidden)) * 255.0f;
-	_sunGlare = std::clamp(_sunGlare + (target - _sunGlare) * std::min(1.0f, milliseconds * 0.01f), 0.0f, 255.0f);
+	// fn_0086BB60 0x86BBA1..0x86BBF9: (target - glare) x (g_game_time_inc x 0.01 [0x8C4B10]) + glare, clamped to 0..255;
+	// the factor is not capped (g_game_time_inc <= 199) and the glare stays put in pause (g_game_time_inc = 0)
+	const float factor = static_cast<float>(game_clock::FrameGameMs()) * game_clock::k_FractionPerMs;
+	const float eased = (target - _sunGlare) * factor;
+	_sunGlare = std::clamp(eased + _sunGlare, 0.0f, 255.0f);
 	if (_sunGlare <= 0.0f)
 	{
 		return;
@@ -1165,13 +1167,8 @@ void Renderer::DrawMoon(graphics::RenderPass viewId, const Camera& camera) const
 	}
 
 	// The moon (mode 4: SRCALPHA / INVSRCALPHA): the fn_0086AC60 basis x4, fn_0086AFA0's tilt, RotateY(phase + pi), x0.65
-	// (billboard::MoonModel). The phase follows the real clock: 2 pi (1 - frac((days since 1970 - 10962) / 29.5306))
-	const auto days = static_cast<double>(std::chrono::duration_cast<std::chrono::seconds>(
-	                                          std::chrono::system_clock::now().time_since_epoch())
-	                                          .count()) /
-	                  86400.0;
-	const double cycles = (days - 10962.0) / 29.5306;
-	const auto phase = static_cast<float>(2.0 * glm::pi<double>() * (1.0 - (cycles - std::floor(cycles))));
+	// (billboard::MoonModel). The phase follows the real clock: fn_0086A7F0 (audio::guidance::MoonPhase, whole days)
+	const auto phase = audio::guidance::MoonPhase(audio::spooky::UnixTime());
 	const auto mainView = mirrored ? sea_pass::UnmirrorView(frame.view) : frame.view;
 	const auto mainInverseView = mirrored ? glm::inverse(mainView) : frame.inverseView;
 	const auto model = billboard::MoonModel(billboard::MoonBasis(mainView, mainInverseView, centre), centre, phase);
@@ -1574,7 +1571,8 @@ void Renderer::DrawFoliage(const DrawSceneDesc& desc) const
 	}
 	auto& island = Locator::terrainSystem::value();
 	_foliage->Update(island, config.foliageDensity, desc.camera->GetOrigin(), config.foliageDistance, config.foliageFields);
-	const float seconds = static_cast<float>(SDL_GetTicks()) / 1000.0f;
+	// (openblack, mod world.foliage) the engine timer, the wall clock since start (FixedClock in replays)
+	const float seconds = static_cast<float>(game_clock::EngineMs()) / 1000.0f;
 	_foliage->UpdateFlyers(island, desc.camera->GetOrigin(), config.foliageDistance, seconds);
 	Foliage::DrawDesc foliageDesc {};
 	foliageDesc.viewId = static_cast<bgfx::ViewId>(desc.viewId);

@@ -164,9 +164,8 @@ void Renderer::DrawSea(const DrawSceneDesc& desc) const
 	// Living water mod: real time at a quarter speed (calm waves), also while paused; the shader time wraps at 1000 (every
 	// scroll speed in fs_water repeats the texture a whole number of times in that period, so the loop is seamless)
 	constexpr float k_WaveSpeed = 0.25f;
-	static const auto k_Start = std::chrono::steady_clock::now();
-	const float seconds =
-	    std::fmod(std::chrono::duration<float>(std::chrono::steady_clock::now() - k_Start).count() * k_WaveSpeed, 1000.0f);
+	// the engine timer (the wall clock since start, also in pause; Debug/FixedClock in replays)
+	const float seconds = std::fmod(static_cast<float>(game_clock::EngineMs()) / 1000.0f * k_WaveSpeed, 1000.0f);
 	const glm::vec4 u_waterMod = {config.livingWater ? 1.0f : 0.0f, seconds, config.terrainTextureDensity, 0.0f};
 	waterShader->SetUniformValue("u_waterMod", &u_waterMod); // fs
 	// The sea vertex colour, landscape light table entry 255 ([0xEDDD08]); without palette.raw (no table) openblack

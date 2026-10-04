@@ -56,6 +56,13 @@ namespace openblack::lh_matrix
 void RotateY(glm::mat3& m, float a);
 /// fn_0086AFA0(a) 0x86AFA0, in place: r0' = c r0 - s r1, r1' = c r1 + s r0 = m * Rz(-a) (on the right)
 void RotateZ(glm::mat3& m, float a);
+/// The same two turns with c and s given, for the inline copies that keep them with other precisions (HelpDude::Update1's
+/// HUD pose stores c as a float and keeps s on the FPU stack: 0x5BE467..0x5BE4DE, 0x5BE604..0x5BE69D)
+void RotateY(glm::mat3& m, double c, double s);
+void RotateZ(glm::mat3& m, double c, double s);
+/// (openblack name: the original only has it inline, Update1's pitch 0x5BE3DF..0x5BE456) in place: r1' = c r1 - s r2,
+/// r2' = c r2 + s r1, the RotateZ pattern on rows 1 and 2; r0 and the translation stay
+void RotateX(glm::mat3& m, double c, double s);
 
 /// The world turn of UpdateRuleRotatePrincipalAxis 0x6A1150 and AppearanceRuleTumble 0x6A6200: in every row, the two
 /// components about the axis turn (axis 2 = Z: (x, y) -> (c x + s y, c y - s x); 1 = Y: (x, z) -> (c x - s z,

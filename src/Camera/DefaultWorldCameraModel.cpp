@@ -23,6 +23,7 @@
 #include "Camera.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Systems/DynamicsSystemInterface.h"
+#include "Help/HelpProfile.h"
 #include "Input/GameActionMapInterface.h"
 #include "Locator.h"
 #include "Windowing/WindowingInterface.h"
@@ -573,6 +574,10 @@ std::optional<CameraModel::CameraInterpolationUpdateInfo> DefaultWorldCameraMode
 
 	if (_mode == Mode::Polar || _mode == Mode::ArcBall)
 	{
+		// CameraModeNew3::Update 0x45C38E..0x45C3AD / 0x45C6A8..0x45C838: the player's zoom, rotate and pitch of this
+		// frame go to CameraHelp::CameraHelpCallback 0x449140 (the help events 25..29 of GET_TOTAL_EVENTS, counted once
+		// a turn). (pending) the input mask (keyboard, mouse buttons, wheel) of 0x45C06A..0x45C0C5
+		help_profile::OnPlayerCameraMove(_rotateAroundDelta.y, _rotateAroundDelta.x, zoomDelta, 0);
 		// Adjust camera's orientation based on user input. Call will reset deltas.
 		TiltZoom(eulerAngles, scalingFactor, zoomDelta);
 	}
@@ -715,6 +720,9 @@ void DefaultWorldCameraModel::HandleActions(std::chrono::microseconds dt)
 	if (_handPosition.has_value() && actionSystem.Get(input::UnbindableActionMap::DOUBLE_CLICK))
 	{
 		_mode = Mode::FlyingToPoint;
+		// CameraModeNew3::Update 0x45DE85: the double click's flight (0x306 DoubleClickObject at 0x45DE1E when it was
+		// on an object: (approximate) openblack's camera does not tell them apart, both count as the position's)
+		help_profile::CameraHelpCallback(help_profile::CameraReason::DoubleClickPos, 0);
 	}
 	else if (actionSystem.Get(input::BindableActionMap::ROTATE_AROUND_MOUSE_ON))
 	{

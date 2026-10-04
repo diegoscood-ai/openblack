@@ -56,6 +56,7 @@
 #include "Camera/ScriptCamera.h"
 #include "Common/EventManager.h"
 #include "Common/GameRandom.h"
+#include "Common/HelpText.h"
 #include "Common/StringUtils.h"
 #include "Debug/DebugGuiInterface.h"
 #include "Debug/FixedClock.h"
@@ -68,6 +69,8 @@
 #include "ECS/AnimalAI.h"
 #include "ECS/SmokyStuff.h"
 #include "ECS/ScriptHeld.h"
+#include "ECS/ScriptHighlight.h"
+#include "ECS/ScriptTimer.h"
 #include "ECS/Town/TownProcess.h"
 #include "ECS/AnimalAnimations.h"
 #include "ECS/Animations.h"
@@ -104,10 +107,14 @@
 #include "EngineConfig.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "Graphics/FrameBuffer.h"
+#include "Graphics/OverlayFrame.h"
 #include "Graphics/RendererInterface.h"
+#include "Help/HelpProfile.h"
 #include "Help/HelpSystem.h"
+#include "Help/InterfaceInteraction.h"
 #include "Help/ToolTips.h"
 #include "Help/ScriptControl.h"
+#include "Help/SpiritsRuntime.h"
 #include "Input/GameActionMapInterface.h"
 #include "Input/InterfaceActive.h"
 #include "Input/HandDemo.h"
@@ -255,6 +262,61 @@ audio::GameQueries MakeMusicQueries(Game& game)
 	ecs::audio_queries::Fill(queries);
 	return queries;
 }
+
+/// Motor M2's PreDraw for the overlays (Graphics/OverlayFrame.h): what Renderer::DrawFinishFrameOverlays and
+/// DrawHelpText draw, read from the game and laid out once a frame before DrawScene, at the Main view's resolution
+void FillOverlayFrame(const ScreenFade& fade, graphics::OverlayFrame& out)
+{
+	const auto& renderer = Locator::rendererInterface::value();
+	const auto resolution = renderer.GetResolution();
+	out.width = resolution.x;
+	out.height = resolution.y;
+	// FinishFrame 0x82F460 (e) / (h): the script fade's colour, the bars of fn_005C5780
+	out.fade.colour = fade.GetColour();
+	out.fade.barPixels = ScreenFade::LetterboxHeight(out.width, out.height, fade.GetWideScreenFraction());
+
+	// HelpText's callback 0x5CD020: fn_005CCAB0's frame (pending: its gate g_game+0x250188, a front-end state, is not
+	// ported)
+	auto& helpText = out.helpText;
+	const auto* helpSystem = help::Get();
+	helpText.active = helpSystem != nullptr && out.width != 0 && out.height != 0;
+	helpText.text = {};
+	helpText.cue = {};
+	if (helpText.active)
+	{
+		const help::WidthFn widthOf = [&renderer](help::TextFont font, std::u16string_view text, float size) {
+			return renderer.MeasureText(font, text, size);
+		};
+		helpText.text = helpSystem->GetDisplay().Layout(out.width, out.height, out.fade.barPixels,
+		                                                helpSystem->GetTextDraw(), helpSystem->GetTextTopToBottom(), widthOf);
+		// Draw3D 0x5C59D0..0x5C5ACE: while the text waits for a click, the KMIcon of BINDABLE_ACTION 1 with
+		// HELP_TEXT_TOOLTIP_07 (0xE79), right-aligned at W - 4 (align 0x11), its vertical centre at fn_005C5970, height
+		// trunc((boxH + 1) / 3); the text in j0 at 2/3 of the height (CameraHelp::DrawKeyOrMouse 0x447EA0)
+		helpText.cue.waiting = helpSystem->IsWaitingForClick();
+		helpText.cue.alpha = helpSystem->GetClickCueAlpha();
+		if (helpText.cue.waiting && helpText.cue.alpha > 0.0f)
+		{
+			const auto region = help::ComputeTextRegion(out.width, out.height, out.fade.barPixels);
+			const float h = static_cast<float>(help::ClickCueHeight(region));
+			helpText.cue.size = h * 2.0f / 3.0f;
+			helpText.cue.text = helptext::Get(helptext::k_ToolTipContinue);
+			const float textWidth = renderer.MeasureText(help::TextFont::J0, helpText.cue.text, helpText.cue.size);
+			helpText.cue.x = static_cast<float>(out.width - 4) - textWidth;
+			helpText.cue.y = static_cast<float>(help::ClickCueY(region)) - helpText.cue.size * 0.5f;
+		}
+	}
+
+	// the advisor spirits (Help/SpiritsRuntime.h): fn_005C0700's dudes and fn_005C3850's trails. Not while the film
+	// covers the screen or the falling spell hides the world: DrawScene draws no spirit then, and the halo clock
+	// [0xD15AB0] stays (as when the Renderer asked the runtime itself)
+	out.spirits.clear();
+	out.spiritTrails.clear();
+	if (auto* spirits = help::spirits::Get();
+	    spirits != nullptr && !video::Get().CoversScreen() && !video::GetFallingSpell().HidesWorld())
+	{
+		spirits->FillOverlay(out);
+	}
+}
 } // namespace
 
 Game* Game::sInstance = nullptr;
@@ -367,6 +429,7 @@ Game::~Game() noexcept
 	audio::Shutdown();
 	audio::game_music::Shutdown();
 	audio::music::Shutdown();
+	help::spirits::Shutdown(); // its meshes before the renderer goes
 	help::Shutdown();
 	ShutDownServices();
 	SDL_Quit(); // todo: move to GameWindow
@@ -469,6 +532,13 @@ bool Game::ProcessEvents(const SDL_Event& event) noexcept
 		case SDLK_6:
 		case SDLK_7:
 		case SDLK_8:
+			// GGame::ProcessKey 0x63F40C..0x63F446: the LH_KEY 2..15 block (KB_1..KB_TAB) is skipped while a script holds the
+			// wide screen (HelpSystem +0x45E8 && +0x45EC) or a SET_INTERFACE_INTERACTION level has a ControlMap switch off
+			if ((help::Get() != nullptr && help::Get()->IsScriptWideScreen()) ||
+			    !help::interface_interaction::KeyShortcutsEnabled())
+			{
+				break;
+			}
 			if ((event.key.keysym.mod & KMOD_CTRL) != 0)
 			{
 				const auto index = static_cast<uint8_t>(event.key.keysym.sym - SDLK_1);
@@ -607,18 +677,28 @@ bool Game::GameLogicLoop() noexcept
 	// 0x54E688 PSysGlobal::GameLoopEnd 0x68F5B0: the exploded meshes' queue and the PSys sounds (Magic/MagicLoop.cpp)
 	magic::ProcessPSysGameLoopEnd();
 
+	// HelpSpirit::Process 0x5C5270 of both spirits: the point / look targets that follow a game thing (inferred
+	// position: with the game objects, before GScript::Process)
+	if (auto* spirits = help::spirits::Get(); spirits != nullptr)
+	{
+		spirits->ProcessTurn();
+	}
 	{
 		auto scripts = profiler.BeginScoped(Profiler::Stage::ScriptsUpdate);
 		// 0x54E693 GScript::Process 0x6EB6B0
 		auto& lhvm = Locator::vm::value();
+		// GScript::Process 0x6EB6BA: fn_006EB930, the countdown timer's turn, before the scripts
+		ecs::script_countdown::ProcessTurn();
 		lhvm.LookIn(lhvm::ScriptType::All);
 		// GScript::Process: fn_0070D480 (the things no script variable holds any more are released)
 		ecs::script_held::Process();
 		// GScript::Process: ProcessFade(false) once per turn
 		_screenFade->ProcessTurn();
-		// 0x54E69E HelpSystem::Process 0x5C8FE0: the tooltips' turn (Help/ToolTips.h); 0x54E6A9 HelpProfile::Process
-		// (not ported)
+		// 0x54E69E HelpSystem::Process 0x5C8FE0: the tooltips' turn (Help/ToolTips.h)
 		help::tooltips::ProcessTurn();
+		// 0x54E6A9 HelpProfile::Process 0x5C4660, after GScript::Process and HelpSystem::Process: the events of this
+		// turn are counted (GET_TOTAL_EVENTS), the next turn may count them again
+		help_profile::Process();
 		// 0x54E6C3 GLandAlignement::UpdateTime 0x5E1FE0
 		_dayNightClock->ProcessTurn();
 		// OPENBLACK_TIME_OF_DAY=<script hour> pins the clock there every turn (screenshots), over the scripts' times
@@ -651,7 +731,9 @@ bool Game::GameLogicLoop() noexcept
 	}
 	// 0x54E6CB WeatherThing::ProcessWeatherThings 0x7741A0
 	weather::ProcessWeatherThings();
-	// 0x54E6D0 Bookmark::ProcessAll 0x439DD0 and 0x54E6D5 ScriptHighlight::ProcessHighlights 0x70A460: (not ported)
+	// 0x54E6D0 Bookmark::ProcessAll 0x439DD0: (not ported)
+	// 0x54E6D5 ScriptHighlight::ProcessHighlights 0x70A460 (turn_order.md step 25)
+	ecs::script_highlight::ProcessHighlights();
 	// 0x54E6DA GClimate::ProcessAll 0x771BE0 (+ the weather's test hooks)
 	weather::ProcessClimate();
 	// 0x54E6DF GBelief::ProcessOncePerTurn 0x4380B0: (not ported)
@@ -824,6 +906,8 @@ bool Game::Update() noexcept
 
 	// Fireflies (FireFly::Draw): orbit and fade, in game time
 	ecs::UpdateFireFlies(game_clock::FrameGameSeconds(), camera.GetOrigin());
+	// ScriptHighlight::Draw 0x709C60: the scrolls turn (g_game_time_inc x pi / 1000) and grow with the camera's distance
+	ecs::script_highlight::UpdateFrame(game_clock::FrameGameMs(), camera.GetOrigin());
 
 	// Water rings (fn_005E5100): g_game_time_inc, in milliseconds
 	ecs::UpdateWaterRings(static_cast<float>(game_clock::FrameGameMs()));
@@ -853,12 +937,27 @@ bool Game::Update() noexcept
 	// fn_005C6BB0 (from HelpSystem::Draw3D): the cinema bars slide with the game time of this frame
 	_screenFade->UpdateWideScreen(static_cast<float>(game_clock::FrameGameMs()));
 	profiler.End(Profiler::Stage::FrameUpdaters);
+	// OPENBLACK_TEST_TEXT_SHOT (openblack only): the screenshot after the text
+	if (_textShotAtMs.has_value() && static_cast<uint32_t>(SDL_GetTicks()) >= *_textShotAtMs)
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "OPENBLACK_TEST_TEXT_SHOT: {}", _textShotPath);
+		RequestScreenshot(_textShotPath);
+		_textShotAtMs = UINT32_MAX; // once
+	}
 	// HelpSystem::Draw3D 0x5C59A0: the texts' slide-in and the click cue's fade, with g_game_time_inc, or g_delta_time
 	// in the citadel (g_game+0x205A28 == 1, fn_005CC760 0x5CC7BE)
 	if (auto* helpSystem = help::Get(); helpSystem != nullptr)
 	{
 		const bool citadel = game_clock::IsInsideCitadel();
 		helpSystem->Draw3D(static_cast<float>(citadel ? game_clock::FrameRealMs() : game_clock::FrameGameMs()));
+	}
+	// HelpSystem::Draw3D 0x5C5ACE: HelpDudeControl::Process 0x5C3A30 (g_delta_time x 0.001, 0.4), the advisors' flight,
+	// anims and pose; drawn by Renderer::DrawSpirits. (approximate) audio::advisor::Update (UpdateSaySentence, which
+	// Update1 runs first in the original, 0x5BDE41, and ApplyLipSync 0x5BCD00) comes later in this frame, so the mouth
+	// and the tags read the previous frame's LipSyncThisFrame
+	if (auto* spirits = help::spirits::Get(); spirits != nullptr)
+	{
+		spirits->Update();
 	}
 
 	// Update Uniforms
@@ -1367,7 +1466,7 @@ bool Game::Initialize() noexcept
 	audio::spooky::Init();
 
 	// HelpSystem::CallVirtualFunctionsForCreation 0x5C5860: HelpDudeControl::Init with the HelpSprites bank for both
-	// advisors (fn_005C3660 -> fn_005BB060); the models MarkGood.Hd / MarkEvil.Hd are not ported
+	// advisors (fn_005C3660 -> fn_005BB060); the models MarkGood.Hd / MarkEvil.Hd are help::spirits::Start below
 	audio::advisor::Init(audio::Bank(audio::SfxBank::HelpSprites));
 
 	// HelpSystem (texts A11, voices B7) with HelpSystemInfo of info.dat (0xD16178 / 0xD1617C)
@@ -1403,10 +1502,38 @@ bool Game::Initialize() noexcept
 		hooks.sayVoice = [](uint32_t textId, help::VoiceRoute /*route*/, audio::TextVoice voice) {
 			audio::voices::RunTextVoice(helptext::GetEntry(textId).narrator, voice);
 		};
+		// OPENBLACK_TEST_TEXT_SHOT="textId,path[,ms]" (openblack only): a screenshot `ms` ms (1000 by default, wall clock)
+		// after that text is shown (Game::Loop takes it, see _textShotAtMs)
+		if (const char* shot = std::getenv("OPENBLACK_TEST_TEXT_SHOT"); shot != nullptr)
+		{
+			const std::string spec(shot);
+			const auto comma = spec.find(',');
+			const auto comma2 = comma == std::string::npos ? std::string::npos : spec.find(',', comma + 1);
+			if (comma != std::string::npos)
+			{
+				const auto id = static_cast<uint32_t>(std::strtoul(spec.substr(0, comma).c_str(), nullptr, 10));
+				_textShotPath = spec.substr(comma + 1, comma2 == std::string::npos ? std::string::npos : comma2 - comma - 1);
+				const uint32_t delay = comma2 == std::string::npos ? 1000u
+				                                                   : static_cast<uint32_t>(std::strtoul(spec.c_str() + comma2 + 1, nullptr, 10));
+				hooks.textStarted = [this, id, delay](uint32_t textId) {
+					if (textId == id && !_textShotAtMs.has_value())
+					{
+						_textShotAtMs = static_cast<uint32_t>(SDL_GetTicks()) + delay;
+					}
+				};
+			}
+		}
 		// ProcessInterface 0x5C6AAD: the villagers' narration cut with the 20 ms ramp
 		hooks.stopVoicesOnClick = []() { audio::voices::CutByClick(); };
 		// fn_005C6720(spirit, arg) -> fn_005C4C20 -> HelpDudeControl fn_005C3780(dude, arg): dude = spirit+0x54 != 1
 		// (fn_005C5250) (inferred: the good spirit, HelpSystem+0xC, has type 1 and dude 0)
+		// HelpSystem::SpiritHome 0x5C6670 -> fn_005C5200 (Help/Spirits.h HelpDudeControl::SpiritHome)
+		hooks.spiritHome = [](int32_t spirit, int32_t arg) {
+			if (auto* spirits = help::spirits::Get(); spirits != nullptr)
+			{
+				spirits->Control().SpiritHome(spirit, arg != 0);
+			}
+		};
 		hooks.spiritStop = [](int32_t spirit, int32_t arg) {
 			audio::advisor::Interrupt(spirit == 1 ? audio::advisor::k_GoodSpirit : audio::advisor::k_EvilSpirit, arg);
 		};
@@ -1423,6 +1550,8 @@ bool Game::Initialize() noexcept
 		help::Start({helpInfo.readDefaultAdjustGTTime, helpInfo.readDefaultWordGTTime}, std::move(queries),
 		            std::move(hooks));
 	}
+	// 0x5C5884: new HelpDudeControl (HelpSystem+0x10) and its Init 0x5C2A40, the two .hd models (Help/SpiritsRuntime.h)
+	help::spirits::Start();
 
 	// a mod's image or .raw for Data/Textures/<stem>.raw (mod.json "replace": {"textures": {"raw:<stem>": ...}}),
 	// loaded under the game's own name; the ones the game does not have are added after
@@ -1647,10 +1776,15 @@ bool Game::Run() noexcept
 	_frameCount = 0;
 	auto lastTime = std::chrono::high_resolution_clock::now();
 	auto& profiler = Locator::profiler::value();
+	// the overlays of the frame (Graphics/OverlayFrame.h), refilled every frame (its vectors keep their capacity)
+	graphics::OverlayFrame overlay;
 	while (Update())
 	{
 		auto duration = std::chrono::high_resolution_clock::now() - lastTime;
 		auto milliseconds = std::chrono::duration_cast<std::chrono::duration<uint32_t, std::milli>>(duration);
+		// Motor M2's PreDraw (the end of the frame's logic, nothing between it and the draw): the overlays read here,
+		// the draw reads only the copy
+		FillOverlayFrame(*_screenFade, overlay);
 		{
 			auto section = profiler.BeginScoped(Profiler::Stage::SceneDraw);
 
@@ -1658,6 +1792,7 @@ bool Game::Run() noexcept
 			    .camera = &Locator::camera::value(),
 			    .frameBuffer = nullptr,
 			    .entities = Locator::entitiesRegistry::value(),
+			    .overlay = overlay,
 			    .time = milliseconds.count(), // TODO(#481): get actual time
 			    .timeOfDay = Locator::skySystem::value().GetTime(),
 			    .bumpMapStrength = config.bumpMapStrength,
@@ -1760,6 +1895,8 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	land_balance::Reset();
 	// ClearMap -> GData::Reset: the object creation counter back to 0 (2 on the first land: two HelpSpirits)
 	ecs::object_index::OnLoadMap();
+	// GGame::ClearMap: ScriptHighlight::OnClearMap 0x7096E0 (after Bookmark::ClearAll)
+	ecs::script_highlight::OnClearMap();
 	// GGame::Init 0x54F4AF puts both GRand seeds at 0x88F89F once, before the first land of a new campaign (start mode
 	// GGame +0x25017C, jump table 0x54FF60: case 1 -> GSetup::LoadMapScript 0x54F7AB, no ClearMap); ClearMap 0x552BB0 ->
 	// ResetState 0x5557A0 -> GData::Reset 0x510750 puts them at 0 for every later LOAD_MAP (GScript::LoadMap 0x6FB36A ->
@@ -1798,6 +1935,10 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	script_camera::Reset(); // no script camera mode, the FOV at 70 degrees (GCamera ctor 0x441A78)
 	// GScript::Reset -> CleanGameForScriptReboot 0x6EB330: a hand demo still playing ends (EndPlayBack 0x5DB3F0)
 	hand_demo::End();
+	// CleanGameForScriptReboot 0x6EBC77..0x6EBD10: GInterface+0x28 = 0, the hand reach 1800, the camera features 0x1BF,
+	// the ControlMap switches 1 / 1, then SetInterfaceInteraction(0), which writes all of them again. (pending)
+	// fn_005D1260 (0x6EBC67) is not ported
+	help::interface_interaction::Set(0);
 	// GGame::ClearVariables 0x54BF28: g_game +0x250188 = 0, no film goes on into the new map
 	if (video::Get().IsPlaying())
 	{

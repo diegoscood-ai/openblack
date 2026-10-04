@@ -11,11 +11,13 @@
 
 #include "ECS/AnimalAI.h"
 #include "ECS/Components/Animal.h"
+#include "ECS/Components/ScriptHighlight.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/MapCells.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
+#include "ECS/ScriptHighlight.h"
 #include "ECS/Trees.h"
 #include "ECS/Villager/VillagerDeath.h"
 #include "Locator.h"
@@ -48,6 +50,11 @@ void ToBeDeleted(entt::entity entity)
 	{
 		// Animal::DeleteDependancys (0x417BA0): flock, prey and hunter links
 		animal_ai::Forget(entity);
+	}
+	if (registry.AllOf<ScriptHighlight>(entity))
+	{
+		// ScriptHighlight::ToBeDeleted 0x709980: out of the highlights' list, its two effects closed
+		script_highlight::OnToBeDeleted(entity);
 	}
 	physics::PhysicsObjects::RemoveObject(entity);
 	// CleanupWhenDeleted 0x6377F0: RemoveMapObject vt +0x548, out of its cells

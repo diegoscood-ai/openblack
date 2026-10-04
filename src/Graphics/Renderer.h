@@ -74,6 +74,7 @@ class List;
 struct ShadowInfo;
 }
 class Mesh;
+struct SpiritQuadVertex; // Graphics/OverlayFrame.h
 
 class Renderer final: public RendererInterface
 {
@@ -222,8 +223,9 @@ class Renderer final: public RendererInterface
 	void DrawHumanShadows(graphics::RenderPass viewId) const;
 	/// LH3DRender::FinishFrame 0x82F460 (e) or (h): `drawFade` false, the cinema bars if [0xEB9950] != 0
 	/// (0x82F652..0x82F6DD, fn_0081E590 twice), before the 0x80000000 callbacks (the film, 0x82F6E5..0x82F718);
-	/// `drawFade` true, the screen fade fn_0086FEE0 (0x82F753) after them, which draws the bars again over its colour
-	void DrawScreenOverlay(bool drawFade) const;
+	/// `drawFade` true, the screen fade fn_0086FEE0 (0x82F753) after them, which draws the bars again over its colour.
+	/// The colour and the bar of the frame's OverlayFrame
+	void DrawScreenOverlay(const OverlayFrame& overlay, bool drawFade) const;
 	/// HelpSystem::Draw3D -> CameraHelp::DrawKeyOrMouse 0x447EA0: the tooltip next to the hand (the amount in the hand)
 	void DrawHandToolTip(const Camera& camera) const;
 	/// The fonts of HelpText (+0xC..+0x18, table 0xECCD08): Data\j0, f1 and f3, loaded on first use (f1 / f3 fall back
@@ -246,16 +248,27 @@ class Renderer final: public RendererInterface
 	void SubmitScreenRects(const std::vector<ScreenRectVertex>& vertices) const;
 	/// HelpText's draw callback 0x5CD020 (RegisterFinishFrameCallback(20000) 0x5CAD74: after the bars, before the film
 	/// and the fade): the box (fn_005CCE60), the dialogue texts (fn_005CC760) and the click cue (KMIcon of Draw3D
-	/// 0x5C59D0)
-	void DrawHelpText() const;
+	/// 0x5C59D0), as the OverlayFrame laid them out
+	void DrawHelpText(const OverlayFrame& overlay) const;
 	/// The full screen film (Video/VideoPlayer.h): LHVideoPlayer::DrawToScreen 0x54DC6D drawn by thedraw 0x844E30 ->
 	/// fn_00845740, one quad per 256x256 tile of the mosaic in material mode 6 (0x844FC6)
 	void DrawVideoOverlay() const;
 	/// (milagros2, fallspell) the falling spell's sparks and light bursts over its film (RendererFallingSpell.cpp)
 	void DrawFallingSpellOverlay() const;
+	/// The advisor spirits (Help/SpiritsRuntime.h, RendererSpirits.cpp), fn_005C0700: `overlay` false, the ones with
+	/// the in-world blend >= 0.5, in the frame (Draw3D 0x5C5B26), after the Z-sorter's drain; true, the others from the
+	/// FinishFrame callback 0x5C2E10 in the FinishFrame3D view (after the Z reset). The model, its halo, its puff, as
+	/// the frame's OverlayFrame holds them
+	void DrawSpirits(const Camera& camera, const OverlayFrame& frame, bool overlay) const;
+	/// Their rainbow trails, the "before" FinishFrame callback 0x5C2E30 (after the Z-sorter's flush, before the Z
+	/// reset): at the end of MainBlended
+	void DrawSpiritTrails(const Camera& camera, const OverlayFrame& frame) const;
+	/// Triangles (three vertices each) of the WorldQuad program with a .raw pair and a bgfx state
+	void SubmitSpiritQuads(graphics::RenderPass viewId, const std::vector<SpiritQuadVertex>& vertices, uint32_t texture,
+	                       uint32_t alpha, uint64_t state) const;
 	/// The end of LH3DRender::FinishFrame 0x82F460: the bars, the film, the fade, in that order; in mode 2 (milagros2,
 	/// fallspell) the film (thedraw(0) 0x52689F in FallingSpell::Draw), the sparks, the bursts, the bars, the fade
-	void DrawFinishFrameOverlays() const;
+	void DrawFinishFrameOverlays(const OverlayFrame& overlay) const;
 	/// The film's picture, (re)made when its size changes and updated when its serial changes
 	mutable bgfx::TextureHandle _videoTexture = BGFX_INVALID_HANDLE;
 	mutable glm::u16vec2 _videoTextureSize {0, 0};
@@ -276,6 +289,8 @@ public:
 	void ConfigureView(RenderPass viewId, glm::u16vec2 resolution, uint32_t clearColor) const noexcept final;
 
 	void DrawScene(const DrawSceneDesc& drawDesc) const noexcept final;
+	[[nodiscard]] glm::u16vec2 GetResolution() const noexcept final { return _resolution; }
+	[[nodiscard]] float MeasureText(help::TextFont font, std::u16string_view text, float size) const noexcept final;
 	void DrawMesh(const L3DMesh& mesh, const L3DMeshSubmitDesc& desc, uint8_t subMeshIndex) const noexcept final;
 	void Frame() noexcept final;
 	void RequestScreenshot(const std::filesystem::path& filepath) noexcept final;
@@ -328,6 +343,8 @@ private:
 	/// The instances of the fish puzzle nets' floats (RendererFishPlot.cpp), made on first use
 	mutable bgfx::DynamicVertexBufferHandle _fishPlotInstances = BGFX_INVALID_HANDLE;
 	mutable uint32_t _fishPlotCapacity {0};
+	/// The advisor spirits' instances (RendererSpirits.cpp): two in the frame, two in the overlay, made on first use
+	mutable bgfx::DynamicVertexBufferHandle _spiritInstances = BGFX_INVALID_HANDLE;
 	mutable glm::u16vec2 _landCellsSize {0, 0};
 	/// Moves the clouds and computes their colour / alpha; then this frame's land cells (land_light): the stamps of
 	/// fn_0086D360 with the clouds' shadows among them, the night lights, uploaded to _landCellsTexture

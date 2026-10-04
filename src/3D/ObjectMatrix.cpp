@@ -100,7 +100,24 @@ glm::mat3 lh_matrix::AngleXYZ(float x, float y, float z)
 
 void lh_matrix::RotateY(glm::mat3& m, float a)
 {
-	TurnRowPair(m, 0, 2, std::cos(static_cast<double>(a)), std::sin(static_cast<double>(a))); // 0x5198FC..0x519956
+	RotateY(m, std::cos(static_cast<double>(a)), std::sin(static_cast<double>(a))); // 0x5198FC..0x519956
+}
+
+void lh_matrix::RotateY(glm::mat3& m, double c, double s)
+{
+	TurnRowPair(m, 0, 2, c, s);
+}
+
+void lh_matrix::RotateZ(glm::mat3& m, double c, double s)
+{
+	// r0' = c r0 - s r1, r1' = c r1 + s r0: the pair (0, 1) with -s
+	TurnRowPair(m, 0, 1, c, -s);
+}
+
+void lh_matrix::RotateX(glm::mat3& m, double c, double s)
+{
+	// r1' = c r1 - s r2, r2' = c r2 + s r1: the pair (1, 2) with -s
+	TurnRowPair(m, 1, 2, c, -s);
 }
 
 void lh_matrix::RotateZ(glm::mat3& m, float a)

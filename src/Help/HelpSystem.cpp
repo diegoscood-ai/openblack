@@ -242,6 +242,10 @@ void HelpSystem::AddText(const std::u16string& text, int32_t withInteraction, fl
 	{
 		_hooks.showText(text, number, narrator);
 	}
+	if (_hooks.textStarted)
+	{
+		_hooks.textStarted(textId);
+	}
 	_clickCueAlpha = 0.0f; // 0x5C615E..0x5C6196 delete the KMIcons
 	StartReadingTime(text);                        // 0x5C611E
 	_waitClick = withInteraction == 1;             // 0x5C6129, 0x5C6140
@@ -275,7 +279,9 @@ void HelpSystem::StartReadingTime(std::u16string_view text)
 	_endTurn = turn + static_cast<uint32_t>(game_clock::TicksForSeconds(seconds));
 	const int32_t now = NowMs();
 	_startMs = now;                                                                                  // 0x5C628F
-	_endMs = static_cast<int32_t>(static_cast<double>(seconds) * 1000.0 + static_cast<double>(now)); // 0x5C629B
+	// 0x5C6279..0x5C6295: fld seconds, fmul 1000.0f [0x8AB228], fiadd now, __ftol; each step rounded to a float (the FPU
+	// at 24 bits: past 2^24 ms the sum loses its last bits, as in the exe)
+	_endMs = static_cast<int32_t>(static_cast<float>(static_cast<double>(seconds * 1000.0f) + static_cast<double>(now)));
 }
 
 bool HelpSystem::HasVoice(uint32_t textId) const

@@ -38,6 +38,7 @@
 #include "ECS/Systems/HandSystemInterface.h"
 #include "InfoConstants.h"
 #include "Locator.h"
+#include "Help/HelpProfile.h"
 #include "Magic/MagicTables.h"
 #include "PSys/PSysManager.h"
 #include "Resources/ResourceManager.h"
@@ -230,7 +231,13 @@ void DoPostCastThings(entt::entity entity, entt::entity spellEntity)
 		spell.age = seed.storedAge;
 	}
 	seed::SetChantStore(seed, 0.0f);
-	// TODO(M2): the help triggers 9 / 10
+	// 0x729385..0x7293E6: when the seed is my interface's (inferred, as above: inInterface), HelpProfile::Trigger
+	// CastCreatureSpell (10) for a GMagicCreatureSpellInfo (vt +0x38 AsMagicCreatureSpellInfo != 0), else CastSpell (9)
+	if (seed.inInterface)
+	{
+		const bool creatureSpell = SlotOf(spell.magicType).section == MagicInfoSection::CreatureSpell;
+		help_profile::Trigger(creatureSpell ? help_profile::Event::CastCreatureSpell : help_profile::Event::CastSpell);
+	}
 	if (!IsSpellCastInHand(seed))
 	{
 		if (auto* transform = registry.TryGet<Transform>(entity); transform != nullptr)
@@ -361,7 +368,13 @@ void seed::SetInactive(SpellSeed& seed, bool inactive)
 int seed::InterfaceSetInMagicHand(entt::entity entity)
 {
 	SetPowerUp(entity, SeedOf(entity).powerUp);
-	// TODO(M2): HelpProfile::Trigger(13 with a spell, else 12)
+	// 0x72881D..0x728859: my interface's hand (inferred: inInterface, as DoPostCastThings): StopSpell (13) when the seed
+	// still has its spell (+0x60), else GetSpell (12)
+	if (SeedOf(entity).inInterface)
+	{
+		help_profile::Trigger(SeedOf(entity).spell != entt::null ? help_profile::Event::StopSpell
+		                                                        : help_profile::Event::GetSpell);
+	}
 	if (!StoreChantsAndAgeFromSpell(entity) || (SeedOf(entity).flags & 2u) != 0)
 	{
 		ToBeDeleted(entity);

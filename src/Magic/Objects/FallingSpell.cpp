@@ -22,6 +22,7 @@
 #include <spdlog/spdlog.h>
 
 #include "Camera/Camera.h"
+#include "Camera/ScreenPoint.h"
 #include "Common/GameRandom.h"
 #include "EngineConfig.h"
 #include "FileSystem/FileSystemInterface.h"
@@ -56,40 +57,11 @@ float BurstU(float value)
 	return (a - static_cast<float>(Ftol(a))) * 0.25f + 0.5f;
 }
 
-// The screen of the sparks: ChangeFov(pi / 4) 0x8195B0 (the update 0x526EB3, before every Draw): T = tan(fov / 2)
-// (0x8195B8..0x8195D7), fx [0xE83A00] = 1 / T, fy [0xE83A04] = aspect / T with aspect [0xE839EC] = W / H
-// (UpdateViewPort 0x81909C); Get3DPointFromScreen 0x81B370 uses [0xC3812C] = near T and [0xC38130] = near T / aspect
-struct Lens
+// The screen of the sparks: ChangeFov(pi / 4) 0x8195B0 (the update 0x526EB3, before every Draw), the lens of
+// Camera/ScreenPoint.h (Get3DPointFromScreen 0x81B370 and LH3DSprite::Draw's projection in camera space)
+screen_point::Lens LensOf(int width, int height)
 {
-	float halfW;
-	float halfH;
-	float tanHalf;
-	float aspect;
-};
-
-Lens LensOf(int width, int height)
-{
-	const float w = static_cast<float>(width);
-	const float h = static_cast<float>(height);
-	return {w * 0.5f, h * 0.5f, std::tan(k_FallFov * 0.5f), h != 0.0f ? w / h : 1.0f};
-}
-
-// Get3DPointFromScreen 0x81B370 in camera space: ((x - hW) near T / hW, (hH - y) near T / aspect / hH) x depth / near,
-// z = depth (the camera's rotation and g_camera then take it to the world, 0x81B3BE..0x81B43A; here the camera is the
-// origin). (aproximado) the near cancels out; the original's rounding goes through it
-glm::vec3 PointFromScreen(const Lens& lens, int32_t x, int32_t y, float depth)
-{
-	const float vx = (static_cast<float>(x) - lens.halfW) * lens.tanHalf / lens.halfW;
-	const float vy = (lens.halfH - static_cast<float>(y)) * (lens.tanHalf / lens.aspect) / lens.halfH;
-	return {vx * depth, vy * depth, depth};
-}
-
-// LH3DSprite::Draw 0x840930..0x8409D0 without clipping: sx = (X / Z + 1) hW, sy = hH - Y / Z hH, X = fx x, Y = fy y
-glm::vec2 Project(const Lens& lens, const glm::vec3& v)
-{
-	const float fx = 1.0f / lens.tanHalf;
-	const float fy = lens.aspect / lens.tanHalf;
-	return {(fx * v.x / v.z + 1.0f) * lens.halfW, lens.halfH - fy * v.y / v.z * lens.halfH};
+	return screen_point::LensOf(width, height, k_FallFov);
 }
 } // namespace
 
@@ -454,7 +426,7 @@ void FallingSpell::Draw(uint32_t deltaMs, int width, int height)
 		// 0x526D0C..0x526D65: Get3DPointFromScreen((ftol(W x), ftol(H y)), depth) with W [0xE85058], H [0xE8505A]
 		const int32_t sx = Ftol(static_cast<float>(width) * spark.x);
 		const int32_t sy = Ftol(static_cast<float>(height) * spark.y);
-		sprite.position = PointFromScreen(lens, sx, sy, spark.depth);
+		sprite.position = screen_point::CameraPointFromScreen(lens, sx, sy, spark.depth);
 		// 0x526D6A..0x526D94: y += (spin + 1) (1 - y) dt 0.1 ([0x8AB22C])
 		spark.y += (spark.spin + 1.0f) * (1.0f - spark.y) * dt * 0.1f;
 		// 0x526D97..0x526DA6: the material [0xEA1ABC] (smoke.raw, mode 6) and LH3DSprite::AddDrawing 0x840C70
@@ -541,7 +513,7 @@ std::vector<std::array<ScreenVertex, 4>> FallingSpell::SparkQuads(int width, int
 		std::array<ScreenVertex, 4> out {};
 		for (size_t k = 0; k < out.size(); ++k)
 		{
-			out.at(k) = {Project(lens, quad.corners.at(k)), quad.uv.at(k), sprite.argb};
+			out.at(k) = {screen_point::ProjectCamera(lens, quad.corners.at(k)), quad.uv.at(k), sprite.argb};
 		}
 		quads.push_back(out);
 	}

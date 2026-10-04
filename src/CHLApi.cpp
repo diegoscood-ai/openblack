@@ -13,6 +13,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
+#include <limits>
 
 #include <mutex>
 #include <optional>
@@ -43,6 +44,7 @@
 #include "Audio/LH/SamplePlay.h"
 #include "Audio/Services/ScriptSound.h"
 #include "Camera/Camera.h"
+#include "Camera/FieldOfView.h"
 #include "Camera/CameraShake.h"
 #include "Common/GameRandom.h"
 #include "Camera/PlayerCameraScript.h"
@@ -80,11 +82,15 @@
 #include "ECS/GUtilsDistance.h"
 #include "ECS/MapCells.h"
 #include "ECS/MobileWalkPaths.h"
+#include "ECS/ObjectMetrics.h"
 #include "ECS/PetitNavire.h"
 #include "ECS/PuzzleGames.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
 #include "ECS/ScriptHeld.h"
+#include "ECS/ScriptHighlight.h"
+#include "ECS/ScriptTimer.h"
+#include "ECS/ScriptTypes.h"
 #include "ECS/SeaCells.h"
 #include "ECS/Systems/HandSystemInterface.h"
 #include "ECS/Town/BuildingSites.h"
@@ -95,8 +101,11 @@
 #include "Enums.h"
 #include "Game.h"
 #include "GameClock.h"
+#include "Help/HelpProfile.h"
 #include "Help/HelpSystem.h"
+#include "Help/InterfaceInteraction.h"
 #include "Help/ScriptControl.h"
+#include "Help/SpiritsRuntime.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Magic/Script/CHLInfluence.h"
@@ -379,8 +388,10 @@ entt::entity CreateScriptObject(const ObjectType type, uint32_t subtype, const g
 		return magic::script::CreateOneShotSpellInHand(subtype);
 	case ObjectType::SpellDispenser:
 		return magic::script::CreateSpellDispenser(subtype, position, yAngleRadians, scale);
+	case ObjectType::Timer: // 0x6F1253..0x6F1263: fn_007115A0((float)(uint64)sub_type), the sub-type is the seconds
+		return ecs::script_timer::Create(static_cast<float>(subtype));
 	default:
-		// TODO: Reward, Creature, DeadTree, Store, Timer, Vortex, Ball, Totem, Highlight, Scaffold
+		// TODO: Reward, Creature, DeadTree, Store, Vortex, Ball, Totem, Highlight, Scaffold
 		SPDLOG_LOGGER_DEBUG(spdlog::get("game"), "CreateScriptObject not implemented for type {}", static_cast<int>(type));
 		return entt::null;
 	}
@@ -526,52 +537,127 @@ void GetCameraFocus() // 006 GET_CAMERA_FOCUS
 	PushVec(focus);
 }
 
+/// GScript::ConvertScriptSpiritToHelpSpirit 0x710350 of a popped SCRIPT_SPIRIT_TYPE (the local player's alignment:
+/// inferred, openblack's local player is PLAYER_ONE; LocalRand: game_random's local stream)
+int32_t ScriptSpirit(int32_t type)
+{
+	const int discrete = audio::DiscreteAlignment(ecs::effects::alignment::Get(PlayerNames::PLAYER_ONE));
+	return help::ConvertScriptSpiritToHelpSpirit(type, discrete, []() { return audio::tags::RandomSample(0, 100); });
+}
+
+/// HelpSystem+0x10, the HelpDudeControl (Help/SpiritsRuntime.h); nullptr before help::spirits::Start (openblack only)
+help::spirits::HelpDudeControl* SpiritControl()
+{
+	auto* runtime = help::spirits::Get();
+	return runtime != nullptr ? &runtime->Control() : nullptr;
+}
+
+/// GetCurrentTaskScriptType() == 2, a help script (0x710433..0x71044B: sub 2, neg, sbb, inc)
+bool IsHelpTask()
+{
+	return static_cast<uint32_t>(Locator::vm::value().GetCurrentTaskScriptType()) ==
+	       static_cast<uint32_t>(lhvm::ScriptType::Help);
+}
+
+/// The checks of 0x7109CA..0x710A28 / 0x710AE8..0x710B4B: "Invalid Y" then "Invalid X" (ScriptErrorMessage 0x6F62B0,
+/// 0xC20B64 / 0xC20B58) for a value below 0 (NaN too: fcomp, test ah, 1) or above 1; the opcode goes on
+void CheckScreenXY(const char* opcode, float x, float y)
+{
+	const auto invalid = [](float v) { return !(v >= 0.0f) || v > 1.0f; };
+	if (invalid(y))
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "{}: Invalid Y", opcode);
+	}
+	if (invalid(x))
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "{}: Invalid X", opcode);
+	}
+}
+
+/// GScript::GetScriptGameThing 0x70D220 for the spirit opcodes: the object, or 0 with "Object no longer valid"
+/// (0xC0D428, 0x7105FD / 0x71066A) (approximated as MusicThing: 0 is null and a valid entity stands for a live thing)
+uint32_t SpiritThing(uint32_t object, const char* opcode)
+{
+	if (object != 0 && Locator::entitiesRegistry::value().Valid(static_cast<entt::entity>(object)))
+	{
+		return object;
+	}
+	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "{}: Object no longer valid", opcode);
+	return 0;
+}
+
 void SpiritEject() // 007 SPIRIT_EJECT
 {
-	// const auto spirit = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SpiritEject 0x710410: POP the spirit -> HelpSystem::SpiritEject 0x5C6570(t, help script) -> fn_005C4BD0:
+	// a help script's spirit appears (0x5C3400), any other is ejected (0x5C32C0)
+	const auto spirit = ScriptSpirit(Pop().intVal);
+	if (auto* control = SpiritControl(); control != nullptr)
+	{
+		control->SpiritEject(spirit, IsHelpTask());
+	}
 }
 
 void SpiritHome() // 008 SPIRIT_HOME
 {
-	// const auto spirit = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SpiritHome 0x710490: POP the spirit -> HelpSystem::SpiritHome 0x5C6670(t, help script) (Hooks::spiritHome
+	// -> fn_005C5200: a help script's spirit vanishes, 0x5C3540; any other flies home, 0x5C3590)
+	const auto spirit = ScriptSpirit(Pop().intVal);
+	if (auto* helpSystem = help::Get(); helpSystem != nullptr)
+	{
+		helpSystem->SpiritHome(spirit, IsHelpTask() ? 1 : 0);
+	}
 }
 
 void SpiritPointPos() // 009 SPIRIT_POINT_POS
 {
-	// const auto inWorld = static_cast<bool>(Pop().intVal);
-	// const auto position = PopVec();
-	// const auto spirit = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SpiritPointAtPos 0x710510: POP in_world (the raw dword), the position, the spirit ->
+	// HelpSystem::SpiritPoint 0x5C6590 -> fn_005C4EF0 (eject, then point mode 1 with 8.0 / 5.0)
+	const auto inWorld = Pop().intVal != 0;
+	const auto position = PopVec();
+	const auto spirit = ScriptSpirit(Pop().intVal);
+	if (auto* control = SpiritControl(); control != nullptr)
+	{
+		control->SpiritPointPosition(spirit, position, inWorld);
+	}
 }
 
 void SpiritPointGameThing() // 010 SPIRIT_POINT_GAME_THING
 {
-	// const auto inWorld = static_cast<bool>(Pop().intVal);
-	// const auto target = Pop().uintVal;
-	// const auto spirit = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SpiritPointAtGameThing 0x7105B0: POP in_world, the object (GetScriptGameThing 0x70D220), the spirit
+	// (converted before the test, 0x7105F1); no object -> "Object no longer valid"; else HelpSystem::SpiritPoint 0x5C6650
+	// -> fn_005C4FA0 (re-sent every turn by 0x5C50C0)
+	const auto inWorld = Pop().intVal != 0;
+	const auto target = Pop().uintVal;
+	const auto spirit = ScriptSpirit(Pop().intVal);
+	const auto object = SpiritThing(target, "SPIRIT_POINT_GAME_THING");
+	if (auto* control = SpiritControl(); control != nullptr && object != 0)
+	{
+		control->SpiritPointObject(spirit, object, inWorld);
+	}
 }
 
 void GameThingFieldOfView() // 011 GAME_THING_FIELD_OF_VIEW
 {
-	// const auto object = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushb(false);
+	// GScript::IsGameThingFieldOfView 0x6F8130 (a multiplayer game pushes 1 without popping: not in openblack). POP the
+	// thing (GetScriptGameThing 0x70D220; none -> "Object no longer valid", 0); the drawn camera's screen test of its
+	// bounding sphere (an Object) or of its point (Camera/FieldOfView.h)
+	const auto object = Pop().uintVal;
+	const auto entity = static_cast<entt::entity>(object);
+	if (object == 0 || !Locator::entitiesRegistry::value().Valid(entity))
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "GAME_THING_FIELD_OF_VIEW: Object no longer valid");
+		Pushb(false);
+		return;
+	}
+	Pushb(field_of_view::ThingInView(entity));
 }
 
 void PosFieldOfView() // 012 POS_FIELD_OF_VIEW
 {
-	// const auto position = PopVec();
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushb(false);
+	// GScript::IsPosFieldOfView 0x6F8060: POP the vector; inside the temple 0, else fn_0081F1D0 (the point on the
+	// screen of the drawn camera, Camera/FieldOfView.h)
+	const auto position = PopVec();
+	Pushb(field_of_view::PosInView(position));
 }
 
 // CHAR2WCHAR 0x8300A0 of a script string: MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, s, -1, buffer, 0x7FF).
@@ -620,10 +706,29 @@ void TextRead() // 015 TEXT_READ
 
 void GameThingClicked() // 016 GAME_THING_CLICKED
 {
-	// const auto object = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushb(false);
+	// GScript::GameThingClicked 0x70AEB0. (pending) a multiplayer game: "This is not multiplayer friendly yet!" and
+	// true, without the pop (0x70AEC0..0x70AEEE): openblack has no multiplayer game
+	const auto object = Pop().uintVal;
+	const auto thing = static_cast<entt::entity>(object);
+	if (object == 0 || !Locator::entitiesRegistry::value().Valid(thing))
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "GAME_THING_CLICKED: Object no longer valid"); // 0xC0D428
+		Pushb(false);
+		return;
+	}
+	auto& hand = Locator::handSystem::value();
+	// GInterface +0x45C, the last object tapped with the action button (BaseInfo::GetBase 0x436B80) == the thing
+	const bool clicked = hand.GetClickedObject() == thing;
+	// a scroll (vt +0x48C, not IsDidYouKnow 0x70AC20) of the challenges 0x38, 0x3B, 0x3C, 0x3D (fn_0070AC50): +0x45C
+	// cleared (+4 / +8), SaveGameRoom::InstantSaveGame(14) 0x792FB0 (pending: no save rooms), then tapped again
+	// (fn_005D36D0: +0x45C = it, +0x468 = the turn)
+	if (clicked && ecs::script_highlight::IsHighlight(thing) && !ecs::script_highlight::IsDidYouKnow(thing) &&
+	    ecs::script_highlight::SavesGameWhenClicked(ecs::script_highlight::ScriptIdOf(thing)))
+	{
+		hand.ClearClicked();
+		hand.RememberTapped(thing);
+	}
+	Pushb(clicked); // PUSH(clicked, 6) 0x70AFCA
 }
 
 void SetScriptState() // 017 SET_SCRIPT_STATE
@@ -737,6 +842,16 @@ void GetProperty() // 021 GET_PROPERTY
 	case script::ObjectPropertyType::Drowning: // 0x70DD0A: IsDrowning (vt +0x17C)
 		Pushb(openblack::ecs::IsDrowning(entity));
 		return;
+	case script::ObjectPropertyType::YPos:
+		// 0x70E70A: Pos.altitude (+0x1C) of any thing, as a float. (pending) only the highlights here
+		if (ecs::script_highlight::IsHighlight(entity))
+		{
+			Pushf(ecs::script_highlight::GetYPos(entity));
+			return;
+		}
+		NotImplemented(__func__);
+		Pushf(0.0f);
+		return;
 	case script::ObjectPropertyType::BuiltPercentage: // 0x70E1A9: a MultiMapFixed's GetPercentBuilt, else 1
 		if (const auto percent = openblack::ecs::abodes::GetBuiltPercentage(entity); percent.has_value())
 		{
@@ -772,6 +887,16 @@ void SetProperty() // 022 SET_PROPERTY
 	case script::ObjectPropertyType::Moving:
 		// 0x70F2CC..0x70F2D4 -> 0x70F294: "Cannot Set Property %d", nothing changes
 		SPDLOG_LOGGER_WARN(spdlog::get("scripting"), "SET_PROPERTY: Cannot Set Property {}", static_cast<int>(prop));
+		return;
+	case script::ObjectPropertyType::YPos:
+		// 0x70EF9B: a ScriptHighlight (vt +0x48C) -> SetDrawHeight(val) 0x709C40; then, for any thing, +0x1C = val and
+		// its 3D object moved there. (pending) only the highlights here
+		if (object != 0 && ecs::script_highlight::IsHighlight(static_cast<entt::entity>(object)))
+		{
+			ecs::script_highlight::SetYPos(static_cast<entt::entity>(object), val);
+			return;
+		}
+		NotImplemented(__func__);
 		return;
 	case script::ObjectPropertyType::BuiltPercentage:
 		// 0x70EC69: a MultiMapFixed -> fn_0052EDD0 (the Features here); anything else -> 0x70F294
@@ -858,15 +983,113 @@ void GetDistance() // 025 GET_DISTANCE
 	Pushf(distance < 0.5f ? 0.0f : distance);
 }
 
+namespace
+{
+/// GScript::FindCreatureAtPos 0x6F7380 / FindCreatureNearPos 0x6F73C0: the first creature of Creature::CreatureList
+/// 0xC5FCF8 with GetDistanceInMetres(point, its MapCoords) <= 1.0 [0x8AA390] (AtPos: no type or sub-type test) / <= r
+/// and info +0x1F4 == subtype (NearPos); `test ah, 0x41`. (approximate) openblack has no CreatureList: the registry's
+/// order. (pending, creature) info +0x1F4 is taken as the creature's species (ecs::script_type::SubtypeOf)
+entt::entity FindCreatureForScript(const ecs::map_coords::MapCoords& coords, uint32_t subtype, std::optional<float> radius)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	entt::entity found = entt::null;
+	registry.Each<const ecs::components::Creature>([&](entt::entity creature, const ecs::components::Creature& data) {
+		if (found != entt::null || (radius.has_value() && static_cast<uint32_t>(data.species) != subtype))
+		{
+			return;
+		}
+		if (gutils::GetDistanceInMetres(coords, ecs::object::MapCoordsOf(creature)) <= radius.value_or(1.0f))
+		{
+			found = creature;
+		}
+	});
+	return found;
+}
+
+/// GScript::Call 0x6F0D60 / CallNear 0x6F0EB0 after their pops (radius: CALL_NEAR's, nullopt for CALL):
+/// - type 1..41 (`test esi, esi; jle` / `cmp esi, 0x2A; jl`), else "Invalid type=%d" (0xC0CB48) and 0;
+/// - the point as MapCoords(LHPoint) 0x603160 to the type's find function (table 0xC0C728, 24 bytes a type: +0 AtPos for
+///   CALL, +4 NearPos for CALL_NEAR); NULL for NONE, MARKER, DANCE, FLOCK, INFLUENCE_RING and WEATHER_THING: "No find
+///   function for type=%d" (0xC0CB18) and 0;
+/// - found: AddScriptGameThing(thing, 0) 0x70D0F0; else the warning "Thing not found" (0xC0CB38) and 0.
+/// ScriptErrorMessage 0x6F62B0 and ScriptWarningMessage 0x6F62C0 are a bare `ret` in W120: the original prints none of
+/// these. openblack keeps them as its own diagnostics, "Thing not found" at debug level, since the scripts' waiting loops
+/// (FollowUs L53071..53087) ask every turn until the thing exists
+entt::entity FindForScript(int32_t type, uint32_t subtype, const glm::vec3& position, std::optional<float> radius,
+                           bool excludingScripted)
+{
+	if (type <= 0 || type >= 0x2A)
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "Invalid type={}", type);
+		return entt::null;
+	}
+	const auto scriptType = static_cast<ObjectType>(type);
+	const auto coords = ecs::map_coords::FromWorld(position);
+	entt::entity found = entt::null;
+	switch (scriptType)
+	{
+	case ObjectType::Marker:
+	case ObjectType::Dance:
+	case ObjectType::Flock:
+	case ObjectType::InfluenceRing:
+	case ObjectType::WeatherThing:
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "No find function for type={}", type);
+		return entt::null;
+	case ObjectType::Town:
+		// FindTownAtPos 0x6F7340 = FindTownNearPos(..., 10.0 [0x41200000]); FindTownNearPos 0x6F7370 =
+		// MapCoords::GetNearestTown(r) 0x6020E0. The type, the sub-type, the filter and excludingScripted are not used
+		found = ecs::map_cells::GetNearestTown(coords, radius.value_or(10.0f));
+		break;
+	case ObjectType::Creature:
+		found = FindCreatureForScript(coords, subtype, radius); // excludingScripted is not used either
+		break;
+	default:
+	{
+		// FindAtPos 0x6F7220 / FindNearPos 0x6F7280: GScript +0x14 = the point, +0x20 = 1.0 / r, then
+		// MapCoords::FindNearForScript(filter, type, subtype, 1.0 / r) 0x604370: the nearest accepted thing of the cells
+		// of the square, not cut at r. The filter: 0x6F6FA0 (type and sub-type) for CALL, 0x6F7070 for CALL_NEAR (also
+		// GetDistanceInMetres(point, the thing or its totem) <= r, `test ah, 0x41`), behind 0x6F79F0 / 0x6F7A20
+		// (IsInScript vt +0x448 rejects) when excludingScripted
+		const float searchRadius = radius.value_or(1.0f);
+		found = ecs::map_cells::FindNearForScript(
+		    coords,
+		    [&](entt::entity thing) {
+			    if (excludingScripted && ecs::script_held::IsInScript(thing))
+			    {
+				    return false;
+			    }
+			    if (!ecs::script_type::Matches(thing, scriptType, subtype))
+			    {
+				    return false;
+			    }
+			    return !radius.has_value() ||
+			           gutils::GetDistanceInMetres(coords, ecs::map_cells::ScriptDistancePoint(thing)) <= searchRadius;
+		    },
+		    searchRadius);
+		break;
+	}
+	}
+	if (found == entt::null)
+	{
+		SPDLOG_LOGGER_DEBUG(spdlog::get("scripting"), "Thing not found");
+		return entt::null;
+	}
+	ecs::script_held::AddScriptThing(found, false);
+	return found;
+}
+} // namespace
+
 void Call() // 026 CALL
 {
-	// const auto excludingScripted = static_cast<bool>(Pop().intVal);
-	// const auto position = PopVec();
-	// const auto subtype = Pop().intVal;
-	// const auto type = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushf(0.0f);
+	// GScript::Call 0x6F0D60: pops excludingScripted, the point (z, y, x), the sub-type, then the type (0x6F0D75..0x6F0DDF)
+	const auto excludingScripted = Pop().intVal != 0;
+	const auto position = PopVec();
+	const auto subtype = static_cast<uint32_t>(Pop().intVal);
+	const auto type = Pop().intVal;
+	const auto thing = FindForScript(type, subtype, position, std::nullopt, excludingScripted);
+	// PUSH(id, 4) 0x6F0E94. (known limitation) CHLApi's entity-as-id convention: entity 0 would read as "not found"
+	// (THING_VALID tests objId != 0), as everywhere else in CHLApi
+	Pusho(thing == entt::null ? 0 : static_cast<uint32_t>(thing));
 }
 
 void Create() // 027 CREATE
@@ -1321,14 +1544,15 @@ void PositionFollow() // 050 POSITION_FOLLOW
 
 void CallNear() // 051 CALL_NEAR
 {
-	// const auto excludingScripted = static_cast<bool>(Pop().intVal);
-	// const auto radius = Popf();
-	// const auto position = PopVec();
-	// const auto subtype = Pop().intVal;
-	// const auto type = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pusho(0);
+	// GScript::CallNear 0x6F0EB0: pops excludingScripted, the radius, the point (z, y, x), the sub-type, then the type
+	// (0x6F0EC5..0x6F0F41)
+	const auto excludingScripted = Pop().intVal != 0;
+	const auto radius = Popf();
+	const auto position = PopVec();
+	const auto subtype = static_cast<uint32_t>(Pop().intVal);
+	const auto type = Pop().intVal;
+	const auto thing = FindForScript(type, subtype, position, radius, excludingScripted);
+	Pusho(thing == entt::null ? 0 : static_cast<uint32_t>(thing)); // PUSH(id, 4) 0x6F0FFD
 }
 
 void SpecialEffectPosition() // 052 SPECIAL_EFFECT_POSITION
@@ -1443,9 +1667,8 @@ void GetInfluence() // 062 GET_INFLUENCE
 
 void SetInterfaceInteraction() // 063 SET_INTERFACE_INTERACTION
 {
-	// const auto level = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SetInterfaceInteraction 0x70B200: the level (POP 0x6F6BC0) to 0x70B220 (Help/InterfaceInteraction.h)
+	help::interface_interaction::Set(Pop().intVal);
 }
 
 void Played() // 064 PLAYED
@@ -1669,9 +1892,12 @@ void CreatureSetPlayer() // 083 CREATURE_SET_PLAYER
 
 void StartCountdownTimer() // 084 START_COUNTDOWN_TIMER
 {
-	// const auto timeout = Popf();
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::StartCountDownTimer 0x711150 -> InitialiseCountDownTimer 0x6EB8B0 (ECS/ScriptTimer.h script_countdown)
+	const auto timeout = Popf();
+	if (!ecs::script_countdown::Start(timeout))
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "START_COUNTDOWN_TIMER: Invalid time for timer");
+	}
 }
 
 void CreatureInitialiseNumTimesPerformedAction() // 085 CREATURE_INITIALISE_NUM_TIMES_PERFORMED_ACTION
@@ -1693,8 +1919,7 @@ void CreatureGetNumTimesActionPerformed() // 086 CREATURE_GET_NUM_TIMES_ACTION_P
 
 void RemoveCountdownTimer() // 087 REMOVE_COUNTDOWN_TIMER
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	ecs::script_countdown::Remove(); // GScript::RemoveCountDownTimer 0x711180: GScript +8 = 0
 }
 
 void GetObjectDropped() // 088 GET_OBJECT_DROPPED
@@ -1729,9 +1954,8 @@ void RemoveReaction() // 091 REMOVE_REACTION
 
 void GetCountdownTimer() // 092 GET_COUNTDOWN_TIMER
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushf(0.0f);
+	// GScript::GetCountDownTimer 0x7111A0 -> GetCountDownTimerRemainingTime 0x6EB950: whole seconds
+	Pushf(ecs::script_countdown::RemainingSeconds());
 }
 
 void StartDualCamera() // 093 START_DUAL_CAMERA
@@ -1815,17 +2039,20 @@ void CreatureDesireIs() // 098 CREATURE_DESIRE_IS
 
 void CountdownTimerExists() // 099 COUNTDOWN_TIMER_EXISTS
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushb(false);
+	Pushb(ecs::script_countdown::Exists()); // GScript::CountDownTimerExists 0x7111D0: GScript +8
 }
 
 void LookGameThing() // 100 LOOK_GAME_THING
 {
-	// const auto target = Pop().uintVal;
-	// const auto spirit = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::LookGameThing 0x710630: POP the object (GetScriptGameThing), the spirit; no object -> "Object no longer
+	// valid" (0x71066A); else fn_005C65F0 -> fn_005C4E50 (the per-turn refresh 0x5C5170 points, original bug kept)
+	const auto target = Pop().uintVal;
+	const auto spirit = ScriptSpirit(Pop().intVal);
+	const auto object = SpiritThing(target, "LOOK_GAME_THING");
+	if (auto* control = SpiritControl(); control != nullptr && object != 0)
+	{
+		control->SpiritLookObject(spirit, object);
+	}
 }
 
 void GetObjectDestination() // 101 GET_OBJECT_DESTINATION
@@ -1847,8 +2074,7 @@ void CreatureForceFinish() // 102 CREATURE_FORCE_FINISH
 
 void HideCountdownTimer() // 103 HIDE_COUNTDOWN_TIMER
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	ecs::script_countdown::SetShown(false); // GScript::HideCountDownTimer 0x7111F0: GScript +0x10 = 0
 }
 
 void GetActionTextForObject() // 104 GET_ACTION_TEXT_FOR_OBJECT
@@ -2162,35 +2388,54 @@ void GetTargetRelativePos() // 136 GET_TARGET_RELATIVE_POS
 
 void StopPointing() // 137 STOP_POINTING
 {
-	// const auto spirit = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::StopPointing 0x710860: POP the spirit -> fn_005C6630 -> fn_005C5060
+	const auto spirit = ScriptSpirit(Pop().intVal);
+	if (auto* control = SpiritControl(); control != nullptr)
+	{
+		control->SpiritStopPointing(spirit);
+	}
 }
 
 void StopLooking() // 138 STOP_LOOKING
 {
-	// const auto spirit = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::StopLooking 0x710890: POP the spirit -> fn_005C6610 -> fn_005C5090
+	const auto spirit = ScriptSpirit(Pop().intVal);
+	if (auto* control = SpiritControl(); control != nullptr)
+	{
+		control->SpiritStopLooking(spirit);
+	}
 }
 
 void LookAtPosition() // 139 LOOK_AT_POSITION
 {
-	// const auto position = PopVec();
-	// const auto spirit = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::LookAtPosition 0x7108C0: POP the position, the spirit -> fn_005C65D0 -> fn_005C4E00
+	const auto position = PopVec();
+	const auto spirit = ScriptSpirit(Pop().intVal);
+	if (auto* control = SpiritControl(); control != nullptr)
+	{
+		control->SpiritLookAtPosition(spirit, position);
+	}
 }
 
 void PlaySpiritAnim() // 140 PLAY_SPIRIT_ANIM
 {
-	// const auto unk4 = Pop().intVal;
-	// const auto unk3 = Pop().intVal;
-	// const auto unk2 = Pop().intVal;
-	// const auto unk1 = Pop().intVal;
-	// const auto unk0 = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SpiritPlayAnim 0x710940: POP the time, the anim (raw), y, x, the spirit; anim outside 0..0x50 ->
+	// "Invalid enum" (0xC20B70), then "Invalid Y" / "Invalid X", none of them stops it; HelpSystem::SpiritPlayAnim
+	// 0x5C6690(t, x, y, anim, time) -> fn_005C4C80
+	const auto time = Popf();
+	const auto anim = Pop().intVal;
+	const auto y = Popf();
+	const auto x = Popf();
+	const auto spirit = ScriptSpirit(Pop().intVal);
+	if (anim < 0 || anim > static_cast<int32_t>(help::spirits::anim::Last))
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "PLAY_SPIRIT_ANIM: Invalid enum");
+	}
+	CheckScreenXY("PLAY_SPIRIT_ANIM", x, y);
+	if (auto* control = SpiritControl(); control != nullptr)
+	{
+		control->SpiritPlayAnim(spirit, x, y, static_cast<uint32_t>(anim), time);
+	}
 }
 
 void CallInNotNear() // 141 CALL_IN_NOT_NEAR
@@ -2229,43 +2474,82 @@ void GetObjectState() // 143 GET_OBJECT_STATE
 
 void RevealCountdownTimer() // 144 REVEAL_COUNTDOWN_TIMER
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	ecs::script_countdown::SetShown(true); // GScript::RevealCountDownTimer 0x711210: GScript +0x10 = 1
 }
 
 void SetTimerTime() // 145 SET_TIMER_TIME
 {
+	// GScript::SetTimerTime 0x711280: POP the time, then the thing (GetScriptGameThing 0x70D220; none -> "Object no
+	// longer valid"). A ScriptTimer starts again from this turn (0x711630); a spell dispenser takes it as its period
+	// (0x71132A..0x711362); anything else is "Invalid script thing"
 	const auto time = Popf();
 	const auto timer = Pop().uintVal;
-	// 0x711280 also takes a spell dispenser (its period); the timers themselves are not ported
-	if (timer == 0 || !magic::script::SetDispenserTimerTime(static_cast<entt::entity>(timer), time))
+	const auto entity = static_cast<entt::entity>(timer);
+	if (timer == 0 || !Locator::entitiesRegistry::value().Valid(entity))
 	{
-		NotImplemented(__func__);
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "SET_TIMER_TIME: Object no longer valid");
+		return;
+	}
+	if (!ecs::script_timer::SetTime(entity, time) && !magic::script::SetDispenserTimerTime(entity, time))
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "SET_TIMER_TIME: Invalid script thing");
 	}
 }
 
 void CreateTimer() // 146 CREATE_TIMER
 {
-	// const auto timeout = Popf();
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pusho(0);
+	// GScript::CreateTimer 0x6F1D20: POP the seconds; fn_007115A0; AddScriptGameThing(t, 1) and PUSH it (0 and "Thing
+	// not created" when nothing was made). (not ported) SetScriptNameOfCreate 0x56FA70 (the debug name of the script)
+	const auto timeout = Popf();
+	const auto timer = ecs::script_timer::Create(timeout);
+	if (timer == entt::null)
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CREATE_TIMER: Thing not created");
+		Pusho(0);
+		return;
+	}
+	ecs::script_held::AddScriptThing(timer, true);
+	Pusho(static_cast<uint32_t>(timer));
 }
 
 void GetTimerTimeRemaining() // 147 GET_TIMER_TIME_REMAINING
 {
-	// const auto timer = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushf(0.0f);
+	// GScript::GetTimerTimeRemaining 0x711370: none -> "Object no longer valid" and 0.0; not a timer -> "Invalid script
+	// thing" and 0.0; else fn_00711670 (the seconds left of the game turns, 0 once out)
+	const auto timer = Pop().uintVal;
+	const auto entity = static_cast<entt::entity>(timer);
+	if (timer == 0 || !Locator::entitiesRegistry::value().Valid(entity))
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "GET_TIMER_TIME_REMAINING: Object no longer valid");
+		Pushf(0.0f);
+		return;
+	}
+	const auto remaining = ecs::script_timer::Remaining(entity);
+	if (!remaining)
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "GET_TIMER_TIME_REMAINING: Invalid script thing");
+	}
+	Pushf(remaining.value_or(0.0f));
 }
 
 void GetTimerTimeSinceSet() // 148 GET_TIMER_TIME_SINCE_SET
 {
-	// const auto timer = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushf(0.0f);
+	// GScript::GetTimerTimeSinceSet 0x711410: none or not a timer -> the error and FLT_MAX ([0x95722C]); else
+	// fn_007116D0 (the seconds since it was set)
+	const auto timer = Pop().uintVal;
+	const auto entity = static_cast<entt::entity>(timer);
+	if (timer == 0 || !Locator::entitiesRegistry::value().Valid(entity))
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "GET_TIMER_TIME_SINCE_SET: Object no longer valid");
+		Pushf(std::numeric_limits<float>::max());
+		return;
+	}
+	const auto since = ecs::script_timer::SinceSet(entity);
+	if (!since)
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "GET_TIMER_TIME_SINCE_SET: Invalid script thing");
+	}
+	Pushf(since.value_or(std::numeric_limits<float>::max()));
 }
 
 void MoveMusic() // 149 MOVE_MUSIC
@@ -2338,31 +2622,52 @@ void StopScript() // 155 STOP_SCRIPT
 
 void ClearClickedObject() // 156 CLEAR_CLICKED_OBJECT
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::ClearClickedObject 0x70B0E0: GInterface +0x45C +4 / +8 = 0
+	Locator::handSystem::value().ClearClicked();
 }
 
 void ClearClickedPosition() // 157 CLEAR_CLICKED_POSITION
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::ClearClickedPosition 0x70B100: GInterface +0x46C..+0x474 = 0 (the turn +0x478 stays)
+	Locator::handSystem::value().ClearClickedPosition();
 }
 
 void PositionClicked() // 158 POSITION_CLICKED
 {
-	// const auto unk3 = Pop().intVal;
-	// const auto unk2 = Pop().intVal;
-	// const auto unk1 = Pop().intVal;
-	// const auto unk0 = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushb(false);
+	// GScript::PositionClicked 0x70B120: the radius, then the position (0x70B130..0x70B170); (pending) a multiplayer game
+	// logs "This is not multiplayer friendly yet!" and pushes true (0x70B183..0x70B1B2). Then GInterface fn_005D0460(
+	// MapCoords(pos), radius) (0x70B1C7..0x70B1DA): the last clicked land point within the radius
+	const auto radius = Popf();
+	const auto position = PopVec();
+	Pushb(Locator::handSystem::value().PositionClicked(position, radius));
 }
 
 void ReleaseFromScript() // 159 RELEASE_FROM_SCRIPT
 {
-	// const auto obj = Pop().uintVal;
-	// TODO(Daniels118): implement this
+	// GScript::ReleaseFromScript 0x6FB380: GetScriptGameThing; none -> "Thing not valid" (0xC0CD88). Controlled by a
+	// script (+0x25 & 4) -> ReleaseControlFromScript(thing, id, 1) 0x70D540 -> ReleaseScriptThingIntoTheGame(thing, id,
+	// 1) 0x70F600: SetControlledByScript(0), never deleted (the 1 skips 0x70F61A..0x70F670), RemoveThingMusic, then by
+	// SCRIPT_OBJECT_TYPE (byte table 0x70F76C; 37 -> 0x70F750: nothing more)
+	const auto object = Pop().uintVal;
+	const auto thing = static_cast<entt::entity>(object);
+	if (object == 0 || !Locator::entitiesRegistry::value().Valid(thing))
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "RELEASE_FROM_SCRIPT: Thing not valid");
+		return;
+	}
+	if (!ecs::script_held::IsControlledByScript(thing))
+	{
+		return; // 0x6FB3B9
+	}
+	if (ecs::script_highlight::IsHighlight(thing))
+	{
+		// DidYouKnow (CHL L2610..) releases its sign at once: it stays when the task ends (ScriptHeld's release with 0
+		// would delete a created highlight still controlled). (pending, audio) RemoveThingMusic 0x429340
+		ecs::script_held::SetControlledByScript(thing, false);
+		return;
+	}
+	// (pending, Personas / animals) the other types: a script container's contents (ReleaseContainerContents
+	// 0x6EFCD0), the villagers (Villager::ReleaseFromScript 0x7531D0), the animals (SetScriptState WANDER) ...
 	NotImplemented(__func__);
 }
 
@@ -2413,28 +2718,39 @@ void CallNotPoisonedIn() // 164 CALL_NOT_POISONED_IN
 
 void SpiritPlayed() // 165 SPIRIT_PLAYED
 {
-	// const auto spirit = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushb(false);
+	// GScript::SpiritPlayed 0x710A50: POP the spirit; push !HelpSystem::IsSpiritPlayingAnim 0x5C66C0 (neg / sbb / inc),
+	// a bool (type 6). Without the control (openblack only): true, nothing plays
+	const auto spirit = ScriptSpirit(Pop().intVal);
+	const auto* control = SpiritControl();
+	Pushb(control == nullptr || !control->SpiritPlayingAnim(spirit));
 }
 
 void ClingSpirit() // 166 CLING_SPIRIT
 {
-	// const auto yPercent = Popf();
-	// const auto xPercent = Popf();
-	// const auto spirit = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::ClingSpirit 0x710AA0: POP y, x, the spirit; "Invalid Y" / "Invalid X" (not stopping);
+	// HelpSystem::SpiritCling 0x5C66E0 -> fn_005C4D40
+	const auto y = Popf();
+	const auto x = Popf();
+	const auto spirit = ScriptSpirit(Pop().intVal);
+	CheckScreenXY("CLING_SPIRIT", x, y);
+	if (auto* control = SpiritControl(); control != nullptr)
+	{
+		control->SpiritCling(spirit, x, y);
+	}
 }
 
 void FlySpirit() // 167 FLY_SPIRIT
 {
-	// const auto yPercent = Popf();
-	// const auto xPercent = Popf();
-	// const auto spirit = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::FlySpirit 0x710B70: POP y, x, the spirit; "Invalid Y" / "Invalid X" (not stopping);
+	// HelpSystem::SpiritFly 0x5C6700 -> fn_005C4DA0
+	const auto y = Popf();
+	const auto x = Popf();
+	const auto spirit = ScriptSpirit(Pop().intVal);
+	CheckScreenXY("FLY_SPIRIT", x, y);
+	if (auto* control = SpiritControl(); control != nullptr)
+	{
+		control->SpiritFly(spirit, x, y);
+	}
 }
 
 void SetIdMoveable() // 168 SET_ID_MOVEABLE
@@ -3147,26 +3463,40 @@ void GetDesire() // 234 GET_DESIRE
 
 void GetEventsPerSecond() // 235 GET_EVENTS_PER_SECOND
 {
-	// const auto type = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushf(0.0f);
+	// GScript::GetEventsPerSecond 0x70B7F0: POP the HELP_EVENT_TYPE (1..48, else "Invalid event" and 0.0);
+	// HelpProfile::GetTriggerPerSecond 0x448FC0 of g_game +0x250060's accumulator (Help/HelpProfile.h)
+	const auto type = Pop().intVal;
+	const auto value = help_profile::EventsPerSecond(type);
+	if (!value)
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "GET_EVENTS_PER_SECOND: Invalid event {}", type);
+	}
+	Pushf(value.value_or(0.0f));
 }
 
 void GetTimeSince() // 236 GET_TIME_SINCE
 {
-	// const auto type = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushf(0.0f);
+	// GScript::GetTimeSince 0x70B880: as 235, CameraHelpAccumulator::GetTimeSinceLastUsed 0x448F40
+	const auto type = Pop().intVal;
+	const auto value = help_profile::TimeSince(type);
+	if (!value)
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "GET_TIME_SINCE: Invalid event {}", type);
+	}
+	Pushf(value.value_or(0.0f));
 }
 
 void GetTotalEvents() // 237 GET_TOTAL_EVENTS
 {
-	// const auto type = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushf(0.0f);
+	// GScript::GetTotalEvents 0x70B910: as 235, the accumulator's count (fild [+8 + type x 0x10C]): the turns in which
+	// the event happened (TeachRotate 25, TeachPitch 28, TeachZoom / TrackZoomUsage 29, DoubleClicking 30 / 31)
+	const auto type = Pop().intVal;
+	const auto value = help_profile::TotalEvents(type);
+	if (!value)
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "GET_TOTAL_EVENTS: Invalid event {}", type);
+	}
+	Pushf(value.value_or(0.0f));
 }
 
 void UpdateSnapshot() // 238 UPDATE_SNAPSHOT
@@ -3251,10 +3581,7 @@ void SpiritSpeaks() // 246 SPIRIT_SPEAKS
 	// (the local player's alignment: inferred, openblack's local player is PLAYER_ONE; LocalRand: game_random's local stream);
 	// text 0 past 6974 (0x710C6E); push HelpSystem::GetSpiritWhoTalks 0x5C6E20 == the spirit (type 6)
 	auto text = static_cast<uint32_t>(Pop().intVal);
-	const auto type = Pop().intVal;
-	const int discrete = audio::DiscreteAlignment(ecs::effects::alignment::Get(PlayerNames::PLAYER_ONE));
-	const auto spirit =
-	    help::ConvertScriptSpiritToHelpSpirit(type, discrete, []() { return audio::tags::RandomSample(0, 100); });
+	const auto spirit = ScriptSpirit(Pop().intVal);
 	if (text >= helptext::k_TextCount)
 	{
 		text = 0;
@@ -3344,6 +3671,12 @@ void SetActive() // 255 SET_ACTIVE
 	const auto object = Pop().uintVal;
 	const auto active = static_cast<bool>(Pop().intVal);
 	// GameThing vt 0x1C0 SetActive: only the spell dispensers are ported (Magic/Script/CHLWorship.cpp)
+	// GScript::SetActive 0x6FD720: a ScriptHighlight (vt +0x48C) first -> SetActivated(on) 0x70A630
+	if (object != 0 && ecs::script_highlight::IsHighlight(static_cast<entt::entity>(object)))
+	{
+		ecs::script_highlight::SetActivated(static_cast<entt::entity>(object), active);
+		return;
+	}
 	if (object == 0 || !magic::script::SetDispenserActive(static_cast<entt::entity>(object), active))
 	{
 		NotImplemented(__func__);
@@ -3499,12 +3832,23 @@ void IsCreatureAvailable() // 271 IS_CREATURE_AVAILABLE
 
 void CreateHighlight() // 272 CREATE_HIGHLIGHT
 {
-	// const auto challengeID = Pop().intVal;
-	// const auto position = PopVec();
-	// const auto type = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pusho(0);
+	// GScript::CreateHighlight 0x6F1C20: pops the challenge id (0x6F1C30), the point (z, y, x: 0x6F1C44..0x6F1C70) and
+	// the info row (0x6F1C88: &GScriptHighlightInfo[row] = 0xD96390 + row x 0x110)
+	const auto challenge = Pop().uintVal;
+	const auto position = PopVec();
+	const auto row = Pop().uintVal;
+	// ScriptHighlight::Create(MapCoords(point) 0x603160, info, challenge, 0.0, 1.0) 0x709A40
+	const auto thing = ecs::script_highlight::Create(position, row, challenge, 0.0f, 1.0f);
+	if (thing == entt::null)
+	{
+		// 0x6F1CF5: "Highlight not created" (0xC0CC18) and 0. (openblack) also for a row past the four
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "CREATE_HIGHLIGHT: Highlight not created (row {})", row);
+		Pusho(0);
+		return;
+	}
+	ecs::script_held::AddScriptThing(thing, true); // AddScriptGameThing(thing, 1) 0x6F1CC6
+	Pusho(static_cast<uint32_t>(thing));           // PUSH(id, 4) 0x6F1CD7
+	// (pending) GameThing::SetScriptNameOfCreate(the task's script name, fn_006F6A10) 0x6F1CEA: a debug name
 }
 
 void GetObjectHeld273() // 273 GET_OBJECT_HELD
@@ -3801,16 +4145,22 @@ void SetGraphicsClipping() // 299 SET_GRAPHICS_CLIPPING
 
 void SpiritAppear() // 300 SPIRIT_APPEAR
 {
-	// const auto spirit = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SpiritAppear 0x710460: POP the spirit -> HelpSystem::SpiritEject 0x5C6570(t, 1): Appear 0x5C3400
+	const auto spirit = ScriptSpirit(Pop().intVal);
+	if (auto* control = SpiritControl(); control != nullptr)
+	{
+		control->SpiritEject(spirit, true);
+	}
 }
 
 void SpiritDisappear() // 301 SPIRIT_DISAPPEAR
 {
-	// const auto spirit = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SpiritDisappear 0x7104E0: POP the spirit -> HelpSystem::SpiritHome 0x5C6670(t, 1): Vanish 0x5C3540
+	const auto spirit = ScriptSpirit(Pop().intVal);
+	if (auto* helpSystem = help::Get(); helpSystem != nullptr)
+	{
+		helpSystem->SpiritHome(spirit, 1);
+	}
 }
 
 void SetFocusOnObject() // 302 SET_FOCUS_ON_OBJECT
@@ -3844,9 +4194,8 @@ void SetDrawLeash() // 305 SET_DRAW_LEASH
 
 void SetDrawHighlight() // 306 SET_DRAW_HIGHLIGHT
 {
-	// const auto enable = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SetDrawHighlight 0x708CB0: GScript +0x80 = the popped value as it is (0x708CCD)
+	help::script_control::GetCameraControl().drawHighlight = Pop().intVal;
 }
 
 void SetOpenClose() // 307 SET_OPEN_CLOSE
@@ -4078,11 +4427,18 @@ void FlockWithinLimits() // 333 FLOCK_WITHIN_LIMITS
 
 void HighlightProperties() // 334 HIGHLIGHT_PROPERTIES
 {
-	// const auto category = Pop().intVal;
-	// const auto text = Pop().intVal;
-	// const auto object = Pop().uintVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::HighlightProperties 0x6FE1F0: pops the DYK_CATEGORY, the text, then the thing (GetScriptGameThing)
+	const auto category = Pop().uintVal;
+	const auto text = Pop().uintVal;
+	const auto object = Pop().uintVal;
+	const auto thing = static_cast<entt::entity>(object);
+	if (object == 0 || !ecs::script_highlight::IsHighlight(thing))
+	{
+		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "HIGHLIGHT_PROPERTIES: Thing not valid"); // 0xC0CD88
+		return;
+	}
+	// ScriptHighlight::SetScriptId(text, category) 0x709A20: +0x78, +0x84
+	ecs::script_highlight::SetScriptId(thing, text, static_cast<DykCategory>(category));
 }
 
 void LastMusicLine() // 335 LAST_MUSIC_LINE
@@ -4783,9 +5139,8 @@ void GameCloseDialogue() // 412 GAME_CLOSE_DIALOGUE
 
 void GetHandState() // 413 GET_HAND_STATE
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushi(0);
+	// GScript 0x6FF730: GInterface+0x3AC, the interface's hand state of the last turn (fn_005D7E40; HandSystemInterface)
+	Pushi(Locator::handSystem::value().GetInterfaceHandState());
 }
 
 void SetInterfaceCitadel() // 414 SET_INTERFACE_CITADEL
@@ -4819,11 +5174,19 @@ void GetPlayerTownTotal() // 417 GET_PLAYER_TOWN_TOTAL
 
 void SpiritScreenPoint() // 418 SPIRIT_SCREEN_POINT
 {
-	// const auto unk2 = Pop().intVal;
-	// const auto unk1 = Pop().intVal;
-	// const auto unk0 = Pop().intVal;
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SpiritScreenPoint 0x710CA0: POP y, x, the spirit; "Invalid Y" / "Invalid X" (not stopping); the pixel
+	// (ftol(W x), ftol(H y)) with W / H = [0xE85058] / [0xE8505A] (0x710D45..0x710D7B) -> fn_005C65B0 -> fn_005C4F50
+	const auto y = Popf();
+	const auto x = Popf();
+	const auto spirit = ScriptSpirit(Pop().intVal);
+	CheckScreenXY("SPIRIT_SCREEN_POINT", x, y);
+	if (auto* control = SpiritControl(); control != nullptr)
+	{
+		const auto& screen = control->GetScreen();
+		const glm::ivec2 pixel(static_cast<int32_t>(static_cast<float>(screen.width) * x),
+		                       static_cast<int32_t>(static_cast<float>(screen.height) * y));
+		control->SpiritScreenPoint(spirit, pixel);
+	}
 }
 
 void KeyDown() // 419 KEY_DOWN

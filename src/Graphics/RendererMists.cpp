@@ -45,6 +45,7 @@
 #include "Graphics/Lh3dColour.h"
 #include "Graphics/Mists.h"
 #include "Graphics/ModelLight.h"
+#include "Graphics/RegionOnScreen.h"
 #include "Graphics/RenderModes.h"
 #include "Graphics/ShaderManager.h"
 #include "Graphics/Texture2D.h"
@@ -63,21 +64,8 @@ constexpr float k_MistSphereScale = 0.55f; ///< [0x8D3E80], LH3DMist::AddDrawing
 
 /// mists::Submit: the other LH3DMist objects of this frame
 std::vector<mists::MistDesc> g_submitted;
-/// Whether a sphere touches the view volume of a view-projection matrix (the planes of its rows, Gribb-Hartmann), the
-/// stand-in for LH3DBoundingBox::CheckRegionOnScreen 0x868C80 (a copy of the one in Renderer.cpp)
-bool SphereInView(const glm::mat4& viewProjection, const glm::vec3& centre, float radius)
-{
-	const glm::mat4 rows = glm::transpose(viewProjection);
-	for (int plane = 0; plane < 6; ++plane)
-	{
-		const glm::vec4 p = rows[3] + (plane % 2 == 0 ? 1.0f : -1.0f) * rows[plane / 2];
-		if (glm::dot(glm::vec3(p), centre) + p.w < -radius * glm::length(glm::vec3(p)))
-		{
-			return false;
-		}
-	}
-	return true;
-}
+/// LH3DBoundingBox::CheckRegionOnScreen 0x868C80's stand-in, shared (Graphics/RegionOnScreen.h)
+using openblack::graphics::region_on_screen::SphereInView;
 
 /// LH3DMist::AddDrawing 0x7FA7FE..0x7FA82A: the radius of the sphere sent to CheckRegionOnScreen, the resolved mesh's
 /// +0x30 x the size (+0x88) x 0.55. (aproximado) +0x30 taken as the bounding box's half diagonal (what

@@ -226,6 +226,26 @@ TEST(TestLhMatrix, Inverse)
 	EXPECT_EQ(lh_matrix::Inverse(zero)[0][0], 0.0f);
 }
 
+TEST(TestLhMatrix, TurnsWithCosineAndSine)
+{
+	// the turns with c and s given are the angle ones with the same c and s; RotateX turns rows 1 and 2
+	const glm::mat3 base = lh_matrix::YXZ(0.3f, -0.2f, 0.7f);
+	glm::mat3 a = base;
+	glm::mat3 b = base;
+	lh_matrix::RotateY(a, 0.4f);
+	lh_matrix::RotateY(b, std::cos(static_cast<double>(0.4f)), std::sin(static_cast<double>(0.4f)));
+	EXPECT_EQ(a, b);
+	lh_matrix::RotateZ(a, -0.9f);
+	lh_matrix::RotateZ(b, std::cos(static_cast<double>(-0.9f)), std::sin(static_cast<double>(-0.9f)));
+	EXPECT_EQ(a, b);
+	glm::mat3 x = base;
+	lh_matrix::RotateX(x, std::cos(0.5), std::sin(0.5));
+	EXPECT_EQ(x[0], base[0]);
+	ExpectNear(x, glm::mat3(base[0], std::cos(0.5f) * base[1] - std::sin(0.5f) * base[2],
+	                        std::cos(0.5f) * base[2] + std::sin(0.5f) * base[1]),
+	           1e-6f);
+}
+
 TEST(TestLhMatrix, SetPositionAndModel)
 {
 	// LH3DObject::SetPosition 0x423140: T(p) Ry(-a) S(s), the translation the position itself

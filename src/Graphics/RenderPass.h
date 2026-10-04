@@ -28,6 +28,9 @@ enum class RenderPass : uint8_t
 	Main,
 	/// Blended (fading) models, drawn over the finished main pass so the water cannot be sorted over them.
 	MainBlended,
+	/// The 3D of LH3DRender::FinishFrame's "after" callbacks, over the Z reset quad (0x82F460 (d): its depth cleared):
+	/// the advisor spirits' overlay (HelpDude 0x5C2E10, priority 100; Graphics/RendererSpirits.cpp)
+	FinishFrame3D,
 	/// Screen-space quads at the end of the frame (LH3DRender::FinishFrame): cinema bars and the screen fade
 	ScreenOverlay,
 	ImGui,
@@ -43,6 +46,7 @@ static constexpr std::array<std::string_view, static_cast<uint8_t>(RenderPass::_
     "Reflection Pass",  //
     "Main Pass",        //
     "Main Blended Pass", //
+    "Finish Frame 3D Pass", //
     "Screen Overlay Pass", //
     "ImGui Pass",       //
     "Mesh Viewer Pass", //

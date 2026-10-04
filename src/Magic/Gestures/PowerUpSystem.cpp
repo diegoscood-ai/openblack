@@ -20,6 +20,7 @@
 #include "Locator.h"
 #include "Magic/Core/Players.h"
 #include "Magic/Core/SpellSeed.h"
+#include "Help/HelpProfile.h"
 #include "Magic/MagicTables.h"
 #include "PSys/Utility.h"
 
@@ -58,13 +59,16 @@ const ecs::components::SpellSeed* HeldSeed()
 	return registry.TryGet<ecs::components::SpellSeed>(g_Hand.heldSeed);
 }
 
-/// HelpProfile::Trigger: the help system is not ported; the event is only traced
+/// HelpProfile::Trigger 0x5C46E0 (Help/HelpProfile.h) of the gestures' call sites: 14 ProcessPowerUpSystem 0x5CF966,
+/// 15 0x5CF8BA, 16 / 17 / 21 fn_005CFAE0 0x5CFC75 / 0x5CFD58 / 0x5CFB64, 18 / 20 / 22 fn_005D0000 0x5D01AA / 0x5D00A1 /
+/// 0x5D010C. (pending, creature) 19 GestureCreatureSpecial (fn_005CFDE0 0x5CFF0B, the creature's fight) is not ported
 void Help(int event)
 {
 	if (Trace())
 	{
 		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Gestures: help event 0x{:X}", event);
 	}
+	help_profile::Trigger(static_cast<help_profile::Event>(event));
 }
 
 void RemoveFromHandFx()

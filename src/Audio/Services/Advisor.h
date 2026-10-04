@@ -12,6 +12,7 @@
 #include <cstdint>
 
 #include <array>
+#include <optional>
 #include <vector>
 
 #include "Audio/GAudio/AudioSystem.h"
@@ -19,7 +20,9 @@
 // The voice of the two advisors (milestone B7 of dev\tmp_dis\audio\PLAN.md, dev\tmp_dis\audio\voices.md §2.5):
 // HelpDudeControl (HelpSystem+0x10, its dudes at +4 / +8: 0 the good spirit, 1 the evil one) and the sound part of
 // HelpDude (helpdude.cpp, 0x5BB060..0x5BB8A7, 0x5BCD00, 0x5C36D0..0x5C3842). The visual part (the models, their flight,
-// the mouth poses fn_005BF810 / fn_005BCBC0, the anim effects of HelpDude::PlaySoundFX 0x5C2800) is not ported.
+// the mouth poses fn_005BF810 and the tag walker fn_005BCBC0, both fed by LipSyncThisFrame) is Help/Spirits.h and
+// Help/SpiritsRuntime.h; the tags' source (the waves' cue labels) and the anim effects of HelpDude::PlaySoundFX 0x5C2800
+// are not ported.
 //
 // A sentence plays on HelpSprites (6) with the owner 0x270C through LHSamplePlay directly (HelpDude::PlaySample
 // 0x5BB530): none of GAudio::PlaySoundEffect's filters applies. Only one advisor speaks at a time: g_speaker 0xD15AA0
@@ -97,9 +100,10 @@ void Reset();
 
 /// HelpDudeControl::Say fn_005C36D0(dude, sample, onlyIfSilent): v = |dude+0x3514| - 0.95 (double 0x915438 = 0.95f); the delay
 /// is 0 for v < 0, else min((v + 1) * 250, 500) ms (0x8C7B2C, 0x8C78EC); HelpDude::SaySentence; +0x74 + 4 dude = 1
-/// (approximated: +0x3514 belongs to the advisor's flight, which is not ported; it stays at its init value 0,
-/// 0x5C1A61, so the delay is 0)
+/// (+0x3514 is the advisor's hover x, given once a frame by help::spirits through SetHover; 0 until then, 0x5C1A61)
 void Say(int dude, int sample, bool onlyIfSilent);
+/// HelpDude +0x3514, the hover x of the dude's flight (Help/Spirits.h HelpDude::HoverX), for Say's delay
+void SetHover(int dude, float hover);
 /// HelpDude::SaySentence fn_005BB340(sample, onlyIfSilent, delayMs): g_speaker = the dude; with a sentence playing,
 /// nothing if onlyIfSilent and IsTalking, else StopSentence; nothing for a sample outside 1..count; the options +0x367C
 /// (bank, 2D, owner 0x270C, the sample, +0x164 = 1), +0x35D8 = sample, +0x35D4 = GetTickCount() + delay, then
@@ -140,6 +144,17 @@ void Interrupt(int dude, int arg);
 [[nodiscard]] VoiceKey LipSyncKey(int dude);
 /// HelpDude+0x2F70: the sentence's time in seconds as ApplyLipSync last set it
 [[nodiscard]] float SentenceTime(int dude);
+/// What the last ApplyLipSync 0x5BCD00 left for the mouth (help::spirits, Help/Spirits.h LipSyncFrame)
+struct LipSyncRun
+{
+	/// +0x2F70: the tick time (0x5BCD2A..0x5BCD4E), or the play position x 0.001 when it is >= 0 (0x5BCD74..0x5BCD82);
+	/// the tag walker fn_005BCBC0 takes it in both cases (0x5BCDFC..0x5BCE07)
+	float time {0.0f};
+	/// the play position was >= 0 (0x5BCD6C..0x5BCD72): the vowels fn_005BF810 run on +0x2F60 (0x5BCDD2..0x5BCDDB)
+	bool playing {false};
+};
+/// nullopt when the last ApplyLipSync stopped at IsTalking or at no sentence (0x5BCD18 / 0x5BCD24)
+[[nodiscard]] std::optional<LipSyncRun> LipSyncThisFrame(int dude);
 /// fn_005BB420(audio, sample, window): sqrt of the sum of (s / 32768)^2 (3.0517578e-5, 0x8C5848) over `window` PCM
 /// samples of the sentence from ftol(t / duration * frames), t = (GetTickCount() - start) * 0.001 (0x8AC418); 0 for
 /// sample 0, t < 0 or past the duration, no PCM or the sample not playing on HelpSprites with 0x270C

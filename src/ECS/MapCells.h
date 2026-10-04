@@ -204,6 +204,9 @@ void ForEachFixed(glm::ivec2 cell, const std::function<bool(entt::entity)>& fn);
 /// (from the totem for a worship site, GetTotemPos 0x77CF30), strictly, from FLT_MAX: not cut at r
 [[nodiscard]] entt::entity FindNearForScript(const map_coords::MapCoords& coords,
                                              const std::function<bool(entt::entity)>& pred, float radius);
+/// The point FindNearForScript measures to, and the scripts' filters (CALL_NEAR 0x6F7070, IS_FIRE_NEAR 0x6F7100) compare
+/// with r: GetTotemPos 0x77CF30 for a worship site (vt +0x304 IsWorshipSite), else the object's MapCoords +0x14
+[[nodiscard]] map_coords::MapCoords ScriptDistancePoint(entt::entity object);
 /// fn_00604AF0 / fn_00604C30: the spiral of max(3, ftol(ceil(2r / 10)))^2 cells (0x604C38..0x604C80), FindType(ANY) in
 /// each; pred, not excluded, d < r and (d < best or none yet); stops when best x 1.5 [0x8AB24C] + 10 [0x930050] < the
 /// distance to the cell

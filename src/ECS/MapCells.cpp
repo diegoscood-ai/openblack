@@ -38,6 +38,7 @@
 #include "ECS/Components/Mobile.h"
 #include "ECS/Components/OneOffSpellSeed.h"
 #include "ECS/Components/Pot.h"
+#include "ECS/Components/ScriptHighlight.h"
 #include "ECS/Components/Shark.h"
 #include "ECS/Components/SpellIcon.h"
 #include "ECS/Components/SpellSeed.h"
@@ -552,8 +553,9 @@ map_cells::InsertKind map_cells::KindOf(entt::entity object)
 	{
 		return InsertKind::MultiMapFixed;
 	}
-	// SingleMapFixed::InsertMapObject 0x52E620: Tree, MagicTree, MapShield
-	if (registry->AnyOf<Tree, MagicTree, MapShield>(object))
+	// SingleMapFixed::InsertMapObject 0x52E620: Tree, MagicTree, MapShield, ScriptHighlight (its
+	// CallVirtualFunctionsForCreation 0x709AAD calls SingleMapFixed's 0x52E880)
+	if (registry->AnyOf<Tree, MagicTree, MapShield, ScriptHighlight>(object))
 	{
 		return InsertKind::SingleMapFixed;
 	}
@@ -637,6 +639,11 @@ ObjectType map_cells::TypeOf(entt::entity object)
 	{
 		// the whale's GMobileObjectInfo (MobileObjectInfo::Whale)
 		return row(&InfoConstants::mobileObject, static_cast<size_t>(MobileObjectInfo::Whale), ObjectType::MobileObject);
+	}
+	if (const auto* c = registry.TryGet<const ScriptHighlight>(object))
+	{
+		// its GScriptHighlightInfo row (Object +0x28); 35 SCRIPT_HIGHLIGHT for the four of info.dat
+		return row(&InfoConstants::scriptHighlight, c->infoIndex, ObjectType::ScriptHighlight);
 	}
 	if (registry.AllOf<Creature>(object))
 	{
@@ -1500,6 +1507,11 @@ entt::entity map_cells::FindNearForScript(const map_coords::MapCoords& coords, c
 		});
 	});
 	return best;
+}
+
+map_coords::MapCoords map_cells::ScriptDistancePoint(entt::entity object)
+{
+	return DistancePointOf(object);
 }
 
 entt::entity map_cells::FindNearestInSpiral(const map_coords::MapCoords& coords,

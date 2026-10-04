@@ -19,6 +19,9 @@
 #include "ECS/Components/Animal.h"
 #include "ECS/Components/ScriptHeld.h"
 #include "ECS/Registry.h"
+#include "ECS/ScriptHighlight.h"
+#include "ECS/ScriptTimer.h"
+#include "ECS/ToBeDeleted.h"
 #include "Locator.h"
 
 namespace openblack::ecs::script_held
@@ -50,10 +53,28 @@ void ReleaseControlFromScript(entt::entity thing, ScriptHeld& slot)
 		return;
 	}
 	// ReleaseScriptThingIntoTheGame: SetControlledByScript(0); IsDeletedWhenReleasedFromScript (0x4021C0) is 0 for
-	// every class and nothing openblack's CHL makes is a script highlight (vt+0x48C), so nothing is deleted here. A
-	// created script container (a CREATE_FLOCK flock) would be deleted (ToBeDeleted 0x70D5AC): none in openblack yet.
+	// every class but ScriptTimer (0x561300 = 1), and a script highlight (vt +0x48C) the script created
+	// (IsCreatedByScript 0x70D440, the slot's +0xC) is deleted (ToBeDeleted(0) 0x70F670): a CREATE_HIGHLIGHT scroll goes
+	// with its last reference unless RELEASE_FROM_SCRIPT released it first.
+	// A created script container (a CREATE_FLOCK flock) would be deleted (ToBeDeleted 0x70D5AC): none in openblack yet.
 	slot.controlledByScript = false;
 	auto& registry = Locator::entitiesRegistry::value();
+	if (slot.createdByScript && script_highlight::IsHighlight(thing))
+	{
+		ecs::ToBeDeleted(thing);
+		return;
+	}
+	if (script_timer::IsTimer(thing))
+	{
+		// 0x70F61E..0x70F670: "Deleting thing not created by script" when the slot's +0xC is clear (not stopping),
+		// then ToBeDeleted(0) (vt +0xC) and nothing else
+		if (!slot.createdByScript)
+		{
+			SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "Deleting thing not created by script");
+		}
+		ecs::ToBeDeleted(thing);
+		return;
+	}
 	// then by GetScriptObjectType (jump table 0x70F754 / 0x70F76C): an animal (type 6 -> case 2, 0x70F6B1):
 	// SetScriptState(this, 0x20 WANDER) and fn_0041AA00. The villagers' Villager::ReleaseFromScript (0x7531D0) and the
 	// other types are not ported (no villager is put into a script state by openblack's CHL).

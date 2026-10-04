@@ -141,6 +141,9 @@ public:
 	[[nodiscard]] const glm::ivec2& GetMousePosition() const { return _mousePosition; }
 
 	void RequestScreenshot(const std::filesystem::path& path) noexcept;
+	/// OPENBLACK_TEST_TEXT_SHOT (openblack only): when (SDL ticks) to take the screenshot, and where
+	std::optional<uint32_t> _textShotAtMs;
+	std::string _textShotPath;
 
 	/// Script fade and cinema bars (SET_FADE, SET_WIDESCREEN)
 	[[nodiscard]] ScreenFade& GetScreenFade() { return *_screenFade; }

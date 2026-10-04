@@ -88,8 +88,8 @@ struct CameraControl
 	int32_t drawLeash {1};
 	/// +0x7C: only fn_006ECD70 (0x6ECEDB, = 0) and GScript::Reset write it; no reader found (script_scanfields.py)
 	int32_t field7C {0};
-	/// +0x80: the highlights are drawn (SET_DRAW_HIGHLIGHT 0x708CCD; read by ScriptHighlight::Draw 0x709C9D). Not
-	/// ported either
+	/// +0x80: the highlights are drawn (SET_DRAW_HIGHLIGHT 0x708CCD; read by ScriptHighlight::Draw 0x709C9D, a
+	/// did-you-know is drawn anyway): CHLApi SetDrawHighlight writes it, ecs::script_highlight::UpdateFrame reads it
 	int32_t drawHighlight {1};
 	/// +0xAC: the task that controls the game speed (StartGameSpeed 0x6FA9E0; 0 in ActualEndGameSpeed 0x6FAA60).
 	/// GScript::Reset 0x6EB2D0 does not write it (0x6EB2D6..0x6EB318; 0 from the constructor: inferred); a stopped task

@@ -40,8 +40,9 @@ constexpr float k_EnterScale = 1.0752688646316528f;           // 0x3F89A269 (= 1
 constexpr float k_SecondScale = 0.8600000143051147f;          // [0x92A548]
 constexpr float k_OlderScale = 0.9300000071525574f;           // [0x92A54C]
 
-/// __ftol 0x7A1400: truncation toward zero
-int Ftol(double value)
+/// __ftol 0x7A1400: truncation toward zero of the value on the FPU stack, which (the FPU at 24 bits, fn_007DEE00) the
+/// last operation already rounded to a float
+int Ftol(float value)
 {
 	return static_cast<int>(value);
 }
@@ -72,7 +73,7 @@ struct Measure
 Measure MeasureText(const TextRegion& region, std::u16string_view text, float lineHeight, float number,
                     DrawState& state, const WidthFn& widthFn)
 {
-	const int maxLines = Ftol(static_cast<double>(region.bottom - region.top + 1) / lineHeight); // 0x5CB782..0x5CB797
+	const int maxLines = Ftol(static_cast<float>(region.bottom - region.top + 1) / lineHeight); // 0x5CB782..0x5CB797
 	int pen = 0;
 	int widest = 0;
 	int line = 0;
@@ -98,7 +99,7 @@ Measure MeasureText(const TextRegion& region, std::u16string_view text, float li
 			}
 			else if (type == k_PieceSpaced) // 0x5CB7F3..0x5CB82A: GetStringWidth(" ", 1, lineH) (0x9D00CC)
 			{
-				pen = Ftol(static_cast<double>(widthFn(state.font, u" ", lineHeight)) + pen);
+				pen = Ftol(widthFn(state.font, u" ", lineHeight) + static_cast<float>(pen)); // fiadd 0x5CB81F
 			}
 			type = splitter.Next(word, state, false); // 0x5CB841, flag 0
 			if (type == k_PiecePercent || type == k_PieceNumber) // 0x5CB848..0x5CB894 (the type stays 4/5: no space)
@@ -124,7 +125,7 @@ Measure MeasureText(const TextRegion& region, std::u16string_view text, float li
 	}
 	Measure out;
 	out.width = static_cast<float>(widest);                                            // 0x5CB928..0x5CB932
-	out.height = static_cast<float>(std::min(line + 1, maxLines) * static_cast<double>(lineHeight)); // 0x5CB924..0x5CB94B
+	out.height = static_cast<float>(std::min(line + 1, maxLines)) * lineHeight; // 0x5CB924..0x5CB94B
 	return out;
 }
 
@@ -134,20 +135,20 @@ float DrawEntryText(const TextRegion& region, std::u16string_view text, int vAli
                float lineHeight, int alpha, float number, DrawState& state, const WidthFn& widthFn,
                std::vector<TextRun>& runs)
 {
-	const int maxLines = Ftol(static_cast<double>(region.bottom - region.top + 1) / lineHeight); // 0x5CB9A8..0x5CB9BF
+	const int maxLines = Ftol(static_cast<float>(region.bottom - region.top + 1) / lineHeight); // 0x5CB9A8..0x5CB9BF
 	const Measure measure = MeasureText(region, text, lineHeight, number, state, widthFn);      // 0x5CB9D6
 	const int regionHeight = region.bottom - region.top + 1;
 	float yAcc = 0.0f; // 0x5CB978
 	if (vAlign == 2)   // 0x5CB9E6..0x5CB9FE: bottom
 	{
-		yAcc = static_cast<float>(regionHeight - static_cast<double>(measure.height));
+		yAcc = static_cast<float>(regionHeight) - measure.height;
 	}
 	else if (vAlign != 0) // 0x5CBA00..0x5CBA19: centred (not truncated)
 	{
-		yAcc = static_cast<float>((regionHeight - static_cast<double>(measure.height)) * 0.5);
+		yAcc = (static_cast<float>(regionHeight) - measure.height) * 0.5f;
 	}
 	// 0x5CBA1D..0x5CBA37: the block is centred; every line starts at x0 (ragged right)
-	const int x0 = Ftol((static_cast<double>(region.right - region.left + 1) - measure.width) * 0.5);
+	const int x0 = Ftol((static_cast<float>(region.right - region.left + 1) - measure.width) * 0.5f);
 	int pen = x0;
 	int line = 0;
 	int type = k_PieceWord;
@@ -168,7 +169,7 @@ float DrawEntryText(const TextRegion& region, std::u16string_view text, int vAli
 			++wordIndex;                // 0x5CBAA3
 			if (type == k_PieceNewLine) // 0x5CBAAD..0x5CBACC
 			{
-				yAcc = static_cast<float>(static_cast<double>(yAcc) + lineHeight);
+				yAcc += lineHeight;
 				pen = x0;
 				if (++line >= maxLines)
 				{
@@ -177,7 +178,7 @@ float DrawEntryText(const TextRegion& region, std::u16string_view text, int vAli
 			}
 			else if (type == k_PieceSpaced) // 0x5CBAD4..0x5CBB0B
 			{
-				pen = Ftol(static_cast<double>(widthFn(state.font, u" ", lineHeight)) + pen);
+				pen = Ftol(widthFn(state.font, u" ", lineHeight) + static_cast<float>(pen)); // fiadd 0x5CBB00
 			}
 			type = splitter.Next(word, state, iconFlag); // 0x5CBB2B
 			if (type == k_PiecePercent || type == k_PieceNumber) // 0x5CBB30..0x5CBB89
@@ -189,9 +190,9 @@ float DrawEntryText(const TextRegion& region, std::u16string_view text, int vAli
 			{
 				const float w = widthFn(state.font, word, lineHeight); // 0x5CBC0D
 				// 0x5CBC16..0x5CBC39: wrap when (right - left + 1) - (pen + w) < 0; pen already includes x0
-				if (static_cast<double>(region.right - region.left + 1) - (static_cast<double>(pen) + w) < 0.0)
+				if (static_cast<float>(region.right - region.left + 1) - (static_cast<float>(pen) + w) < 0.0f)
 				{
-					yAcc = static_cast<float>(static_cast<double>(yAcc) + lineHeight);
+					yAcc += lineHeight; // 0x5CBC3B..0x5CBC50
 					pen = x0;
 					if (++line >= maxLines) // 0x5CBC5C: the rest is dropped (no ellipsis)
 					{
@@ -204,7 +205,7 @@ float DrawEntryText(const TextRegion& region, std::u16string_view text, int vAli
 				run.font = state.font;
 				run.text = word;
 				run.x = static_cast<float>(region.left + pen);
-				run.y = static_cast<float>(static_cast<double>(region.top) + yAcc + yOffset);
+				run.y = static_cast<float>(region.top) + yAcc + yOffset; // 0x5CBE45..0x5CBE5F
 				run.size = lineHeight;
 				run.r = state.r;
 				run.g = state.g;
@@ -213,7 +214,7 @@ float DrawEntryText(const TextRegion& region, std::u16string_view text, int vAli
 				run.clipTop = static_cast<float>(region.top);
 				run.clipBottom = static_cast<float>(region.bottom);
 				runs.push_back(std::move(run));
-				pen = Ftol(static_cast<double>(pen) + w); // 0x5CBE84..0x5CBE97
+				pen = Ftol(static_cast<float>(pen) + w); // 0x5CBE84..0x5CBE97
 			}
 		} while (line < maxLines); // 0x5CBE9B
 	}
@@ -225,8 +226,8 @@ float DrawEntryText(const TextRegion& region, std::u16string_view text, int vAli
 TextRegion ComputeTextRegion(int width, int height, int barPixels)
 {
 	// fn_005C57B0: H, W = [0xE8505A] / [0xE85058]; bar = fn_005C5780
-	const int margin = Ftol(static_cast<double>(height - 2 * barPixels) * k_BoxMarginFraction); // 0x5C57DB..0x5C5800
-	const int boxHeight = Ftol(static_cast<double>(height) * k_BoxHeightFraction);              // 0x5C57EA..0x5C5824
+	const int margin = Ftol(static_cast<float>(height - 2 * barPixels) * k_BoxMarginFraction); // 0x5C57DB..0x5C5800
+	const int boxHeight = Ftol(static_cast<float>(height) * k_BoxHeightFraction);              // 0x5C57EA..0x5C5824
 	TextRegion region {};
 	region.left = 0;                                    // 0x5C581E
 	region.bottom = height - margin - barPixels - 1;    // 0x5C5805..0x5C581D
@@ -249,7 +250,7 @@ HelpTextDisplay::HelpTextDisplay(int screenHeight, bool biggerText)
 {
 	// fn_005CADC0 0x5CADE2..0x5CAE26: +0x9C = +0xA0 = H * (1/28 or 1/30); +0xA4 = 0xFF (0x5CAE2C, rewritten per entry)
 	const float fraction = biggerText ? k_BiggerLineHeightFraction : k_LineHeightFraction;
-	_baseLineHeight = static_cast<float>(static_cast<double>(screenHeight) * fraction);
+	_baseLineHeight = static_cast<float>(screenHeight) * fraction; // fild; fmul 0x5CADFB / 0x5CAE14
 	Reset(true); // 0x5CAE82 / 0x5CAFEA
 }
 
@@ -338,7 +339,7 @@ void HelpTextDisplay::Advance(float dtMs, int textDraw)
 		return;
 	}
 	// 0x5CC7D3..0x5CC80A: +0xA8 += dt * 0.003; if (+0xA8 > 1) +0xA8 = 1
-	_anim = static_cast<float>(static_cast<double>(dtMs) * k_AnimSpeed + _anim);
+	_anim = dtMs * k_AnimSpeed + _anim; // each step rounded to a float (the FPU at 24 bits)
 	if (_anim > 1.0f)
 	{
 		_anim = 1.0f;
@@ -374,21 +375,22 @@ TextFrame HelpTextDisplay::Layout(int width, int height, int barPixels, int text
 	const float base = _baseLineHeight;
 	const float anim = _anim;
 	// 0x5CC799..0x5CC7C9: y0 = trunc(+0xA0 * (TOPTOBOTTOM ? -1/3 : 1/3)); scale 1
-	int yCur = Ftol(static_cast<double>(base) * (topToBottom ? -k_SlotThird : k_SlotThird));
+	int yCur = Ftol(base * (topToBottom ? -k_SlotThird : k_SlotThird));
 	float scaleCur = 1.0f;
 	// 0x5CC810..0x5CC872: the centred position of a single line and the slot before the first
 	const int halfRegion = (region.bottom - region.top + 1) / 2;
-	double centre = 0.0;
+	// (each step rounded to a float: 0x5CC828..0x5CC840 / 0x5CC854..0x5CC86C)
+	float centre = 0.0f;
 	int yPrev = 0;
 	if (topToBottom)
 	{
-		centre = -halfRegion + static_cast<double>(base * 0.5f);
-		yPrev = Ftol(static_cast<double>(yCur) + base);
+		centre = static_cast<float>(-halfRegion) + base * 0.5f;
+		yPrev = Ftol(static_cast<float>(yCur) + base);
 	}
 	else
 	{
-		centre = halfRegion - static_cast<double>(base * 0.5f);
-		yPrev = Ftol(static_cast<double>(yCur) - base);
+		centre = static_cast<float>(halfRegion) - base * 0.5f;
+		yPrev = Ftol(static_cast<float>(yCur) - base);
 	}
 	float scalePrev = k_EnterScale; // 0x5CC88E
 	const bool previous = _entries[static_cast<size_t>((_newest + 5) % k_Entries)].used;
@@ -403,7 +405,7 @@ TextFrame HelpTextDisplay::Layout(int width, int height, int barPixels, int text
 	}
 	else if (!_entries[static_cast<size_t>((_newest + 4) % k_Entries)].used && _singleLine) // 0x5CC8C8..0x5CC905
 	{
-		yCur = Ftol((yCur - centre) * anim + centre);
+		yCur = Ftol((static_cast<float>(yCur) - centre) * anim + centre); // 0x5CC8E8..0x5CC8F2
 		yPrev = yCur;
 	}
 	// 0x5CC90B..0x5CC926: six entries while the animation runs, four once it is done
@@ -417,11 +419,11 @@ TextFrame HelpTextDisplay::Layout(int width, int height, int barPixels, int text
 			break;
 		}
 		// 0x5CC964..0x5CC9A5: from the previous slot to this one
-		const float scale = static_cast<float>((static_cast<double>(scaleCur) - scalePrev) * anim + scalePrev);
-		const float y = static_cast<float>(static_cast<double>(yCur - yPrev) * anim + yPrev);
+		const float scale = (scaleCur - scalePrev) * anim + scalePrev;                         // 0x5CC964..0x5CC985
+		const float y = static_cast<float>(yCur - yPrev) * anim + static_cast<float>(yPrev); // 0x5CC989..0x5CC997
 		const float lineHeight = scale * base; // +0x9C
 		// 0x5CC9AB..0x5CC9F9: alpha
-		int alpha = Ftol(static_cast<double>(scale) * 255.0f);
+		int alpha = Ftol(scale * 255.0f);
 		if (alpha < 0xFF)
 		{
 			alpha -= 20;
@@ -432,7 +434,7 @@ TextFrame HelpTextDisplay::Layout(int width, int height, int barPixels, int text
 		}
 		if (i == 0)
 		{
-			alpha = Ftol(static_cast<double>(alpha) * anim); // the newest fades in
+			alpha = Ftol(static_cast<float>(alpha) * anim); // the newest fades in (0x5CC9E8..0x5CC9F4)
 		}
 		// 0x5CCA01..0x5CCA36: fn_005CB960(&region, text, TOPTOBOTTOM ? 2 : 0, y, i == 0); [0xD17CB0] = (i == 0)
 		DrawState state;
@@ -448,8 +450,8 @@ TextFrame HelpTextDisplay::Layout(int width, int height, int barPixels, int text
 		// 0x5CCA3B..0x5CCA93: the next slot
 		scalePrev = scaleCur;
 		yPrev = yCur;
-		const double slot = static_cast<double>(textHeight) / scale * scaleCur;
-		yCur = topToBottom ? Ftol(yCur - slot) : Ftol(slot + yCur);
+		const float slot = textHeight / scale * scaleCur; // 0x5CCA4B fdiv, 0x5CCA5B / 0x5CCA63 fmul
+		yCur = topToBottom ? Ftol(static_cast<float>(yCur) - slot) : Ftol(slot + static_cast<float>(yCur));
 		scaleCur = scaleCur * (i == 0 ? k_SecondScale : k_OlderScale);
 	}
 	return frame;

@@ -35,8 +35,9 @@ struct Dude
 	uint32_t startTick {0};   ///< +0x35D4: GetTickCount() at which the delayed sentence starts (0 = none)
 	int sample {0};           ///< +0x35D8 (and the options' +0x24)
 	uint32_t lastTalkTick {0}; ///< +0x37EC: the last GetTickCount() IsTalking / PercentageDone saw it talking
-	float hover {0.0f};       ///< +0x3514 (0 after the init, 0x5C1A61; the flight is not ported)
+	float hover {0.0f};       ///< +0x3514 (0 after the init, 0x5C1A61; then help::spirits' hover x, SetHover)
 	float time {0.0f};        ///< +0x2F70
+	std::optional<LipSyncRun> lipSync; ///< what the last ApplyLipSync left for the mouth (LipSyncThisFrame)
 	AutoVoiceParams params;   ///< +0x2F10
 	VoiceKey key;             ///< +0x2F60
 	bool active {false};      ///< HelpDudeControl+0x74 + 4 dude
@@ -142,6 +143,7 @@ void UpdateSaySentence(Dude& dude)
 void ApplyLipSync(int index, float dt)
 {
 	auto& dude = g_State.dudes[static_cast<size_t>(index)];
+	dude.lipSync.reset();
 	if (!IsTalking(index) || g_State.sentence == 0) // 0x5BCD11..0x5BCD24
 	{
 		return;
@@ -156,15 +158,18 @@ void ApplyLipSync(int index, float dt)
 		{
 			StopSentence(index);
 		}
-		return; // fn_005BCBC0(time, 1): the mouth (not ported)
+		// fn_005BCBC0(time, 1) 0x5BCE07 on the tick time: help::spirits (LipSyncThisFrame)
+		dude.lipSync = LipSyncRun {dude.time, false};
+		return;
 	}
 	const float t = static_cast<float>(static_cast<double>(position) * static_cast<double>(0.001f)); // 0x5BCD78
 	dude.time = t;
+	// fn_005BF810(&key) 0x5BCDDB and fn_005BCBC0(t, 1) 0x5BCE07: help::spirits (LipSyncThisFrame)
+	dude.lipSync = LipSyncRun {t, true};
 	if (g_State.sentence != 0 && !g_State.pcm.samples.empty()) // 0x5BCD88..0x5BCD98
 	{
 		CalcKey(dude.params, dude.key, dt, t, g_State.pcm.samples.data(), g_State.pcm.frames,
 		        static_cast<float>(g_State.pcm.rate), g_State.spectrum.data(), k_LipSyncWindow);
-		// fn_005BF810(&key): the mouth pose (not ported)
 	}
 }
 } // namespace
@@ -379,6 +384,14 @@ void advisor::Reset()
 	const auto bank = g_State.dudes[0].bank;
 	g_State = {};
 	Init(bank);
+}
+
+void advisor::SetHover(int dude, float hover)
+{
+	if (auto* d = Get(dude); d != nullptr)
+	{
+		d->hover = hover;
+	}
 }
 
 void advisor::Say(int dude, int sample, bool onlyIfSilent)
@@ -609,6 +622,12 @@ float advisor::SentenceTime(int dude)
 {
 	const auto* d = Get(dude);
 	return d != nullptr ? d->time : 0.0f;
+}
+
+std::optional<advisor::LipSyncRun> advisor::LipSyncThisFrame(int dude)
+{
+	const auto* d = Get(dude);
+	return d != nullptr ? d->lipSync : std::nullopt;
 }
 
 float advisor::Amplitude(int sample, int window)

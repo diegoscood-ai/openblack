@@ -45,7 +45,6 @@
 #include "3D/LandBlock.h"
 #include "3D/LandIslandInterface.h"
 #include "3D/OceanInterface.h"
-#include "3D/ScreenFade.h"
 #include "3D/SkyInterface.h"
 #include "3D/SkyType.h"
 #include "Camera/Camera.h"
@@ -73,18 +72,18 @@
 #include "FileSystem/FileSystemInterface.h"
 #include "Graphics/DebugLines.h"
 #include "Graphics/DetailLevel.h"
-#include "Common/HelpText.h"
 #include "Graphics/FrameBuffer.h"
 #include "Graphics/GameFont.h"
-#include "Help/HelpSystem.h"
 #include "Help/ToolTips.h"
 #include "Help/HelpTextDisplay.h"
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/IndexBuffer.h"
 #include "Graphics/Lh3dColour.h"
 #include "Graphics/ModelLight.h"
+#include "Graphics/OverlayFrame.h"
 #include "Graphics/ShadowList.h"
 #include "Graphics/Primitive.h"
+#include "Graphics/RegionOnScreen.h"
 #include "Graphics/RenderModes.h"
 #include "Video/FallingSpellVideo.h"
 #include "Video/VideoPlayer.h"
@@ -361,6 +360,7 @@ Renderer::Renderer(uint32_t bgfxReset, std::unique_ptr<BgfxCallback>&& bgfxCallb
 
 	bgfx::setViewMode(static_cast<bgfx::ViewId>(graphics::RenderPass::Main), bgfx::ViewMode::Sequential);
 	bgfx::setViewMode(static_cast<bgfx::ViewId>(graphics::RenderPass::MainBlended), bgfx::ViewMode::Sequential);
+	bgfx::setViewMode(static_cast<bgfx::ViewId>(graphics::RenderPass::FinishFrame3D), bgfx::ViewMode::Sequential);
 	bgfx::setViewMode(static_cast<bgfx::ViewId>(graphics::RenderPass::ScreenOverlay), bgfx::ViewMode::Sequential);
 	// what is under the sea is painted in order too (GLandscape::Draw 0x5E48AE..0x5E4E6B): the sky, the moon's
 	// reflection, the mirrored land, the parts under the water, the hand glow
@@ -404,6 +404,10 @@ Renderer::~Renderer() noexcept
 	{
 		bgfx::destroy(_fishPlotInstances);
 	}
+	if (bgfx::isValid(_spiritInstances))
+	{
+		bgfx::destroy(_spiritInstances);
+	}
 	_plane.reset();
 	_shaderManager.reset();
 	bgfx::frame();
@@ -419,6 +423,11 @@ void Renderer::ConfigureView(graphics::RenderPass viewId, glm::u16vec2 resolutio
 		const auto blended = static_cast<bgfx::ViewId>(graphics::RenderPass::MainBlended);
 		bgfx::setViewClear(blended, BGFX_CLEAR_NONE);
 		bgfx::setViewRect(blended, 0, 0, resolution.x, resolution.y);
+		// LH3DRender::FinishFrame 0x82F460 (d): the Z reset quad (FVF 0x1C4, z = 1 over the whole screen, ZFUNC ALWAYS)
+		// before the "after" callbacks: their 3D view starts with the depth at the far value of the main clear
+		const auto finishFrame3D = static_cast<bgfx::ViewId>(graphics::RenderPass::FinishFrame3D);
+		bgfx::setViewClear(finishFrame3D, BGFX_CLEAR_DEPTH, 0, 0.0f, 0);
+		bgfx::setViewRect(finishFrame3D, 0, 0, resolution.x, resolution.y);
 		const auto overlay = static_cast<bgfx::ViewId>(graphics::RenderPass::ScreenOverlay);
 		bgfx::setViewClear(overlay, BGFX_CLEAR_NONE);
 		bgfx::setViewRect(overlay, 0, 0, resolution.x, resolution.y);
@@ -694,20 +703,9 @@ void ApplyLandLightMode(const RenderContext& context, entt::id_type meshId, Rend
 
 namespace
 {
-/// Whether a sphere touches the view volume of a view-projection matrix (the planes of its rows, Gribb-Hartmann)
-bool SphereInView(const glm::mat4& viewProjection, const glm::vec3& centre, float radius)
-{
-	const glm::mat4 rows = glm::transpose(viewProjection);
-	for (int plane = 0; plane < 6; ++plane)
-	{
-		const glm::vec4 p = rows[3] + (plane % 2 == 0 ? 1.0f : -1.0f) * rows[plane / 2];
-		if (glm::dot(glm::vec3(p), centre) + p.w < -radius * glm::length(glm::vec3(p)))
-		{
-			return false;
-		}
-	}
-	return true;
-}
+/// LH3DBoundingBox::CheckRegionOnScreen 0x868C80's stand-in, shared (Graphics/RegionOnScreen.h)
+using openblack::graphics::region_on_screen::SphereInView;
+using openblack::graphics::region_on_screen::BoxInView;
 } // namespace
 
 const graphics::ShaderProgram* Renderer::BonesVariant32(const graphics::ShaderProgram* program) const
@@ -1817,7 +1815,7 @@ void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
 	if (video::Get().CoversScreen() || video::GetFallingSpell().HidesWorld())
 	{
 		bgfx::touch(static_cast<bgfx::ViewId>(graphics::RenderPass::Main));
-		DrawFinishFrameOverlays();
+		DrawFinishFrameOverlays(drawDesc.overlay);
 		return;
 	}
 	// DrawSky 0x5E21FD..0x5E222B, once a frame from GLandscape::Draw (0x5E48AE): fn_0086A2C0 samples the sky type of
@@ -1913,11 +1911,17 @@ void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
 		auto section = Locator::profiler::value().BeginScoped(Profiler::Stage::MainPass);
 		DrawPass(drawDesc);
 	}
+	// FinishFrame 0x82F460 (b): the "before" callbacks after the Z-sorter's flush, the spirits' trails (0x5C2E30, 100);
+	// HelpSystem::Draw3D 0x5C5B26: the spirits in the world (fn_005C0700(1)); (d) and (f): the overlay spirits
+	// (0x5C2E10, 100) after the Z reset, before the 2D rectangles (10000) and the texts (20000)
+	DrawSpiritTrails(*drawDesc.camera, drawDesc.overlay);
+	DrawSpirits(*drawDesc.camera, drawDesc.overlay, false);
+	DrawSpirits(*drawDesc.camera, drawDesc.overlay, true);
 	DrawHandToolTip(*drawDesc.camera);
-	DrawFinishFrameOverlays();
+	DrawFinishFrameOverlays(drawDesc.overlay);
 }
 
-void Renderer::DrawFinishFrameOverlays() const
+void Renderer::DrawFinishFrameOverlays(const OverlayFrame& overlay) const
 {
 	// LH3DRender::FinishFrame 0x82F460, all in the Sequential ScreenOverlay view: (e) the bars (0x82F652..0x82F6DD), then
 	// the callbacks with the bit 0x80000000 (0x82F6E5..0x82F718), among them LHVideoPlayer::thedraw 0x844E30
@@ -1931,16 +1935,16 @@ void Renderer::DrawFinishFrameOverlays() const
 		// then the Z-sorter (its sparks), the callback 0x526480 (its bursts), the bars and the fade
 		DrawVideoOverlay();
 		DrawFallingSpellOverlay();
-		DrawScreenOverlay(false);
-		DrawHelpText(); // HelpText's callback 0x5CD020, as in the other branch
-		DrawScreenOverlay(true);
+		DrawScreenOverlay(overlay, false);
+		DrawHelpText(overlay); // HelpText's callback 0x5CD020, as in the other branch
+		DrawScreenOverlay(overlay, true);
 		return;
 	}
-	DrawScreenOverlay(false);
+	DrawScreenOverlay(overlay, false);
 	// HelpText's callback 0x5CD020 (priority 20000, 0x5CAD74) runs after the bars and before the film (bit 0x80000000)
-	DrawHelpText();
+	DrawHelpText(overlay);
 	DrawVideoOverlay();
-	DrawScreenOverlay(true);
+	DrawScreenOverlay(overlay, true);
 }
 
 void Renderer::DrawVideoOverlay() const
@@ -2153,6 +2157,14 @@ const GameFont* Renderer::GameFontAt(help::TextFont font) const
 	return font == help::TextFont::J0 ? nullptr : GameFontAt(help::TextFont::J0);
 }
 
+float Renderer::MeasureText(help::TextFont font, std::u16string_view text, float size) const noexcept
+{
+	// GatheringText::GetStringWidth 0x831130 of the font HelpText would draw it with. Logic side, read-only, no bgfx
+	// calls; GameFontAt's first-use font load must move before the game or through gpu::Submit (pending, Motor M3)
+	const GameFont* gameFont = GameFontAt(font);
+	return gameFont != nullptr ? gameFont->GetStringWidth(std::u16string(text), size) : 0.0f;
+}
+
 void Renderer::SubmitScreenText(const GameFont& font, const std::vector<GameFont::Vertex>& glyphs) const
 {
 	if (glyphs.empty() || _resolution.x == 0 || _resolution.y == 0)
@@ -2202,17 +2214,17 @@ void Renderer::SubmitScreenText(const GameFont& font, const std::vector<GameFont
 	bgfx::submit(viewId, toBgfx(program->GetRawHandle()));
 }
 
-void Renderer::DrawScreenOverlay(bool drawFade) const
+void Renderer::DrawScreenOverlay(const OverlayFrame& overlay, bool drawFade) const
 {
-	if (Game::Instance() == nullptr || _resolution.x == 0 || _resolution.y == 0)
+	if (_resolution.x == 0 || _resolution.y == 0)
 	{
 		return;
 	}
-	const auto& fade = Game::Instance()->GetScreenFade();
-	const uint32_t colour = fade.GetColour();
+	// ScreenFade's colour and fn_005C5780's bar (ScreenFade::LetterboxHeight), read before the draw (FillOverlayFrame)
+	const uint32_t colour = overlay.fade.colour;
 	const int width = _resolution.x;
 	const int height = _resolution.y;
-	const int bar = ScreenFade::LetterboxHeight(width, height, fade.GetWideScreenFraction());
+	const int bar = overlay.fade.barPixels;
 	if (drawFade ? (colour >> 24) == 0 : bar == 0)
 	{
 		return;
@@ -2285,23 +2297,16 @@ void Renderer::AddScreenRect(std::vector<ScreenRectVertex>& out, int x0, int y0,
 	}
 }
 
-void Renderer::DrawHelpText() const
+void Renderer::DrawHelpText(const OverlayFrame& overlay) const
 {
-	// fn_005CCAB0: nothing while g_game+0x250188 != 0 (pending: that front-end state is not ported)
-	auto* helpSystem = help::Get();
-	if (helpSystem == nullptr || Game::Instance() == nullptr || _resolution.x == 0 || _resolution.y == 0)
+	// fn_005CCAB0 (its gate g_game+0x250188 is not ported) with HelpTextDisplay::Layout's frame, laid out before the
+	// draw at the same resolution (FillOverlayFrame in Game.cpp)
+	const auto& helpText = overlay.helpText;
+	if (!helpText.active || _resolution.x == 0 || _resolution.y == 0)
 	{
 		return;
 	}
-	const int width = _resolution.x;
-	const int height = _resolution.y;
-	const int bar = ScreenFade::LetterboxHeight(width, height, Game::Instance()->GetScreenFade().GetWideScreenFraction());
-	const auto widthOf = [this](help::TextFont font, std::u16string_view text, float size) {
-		const GameFont* gameFont = GameFontAt(font);
-		return gameFont != nullptr ? gameFont->GetStringWidth(std::u16string(text), size) : 0.0f;
-	};
-	const auto frame = helpSystem->GetDisplay().Layout(width, height, bar, helpSystem->GetTextDraw(),
-	                                                  helpSystem->GetTextTopToBottom(), widthOf);
+	const auto& frame = helpText.text;
 
 	// fn_005CCE60: the box, {b, g, r of +0x1C, a 0x80} in the 2D rectangle queue (flushed before this callback runs)
 	if (frame.boxShown)
@@ -2337,19 +2342,19 @@ void Renderer::DrawHelpText() const
 	// 0x447EA0 draws it: font j0 at 2/3 of the height with black copies 1 px to each side (as DrawHandToolTip).
 	// (pending) the KMIcon's mouse button / key picture (DrawKeyOrMouse's icon branch, mousehelp.raw), its box at alpha
 	// 0x80 and its second colour (white); (inferred) with no picture the text's right edge is at W - 4; (inferred) the
-	// cue is drawn whatever TEXT_DRAW and the hidden flag say (Draw3D creates it without reading them)
-	const float cueAlpha = helpSystem->GetClickCueAlpha();
-	if (helpSystem->IsWaitingForClick() && cueAlpha > 0.0f)
+	// cue is drawn whatever TEXT_DRAW and the hidden flag say (Draw3D creates it without reading them). Its place and
+	// size come laid out in the OverlayFrame (FillOverlayFrame)
+	const auto& cue = helpText.cue;
+	const float cueAlpha = cue.alpha;
+	if (cue.waiting && cueAlpha > 0.0f)
 	{
 		const GameFont* font = GameFontAt(help::TextFont::J0);
 		if (font != nullptr)
 		{
-			const auto region = help::ComputeTextRegion(width, height, bar);
-			const float h = static_cast<float>(help::ClickCueHeight(region));
-			const float size = h * 2.0f / 3.0f;
-			const auto& text = helptext::Get(helptext::k_ToolTipContinue);
-			const float x = static_cast<float>(width - 4) - font->GetStringWidth(text, size);
-			const float y = static_cast<float>(help::ClickCueY(region)) - size * 0.5f;
+			const float size = cue.size;
+			const auto& text = cue.text;
+			const float x = cue.x;
+			const float y = cue.y;
 			std::vector<GameFont::Vertex> glyphs;
 			font->AddText(glyphs, text, x - 1.0f, y, size, glm::vec4(0.0f, 0.0f, 0.0f, cueAlpha));
 			font->AddText(glyphs, text, x + 1.0f, y, size, glm::vec4(0.0f, 0.0f, 0.0f, cueAlpha));
@@ -2818,18 +2823,14 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					// draw copies the bones into the backend's per-frame uniform buffer (see vs_object.sc)
 					const auto viewProjection = desc.camera->GetViewProjectionMatrix();
 					const auto box = mesh->GetBoundingBox();
-					const auto boxCentre = box.Center();
-					const float boxRadius = glm::length(box.Size()) * 0.5f;
 					for (uint32_t i = 0; i < placers.count; ++i)
 					{
 						const auto& model = renderCtx.instanceUniforms[placers.offset + i];
-						const float scale = std::max({glm::length(glm::vec3(model[0])), glm::length(glm::vec3(model[1])),
-						                              glm::length(glm::vec3(model[2]))});
 						if (cutAbove.contains(placers.offset + i))
 						{
 							continue;
 						}
-						if (!SphereInView(viewProjection, glm::vec3(model * glm::vec4(boxCentre, 1.0f)), boxRadius * scale))
+						if (!BoxInView(viewProjection, box, model))
 						{
 							continue;
 						}
@@ -3141,11 +3142,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 						continue;
 					}
 					const auto& model = renderCtx.instanceUniforms[atom.index];
-					const auto box = meshManager.Handle(atom.meshId)->GetBoundingBox();
-					const float scale = std::max({glm::length(glm::vec3(model[0])), glm::length(glm::vec3(model[1])),
-					                              glm::length(glm::vec3(model[2]))});
-					if (!SphereInView(viewProjection, glm::vec3(model * glm::vec4(box.Center(), 1.0f)),
-					                  glm::length(box.Size()) * 0.5f * scale))
+					if (!BoxInView(viewProjection, meshManager.Handle(atom.meshId)->GetBoundingBox(), model))
 					{
 						continue;
 					}

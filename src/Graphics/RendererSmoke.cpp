@@ -38,6 +38,7 @@
 #include "Game.h"
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/Lh3dColour.h"
+#include "Graphics/RegionOnScreen.h"
 #include "Graphics/RenderModes.h"
 #include "Graphics/ShaderManager.h"
 #include "Graphics/Texture2D.h"
@@ -78,21 +79,8 @@ bool LoadAlpha()
 	return textures.Contains(k_SmokeAlpha);
 }
 
-/// Whether a sphere touches the view volume of a view-projection matrix (the planes of its rows, Gribb-Hartmann), as in
-/// RendererMists.cpp
-bool SphereInView(const glm::mat4& viewProjection, const glm::vec3& centre, float radius)
-{
-	const glm::mat4 rows = glm::transpose(viewProjection);
-	for (int plane = 0; plane < 6; ++plane)
-	{
-		const glm::vec4 p = rows[3] + (plane % 2 == 0 ? 1.0f : -1.0f) * rows[plane / 2];
-		if (glm::dot(glm::vec3(p), centre) + p.w < -radius * glm::length(glm::vec3(p)))
-		{
-			return false;
-		}
-	}
-	return true;
-}
+/// LH3DBoundingBox::CheckRegionOnScreen 0x868C80's stand-in, shared (Graphics/RegionOnScreen.h)
+using openblack::graphics::region_on_screen::SphereInView;
 } // namespace
 
 std::vector<std::pair<float, uint32_t>> Renderer::CollectChimneySmoke(const Camera& camera) const
@@ -126,6 +114,8 @@ std::vector<std::pair<float, uint32_t>> Renderer::CollectChimneySmoke(const Came
 		{
 			const auto box = meshes.Handle(mesh.id)->GetBoundingBox();
 			const glm::vec3 centre = transform.position + transform.rotation * (box.Center() * transform.scale);
+			// not region_on_screen::BoxInView: the radius scales by max(transform.scale), not by a model matrix's
+			// column lengths, and the centre is built from the Transform (kept as it was)
 			const float scale = std::max({transform.scale.x, transform.scale.y, transform.scale.z});
 			if (!SphereInView(viewProjection, centre, glm::length(box.Size()) * 0.5f * scale))
 			{

@@ -130,6 +130,8 @@ public:
 	{
 		/// HelpText fn_005CCED0(text, number, narrator) from fn_005C6100: show the text
 		std::function<void(const std::u16string& text, float number, int32_t narrator)> showText;
+		/// openblack only (test hooks): a text with this id was made the current one (fn_005C6100)
+		std::function<void(uint32_t textId)> textStarted;
 		/// The voice branches of fn_005C5F90 (milestone B7)
 		std::function<void(uint32_t textId, VoiceRoute route, audio::TextVoice voice)> sayVoice;
 		/// ProcessInterface 0x5C6A9E..0x5C6AAD: GAudio::StopPlayingSoundEffect(0, 0x270F, VILLAGERS) (audio::voices::
@@ -138,7 +140,7 @@ public:
 		/// HelpSystem::SpiritHome 0x5C6670(spirit, arg) -> fn_005C5200 on the spirit (fn_005C68A0: 1 -> HelpSystem+0xC,
 		/// any other -> +8): spirit+0x58 / +0x5C = 0 and HelpDudeControl (HelpSystem+0x10) fn_005C3540(dude) when arg != 0
 		/// (the dude's state +0xC = 1 at once, 0x5C357A), fn_005C3590(dude) when arg == 0 (fn_005C2E90 / fn_005BBDD0
-		/// first: inferred, the advisor flies off); dude = spirit+0x54 != 1 (fn_005C5250). The advisors are not ported.
+		/// first: inferred, the advisor flies off); dude = spirit+0x54 != 1 (fn_005C5250). Game.cpp: help::spirits.
 		std::function<void(int32_t spirit, int32_t arg)> spiritHome;
 		/// fn_005C6720(spirit, arg) -> fn_005C4C20 -> HelpDudeControl fn_005C3780(dude, arg) (its W120 symbol
 		/// MacAdjustHelpID is wrong: it reads HelpDude::IsTalking 0x5BB760): audio::advisor::Interrupt

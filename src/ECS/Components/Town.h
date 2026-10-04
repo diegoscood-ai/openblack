@@ -130,6 +130,10 @@ struct TownBelief
 struct Town
 {
 	uint32_t id;
+	/// (openblack) the order the Town ctor ran in (TownArchetype::Create, 1 up; 0 for a town made elsewhere). The
+	/// global town list g_game +0x205C84 is filled at the head (0x73964D..0x739656): the higher, the newer. Town::id is
+	/// the script's CREATE_TOWN argument, not that order (maps create towns out of id order, and one repeats id 0)
+	uint32_t creationStamp {0};
 	/// +0x2C, Town::GetPlayer: the player given to CREATE_TOWN (the neutral player when none, Town ctor 0x739545).
 	/// Planned citadels belong to it, not to the player named in CREATE_PLANNED_CITADEL (0x467EF0).
 	PlayerNames owner {PlayerNames::NEUTRAL};

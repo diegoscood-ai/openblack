@@ -67,6 +67,10 @@ void SpiralIncrement(glm::ivec2& pos, int32_t& dir, int32_t& count, float step);
 [[nodiscard]] entt::entity GetStoragePit(entt::entity town);
 /// Town +0x744 (Town::creche, Creche::MakeFunctional 0x50AB50) if it is a valid entity, else entt::null
 [[nodiscard]] entt::entity GetCreche(entt::entity town);
+/// The global town list g_game +0x205C84: the Town ctor inserts at the head (0x73964D..0x739656), so the newest town
+/// first: by Town::creationStamp from high to low (the order TownArchetype::Create ran in = the script order). Empty
+/// without a registry
+[[nodiscard]] std::vector<entt::entity> TownsNewestFirst();
 /// What the HelpSprites remarks read of a town (GGuidance 0x71CA60 / 0x71CAF0 / 0x71CC40): adults + children (+0x618 +
 /// +0x61C, Town::stats), GetStoragePit and its IsFunctional (vt +0xD4), the position (+0x14: the town's Transform)
 [[nodiscard]] audio::guidance::HelpTown HelpTownOf(entt::entity town);

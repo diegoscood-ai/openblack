@@ -70,6 +70,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
 #include "ECS/Weather/Climate.h"
+#include "ECS/Town/TownFeatures.h"
 #include "ECS/Trees.h"
 #include "ECS/Physics/FragMesh.h"
 #include "ECS/Physics/FromHand.h"
@@ -834,8 +835,8 @@ void HandSystem::RunDebugHooks() noexcept
 		}
 	}
 	// Debug: OPENBLACK_TEST_TREE_QUERIES="x,z": a stand-in villager at x,z; logs the tree FindTreeNearVillager picks and
-	// its working position, then for every town: MakeScenicForest + AssignForestsToTown (from its centre) and the
-	// forest FindNearestForestToPos gives, and the forest list with wood and BigForest; then takes 100 wood from the
+	// its working position, then town_features::AsssignTownFeature (0x73EAC0) and for every town the forest
+	// FindNearestForestToPos gives, and the forest list with wood and BigForest; then takes 100 wood from the
 	// first BigForest (BigForestRemoveWood) and logs its arrive position.
 	if (const char* at = std::getenv("OPENBLACK_TEST_TREE_QUERIES"); at != nullptr)
 	{
@@ -859,14 +860,13 @@ void HandSystem::RunDebugHooks() noexcept
 			{
 				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Tree test: no tree in the 9 cells");
 			}
+			ecs::town_features::AsssignTownFeature();
 			registry.Each<const Town>([&](entt::entity, const Town& town) {
 				glm::vec3 centre = position;
 				if (town.centre != entt::null && registry.Valid(town.centre) && registry.AllOf<Transform>(town.centre))
 				{
 					centre = registry.Get<const Transform>(town.centre).position;
 				}
-				ecs::MakeScenicForest(town.id, centre);
-				ecs::AssignForestsToTown(town.id, centre);
 				const auto nearest = ecs::FindNearestForestToPos(town.id, centre);
 				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Tree test: town {} has {} forests, nearest {} (scenic {})", town.id,
 				                   ecs::TownForests(town.id).size(), nearest.value_or(0),

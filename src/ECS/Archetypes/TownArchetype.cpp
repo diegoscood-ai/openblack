@@ -27,7 +27,11 @@ entt::entity TownArchetype::Create(int id, const glm::vec3& position, PlayerName
 
 	// const auto& info = Game::Instance()->GetInfoConstants().town;
 
-	registry.Assign<Town>(entity, static_cast<uint32_t>(id)).owner = playerOwner;
+	auto& town = registry.Assign<Town>(entity, static_cast<uint32_t>(id));
+	town.owner = playerOwner;
+	// the ctor's place in g_game +0x205C84 (head insertion 0x73964D..0x739656): a counter that only goes up
+	static uint32_t s_creationStamp = 0;
+	town.creationStamp = ++s_creationStamp;
 	registry.Assign<Tribe>(entity, tribe);
 	registry.Assign<TownInfluence>(entity); // its influence (ECS/Influence); the owner is Town +0x2C above
 	// the magic types the town holds, its spell icons and its worship site (src/Worship, Town.cpp 0x73D1C0..)

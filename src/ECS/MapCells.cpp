@@ -61,6 +61,7 @@
 #include "ECS/Registry.h"
 #include "ECS/SeaCells.h"
 #include "ECS/Systems/HandSystemInterface.h"
+#include "ECS/Town/TownQueries.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Worship/Citadel.h"
@@ -1878,18 +1879,10 @@ entt::entity map_cells::FindPlayerTownAtPos(const map_coords::MapCoords& coords,
 
 entt::entity map_cells::FindNearestTownInList(const map_coords::MapCoords& coords)
 {
-	auto* registry = RegistryOrNull();
-	if (registry == nullptr)
-	{
-		return entt::null;
-	}
-	// g_game+0x205C84: every town (inferido: in the order they were made, Town::id)
-	std::vector<std::pair<uint32_t, entt::entity>> towns;
-	registry->Each<const Town>([&](entt::entity entity, const Town& town) { towns.emplace_back(town.id, entity); });
-	std::sort(towns.begin(), towns.end());
+	// g_game+0x205C84: the newest town first (the Town ctor's head insertion 0x73964D..0x739656)
 	entt::entity best = entt::null;
 	float bestDistance = 0.0f;
-	for (const auto& [id, town] : towns)
+	for (const auto town : town_queries::TownsNewestFirst())
 	{
 		const float distance = gutils::GetDistanceInMetres(coords, object::MapCoordsOf(town));
 		if (best == entt::null || distance < bestDistance) // the first always (0x55300E), then fcomp; test ah, 1

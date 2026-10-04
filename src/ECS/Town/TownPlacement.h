@@ -38,6 +38,10 @@ constexpr uint32_t k_InsideOtherTown = 0xE;
 void SetTownArea(entt::entity town);
 /// SetTownArea for every town (map_cells::ForEachTown), before a query reads the rectangles (approximate, as above)
 void SetAllTownAreas();
+/// fn_0073AE10 0x73AE10: the rectangle's centre as it is (SetTownArea first), x = ftol((maxX x 10 / 65536 + minX x 10
+/// / 65536) x 0.5 x 65536 / 10), z the same with +0x738 / +0x72C, altitude 0 (Town::MakeScenicForest 0x741B8C). No
+/// town: {0, 0, 0}
+[[nodiscard]] map_coords::MapCoords GetTownAreaCentre(entt::entity town);
 /// MapCoords::IsSuitableForFixed(pos, mesh, angle, scale) 0x6038B0 -> fn_604020: the mesh's NewCollideDescriptor cells
 /// (map_cells::DescriptorCells, reach scale x half diagonal + 1); for each: the position's own cell on the map and not
 /// water, and no MultiMapFixed of the cell's fixed list with d < R_obj + scale x max(hx, hz) (strict). No mesh: 0

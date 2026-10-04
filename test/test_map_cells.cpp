@@ -416,8 +416,9 @@ TEST_F(MapCells, TownsByPlayerThenAge)
 	// a tribe
 	EXPECT_EQ(map_cells::GetNearestTownToPos(at, Tribe::CELTIC, map_cells::k_AnyAbodeType, 1e9f), p1b);
 	EXPECT_EQ(map_cells::GetNearestTownToPos(at, std::nullopt, map_cells::k_AnyAbodeType, 1e9f), p0a);
-	// the global list: the first always, then strictly nearer
-	EXPECT_EQ(map_cells::FindNearestTownInList(at), neutral);
+	// the global list (newest first, the Town ctor's head insert 0x73964D): the first always, then strictly nearer;
+	// p0a (made last) is first and the others are not nearer
+	EXPECT_EQ(map_cells::FindNearestTownInList(at), p0a);
 }
 
 TEST_F(MapCells, FindNearForScriptAndSpiral)

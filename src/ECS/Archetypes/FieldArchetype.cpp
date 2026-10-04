@@ -42,6 +42,8 @@ entt::entity FieldArchetype::Create(int townId, const glm::vec3& position, Field
 		return entity;
 	}
 	auto& field = registry.Assign<Field>(entity, townId);
+	// +0x120: the GFieldTypeInfo the ctor keeps (0x527E23)
+	field.type = type;
 	// The constructor (0x527DD0) starts the field empty and the town's farmers sow it. Mod world.crops (no villager
 	// jobs yet): it starts sown and ripe, as the fields look when a land starts.
 	if (Locator::config::value().fieldsWithoutFarmers)

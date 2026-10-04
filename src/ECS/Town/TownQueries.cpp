@@ -16,6 +16,7 @@
 #include <bitset>
 #include <cstdlib>
 #include <string>
+#include <utility>
 
 #include <fmt/format.h>
 #include <glm/gtc/constants.hpp>
@@ -225,6 +226,27 @@ entt::entity GetCreche(entt::entity town)
 		return entt::null;
 	}
 	return t->creche;
+}
+
+std::vector<entt::entity> TownsNewestFirst()
+{
+	std::vector<entt::entity> list;
+	if (!Locator::entitiesRegistry::has_value())
+	{
+		return list;
+	}
+	// g_game+0x205C84: the Town ctor's head insertion (0x739637 lea esi, [edx + 0x205C84]; 0x73964D..0x739656
+	// node->next = head, head = node, count++): the newest first, by the creation stamp
+	std::vector<std::pair<uint32_t, entt::entity>> towns;
+	Locator::entitiesRegistry::value().Each<const Town>(
+	    [&](entt::entity entity, const Town& town) { towns.emplace_back(town.creationStamp, entity); });
+	std::sort(towns.rbegin(), towns.rend());
+	list.reserve(towns.size());
+	for (const auto& [stamp, town] : towns)
+	{
+		list.push_back(town);
+	}
+	return list;
 }
 
 audio::guidance::HelpTown HelpTownOf(entt::entity town)

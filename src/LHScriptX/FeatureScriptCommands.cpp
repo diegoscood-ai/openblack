@@ -139,9 +139,10 @@ entt::entity FindTown(int32_t townId)
 }
 
 /// fn_00552FF0 (`ret 4`, one MapCoords, no id branch; called at 0x7156A6, 0x7157FF, 0x715AD6, 0x715B79, 0x7168FE and
-/// 0x717E15): the global town list g_game+0x205C84 (ecs::map_cells, by Town::id: inferido), the first always taken,
-/// then fn_00605CD0 = GUtils::GetDistanceInMetres 0x74CD70 strictly smaller (fcomp; test ah, 1 at 0x55301B); none
-/// without towns. MapCoords x, z only (FromMetres: the altitude is not read)
+/// 0x717E15): the global town list g_game+0x205C84 (town_queries::TownsNewestFirst: the newest town first,
+/// 0x73964D), the first always taken, then fn_00605CD0 = GUtils::GetDistanceInMetres 0x74CD70 strictly smaller
+/// (fcomp; test ah, 1 at 0x55301B), so an exact tie goes to the newer town; none without towns. MapCoords x, z only
+/// (FromMetres: the altitude is not read)
 entt::entity FindNearestTown(const glm::vec3& position)
 {
 	return ecs::map_cells::FindNearestTownInList(ecs::map_coords::FromMetres(glm::vec2(position.x, position.z)));

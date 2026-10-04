@@ -23,6 +23,7 @@
 #include "Common/GameRandom.h"
 #include "ECS/Components/FishFarm.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/FishFarms.h"
 #include "ECS/FishPuzzle.h"
 #include "ECS/MapCells.h"
 #include "ECS/Registry.h"
@@ -159,19 +160,8 @@ std::optional<entt::entity> openblack::ecs::FindFishFarmAt(const glm::vec3& poin
 
 uint32_t openblack::ecs::RemoveFishFarmFood(entt::entity farm, uint32_t amount)
 {
-	auto* fishFarm = Locator::entitiesRegistry::value().TryGet<FishFarm>(farm);
-	if (fishFarm == nullptr)
-	{
-		return 0;
-	}
-	if (static_cast<float>(amount) <= fishFarm->food)
-	{
-		fishFarm->food -= static_cast<float>(amount);
-		return amount;
-	}
-	const auto left = static_cast<uint32_t>(fishFarm->food);
-	fishFarm->food = 0.0f;
-	return left;
+	// fn_0052CED0 takes a long: the hand's amounts are small and positive, the same values
+	return static_cast<uint32_t>(fish_farms::RemoveFood(farm, static_cast<int32_t>(amount)));
 }
 
 void openblack::ecs::UpdateFishShoals(float seconds, const glm::vec3& camera)

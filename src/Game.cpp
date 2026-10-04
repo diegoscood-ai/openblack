@@ -71,6 +71,7 @@
 #include "ECS/ScriptHeld.h"
 #include "ECS/ScriptHighlight.h"
 #include "ECS/ScriptTimer.h"
+#include "ECS/Town/TownFeatures.h"
 #include "ECS/Town/TownProcess.h"
 #include "ECS/AnimalAnimations.h"
 #include "ECS/Animations.h"
@@ -1959,7 +1960,9 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	const auto data = fileSystem.ReadAll(path);
 	const auto source = std::string(reinterpret_cast<const char*>(data.data()), data.size());
 
-	// Reset everything. Deletes all entities and their components
+	// Reset everything. Deletes all entities and their components. The field / fish farm deletion listeners first:
+	// clearing the registry must not send their workers to 163 (fields::DisconnectDeletionListeners)
+	ecs::fields::DisconnectDeletionListeners();
 	Locator::entitiesRegistry::value().Reset();
 	// the dust puffs are plain data now (not entities): they go with the map (ECS/Physics/Dust, Motor's OK)
 	ecs::physics::Dust::Clear();
@@ -1982,6 +1985,19 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	{
 		// LoadMap is noexcept: a script it cannot read must not end the program
 		SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "Error in the map script {}: {}", path.generic_string(), e.what());
+	}
+
+	// GSetup::LoadMapFeatures 0x71813D: Town::AsssignTownFeature 0x73EAC0 once the whole script has made the towns,
+	// trees and stores: every town's scenic forest, then every town's forest list (Town +0x608)
+	try
+	{
+		ecs::town_features::AsssignTownFeature();
+	}
+	catch (const std::exception& e)
+	{
+		// LoadMap is noexcept (as the script above): the stores it can make must not end the program
+		SPDLOG_LOGGER_ERROR(spdlog::get("game"), "Error assigning the town features of {}: {}", path.generic_string(),
+		                    e.what());
 	}
 
 	// GStream::CreateAll 0x733FF0: the rivers' landscape footprints, once the script has placed their points

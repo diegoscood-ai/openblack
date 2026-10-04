@@ -85,6 +85,10 @@ void MapScriptCommands::SetGameTickTime(int32_t gameTickTime)
 
 void MapScriptCommands::LoadFeatureScript(glm::vec3)
 {
+	// TODO(not ported): MapCommandProcess case 6 (jump table 0x715018 -> 0x714DCB) = GSetup::LoadMapFeatures(path)
+	// 0x714DD0 (its argument is the script's string): LHScriptX::Load of the file (0x718136), then
+	// ecs::town_features::AsssignTownFeature() at its end (0x71813D), GGame::Birthday, GPlayer::PostLoadCleanup and
+	// GStream::CreateAll (0x718148..0x718152), as Game::LoadMap does for the map's own script
 	throw std::logic_error(std::string {} + "Function " + __func__ + " not implemented. " + __FILE__ + ":" +
 	                       std::to_string(__LINE__));
 }

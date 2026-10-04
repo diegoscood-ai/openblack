@@ -93,6 +93,23 @@ void SetAllTownAreas()
 	});
 }
 
+map_coords::MapCoords GetTownAreaCentre(entt::entity town)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto* t = registry.Valid(town) ? registry.TryGet<const Town>(town) : nullptr;
+	if (t == nullptr)
+	{
+		return {};
+	}
+	// 0x73AE10..0x73AE3B: fild +0x738 (maxZ), fild +0x72C (minZ), each x 10 [0x999AA0] x 2^-16 [0x8AC41C]; faddp;
+	// x 0.5 [0x8AA3B4]. 0x73AE41..0x73AE7B: the same with +0x734 (maxX) and +0x728 (minX). (approximate) the x87 sum
+	// and product in float
+	const float x = (map_coords::ToMetres(t->areaMax.x) + map_coords::ToMetres(t->areaMin.x)) * 0.5f;
+	const float z = (map_coords::ToMetres(t->areaMax.y) + map_coords::ToMetres(t->areaMin.y)) * 0.5f;
+	// 0x73AE81..0x73AEA8: x 65536 [0x8AC408] / 10 [0x999AA0], __ftol; x into +0, z into +4, altitude 0
+	return {map_coords::ToFixedGUtils(x), map_coords::ToFixedGUtils(z), 0.0f};
+}
+
 bool IsSuitableForFixed(const map_coords::MapCoords& pos, entt::id_type meshId, float yAngle, float scale)
 {
 	// 0x6038B0..0x603AF6: the static Game3DObject g_tmp (0xD38330) with the mesh, angle and scale at the position;

@@ -11,6 +11,7 @@
 
 #include <array>
 #include <optional>
+#include <vector>
 
 #include <entt/core/fwd.hpp>
 #include <entt/entity/entity.hpp>
@@ -90,6 +91,9 @@ struct FishFarm
 	/// +0x8C: the ctor 0x52C360 always takes the nearest town (Town::GetNearestTownToPos, any tribe), whatever town the
 	/// script gave
 	entt::entity town {entt::null};
+	/// +0x80 / +0x84: the fishermen (8-byte nodes {next, villager}, head insertion in AddFisherman 0x52D25C..0x52D27B),
+	/// newest first; the count is the size (fish_farms::)
+	std::vector<entt::entity> fishermen {};
 
 	/// shoal +0x64 = food / foodValue; the first 15 x that fish are shown (and swim, and can be caught)
 	[[nodiscard]] size_t VisibleFish() const

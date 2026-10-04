@@ -263,8 +263,8 @@ constexpr int32_t k_AnyAbodeType = 0x7FFF;
 /// GScript::FindPlayerTownAtPos 0x6F72E0 (GET_NEAREST_TOWN_OF_PLAYER, 0x6F2ADD): only TownsOf(player), GetDistanceInMetres
 /// (0x74CD70) <= best, best = r ("test ah, 0x41" 0x6F7312): a tie goes to the later town. Not GetNearestTown 0x6020E0
 [[nodiscard]] entt::entity FindPlayerTownAtPos(const map_coords::MapCoords& coords, float radius, PlayerNames player);
-/// fn_00552FF0 (`ret 4`, one MapCoords): the global town list g_game+0x205C84 (inferido: by Town::id), the first
-/// always taken, then GetDistanceInMetres < best. It has no id branch
+/// fn_00552FF0 (`ret 4`, one MapCoords): the global town list g_game+0x205C84 (town_queries::TownsNewestFirst), the
+/// first always taken, then GetDistanceInMetres < best: an exact tie goes to the newer town. It has no id branch
 [[nodiscard]] entt::entity FindNearestTownInList(const map_coords::MapCoords& coords);
 
 namespace detail

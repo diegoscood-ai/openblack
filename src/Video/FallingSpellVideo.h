@@ -14,6 +14,8 @@
 #include <filesystem>
 #include <functional>
 
+#include "GameClock.h"
+
 /// The falling spell's film of runblack.exe W120 (fall.bik): GGame::KickOffFallingSpellVideo 0x5539A0 /
 /// EndFallingSpellVideo 0x553A10, the FallingSpell object (new(0x40), Init 0x526060, Close 0x5264A0, its update
 /// 0x526E00, Draw 0x5267D0) and the Temple fade it drives (Temple::UpdateFade 0x794280). Wiki: video.md, "La caída del
@@ -57,10 +59,10 @@ namespace openblack::video
 class VideoPlayer;
 
 /// g_game +0x205A28 (KickOffFallingSpellVideo 0x5539D5 `mov [esi+0x205A28], 2`; 1 is the citadel's, GoInsideCitadel
-/// 0x554004; EndFallingSpellVideo 0x553A1C writes 0)
-inline constexpr int32_t k_SequenceModeNone = 0;
-inline constexpr int32_t k_SequenceModeCitadel = 1;
-inline constexpr int32_t k_SequenceModeFallingSpell = 2;
+/// 0x554004; EndFallingSpellVideo 0x553A1C writes 0): the one value of game_clock::SequenceMode
+inline constexpr int32_t k_SequenceModeNone = game_clock::k_SequenceModeNone;
+inline constexpr int32_t k_SequenceModeCitadel = game_clock::k_SequenceModeCitadel;
+inline constexpr int32_t k_SequenceModeFallingSpell = game_clock::k_SequenceModeFallingSpell;
 /// Process3dEngine 0x54DDCE `cmp [ecx+0x20], 4`: the state that ends the falling spell
 inline constexpr int32_t k_FallingSpellEndState = 4;
 /// FallingSpell::Init 0x52621E / update 0x526E4E: a film whose fps is <= 0 is given 0x18
@@ -181,12 +183,12 @@ public:
 
 	/// GGame::FallingSpellVideo != NULL
 	[[nodiscard]] bool IsActive() const { return _active; }
-	/// g_game +0x205A28
-	[[nodiscard]] int32_t Mode() const { return _mode; }
+	/// g_game +0x205A28 (game_clock::SequenceMode)
+	[[nodiscard]] int32_t Mode() const { return game_clock::SequenceMode(); }
 	/// Process3dEngine 0x54DD83..0x54DE02: in mode 2 the land, the objects, the hand and the interface are not drawn
 	/// (case 0, 0x54DE57, is skipped): only the film (and, not ported, the falling creature, its sprites and the
 	/// liquid particles)
-	[[nodiscard]] bool HidesWorld() const { return _mode == k_SequenceModeFallingSpell; }
+	[[nodiscard]] bool HidesWorld() const { return Mode() == k_SequenceModeFallingSpell; }
 	/// FallingSpell +0x20: 0..4
 	[[nodiscard]] int32_t State() const { return _state; }
 	/// FallingSpell +0x24: 0..3
@@ -210,7 +212,6 @@ private:
 	VideoPlayer& _player;
 	Hooks _hooks;
 	bool _active {false};             ///< GGame::FallingSpellVideo 0xCD3B10 != NULL (and FallingSpell +0x00)
-	int32_t _mode {k_SequenceModeNone}; ///< g_game +0x205A28
 	int32_t _lastMs {0};              ///< +0x0C
 	bool _sparklesOn {false};         ///< +0x1C
 	int32_t _state {0};               ///< +0x20

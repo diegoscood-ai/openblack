@@ -19,6 +19,7 @@
 #include "Enums.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "Game.h"
+#include "GameClock.h"
 #include "Locator.h"
 #include "VideoPlayer.h"
 
@@ -179,7 +180,7 @@ void FallingSpellVideo::KickOff()
 
 void FallingSpellVideo::Start()
 {
-	_mode = k_SequenceModeFallingSpell; // 0x5539D5
+	game_clock::SetSequenceMode(k_SequenceModeFallingSpell); // 0x5539D5
 	// 0x5539DF new(0x40) and fn_00527240 0x5539ED: +0x00 = +0x04 = 0; a failed new (0x553A00) is not modelled
 	_active = true;                    // 0x5539F4 FallingSpellVideo = the object
 	_player.SetFallingSpellVideo(true);
@@ -223,7 +224,7 @@ void FallingSpellVideo::End()
 	{
 		return; // 0x553A1A
 	}
-	_mode = k_SequenceModeNone; // 0x553A1C
+	game_clock::SetSequenceMode(k_SequenceModeNone); // 0x553A1C
 	Close();                    // 0x553A2D
 	// 0x553A3E fn_00527250 (the dtor: Close again only with +0x00, now 0) and delete 0x553A44
 	_active = false; // 0x553A4E FallingSpellVideo = NULL
@@ -325,7 +326,7 @@ void FallingSpellVideo::Update()
 void FallingSpellVideo::ProcessFrame(uint32_t realMs)
 {
 	// 0x54DD83..0x54DD95: switch (+0x205A28), case 2 at 0x54DD9B
-	if (_mode == k_SequenceModeFallingSpell)
+	if (Mode() == k_SequenceModeFallingSpell)
 	{
 		// 0x54DDAB LH3DAtmos::Update3D, 0x54DDB5 g_mode_cleaning = 0 (not ported)
 		Update(); // 0x54DDBB fn_00553A60: 0x526E00 when FallingSpellVideo != NULL
@@ -339,7 +340,7 @@ void FallingSpellVideo::ProcessFrame(uint32_t realMs)
 		// 0x54DDF5 / 0x54DDFD the liquid particles
 	}
 	// 0x54E2A4..0x54E2DE
-	if (_fade.Runs(_mode))
+	if (_fade.Runs(Mode()))
 	{
 		const uint32_t colour = _fade.Update(realMs); // 0x54E2DE Temple::UpdateFade
 		if (_hooks.setScreenFadeColour)

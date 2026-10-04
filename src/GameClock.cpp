@@ -43,6 +43,7 @@ struct State
 	float fraction {0.0f};                        ///< g_game +0x205D64
 	uint32_t previousEngineSample {0};            ///< [0xEA9EAC]
 	uint32_t frameRealMs {1};                     ///< g_delta_time [0xC38134]
+	int32_t sequenceMode {k_SequenceModeNone};    ///< g_game +0x205A28
 };
 
 State g_State;
@@ -247,6 +248,21 @@ void Pause(bool paused)
 bool IsPaused()
 {
 	return g_State.paused;
+}
+
+int32_t SequenceMode()
+{
+	return g_State.sequenceMode;
+}
+
+void SetSequenceMode(int32_t mode)
+{
+	g_State.sequenceMode = mode;
+}
+
+bool IsInsideCitadel()
+{
+	return g_State.sequenceMode == k_SequenceModeCitadel;
 }
 
 void SetSpeed(float speed)

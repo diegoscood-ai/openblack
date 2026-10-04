@@ -114,6 +114,7 @@
 #include "LHScriptX/Script.h"
 #include "LandBalance.h"
 #include "Magic/MagicLoop.h"
+#include "GameClock.h"
 #include "Locator.h"
 #include "Mods/ModRegistry.h"
 #include "Mods/Lua/LuaHost.h"
@@ -204,9 +205,8 @@ audio::GameQueries MakeMusicQueries(Game& game)
 		const auto* helpSystem = help::Get();
 		return helpSystem != nullptr ? helpSystem->GetGuidanceLevel() : 3;
 	};
-	// g_game+0x205A28 == 1 (0x4282F0): GoInsideCitadel 0x554004 / LeaveInsideCitadel 0x553B1F are openblack's temple
-	// interior Activate / Deactivate (ENTER_EXIT_CITADEL, the debug window), as StartCameraControl reads it (CHLApi.cpp)
-	queries.insideCitadel = []() { return Locator::temple::has_value() && Locator::temple::value().Active(); };
+	// g_game+0x205A28 == 1 (0x4282F0): game_clock::IsInsideCitadel
+	queries.insideCitadel = []() { return game_clock::IsInsideCitadel(); };
 	// GPlayer::GetPlayerNumber 0x64A790 of the local interface's player: openblack's local player is PLAYER_ONE
 	queries.localPlayerNumber = []() { return static_cast<uint32_t>(PlayerNames::PLAYER_ONE); };
 	// GGameInfo::IsVisualNight 0x5575E0 (HelpSpritesCheckMoonPhase 0x71D1DC)
@@ -854,10 +854,10 @@ bool Game::Update() noexcept
 	_screenFade->UpdateWideScreen(static_cast<float>(game_clock::FrameGameMs()));
 	profiler.End(Profiler::Stage::FrameUpdaters);
 	// HelpSystem::Draw3D 0x5C59A0: the texts' slide-in and the click cue's fade, with g_game_time_inc, or g_delta_time
-	// in the citadel (g_game+0x205A28 == 1, fn_005CC760 0x5CC7BE; inferred: openblack's temple interior stands for it)
+	// in the citadel (g_game+0x205A28 == 1, fn_005CC760 0x5CC7BE)
 	if (auto* helpSystem = help::Get(); helpSystem != nullptr)
 	{
-		const bool citadel = Locator::temple::has_value() && Locator::temple::value().Active();
+		const bool citadel = game_clock::IsInsideCitadel();
 		helpSystem->Draw3D(static_cast<float>(citadel ? game_clock::FrameRealMs() : game_clock::FrameGameMs()));
 	}
 
@@ -1378,6 +1378,8 @@ bool Game::Initialize() noexcept
 		queries.turn = []() { return game_clock::Turn(); };
 		// LH3DTech::g_timer's ms (0xEA1C78..0xEA1C80, 0x5C6250)
 		queries.nowMs = []() { return game_clock::EngineMs(); };
+		// 0x5C6468..0x5C6475 / 0x5C68ED..: g_game +0x205A28 == 1 && (g_game +0x14 & 4, the pause bit)
+		queries.citadelClock = []() { return game_clock::IsInsideCitadel() && game_clock::IsPaused(); };
 		// ScriptDLL::GetScriptType 0x6F6C50 (fn_005C6800 0x5C681B)
 		queries.taskScriptType = [](uint32_t task) -> uint32_t {
 			return Locator::vm::has_value() ? static_cast<uint32_t>(Locator::vm::value().GetTaskScriptType(task)) : 1;
@@ -1772,6 +1774,8 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 		game_random::Reset();
 	}
 	_firstMapLoaded = true;
+	// GGame::Init 0x54FCA4: g_game +0x205A28 = 0 (edi)
+	game_clock::SetSequenceMode(game_clock::k_SequenceModeNone);
 	// GGame::Init 0x54F66F: both influence multipliers back to 1 before the map script
 	_mapScriptGlobals.townInfluenceMultiplier = 1.0f;
 	_mapScriptGlobals.playerInfluenceMultiplier = 1.0f;

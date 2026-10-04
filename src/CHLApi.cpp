@@ -94,6 +94,7 @@
 #include "EngineConfig.h"
 #include "Enums.h"
 #include "Game.h"
+#include "GameClock.h"
 #include "Help/HelpSystem.h"
 #include "Help/ScriptControl.h"
 #include "InfoConstants.h"
@@ -908,10 +909,10 @@ void DllGettime() // 029 DLL_GETTIME
 
 void StartCameraControl() // 030 START_CAMERA_CONTROL
 {
-	// GScript::StartCameraControl 0x6ECCA0 (Help/ScriptControl.cpp). Inside the citadel: g_game+0x205A28 == 1 (inferred:
-	// openblack's temple interior being active stands for it), no camera mode. Outside, fn_00461140 (0x6ECCBA) creates
-	// the script camera mode unless GCamera::CantExitCurrentMode 0x441B70 (Camera/ScriptCamera.h)
-	const bool insideCitadel = Locator::temple::has_value() && Locator::temple::value().Active();
+	// GScript::StartCameraControl 0x6ECCA0 (Help/ScriptControl.cpp). Inside the citadel: g_game+0x205A28 == 1
+	// (game_clock::IsInsideCitadel), no camera mode. Outside, fn_00461140 (0x6ECCBA) creates the script camera mode
+	// unless GCamera::CantExitCurrentMode 0x441B70 (Camera/ScriptCamera.h)
+	const bool insideCitadel = openblack::game_clock::IsInsideCitadel();
 	auto& cameraControl = help::script_control::GetCameraControl();
 	bool cameraTaken = false;
 	if (!insideCitadel)
@@ -4723,9 +4724,8 @@ void KillStormsInArea() // 404 KILL_STORMS_IN_AREA
 
 void InsideTemple() // 405 INSIDE_TEMPLE
 {
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
-	Pushb(false);
+	// GScript::InsideTemple 0x6FF5A0: PUSH(g_game +0x205A28 == 1, VMType 6) (0x6FF5B4)
+	Pushb(openblack::game_clock::IsInsideCitadel());
 }
 
 void RestartObject() // 406 RESTART_OBJECT

@@ -136,6 +136,21 @@ void OnLoad();
 void Pause(bool paused);
 /// g_game +0x14 bit 2
 [[nodiscard]] bool IsPaused();
+
+/// g_game +0x205A28, the game's sequence mode, one field of GGame read inline by many (INSIDE_TEMPLE 0x6FF5B4, the
+/// sound 0x4282F0, START_CAMERA_CONTROL 0x6ECCA6, the help texts 0x5C6468 / 0x5C68ED, GCamera::Update 0x442337,
+/// Process3dEngine 0x54DD83, Temple::UpdateFade's test 0x54E2A4). Its only writers in the .text: GGame::Init 0x54FCA4
+/// (0), KickOffFallingSpellVideo 0x5539D5 (2), EndFallingSpellVideo 0x553A1C (0), LeaveInsideCitadel 0x553B1F (0),
+/// GoInsideCitadel 0x554004 (1): the last writer wins
+inline constexpr int32_t k_SequenceModeNone = 0;
+inline constexpr int32_t k_SequenceModeCitadel = 1;
+inline constexpr int32_t k_SequenceModeFallingSpell = 2;
+[[nodiscard]] int32_t SequenceMode();
+/// The five writers above (openblack: Game::LoadMap, FallingSpellVideo::Start / End, TempleInterior::Deactivate /
+/// Activate)
+void SetSequenceMode(int32_t mode);
+/// g_game +0x205A28 == 1: inside the citadel
+[[nodiscard]] bool IsInsideCitadel();
 /// GGame::SetSpeed 0x5537F0 (single player, 0x553835..): the speed-up factor of the timer (1 = normal, 2 = twice as
 /// fast); running, the timer is rebased, so the time already gone keeps the old speed. Stopped (paused), the new
 /// speed is kept for when it starts again

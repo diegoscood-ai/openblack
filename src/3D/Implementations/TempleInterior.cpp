@@ -25,6 +25,7 @@
 #include "ECS/Systems/Implementations/RenderingSystem.h"
 #include "ECS/Systems/Implementations/RenderingSystemTemple.h"
 #include "EngineConfig.h"
+#include "GameClock.h"
 #include "Locator.h"
 #include "Resources/ResourcesInterface.h"
 
@@ -140,6 +141,8 @@ void TempleInterior::Activate()
 	camera.SetOrigin(_templePosition);
 	camera.SetFocus(_templePosition + glm::quat(_templeRotation) * glm::vec3(0.0f, 0.0f, 1.0f));
 	_active = true;
+	// GGame::GoInsideCitadel 0x554004: g_game +0x205A28 = 1
+	game_clock::SetSequenceMode(game_clock::k_SequenceModeCitadel);
 }
 
 void TempleInterior::Deactivate()
@@ -165,4 +168,6 @@ void TempleInterior::Deactivate()
 	camera.SetOrigin(_playerPositionOutside);
 	camera.SetFocus(_playerPositionOutside + glm::quat(_playerRotationOutside) * glm::vec3(0.0f, 0.0f, 1.0f));
 	_active = false;
+	// GGame::LeaveInsideCitadel 0x553B1F: g_game +0x205A28 = 0
+	game_clock::SetSequenceMode(game_clock::k_SequenceModeNone);
 }

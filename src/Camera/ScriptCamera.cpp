@@ -900,7 +900,7 @@ void ApplyShake(Camera& camera, const glm::vec3& lastDrawn)
 	// zoomers keep their values. openblack: Camera::SetDrawOffset, which GetOrigin/GetFocus(Current) and the view add
 	auto position = camera.GetOriginZoomer().GetCurrentValue();
 	auto focus = camera.GetFocusZoomer().GetCurrentValue();
-	const bool insideCitadel = Locator::temple::has_value() && Locator::temple::value().Active();
+	const bool insideCitadel = game_clock::IsInsideCitadel(); // g_game +0x205A28 == 1
 	if (insideCitadel)
 	{
 		camera.SetDrawOffset(glm::vec3(0.0f), glm::vec3(0.0f));
@@ -922,8 +922,8 @@ bool UpdateCamera(Camera& camera, float cameraSeconds, uint32_t gameMs, float ga
 	auto& state = Get();
 	Frame(cameraSeconds, gameMs, gameSeconds);
 
-	// 0x442337..0x4423F4: inside the citadel (g_game+0x205A28 == 1, here the temple interior) the drawn camera stays
-	const bool insideCitadel = Locator::temple::has_value() && Locator::temple::value().Active();
+	// 0x442337..0x4423F4: inside the citadel (g_game+0x205A28 == 1) the drawn camera stays
+	const bool insideCitadel = game_clock::IsInsideCitadel();
 	const bool drive = Drives() && !insideCitadel;
 	if (drive)
 	{

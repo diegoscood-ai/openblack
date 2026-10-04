@@ -20,6 +20,7 @@
 #include "ECS/Registry.h"
 #include "InfoConstants.h"
 #include "Locator.h"
+#include "GameClock.h"
 #include "Magic/Core/SpellSeed.h"
 #include "Camera/Camera.h"
 #include "ECS/Systems/HandSystemInterface.h"
@@ -38,13 +39,19 @@ namespace
 {
 namespace gestures = magic::gestures;
 
-/// PSysUtilityPSys (0xD4E0E8): +0 the trail (48), +4 its "active", +8 the recognised sparkles (35), +0x20 the
-/// selection (28), +0x24 its "active"
+/// PSysUtilityPSys (0xD4E0E8, 0x40 bytes made by PSysGlobal::InitializeOneTimeOnly 0x68F779): +0 the trail (48), +4
+/// its "active", +8 the recognised sparkles (35), +0xC SF_OnFire (37), +0x14 SF_LightningStrike (61), +0x18
+/// SF_ManaPathNew (22), +0x1C SF_BeliefSprite (24), +0x20 the selection (28), +0x24 its "active". (+0x10, the
+/// exploded meshes' SF_ExplodeObject, is PSys/Rules/ExplodeObject.cpp's own)
 struct UtilityPSys
 {
 	uint32_t trail {0};
 	bool trailActive {false};
 	uint32_t recognised {0};
+	uint32_t onFire {0};
+	uint32_t lightningStrike {0};
+	uint32_t manaPath {0};
+	uint32_t belief {0};
 	uint32_t selection {0};
 	bool selectionActive {false};
 };
@@ -55,7 +62,8 @@ std::vector<magic::gestures::RecognisedGesture> g_Pending;
 /// (fn_00671110 0x671172..0x671197) and the recognised sparkles (fn_00671260 0x6712CD..0x6712EA) then SetPlayer (vt
 /// 0x20) the local player (g_game +0x205A59; openblack: PLAYER_ONE, inferido), so SF_GestureChain's
 /// ParticleChainCreator0 (UsePlayerColor 1) is drawn in its colour; the selection (fn_006711D0) gets no player
-uint32_t CreateOnce(uint32_t& slot, ParticleType type, bool localPlayer)
+uint32_t CreateOnce(uint32_t& slot, ParticleType type, bool localPlayer, bool perFrame = true,
+                    game_random::psys::NetGameType net = game_random::psys::NetGameType::Local)
 {
 	if (slot != 0 && manager::Find(slot) == nullptr)
 	{
@@ -66,8 +74,11 @@ uint32_t CreateOnce(uint32_t& slot, ParticleType type, bool localPlayer)
 		const auto file = ParticleTypeFile(type);
 		if (!file.empty())
 		{
-			slot = manager::StartForSpell(std::string(file), glm::vec3(0.0f), glm::vec3(0.0f), 1.0f, nullptr);
-			manager::SetPerFrame(slot);
+			slot = manager::StartForSpell(std::string(file), glm::vec3(0.0f), glm::vec3(0.0f), 1.0f, nullptr, net);
+			if (perFrame)
+			{
+				manager::SetPerFrame(slot);
+			}
 			if (auto* effect = manager::Find(slot); effect != nullptr && localPlayer)
 			{
 				effect->SetPlayer(static_cast<int>(PlayerNames::PLAYER_ONE));
@@ -147,7 +158,37 @@ void Step(uint32_t id, const glm::vec3& handPosition, bool enabled, float magnit
 	effect->SetMagnitude(magnitude); // vt 0x11C
 	manager::ProcessForSpell(id, info, seconds); // vt 0xFC Process_(&info, g_game_time_inc)
 }
+/// fn_006717F0 / fn_00671740 / fn_00671B40 / fn_00671CD0 / fn_00672100 / fn_006719E0: the slot made when missing,
+/// Process_(info, [0xD01A38]) (vt 0xFC) with every field 0 but power 1.0 (+0x30) and enabled (+0x38); 5 deletes it
+/// (vt 4) and clears the slot, made again on the next turn
+void StepTurn(uint32_t& slot, ParticleType type, bool localPlayer, game_random::psys::NetGameType net)
+{
+	if (CreateOnce(slot, type, localPlayer, false, net) == 0)
+	{
+		return;
+	}
+	ProcessInfo info;
+	info.power = 1.0f;
+	info.enabled = true;
+	if (!manager::ProcessForSpell(slot, info, static_cast<float>(game_clock::MsPerTurn()) * 0.001f))
+	{
+		slot = 0;
+	}
+}
 } // namespace
+
+void utility::ProcessTurn()
+{
+	// the gates [0xC029FC] (+0x0C), [0xC02A00] (+0x18, +0x1C) and [0xC02A04] (+0x08) are 1 in .data and never written
+	// (refs: reads only); the slots' NET_GAME_TYPE: 1 for +0x0C (0x6716EE) and +0x14 (0x67198E), 0 for the others
+	using game_random::psys::NetGameType;
+	StepTurn(g_Utility.onFire, ParticleType::OnFire, false, NetGameType::Synced);
+	StepTurn(g_Utility.manaPath, ParticleType::ManaPath, false, NetGameType::Local);
+	// +0x1C and +0x08: SetPlayer (vt 0x20) the local player, g_game + 0x18 + [g_game +0x205A59] x 0xA60 (PLAYER_ONE)
+	StepTurn(g_Utility.belief, ParticleType::BeliefSprite, true, NetGameType::Local);
+	StepTurn(g_Utility.recognised, ParticleType::Gesture, true, NetGameType::Local);
+	StepTurn(g_Utility.lightningStrike, ParticleType::LightningStrike, false, NetGameType::Synced);
+}
 
 void utility::GestureRecognised(const magic::gestures::GestureSystem& system, const magic::gestures::Result& result)
 {
@@ -275,8 +316,8 @@ void utility::GestureRecognised(const magic::gestures::GestureSystem& system, co
 		record.handPosition = glm::vec3(Locator::handSystem::value().GetHandMatrix()[3]);
 	}
 	g_Pending.push_back(std::move(record));
-	// PSysUtilityPSys: SF_Gesture (35) is created once and stepped every frame (Update); its rule takes the record
-	CreateOnce(g_Utility.recognised, ParticleType::Gesture, true);
+	// PSysUtilityPSys: SF_Gesture (35) is stepped once a turn (ProcessTurn, fn_00672100) and drawn every frame with the
+	// turn's fraction (fn_00671DA0 0x671DD3); its rule takes the record
 }
 
 std::vector<magic::gestures::RecognisedGesture>& utility::PendingRecognised()
@@ -304,11 +345,8 @@ void utility::Update(float seconds, const glm::vec3& handPosition, float handSca
 		g_Utility.selectionActive = state.selection.open && gestures::GetHandStatus().handReady;
 		Step(selection, handPosition, g_Utility.selectionActive, handScale, seconds);
 	}
-	// the recognised sparkles (35): stepped and drawn every frame (vt 0x108)
-	if (g_Utility.recognised != 0 && manager::Find(g_Utility.recognised) != nullptr)
-	{
-		Step(g_Utility.recognised, handPosition, true, 1.0f, seconds);
-	}
+	// the recognised sparkles (35) are stepped once a turn (ProcessTurn) and drawn here with Draw_(1) (0x671DD3).
+	// (pending) the original draws them only while MyInterface +0x3A0 != 0
 }
 
 void utility::Reset()

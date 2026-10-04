@@ -48,6 +48,7 @@
 #include "PSys/Creators/Mesh.h"
 #include "PSys/Creators/Mist.h"
 #include "PSys/Rules/ExplodeObject.h"
+#include "PSys/Utility.h"
 #include "PSys/Rules/Storm.h"
 #include "Worship/Worship.h"
 
@@ -146,6 +147,8 @@ void magic::ProcessPSysGameLoopEnd()
 	// 11 PSysGlobal::GameLoopEnd 0x68F5B0 (0x54E688) -> fn_006D11A0, the PSys sounds    [S sounds]
 	//    (first fn_006721B0 -> fn_006717F0: the EXPLODE_OBJECT effect empties the exploded meshes' queue)
 	psys::explode_object::GameLoopEnd(); // PSys/Rules/ExplodeObject.cpp
+	//    then fn_006721B0's other slots: SF_OnFire, SF_ManaPathNew, SF_BeliefSprite, SF_Gesture, SF_LightningStrike
+	psys::utility::ProcessTurn(); // PSys/Utility.cpp
 	//    (fn_006D11A0 0x6D11AB..0x6D11C5: [0xD01A38] x 0.001)
 	audio::spell_sounds::ProcessTurn(static_cast<float>(game_clock::MsPerTurn()) * 0.001f); // Audio/Services/SpellSounds.cpp
 }

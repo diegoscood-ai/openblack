@@ -322,8 +322,10 @@ private:
 	std::unique_ptr<BgfxCallback> _bgfxCallback;
 	mutable std::unique_ptr<LandLightTable> _landLight;
 	mutable bgfx::TextureHandle _landLightTexture = BGFX_INVALID_HANDLE;
-	mutable std::array<glm::vec4, 2> _hazeUniforms {}; ///< u_haze and u_hazeColour of the pass being drawn
-	mutable haze::Params _haze;                         ///< the haze of the pass being drawn (graphics::haze::Frame)
+	mutable std::array<glm::vec4, 2> _hazeUniforms {}; ///< u_haze and u_hazeColour of the frame (PreDraw)
+	mutable haze::Params _haze;                         ///< the haze of the frame (graphics::haze::Frame, PreDraw)
+	/// The clouds of the main view this frame, collected by PreDraw (CollectClouds: their animation counters advance)
+	mutable std::vector<std::pair<float, uint32_t>> _preClouds;
 	/// RawTextureIds' cache (draw-owned)
 	mutable std::unordered_map<std::string, std::pair<entt::id_type, entt::id_type>> _rawTextureIds;
 	mutable float _sunGlare {0.0f};                     ///< [0xFA2778]: sun glare visibility 0..255, smoothed

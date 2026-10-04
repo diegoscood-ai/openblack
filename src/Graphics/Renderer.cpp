@@ -1873,6 +1873,17 @@ void Renderer::PreDraw(const DrawSceneDesc& drawDesc) const noexcept
 	{
 		UpdateClouds();
 	}
+	// Distance haze of this frame (graphics::haze::Frame: fn_007FEAA0 / fn_007FEAD0 and the "Fog" detail key), from the
+	// land light table just built: the same for the reflection and the main pass
+	_haze = _landLight && _landLight->IsLoaded() ? haze::Frame() : haze::Params {};
+	_hazeUniforms = haze::Uniforms(_haze);
+	// fn_005E25C0 0x5E2813: the clouds the main view draws (vt+0x100 queues each with the blended things); only the
+	// main pass with the sky collects them (the reflection does not)
+	_preClouds.clear();
+	if (drawDesc.drawSky)
+	{
+		_preClouds = CollectClouds(*drawDesc.camera);
+	}
 }
 
 void Renderer::DrawScene(const DrawSceneDesc& drawDesc) const noexcept
@@ -2461,9 +2472,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 	const auto* debugShaderInstanced = _shaderManager->GetShader("DebugLineInstanced");
 	const auto* objectShaderInstanced = _shaderManager->GetShader("ObjectInstanced");
 
-	// Distance haze of this frame (graphics::haze::Frame: fn_007FEAA0 / fn_007FEAD0 and the "Fog" detail key)
-	_haze = _landLight && _landLight->IsLoaded() ? haze::Frame() : haze::Params {};
-	_hazeUniforms = haze::Uniforms(_haze);
+	// Distance haze of this frame (PreDraw)
 	const glm::vec4 u_haze = _hazeUniforms[0];
 	const glm::vec4 u_hazeColour = _hazeUniforms[1];
 
@@ -2502,7 +2511,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				DrawSun(desc.viewId, *desc.camera, false);
 				// fn_005E25C0 0x5E2813: each cloud's vt+0x100, LH3DMist::AddDrawing 0x7FA7F0, queues it with the blended
 				// things of the frame (it used to be sorted on its own and drawn after all of them)
-				for (const auto& [key, index] : CollectClouds(*desc.camera))
+				for (const auto& [key, index] : _preClouds) // collected by PreDraw
 				{
 					sorted.Submit({.cloud = static_cast<int>(index)}, key);
 				}

@@ -72,6 +72,7 @@
 #include "ECS/ScriptHighlight.h"
 #include "ECS/ScriptTimer.h"
 #include "ECS/Town/TownFeatures.h"
+#include "ECS/Town/TownBelief.h"
 #include "ECS/Town/TownProcess.h"
 #include "ECS/AnimalAnimations.h"
 #include "ECS/Animations.h"
@@ -738,7 +739,7 @@ bool Game::GameLogicLoop() noexcept
 	ecs::script_highlight::ProcessHighlights();
 	// 0x54E6DA GClimate::ProcessAll 0x771BE0 (+ the weather's test hooks)
 	weather::ProcessClimate();
-	// 0x54E6DF GBelief::ProcessOncePerTurn 0x4380B0: (not ported)
+	ecs::town_belief::ProcessOncePerTurn(); // 0x54E6DF GBelief::ProcessOncePerTurn 0x4380B0
 	// 0x54E6F1 CHand::GameTurnUpdate 0x46E4E0 (Magic/MagicLoop.cpp)
 	magic::ProcessHandTurn();
 	// 0x54E6F8 AddPlayerSparkles, 0x54E6FD MobileObject::AddMobileObjectCheckSum, 0x54E704 GameThing::ProcessDeadList(0),

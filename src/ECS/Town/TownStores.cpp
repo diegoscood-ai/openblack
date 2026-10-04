@@ -22,6 +22,7 @@
 #include "ECS/Registry.h"
 #include "ECS/ToBeDeleted.h"
 #include "ECS/Town/AbodeQueries.h"
+#include "ECS/Town/TownBelief.h"
 #include "ECS/Town/TownQueries.h"
 #include "GameClock.h"
 #include "InfoConstants.h"
@@ -126,9 +127,16 @@ void AddToBelief(entt::entity town, PlayerNames player, float f, entt::entity th
 	{
 		t->belief.lastAddedTurn.at(n) = game_clock::Turn();
 	}
-	// 0x437F0A..0x437F2A: with a thing, DrawBelief 0x438800 when draw and BeliefSFX 0x437F40: (pending) see the header
-	static_cast<void>(thing);
-	static_cast<void>(draw);
+	// 0x437F0A..0x437F2A: with a thing, DrawBelief 0x438800(f, thing, P) when draw (0x437F19), then BeliefSFX 0x437F40
+	if (thing != entt::null)
+	{
+		if (draw)
+		{
+			town_belief::DrawBelief(f, thing, player);
+		}
+		// GGuidance::BeliefSFX 0x437F2A(this, P, &thing +0x14, g): audio::guidance::BeliefSFX(t->belief.belief, ...).
+		// (pending) the distance from the interface's position IS +0x14 is not available here
+	}
 	static_cast<void>(guidanceAlignment);
 }
 

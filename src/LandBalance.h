@@ -22,5 +22,9 @@ constexpr size_t k_Count = 8;
 void Reset();
 void Set(int index, float value);
 [[nodiscard]] float Get(size_t index);
+/// [0xBF33F0], the lost-town scale: SET_LOST_TOWN_SCALE (land script case 104, 0x717E85); 1.0 in GLandBalance::Init
+/// (0x5E28A9, Reset). Read by the town belief's fold (ecs::town_belief, fn_004383D0 0x4384BA / 0x4386E4)
+void SetLostTownScale(float scale);
+[[nodiscard]] float LostTownScale();
 
 } // namespace openblack::land_balance

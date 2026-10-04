@@ -93,20 +93,6 @@ float Rand(float a, float b)
 	return game_random::psys::FloatRand(a, b);
 }
 
-int PlayerIndex(const std::string& name)
-{
-	static const std::array<std::string_view, 8> k_Names = {"PLAYER_ONE", "PLAYER_TWO", "PLAYER_THREE", "PLAYER_FOUR",
-	                                                        "PLAYER_FIVE", "PLAYER_SIX", "PLAYER_SEVEN", "PLAYER_EIGHT"};
-	for (size_t i = 0; i < k_Names.size(); ++i)
-	{
-		if (name == k_Names[i])
-		{
-			return static_cast<int>(i);
-		}
-	}
-	return -1;
-}
-
 /// PlayersSymbols (PlayerSymbol::CreateFinalTextureSymbols 0x5DEF00): the local human's cell is a copy of the
 /// ChooseSymbol cell of the profile's "player symbol" (registry, 0 when missing, as on this install), so it is drawn
 /// straight from ChooseSymbol (4 x 4 cells of 64 x 64). Computer players get Lethis/Kazarr/Nemesis .cps greyscale
@@ -167,24 +153,26 @@ struct Shown
 };
 
 /// The players with some belief in the town and their rank (fn_0073BB10): the players with more belief, or as much and a
-/// higher number
-std::vector<Shown> ShownSymbols(const std::unordered_map<std::string, float>& beliefs)
+/// higher number. The belief is the town's GBelief +0x8 (Town::belief.belief, by player number). The candidates are
+/// GetNextActivePlayer 0x5508D0's slots 0..6 (UR_TownCentreBelief 0x69BFF4; the neutral one has no symbol); the rank
+/// counts all 8 slots, the neutral one included (fn_0073BB10 0x73BC20..0x73BC24: inc esi; cmp esi, 8)
+std::vector<Shown> ShownSymbols(const std::array<float, 8>& beliefs)
 {
+	constexpr int k_SymbolPlayers = 7;
+	constexpr int k_RankSlots = 8;
 	std::vector<Shown> result;
-	for (const auto& [name, value] : beliefs)
+	for (int player = 0; player < k_SymbolPlayers; ++player)
 	{
-		const int player = PlayerIndex(name);
-		const float b = std::clamp(value, 0.0f, 1.0f);
-		if (player < 0 || b <= 0.0f)
+		const float b = std::clamp(beliefs.at(static_cast<size_t>(player)), 0.0f, 1.0f);
+		if (b <= 0.0f)
 		{
 			continue;
 		}
 		int rank = 0;
-		for (const auto& [otherName, otherValue] : beliefs)
+		for (int other = 0; other < k_RankSlots; ++other)
 		{
-			const int other = PlayerIndex(otherName);
-			const float ob = std::clamp(otherValue, 0.0f, 1.0f);
-			if (other >= 0 && other != player && (ob > b || (ob == b && other > player)))
+			const float ob = std::clamp(beliefs.at(static_cast<size_t>(other)), 0.0f, 1.0f);
+			if (other != player && (ob > b || (ob == b && other > player)))
 			{
 				++rank;
 			}
@@ -226,7 +214,7 @@ void ForEachCentre(Fn&& fn)
 		{
 			continue;
 		}
-		fn(entity, registry.Get<const Town>(town->second).beliefs);
+		fn(entity, registry.Get<const Town>(town->second).belief.belief);
 	}
 }
 
@@ -314,7 +302,7 @@ void town_belief::Step()
 	const auto milliseconds = static_cast<float>(game_clock::FrameGameMs());
 	// the rule's draws run in the town centre effect's step (fn_00673340), a local one (TownCentre::CreatePSys 0x69BC31)
 	const game_random::psys::StepScope step(game_random::psys::NetGameType::Local);
-	ForEachCentre([&](entt::entity entity, const std::unordered_map<std::string, float>& beliefs) {
+	ForEachCentre([&](entt::entity entity, const std::array<float, 8>& beliefs) {
 		const auto shown = ShownSymbols(beliefs);
 		const auto [slot, created] = g_Centres.try_emplace(entity);
 		auto& centre = slot->second;
@@ -345,7 +333,7 @@ void town_belief::Collect(const glm::vec3& camera, std::vector<manager::Drawable
 	using namespace ecs::components;
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto& meshes = Locator::resources::value().GetMeshes();
-	ForEachCentre([&](entt::entity entity, const std::unordered_map<std::string, float>& beliefs) {
+	ForEachCentre([&](entt::entity entity, const std::array<float, 8>& beliefs) {
 		const auto found = g_Centres.find(entity);
 		if (found == g_Centres.end())
 		{

@@ -53,9 +53,10 @@ constexpr float k_ClearAreaRadius = 2.0f;
 /// (0x7400E6..0x7400F9). Only Abode::DoResourceRemoving 0x404FD7 calls it
 void SetGameTurnResourceLastRemoved(entt::entity town, PlayerNames player, ResourceType type);
 /// GBelief::AddToBelief 0x437EB0 (P, f, thing, draw, GUIDANCE_ALIGNMENT) of the town's +0x798: +0xC8[n] += f (pending,
-/// folded each turn), +0x28[n] += f (recent, decays), f != 0 -> +0x48[n] = the turn (0x437EC0..0x437EFC). With a thing: draw -> GBelief::DrawBelief 0x438800 (pending,
-/// not ported) and GGuidance::BeliefSFX 0x437F40 (pending: it needs the interface's position IS +0x14; it plays only
-/// for a player below the strongest belief, and the beliefs +0x8 are not ported yet)
+/// folded each turn by ecs::town_belief::Fold), +0x28[n] += f (recent, decays), f != 0 -> +0x48[n] = the turn
+/// (0x437EC0..0x437EFC). With a thing: draw -> GBelief::DrawBelief 0x438800 (town_belief::DrawBelief, the belief-sprite
+/// queue) and GGuidance::BeliefSFX 0x437F40 (pending: it needs the interface's position IS +0x14 for the distance; it
+/// plays only for a player below the strongest belief +0x8)
 void AddToBelief(entt::entity town, PlayerNames player, float f, entt::entity thing, bool draw, int guidanceAlignment);
 /// Town::SetStoragePit 0x73EA60 (StoragePit::MakeFunctional 0x732F30): +0x30 = the pit; each temporary pot +0x600 /
 /// +0x604: available and holding its resource -> Pot::SetupReaction 0x66D660 (animal_ai::SetupPotReaction), else

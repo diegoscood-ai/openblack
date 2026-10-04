@@ -10,6 +10,7 @@
 #include "FeatureScriptCommands.h"
 
 #include <cctype>
+#include <algorithm>
 #include <tuple>
 
 #include <glm/geometric.hpp>
@@ -24,6 +25,7 @@
 #include "Camera/Camera.h"
 #include "ECS/Archetypes/AbodeArchetype.h"
 #include "ECS/GUtilsDistance.h"
+#include "ECS/Town/TownBelief.h"
 #include "ECS/Town/TownDesire.h"
 #include "ECS/Town/TownQueries.h"
 #include "ECS/Town/TownVillagers.h"
@@ -128,6 +130,24 @@ PlayerNames GetPlayerName(const std::string& name)
 		std::throw_with_nested(std::runtime_error(fmt::format("Could not recognize player name: {}", name)));
 	}
 	return player;
+}
+
+/// GPlayer::GetPlayerFromText 0x64B5E0 (SET_TOWN_BELIEF, SET_TOWN_BELIEF_CAP): the player whose name matches without
+/// case (_stricmp 0x64B609), else the neutral player (0x64B627..0x64B643). Not GetPlayerName, which throws
+PlayerNames PlayerFromText(const std::string& name)
+{
+	for (size_t i = 0; i < k_PlayerNamesStrs.size(); ++i)
+	{
+		const auto& candidate = k_PlayerNamesStrs.at(i);
+		if (candidate.size() == name.size() &&
+		    std::equal(candidate.begin(), candidate.end(), name.begin(), [](char a, char b) {
+			    return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b));
+		    }))
+		{
+			return static_cast<PlayerNames>(i);
+		}
+	}
+	return PlayerNames::NEUTRAL;
 }
 
 /// GGame::FindTownWithID 0x552FA0
@@ -310,17 +330,27 @@ void FeatureScriptCommands::CreateTown(int32_t townId, glm::vec3 position, const
 
 void FeatureScriptCommands::SetTownBelief(int32_t townId, const std::string& playerOwner, float belief)
 {
-	auto& registry = Locator::entitiesRegistry::value();
-	auto& registryContext = registry.Context();
-
-	Town& town = registry.Get<Town>(registryContext.towns.at(townId));
-	town.beliefs.insert({playerOwner, belief});
+	// SET_TOWN_BELIEF (fn_00715150, 0x71542B): GGame::FindTownWithID 0x715449 (none: je 0x717E8A, nothing), then
+	// Town::SetBeliefInPlayer 0x73BA70(P, f) 0x715460: the neutral player -> +0x5D8 = f; SetBelief 0x4387D0, capped.
+	// It overwrites the slot (the old string map inserted, so it kept the first value)
+	const auto player = PlayerFromText(playerOwner); // GetPlayerFromText 0x64B5E0 (0x715432)
+	if (const auto town = FindTown(townId); town != entt::null)
+	{
+		ecs::town_belief::SetBeliefInPlayer(Locator::entitiesRegistry::value().Get<Town>(town), player, belief);
+	}
 }
 
 void FeatureScriptCommands::SetTownBeliefCap(int32_t townId, const std::string& playerOwner, float belief)
 {
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {}({}, {}, {}) not implemented.", __FILE__,
-	                    __LINE__, __func__, townId, playerOwner, belief);
+	// SET_TOWN_BELIEF_CAP (0x715472): GetPlayerFromText 0x715479, FindTownWithID 0x715492 (none: je 0x717E8A),
+	// GBelief::SetBeliefInPlayerCap 0x438A00(P, f) 0x7154B5. (pending) 0x7154BA..0x715528: the land name ==
+	// .\mpm_3p_1.txt (strcmp with 0xD99648) && IsMultiplayerGame 0x552F80 (0x7154FB) && town +0x5B4 == 3 && P not
+	// neutral -> cap 2.0; openblack plays no multiplayer land
+	const auto player = PlayerFromText(playerOwner); // GetPlayerFromText 0x64B5E0 (0x715479)
+	if (const auto town = FindTown(townId); town != entt::null)
+	{
+		ecs::town_belief::SetCap(Locator::entitiesRegistry::value().Get<Town>(town).belief, player, belief);
+	}
 }
 
 void FeatureScriptCommands::SetTownUninhabitable(int32_t townId)
@@ -1136,10 +1166,14 @@ void FeatureScriptCommands::SetPlayerInfluenceMultiplier(float multiplier)
 	Game::Instance()->GetMapScriptGlobals().playerInfluenceMultiplier = multiplier; // read by ECS/Influence
 }
 
-void FeatureScriptCommands::SetTownBalanceBeliefScale([[maybe_unused]] int32_t townId, [[maybe_unused]] float scale)
+void FeatureScriptCommands::SetTownBalanceBeliefScale(int32_t townId, float scale)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	// case 98: FindTownWithID (none: je 0x717E8A at 0x717BAE), then town +0x5DC = the scale (0x717BBA), the scale of
+	// its pending belief (ecs::town_belief::Fold)
+	if (const auto town = FindTown(townId); town != entt::null)
+	{
+		Locator::entitiesRegistry::value().Get<Town>(town).belief.beliefScale = scale;
+	}
 }
 
 void FeatureScriptCommands::StartGameMessage([[maybe_unused]] const std::string& message, [[maybe_unused]] int32_t landNumber)
@@ -1172,8 +1206,9 @@ void FeatureScriptCommands::MakeLastObjectArtifact(int32_t, const std::string&, 
 	// __func__);
 }
 
-void FeatureScriptCommands::SetLostTownScale([[maybe_unused]] float scale)
+void FeatureScriptCommands::SetLostTownScale(float scale)
 {
-	// SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "LHScriptX: {}:{}: Function {} not implemented.", __FILE__, __LINE__,
-	// __func__);
+	// case 104: [0xBF33F0] = the scale (0x717E85), 1 again with GLandBalance::Init (land_balance::Reset); read by the
+	// town belief's fold (the boredom and the belief left in a player's towns when one is lost)
+	land_balance::SetLostTownScale(scale);
 }

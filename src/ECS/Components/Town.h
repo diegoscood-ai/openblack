@@ -113,18 +113,53 @@ struct TownDesire
 	std::array<float, 17> doingNowCount {};
 };
 
-/// Town +0x798 GBelief: the part GBelief::AddToBelief 0x437EB0 writes (Belief.h; Init 0x437DD0 zeroes them). The belief
-/// itself (+0x8, GetBeliefInPlayer 0x437E70) comes from the town's per-turn fold fn_004383D0 (Town::Process step 19):
-/// (pending) not ported, spec dev\documentacion\edificios\belief_spec.md
+/// std::array<float, N> with every element `value` (the default member initialisers of TownBelief)
+template <size_t N>
+constexpr std::array<float, N> FilledArray(float value)
+{
+	std::array<float, N> result {};
+	result.fill(value);
+	return result;
+}
+
+/// Town +0x798 GBelief (Belief.h, 0x1D0 bytes; GBelief : Base, its vtable +0x0 and Base +0x4 left out), every row by
+/// the player number (PlayerNames, NEUTRAL = 7); changed by ecs::town_belief and ecs::town_stores::AddToBelief. The
+/// defaults are the zero-filled allocation (Base::operator new 0x4366F0 -> fn_00436870, rep stosd) with Init
+/// 0x437DD0's cap and boredom, so that a town made without Init still caps at 10; Init also sets the desire
+/// thresholds. Town +0x5D8 and +0x5DC, read only by the belief, are kept here too.
+/// Spec dev\documentacion\edificios\belief_spec.md
 struct TownBelief
 {
-	/// +0x28 [player], float (bw1-decomp says uint32): += f (0x437ED5); only decays (x GPlayerInfo +0x48 0.997 a turn)
-	/// and is read only by the computer player (fn_00438A40)
+	/// +0x8 [player] BeliefInPlayer (GetBeliefInPlayer 0x437E70): SetBelief 0x4387D0 (capped), ReduceBelief 0x437FD0
+	/// (not clamped: it can go below 0); 0 in Init but the neutral slot (= +0x5D8)
+	std::array<float, 8> belief {};
+	/// +0x28 [player], float (bw1-decomp says uint32): += f (0x437ED5); only decays (x GPlayerInfo +0x48 0.997 a turn,
+	/// fold 0x438644..0x43864C) and is read only by the computer player (fn_00438A40). Not reset by Init
 	std::array<float, 8> recent {};
-	std::array<uint32_t, 8> lastAddedTurn {}; ///< +0x48 [player], the turn of the last f != 0 (0x437EF5)
-	/// +0xC8 [player]: += f (0x437EC7), what was added since the last fold; fn_004383D0 folds it x Town +0x5DC into
-	/// +0x8 (SetBelief 0x4387D0) and +0x88
+	std::array<uint32_t, 8> lastAddedTurn {}; ///< +0x48 [player], the turn of the last f != 0 (0x437EF5); no reader
+	/// +0x68 [player] BeliefInPlayerMax: 10.0 (Init 0x437DE1); SET_TOWN_BELIEF_CAP (SetBeliefInPlayerCap 0x438A00)
+	std::array<float, 8> cap {10.0f, 10.0f, 10.0f, 10.0f, 10.0f, 10.0f, 10.0f, 10.0f};
+	/// +0x88 [player]: += the folded amount (fold 0x438424); 0 every 10 turns (ProcessOncePerTurn 0x438158). Not reset
+	/// by Init
+	std::array<float, 8> addedThisPeriod {};
+	/// +0xA8 [player]: ReduceBelief's accumulator for its (never shown) draw (0x437FFD, 0x438041); 0 in Init
+	std::array<float, 8> reduceAccumulator {};
+	/// +0xC8 [player]: += f (0x437EC7), what was added since the last fold; fn_004383D0 folds it x +0x5DC (beliefScale)
+	/// into +0x8 (SetBelief 0x4387D0) and +0x88, then 0 (0x4384A6)
 	std::array<float, 8> pending {};
+	/// +0xE8 [REACTION] BoredomMultiplier: 1.0 (Init 0x437E40); the fold adds ReactionInfo +0x4C below 1, Villager::
+	/// UpdateHowImpressed 0x7635B9 AddToBoredomMultiplier 0x438790; read by GetBoredomMultiplier 0x56FE70
+	std::array<float, 41> boredom = FilledArray<41>(1.0f);
+	/// +0x18C [TOWN_DESIRE]: the desire above which the owner loses belief (fold 0x438565); GTownDesireInfo +0x3C in
+	/// Init and on every fold with something pending (fn_00437E50), then -= +0x48 a fold while above GBeliefInfo +0x1C
+	/// (0.25)
+	std::array<float, 17> desireThreshold {};
+	/// Town +0x5D8 BeliefInNeutralPlayer (fn_0073E4B0): GTownInfo +0xB8 (0.5) after Init in the Town ctor (0x73966C);
+	/// SET_TOWN_BELIEF of the neutral player (Town::SetBeliefInPlayer 0x73BA87). The fold pins belief[NEUTRAL] to it
+	float beliefInNeutralPlayer {0.0f};
+	/// Town +0x5DC: the scale of the pending belief (1.0, Town ctor 0x739672); SET_TOWN_BALANCE_BELIEF_SCALE (case 98,
+	/// 0x717BBA), LHVM SET_OBJECT_BELIEF_SCALE (GScript::SetObjectBeliefScale 0x6FF8B2, not ported)
+	float beliefScale {1.0f};
 };
 
 struct Town
@@ -137,7 +172,6 @@ struct Town
 	/// +0x2C, Town::GetPlayer: the player given to CREATE_TOWN (the neutral player when none, Town ctor 0x739545).
 	/// Planned citadels belong to it, not to the player named in CREATE_PLANNED_CITADEL (0x467EF0).
 	PlayerNames owner {PlayerNames::NEUTRAL};
-	std::unordered_map<std::string, float> beliefs;
 	bool uninhabitable = false; ///< +0x5F4, SET_TOWN_UNINHABITABLE (0x715542)
 	/// +0x768 / +0x76C: the town's homeless, the head first (MakeHomelessNoStateChange 0x7612F9 inserts at the head, next
 	/// = villager +0xE4). Changed only by ecs::town_villagers
@@ -150,7 +184,7 @@ struct Town
 	/// +0xEC8 [player][RESOURCE_TYPE]: the turn each player last took FOOD / WOOD from this town's abodes or storage pit
 	/// through an interface (Town::SetGameTurnResourceLastRemoved 0x7400D0); 0 = never. ecs::town_stores
 	std::array<std::array<uint32_t, 2>, 8> resourceLastRemovedTurn {};
-	/// +0x798: the town's GBelief (ecs::town_stores::AddToBelief)
+	/// +0x798: the town's GBelief (ecs::town_belief; AddToBelief is ecs::town_stores')
 	TownBelief belief;
 	/// +0x5C0, Town::SetWorshipPercentage 0x73C060 (CREATE_TOWN_CENTRE's N5 * 0.001; all the shipped lands pass 0).
 	/// The original keeps it only if the town has a worship site (otherwise 0) and passes it on to the totem statue;

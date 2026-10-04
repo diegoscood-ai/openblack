@@ -22,6 +22,7 @@
 #include "ECS/Registry.h"
 #include "ECS/Town/AbodeVillagers.h"
 #include "ECS/Town/BuildingSites.h"
+#include "ECS/Town/TownBelief.h"
 #include "ECS/Town/TownDesire.h"
 #include "ECS/Town/TownStats.h"
 #include "ECS/Town/TownVillagers.h"
@@ -162,8 +163,10 @@ void ProcessTown(entt::entity town)
 	//    storage pit -> ToBeDeleted, null; not available -> null. TODO(V5): openblack has no temporary pots
 	// 18 0x7474A2..0x7474FD: the missionaries +0x99C (MissionaryControl::Process 0x7567E0, the unavailable ones taken
 	//    off, --+0x9A0). TODO(milagros2)
-	// 19 0x7474FF..0x747506 fn_4383D0(+0x798, town): the belief (GBelief: +0xC8 x Town +0x5DC folded into +0x8 and
-	//    +0x88). TODO(Edificios, H2/H3): spec dev\documentacion\edificios\belief_spec.md
+	// 19 0x7474FF..0x747506 fn_4383D0(+0x798, town), unconditional: the belief (GBelief: +0xC8 x Town +0x5DC folded
+	//    into +0x8 and +0x88, the boredom, the desires' cost, the neutral pin, the conversion; ecs::town_belief). The
+	//    conversion ends the old owner's walk (ProcessPlayers)
+	town_belief::Fold(town);
 	// 20 0x74750B..0x747523: with a player, fn_4141F0(player +0x60, town): the alignment by desires (TownDesire
 	//    fn_7466D0 with GetDesire, info +0x4C / +0x50 / +0x54 and AlignmentTurns +0x410; fn_414660; CAlignmentHistory::
 	//    Add 0x414D40). TODO(milagros2): no function yet
@@ -180,7 +183,7 @@ void ProcessTown(entt::entity town)
 		--t->emptyCountdown;
 		if (t->emptyCountdown == 0)
 		{
-			// TODO(V12): Town::SetTownEmpty 0x741080
+			// TODO(V12): Town::SetTownEmpty 0x741080 (its belief part is town_belief::SetTownEmpty)
 		}
 		else if (t->stats.adults + t->stats.children != 0)
 		{
@@ -211,9 +214,23 @@ void ProcessPlayers()
 	// GPlayer::ProcessPlayers 0x649A20 -> GPlayer::Process 0x6494E0: Citadel::Process (+0xA48, not ours), then each
 	// town of +0xA50 (next +0x75C): Town::Process 0x649551. The player's alignment (0x6496C5) comes after its towns
 	// (For_Children reads the last turn's): ecs::effects::alignment::ProcessPlayers in magic::ProcessTurn
-	map_cells::ForEachTown([](entt::entity town) {
-		ProcessTown(town);
-		return true;
-	});
+	// GetNextPlayerAndNeutral 0x550980: the slots 0..7. A town taken over in its fold (step 19, TakeOverTown
+	// fn_00649810 -> fn_0064C090 puts it at the tail of the new owner's list with next = 0, 0x64C0C6) ends the old
+	// owner's walk (0x649545 mov edi, [edi + 0x75C]): its later towns wait for the next turn; the taken town comes
+	// again under the new owner when that slot is later (always for the neutral one). (approximate) TownsOf orders by
+	// Town::id, so the taken town is not necessarily the new owner's last
+	auto& registry = Locator::entitiesRegistry::value();
+	for (uint8_t p = 0; p < static_cast<uint8_t>(PlayerNames::_COUNT); ++p)
+	{
+		const auto player = static_cast<PlayerNames>(p);
+		for (const auto town : map_cells::TownsOf(player))
+		{
+			ProcessTown(town);
+			if (const auto* t = registry.TryGet<Town>(town); t != nullptr && t->owner != player)
+			{
+				break;
+			}
+		}
+	}
 }
 } // namespace openblack::ecs::town_process

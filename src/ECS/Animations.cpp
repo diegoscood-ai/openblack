@@ -23,6 +23,7 @@
 #include "3D/L3DMesh.h"
 #include "3D/SkeletalPose.h"
 #include "Audio/Services/AnimationSounds.h"
+#include "ECS/Components/DrawPosition.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/SkeletalAnimation.h"
 #include "ECS/Components/Transform.h"
@@ -74,6 +75,7 @@ void UpdateAnimations(float milliseconds)
 		if (!animation.hasClip || !animations.Contains(animation.clip) || !meshes.Contains(mesh.id))
 		{
 			animation.pose.clear();
+			animation.drawnPose.clear();
 			return;
 		}
 		const auto clip = animations.Handle(animation.clip);
@@ -112,7 +114,67 @@ void UpdateAnimations(float milliseconds)
 			animation.time = clip->IsLooping() ? std::fmod(animation.time, duration) : std::min(animation.time, duration);
 		}
 		graphics::ComputePose(*model, *clip, animation.time, animation.pose);
+		// a SuperVillager (ECS/SuperVillager.h): fn_00825530 blends the clip drawn before a change for crossFadeMs, into
+		// its own bone buffer [0xC37D9C] only (drawnPose); `pose` above stays the plain one
+		if (animation.crossFadeMs > 0)
+		{
+			animation.drawnPose.clear();
+			if (animation.crossFadeFrozen)
+			{
+				return; // fn_00825400 0x825422 je 0x82543D: no fn_00825530 this frame
+			}
+			auto& fade = animation.crossFade;
+			const bool fading = StepCrossFade(fade, animation.clip, static_cast<int32_t>(milliseconds), animation.crossFadeMs);
+			// 0x8257B6 / 0x8257C4: while +0x94 != 0 and not +0x30 bit 2 (DrawPosition::followSnap, the same bit as the
+			// yaw stage's 0x8255B8). (openblack) a fade from a clip that is not loaded draws the plain pose
+			const auto* draw = registry.TryGet<const components::DrawPosition>(entity);
+			const bool snap = draw != nullptr && draw->followSnap;
+			if (fading && !snap && animations.Contains(fade.oldClip))
+			{
+				graphics::ComputeBlendedPose(*model, *clip, animation.time, *animations.Handle(fade.oldClip), fade.oldTime,
+				                             fade.weight, animation.drawnPose);
+			}
+			fade.lastTime = animation.time; // 0x825E2D..0x825E36
+		}
 	});
+}
+
+const std::vector<glm::mat4>& DrawnPose(const SkeletalAnimation& animation)
+{
+	return animation.drawnPose.empty() ? animation.pose : animation.drawnPose;
+}
+
+bool StepCrossFade(components::SkeletalAnimation::CrossFade& fade, entt::id_type clip, int32_t milliseconds, int32_t fadeMs)
+{
+	if (!fade.hasLast)
+	{
+		// 0x8256CF..0x8256DD
+		fade.hasLast = true;
+		fade.lastClip = clip;
+	}
+	else if (fade.lastClip != clip)
+	{
+		// 0x8256EA..0x825716: from the clip and time drawn last
+		fade.oldClip = fade.lastClip;
+		fade.oldTime = fade.lastTime;
+		fade.leftMs = fadeMs;
+		fade.lastClip = clip;
+		fade.weight = 1.0f;
+	}
+	else
+	{
+		// 0x825722..0x82574F
+		fade.leftMs -= milliseconds;
+		if (fade.leftMs < 0)
+		{
+			fade.leftMs = 0;
+		}
+		else
+		{
+			fade.weight = static_cast<float>(fade.leftMs) / static_cast<float>(fadeMs);
+		}
+	}
+	return fade.leftMs != 0;
 }
 
 PoseMap PosesByInstance(const std::unordered_map<entt::entity, systems::RenderContext::EntityInstance>& entityInstances)
@@ -126,7 +188,7 @@ PoseMap PosesByInstance(const std::unordered_map<entt::entity, systems::RenderCo
 		    }
 		    if (const auto instance = entityInstances.find(entity); instance != entityInstances.end())
 		    {
-			    poses.emplace(instance->second.index, &animation.pose);
+			    poses.emplace(instance->second.index, &DrawnPose(animation));
 		    }
 	    });
 	return poses;

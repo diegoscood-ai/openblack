@@ -20,6 +20,7 @@
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 
+#include "3D/Billboard.h"
 #include "Help/HelpTextDisplay.h"
 
 // What the end of the frame draws over the scene, decided before the draw (Motor M2, dev\documentacion\motor\
@@ -101,6 +102,19 @@ struct SpiritOverlay
 	std::vector<SpiritQuadVertex> sprites;
 };
 
+/// The intro light of PLAY_JC_SPECIAL 0 (ecs/IntroSpecial.h) this frame: fn_00828300's Z object (one entry of the
+/// transparency queue, key |keyPoint - g_camera|^2 in SumOrder::XYZ, the light's head before this frame's step) and what
+/// its callback 0x8283D0 draws there, in order: LH3DSprite::Draw 0x840530 (screen sprites with their near test) in the
+/// material [0xD19C8C] (CreateMaterial(13, misc0.raw)), ZFUNC ALWAYS around them when depthAlways. Not a screen
+/// overlay: it rides here as the frame's value copy (Motor M2), the Renderer submits it in the main view's queue
+struct IntroLightOverlay
+{
+	bool active {false};
+	glm::vec3 keyPoint {0.0f};
+	bool depthAlways {false};
+	std::vector<billboard::Sprite> sprites;
+};
+
 /// The overlays of one frame
 struct OverlayFrame
 {
@@ -114,6 +128,8 @@ struct OverlayFrame
 	/// fn_005C3850 -> fn_005B90C0: the rainbow trails, world triangles (three vertices each) of both dudes out of home
 	/// and not in the world; rainbow.raw in mode 15
 	std::vector<SpiritQuadVertex> spiritTrails;
+	/// The intro light (ecs::intro_special::FillFrame)
+	IntroLightOverlay introLight;
 };
 
 } // namespace openblack::graphics

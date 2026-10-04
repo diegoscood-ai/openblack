@@ -89,7 +89,7 @@ A second `WALK_PATH` on the same object does not add it to the list again and re
 
 0x5EE100 (misassigned symbol `Animal::DebugText`): deletes the old DataPath at +0xAC, creates one with the track, +0x18 =
 track, +0x1C = to, +0x20 = forward, **+0x28 = duration / (focus length (+0x0C) / (speed(+0x5A)/655·0.1))**,
-+0x2C = speed, +0x24 = from × duration, and gives it a footpath (`AddFootpath`, vt+0x8FC). It is moved by
++0x2C = speed, +0x24 = from × duration, and calls vt+0x8FC, Living::SetAnim (not AddFootpath: corrected by session Personas, 2026-10-04). It is moved by
 `Living::MoveAlongPath` 0x5EE230. Used by `FollowUs` (Father, track 22) and `BlindWomanJourney` (track 7).
 
 ## The sharks of Land 1 (`FollowUs`, challenge.chl)

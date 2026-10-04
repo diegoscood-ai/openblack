@@ -26,8 +26,20 @@
 // DataForScriptRemind (Living +0xB0, Create 0x5EF190 / KeepThatInMind 0x5EF1D0 / fn_005EF2A0), with which a villager
 // taken out of a script state remembers its walk and resumes it when it comes back.
 
+namespace openblack::ecs::components
+{
+struct Transform;
+struct WallHug;
+} // namespace openblack::ecs::components
+
 namespace openblack::ecs::villager
 {
+/// MobileWallHug::SetYAngle 0x60DAC0 (vt +0x524, which calls Object::SetYAngle 0x639260) as openblack keeps it:
+/// WallHug::yAngle (the 3D angle, VillagerCore's convention) and the drawn rotation the pathfinding gives the transform, AngleY(angle + 90 degrees), the "Scawen" angle
+/// of Object::GetWorldMatrix 0x638200. (aproximado) no u16 game angle (+0x5C) is stored: VillagerCore derives it from
+/// yAngle when it reads it (rounded to 2048ths). Shared by PathfindingSystem's InitializeStep, InitStepsXZ and
+/// ECS/SuperVillager; VillagerCore's SetGameAngle (the game angle in, then FaceAngle) is a second 0x639260 site, kept
+void SetYAngle(components::Transform& transform, components::WallHug& wallHug, float angle);
 /// Villager::IsStateEntryFunctionSameAs 0x7524D0 (a, b): the entry functions (+0x10 of the state rows, 0xD091A8,
 /// VillagerOriginalFns.h) of both states are the same (EnterInScript, EnterPlayAnim, EnterBuilding)
 [[nodiscard]] bool IsStateEntryFunctionSameAs(VillagerStates a, VillagerStates b);

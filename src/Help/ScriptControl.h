@@ -151,7 +151,7 @@ void ReleaseGameSpeedOf(CameraControl& camera, uint32_t task);
 /// The task-stop callback 0x6EC6D0 (fn_006EB1D0 passes it to ScriptDLL at 0x6EB1F1), for the parts ported: nothing
 /// without a game or HelpSystem (0x6EC6D5 / 0x6EC6DF); HelpSystem fn_005C6800(task) (0x6EC6E9), GScript
 /// fn_006ECF20(task) (0x6EC70C), fn_006FAA40(task) (0x6EC71E) and GInterface::EndPlayBack when IsPlayBack(task) (0x6EC72A..0x6EC748,
-/// Input/HandDemo.h). Not ported: HelpSystem fn_005C78C0(task) (0x6EC6FA). ScriptLibraryR.dll calls it
+/// Input/HandDemo.h). HelpSystem fn_005C78C0(task) (0x6EC6FA) is ReleaseWideScreenOf. ScriptLibraryR.dll calls it
 /// before the task leaves the list (StopTask 0x100065B0: the callback 0x1003BDD0 at 0x100065CD, the unlink from
 /// 0x10006612), so GetScriptType(task) in fn_005C6800 still sees it, as LHVM::StopTask does (InvokeStopTaskCallback
 /// before the erase)

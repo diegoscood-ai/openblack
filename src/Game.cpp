@@ -41,6 +41,7 @@
 #include "3D/TempleInteriorInterface.h"
 #include "Audio/Services/AtmosBanks.h"
 #include "Audio/Audio.h"
+#include "Audio/Services/Confirmation.h"
 #include "Audio/Services/GameMusic.h"
 #include "Audio/Services/Guidance.h"
 #include "Audio/Services/LanternSounds.h"
@@ -85,6 +86,7 @@
 #include "ECS/Trees.h"
 #include "ECS/FishShoals.h"
 #include "ECS/GroundMarks.h"
+#include "ECS/IntroSpecial.h"
 #include "ECS/PetitNavire.h"
 #include "ECS/Physics/Buildings.h"
 #include "ECS/Physics/Dust.h"
@@ -107,11 +109,13 @@
 #include "ECS/MobileWalkPaths.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "ECS/Sharks.h"
+#include "ECS/SuperVillager.h"
 #include "EngineConfig.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "Graphics/FrameBuffer.h"
 #include "Graphics/OverlayFrame.h"
 #include "Graphics/RendererInterface.h"
+#include "Graphics/SuperVillagerFrame.h"
 #include "Help/HelpProfile.h"
 #include "Help/HelpSystem.h"
 #include "Help/InterfaceInteraction.h"
@@ -518,6 +522,12 @@ bool Game::ProcessEvents(const SDL_Event& event) noexcept
 				}
 				break;
 			}
+			// 0x63EF90..0x63EFA8 / 0x63F024..0x63F03E: nothing while a script holds the wide screen (a tutorial cinema or
+			// hand demo; a demo whose bars come only from StartPlayBack, owner 0, is not protected: inferred)
+			if (const auto* helpSystem = help::Get(); helpSystem != nullptr && helpSystem->IsScriptWideScreen())
+			{
+				break;
+			}
 			return false;
 		case SDLK_f:
 			window.SetDisplayMode(windowing::DisplayMode::Fullscreen);
@@ -540,6 +550,11 @@ bool Game::ProcessEvents(const SDL_Event& event) noexcept
 			// wide screen (HelpSystem +0x45E8 && +0x45EC) or a SET_INTERFACE_INTERACTION level has a ControlMap switch off
 			if ((help::Get() != nullptr && help::Get()->IsScriptWideScreen()) ||
 			    !help::interface_interaction::KeyShortcutsEnabled())
+			{
+				break;
+			}
+			// 0x63F46B..0x63F472: the bookmark keys only while [0x9CD384] (PLAY_JC_SPECIAL 14 / 15)
+			if (!Locator::cameraBookmarkSystem::value().IsEnabled())
 			{
 				break;
 			}
@@ -922,9 +937,22 @@ bool Game::Update() noexcept
 	// PetitNavire::PreDraw 0x5DFF20 / SmokyStuff fn_00824140 / PostDraw 0x5E03F0 (the missionaries' boat, ecs/PetitNavire.h).
 	// fn_00824140 also moves the smoke an object leaves when it goes (ecs/SmokyStuff.h), in game time, boat or not.
 	ecs::petit_navire::Update(static_cast<float>(game_clock::FrameGameMs()));
+	// fn_005DFCE0 (GLandscape::Draw 0x5E4B30..0x5E4B35, before the SuperVillager loop): the intro hand's grip, from the
+	// hand as the last frame left it (ecs/IntroSpecial.h)
+	ecs::super_villager::SetIntroHandGrip(ecs::intro_special::Grip());
+	// fn_005DF640 (fn_0x005e5cd0 0x5E6241, just before PetitNavire::PostDraw 0x5E6250) and the light's Z-object callback
+	// 0x8283D0 of this frame: the intro light, the debug camera's points and the intro hand. (approximate) after the
+	// boat's update here. The light's CRT Random draws: (approximate, pending Motor m2c2): the original draws in the Z
+	// drain, after the clouds, night lights and smoke; moves to the end of Renderer::PreDraw with Motor's m2c2
+	ecs::intro_special::Update(game_clock::FrameGameMs());
 
+	// GLandscape::Draw 0x5E4B3A..: the SuperVillagers go without a script wide screen; the others take fn_00825400's
+	// on-screen test and set this frame's fade and yaw parameters of the smooth drawing (ecs/SuperVillager.h)
+	ecs::super_villager::Update();
 	// Villagers and animals drawn between turns, turning smoothly, on the slope (ecs/MobileDrawing.h)
 	ecs::UpdateMobileDrawing(GetTurnFraction(), static_cast<float>(game_clock::FrameGameMs()));
+	// GLandscape::Draw 0x5E4BC8..0x5E4BEE, after Villager::Draw: a SuperVillager with feature 7 at the intro hand's grip
+	ecs::super_villager::FollowHand();
 	// Skeletal animation of villagers and animals (ecs/Animations.h), in milliseconds of game time
 	ecs::UpdateVillagerAnimations();
 	ecs::UpdateAnimalAnimations();
@@ -935,6 +963,10 @@ bool Game::Update() noexcept
 
 	// FishFarm shoals (fn_00824DA0), moved with the frame's game time
 	ecs::UpdateFishShoals(game_clock::FrameGameSeconds(), camera.GetOrigin());
+	// fn_008254A0 (fn_005E5CD0 +0x585 = 0x5E6255, after the fish 0x5E4B2B and PetitNavire::PostDraw 0x5E6250): each
+	// SuperVillager's eyes after its body, on screen only (ecs/SuperVillagerEyes.h); the swim rings' Random(0, 2 pi)
+	// of the driver loop (0x5E4CB4..0x5E4CC2) came before them, in Update
+	ecs::super_villager::Draw(static_cast<int32_t>(game_clock::FrameGameMs()));
 	// Process3dEngine 0x54E032 TownCentre::DrawAll: the town belief symbols' PSys step, once a rendered frame
 	psys::town_belief::Step();
 
@@ -1782,6 +1814,8 @@ bool Game::Run() noexcept
 	auto& profiler = Locator::profiler::value();
 	// the overlays of the frame (Graphics/OverlayFrame.h), refilled every frame (its vectors keep their capacity)
 	graphics::OverlayFrame overlay;
+	// the SuperVillagers' part of the frame (Graphics/SuperVillagerFrame.h), likewise refilled every frame
+	graphics::SuperVillagerFrame superVillagers;
 	while (Update())
 	{
 		auto duration = std::chrono::high_resolution_clock::now() - lastTime;
@@ -1789,6 +1823,8 @@ bool Game::Run() noexcept
 		// Motor M2's PreDraw (the end of the frame's logic, nothing between it and the draw): the overlays read here,
 		// the draw reads only the copy
 		FillOverlayFrame(*_screenFade, overlay);
+		ecs::super_villager::FillFrame(superVillagers);
+		ecs::intro_special::FillFrame(overlay.introLight);
 		{
 			auto section = profiler.BeginScoped(Profiler::Stage::SceneDraw);
 
@@ -1797,6 +1833,7 @@ bool Game::Run() noexcept
 			    .frameBuffer = nullptr,
 			    .entities = Locator::entitiesRegistry::value(),
 			    .overlay = overlay,
+			    .superVillagers = superVillagers,
 			    .time = milliseconds.count(), // TODO(#481): get actual time
 			    .timeOfDay = Locator::skySystem::value().GetTime(),
 			    .bumpMapStrength = config.bumpMapStrength,
@@ -1945,10 +1982,21 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 	script_camera::Reset(); // no script camera mode, the FOV at 70 degrees (GCamera ctor 0x441A78)
 	// GScript::Reset -> CleanGameForScriptReboot 0x6EB330: a hand demo still playing ends (EndPlayBack 0x5DB3F0)
 	hand_demo::End();
+	// GGame::ClearMap 0x552BE7..0x552C05 and CleanGameForScriptReboot 0x6EBBC2..0x6EBBE9: every SuperVillager Released
+	ecs::super_villager::ReleaseAll();
+	// CleanGameForScriptReboot 0x6EBBFB: Intro::ReleaseAll (the intro light and hand; the debug camera off, as 0x6EBC0C)
+	ecs::intro_special::ReleaseAll();
 	// CleanGameForScriptReboot 0x6EBC77..0x6EBD10: GInterface+0x28 = 0, the hand reach 1800, the camera features 0x1BF,
 	// the ControlMap switches 1 / 1, then SetInterfaceInteraction(0), which writes all of them again. (pending)
 	// fn_005D1260 (0x6EBC67) is not ported
 	help::interface_interaction::Set(0);
+	// CleanGameForScriptReboot 0x6EBD04: [0x9CD384] = 1, the bookmarks on
+	if (Locator::cameraBookmarkSystem::has_value())
+	{
+		Locator::cameraBookmarkSystem::value().SetEnabled(true);
+	}
+	// CleanGameForScriptReboot 0x6EBD18: GConfirmation::Stop 0x71A640, a START_ANGLE_SOUND 285 / 348 still on goes off
+	audio::confirmation::Stop(audio::confirmation::Get());
 	// GGame::ClearVariables 0x54BF28: g_game +0x250188 = 0, no film goes on into the new map
 	if (video::Get().IsPlaying())
 	{

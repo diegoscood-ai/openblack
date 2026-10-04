@@ -410,6 +410,14 @@ void HelpSystem::ReleaseDialogueControl(uint32_t task)
 	}
 }
 
+void HelpSystem::ReleaseWideScreenOf(uint32_t task)
+{
+	if (_wideScreen != 0 && task == _wideScreenOwner) // 0x5C78C0..0x5C78D4
+	{
+		SetWideScreen(0, 0); // 0x5C78DA
+	}
+}
+
 void HelpSystem::SpiritHome(int32_t spirit, int32_t arg)
 {
 	if (_hooks.spiritHome)

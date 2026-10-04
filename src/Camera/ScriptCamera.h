@@ -335,6 +335,18 @@ bool UpdateCamera(Camera& camera, float cameraSeconds, uint32_t gameMs, float ga
 /// drawn the frame before (g_camera). Then the shakes' clock (fn_00821270)
 void ApplyShake(Camera& camera, const glm::vec3& lastDrawn);
 
+/// LH3DTech::UpdateCamera 0x819920's debug camera g_camera_mode [0xEA9EC8] (read at 0x81997A, before the shake
+/// fn_008210C0): 2 draws the camera from [0xEA1B58] towards [0xEA1B68], 1 only turns the focus to [0xEA1B68], 0 (or any
+/// other value) neither. GCamera's zoomers are not touched: ApplyShake puts it in the draw offset, so it holds only where
+/// GCamera::Update calls UpdateCamera (not in the citadel). Written by PLAY_JC_SPECIAL 1 / 2 (ecs/IntroSpecial.h),
+/// Intro::ReleaseAll 0x5DFCCA and CleanGameForScriptReboot 0x6EBC0C (0); the GCameraEditor's writers are debug only.
+/// (pending) the focus object [0xEA9ECC] (its +0x38, 0x8199E1..0x819A01) and fn_00819F50's copy of the test (0x819FAA,
+/// the FallingSpell's camera) are not ported
+void SetDebugCameraMode(int32_t mode);
+void SetDebugCameraPosition(const glm::vec3& position);
+void SetDebugCameraFocus(const glm::vec3& focus);
+[[nodiscard]] int32_t DebugCameraMode();
+
 // ---- CameraModeTwoObjects (the dual camera) -------------------------------------------------------------------------
 
 /// A mode of this module is GCamera's current one: the script mode, or a dual camera (Drives, HAS_CAMERA_ARRIVED)

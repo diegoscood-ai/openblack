@@ -22,6 +22,7 @@
 
 #include "Audio/GAudio/AudioSystem.h"
 #include "Audio/GameQueries.h"
+#include "Audio/Services/Confirmation.h"
 #include "Audio/Services/SpookyVoices.h"
 #include "Audio/Services/Voices.h"
 #include "Common/GameRandom.h"
@@ -781,7 +782,8 @@ void guidance::ProcessGameTurn()
 	spooky::Process();            // 0x54E711
 	HelpSpritesCheckMoonPhase();  // 0x54E716
 	ProcessTownDesireSFX();       // 0x54E729
-	// GConfirmation::Process 0x54E731: milestone C7
+	// GConfirmation::Process 0x54E731: the angle and pitch "yes" (START_ANGLE_SOUND 285 / 348, Services/Confirmation.h)
+	confirmation::Process(Turn());
 	// GInterfaceStatus::Process 0x5DC50D for MyInterface()+0x39C: (approximated) its place in the turn
 	ProcessHeartBeatSFX();
 }

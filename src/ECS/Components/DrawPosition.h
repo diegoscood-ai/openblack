@@ -31,6 +31,22 @@ struct DrawPosition
 	/// fn_0051B220: the slope shear, the land's rise along the object's x and z axes (row0 += a row1, row2 += b row1)
 	float shearX {0.0f};
 	float shearZ {0.0f};
+	/// The SuperVillager's second yaw stage (ECS/SuperVillager.h; fn_00825530 0x8255C1..0x8256BF): with followRate > 0
+	/// (rad/s, 3.92699 [0x9A392C]) followYaw (+0x14) chases the object's yaw (obj+0x48: the drawn +0x108 then,
+	/// Villager::Draw 0x51BA5E, in LH3DObject::SetPosition's convention, `yaw` + 90 degrees) and the body is drawn turned
+	/// about its own Y by their difference, followDrawnTurn (a local copy of the sheared object matrix, 0x8255AB rep
+	/// movsd: ecs::DrawnBodyModel; `rotation` is not turned). followSnap is +0x30 bit 2, of this stage (0x8255B8: keeps
+	/// them equal) and of the cross-fade (0x8257C4: not drawn, ECS/Animations.h); followTurn false (a swimmer, 0x825A13)
+	/// moves followYaw but does not turn; followFrozen (fn_00825400's CheckRegionOnScreen 0x82541D failed) moves nothing.
+	/// followYaw is set when the SuperVillager is made (fn_00825F20 0x825FBC, hasFollowYaw). Set by ECS/SuperVillager
+	float followRate {0.0f};
+	bool followSnap {false};
+	bool followTurn {true};
+	bool followFrozen {false};
+	float followYaw {0.0f};
+	bool hasFollowYaw {false};
+	/// this frame's turn of the SuperVillager's drawn copy (followYaw - Wrap(target)), 0 for none
+	float followDrawnTurn {0.0f};
 };
 
 } // namespace openblack::ecs::components

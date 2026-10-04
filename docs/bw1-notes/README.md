@@ -55,6 +55,7 @@ verified in the executable or measured, except where marked **(inferred)** or **
 | [water.md](water.md) | Water in the game: water cells (SeaCells), queries (coast, river and drinking water) and the `LandAvoid` mask, water in the scripts, hits and falls into the water, sinking and drowning, rings, sharks, the fish puzzle, the missionaries' boat, waterfall and ark, water audio |
 | [camera-tracks.md](camera-tracks.md) | `Data\camera.edt`: `Cam%d` cameras, `Track%d` tracks (`LH3DWay`), `WALK_PATH` of the MobileObjects (sharks) |
 | [script-camera.md](script-camera.md) | Script camera: GCamera zoomers, CameraModeScript, arrival rule, camera CHL opcodes, FOV, releasing control |
+| [intro.md](intro.md) | The Land 1 intro and the tutorial's script side: FollowUs step by step, dialogue texts (HelpText), the advisor spirits (HelpDude), CALL / CALL_NEAR, interaction levels, script highlights, timers and help events, the family in high detail (SuperVillager), JC specials |
 | [video.md](video.md) | Bink videos (.bik): the five videos and when each one plays, `LHVideoPlayer`, the 16-bit copy (555/565), pacing, pause, widescreen, fade, ESC, the 3D world not being drawn, the audio of each video; `video::VideoPlayer` and the V3..V8 plan |
 
 **Magic**
@@ -101,6 +102,7 @@ verified in the executable or measured, except where marked **(inferred)** or **
 | Cameras and tracks of `camera.edt`, shark routes | [camera-tracks.md](camera-tracks.md) |
 | How the script moves the camera (MOVE_CAMERA_*, HAS_CAMERA_ARRIVED, lenses) | [script-camera.md](script-camera.md) |
 | The intro video or the spell-drop video, skipping it with ESC, the .bik files | [video.md](video.md) |
+| The Land 1 intro, the advisors, the dialogue texts, the tutorial's script functions | [intro.md](intro.md) |
 | Enabling or writing a mod | [mod-library.md](mod-library.md) |
 | Test hooks (`OPENBLACK_*`), building, debugging | [openblack-internals.md](openblack-internals.md) and the «Test hooks» section of each page |
 

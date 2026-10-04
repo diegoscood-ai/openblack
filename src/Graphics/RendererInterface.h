@@ -52,6 +52,7 @@ class FrameBuffer;
 class ShaderManager;
 class ShaderProgram;
 struct OverlayFrame;
+struct SuperVillagerFrame;
 
 class RendererInterface
 {
@@ -63,6 +64,8 @@ public:
 		const ecs::Registry& entities;
 		/// What the end of the frame draws over the scene (Graphics/OverlayFrame.h), filled before the draw
 		const graphics::OverlayFrame& overlay;
+		/// What the SuperVillagers' draw reads (Graphics/SuperVillagerFrame.h), filled before the draw
+		const graphics::SuperVillagerFrame& superVillagers;
 		uint32_t time;
 		float timeOfDay;
 		float bumpMapStrength;

@@ -16,6 +16,7 @@
 #include <spdlog/spdlog.h>
 
 #include "Audio/Services/ScriptAudioState.h"
+#include "ECS/SuperVillager.h"
 #include "GameClock.h"
 #include "HelpSystem.h"
 #include "Input/HandDemo.h"
@@ -213,7 +214,8 @@ void ReleaseCameraControl(CameraControl& camera, audio::ScriptAudioState& audio)
 	// 0x6ECEA1 fn_0042A5F0(1): LH_AudioSystem+0xC4 (the sound effects off) = 0, without LHSampleStopAll. openblack has no
 	// such switch, and nothing in the game sets it to 1 (dev\tmp_dis\audio\engine.md), so it changes nothing.
 	// 0x6ECEA6..0x6ECECA: every SuperVillager Release()d and the list emptied; 0x6ECEC4 GLandscape::DrawListRebuildCount
-	// = 1 (not ported: no SuperVillager, no landscape draw list)
+	// = 1 (openblack has no landscape draw list)
+	ecs::super_villager::ReleaseAll();
 	camera.field7C = 0; // 0x6ECEDB
 	if (Tracing())
 	{
@@ -337,6 +339,7 @@ void OnTaskStopped(uint32_t task, HelpSystem* help, CameraControl& camera, audio
 		return;
 	}
 	help->ReleaseDialogueControl(task);  // 0x6EC6E9
+	help->ReleaseWideScreenOf(task);      // 0x6EC6FA: fn_005C78C0
 	ReleaseCameraOf(camera, audio, task); // 0x6EC70C
 	ReleaseGameSpeedOf(camera, task);     // 0x6EC71E
 	hand_demo::EndIfTask(task);           // 0x6EC72A..0x6EC748: GInterface::EndPlayBack when IsPlayBack(task)

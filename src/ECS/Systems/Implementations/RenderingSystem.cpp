@@ -33,8 +33,6 @@
 #include "ECS/Trees.h"
 #include "ECS/Components/MeshTint.h"
 #include "ECS/Components/ObjectColour.h"
-#include "ECS/Components/DrawPosition.h"
-#include "ECS/Components/PhysicsDrawPose.h"
 #include "ECS/Components/Fixed.h"
 #include "ECS/Components/Forest.h"
 #include "ECS/Components/Hand.h"
@@ -49,6 +47,7 @@
 #include "ECS/Fire/FireEffect.h"
 #include "ECS/Fire/FireGraphic.h"
 #include "ECS/Life.h"
+#include "ECS/MobileDrawing.h"
 #include "ECS/PetitNavire.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/WorshipSite.h"
@@ -65,6 +64,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
+#include "ECS/SuperVillager.h"
 #include "ECS/Systems/HandSystemInterface.h"
 #include "Graphics/DebugLines.h"
 #include "Graphics/GraphicsHandleBgfx.h"
@@ -200,6 +200,15 @@ openblack::land_light::ObjectLight LandLightOf(const openblack::ecs::Registry& r
 	if (entity == openblack::ecs::petit_navire::GetHull())
 	{
 		return {ObjectMode::Bilinear, false}; // PetitNavire::PreDraw 0x5E03DF
+	}
+	// a SuperVillager's HD body (ecs/SuperVillager.h): fn_00825530 0x82555D calls fn_00801C90 again, which rewrites +0x4C
+	// and +0x50 on every path (0x8020E4, 0x802107..0x802109), and calls no fn_007FEB30: the haze Villager::Draw
+	// (0x5E4BC2) put there is gone. (approximate) one mode per mesh: a SuperVillager drawn with its own high mesh (no HD
+	// file) shares it with the other villagers and keeps their haze
+	if (const auto* super = registry.TryGet<const openblack::ecs::components::SuperVillager>(entity);
+	    super != nullptr && super->hdMesh != 0)
+	{
+		return {ObjectMode::Bilinear, false};
 	}
 	if (registry.AllOf<WorshipSite>(entity) && openblack::ecs::fire::Find(entity) == nullptr)
 	{
@@ -566,16 +575,14 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		    auto desc = (alpha != nullptr ? _renderContext.translucentDrawDescs : _renderContext.instancedDrawDescs).find(mesh.id);
 
 		    // villagers and animals are drawn where ECS/MobileDrawing puts them this frame (between turns, turning, on the slope)
-		    // a moving physics object at its pose between the last two turns (fn_007FCE80, ECS/Physics), before all that
-		    const auto* flying = registry.TryGet<const PhysicsDrawPose>(entity);
-		    const auto* draw = flying == nullptr ? registry.TryGet<const DrawPosition>(entity) : nullptr;
-		    const auto& drawRotation = flying != nullptr ? flying->rotation : draw != nullptr ? draw->rotation : transform.rotation;
-		    const auto& drawPosition = flying != nullptr ? flying->position : draw != nullptr ? draw->position : transform.position;
+		    // a moving physics object at its pose between the last two turns (fn_007FCE80, ECS/Physics), before all that;
+		    // with the slope shear, and a SuperVillager's own turn of its copy (ecs::DrawnBodyModel: ecs::DrawnModel, shared
+		    // with CarriedProps and the SuperVillagers)
 		    // T(p) R S with the position straight into the translation, as every Set* of the original (0x423195,
 		    // 0x6382B7, 0x607606). It was R T(p R) S, whose translation is R R^T p: a few ulp off p for a rotation, but
 		    // far from it for the matrices that are not one (the hand's bands while they fly, HandMagicFX SetTransform;
 		    // the props of villagers on a slope, CarriedProps; the map shield between two turns, DrawPhysical)
-		    auto modelMatrix = openblack::lh_matrix::Model(drawPosition, drawRotation, transform.scale);
+		    auto modelMatrix = openblack::ecs::DrawnBodyModel(registry, entity);
 		    // the one-shot orb is drawn turned to the camera (fn_00518720, Magic/Core/OneOffSpellSeed.cpp)
 		    if (const auto* orb = registry.TryGet<const OneOffSpellSeed>(entity); orb != nullptr)
 		    {
@@ -585,11 +592,6 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 			    {
 				    _renderContext.sortPoints.insert_or_assign(desc->second.offset + offset.first->second, orb->sortPoint);
 			    }
-		    }
-		    else if (draw != nullptr)
-		    {
-			    modelMatrix[0] += draw->shearX * modelMatrix[1];
-			    modelMatrix[2] += draw->shearZ * modelMatrix[1];
 		    }
 
 		    const uint32_t idx = desc->second.offset + offset.first->second;

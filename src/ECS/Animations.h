@@ -18,6 +18,7 @@
 #include <entt/entity/fwd.hpp>
 #include <glm/mat4x4.hpp>
 
+#include "ECS/Components/SkeletalAnimation.h"
 #include "ECS/Systems/RenderingSystemInterface.h"
 
 namespace openblack::graphics
@@ -36,6 +37,16 @@ entt::id_type ClipId(uint32_t index);
 
 /// Advances every playing clip by that many milliseconds of game time and recomputes the poses.
 void UpdateAnimations(float milliseconds);
+
+/// fn_00825530 0x8256C8..0x825755, a SuperVillager's fade state (SkeletalAnimation::crossFade) once a frame: the first
+/// clip is only kept; another clip starts a fade from the one drawn last (old clip, its last time, fadeMs left, weight
+/// 1); the same clip counts the fade down by the frame's ms (below 0: 0, else weight = left / fadeMs, fild / fidiv).
+/// True while there is fade left (the blend is drawn, 0x8257B6)
+bool StepCrossFade(components::SkeletalAnimation::CrossFade& fade, entt::id_type clip, int32_t milliseconds, int32_t fadeMs);
+
+/// The bones the body is drawn with (RenderingSystem's instance poses, the SuperVillagers' eyes): a SuperVillager's
+/// cross-faded pose while its fade is drawn (SkeletalAnimation::drawnPose), else the plain pose
+[[nodiscard]] const std::vector<glm::mat4>& DrawnPose(const components::SkeletalAnimation& animation);
 
 /// The renderer's view of the poses: instance index -> the bones' model matrices.
 using PoseMap = std::unordered_map<uint32_t, const std::vector<glm::mat4>*>;

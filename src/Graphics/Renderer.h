@@ -75,6 +75,7 @@ struct ShadowInfo;
 }
 class Mesh;
 struct SpiritQuadVertex; // Graphics/OverlayFrame.h
+struct IntroLightOverlay; // Graphics/OverlayFrame.h
 
 class Renderer final: public RendererInterface
 {
@@ -173,6 +174,8 @@ class Renderer final: public RendererInterface
 	std::vector<std::pair<float, uint32_t>> CollectBoatSprites(const Camera& camera) const;
 	/// One sprite of _frameBoatSprites, as the Z-sorter's callback LH3DSprite::Draw 0x840530
 	void DrawBoatSprite(graphics::RenderPass viewId, uint32_t index) const;
+	/// The intro light's Z object (RendererIntroLight.cpp): its callback 0x8283D0's LH3DSprite::Draw calls
+	void DrawIntroLight(graphics::RenderPass viewId, const Camera& camera, const IntroLightOverlay& light) const;
 	/// A boat sprite of this frame: its quad (none at or before the near plane, 0x840585) and its colour
 	struct BoatSpriteDraw
 	{

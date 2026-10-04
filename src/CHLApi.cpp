@@ -39,6 +39,7 @@
 #include "3D/ScreenFade.h"
 #include "3D/TempleInteriorInterface.h"
 #include "Audio/Audio.h"
+#include "Audio/Services/Confirmation.h"
 #include "Audio/Services/GameMusic.h"
 #include "Audio/Services/ScriptAudioState.h"
 #include "Audio/LH/SamplePlay.h"
@@ -85,6 +86,7 @@
 #include "ECS/MobileWalkPaths.h"
 #include "ECS/ObjectResources.h"
 #include "ECS/ObjectMetrics.h"
+#include "ECS/IntroSpecial.h"
 #include "ECS/PetitNavire.h"
 #include "ECS/PuzzleGames.h"
 #include "ECS/Physics/PhysicsObjects.h"
@@ -94,6 +96,8 @@
 #include "ECS/ScriptTimer.h"
 #include "ECS/ScriptTypes.h"
 #include "ECS/SeaCells.h"
+#include "ECS/SuperVillager.h"
+#include "ECS/Systems/CameraBookmarkSystemInterface.h"
 #include "ECS/Systems/HandSystemInterface.h"
 #include "ECS/Town/BuildingSites.h"
 #include "ECS/Town/TownDesire.h"
@@ -207,18 +211,25 @@ bool ScriptCameraMode(const char* opcode)
 	return false;
 }
 
-/// GScript::GetScriptGameThing 0x70D220 for the camera opcodes: the thing, or nullopt with the original's "Thing no
-/// longer valid" (0xC0C258). (aproximado) As MusicThing: 0 is null and a valid entity stands for a live thing (the
-/// original looks the id up in its script table 0xD967F8)
-std::optional<entt::entity> CameraThing(uint32_t object, const char* opcode)
+/// GScript::GetScriptGameThing 0x70D220: the thing, or nullopt with the opcode's own message (the callers print
+/// different strings: "Thing no longer valid" 0xC0C258, "Thing not found!" 0xC0CFAC, "Object no longer valid" 0xC0D428).
+/// (aproximado) As MusicThing: 0 is null and a valid entity stands for a live thing (the original looks the id up in
+/// its script table 0xD967F8)
+std::optional<entt::entity> ScriptThing(uint32_t object, const char* opcode, const char* message)
 {
 	const auto entity = static_cast<entt::entity>(object);
 	if (object != 0 && Locator::entitiesRegistry::value().Valid(entity))
 	{
 		return entity;
 	}
-	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "{}: Thing no longer valid", opcode);
+	SPDLOG_LOGGER_ERROR(spdlog::get("scripting"), "{}: {}", opcode, message);
 	return std::nullopt;
+}
+
+/// GetScriptGameThing for the camera opcodes: "Thing no longer valid" (0xC0C258)
+std::optional<entt::entity> CameraThing(uint32_t object, const char* opcode)
+{
+	return ScriptThing(object, opcode, "Thing no longer valid");
 }
 
 std::unordered_set<std::string> GetUniqueWords(const std::string& strings)
@@ -4018,9 +4029,9 @@ void RestoreCameraDetails() // 284 RESTORE_CAMERA_DETAILS
 
 void StartAngleSound285() // 285 START_ANGLE_SOUND
 {
-	// const auto enable = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::StartAngleSound 0x70FFA0: POP, then GConfirmation on the camera's turn (audio/Services/Confirmation.h)
+	const auto enable = Pop().intVal != 0;
+	audio::confirmation::StartAngleSound(enable);
 }
 
 void SetCameraPosFocLens() // 286 SET_CAMERA_POS_FOC_LENS
@@ -4081,10 +4092,15 @@ void MoveGameTime() // 289 MOVE_GAME_TIME
 
 void SetHighGraphicsDetail() // 290 SET_HIGH_GRAPHICS_DETAIL
 {
-	// const auto object = Pop().uintVal;
-	// const auto enable = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::SetHighGraphicsDetail 0x708CE0: POP the object (0x708CEF; GetScriptGameThing 0x70D220), then the bool
+	// (0x708D0A); no thing: "Thing not found!" (0xC0CFAC, 0x708D13). The SuperVillager of the intro family
+	// (ecs/SuperVillager.h)
+	const auto object = Pop().uintVal;
+	const auto enable = Pop().intVal != 0;
+	if (const auto thing = ScriptThing(object, "SET_HIGH_GRAPHICS_DETAIL", "Thing not found!"); thing.has_value())
+	{
+		ecs::super_villager::SetHighGraphicsDetail(*thing, enable);
+	}
 }
 
 void SetSkeleton() // 291 SET_SKELETON
@@ -4380,23 +4396,46 @@ void PlayJcSpecial() // 326 PLAY_JC_SPECIAL
 {
 	// GScript::PlayJCSpecial 0x708ED0 (table 0x708F74 on the value, 0..15): 0, 1, 2, 4, 5, 6 -> fn_005DF9C0(value),
 	// 3 a ScriptGFX object (0x828DB0), 14 / 15 [0x9CD384] = 1 / 0
-	const auto feature = Pop().intVal;
-	if (feature == 6)
+	const auto feature = static_cast<uint32_t>(Pop().intVal); // cmp eax, 0xF; ja (unsigned)
+	switch (feature)
 	{
+	case 0: // the light onto the Son and the debug camera (JCMisc's Intro, ecs/IntroSpecial.h)
+	case 1:
+	case 2:
+	case 4: // the intro hand
+	case 5:
+		ecs::intro_special::Play(static_cast<int32_t>(feature));
+		break;
+	case 3: // new ScriptGFX 0x828DB0 (0x2C bytes): (pending) in no script of the game
+		NotImplemented(__func__);
+		break;
+	case 6:
 		// fn_005DF9C0 case 6 (0x5DFBF8): new PetitNavire(0), the missionaries' boat
 		openblack::ecs::petit_navire::Create(0);
-		return;
+		break;
+	case 14: // 0x708F5A: [0x9CD384] = 1, the bookmarks on
+		if (Locator::cameraBookmarkSystem::has_value()) // (openblack guard) none in the CHL tests and tools
+		{
+			Locator::cameraBookmarkSystem::value().SetEnabled(true);
+		}
+		break;
+	case 15: // 0x708F66: [0x9CD384] = 0. (FollowUs only, L50058: never the free start's task, spec section 12)
+		if (Locator::cameraBookmarkSystem::has_value())
+		{
+			Locator::cameraBookmarkSystem::value().SetEnabled(false);
+		}
+		break;
+	default: // 7..13 and above 15: nothing (0x708F70; FollowUs's 18 at L52177)
+		break;
 	}
-	// TODO(Daniels118): the other specials
-	NotImplemented(__func__);
 }
 
 void IsPlayingJcSpecial() // 327 IS_PLAYING_JC_SPECIAL
 {
-	// GScript::IsPlayingJCSpecial 0x708FC0: ftol of the value; 1, except 13 -> [0xD19C94], which only the hand intro
-	// (fn_005DF640, special 4, not ported) sets: 0 here
+	// GScript::IsPlayingJCSpecial 0x708FC0: ftol of the value; 1, except 13 -> [0xD19C94] (fn_005DF640 0x5DF807, the
+	// pick-up clip's wrap: never, it is one shot), pushed as VMType 6. No script of the game calls it
 	const auto feature = static_cast<int32_t>(Popf());
-	Pushb(feature != 13);
+	Pushb(feature == 13 ? ecs::intro_special::Finished13() : true);
 }
 
 void VortexParameters() // 328 VORTEX_PARAMETERS
@@ -4616,18 +4655,23 @@ void EnterExitCitadel() // 347 ENTER_EXIT_CITADEL
 
 void StartAngleSound348() // 348 START_ANGLE_SOUND
 {
-	// const auto enable = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::StartPitchSound 0x70FFE0 (the second "START_ANGLE_SOUND"): GConfirmation on the camera's tilt
+	const auto enable = Pop().intVal != 0;
+	audio::confirmation::StartPitchSound(enable);
 }
 
 void ThingJcSpecial() // 349 THING_JC_SPECIAL
 {
-	// const auto target = Pop().uintVal;
-	// const auto feature = Pop().intVal;
-	// const auto enable = static_cast<bool>(Pop().intVal);
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::ThingJCSpecial 0x709000: POP the object (GetScriptGameThing), the feature (0x70902C), then the bool
+	// (0x70903E); no thing: "Object no longer valid" (0xC0D428, 0x709047). The flags of a SuperVillager
+	// (ecs/SuperVillager.h)
+	const auto object = Pop().uintVal;
+	const auto feature = Pop().intVal;
+	const auto enable = Pop().intVal != 0;
+	if (const auto thing = ScriptThing(object, "THING_JC_SPECIAL", "Object no longer valid"); thing.has_value())
+	{
+		ecs::super_villager::ThingJcSpecial(*thing, feature, enable);
+	}
 }
 
 void MusicPlayed350() // 350 MUSIC_PLAYED

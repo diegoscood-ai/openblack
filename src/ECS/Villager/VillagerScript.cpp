@@ -77,9 +77,8 @@ void InitStepsXZ(Transform& transform, WallHug& wallHug)
 {
 	const auto diff = wallHug.goal - glm::xz(transform.position);
 	const auto angle = glm::atan(diff.y, diff.x);
-	transform.rotation = lh_matrix::AngleY(angle + glm::radians(90.0f)); // the "Scawen" angle
+	SetYAngle(transform, wallHug, angle);
 	wallHug.step = glm::vec2(glm::cos(angle), glm::sin(angle)) * wallHug.speed;
-	wallHug.yAngle = angle;
 }
 
 /// MobileWallHug::SetupMobileMoveToPos 0x60AAD0 (pos): +0x80 = pos (0x60AADC..0x60AAED), InitStepsXZ (0x60AAF2), off
@@ -375,4 +374,11 @@ uint32_t WaitForAnimation(LivingAction& action)
 	}
 	return 1;
 }
+
+void SetYAngle(Transform& transform, WallHug& wallHug, float angle)
+{
+	transform.rotation = lh_matrix::AngleY(angle + glm::radians(90.0f)); // the "Scawen" angle
+	wallHug.yAngle = angle;
+}
+
 } // namespace openblack::ecs::villager

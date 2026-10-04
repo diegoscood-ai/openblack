@@ -1273,6 +1273,9 @@ before stopping at the hand demo (HAND_DEMO_TRIGGER 336, pending; map-loading.md
 
 ### (Approximate), (inferred) and pending for B7
 
+The advisors' visual part (HelpDude: model, flight, mouth from the lip-sync key) is ported since 2026-10-04:
+[intro.md](intro.md#the-advisor-spirits). Still pending there: the gestures from the samples' cue labels.
+
 - **(approximate)** the advisor's delay is always 0: +0x3514 belongs to the advisor's flight (not ported) and stays at
   the init's 0 (0x5C1A61).
 - **(approximate)** QMixer's 20 ms ramp in four 5 ms gain steps; the game waits the 20 ms.

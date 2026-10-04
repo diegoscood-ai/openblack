@@ -27,6 +27,7 @@
 #include "ECS/Components/AnimalBrain.h"
 #include "ECS/Components/DrawPosition.h"
 #include "ECS/Components/LivingAction.h"
+#include "ECS/Components/PhysicsDrawPose.h"
 #include "ECS/Components/SkeletalAnimation.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
@@ -109,6 +110,27 @@ void SnapDrawPosition(entt::entity entity)
 	}
 }
 
+float StepYawFollow(float& followYaw, float target, float milliseconds, float radiansPerSecond, bool snap)
+{
+	const float aim = lh_matrix::WrapAngle(target);      // fn_007FAAF0 0x82556F
+	const float current = lh_matrix::WrapAngle(followYaw); // 0x82557C
+	followYaw = current;
+	if (current == aim || snap)
+	{
+		followYaw = aim; // 0x8256C1
+		return 0.0f;
+	}
+	const float difference = lh_matrix::WrapAngle(aim - current);
+	const float step = (milliseconds * 0.001f) * radiansPerSecond; // [0x8AC418], [0x9A392C]
+	if (std::abs(difference) <= step)
+	{
+		followYaw = aim; // 0x8255F8
+		return 0.0f;
+	}
+	followYaw = difference > 0.0f ? step + current : current - step;
+	return followYaw - aim; // 0x825626
+}
+
 void UpdateMobileDrawing(float turnFraction, float milliseconds)
 {
 	if (!Locator::terrainSystem::has_value())
@@ -164,6 +186,31 @@ void UpdateMobileDrawing(float turnFraction, float milliseconds)
 			draw.yaw = lh_matrix::WrapAngle(draw.yaw);
 			// the same rotation the pathfinding gives the transform (InitializeStep: AngleY(angle + 90 degrees))
 			draw.rotation = lh_matrix::AngleY(draw.yaw + glm::half_pi<float>());
+			// a SuperVillager (ECS/SuperVillager.h): fn_00825530's own turn over this one, in the object's yaw
+			// (obj+0x48 = the angle of AngleY above, this yaw + 90 degrees), so that Wrap folds the same values. Only
+			// followDrawnTurn takes it: fn_00825530 turns a local copy of the sheared matrix (0x8255AB rep movsd), so
+			// draw.rotation stays the object's for the shear below and every other reader (ecs::DrawnBodyModel)
+			if (draw.followRate > 0.0f)
+			{
+				const float objectYaw = draw.yaw + glm::half_pi<float>();
+				if (!draw.hasFollowYaw)
+				{
+					// (openblack) made before its first draw (no drawn yaw yet): ECS/SuperVillager's Create sets it
+					// otherwise (fn_00825F20 0x825FBC: +0x14 = obj+0x48)
+					draw.followYaw = objectYaw;
+					draw.hasFollowYaw = true;
+				}
+				draw.followDrawnTurn = 0.0f;
+				// fn_00825400: only when CheckRegionOnScreen 0x82541D passes (0x825422 je 0x82543D)
+				if (!draw.followFrozen)
+				{
+					const float turn = StepYawFollow(draw.followYaw, objectYaw, milliseconds, draw.followRate, draw.followSnap);
+					if (draw.followTurn)
+					{
+						draw.followDrawnTurn = turn;
+					}
+				}
+			}
 		}
 		// Dove::Draw (0x41F680): the bank zoomer advances by the frame's game time and rolls the drawn matrix about its
 		// forward axis (rows 0 and 1 rotated by the bank)
@@ -218,6 +265,43 @@ void UpdateMobileDrawing(float turnFraction, float milliseconds)
 			traced -= 1000;
 		}
 	}
+}
+
+glm::mat4 DrawnModel(const Registry& registry, entt::entity entity, bool slopeShear)
+{
+	const auto& transform = registry.Get<const Transform>(entity);
+	const auto* flying = registry.TryGet<const PhysicsDrawPose>(entity);
+	const auto* draw = flying == nullptr ? registry.TryGet<const DrawPosition>(entity) : nullptr;
+	const auto& rotation = flying != nullptr ? flying->rotation : draw != nullptr ? draw->rotation : transform.rotation;
+	const auto& position = flying != nullptr ? flying->position : draw != nullptr ? draw->position : transform.position;
+	auto model = lh_matrix::Model(position, rotation, transform.scale);
+	if (draw != nullptr && slopeShear)
+	{
+		model[0] += draw->shearX * model[1];
+		model[2] += draw->shearZ * model[1];
+	}
+	return model;
+}
+
+glm::mat4 DrawnBodyModel(const Registry& registry, entt::entity entity)
+{
+	auto model = DrawnModel(registry, entity);
+	// (inferred) not over a physics pose: the yaw stage follows the villager's drawn yaw, which that pose does not use
+	const auto* draw = registry.AllOf<PhysicsDrawPose>(entity) ? nullptr : registry.TryGet<const DrawPosition>(entity);
+	if (draw == nullptr || draw->followDrawnTurn == 0.0f)
+	{
+		return model;
+	}
+	// fn_00825530 0x8255AB: the sheared matrix copied; 0x825626..0x8256BB turn only the copy (rows 0 and 2): c stored as
+	// a float (fstp [esp+0x10] 0x825631), s on the FPU stack; the translation is not touched
+	const double turn = static_cast<double>(draw->followDrawnTurn);
+	glm::mat3 axes(model);
+	lh_matrix::RotateY(axes, static_cast<float>(std::cos(turn)), std::sin(turn));
+	for (int i = 0; i < 3; ++i)
+	{
+		model[i] = glm::vec4(axes[i], model[i][3]);
+	}
+	return model;
 }
 
 } // namespace openblack::ecs

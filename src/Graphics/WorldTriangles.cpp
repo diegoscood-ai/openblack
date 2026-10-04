@@ -234,7 +234,7 @@ uint32_t world_triangles::Submit(RenderPass view, const Frame& frame, const Shad
 
 bool world_triangles::SubmitRaw(RenderPass view, std::span<const Vertex> vertices, std::span<const uint16_t> indices,
                                 const Texture2D& diffuse, const Texture2D& alpha, const render_modes::Material& material,
-                                const ShaderManager& shaders)
+                                const ShaderManager& shaders, const render_modes::StateOptions& options)
 {
 	const auto* program = shaders.GetShader("WorldQuad");
 	if (program == nullptr || vertices.empty() || indices.size() < 3)
@@ -263,7 +263,7 @@ bool world_triangles::SubmitRaw(RenderPass view, std::span<const Vertex> vertice
 	bgfx::setIndexBuffer(&indexBuffer);
 	// SetMaterial through the current table (0x81C48E..0x81C4A0: the normal one for these draws) and CULLMODE from +5 bit
 	// 0 (0x81C556..0x81C58F); the vertices are in the world, no mirror
-	bgfx::setState(render_modes::State(material));
+	bgfx::setState(render_modes::State(material, options));
 	bgfx::submit(static_cast<bgfx::ViewId>(view), toBgfx(program->GetRawHandle()));
 	return true;
 }

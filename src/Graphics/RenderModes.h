@@ -267,6 +267,9 @@ inline constexpr Material k_SmokeAdditive {Mode::AlphaTexturedAlphaAdditiveNz, k
 /// [0xEA1AB0] (0x80BD1B): misc0.raw, mode 6, two-sided (0x80BD2B). The fish farm
 /// shoals (fn_00824740 0x8247CC, (inferido) likewise)
 inline constexpr Material k_Misc0 {Mode::AlphaTexturedAlphaNz, k_TwoSided};
+/// [0xD19C8C] (fn_005DF9C0 0x5DFA07, made once by PLAY_JC_SPECIAL 0, freed by Intro::ReleaseAll 0x5DFCA3):
+/// CreateMaterial(13, misc0.raw [0xEA1A90]), +5 = 0: one-sided. The intro light (ecs/IntroSpecial.h)
+inline constexpr Material k_Misc0Additive {Mode::AlphaTexturedAlphaAdditiveNz, 0};
 /// LH3DAtmos::AtmosMaterial [0xEDC368] (fn_00835AD0 0x835C36): atmos.raw [0xEDC370], mode 6, +5 |= 1 | 4 (0x835C58,
 /// 0x835C6F..0x835C79). The rain streaks
 inline constexpr Material k_Atmos {Mode::AlphaTexturedAlphaNz, k_TwoSided | k_Tiling};

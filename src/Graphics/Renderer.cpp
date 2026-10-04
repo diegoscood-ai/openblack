@@ -50,7 +50,6 @@
 #include "Camera/Camera.h"
 #include "ECS/Animations.h"
 #include "ECS/Components/Animal.h"
-#include "ECS/Components/DrawPosition.h"
 #include "ECS/Components/PhysicsDrawPose.h"
 #include "ECS/Components/SkeletalAnimation.h"
 #include "ECS/Components/FishFarm.h"
@@ -61,6 +60,7 @@
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/Sprite.h"
 #include "ECS/Components/Stream.h"
+#include "ECS/MobileDrawing.h"
 #include "ECS/Physics/Buildings.h"
 #include "ECS/Physics/Dust.h"
 #include "ECS/Physics/FragMesh.h"
@@ -91,6 +91,7 @@
 #include "Graphics/SeaPass.h"
 #include "Graphics/ShaderManager.h"
 #include "Game.h"
+#include "Graphics/SuperVillagerFrame.h"
 #include "Graphics/VertexBuffer.h"
 #include "Graphics/WorldTriangles.h" // milagros2 pieces (pieces_shadows_PLAN.md §1.3 d)
 #include "Graphics/ZSorter.h"
@@ -1745,13 +1746,9 @@ void Renderer::DrawHumanShadows(graphics::RenderPass viewId) const
 		    {
 			    return;
 		    }
-		    const auto* draw = registry.TryGet<const ecs::components::DrawPosition>(entity);
-		    // the two feet: bone matrix slots 21 and 18 (ends of the leg chains), on the ground + 0.2; in the physics, the
-		    // drawn pose between its last two turns (ECS/Physics)
-		    const auto* flying = registry.TryGet<const ecs::components::PhysicsDrawPose>(entity);
-		    auto model = flying != nullptr ? lh_matrix::Model(flying->position, flying->rotation, transform.scale)
-		                                   : lh_matrix::Model(draw != nullptr ? draw->position : transform.position,
-		                                                      draw != nullptr ? draw->rotation : transform.rotation, transform.scale);
+		    // the two feet: bone matrix slots 21 and 18 (ends of the leg chains), on the ground + 0.2, of the drawn matrix
+		    // without the slope shear (ecs::DrawnModel: in the physics the drawn pose between its last two turns)
+		    const auto model = ecs::DrawnModel(registry, entity, false);
 		    const auto foot = [&](size_t bone) {
 			    auto p = glm::vec3(model * bones[bone] * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
 			    p.y = land_morph::OnGround(ground, glm::vec2(p.x, p.z), land_morph::k_BlobLift);
@@ -2480,13 +2477,15 @@ struct ZObject
 	int rain {-1};  ///< an index of _frameRain (fn_008341B0 0x83427F, one per raining tile)
 	int boat {-1};  ///< an index of _frameBoatSprites (LH3DSprite::AddDrawing 0x840CB3, one per sprite)
 	int ripple {-1}; ///< an index of influence::Ripples() (fn_008274A0's NewZObject, callback 0x827500)
+	/// the intro light, DrawSceneDesc::overlay.introLight (fn_00828300's NewZObject, callback 0x8283D0)
+	int introLight {-1};
 
 	/// a model instance (meshId / index): none of the other kinds is set. The drain draws it with drawInstance, its
 	/// shadows inside it (DrawShadowsOnObject); a new kind must be added here too
 	[[nodiscard]] bool IsModel() const
 	{
 		return sprite == entt::null && dust < 0 && psysSprite < 0 && psysMesh < 0 && psysChain < 0 && queuedEffect < 0 &&
-		       mist < 0 && smoke < 0 && cloud < 0 && rain < 0 && boat < 0 && ripple < 0;
+		       mist < 0 && smoke < 0 && cloud < 0 && rain < 0 && boat < 0 && ripple < 0 && introLight < 0;
 	}
 };
 
@@ -2771,13 +2770,18 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			// (sea_pass::k_NetPlane, 0x829C91..0x829CB7, put back 0x829D25..0x829D45)
 			DrawFishShoals(desc.viewId);
 			DrawFishPlots(desc.viewId, sea_pass::Kept(sea_pass::Mechanism::CutByPlane, sea_pass::k_NetPlane));
-			// TODO(sea_pass, R11): the swimming SuperVillagers go here, after fn_00824B90 (0x5E4B2B: the fish and the
-			// nets) and before the hand's glow (0x5E4D89) (GLandscape::Draw 0x5E4B4C..0x5E4D76): each of the list
-			// SuperVillager::g_first [0xEB9A08] whose animation is "M_P_Swim2" (0xBF3598, compared at 0x5E4C07), after its
-			// Draw vt+0x610 (0x5E4BC2) and shadow fn_00874850 (0x5E4BFB): the plane sea_pass::k_SwimPlane
-			// (0x5E4C4A..0x5E4C5E), SetColorSpecular(sea_pass::k_SwimmerColour, k_SwimmerSpecular) (0x5E4C68..0x5E4C70),
-			// vt+0x11C 0x5E4C77 = DrawCutByPlane(viewId, entity, KeepBelow, k_SwimmerColour, k_SwimmerSpecular), then the
-			// default plane again (0x5E4D76). openblack has no SuperVillager list (ScriptControl.cpp)
+			// the swimming SuperVillagers, after fn_00824B90 (0x5E4B2B: the fish and the nets) and before the hand's glow
+			// (0x5E4D89) (GLandscape::Draw 0x5E4B4C..0x5E4D76): each of the list SuperVillager::g_first [0xEB9A08] whose
+			// animation is "M_P_Swim2" (0xBF3598, compared at 0x5E4C07; the frame's SuperVillagerFrame::swimmers, filled
+			// before the draw), after its Draw vt+0x610 (0x5E4BC2) and shadow fn_00874850 (0x5E4BFB): the plane
+			// sea_pass::k_SwimPlane (0x5E4C4A..0x5E4C5E), SetColorSpecular(k_SwimmerColour, k_SwimmerSpecular)
+			// (0x5E4C68..0x5E4C70), vt+0x11C 0x5E4C77, then the default plane again (0x5E4D76). The swim rings every
+			// 1000 ms (0x5E4C7D..0x5E4D4B) are made by ecs::super_villager::Update (ecs::AddWaterRing)
+			for (const auto swimmer : desc.superVillagers.swimmers)
+			{
+				DrawCutByPlane(desc.viewId, swimmer, sea_pass::Kept(sea_pass::Mechanism::CutByPlane, sea_pass::k_SwimPlane),
+				               sea_pass::k_SwimmerColour, sea_pass::k_SwimmerSpecular);
+			}
 			// 0x5E4D89: the hand's glow on the water, the last thing before the sea
 			DrawHandWaterGlow(desc.viewId);
 		}
@@ -2892,6 +2896,13 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			for (const auto& [meshId, placers] : renderCtx.instancedDrawDescs)
 			{
 				auto mesh = meshManager.Handle(meshId);
+				// fn_008254A0 0x8254C3..0x8254D1 / 0x82551F: a SuperVillager's HD body and its eyes are drawn with the
+				// light at the default sun [0xEA1C88] (SuperVillagerFrame::litByDefaultSun), not the frame's light
+				std::optional<model_light::ScopedLight> superVillagerSun;
+				if (desc.superVillagers.litByDefaultSun.contains(meshId))
+				{
+					superVillagerSun.emplace(model_light::k_DefaultSun);
+				}
 
 				submitDesc.instanceDesc =
 				    std::make_unique<graphics::InstanceDesc>(renderCtx.instanceUniformBuffer, placers.offset, placers.count);
@@ -2978,6 +2989,12 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			// +0x4C -> [0xC37D8C]), every primitive in its own mode for the others
 			const auto drawInstance = [&](const ZObject& instance, RenderPass viewId) {
 				auto mesh = meshManager.Handle(instance.meshId);
+				// fn_008254A0's default sun, as in the instance loop above
+				std::optional<model_light::ScopedLight> superVillagerSun;
+				if (desc.superVillagers.litByDefaultSun.contains(instance.meshId))
+				{
+					superVillagerSun.emplace(model_light::k_DefaultSun);
+				}
 				submitDesc.viewId = viewId;
 				submitDesc.instanceDesc =
 				    std::make_unique<graphics::InstanceDesc>(renderCtx.instanceUniformBuffer, instance.index, 1);
@@ -3303,6 +3320,13 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				{
 					sorted.Submit({.ripple = static_cast<int>(index)}, key);
 				}
+				// the intro light, one Z object (fn_00828300 from fn_005DF640, fn_0x005e5cd0 0x5E6241), keyed at its head
+				// (0x828300..0x828336: (x^2 + y^2) + z^2); RendererIntroLight.cpp
+				if (desc.overlay.introLight.active)
+				{
+					const auto& introLight = desc.overlay.introLight;
+					sorted.Submit({.introLight = 0}, zsorter::Key(introLight.keyPoint, desc.camera->GetOrigin()));
+				}
 			}
 
 			// OPENBLACK_ZSORTER_TRACE=1: once a second, what the frame's queue holds (docs/bw1-notes/openblack-internals.md)
@@ -3448,6 +3472,11 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					if (instance.ripple >= 0)
 					{
 						DrawInfluenceRipple(k_Blended, static_cast<uint32_t>(instance.ripple));
+						continue;
+					}
+					if (instance.introLight >= 0)
+					{
+						DrawIntroLight(k_Blended, *desc.camera, desc.overlay.introLight);
 						continue;
 					}
 					if (instance.psysSprite >= 0)

@@ -16,14 +16,12 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "3D/AllMeshes.h"
-#include "3D/ObjectMatrix.h"
-#include "ECS/Components/DrawPosition.h"
 #include "ECS/Components/LivingAction.h"
 #include "ECS/Components/Mesh.h"
-#include "ECS/Components/PhysicsDrawPose.h"
 #include "ECS/Components/SkeletalAnimation.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
+#include "ECS/MobileDrawing.h"
 #include "ECS/Registry.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -108,19 +106,9 @@ void UpdateCarriedProps()
 			const auto mesh = static_cast<MeshId>(k_PropMeshes.at(static_cast<size_t>(type)));
 			registry.Assign<Mesh>(prop, resources::HashIdentifier(mesh), static_cast<int8_t>(0), static_cast<int8_t>(0));
 		}
-		// the villager's model matrix (as RenderingSystem builds it) * bone 15 * the axis swap
-		const auto& owner = registry.Get<const Transform>(villager);
-		// in the physics, the villager's drawn pose between its last two turns (ECS/Physics), with no slope shear
-		const auto* flying = registry.TryGet<const PhysicsDrawPose>(villager);
-		const auto* draw = flying == nullptr ? registry.TryGet<const DrawPosition>(villager) : nullptr;
-		auto model = flying != nullptr ? lh_matrix::Model(flying->position, flying->rotation, owner.scale)
-		                               : lh_matrix::Model(draw != nullptr ? draw->position : owner.position,
-		                                                  draw != nullptr ? draw->rotation : owner.rotation, owner.scale);
-		if (draw != nullptr)
-		{
-			model[0] += draw->shearX * model[1];
-			model[2] += draw->shearZ * model[1];
-		}
+		// the villager's model matrix (ecs::DrawnModel, as RenderingSystem draws it: in the physics its drawn pose between
+		// its last two turns, with no slope shear) * bone 15 * the axis swap
+		const auto model = DrawnModel(registry, villager);
 		glm::mat4 swap(0.0f);
 		swap[0] = glm::vec4(-1.0f, 0.0f, 0.0f, 0.0f);
 		swap[1] = glm::vec4(0.0f, 0.0f, -1.0f, 0.0f);

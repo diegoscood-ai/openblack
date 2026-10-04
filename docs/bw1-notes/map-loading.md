@@ -465,7 +465,7 @@ Mano) and the opcodes 266 / 267 / 336 wired, `drag.hnd` plays its 590 records, t
 and the dialogue are released, about 4 min of game after the start. The dialogue texts are drawn (HelpText display,
 `Help/HelpTextDisplay.h`, Renderer::DrawHelpText; not verified yet against the original's look). Still missing: the
 advisors (pending: HelpDude), the welcome crowd and dance, the villagers' focus and override animations (session
-Personas), the intro's JC specials and the high-detail family models.
+Personas), the intro's JC specials and the high-detail family models. The whole intro: [intro.md](intro.md).
 
 ### Skipping the tutorial (SkipBox and CAN_SKIP_TUTORIAL)
 

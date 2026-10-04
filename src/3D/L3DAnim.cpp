@@ -167,7 +167,7 @@ std::vector<glm::mat4> L3DAnim::GetBoneMatrices(uint32_t time) const noexcept
 	return bones;
 }
 
-void L3DAnim::SampleLocal(int32_t milliseconds, std::vector<glm::mat4>& bones) const noexcept
+void L3DAnim::SampleLocal(int32_t milliseconds, std::vector<glm::mat4>& bones, bool blendSampler) const noexcept
 {
 	const auto frameCount = static_cast<int32_t>(_frames.size());
 	const int32_t duration = GetDurationMs();
@@ -189,7 +189,7 @@ void L3DAnim::SampleLocal(int32_t milliseconds, std::vector<glm::mat4>& bones) c
 	int32_t j = i + 1;
 	if (j == frameCount)
 	{
-		j = loop ? 0 : frameCount - 1;
+		j = (loop || blendSampler) ? 0 : frameCount - 1;
 	}
 	const float f = period > 0 ? static_cast<float>(frameCount) / static_cast<float>(period) * static_cast<float>(t) -
 	                                 static_cast<float>(i)

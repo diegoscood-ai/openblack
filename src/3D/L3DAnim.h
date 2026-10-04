@@ -60,8 +60,10 @@ public:
 	[[nodiscard]] bool IsLooping() const noexcept { return (_unknown_0x50 & 0x100u) != 0; }
 	/// LH3DAnim::GetPose (0x839980): each bone's transform relative to its parent at `milliseconds`. The keys are evenly
 	/// spaced (a looping clip wraps its last key back to the first, a one-shot one ends on it) and every element of the
-	/// 3x4 matrices is lerped, without re-orthonormalising.
-	void SampleLocal(int32_t milliseconds, std::vector<glm::mat4>& bones) const noexcept;
+	/// 3x4 matrices is lerped, without re-orthonormalising. `blendSampler`: the blend sampler fn_00839BC0 instead (the
+	/// SuperVillager's cross-fade), the same but the next key after the last is always the first (0x839C1C), one-shot
+	/// clips too.
+	void SampleLocal(int32_t milliseconds, std::vector<glm::mat4>& bones, bool blendSampler = false) const noexcept;
 
 private:
 	std::string _name;

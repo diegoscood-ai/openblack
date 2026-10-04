@@ -218,6 +218,9 @@ public:
 	/// fn_005C6800(task) (no W120 symbol; END_DIALOGUE 0x7107F9 and the task-stop callback 0x6EC6E9 call it): when the
 	/// task has the dialogue, give it back, take the wide screen away and send both advisors home
 	void ReleaseDialogueControl(uint32_t task);
+	/// fn_005C78C0(task) (the task-stop callback 0x6EC6FA): when the wide screen is on and this task owns it (+0x45EC),
+	/// SetWideScreen(0, 0) (0x5C78C0..0x5C78DA)
+	void ReleaseWideScreenOf(uint32_t task);
 	/// HelpSystem::SpiritHome 0x5C6670 (Hooks::spiritHome)
 	void SpiritHome(int32_t spirit, int32_t arg);
 	/// HelpSystem::SetWideScreen 0x5C6AD0(on, owner): when +0x45E8 changes, +0x45E8 = on and +0x45EC = on ? owner : 0

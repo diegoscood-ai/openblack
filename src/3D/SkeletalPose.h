@@ -26,4 +26,11 @@ class L3DMesh;
 /// original, then each bone put under its parent). A clip for another skeleton leaves the rest pose.
 void ComputePose(const L3DMesh& mesh, const L3DAnim& clip, float milliseconds, std::vector<glm::mat4>& pose);
 
+/// The SuperVillager's cross-fade (fn_00825530 0x8259B0..0x825A09): the blend sampler fn_00839BC0 of `clip` at
+/// `milliseconds` stored with weight 1 - oldWeight (each float ((b - a) f + a) x weight), then that of `oldClip` at
+/// `oldMilliseconds` with oldWeight added, in the bones' local matrices, no normalisation; then each bone under its
+/// parent as ComputePose (fn_00839F10). A clip for another skeleton leaves the rest pose.
+void ComputeBlendedPose(const L3DMesh& mesh, const L3DAnim& clip, float milliseconds, const L3DAnim& oldClip,
+                        float oldMilliseconds, float oldWeight, std::vector<glm::mat4>& pose);
+
 } // namespace openblack::graphics

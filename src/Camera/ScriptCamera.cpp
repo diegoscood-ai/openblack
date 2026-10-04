@@ -872,6 +872,33 @@ Drawn DrawnCamera(const std::function<float(float, float)>& groundAt)
 	return drawn;
 }
 
+namespace
+{
+int32_t s_DebugCameraMode = 0;            ///< [0xEA9EC8]
+glm::vec3 s_DebugCameraPosition {0.0f};   ///< [0xEA1B58]
+glm::vec3 s_DebugCameraFocus {0.0f};      ///< [0xEA1B68]
+} // namespace
+
+void SetDebugCameraMode(int32_t mode)
+{
+	s_DebugCameraMode = mode;
+}
+
+void SetDebugCameraPosition(const glm::vec3& position)
+{
+	s_DebugCameraPosition = position;
+}
+
+void SetDebugCameraFocus(const glm::vec3& focus)
+{
+	s_DebugCameraFocus = focus;
+}
+
+int32_t DebugCameraMode()
+{
+	return s_DebugCameraMode;
+}
+
 void ApplyShake(Camera& camera, const glm::vec3& lastDrawn)
 {
 	// LH3DTech::UpdateCamera 0x819920 (GCamera::Update 0x442622, outside the citadel and not playing back), whatever the
@@ -888,6 +915,15 @@ void ApplyShake(Camera& camera, const glm::vec3& lastDrawn)
 	{
 		const auto base = position;
 		const auto baseFocus = focus;
+		// 0x81997A..0x8199DD: the debug camera replaces the drawn position (mode 2) and focus (1 and 2) first
+		if (s_DebugCameraMode == 2)
+		{
+			position = s_DebugCameraPosition;
+		}
+		if (s_DebugCameraMode == 1 || s_DebugCameraMode == 2)
+		{
+			focus = s_DebugCameraFocus;
+		}
 		camera_shake::Adjust(lastDrawn, position, focus);
 		camera.SetDrawOffset(position - base, focus - baseFocus); // 0 when no shake moved it (the offset stays otherwise)
 	}

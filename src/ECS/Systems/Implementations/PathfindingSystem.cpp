@@ -29,6 +29,7 @@
 #include "ECS/Map.h"
 #include "ECS/MapCells.h"
 #include "ECS/Registry.h"
+#include "ECS/Villager/VillagerScript.h"
 #include "Locator.h"
 
 using namespace openblack;
@@ -41,9 +42,8 @@ namespace
 
 void InitializeStep(Transform& transform, WallHug& wallHug, float angle)
 {
-	transform.rotation = lh_matrix::AngleY(angle + glm::radians(90.0f)); // the "Scawen" angle, Object::GetWorldMatrix 0x638200
+	openblack::ecs::villager::SetYAngle(transform, wallHug, angle); // MobileWallHug::SetYAngle 0x639260
 	wallHug.step = glm::vec2(glm::cos(angle), glm::sin(angle)) * wallHug.speed;
-	wallHug.yAngle = angle;
 }
 
 void InitializeStepToGoal(Transform& transform, WallHug& wallHug)

@@ -124,10 +124,13 @@ uint32_t Submit(RenderPass view, const Frame& frame, const ShaderManager& shader
 /// diffuse, alpha = the alpha file x diffuse alpha, the stage 0 of mode 6; no fog and no specular, 0x81C2BF), `diffuse`
 /// and `alpha` the X.raw / Xa.raw textures with their own samplers (the .raw loader's Repeat, which the tiling bit +5
 /// bit 2 of the materials drawn this way asks for), and render_modes::State of the material (its mode, the culling of
-/// +5 bit 0). Only for the modes whose stage 0 is that one (mode 6). (openblack guard) nothing is drawn when the
-/// transient buffers cannot take it all. Returns true when it was drawn
+/// +5 bit 0). Only for the modes whose stage 0 is that one (mode 6; mode 13, the intro light's SRCALPHA / ONE, has the
+/// same stage 0). `options`: the draw's own render states (the ZFUNC of the intro light's 0x828483 / 0x828673; the
+/// default is the plain SetMaterial). (openblack guard) nothing is drawn when the transient buffers cannot take it all.
+/// Returns true when it was drawn
 bool SubmitRaw(RenderPass view, std::span<const Vertex> vertices, std::span<const uint16_t> indices, const Texture2D& diffuse,
-               const Texture2D& alpha, const render_modes::Material& material, const ShaderManager& shaders);
+               const Texture2D& alpha, const render_modes::Material& material, const ShaderManager& shaders,
+               const render_modes::StateOptions& options = {});
 
 /// The texture of an L3D primitive: the mesh's skins (or its SetSkinSource's), else the texture manager; nullptr for
 /// an untextured one. The models' lookup (Renderer::DrawSubMesh and the shadow casters use it too)

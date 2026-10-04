@@ -97,16 +97,19 @@ void ToBeDeleted(entt::entity entity, bool now)
 		// ScriptHighlight::ToBeDeleted 0x709980: out of the highlights' list, its two effects closed
 		script_highlight::OnToBeDeleted(entity);
 	}
-	// CleanupWhenDeleted 0x6377F0: RemoveMapObject vt +0x548, out of its cells
-	map_cells::RemoveMapObject(entity);
 	if (now || !g_Deferred)
 	{
-		// `now` (Delete at once, 0x56FB70), or the deferral still off (Hito 3 step 3): out of the physics too
+		// `now` (Delete at once, 0x56FB70), or the deferral still off (Hito 3 step 3): out of the physics first, as
+		// PhysicsObjects::RemoveObject puts a still valid entity back in its cells; then CleanupWhenDeleted 0x6377F0's
+		// RemoveMapObject (vt +0x548), out of its cells
 		physics::PhysicsObjects::RemoveObject(entity);
+		map_cells::RemoveMapObject(entity);
 		registry.Destroy(entity);
 		registry.SetDirty();
 		return;
 	}
+	// CleanupWhenDeleted 0x6377F0: RemoveMapObject vt +0x548, out of its cells
+	map_cells::RemoveMapObject(entity);
 	// 0x56FB70: UNAVAILABLE (+0xA bit 0), bit 1 clear, pushed at the head. The physics body stays: the original does not
 	// take it out here; PhysicsObject::GameTurnUpdate drops the unavailable ones at the start of the next turn (0x645018;
 	// Fisicas, documentacion/physics/dead_list_physics.md)

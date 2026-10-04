@@ -61,6 +61,9 @@ public:
 		TurnParticles,
 		MagicFrame,
 		PreDraw,
+		DrawDescs,
+		DrawUniforms,
+		DrawUpload,
 
 		_count,
 	};
@@ -103,6 +106,9 @@ public:
 	    "Turn: Particles",      //
 	    "Magic (frame)",        //
 	    "Pre Draw",             //
+	    "Draw Descs",           //
+	    "Draw Uniforms",        //
+	    "Draw Upload",          //
 	};
 
 private:

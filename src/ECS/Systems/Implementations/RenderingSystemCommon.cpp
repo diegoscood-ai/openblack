@@ -28,6 +28,7 @@
 #include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/ShaderManager.h"
 #include "Locator.h"
+#include "Profiler.h"
 #include "Resources/ResourcesInterface.h"
 
 using namespace openblack::ecs::systems;
@@ -76,6 +77,7 @@ void RenderingSystemCommon::UploadInstances()
 	{
 		return;
 	}
+	auto upload = Locator::profiler::value().BeginScoped(Profiler::Stage::DrawUpload);
 	constexpr uint32_t k_Stride = sizeof(glm::mat4) + sizeof(glm::vec4);
 	const bgfx::Memory* memory = bgfx::alloc(count * k_Stride);
 	for (uint32_t i = 0; i < count; ++i)
@@ -99,9 +101,18 @@ void RenderingSystemCommon::PrepareDraw(bool drawBoundingBox, bool drawFootpaths
 	if (_renderContext.dirty || _renderContext.hasBoundingBoxes != drawBoundingBox ||
 	    (_renderContext.footpaths != nullptr) != drawFootpaths || (_renderContext.streams != nullptr) != drawStreams)
 	{
-		PrepareDrawDescs(drawBoundingBox);
+		// (openblack engine) the profile's "Draw Descs" / "Draw Uniforms": how long, and how often (ran N x), the
+		// instances are rebuilt (dev/documentacion/motor/gpu1_prepare_draw.md)
+		auto& profiler = Locator::profiler::value();
+		{
+			auto descs = profiler.BeginScoped(Profiler::Stage::DrawDescs);
+			PrepareDrawDescs(drawBoundingBox);
+		}
 		std::fill(_renderContext.instanceColours.begin(), _renderContext.instanceColours.end(), glm::vec4(0.0f));
-		PrepareDrawUploadUniforms(drawBoundingBox);
+		{
+			auto uniforms = profiler.BeginScoped(Profiler::Stage::DrawUniforms);
+			PrepareDrawUploadUniforms(drawBoundingBox);
+		}
 
 		_renderContext.boundingBox.reset();
 		if (drawBoundingBox)

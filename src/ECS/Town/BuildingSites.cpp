@@ -168,16 +168,6 @@ map_coords::MapCoords PlanCoords(const PlannedAbode& plan)
 	return map_coords::FromMetres(glm::vec2(plan.position.x, plan.position.z));
 }
 
-/// __ftol 0x7A1400 of an x87 product (kept in extended precision until the ftol: here a double), as map_coords::FtoL
-int32_t FtoLExtended(double value)
-{
-	if (!(value > -2147483648.0 && value < 2147483648.0))
-	{
-		return static_cast<int32_t>(0x80000000u);
-	}
-	return static_cast<int32_t>(value);
-}
-
 /// Town::CheckWhenNewBuildingCreated(b) 0x741500 (from PostCreatePlanned 0x648C50): GetDistanceInMetres(b, +0xF10) -
 /// Get2DRadius(b) < 7.5 -> the congregation point's cache (0, 0, 0)
 void CheckWhenNewBuildingCreated(entt::entity town, entt::entity building)
@@ -255,10 +245,10 @@ void PosBuilderProcess(std::array<glm::vec3, BuildingSite::k_RingSize>& ring, en
 		{
 			const float x = std::sin(a) * radius + centre.x;
 			const float z = std::cos(a) * radius + centre.z;
-			// the two products in x87 extended precision before the ftol (0x43AF18 / 0x43AF1E)
-			const auto tenth = static_cast<double>(0.1f);
-			const map_coords::MapCoords at {FtoLExtended(static_cast<double>(x) * 65536.0 * tenth),
-			                                FtoLExtended(static_cast<double>(z) * 65536.0 * tenth), 0.0f};
+			// the two products before the ftol (0x43AF18 / 0x43AF1E), each rounded to float: the FPU runs at 24-bit
+			// precision (fn_007DEE00, 0x7DEE0D)
+			const map_coords::MapCoords at {map_coords::FtoL(x * 65536.0f * 0.1f), map_coords::FtoL(z * 65536.0f * 0.1f),
+			                                0.0f};
 			entry = glm::vec3(x, map_coords::ToWorld(at).y, z);
 			a = a + k_RingStep;
 		}
@@ -1438,8 +1428,8 @@ map_coords::MapCoords building_sites::GetNearestEdge(entt::entity site, float an
 			}
 		}
 		// angle == 0 -> 0; else ftol(angle x 1 / 2 pi x 128) & 0x7F (the cmp 0x80 / jge after the mask are dead).
-		// (approximate) x87: the original keeps the angle extended through the 2 pi loops and both products before the
-		// ftol (0x43CE80..0x43CEC6); here each step is rounded to float
+		// Each step rounded to float, as the 24-bit FPU (fn_007DEE00) does through the 2 pi loops and both products
+		// (0x43CE80..0x43CEC6)
 		if (angle != 0.0f)
 		{
 			i = map_coords::FtoL(angle * k_InvTwoPi * static_cast<float>(BuildingSite::k_RingSize)) & k_RingMask;
@@ -1459,10 +1449,10 @@ map_coords::MapCoords building_sites::GetRandomBuildPos(entt::entity site, entt:
 	// 0x43CDEB: a = Get3DAngleFromXZ(building, villager) (building -> villager); 0x43CDF5: a + (GameFloatRand(pi / 2)
 	// - pi / 4) (fsub [0x8C6C9C] then fadd a)
 	const float a = gutils::Get3DAngleFromXZ(object::MapCoordsOf(building), object::MapCoordsOf(villager));
-	// in x87 extended precision, rounded once when pushed as the float argument (0x43CE1F..0x43CE2F)
-	const double spread = static_cast<double>(game_random::GameFloatRand(k_RandomBuildSpread)) -
-	                      static_cast<double>(k_RandomBuildHalf);
-	return GetNearestEdge(site, static_cast<float>(spread + static_cast<double>(a)), index);
+	// fsub then fadd, each rounded to float by the 24-bit FPU (fn_007DEE00), pushed as the float argument
+	// (0x43CE1F..0x43CE2F)
+	const float spread = game_random::GameFloatRand(k_RandomBuildSpread) - k_RandomBuildHalf;
+	return GetNearestEdge(site, spread + a, index);
 }
 
 map_coords::MapCoords building_sites::GetNextPosFromIndex(entt::entity site, int32_t& index)
@@ -1474,7 +1464,7 @@ map_coords::MapCoords building_sites::GetNextPosFromIndex(entt::entity site, int
 		return {}; // 0x43CF40: no building -> (0, 0, 0)
 	}
 	// step = 2.0 / (Get2DRadius x 2 pi x 0.0078125); k = ftol(GameFloatRand(step x 0.5) + step) (line 0x3B7).
-	// (approximate) x87: the product and the fdivr are extended and rounded once (fstp 0x43CF9D); here twice
+	// the product and the fdivr each rounded to float (24-bit FPU, fn_007DEE00; fstp 0x43CF9D)
 	const float step = k_NextPosMetres / (object::Get2DRadius(building) * glm::two_pi<float>() * k_NextPosPerEntry);
 	const int32_t k = map_coords::FtoL(game_random::GameFloatRand(step * 0.5f) + step);
 	// sgn = GameRand(2) ? +1 : -1 (line 0x3B8; neg / sbb / and 2 / dec)

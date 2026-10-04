@@ -659,7 +659,8 @@ float abodes::ReduceLife(entt::entity building, float amount, [[maybe_unused]] s
 	{
 		return l;
 	}
-	// 0x405DE2..0x405E05: every inhabitant (+0xA0, next +0xE4) SetStateWhenTappedOnAbode 0x752B80. TODO(V7, Personas)
+	// 0x405DE2..0x405E05: every inhabitant (+0xA0, next +0xE4) SetStateWhenTappedOnAbode 0x752B80. (pending) Personas' V11
+	// (Hito 3): villager::SetStateWhenTappedOnAbode(entt::entity) in ECS/Villager/VillagerEmergency.h, state 197
 	// 0x405E07..0x405E59
 	if (wasFunctional && !(threshold < l))
 	{

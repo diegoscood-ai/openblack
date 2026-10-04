@@ -8,6 +8,7 @@ that breaks is in [physics.md](physics.md).
 - [Resources held by objects](#resources-held-by-objects)
 - [The town's temporary pots](#the-towns-temporary-pots)
 - [Life and damage](#life-and-damage)
+- [Plans and building sites](#plans-and-building-sites)
 - [Pending](#pending)
 - [Sources](#sources)
 
@@ -78,6 +79,41 @@ lowers the life through the effect system (EffectValues(3) 0x524FE0, damage = ma
 GetDefenseMultiplier 0x637930, Object::ApplyEffect vt +0x5CC -> Abode::ReduceLife 0x405D90), not by setting it, and
 shows HelpSpritesDestroyBuilding 0x71D070 when less than 0.4 is left (0x406753) and the player is the local one.
 
+## Plans and building sites
+
+`ecs::plans` and `ecs::building_sites` (`src/ECS/Town/BuildingSites.h`), the building's own state in `ecs::abodes`
+(`src/ECS/Abodes.h`). Spec with every address: `dev\documentacion\edificios\V6_spec.md`, `V6_pending.md`; two
+audits (`audit_v6.md`, `audit_v6_pass2.md`).
+
+- **Plans** (PlannedMultiMapFixed, a GameThingWithPos: not drawn, Draw 0x648930 = `ret`; not in the map cells) live in
+  the town's list, oldest first (Town::AddPlanned 0x73D080). The town never invents them: the script
+  (CREATE_PLANNED_ABODE), destroyed buildings (V11), scaffolds and the rival AI make them.
+- **Choosing**: GetDesireToBeBuilt 0x73A1A0 per type (houses by free adult places, civic buildings once, wonder by the
+  For_Wonder desire...), GetBestPlanned 0x73A140 (strictly better, the first on ties), RequestBestPlanned 0x73A650
+  (mask 4, no fixed check; fields pass too), RequestANewAbode 0x73B330 (mask 2, with the fixed check
+  IsSuitableForFixedAbodeInTown 0x603860: inside the nearest other town's area widened by 4 cells it is accepted with
+  no other test).
+- **Converting** a plan (CreatePlannedNoFixedCheck 0x405770): the abode is created under construction (+0x58 bit 1,
+  percent 0, life 1.0 from the Object ctor), then its building site (BuildingSite 0x43B7E0: the 128 builder positions of
+  PosBuilder 0x43AE10 around the mesh, the repair base 1.1 x life - 0.1 for a damaged built building). CHL
+  BUILD_BUILDING 130 (GScript::BuildBuilding 0x6FAB30 -> ForceBuildingOfPlannedAtPos 0x73E560) converts the plan at the
+  point within the same call, with the desire boost x 5.
+- **Building**: BuildBy 0x52ED40 adds to the percent built; at 1 Built 0x52EBB0 / Abode::Built 0x404720 deletes the
+  site (builders back to state 163, the wood pile released) and MakeFunctional 0x4047E0 runs (the town's statistics count
+  the abode from then on: Add(Abode) 0x7498C0). On a built but damaged building BuildBy repairs (IncreaseLife 0x405ED0,
+  Repaired 0x4047B0).
+- **Drawing**: DrawBuilding 0x517F90 draws the partial model with GetPercentForDrawBuilding 0x52EFD0
+  (`components::DrawMesh`, the mesh of `physics::PartialBuild::BuildMesh`), nothing at exactly 0 %
+  (`components::NotDrawn`) but the ground footprint stays (SetFootPrintOnTexture 0x52EA33), no static shadow until
+  built (SetShadowOnTexture 0x1000, `abodes::CastsShadowOnTexture`), and no land haze (only fn_00801C90).
+- **Graveyard** (`src/ECS/Town/Graveyard.h`): Town +0x748; AddDead fn_00595E50 counts the dead below 50 and sets the
+  graves stage max(1, ftol(n x 0.18)) & 7 on the 3D object.
+
+**(pending)** picking a 0 % (invisible) house; Town +0x740 totem / +0x750 workshops / +0xEA4 football; the graves
+stage's reader; feature_build should hide with NotDrawn; scaffolds, workshops and footpaths are not ported.
+**(not verified)** freeAdultPlaces = MaxVillagers - adults housed. **(approximate)** the town areas recomputed at the
+query; a deleted site is freed one turn later.
+
 ## Pending
 
 - Town::Process step 17 (0x747450..0x7474A0): empty temporary pots go when a storage pit works.
@@ -87,7 +123,7 @@ shows HelpSpritesDestroyBuilding 0x71D070 when less than 0.4 is left (0x406753) 
   pit and never deletes them **(approximate)**. How CREATE_ABODE fills a new pit is not read: today it goes through
   StoragePit::AddResource (pile sounds and the pulse at load) **(approximate)**.
 - The belief fold, DrawBelief and BeliefSFX (above).
-- Plans and building sites (V6), the citadel as a plan, repairs, the workshop and scaffolds, the town emergency.
+- The citadel as a plan, repairs (V11), the workshop and scaffolds, the town emergency.
 
 ## Sources
 

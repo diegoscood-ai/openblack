@@ -32,6 +32,8 @@
 #include "ECS/Registry.h"
 #include "ECS/StoragePitStore.h"
 #include "ECS/Systems/TownSystemInterface.h"
+#include "ECS/Town/Graveyard.h"
+#include "ECS/Town/TownStores.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -125,8 +127,42 @@ void CreateTotemStatue(entt::entity townCentre, const GAbodeInfo& info, float yA
 }
 } // namespace
 
+void AbodeArchetype::MakeTownCentreFunctional(entt::entity townCentre, const GAbodeInfo& info, float yAngleRadians,
+                                              float scale)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	// TownCentre::CreateTotemIfNecessary 0x743DA0: only when the centre has no totem yet (a repaired centre is made
+	// functional again, Abode::Repaired 0x4047B0)
+	bool hasTotem = false;
+	registry.Each<const TotemStatue>(
+	    [&](const TotemStatue& totem) { hasTotem = hasTotem || totem.townCentre == townCentre; });
+	if (!hasTotem)
+	{
+		CreateTotemStatue(townCentre, info, yAngleRadians, scale);
+	}
+	// 0x743EAB: the town's +0x9A4 = this when still null (as CREATE_TOWN_CENTRE 0x71577C)
+	const auto townId = registry.Get<Abode>(townCentre).townId;
+	if (const auto town = registry.Context().towns.find(townId); town != registry.Context().towns.end())
+	{
+		if (auto& component = registry.Get<Town>(town->second); component.centre == entt::null)
+		{
+			component.centre = townCentre;
+		}
+	}
+	// MakeFunctional: then one spell icon per spell seed the town already has (at most 6). Their creation indexes are
+	// taken once, when the centre is first made functional (its totem made now): a repaired centre or CHL 22 >= 1 again
+	// makes no new icon (AddSpell), so the indexes do not move
+	if (!hasTotem)
+	{
+		ecs::object_index::OnTownCentre(townId);
+	}
+	// TownCentre::MakeFunctional 0x743E80's spell part (Worship/TownCentreSpellIcon.cpp): those icons and the
+	// town's worship site. The icons take no creation index of their own (object_index counts them above).
+	worship::town_centre::MakeFunctional(townCentre);
+}
+
 entt::entity AbodeArchetype::Create(uint32_t townId, const glm::vec3& position, AbodeInfo type, float yAngleRadians,
-                                    float scale, uint32_t foodAmount, uint32_t woodAmount)
+                                    float scale, uint32_t foodAmount, uint32_t woodAmount, bool underConstruction)
 {
 	auto& registry = Locator::entitiesRegistry::value();
 
@@ -174,7 +210,16 @@ entt::entity AbodeArchetype::Create(uint32_t townId, const glm::vec3& position, 
 
 	const auto& transform =
 	    registry.Assign<Transform>(entity, position, lh_matrix::AngleY(yAngleRadians), glm::vec3(scale)); // 0x638200
-	registry.Assign<Abode>(entity, info.abodeNumber, townId, foodAmount, woodAmount);
+	auto& abode = registry.Assign<Abode>(entity, info.abodeNumber, townId, foodAmount, woodAmount);
+	abode.info = type; // +0x28
+	if (underConstruction)
+	{
+		// MultiMapFixed ctor 0x52E1E0: bit 1 set -> +0x5C = 0 and bit 3 clear (the percent argument is not used); the
+		// life stays the Object ctor's 1.0 (V6_pending §3). TownStats counts it from its MakeFunctional (+0x7C bit 1)
+		abode.buildFlags = Abode::k_UnderConstruction;
+		abode.percentBuilt = 0.0f;
+		abode.addedToTownStats = false;
+	}
 	auto resourceId = resources::HashIdentifier(info.meshId);
 	const auto& mesh = registry.Assign<Mesh>(entity, resourceId, static_cast<int8_t>(0), static_cast<int8_t>(0));
 	if (morphsWithTerrain)
@@ -219,17 +264,19 @@ entt::entity AbodeArchetype::Create(uint32_t townId, const glm::vec3& position, 
 	{
 	case AbodeType::StoragePit:
 		AddStoragePitComponents(entity, mesh, info, position, yAngleRadians, foodAmount, woodAmount);
-		// StoragePit::MakeFunctional 0x732F30 -> Town::SetStoragePit 0x73EA60: town +0x30 = this (the last one wins).
-		// (aproximado hasta V6) here, when the script makes it whole
-		if (const auto town = registry.Context().towns.find(townId); town != registry.Context().towns.end())
+		// Abode::Init 0x403130 -> MakeFunctional of a whole one (the script's): StoragePit::MakeFunctional 0x732F30 ->
+		// Town::SetStoragePit 0x73EA60 (town +0x30 = this, the last one wins; the temporary pots). A plan's at Built
+		if (const auto town = registry.Context().towns.find(townId);
+		    !underConstruction && town != registry.Context().towns.end())
 		{
-			registry.Get<Town>(town->second).storagePit = entity;
+			ecs::town_stores::SetStoragePit(town->second, entity);
 		}
 		break;
 	case AbodeType::Creche:
-		// Creche::MakeFunctional 0x50AB50: town +0x744 = this when it is still null (0x50AB72; the first one wins).
-		// (aproximado hasta V6) here, when the script makes it whole
-		if (const auto town = registry.Context().towns.find(townId); town != registry.Context().towns.end())
+		// Creche::MakeFunctional 0x50AB50: town +0x744 = this when it is still null (0x50AB72; the first one wins), for
+		// a whole one (the script's); a plan's at Built
+		if (const auto town = registry.Context().towns.find(townId);
+		    !underConstruction && town != registry.Context().towns.end())
 		{
 			auto& component = registry.Get<Town>(town->second);
 			if (component.creche == entt::null)
@@ -239,12 +286,20 @@ entt::entity AbodeArchetype::Create(uint32_t townId, const glm::vec3& position, 
 		}
 		break;
 	case AbodeType::TownCentre:
-		CreateTotemStatue(entity, info, yAngleRadians, scale);
-		// MakeFunctional: then one spell icon per spell seed the town already has (at most 6)
-		ecs::object_index::OnTownCentre(townId);
-		// TownCentre::MakeFunctional 0x743E80's spell part (Worship/TownCentreSpellIcon.cpp): those icons and the
-		// town's worship site. The icons take no creation index of their own (object_index counts them above).
-		worship::town_centre::MakeFunctional(entity);
+		// TownCentre::MakeFunctional 0x743E80 of a whole one; a plan's at Built (abodes::MakeFunctional)
+		if (!underConstruction)
+		{
+			MakeTownCentreFunctional(entity, info, yAngleRadians, scale);
+		}
+		break;
+	case AbodeType::Graveyard:
+		// the Graveyard class (+0xC4 its dead, 0x595CB0..0x595FB0); a whole one's MakeFunctional 0x595E00 (+0x748, one
+		// dead); a plan's at Built
+		registry.Assign<Graveyard>(entity);
+		if (!underConstruction)
+		{
+			ecs::graveyard::MakeFunctional(entity);
+		}
 		break;
 	case AbodeType::Workshop:
 		// its ShowNeedsVisuals and wood pile (openblack doesn't make them yet)

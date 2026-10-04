@@ -12,6 +12,7 @@
 #include <glm/gtc/constants.hpp>
 
 #include "3D/L3DMesh.h"
+#include "ECS/Abodes.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Mesh.h"
 #include "Common/GameRandom.h"
@@ -67,10 +68,9 @@ bool IsAvailable(entt::entity abode)
 	return Locator::entitiesRegistry::value().Valid(abode);
 }
 
-bool IsBuilt([[maybe_unused]] entt::entity abode)
+bool IsBuilt(entt::entity abode)
 {
-	// TODO(V6): +0x58 & 2 and GetPercentBuilt (+0x5C) of the building sites
-	return true;
+	return abodes::IsBuilt(abode); // 0x4016C0
 }
 
 bool IsFunctional(entt::entity abode)

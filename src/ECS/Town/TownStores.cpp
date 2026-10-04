@@ -12,11 +12,15 @@
 #include <algorithm>
 #include <optional>
 
+#include "ECS/AnimalAI.h"
 #include "ECS/Components/Town.h"
 #include "ECS/GUtilsAngle.h"
 #include "ECS/MapCells.h"
 #include "ECS/ObjectMetrics.h"
+#include "ECS/ObjectResources.h"
+#include "ECS/PotResource.h"
 #include "ECS/Registry.h"
+#include "ECS/ToBeDeleted.h"
 #include "ECS/Town/AbodeQueries.h"
 #include "ECS/Town/TownQueries.h"
 #include "GameClock.h"
@@ -126,5 +130,38 @@ void AddToBelief(entt::entity town, PlayerNames player, float f, entt::entity th
 	static_cast<void>(thing);
 	static_cast<void>(draw);
 	static_cast<void>(guidanceAlignment);
+}
+
+void SetStoragePit(entt::entity town, entt::entity pit)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	auto* t = TownComponent(town);
+	if (t == nullptr)
+	{
+		return;
+	}
+	// 0x73EA60: +0x30 = pit
+	t->storagePit = pit;
+	// each temporary pot (+0x600 FOOD, +0x604 WOOD): available (vt +0x2C) and holding its resource ->
+	// Pot::SetupReaction 0x66D660 (the villagers carry it to the pit); else ToBeDeleted (vt +0xC); the slot = 0
+	for (size_t type = 0; type < t->temporaryPots.size(); ++type)
+	{
+		auto& pot = t->temporaryPots.at(type);
+		if (pot != entt::null && registry.Valid(pot))
+		{
+			if (object_resources::GetResource(pot, static_cast<ResourceType>(type)) != 0)
+			{
+				animal_ai::SetupPotReaction(pot);
+			}
+			else
+			{
+				// PileFood::ToBeDeleted 0x66E100 closes its speed-up visual; then the common deletion
+				// (ecs::ToBeDeleted)
+				pot_resource::SetSpeedUp(pot, false);
+				ecs::ToBeDeleted(pot);
+			}
+		}
+		pot = entt::null;
+	}
 }
 } // namespace openblack::ecs::town_stores

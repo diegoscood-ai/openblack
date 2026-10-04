@@ -59,6 +59,9 @@
 #include "ECS/Components/MorphWithTerrain.h"
 #include "ECS/Components/OneOffSpellSeed.h"
 #include "ECS/Components/Stream.h"
+#include "ECS/Abodes.h"
+#include "ECS/Components/DrawMesh.h"
+#include "ECS/Components/NotDrawn.h"
 #include "ECS/Components/Temple.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Physics/PhysicsObjects.h"
@@ -116,6 +119,18 @@ std::vector<openblack::psys::mesh_atoms::Instance> g_PSysMeshes;
 	return true;
 }
 
+/// The model an entity's model passes draw: its components::DrawMesh (a building partly built,
+/// abodes::RedrawConstruction) when it has one, else its Mesh. The Mesh stays the object's own (sizes, map cells,
+/// static shadow, footprint)
+Mesh DrawnMeshOf(const openblack::ecs::Registry& registry, entt::entity entity, const Mesh& mesh)
+{
+	if (const auto* draw = registry.TryGet<const DrawMesh>(entity); draw != nullptr)
+	{
+		return {draw->id, draw->submeshId, draw->bbSubmeshId};
+	}
+	return mesh;
+}
+
 /// The original bakes a shadow for every Fixed and MobileObject (SetShadowOnTexture in Create3DObject 0x52DE30 /
 /// 0x607210), trees and forests included, except the classes that turn it off (AnimatedStatic, DeadTree, Pot, fields,
 /// ...); villagers and the creature have blob / dynamic shadows instead.
@@ -123,6 +138,12 @@ bool CastsStaticShadow(const openblack::ecs::Registry& registry, entt::entity en
 {
 	if (!registry.AnyOf<Fixed, MobileStatic, MobileObject, Tree, Abode, Feature, BigForest>(entity) ||
 	    registry.AnyOf<Pot, AnimatedStatic, DeadTree, Field, Villager, Creature, Hand, Alpha, TempleInteriorPart>(entity))
+	{
+		return false;
+	}
+	// SetShadowOnTexture (+4 bit 0x1000): off for a building not built yet (0x52EA1E..0x52EA40, Built 0x52EC2C); drawn
+	// or not (a NotDrawn caster's shadow instance is written by the footprint-only loop)
+	if (!openblack::ecs::abodes::CastsShadowOnTexture(entity))
 	{
 		return false;
 	}
@@ -151,7 +172,8 @@ bool CastsStaticShadow(const openblack::ecs::Registry& registry, entt::entity en
 /// not built, ecs/FeatureBuild.h). PetitNavire's hull (+0x28) gets fn_00801C90 in PreDraw (0x5E018D, 0x5E03DF) and
 /// neither PreDraw 0x5DFF20 nor PostDraw 0x5E03F0 calls fn_007FEB30. Pending: the vt +0x890 == 0 branch of
 /// WorshipSite / SpellIcon / Totem (0x5193E9, 0x519668, 0x51ABC3 -> DrawBuilding) and the building site (+0x74) of
-/// MultiMapFixed::IsDrawBuilding 0x52F0C0 (openblack builds nothing on a site); the repair part of a damaged Abode
+/// MultiMapFixed::IsDrawBuilding 0x52F0C0 of an abode without a FragMesh takes DrawBuilding's mode (V6, below); the
+/// repair part of a damaged Abode
 /// (Abode::Draw 0x516129 -> DrawBuilding, no haze) is merged into its FragMesh, whose pieces take the haze (fn_007F7ED0
 /// 0x7F7F5F, 0x7F807D), so the whole keeps it (aproximado); the boat's sailors (0x5E073B) and deck objects (they copy
 /// the hull's +0x4C, 0x5E099C..0x5E09A2) share their meshes with villagers and cows (one mode per mesh), so they keep
@@ -168,6 +190,13 @@ openblack::land_light::ObjectLight LandLightOf(const openblack::ecs::Registry& r
 	    feature != nullptr && feature->type == openblack::FeatureInfo::ArkDryDock && feature->percentBuilt < 1.0f)
 	{
 		return {ObjectMode::Bilinear, false}; // DrawBuilding 0x517F90
+	}
+	// an abode with a building site (IsDrawBuilding 0x52F0C0) and no FragMesh: MultiMapFixed::Draw 0x518090 ->
+	// DrawBuilding 0x517F90, fn_00801C90 (0x517FB2) without the haze fn_007FEB30 (with a fire only the tint, 0x517FD4)
+	if (registry.AllOf<Abode>(entity) && openblack::ecs::abodes::IsDrawBuilding(entity) &&
+	    !openblack::ecs::abodes::HasDestructionMesh(entity))
+	{
+		return {ObjectMode::Bilinear, false};
 	}
 	if (entity == openblack::ecs::petit_navire::GetHull())
 	{
@@ -384,19 +413,25 @@ void RenderingSystem::PrepareDrawDescs(bool drawBoundingBox)
 		instanceCount++;
 	};
 
-	registry.Each<const Mesh, const Transform>([&prep](const Mesh& mesh, const Transform& /*unused*/) { prep(mesh, false); },
-	                                           entt::exclude<MorphWithTerrain, TempleInteriorPart, Alpha>);
+	// (the model passes count the drawn model, DrawnMeshOf; components::NotDrawn is out of them)
+	registry.Each<const Mesh, const Transform>(
+	    [&prep, &registry](entt::entity entity, const Mesh& mesh, const Transform& /*unused*/) {
+		    prep(DrawnMeshOf(registry, entity, mesh), false);
+	    },
+	    entt::exclude<MorphWithTerrain, TempleInteriorPart, Alpha, NotDrawn>);
 	registry.Each<const Mesh, const Transform, const MorphWithTerrain>(
-	    [&prep](const Mesh& mesh, const Transform& /*unused*/, const MorphWithTerrain& /*unused*/) { prep(mesh, true); },
-	    entt::exclude<Alpha>);
+	    [&prep, &registry](entt::entity entity, const Mesh& mesh, const Transform& /*unused*/,
+	                       const MorphWithTerrain& /*unused*/) { prep(DrawnMeshOf(registry, entity, mesh), true); },
+	    entt::exclude<Alpha, NotDrawn>);
 	registry.Each<const Mesh, const Transform, const Alpha>(
 	    [&registry, &translucentIds, &translucentMorph, &instanceCount](entt::entity entity, const Mesh& mesh,
 	                                                                    const Transform& /*unused*/, const Alpha& /*unused*/) {
-		    ++translucentIds[mesh.id];
-		    translucentMorph[mesh.id] = translucentMorph[mesh.id] || registry.AllOf<MorphWithTerrain>(entity);
+		    const auto drawn = DrawnMeshOf(registry, entity, mesh).id;
+		    ++translucentIds[drawn];
+		    translucentMorph[drawn] = translucentMorph[drawn] || registry.AllOf<MorphWithTerrain>(entity);
 		    ++instanceCount;
 	    },
-	    entt::exclude<TempleInteriorPart>);
+	    entt::exclude<TempleInteriorPart, NotDrawn>);
 
 	// ParticleMeshCreator atoms (Particle3DObj::DrawAt 0x679FD0): opaque ones with the meshes, translucent ones with the
 	// fading meshes
@@ -442,6 +477,16 @@ void RenderingSystem::PrepareDrawDescs(bool drawBoundingBox)
 			++instanceCount;
 		}
 	});
+
+	// (NotDrawn is an empty tag: entt passes no argument for it)
+	// a building at 0 % (components::NotDrawn) is not drawn but keeps its mark on the landscape (SetFootPrintOnTexture
+	// 0x52EA33 stays on while !IsBuilt): its whole Mesh in footprintOnlyDrawDescs, which only DrawFootprintPass reads
+	std::unordered_map<entt::id_type, uint32_t> footprintOnlyIds;
+	registry.Each<const Mesh, const Transform, const NotDrawn>(
+	    [&footprintOnlyIds, &instanceCount](const Mesh& mesh, const Transform& /*unused*/) {
+		    ++footprintOnlyIds[mesh.id];
+		    ++instanceCount;
+	    });
 
 	if (drawBoundingBox)
 	{
@@ -494,6 +539,13 @@ void RenderingSystem::PrepareDrawDescs(bool drawBoundingBox)
 		                                             std::forward_as_tuple(offset, count, false));
 		offset += count;
 	}
+	_renderContext.footprintOnlyDrawDescs.clear();
+	for (const auto& [meshId, count] : footprintOnlyIds)
+	{
+		_renderContext.footprintOnlyDrawDescs.emplace(std::piecewise_construct, std::forward_as_tuple(meshId),
+		                                              std::forward_as_tuple(offset, count, false));
+		offset += count;
+	}
 }
 
 void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
@@ -512,7 +564,9 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 	// Set transforms for instanced draw at offsets
 	registry.Each<const Mesh, const Transform>(
 	    [this, &registry, &uniformOffsets, &translucentOffsets, &shadowCasterOffsets,
-	     drawBoundingBox](entt::entity entity, const Mesh& mesh, const Transform& transform) {
+	     drawBoundingBox](entt::entity entity, const Mesh& intactMesh, const Transform& transform) {
+		    // the drawn model (DrawMesh); the static shadow below keeps the whole one
+		    const Mesh mesh = DrawnMeshOf(registry, entity, intactMesh);
 		    const auto* alpha = registry.TryGet<const Alpha>(entity);
 		    auto offset = (alpha != nullptr ? translucentOffsets : uniformOffsets).insert(std::make_pair(mesh.id, 0));
 		    auto desc = (alpha != nullptr ? _renderContext.translucentDrawDescs : _renderContext.instancedDrawDescs).find(mesh.id);
@@ -570,7 +624,7 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		                                               ReceivesDynamicShadow(registry, entity, mesh.id)});
 		    if (CastsStaticShadow(registry, entity))
 		    {
-			    const auto casterMesh = ShadowMeshOf(registry, entity, mesh.id);
+			    const auto casterMesh = ShadowMeshOf(registry, entity, intactMesh.id);
 			    auto casterOffset = shadowCasterOffsets.insert(std::make_pair(casterMesh, 0));
 			    const auto casterDesc = _renderContext.shadowCasterDrawDescs.find(casterMesh);
 			    if (casterDesc != _renderContext.shadowCasterDrawDescs.end())
@@ -723,7 +777,34 @@ void RenderingSystem::PrepareDrawUploadUniforms(bool drawBoundingBox)
 		    }
 		    offset.first->second++;
 	    },
-	    entt::exclude<TempleInteriorPart>);
+	    entt::exclude<TempleInteriorPart, NotDrawn>);
+
+	// the footprint-only instances (components::NotDrawn): the building's own matrix
+	std::map<entt::id_type, uint32_t> footprintOnlyOffsets;
+	registry.Each<const Mesh, const Transform, const NotDrawn>(
+	    [this, &registry, &footprintOnlyOffsets, &shadowCasterOffsets](entt::entity entity, const Mesh& mesh,
+	                                                                   const Transform& transform) {
+		    const auto modelMatrix = openblack::lh_matrix::Model(transform);
+		    if (const auto desc = _renderContext.footprintOnlyDrawDescs.find(mesh.id);
+		        desc != _renderContext.footprintOnlyDrawDescs.end())
+		    {
+			    auto offset = footprintOnlyOffsets.insert(std::make_pair(mesh.id, 0));
+			    _renderContext.instanceUniforms[desc->second.offset + offset.first->second] = modelMatrix;
+			    offset.first->second++;
+		    }
+		    // its baked shadow, as the main loop writes it for the drawn ones (the shadow count loop takes every Mesh)
+		    if (CastsStaticShadow(registry, entity))
+		    {
+			    const auto casterMesh = ShadowMeshOf(registry, entity, mesh.id);
+			    auto casterOffset = shadowCasterOffsets.insert(std::make_pair(casterMesh, 0));
+			    if (const auto casterDesc = _renderContext.shadowCasterDrawDescs.find(casterMesh);
+			        casterDesc != _renderContext.shadowCasterDrawDescs.end())
+			    {
+				    _renderContext.instanceUniforms[casterDesc->second.offset + casterOffset.first->second] = modelMatrix;
+				    casterOffset.first->second++;
+			    }
+		    }
+	    });
 
 	// the particle effects' mesh atoms, after the entities of the same mesh
 	std::map<entt::id_type, uint32_t> cutAtomOffsets;

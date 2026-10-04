@@ -27,14 +27,22 @@ namespace openblack::ecs::components
 
 /// A building the town plans to build (CREATE_PLANNED_ABODE 0x715629: PlannedTownCentre::Create 0x7444D0 when the
 /// abode's type is 0x404 (TownCentre), else PlannedAbode::Create 0x405600; Town::AddPlanned). Only data: the planned
-/// objects are invisible (PlannedMultiMapFixed::Draw 0x648930 is a bare `ret`) and nobody builds them yet.
+/// objects are invisible (PlannedMultiMapFixed::Draw 0x648930 is a bare `ret`). ecs::plans converts them into abodes
+/// under construction (CreatePlannedNoFixedCheck 0x405770 / 0x744550). +0x34 (no known use) and +0x38 GFootpathLink*
+/// (footpaths not ported) are left out
 struct PlannedAbode
 {
-	AbodeInfo info;
-	glm::vec3 position;
-	float yAngleRadians; ///< the script's N4 * 0.001
-	float scale;         ///< N5 * 0.001
+	AbodeInfo info;      ///< +0x40
+	glm::vec3 position;  ///< +0x14
+	float yAngleRadians; ///< +0x28, the script's N4 * 0.001
+	float scale;         ///< +0x2C, N5 * 0.001
 	bool townCentre;     ///< PlannedTownCentre
+	/// +0x30: "was a built building" (a rebuild plan: PlannedMultiMapFixed(MultiMapFixed*) 0x6488B4, the building's
+	/// +0x58 bit 3); 0 for the script's (0x648803). Read by GetDesireToBeRepaired 0x648910 and
+	/// CreatePlannedNoFixedCheck 0x4057C5
+	bool wasBuilt {false};
+	/// +0x3C: the creation turn (g_game +0x205A40, 0x6487F6); its age 0x6488E0 = turn - it. plans::AddPlanned writes it
+	uint32_t creationTurn {0};
 };
 
 /// One entry of TownDesire's two sorted orders (+0x278 / +0x344, 12 bytes as the original's DesireSort)
@@ -56,17 +64,18 @@ struct TownStats
 	uint32_t children {0};         ///< +0x0C (Town +0x61C)
 	uint32_t abodesWithPlaces {0}; ///< +0x10 (Town +0x620): abodes with max villagers + max children != 0
 	uint32_t civicBuildings {0};   ///< +0x1C (Town +0x62C): IsCivic (vt +0x8C0)
-	uint32_t civicPlans {0};       ///< +0x24 (Town +0x634): planned civic buildings. TODO(V6): 0
+	uint32_t civicPlans {0};       ///< +0x24 (Town +0x634): the plans whose IsCivic (vt +0x50C, plans::IsCivic)
 	uint32_t totalPlaces {0};      ///< +0x30 (Town +0x640): sum of max villagers + max children of every abode
 	uint32_t adultPlaces {0};      ///< +0x34 (Town +0x644): sum of MaxVillagers (info +0x174) of the abodes with places
 	uint32_t childPlaces {0};      ///< +0x40 (Town +0x650): sum of MaxChildren (info +0x178) of the abodes with places
+	int32_t freeAdultPlaces {0};   ///< +0x4C (Town +0x65C): MaxVillagers of the counted abodes - their adults (V6)
 	uint32_t males {0};            ///< +0x54 (Town +0x664): +0x54[info +0x1F8 sex]++ for every villager, children too
 	uint32_t females {0};          ///< +0x58 (Town +0x668) (TownStats::Add 0x749315; ShuffleVillagersAroundAbodes reads them)
 	std::array<uint8_t, 13> disciples {}; ///< +0xC8 NumDisciples[VillagerDisciple] (CRAFTSMAN 8: +0xD0, Town +0x6E0)
 	float foodForDinner {0.0f};    ///< +0xE4 (Town +0x6F4): sum of GVillagerInfo +0x2D8 foodReqiredForDinner
 	float foodCarried {0.0f};      ///< +0xF8 (Town +0x708): sum of the villagers' +0xF4 (FOOD carried)
 	float woodCarried {0.0f};      ///< +0xFC (Town +0x70C): sum of +0xF6 (WOOD carried)
-	float woodAtSites {0.0f};      ///< +0x100 (Town +0x710): the wood at the building sites. TODO(V6): 0
+	float woodAtSites {0.0f};      ///< +0x100 (Town +0x710): GetWoodForStats of the sites whose GetTown is the town
 	std::array<uint8_t, 16> abodesByNumber {}; ///< +0x108 (Town +0x718): abodes per AbodeNumber
 };
 
@@ -143,7 +152,22 @@ struct Town
 	/// The original keeps it only if the town has a worship site (otherwise 0) and passes it on to the totem statue;
 	/// openblack has no worship sites yet and stores the script's value.
 	float worshipPercentage {0.0f};
-	std::vector<PlannedAbode> plannedAbodes; ///< Town::AddPlanned
+	std::vector<PlannedAbode> plannedAbodes; ///< +0x9A8 / +0x9AC, oldest first (Town::AddPlanned 0x73D080, ecs::plans)
+	/// +0x790 / +0x794: the building sites, the head first (Town::AddBuildingSite 0x73B910 inserts at the head);
+	/// entities with components::BuildingSite. Changed only by ecs::building_sites
+	std::vector<entt::entity> buildingSites;
+	/// +0x748: the graveyard (ecs::graveyard: Graveyard::MakeFunctional 0x595E00 / DeleteDependancys 0x595CE0 through
+	/// SetGraveyard fn_73D690); read by GetDesireToBeBuilt 0x73A1A0 (0x204, 0x2004)
+	entt::entity graveyard {entt::null};
+	/// +0x728 / +0x72C and +0x734 / +0x738: the town rectangle, MapCoords x / z (min, max; the cells are the high words
+	/// +0x72A / +0x72E / +0x736 / +0x73A). Town::SetTownArea 0x73AAF0 (town_placement); min 0x7FFFFFFF, max 0 = empty
+	glm::ivec2 areaMin {0x7FFFFFFF, 0x7FFFFFFF};
+	glm::ivec2 areaMax {0, 0};
+	/// +0x5FC: the town has had a centre, a storage pit and a house (fn_404960 0x404960, set once). (not ported)
+	/// readers
+	bool hasCentrePitAndHouse {false};
+	/// TownStats +0xEC (Town +0x6FC): the wood used building (fn_73B620 0x73B620), kept (the stats are recomputed)
+	float woodUsedForBuilding {0.0f};
 	/// +0xF08/+0xF0C: CREATE_FLOCK's flocks for this town; fn_00419D10 takes a flock off when an animal that can't be
 	/// shepherded joins it
 	std::vector<entt::entity> flocks;
@@ -151,7 +175,7 @@ struct Town
 	/// +0xF10: Town::GetCongregationPos 0x7408B0's cache, MapCoords x / z (6553.6 per metre) and y; (0, 0, 0) = not
 	/// computed yet. Zeroed by the constructor (0x739501, fn_0073C710 0x73C81D); written by GetCongregationPos, by
 	/// SET_TOWN_CONGREGATION_POS (MapCommandProcess case 6, 0x7155A3..0x7155B9) and cleared by
-	/// CheckWhenNewBuildingCreated 0x741500 (a building made within 7.5 m; only from PostCreatePlanned: TODO(V6))
+	/// CheckWhenNewBuildingCreated 0x741500 (a building made within 7.5 m, from PostCreatePlanned 0x648C50: ecs::plans)
 	glm::ivec2 congregationPos {0, 0};
 	float congregationPosY {0.0f};
 	/// +0xF1C: the turn the town's emergency started (Town::IsInStateOfEmergency 0x747970 reads it; 0 = none).
@@ -165,10 +189,11 @@ struct Town
 	PlayerNames aggressor {PlayerNames::NEUTRAL};
 	uint32_t aggressorTurn {0};
 	/// +0x30: Town::SetStoragePit 0x73EA60 (from StoragePit::MakeFunctional 0x732F30; the last one wins); read through
-	/// town_queries::GetStoragePit 0x73B5B0. (aproximado hasta V6) set when the script creates the storage pit
+	/// town_queries::GetStoragePit 0x73B5B0. A whole (script) one at its creation, a plan's when built (MakeFunctional,
+	/// town_stores::SetStoragePit)
 	entt::entity storagePit {entt::null};
-	/// +0x744: Creche::MakeFunctional 0x50AB50 sets it when it is still null (the first one wins). (aproximado hasta
-	/// V6) set when the script creates the creche
+	/// +0x744: Creche::MakeFunctional 0x50AB50 sets it when it is still null (the first one wins): a whole (script) one
+	/// at its creation, a plan's when built (abodes::MakeFunctional)
 	entt::entity creche {entt::null};
 	/// +0x5E4: "a plan was asked for this turn" (0 at 0x73961B; Town::Process 0x747390 clears it; CheckSatisfyAbodes /
 	/// Civic set it, V6)

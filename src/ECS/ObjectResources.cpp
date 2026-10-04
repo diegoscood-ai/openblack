@@ -12,6 +12,7 @@
 #include <algorithm>
 
 #include "ECS/AnimalAI.h"
+#include "ECS/Abodes.h"
 #include "ECS/Archetypes/PotArchetype.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Pot.h"
@@ -24,7 +25,9 @@
 #include "ECS/MapCells.h"
 #include "ECS/Registry.h"
 #include "ECS/StoragePitStore.h"
+#include "ECS/ToBeDeleted.h"
 #include "ECS/Town/AbodeVillagers.h"
+#include "ECS/Town/BuildingSites.h"
 #include "ECS/Town/TownDesire.h"
 #include "ECS/Town/TownStores.h"
 #include "InfoConstants.h"
@@ -86,9 +89,14 @@ uint32_t GetResource(entt::entity object, ResourceType type)
 	}
 	if (const auto* pot = registry.TryGet<const Pot>(object); pot != nullptr)
 	{
-		// PotStructure::GetResource 0x66EF00: IsPartOfStructure (vt +0x860, 0x66DA00: +0x78 if available) -> that
-		// structure's GetResource (a pit's mirror, its whole total; 0x66EF2F). The building-site test 0x66EF12..0x66EF24
-		// (site +0x74 IsLinkedToThisBuildingSite) is TODO(V6)
+		// PotStructure::GetResource 0x66EF00: IsPartOfStructure (vt +0x860, 0x66DA00: +0x78 if available); its building
+		// site (+0x74) IsLinkedToThisBuildingSite (vt +0x11C, Standard 0x43D830) -> the pile's own JustGetResource
+		// (0x66EF12..0x66EF47); else that structure's GetResource (a pit's mirror, its whole total; 0x66EF2F)
+		if (building_sites::SiteOfPile(object) != entt::null)
+		{
+			const auto& own = Locator::infoConstants::value().pot.at(static_cast<size_t>(pot->type));
+			return own.resourceType == type ? pot->amount : 0;
+		}
 		if (const auto owner = StoragePitStore::OwnerOf(object); owner != entt::null)
 		{
 			return StoragePitStore::GetResource(owner, type);
@@ -102,7 +110,6 @@ uint32_t GetResource(entt::entity object, ResourceType type)
 
 uint32_t JustRemoveFromPot(entt::entity object, uint32_t amount)
 {
-	auto& registry = Entities();
 	auto* pot = PotComponent(object);
 	if (pot == nullptr)
 	{
@@ -128,19 +135,21 @@ uint32_t JustRemoveFromPot(entt::entity object, uint32_t amount)
 	}
 	// SetSize (vt +0x85C, 0x66D451)
 	archetypes::PotArchetype::SetSize(object, true);
-	// PotStructure::JustRemoveResource 0x66D9B0: still something -> SetSize again (0x66D9EA, the same result here). Empty:
-	// a pile of a structure (+0x78, 0x66D9D3) stays; any other pot, pile, MagicFood or MagicWood is deleted (ToBeDeleted
-	// vt +0xC, 0x66D9E0). The Pot class (Pot::RemoveResource 0x66D3F0 -> 0x66D410) has no such step: it stays.
-	// (approximate) the deletion as HandResources does it: out of the map cells, then the entity
+	// PotStructure::JustRemoveResource 0x66D9B0: still something -> SetSize again (0x66D9EA, the same result here).
+	// Empty: a pile of a structure (+0x78, 0x66D9D3) stays; any other pot, pile, MagicFood or MagicWood is deleted
+	// (ToBeDeleted vt +0xC, 0x66D9E0). The Pot class (Pot::RemoveResource 0x66D3F0 -> 0x66D410) has no such step: it
+	// stays. (the deletion: ecs::ToBeDeleted, out of the physics, the map cells, then the entity)
 	const auto& info = Locator::infoConstants::value().pot.at(static_cast<size_t>(pot->type));
-	if (pot->amount == 0 && info.potType != PotType::Pot && StoragePitStore::OwnerOf(object) == entt::null)
+	// A building site's pile is part of its building (Pot::Create's structure, SetMultiMapFixed vt +0x868; V6): it
+	// stays too, until BuildingSite::ToBeDeleted 0x43B960 releases it
+	if (pot->amount == 0 && info.potType != PotType::Pot && StoragePitStore::OwnerOf(object) == entt::null &&
+	    building_sites::SiteOfPile(object) == entt::null)
 	{
 		// PileFood::ToBeDeleted 0x66E100 closes its +0xB8 speed-up visual first. (approximate) the original defers the
-		// deletion (ToBeDeleted); openblack destroys it at once. A town's temporary pot that goes leaves a stale entity in
-		// Town::temporaryPots, which town_stores treats as not available (registry.Valid)
+		// deletion (ToBeDeleted); openblack destroys it at once. A town's temporary pot that goes leaves a stale entity
+		// in Town::temporaryPots, which town_stores treats as not available (registry.Valid)
 		pot_resource::SetSpeedUp(object, false);
-		map_cells::RemoveMapObject(object);
-		registry.Destroy(object);
+		ecs::ToBeDeleted(object); // the common deletion: physics, map cells, the entity
 	}
 	return removed;
 }
@@ -210,12 +219,17 @@ uint32_t RemoveResource(entt::entity object, ResourceType type, uint32_t amount,
 	}
 	if (auto* a = registry.TryGet<Abode>(object); a != nullptr)
 	{
+		// Abode::RemoveResource 0x404F10 (0x404F1A..0x404F4E): +0x74 (the building site) with WOOD or -2 (ANY) -> the
+		// site's RemoveResource (vt +0xA0, status passed on)
+		if (a->buildingSite != entt::null && (type == ResourceType::Wood || type == ResourceType::Any))
+		{
+			return building_sites::RemoveResource(a->buildingSite, type, amount);
+		}
 		if (type != ResourceType::Food && type != ResourceType::Wood)
 		{
 			return 0;
 		}
-		// Abode::RemoveResource 0x404F10: +0x74 (the building site) with WOOD or -2 -> the site's RemoveResource.
-		// TODO(V6): openblack's abodes have no building site; then DoResourceRemoving 0x404F60 (vt +0x8E8)
+		// then DoResourceRemoving 0x404F60 (vt +0x8E8)
 		auto& held = type == ResourceType::Food ? a->foodAmount : a->woodAmount;
 		return DoResourceRemoving(object, type, amount, dropper, [&held, amount]() {
 			// JustRemoveResource 0x404D60: min(amount, +0xBC[type]) off
@@ -229,6 +243,12 @@ uint32_t RemoveResource(entt::entity object, ResourceType type, uint32_t amount,
 	{
 		return 0;
 	}
+	// PotStructure::RemoveResource 0x66EE1E..0x66EE4F: the structure's building site (+0x74) IsLinkedToThisBuildingSite
+	// (the pile) -> the site's RemoveResource (vt +0xA0, every argument passed on)
+	if (const auto site = building_sites::SiteOfPile(object); site != entt::null)
+	{
+		return building_sites::RemoveResource(site, type, amount);
+	}
 	const auto owner = StoragePitStore::OwnerOf(object);
 	if (owner == entt::null)
 	{
@@ -236,9 +256,8 @@ uint32_t RemoveResource(entt::entity object, ResourceType type, uint32_t amount,
 		// (0x66EEAB), whatever the type (no test)
 		return JustRemoveFromPot(object, amount);
 	}
-	// PotStructure::RemoveResource 0x66EE10, a pile of a storage pit. The building-site branch 0x66EE1E..0x66EE4F is
-	// TODO(V6). 0x66EE71..0x66EE9A: over = CalulateAmountOverMaximum (vt +0x8EC); the touched pile gives n - min(over, n)
-	// when over > 0, else n
+	// PotStructure::RemoveResource 0x66EE10, a pile of a storage pit. 0x66EE71..0x66EE9A: over =
+	// CalulateAmountOverMaximum (vt +0x8EC); the touched pile gives n - min(over, n) when over > 0, else n
 	const int32_t over = StoragePitStore::AmountOverMaximum(owner, type);
 	const uint32_t mine = over > 0 ? amount - std::min(static_cast<uint32_t>(over), amount) : amount;
 	uint32_t removed = 0;
@@ -287,12 +306,18 @@ uint32_t AddResource(entt::entity object, ResourceType type, uint32_t amount, co
 	}
 	if (auto* a = AbodeComponent(object); a != nullptr)
 	{
+		// Abode::AddResource 0x404D90 (0x404D9C..0x404DE9): +0x74 with WOOD or -2 (ANY) -> the site's AddResource(type,
+		// n, IS, poisoned, NULL, 0) (vt +0x9C; the position NULL: a CitadelBuildingSite would add nothing)
+		if (a->buildingSite != entt::null && (type == ResourceType::Wood || type == ResourceType::Any))
+		{
+			return building_sites::AddResource(a->buildingSite, type, amount, nullptr, poisoned);
+		}
 		if (type != ResourceType::Food && type != ResourceType::Wood)
 		{
 			return 0;
 		}
-		// Abode::AddResource 0x404D90: the +0x74 building-site branch (WOOD or -2) is TODO(V6); else DoResourceAdding
-		// 0x404DF0 -> JustAddResource 0x404D40: +0xBC[type] += amount (poisoned is not kept by an abode)
+		// else DoResourceAdding 0x404DF0 -> JustAddResource 0x404D40: +0xBC[type] += amount (poisoned is not kept by an
+		// abode)
 		auto& held = type == ResourceType::Food ? a->foodAmount : a->woodAmount;
 		return DoResourceAdding(object, type, amount, dropper, [&held, amount]() {
 			held += amount;
@@ -301,8 +326,15 @@ uint32_t AddResource(entt::entity object, ResourceType type, uint32_t amount, co
 	}
 	if (registry.AllOf<Pot>(object))
 	{
-		// PotStructure::AddResource 0x66ED70 / Pot::AddResource 0x66D290 (Mano's pot_resource). (pending) the dropper does
-		// not reach a pile of a storage pit through it yet
+		// PotStructure::AddResource 0x66ED70 (0x66ED7E..0x66EDB9): the structure's building site
+		// IsLinkedToThisBuildingSite -> the site's AddResource (every argument passed on; object_resources has no
+		// position: NULL. TODO(H3): the citadel site's nearest pile needs it)
+		if (const auto site = building_sites::SiteOfPile(object); site != entt::null)
+		{
+			return building_sites::AddResource(site, type, amount, nullptr, poisoned);
+		}
+		// PotStructure::AddResource 0x66ED70 / Pot::AddResource 0x66D290 (Mano's pot_resource). (pending) the dropper
+		// does not reach a pile of a storage pit through it yet
 		return pot_resource::PotStructureAddResource(object, type, amount, poisoned);
 	}
 	// TODO(V5, Personas): a villager, Villager::AddResource 0x7564D0 (villager::AddResourceToVillager) once it exists

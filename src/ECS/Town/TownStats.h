@@ -29,8 +29,9 @@ struct GAbodeInfo;
 namespace openblack::ecs::town_stats
 {
 /// Add(Villager) 0x7492E0 for each villager of the town (Villager::town) and Add(Abode) 0x7498C0 for each of its
-/// abodes (Abode::townId; the fields too, they are Abodes). (aproximado hasta V6) Add(Abode) runs at MakeFunctional
-/// in the original: openblack's script abodes are all whole, so all count
+/// abodes (Abode::townId; the fields too, they are Abodes) that MakeFunctional has counted (Abode +0x7C bit 1,
+/// Abode::addedToTownStats); the civic plans (+0x24, Add(PlannedMultiMapFixed) 0x749A60) and the wood at the town's
+/// building sites (+0x100, Add(BuildingSite) 0x749AA0 and the sites' Add / RemoveResource)
 [[nodiscard]] components::TownStats Compute(entt::entity town);
 /// The abodes of the town (Town +0x754 / +0x758): Abode::townId == Town::id, newest first (the creation index from
 /// high to low, as town_queries' congregation point: AddStructureToTown 0x7399C3 inserts at the head)

@@ -16,10 +16,12 @@
 
 #include <spdlog/spdlog.h>
 
+#include "ECS/Abodes.h"
 #include "ECS/Components/Town.h"
 #include "ECS/MapCells.h"
 #include "ECS/Registry.h"
 #include "ECS/Town/AbodeVillagers.h"
+#include "ECS/Town/BuildingSites.h"
 #include "ECS/Town/TownDesire.h"
 #include "ECS/Town/TownStats.h"
 #include "ECS/Town/TownVillagers.h"
@@ -94,11 +96,18 @@ void ProcessTown(entt::entity town)
 	}
 	const uint32_t turn = villager::CurrentTurn();
 
-	// 0 (openblack) the TownStats of the turn (+0x610) from the entities (the original keeps them incrementally)
-	t->stats = town_stats::Compute(town);
 	// 1 0x747390: +0x5E4 = 0
 	t->requestedPlanThisTurn = false;
-	// 2 0x747396 fn_43BD00(&+0x790): the building sites' pruning. TODO(V6)
+	// 2 0x747396 fn_43BD00(&+0x790): the building sites' pruning
+	building_sites::PruneSites(town);
+	t = registry.TryGet<Town>(town);
+	if (t == nullptr)
+	{
+		return;
+	}
+	// 0 (openblack) the TownStats of the turn (+0x610) from the entities (the original keeps them incrementally), after
+	// the pruning (nothing between 0x747390 and TownDesire::Process reads them; the pruned sites are out of them)
+	t->stats = town_stats::Compute(town);
 	// 3 0x7473A0 +0x5C8 = GetBaseInfluence 0x73FD40; 4 0x7473AD fn_747600: turn % GTownInfo +0x4C processAbodeEvery == 0
 	//   (0x747615 unsigned div) -> for each structure +0x754 (newest first) its Process (vt +0x5FC) and, unless +0x5F8,
 	//   +0x5C8 += GetInfluence (vt +0x868); 5 0x7473BD with a player +0x5C8 x= g_game +0x250078. (aproximado) the
@@ -110,6 +119,14 @@ void ProcessTown(entt::entity town)
 	{
 		for (const auto abode : town_stats::AbodesOf(town))
 		{
+			// Abode::Process 0x404440 (and TownCentre::Process 0x743DF4, which calls it first) starts with
+			// MultiMapFixed::Process 0x52F700: +0x74 -> its Process (vt +0x100, StandardBuildingSite 0x43D8D0).
+			// (openblack) here for every abode, before abode_villagers::ProcessAbode's part. (pending) Field 0x529020 /
+			// Workshop 0x7797F0 / SpellDispenser 0x722A70 not read
+			if (const auto site = abodes::GetBuildingSite(abode); site != entt::null)
+			{
+				building_sites::Process(site);
+			}
 			if (abode_villagers::RunsAbodeProcess(abode))
 			{
 				abode_villagers::ProcessAbode(abode);
@@ -184,6 +201,9 @@ void ProcessPlayers()
 {
 	const uint32_t turn = villager::CurrentTurn();
 	RunTestBoost(turn);
+	// (openblack) the GameThing deletion pass of the building sites deleted last turn (BuildingSite::ToBeDeleted
+	// 0x43B960 marks them; IsAvailable answered false meanwhile)
+	building_sites::FlushDeleted();
 	// Town::Process steps 3-5 (+0x5C8: GetBaseInfluence 0x7473A0, fn_747600 0x7473AD, x g_game +0x250078 0x7473BD) are
 	// not called here: openblack runs them for every town in milagros2's own turn hook (influence::ProcessTurn ->
 	// influence::ProcessTowns, InfluenceSources.cpp, inside magic::ProcessTurn). (aproximado) so the influence of the

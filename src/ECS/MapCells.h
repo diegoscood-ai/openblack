@@ -244,7 +244,8 @@ struct TownInCells
 };
 /// MapCoords::GetNearestTown(Town**, uint*, excl, tribe) 0x601F90 (`ret 0x10`): the whole-cell distance max(|dx|, |dz|)
 /// + (min >> 1) (sar 1, 0x602003 / 0x60200B), best = 10 000 000 (0x989680), not `excluded` and not of `tribe`.
-/// (aproximado) openblack keeps no town rectangle (+0x72A..+0x73A): a town found is code 2
+/// The code: 1 when the position's cell is within 4 cells of the found town's rectangle (Town::areaMin / areaMax,
+/// +0x728..+0x73A, town_placement::SetTownArea keeps it), else 2 (0x602076..0x6020C6)
 [[nodiscard]] TownInCells GetNearestTownCells(const map_coords::MapCoords& coords, entt::entity excluded,
                                               std::optional<Tribe> tribe);
 /// MapCoords::GetNearestCitadel(r) 0x602200: GPlayer +0xA48 of each player, < best, best = r

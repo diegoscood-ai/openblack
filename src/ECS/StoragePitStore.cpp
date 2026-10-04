@@ -15,9 +15,11 @@
 #include "ECS/Components/Pot.h"
 #include "ECS/Components/StoragePit.h"
 #include "ECS/Components/Town.h"
+#include "ECS/Abodes.h"
 #include "ECS/ObjectResources.h"
 #include "ECS/Registry.h"
 #include "ECS/Town/AbodeVillagers.h"
+#include "ECS/Town/BuildingSites.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 
@@ -50,9 +52,16 @@ uint32_t StoragePitStore::AddResource(entt::entity store, ResourceType type, uin
                                       const pot_resource::Dropper& dropper, bool poisoned)
 {
 	auto& registry = Locator::entitiesRegistry::value();
+	// 0x732F67..0x732F99: +0x74 (a building site: the pit is not built yet) with WOOD or -2 (ANY) -> the site's
+	// AddResource(type, n, IS, poisoned, NULL, 0) (vt +0x9C): an unbuilt storage pit collects its wood on its site
+	if (const auto site = abodes::GetBuildingSite(store);
+	    site != entt::null && (type == ResourceType::Wood || type == ResourceType::Any))
+	{
+		return building_sites::AddResource(site, type, amount, nullptr, poisoned);
+	}
 	const auto* pit = registry.TryGet<const StoragePit>(store);
-	// 0x732F67..0x732F99: the +0x74 building-site branch (WOOD or -2) is TODO(V6). 0x733083: only FOOD and WOOD fill
-	// piles; (approximate) for any other type the original still runs the pulse test and DoResourceAdding with 0
+	// 0x733083: only FOOD and WOOD fill piles; (approximate) for any other type the original still runs the pulse test
+	// and DoResourceAdding with 0
 	if (pit == nullptr || (type != ResourceType::Food && type != ResourceType::Wood))
 	{
 		return 0;

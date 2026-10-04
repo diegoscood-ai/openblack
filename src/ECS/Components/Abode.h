@@ -48,6 +48,38 @@ struct Abode
 	uint8_t childCount {0};
 	/// +0xB9: counts up to 200 in each Abode::Process (0x404503..0x40450F); no reader found (P-8)
 	uint8_t field0xB9 {0};
+
+	// ---- the construction state (MultiMapFixed +0x58 / +0x5C / +0x74, Abode +0x7C, +0x28; V6_spec §3.1) ---------
+	/// +0x58 bit 1: under construction (the ctor 0x52E1E0: (underConstruction & 1) << 1)
+	static constexpr uint32_t k_UnderConstruction = 0x2;
+	/// +0x58 bit 2: not repaired / a repair asked for (PlannedAbode::CreatePlannedNoFixedCheck 0x4057CC,
+	/// ProcessTownRepairs 0x747E6E, MakeFunctional 0x404812 = !IsRepaired; cleared by MultiMapFixed::Repaired 0x52EC8D)
+	static constexpr uint32_t k_NotRepaired = 0x4;
+	/// +0x58 bit 3: built (the ctor without underConstruction, MultiMapFixed::Built 0x52EC3A)
+	static constexpr uint32_t k_Built = 0x8;
+	/// +0x58. (openblack) built by default: every abode made outside the plans (CREATE_ABODE, CREATE_TOWN_CENTRE, the
+	/// fields, the spell dispenser) is whole; AbodeArchetype::Create(underConstruction) gives a plan's one bit 1
+	uint32_t buildFlags {k_Built};
+	/// +0x5C PercentBuilt (GetPercentBuilt 0x4014F0): 0 under construction, else the ctor's percent ((inferred) 1 for
+	/// the whole ones); BuildBy 0x52ED40 / fn_52EDD0 move it, Built 0x52EBB0 sets 1
+	float percentBuilt {1.0f};
+	/// +0x74 the building site (fn_52E3F0 from the BuildingSite ctor 0x43B7E0; 0 in BuildingSite::ToBeDeleted
+	/// 0x43B960): an entity with components::BuildingSite. IsDrawBuilding 0x52F0C0 = != 0
+	entt::entity buildingSite {entt::null};
+	/// +0x7C bit 1: TownStats::Add(Abode) 0x7498C0 has counted it (Abode::MakeFunctional 0x404818..0x40483C, once).
+	/// (openblack) true by default for the whole abodes (Abode::Init 0x403130 -> MakeFunctional when IsBuilt); false
+	/// for a plan's until its MakeFunctional. town_stats::Compute counts only the abodes that have it
+	bool addedToTownStats {true};
+	/// +0x28 the GAbodeInfo it was made with (AbodeArchetype::Create); None for the abodes made elsewhere (their record
+	/// is looked up by number and mesh, town_stats::AbodeInfoOf)
+	AbodeInfo info {AbodeInfo::None};
+};
+
+/// abodes::RedrawConstruction's state while the abode has a building site and no DestructionMesh (MultiMapFixed::Draw
+/// 0x518090 -> DrawBuilding 0x517F90): the GetPercentForDrawBuilding its components::DrawMesh / NotDrawn was made for
+struct AbodeConstructionDraw
+{
+	float percent {-1.0f};
 };
 
 } // namespace openblack::ecs::components

@@ -20,8 +20,7 @@ namespace openblack::ecs::abode_queries
 {
 /// GameThing::IsAvailable 0x401810: !(+0xA & 1). (inferido) openblack has no such bit for buildings: a valid entity
 [[nodiscard]] bool IsAvailable(entt::entity abode);
-/// Abode::IsBuilt 0x4016C0: !(+0x58 & 2) && GetPercentBuilt (+0x5C) >= 1. (aproximado hasta V6) openblack's abodes are
-/// all made whole by the script (no building sites yet): 1
+/// Abode::IsBuilt 0x4016C0: !(+0x58 & 2) && GetPercentBuilt (+0x5C) >= 1 (abodes::IsBuilt)
 [[nodiscard]] bool IsBuilt(entt::entity abode);
 /// Abode::IsFunctional 0x406200 (vt +0xD4): MultiMapFixed::IsFunctional 0x52EF70 (IsAvailable, IsBuilt (vt +0x890),
 /// GetPercentRepairedForNonFunctional 0x407290 = abode info +0x1B8 thresholdForStopBeingFunctional < GetPercentRepaired

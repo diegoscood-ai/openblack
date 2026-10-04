@@ -775,26 +775,32 @@ void Renderer::DrawFootprintPass(const DrawSceneDesc& drawDesc) const
 		const auto& meshManager = Locator::resources::value().GetMeshes();
 		const auto& renderCtx = Locator::rendereringSystem::value().GetContext();
 		const auto* footprintShaderInstanced = _shaderManager->GetShader("FootprintInstanced");
-		for (const auto& [meshId, placers] : renderCtx.instancedDrawDescs)
-		{
-			auto mesh = meshManager.Handle(meshId);
-			if (!mesh->ContainsLandscapeFeature() || mesh->GetFootprints().empty())
+		const auto drawFootprints = [&](const auto& descs) {
+			for (const auto& [meshId, placers] : descs)
 			{
-				continue;
+				auto mesh = meshManager.Handle(meshId);
+				if (!mesh->ContainsLandscapeFeature() || mesh->GetFootprints().empty())
+				{
+					continue;
+				}
+				const auto& footprint = mesh->GetFootprints()[0];
+				footprintShaderInstanced->SetTextureSampler("s_footprint", 0, *footprint.texture);
+				footprint.mesh->GetVertexBuffer().Bind();
+				bgfx::setInstanceDataBuffer(toBgfx(renderCtx.instanceUniformBuffer), placers.offset, placers.count);
+				const uint64_t state = 0u                       //
+				                       | BGFX_STATE_WRITE_RGB   //
+				                       | BGFX_STATE_WRITE_A     //
+				                       | BGFX_STATE_BLEND_ALPHA //
+				                       | BGFX_STATE_CULL_CW     //
+				                       | BGFX_STATE_MSAA;
+				bgfx::setState(state);
+				bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(footprintShaderInstanced->GetRawHandle()));
 			}
-			const auto& footprint = mesh->GetFootprints()[0];
-			footprintShaderInstanced->SetTextureSampler("s_footprint", 0, *footprint.texture);
-			footprint.mesh->GetVertexBuffer().Bind();
-			bgfx::setInstanceDataBuffer(toBgfx(renderCtx.instanceUniformBuffer), placers.offset, placers.count);
-			const uint64_t state = 0u                       //
-			                       | BGFX_STATE_WRITE_RGB   //
-			                       | BGFX_STATE_WRITE_A     //
-			                       | BGFX_STATE_BLEND_ALPHA //
-			                       | BGFX_STATE_CULL_CW     //
-			                       | BGFX_STATE_MSAA;
-			bgfx::setState(state);
-			bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(footprintShaderInstanced->GetRawHandle()));
-		}
+		};
+		drawFootprints(renderCtx.instancedDrawDescs);
+		// the buildings at 0 % (components::NotDrawn): not drawn, but their footprint is (SetFootPrintOnTexture
+		// 0x52EA33)
+		drawFootprints(renderCtx.footprintOnlyDrawDescs);
 		DrawRiverFootprints(static_cast<bgfx::ViewId>(viewId), false);
 		// mod world.foliage, fields = wheat: tilled soil under the crop fields
 		const auto& config = Locator::config::value();

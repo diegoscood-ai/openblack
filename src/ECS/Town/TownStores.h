@@ -57,4 +57,8 @@ void SetGameTurnResourceLastRemoved(entt::entity town, PlayerNames player, Resou
 /// not ported) and GGuidance::BeliefSFX 0x437F40 (pending: it needs the interface's position IS +0x14; it plays only
 /// for a player below the strongest belief, and the beliefs +0x8 are not ported yet)
 void AddToBelief(entt::entity town, PlayerNames player, float f, entt::entity thing, bool draw, int guidanceAlignment);
+/// Town::SetStoragePit 0x73EA60 (StoragePit::MakeFunctional 0x732F30): +0x30 = the pit; each temporary pot +0x600 /
+/// +0x604: available and holding its resource -> Pot::SetupReaction 0x66D660 (animal_ai::SetupPotReaction), else
+/// ToBeDeleted; the slot = 0
+void SetStoragePit(entt::entity town, entt::entity pit);
 } // namespace openblack::ecs::town_stores

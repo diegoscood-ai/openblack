@@ -18,6 +18,11 @@
 
 #include "Enums.h"
 
+namespace openblack
+{
+struct GAbodeInfo;
+}
+
 /// The Abode class of the original (Abode.cpp 0x401350..0x409000): every village building, the fields, the totem, the
 /// storage pit, the town centre and the spell dispenser included. Only the interface tap lives here for now (milestone
 /// B8 of dev\tmp_dis\audio\PLAN.md): knocking on a roof.
@@ -64,11 +69,91 @@ void StopBeingFunctional(entt::entity building);
 /// Abode::DestroyedByEffect 0x403F80: the villagers become homeless (RemoveAllVillagersFromAbode 0x404560), a store
 /// loses its piles, the physics forgets it (physics::Buildings::OnBuildingDeleted) and the building goes
 void DestroyedByEffect(entt::entity building);
-/// MultiMapFixed::GetPercentForDrawBuilding 0x52EFD0 (vt +0x898) = min(GetPercentBuilt vt +0x880,
-/// GetPercentRepairedFromWhenDamaged vt +0x888 0x52F010). The latter: not built -> 1; a DestructionMesh and a building
-/// site (+0x74) -> (life - site +0x640) / (1 - site +0x640), 0 when either is 0; else life x 0.98 ([0x8CF3FC]).
-/// (approximate until V6 / V11) GetPercentBuilt is 1 (abode_queries::IsBuilt) and the repair site's +0x640 is the
-/// physics' BuildingDamage::repairBase, set with the damage (OnPhysicalDamage)
+/// MultiMapFixed::GetPercentForDrawBuilding 0x52EFD0 (vt +0x898) = GetPercentBuilt (vt +0x880) <=
+/// GetPercentRepairedFromWhenDamaged (vt +0x888) ? GetPercentBuilt : GetPercentRepairedFromWhenDamaged
 [[nodiscard]] float GetPercentForDrawBuilding(entt::entity building);
+// ---- construction (V6: MultiMapFixed +0x58 / +0x5C / +0x74, spec dev\documentacion\edificios\V6_spec.md §3) ---------
+
+/// IsBuilt vt +0x890: Abode 0x4016C0 = !(+0x58 & 2) && GetPercentBuilt (+0x5C) >= 1; a Feature 0x422110 (the same on
+/// its percentBuilt; openblack's Feature keeps no +0x58); any other MultiMapFixed 0x438D80 = 1. TODO(H3): CitadelPart
+/// 0x464AD0 (the temple)
+[[nodiscard]] bool IsBuilt(entt::entity building);
+/// IsRepaired vt +0x88C: Abode 0x4016A0 = GetPercentRepaired (GetLife) >= 1; any other MultiMapFixed 0x438D70 = 1.
+/// TODO(H3): CitadelPart 0x464AB0
+[[nodiscard]] bool IsRepaired(entt::entity building);
+/// GetPercentBuilt vt +0x880 0x4014F0 = +0x5C (an Abode's, a Feature's); 1 for anything else
+[[nodiscard]] float GetPercentBuilt(entt::entity building);
+/// GetPercentRepaired vt +0x884 0x401500 = GetLife (vt +0x11C, ecs::life)
+[[nodiscard]] float GetPercentRepaired(entt::entity building);
+/// GetPercentRepairedForNonFunctional vt +0x894: Abode 0x407290 = info +0x1B8 thresholdForStopBeingFunctional;
+/// MultiMapFixed 0x52EFC0 = 0.75 (also an abode without an info record)
+[[nodiscard]] float GetPercentRepairedForNonFunctional(entt::entity building);
+/// GetDestructionMesh vt +0x8B4 (Abode 0x401700 = +0x90 FragMesh): the physics' BuildingDamage with its FragMesh
+[[nodiscard]] bool HasDestructionMesh(entt::entity building);
+/// +0x74: the building site (components::BuildingSite's entity) or null
+[[nodiscard]] entt::entity GetBuildingSite(entt::entity building);
+/// IsDrawBuilding vt +0x8A4 0x52F0C0 = +0x74 != 0 (MultiMapFixed::Draw 0x518090 then takes DrawBuilding 0x517F90)
+[[nodiscard]] bool IsDrawBuilding(entt::entity building);
+/// GetPercentRepairedFromWhenDamaged vt +0x888 0x52F010: not built -> 1; a DestructionMesh (+0x90, the physics'
+/// BuildingDamage) and a site: a = 1 - site +0x640, b = GetPercentRepaired - site +0x640, (a == 0 || b == 0) ? 0 : b /
+/// a; else GetPercentRepaired x 0.98 ([0x8CF3FC])
+[[nodiscard]] float GetPercentRepairedFromWhenDamaged(entt::entity building);
+/// The abode's GAbodeInfo (+0x28): the record AbodeArchetype made it with, else its number and mesh's
+/// (town_stats::AbodeInfoOf with its town's tribe); null when none
+[[nodiscard]] const GAbodeInfo* InfoOf(entt::entity building);
+/// SetShadowOnTexture (LH3DObject +4 bit 0x1000, vt +0x80 fn_7F9880) of a building: false for an abode without the
+/// built bit (+0x58 bit 8): CallVirtualFunctionsForCreation 0x52EA1E..0x52EA40 turns it off for an unbuilt one,
+/// MultiMapFixed::Built 0x52EC2C on again; true otherwise, drawn or not (RenderingSystem's CastsStaticShadow calls it;
+/// Fisicas' CastsPhysicsShadow may)
+[[nodiscard]] bool CastsShadowOnTexture(entt::entity building);
+
+/// MultiMapFixed::BuildBy(x) 0x52ED40 (vt +0x900; the site's fn_43D080): built and not repaired -> IncreaseLife(x) (vt
+/// +0x5BC, Abode 0x405ED0) and, at life >= 1, Repaired (vt +0x8AC); not built -> +0x5C += x (0 when negative), >= 1 ->
+/// Built (vt +0x8A8). Then RedrawConstruction
+void BuildBy(entt::entity building, float amount);
+/// fn_52EDD0 0x52EDD0 (SetPercentBuilt): +0x5C = p, 0 when p < 0; +0x5C >= 1 -> Built. Then RedrawConstruction
+void SetPercentBuilt(entt::entity building, float percent);
+/// MultiMapFixed::Built 0x52EBB0 + Abode::Built 0x404720 (vt +0x8A8), in order: the site's ToBeDeleted; the "new
+/// building" reaction 15 of a civic one (not ported); the shadow-on-texture bake (not ported, V6_pending §4); +0x58 =
+/// (& ~2) | 8, +0x5C = 1; the player's GameStats (not ported) and FUN_0064da80 (multiplayer only); MakeFunctional with
+/// a town. True
+bool Built(entt::entity building);
+/// Abode::MakeFunctional 0x4047E0 (vt +0x914) and the class parts (StoragePit 0x732F30 Town::SetStoragePit 0x73EA60,
+/// Creche 0x50AB50 town +0x744, TownCentre 0x743E80 the totem and the spell icons; the graveyard's +0x748 (inferred)).
+/// The order in the .cpp
+void MakeFunctional(entt::entity building);
+/// MultiMapFixed::Repaired 0x52EC70 + Abode::Repaired 0x4047B0 (vt +0x8AC): the site's ToBeDeleted, RemoveDamage (vt
+/// +0x8B8, Abode 0x403F40: TODO(Fisicas), the FragMesh), +0x58 &= ~4, MakeFunctional with a town. True
+bool Repaired(entt::entity building);
+/// Abode::IncreaseLife(x) 0x405ED0 (vt +0x5BC): wasAbove = vt +0x894 < life; Object::IncreaseLife 0x637870 (cap 1);
+/// !wasAbove && vt +0x894 < the new life -> RestartBeingFunctional (vt +0x91C 0x401680). Returns the new life
+float IncreaseLife(entt::entity building, float amount);
+/// RestartBeingFunctional vt +0x91C 0x401680. (pending) its body is not read: only logs
+void RestartBeingFunctional(entt::entity building);
+/// CausesTownEmergencyIfDamaged vt +0x920: Abode 0x4016F0 = 0, StoragePit 0x55CCE0 = 1, TownCentre 0x55DB30 = 1
+[[nodiscard]] bool CausesTownEmergencyIfDamaged(entt::entity building);
+/// Abode::ReduceLife(amount, player) 0x405D90 around MultiMapFixed::ReduceLife 0x52F5E0 (repair_spec.md §2.1, §2.2):
+/// built -> Object::ReduceLife; not built -> +0x5C - amount (>= 0) through SetPercentBuilt, at 0 the life too; then the
+/// stop-being-functional / repair-site part. The villagers' SetStateWhenTappedOnAbode (TODO(V7, Personas)) and the
+/// town's emergency (TODO(Milagros)) are not called. Returns the new life. (V11 hooks the physics' damage here)
+float ReduceLife(entt::entity building, float amount, std::optional<PlayerNames> player);
+/// Abode::GetDesireToBeRepaired 0x406970 (vt +0x8D8, with MultiMapFixed's 0x52ECE0):
+/// town_desire::AbodeDesireToBeRepaired on this abode; 0 for anything else
+[[nodiscard]] float GetDesireToBeRepaired(entt::entity building);
+
+/// The partly built model of an abode with a building site and no DestructionMesh: MultiMapFixed::Draw 0x518090 ->
+/// DrawBuilding 0x517F90 draws fn_816AD0 at GetPercentForDrawBuilding (physics::PartialBuild::BuildMesh) into
+/// components::DrawMesh, and nothing at 0 (0x517FE0: components::NotDrawn; the footprint stays, SetFootPrintOnTexture
+/// 0x52EA33). The Mesh component stays the whole model (the 3D object's mesh: sizes, map cells, type). Rebuilt only
+/// when the percent changed; both go when IsDrawBuilding no longer holds. With a FragMesh the physics' RedrawBuilding
+/// draws it
+void RedrawConstruction(entt::entity building);
+
+/// GScript::GetProperty 0x70E1A9 (CHL property 22 BUILT_PERCENTAGE) of an abode: GetPercentBuilt; nullopt for anything
+/// else (feature_build answers for the Features)
+[[nodiscard]] std::optional<float> GetBuiltPercentage(entt::entity entity);
+/// GScript::SetProperty 0x70EC69 on an abode: fn_52EDD0 (SetPercentBuilt). (pending) the town's building list part
+/// 0x70EC9B..0x70ECD4 is not read. False when it is not an abode
+bool SetBuiltPercentage(entt::entity entity, float value);
 
 } // namespace openblack::ecs::abodes

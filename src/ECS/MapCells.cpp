@@ -1769,7 +1769,21 @@ map_cells::TownInCells map_cells::GetNearestTownCells(const map_coords::MapCoord
 	});
 	if (result.town != entt::null)
 	{
-		result.code = 2; // (aproximado) no town rectangle (+0x72A..+0x73A) in openblack: never "within 4 cells"
+		// 0x602076..0x6020C6: the cells are the high words of the rectangle (+0x72A, +0x72E, +0x736, +0x73A), compared
+		// unsigned (jb / ja: a cell below 4 wraps to "outside"); 4 cells of margin. An empty rectangle (min 0x7FFF, max
+		// 0) is never "within"
+		result.code = 2;
+		if (const auto* t = registry.TryGet<const openblack::ecs::components::Town>(result.town); t != nullptr)
+		{
+			constexpr uint32_t k_Margin = 4;
+			const uint32_t cx = map_coords::CellX(coords);
+			const uint32_t cz = map_coords::CellZ(coords);
+			const bool outside = cx + k_Margin < map_coords::CellOf(t->areaMin.x) ||
+			                     cx - k_Margin > map_coords::CellOf(t->areaMax.x) ||
+			                     cz + k_Margin < map_coords::CellOf(t->areaMin.y) ||
+			                     cz - k_Margin > map_coords::CellOf(t->areaMax.y);
+			result.code = outside ? 2 : 1;
+		}
 	}
 	return result;
 }

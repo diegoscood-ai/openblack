@@ -66,6 +66,9 @@ struct RenderContext
 	std::vector<glm::vec4> instanceColours;
 	/// Stores information for rendering which is prepared at \ref PrepareDraw.
 	std::map<entt::id_type, const InstancedDrawDesc> instancedDrawDescs;
+	/// The entities with components::NotDrawn (a building at 0 %): not drawn, only their landscape footprint
+	/// (Renderer::DrawFootprintPass; SetFootPrintOnTexture 0x52EA33 stays on while it is unbuilt)
+	std::map<entt::id_type, const InstancedDrawDesc> footprintOnlyDrawDescs;
 	/// Same for entities with a components::Alpha (drawn blended after the opaque ones). Their opacity travels in the
 	/// unused w of the first column of the model matrix, as 1 - alpha so that opaque instances keep 0 there.
 	std::map<entt::id_type, const InstancedDrawDesc> translucentDrawDescs;

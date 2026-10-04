@@ -75,6 +75,7 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/PuzzleGame.h"
 #include "ECS/Components/Villager.h"
+#include "ECS/Abodes.h"
 #include "ECS/FeatureBuild.h"
 #include "ECS/GUtilsDistance.h"
 #include "ECS/MapCells.h"
@@ -86,6 +87,7 @@
 #include "ECS/ScriptHeld.h"
 #include "ECS/SeaCells.h"
 #include "ECS/Systems/HandSystemInterface.h"
+#include "ECS/Town/BuildingSites.h"
 #include "ECS/Town/TownDesire.h"
 #include "ECS/Villager/VillagerScript.h"
 #include "ECS/VillagerDrowning.h"
@@ -735,6 +737,11 @@ void GetProperty() // 021 GET_PROPERTY
 		Pushb(openblack::ecs::IsDrowning(entity));
 		return;
 	case script::ObjectPropertyType::BuiltPercentage: // 0x70E1A9: a MultiMapFixed's GetPercentBuilt, else 1
+		if (const auto percent = openblack::ecs::abodes::GetBuiltPercentage(entity); percent.has_value())
+		{
+			Pushf(*percent);
+			return;
+		}
 		if (const auto percent = openblack::ecs::feature_build::GetBuiltPercentage(entity); percent.has_value())
 		{
 			Pushf(*percent);
@@ -767,7 +774,8 @@ void SetProperty() // 022 SET_PROPERTY
 		return;
 	case script::ObjectPropertyType::BuiltPercentage:
 		// 0x70EC69: a MultiMapFixed -> fn_0052EDD0 (the Features here); anything else -> 0x70F294
-		if (object == 0 || !openblack::ecs::feature_build::SetBuiltPercentage(static_cast<entt::entity>(object), val))
+		if (object == 0 || !(openblack::ecs::abodes::SetBuiltPercentage(static_cast<entt::entity>(object), val) ||
+		                     openblack::ecs::feature_build::SetBuiltPercentage(static_cast<entt::entity>(object), val)))
 		{
 			NotImplemented(__func__);
 		}
@@ -2088,10 +2096,12 @@ void EndGameSpeed() // 129 END_GAME_SPEED
 
 void BuildBuilding() // 130 BUILD_BUILDING
 {
-	// const auto desire = Popf();
-	// const auto position = PopVec();
-	// TODO(Daniels118): implement this
-	NotImplemented(__func__);
+	// GScript::BuildBuilding 0x6FAB30: POP desire, then z, y, x (0x6FAB3F..0x6FAB81, the first popped is the desire);
+	// Town::ForceBuildingOfPlannedAtPos(MapCoords(LHPoint(x, y, z)) 0x603160, desire x 5.0 [0x8AB6E4])
+	const auto desire = Popf();
+	const auto position = PopVec();
+	openblack::ecs::building_sites::ForceBuildingOfPlannedAtPos(openblack::ecs::map_coords::FromWorld(position),
+	                                                            desire * 5.0f);
 }
 
 void SetAffectedByWind() // 131 SET_AFFECTED_BY_WIND

@@ -152,6 +152,12 @@ public:
 		return _registry.view<Components...>().size();
 	}
 	[[nodiscard]] decltype(auto) Valid(entt::entity entity) const { return _registry.valid(entity); }
+	/// entt's on_destroy sink of a component (Remove, Destroy and Reset publish it)
+	template <typename Component>
+	[[nodiscard]] decltype(auto) OnDestroy()
+	{
+		return _registry.on_destroy<Component>();
+	}
 	virtual ~Registry() = default;
 
 protected:

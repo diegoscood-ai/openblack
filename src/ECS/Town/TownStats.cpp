@@ -17,6 +17,7 @@
 #include "ECS/Components/Villager.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "ECS/Registry.h"
+#include "ECS/Town/BuildingSites.h"
 #include "ECS/Villager/VillagerCore.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -77,9 +78,13 @@ void AddAbode(TownStats& stats, const Abode& abode, const GAbodeInfo* info)
 	// (openblack) an abode without an info record counts with no places and no type
 	const uint32_t maxVillagers = info != nullptr ? info->maxVillagersInAbode : 0;   // info +0x174
 	const uint32_t maxChildren = info != nullptr ? info->maxChildrenInAbode : 0;     // info +0x178
-	// 0x7498C3..0x749916: +0x4C += max villagers, +0x50 += max children, +0x30 += both, +0x44++ (no reader in V3:
-	// +0x4C / +0x50 / +0x44 not kept); dynamic_cast<Wonder*> -> +0x48++ (not kept)
+	// 0x7498C3..0x749916: +0x4C += max villagers, +0x50 += max children, +0x30 += both, +0x44++ (+0x50 / +0x44 not
+	// kept: no reader); dynamic_cast<Wonder*> -> +0x48++ (not kept)
 	stats.totalPlaces += maxVillagers + maxChildren;
+	// +0x4C, the free adult places GetDesireToBeBuilt 0x73A1A0 reads: the original adds MaxVillagers here and moves it
+	// in MoveIntoAbode / MoveOutOfAbode / ChildToAdult 0x749490; recomputed as max villagers - the adults housed
+	// (+0xB4). (not verified) that it equals that book-keeping (the AbodeVillagers owner to confirm)
+	stats.freeAdultPlaces += static_cast<int32_t>(maxVillagers) - static_cast<int32_t>(abode.adultCount);
 	// 0x749928..0x74995F: with places: +0x10++, +0x34 += max villagers, +0x40 += max children
 	if (maxVillagers + maxChildren != 0)
 	{
@@ -202,10 +207,32 @@ TownStats Compute(entt::entity town)
 	});
 	for (const auto abode : AbodesOf(town))
 	{
-		AddAbode(stats, registry.Get<Abode>(abode), AbodeInfoOf(abode, townTribe));
+		// Add(Abode) runs once, at MakeFunctional (0x404818..0x40483C, +0x7C bit 1): an abode under construction is out
+		const auto& component = registry.Get<Abode>(abode);
+		if (!component.addedToTownStats)
+		{
+			continue;
+		}
+		AddAbode(stats, component, AbodeInfoOf(abode, townTribe));
 	}
-	// +0x24 planned civic buildings (Add(PlannedMultiMapFixed) 0x749A60) and +0x100 the wood at the building sites
-	// (0x749AA0): TODO(V6), openblack has no plans as objects nor building sites: 0
+	// +0x24 the civic plans: Add(PlannedMultiMapFixed) 0x749A60 / Remove fn_749B10 when the plan's IsCivic (vt +0x50C)
+	for (plans::PlanIndex i = 0; i < plans::PlansOf(town); ++i)
+	{
+		if (plans::IsCivic(town, i))
+		{
+			++stats.civicPlans;
+		}
+	}
+	// +0x100 the wood at the sites: Add(site) 0x749AA0 / Remove fn_749B50 (GetWoodForStats vt +0x104) when the site's
+	// GetTown is this town, and the sites' AddResource 0x43C490 / RemoveResource 0x43C530 (the same piles).
+	// (approximate) summed in list order, the original in the order of the changes
+	for (const auto site : building_sites::SitesOf(town))
+	{
+		if (building_sites::GetTown(site) == town)
+		{
+			stats.woodAtSites = stats.woodAtSites + static_cast<float>(building_sites::GetWoodForStats(site));
+		}
+	}
 	return stats;
 }
 } // namespace openblack::ecs::town_stats

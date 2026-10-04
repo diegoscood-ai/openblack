@@ -34,7 +34,9 @@
 #include "ECS/MapCells.h"
 #include "ECS/MapCoords.h"
 #include "ECS/ObjectCreationIndex.h"
+#include "ECS/ObjectDelivery.h"
 #include "ECS/Registry.h"
+#include "ECS/TakeResource.h"
 #include "ECS/Villager/VillagerCore.h"
 #include "InfoConstants.h"
 #include "Locator.h"
@@ -803,4 +805,18 @@ glm::vec3 site::DancePosition(entt::entity siteEntity, entt::entity villager)
 int site::VillagersRequestingToGoHome(const WorshipSite& site)
 {
 	return static_cast<int>(site.goHomeRequests.size());
+}
+
+bool site::DeleteObjectAndTakeResource(entt::entity siteEntity, entt::entity object,
+                                       const ecs::pot_resource::Dropper& is)
+{
+	// 0x77E7B6..0x77E7EC: Object +0x24 & 0x40, SearchForPhysicsObject 0x646950, its +0x24 == MyInterfaceStatus ->
+	// HelpProfile::Trigger(6) 0x5C46E0 (the storage pit's code, 0x73376D..0x7337A6)
+	ecs::take_resource::TriggerSupplyHelpIfThrownByMe(object);
+	// 0x77E7F1..0x77E7F9: DoDeleteObjectAndTakeResource(object, is) 0x63A940 (this = the site; void in the original,
+	// what was taken is not used). (pending) object_resources::AddResource has no WorshipSite::AddResource 0x77C5F0
+	// branch yet: the site takes 0, the object still goes
+	ecs::object_delivery::DoDeleteObjectAndTakeResource(siteEntity, object, is);
+	// 0x77E7FF: mov eax, 1
+	return true;
 }

@@ -12,7 +12,7 @@
 #include "HandSystem.h"
 
 #include "Audio/Services/Guidance.h"
-#include "ECS/ObjectDelivery.h"
+#include "ECS/TakeResource.h"
 
 #include "HandSystemDetail.h"
 
@@ -314,10 +314,9 @@ void HandSystem::DepositInStore(entt::entity object, entt::entity store, const p
 {
 	// openblack's roots of an uprooted tree go first (they are not part of the original's tree)
 	DropRoots(object, false);
-	// StoragePit::DeleteObjectAndTakeResource 0x733750: the Supply help trigger (0x7337A6), then
-	// Object::DoDeleteObjectAndTakeResource 0x63A940 (ecs::object_delivery: the wood taken, the sounds, ToBeDeleted),
-	// then the reaction 0x16 (0x7337BA). TODO(Edificios HEAD): ecs::take_resource::StoragePit(store, object, is) does the
-	// three; until it is in, only 0x63A940 (the trigger and the reaction: (pending))
-	ecs::object_delivery::DoDeleteObjectAndTakeResource(store, object, is);
+	// StoragePit::DeleteObjectAndTakeResource 0x733750 (ecs::take_resource): the Supply help trigger (0x7337A6),
+	// then Object::DoDeleteObjectAndTakeResource 0x63A940 (ecs::object_delivery: the wood taken, the sounds,
+	// ToBeDeleted), then the reaction 0x16 (0x7337BA)
+	ecs::take_resource::StoragePit(store, object, is);
 	Locator::entitiesRegistry::value().SetDirty();
 }

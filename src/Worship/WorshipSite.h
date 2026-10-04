@@ -17,6 +17,7 @@
 #include <glm/vec3.hpp>
 
 #include "ECS/Components/WorshipSite.h"
+#include "ECS/PotResource.h"
 #include "Enums.h"
 
 namespace openblack
@@ -129,4 +130,10 @@ void RemoveDancer(entt::entity site, entt::entity villager);
 
 /// WorshipSite::GetNumVillagersRequestingToGoHome 0x77E260 (the queue's length)
 [[nodiscard]] int VillagersRequestingToGoHome(const WorshipSite& site);
+
+/// WorshipSite::DeleteObjectAndTakeResource 0x77E7B0 (vt +0x684; object, is): the supply help when the local hand threw
+/// the object (0x77E7B6..0x77E7EC, ecs::take_resource::TriggerSupplyHelpIfThrownByMe), then
+/// DoDeleteObjectAndTakeResource(object, is) 0x77E7F9 (the site's AddResource 0x77C5F0 through it). No reaction (unlike
+/// the storage pit's). Returns 1 (0x77E7FF).
+bool DeleteObjectAndTakeResource(entt::entity site, entt::entity object, const ecs::pot_resource::Dropper& is);
 } // namespace openblack::worship::site

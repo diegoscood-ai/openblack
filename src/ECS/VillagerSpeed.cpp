@@ -149,16 +149,16 @@ void SetVillagerStateSpeed(entt::entity entity)
 	else
 	{
 		// 0x75397F..0x7539F4: T = 1 without a town; with one, base (+0x36C) + clamp(TownNeedsSum fn_00747150 / divisor
-		// (+0x370), 0, 0.5) (on the x87 stack)
-		const double townNeeds = villager->town != entt::null
-		                             ? villager::TownNeedsFactor(town_desire::TownNeedsSum(villager->town), *info)
-		                             : 1.0;
+		// (+0x370), 0, 0.5) (on the x87 stack: float precision, the x87 control word is 24 bits, 0x7DEE0D)
+		const float townNeeds = villager->town != entt::null
+		                            ? villager::TownNeedsFactor(town_desire::TownNeedsSum(villager->town), *info)
+		                            : 1.0f;
 		// 0x7539F8..0x753AF7: the loads of wood and food (+0xF6 / +0xF4), with the trader's capacities for disciple 9
 		const auto load = villager::LoadFactors(villager->resourceHeld.at(1), villager->resourceHeld.at(0), *info,
 		                                        villager->discipleType == k_DiscipleTrader);
-		// 0x753AFD..0x753B0D: fild spd; x foodF; x woodF; x T; x m; fstp float
-		speed = static_cast<float>(static_cast<double>(SpeedGroupEntry(group, states[final].field0x24)) * load.food *
-		                           static_cast<double>(load.wood) * townNeeds * static_cast<double>(m));
+		// 0x753AFD..0x753B0D: fild spd; x foodF; x woodF; x T; x m; fstp float (each fmul rounded to float, 0x7DEE0D)
+		speed = static_cast<float>(static_cast<int32_t>(SpeedGroupEntry(group, states[final].field0x24))) * load.food *
+		        load.wood * townNeeds * m;
 		foodSpeedUpApplies = true;
 		if (villager::TraceOn(entity))
 		{
@@ -168,11 +168,12 @@ void SetVillagerStateSpeed(entt::entity entity)
 		}
 	}
 	// 0x753B15..0x753B38: IsFoodSpeedUp (vt +0x87C, 0x55C980: +0xF0 != 0) -> speed x info +0x39C (foodPowerupIncrease,
-	// (inferred) the field at that offset of openblack's GVillagerInfo), kept on the x87 stack; then __ftol
+	// (inferred) the field at that offset of openblack's GVillagerInfo), kept on the x87 stack (float precision,
+	// 0x7DEE0D); then __ftol
 	int32_t whole = static_cast<int32_t>(speed);
 	if (foodSpeedUpApplies && villager->foodSpeedUp != 0)
 	{
-		whole = static_cast<int32_t>(static_cast<double>(speed) * static_cast<double>(info->foodPowerupIncrease));
+		whole = static_cast<int32_t>(speed * info->foodPowerupIncrease);
 	}
 	// Villager::SetSpeed: the factor of the villager (its creation index), age, and for adults food, life and sex
 	// ObjectCreationIndex (+0x3C), a signed int in the original's multiplication

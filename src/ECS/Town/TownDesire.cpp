@@ -34,6 +34,7 @@
 #include "ECS/Registry.h"
 #include "ECS/StoragePitStore.h"
 #include "ECS/Town/AbodeQueries.h"
+#include "ECS/Town/BuildingSites.h"
 #include "ECS/Town/TownQueries.h"
 #include "ECS/Town/TownStats.h"
 #include "ECS/Villager/VillagerCore.h"
@@ -54,7 +55,9 @@ namespace
 WarningSink g_WarningSinkForTests;
 std::function<uint32_t(size_t, entt::entity)> g_CheckSatisfyForTests;
 
-// The constants of the exe (all floats unless "double")
+// The constants of the exe (all floats unless "double"). Every x87 operation rounds to float: fn_007DEE00 sets the
+// control word's precision to 24 bits (`and cw, 0xFCFF` at 0x7DEE0D, from GGame::EndTurn), so the chains are float
+// steps; a double constant (fadd qword) is added in double then rounded once to float
 constexpr float k_Zero = 0.0f;        // [0x8AA398]
 constexpr float k_One = 1.0f;         // [0x8AA390]
 constexpr float k_Half = 0.5f;        // [0x8AA3B4]
@@ -82,37 +85,37 @@ Registry& Entities()
 
 /// The clamp of most desire functions: fcomp 0; test ah, 1 (less or unordered) -> 0; fcomp 1; test ah, 0x41 (less,
 /// equal or unordered) -> itself; else 1
-float Clamp01(double v)
+float Clamp01(float v)
 {
-	if (v < 0.0 || std::isnan(v))
+	if (v < 0.0f || std::isnan(v))
 	{
 		return k_Zero;
 	}
-	return v <= 1.0 ? static_cast<float>(v) : k_One;
+	return v <= 1.0f ? v : k_One;
 }
 
 /// `fld 1; fcomp st(1); test ah, 1; je`: 1 < x (or unordered) -> 1, else x
-double MinOne(double x)
+float MinOne(float x)
 {
-	return (1.0 < x || std::isnan(x)) ? 1.0 : x;
+	return (1.0f < x || std::isnan(x)) ? 1.0f : x;
 }
 
 /// __ftol 0x7A1400: truncation towards 0 (the low dword is kept)
-uint32_t Ftol(double v)
+uint32_t Ftol(float v)
 {
 	return static_cast<uint32_t>(static_cast<int64_t>(v));
 }
 
-double Raw(const TownDesire& d, size_t i)
+float Raw(const TownDesire& d, size_t i)
 {
 	// Town::GetRawDesire 0x73E420: +0x19C, +0x108, +0xC4 of Town (fld, fadd, fadd)
-	return static_cast<double>(d.raw.at(i)) + d.boost.at(i) + d.boostA.at(i);
+	return d.raw.at(i) + d.boost.at(i) + d.boostA.at(i);
 }
 
-double Desire(const TownDesire& d, size_t i)
+float Desire(const TownDesire& d, size_t i)
 {
 	// Town::GetDesire 0x73E400: +0x14C, +0x108, +0xC4 of Town
-	return static_cast<double>(d.desire.at(i)) + d.boost.at(i) + d.boostA.at(i);
+	return d.desire.at(i) + d.boost.at(i) + d.boostA.at(i);
 }
 
 void Warn(const DesireContext& c, Warning warning, float value)
@@ -138,16 +141,17 @@ uint32_t FoodAvailable(const DesireInputs& in)
 	return food;
 }
 
-/// fn_747AF0: info +0xDC foodWantedMultiplier x stats +0xE4 (the extended product is used by the callers)
-double DesiredFood(const DesireContext& c)
+/// fn_747AF0: info +0xDC foodWantedMultiplier x stats +0xE4 (left on the x87 stack for the callers: float precision,
+/// 0x7DEE0D)
+float DesiredFood(const DesireContext& c)
 {
-	return static_cast<double>(c.town.foodWantedMultiplier) * c.in.stats.foodForDinner;
+	return c.town.foodWantedMultiplier * c.in.stats.foodForDinner;
 }
 
 /// fn_747B00: ftol(stats +0x100 + +0xFC) (wood at the sites and carried) + the storage pit's wood, or the pot's
 uint32_t WoodAvailable(const DesireInputs& in)
 {
-	uint32_t wood = Ftol(static_cast<double>(in.stats.woodAtSites) + in.stats.woodCarried); // 0x747B03..0x747B10
+	uint32_t wood = Ftol(in.stats.woodAtSites + in.stats.woodCarried); // 0x747B03..0x747B10
 	if (in.storageWood.has_value())
 	{
 		return wood + *in.storageWood; // 0x747B2F GetResource(WOOD)
@@ -161,20 +165,21 @@ uint32_t WoodAvailable(const DesireInputs& in)
 
 /// fn_747BE0 (factor info +0xE0 minimumWoodForDesire) / fn_747B60 (+0xE4 maximumWoodForDesire): k = abodes (fn_747C60
 /// +0x758, fild qword) / info +0xE8 numOfBuildingsForDesiredWood; `fcomp 1; test ah, 0x41; jne` -> k <= 1 uses 1
-/// (so k = max(k, 1)); returned unrounded (st0): Wood stores it as a float, the modification 0x7463C0 does not
-double WoodScale(const DesireContext& c, float factor)
+/// (so k = max(k, 1)); returned in st0 (float precision at 24 bits, 0x7DEE0D): Wood stores it, the modification
+/// 0x7463C0 does not, which gives the same value
+float WoodScale(const DesireContext& c, float factor)
 {
-	const double k = static_cast<double>(c.in.abodeCount) / c.town.numOfBuildingsForDesiredWood;
-	const double scale = (k <= 1.0 || std::isnan(k)) ? 1.0 : k;
+	const float k = static_cast<float>(c.in.abodeCount) / c.town.numOfBuildingsForDesiredWood;
+	const float scale = (k <= 1.0f || std::isnan(k)) ? 1.0f : k;
 	return scale * factor;
 }
 
-double WoodMinimum(const DesireContext& c)
+float WoodMinimum(const DesireContext& c)
 {
 	return WoodScale(c, c.town.minimumWoodForDesire); // fn_747BE0
 }
 
-double WoodMaximum(const DesireContext& c)
+float WoodMaximum(const DesireContext& c)
 {
 	return WoodScale(c, c.town.maximumWoodForDesire); // fn_747B60
 }
@@ -191,11 +196,11 @@ uint32_t DesiredAbodes(const DesireContext& c)
 	// 0x747D00: fn_749BE0 = +0x10 ? (adults + children) / +0x10 : 0; then ftol((that + +0x10 + 0.001) / (+0x30 +
 	// 0.001)) (fiadd, fild dword: signed)
 	const auto& s = c.in.stats;
-	const double perAbode = s.abodesWithPlaces != 0 ? static_cast<double>(s.adults + s.children) /
+	const float perAbode = s.abodesWithPlaces != 0 ? static_cast<float>(s.adults + s.children) /
 	                                                      static_cast<int32_t>(s.abodesWithPlaces)
-	                                                : 0.0;
-	const double num = perAbode + static_cast<int32_t>(s.abodesWithPlaces) + k_Milli;
-	const double den = static_cast<double>(static_cast<int32_t>(s.totalPlaces)) + k_Milli;
+	                                                : 0.0f;
+	const float num = perAbode + static_cast<int32_t>(s.abodesWithPlaces) + k_Milli;
+	const float den = static_cast<float>(static_cast<int32_t>(s.totalPlaces)) + k_Milli;
 	return Ftol(num / den);
 }
 
@@ -456,13 +461,13 @@ const std::array<DesireFunctions, k_Count>& Table()
 float DesireForFood(const DesireContext& c)
 {
 	// 0x747F08..0x747F25: a = (u64) fn_747A90 + 1e-4, stored
-	const auto a = static_cast<float>(static_cast<double>(FoodAvailable(c.in)) + k_Tiny);
-	// 0x747F29..0x747F3E: v = 1 - a / (fn_747AF0 + 1e-4), stored (fst: the comparison below uses the unrounded value)
-	const double vFull = 1.0 - a / (DesiredFood(c) + k_Tiny);
-	const auto v = static_cast<float>(vFull);
+	const auto a = static_cast<float>(FoodAvailable(c.in)) + k_Tiny;
+	// 0x747F29..0x747F3E: v = 1 - a / (fn_747AF0 + 1e-4), stored (fst; at 24 bits (0x7DEE0D) the value the comparison
+	// below reads is the stored float)
+	const float v = 1.0f - a / (DesiredFood(c) + k_Tiny);
 	// 0x747F42..0x747FA0: v >= 0.95 (fcomp, test ah, 1), a player, the local one: HelpSpritesLowOnFood(min(v, 2) - 0.9)
 	// with the stored v
-	if (vFull >= k_WarnAt && c.in.hasPlayer && c.in.isLocalPlayer)
+	if (v >= k_WarnAt && c.in.hasPlayer && c.in.isLocalPlayer)
 	{
 		const float m = v < k_Two ? v : k_Two;
 		Warn(c, Warning::LowOnFood, m - k_FoodWarnOffset);
@@ -474,27 +479,25 @@ float DesireForWood(const DesireContext& c)
 {
 	const auto& d = c.desire;
 	// 0x747FF7..0x74803A: R12 + R9 + R6 + R5, the raws then the boosts then the boosts A, in this order; < 3 or 3
-	const double sum = static_cast<double>(d.raw.at(12)) + d.raw.at(9) + d.raw.at(6) + d.raw.at(5) + d.boost.at(12) +
+	const float sum = d.raw.at(12) + d.raw.at(9) + d.raw.at(6) + d.raw.at(5) + d.boost.at(12) +
 	                   d.boost.at(9) + d.boost.at(6) + d.boostA.at(12) + d.boost.at(5) + d.boostA.at(9) +
 	                   d.boostA.at(6) + d.boostA.at(5);
 	// 0x748040..0x74809D: fcomp 3; test ah, 1; je -> 3 (so unordered keeps the sum)
-	const double s = (sum < k_Three || std::isnan(sum)) ? sum : k_Three;
+	const float s = (sum < k_Three || std::isnan(sum)) ? sum : k_Three;
 	// 0x7480BB..0x7480D3: a = (craftsmen (byte +0x6E0) + 0.001) / (adults (fild qword) + 0.001) + S, stored
 	const auto craftsmen = c.in.stats.disciples.at(static_cast<size_t>(VillagerDisciple::Craftsman));
-	const auto a = static_cast<float>((static_cast<double>(craftsmen) + k_Milli) /
-	                                      (static_cast<double>(c.in.stats.adults) + k_Milli) +
-	                                  s);
+	const float a = (static_cast<float>(craftsmen) + k_Milli) / (static_cast<float>(c.in.stats.adults) + k_Milli) + s;
 	// 0x7480D9..0x748100: w = (u64) fn_747B00, B = fn_747BE0, C = fn_747B60 (each stored)
-	const auto w = static_cast<float>(static_cast<double>(WoodAvailable(c.in)));
-	const auto b = static_cast<float>(WoodMinimum(c));    // fstp [esp + 0x14]
-	const auto cMax = static_cast<float>(WoodMaximum(c)); // fstp [esp + 0x18]
+	const auto w = static_cast<float>(WoodAvailable(c.in));
+	const auto b = WoodMinimum(c);    // fstp [esp + 0x14]
+	const auto cMax = WoodMaximum(c); // fstp [esp + 0x18]
 	// 0x748104..0x748152: v = (1 - min(w / C, 1)) x (1 - min(w / B, 1) + a) (fcom 1; test ah, 1; jne keeps x < 1)
-	double x = static_cast<double>(w) / b;
-	x = (x < 1.0 || std::isnan(x)) ? x : 1.0;
-	const double t = 1.0 - x + a;
-	double y = static_cast<double>(w) / cMax;
-	y = (y < 1.0 || std::isnan(y)) ? y : 1.0;
-	const auto v = static_cast<float>((1.0 - y) * t);
+	float x = w / b;
+	x = (x < 1.0f || std::isnan(x)) ? x : 1.0f;
+	const float t = 1.0f - x + a;
+	float y = w / cMax;
+	y = (y < 1.0f || std::isnan(y)) ? y : 1.0f;
+	const auto v = (1.0f - y) * t;
 	// 0x74815A..0x7481BC: v >= 0.95, a player, the local one: fn_0071CAF0 (LowOnWood)(min(v, 2) - 1)
 	if (v >= k_WarnAt && c.in.hasPlayer && c.in.isLocalPlayer)
 	{
@@ -510,7 +513,7 @@ float DesireForPlaytime(const DesireContext& c)
 	// ah, 1, je -> 0)
 	for (const size_t d : {0u, 1u, 5u, 6u, 9u})
 	{
-		const auto value = static_cast<float>(Desire(c.desire, d)); // fstp [esp + 8]
+		const auto value = Desire(c.desire, d); // fstp [esp + 8]
 		if (!(value < c.info.at(d).desireTriggersVillagerAction))
 		{
 			return k_Zero;
@@ -534,20 +537,20 @@ float DesireForAbodes(const DesireContext& c)
 {
 	const auto& s = c.in.stats;
 	// 0x748216..0x74824B: a = adults (dword) / (adult places +0x644 (fild dword) + 1e-5), < 1.5 or 1.5, stored
-	const double a =
-	    static_cast<int32_t>(s.adults) / (static_cast<double>(static_cast<int32_t>(s.adultPlaces)) + k_TinyAbodes);
-	const auto aStored = static_cast<float>((a < k_OneAndHalf || std::isnan(a)) ? a : k_OneAndHalf);
+	const float a =
+	    static_cast<int32_t>(s.adults) / (static_cast<float>(static_cast<int32_t>(s.adultPlaces)) + k_TinyAbodes);
+	const auto aStored = (a < k_OneAndHalf || std::isnan(a)) ? a : k_OneAndHalf;
 	// 0x748253..0x7482B2: c = children / (child places +0x650 + 1e-5), min(c, 1.5); compared with a (fcomp, test ah,
 	// 0x41, jne: c <= a keeps a), else m = min(c, 1.5) stored
-	const double cRatio =
-	    static_cast<int32_t>(s.children) / (static_cast<double>(static_cast<int32_t>(s.childPlaces)) + k_TinyAbodes);
-	const double cMin = (cRatio < k_OneAndHalf || std::isnan(cRatio)) ? cRatio : k_OneAndHalf;
-	const float m = (cMin <= aStored || std::isnan(cMin)) ? aStored : static_cast<float>(cMin);
+	const float cRatio =
+	    static_cast<int32_t>(s.children) / (static_cast<float>(static_cast<int32_t>(s.childPlaces)) + k_TinyAbodes);
+	const float cMin = (cRatio < k_OneAndHalf || std::isnan(cRatio)) ? cRatio : k_OneAndHalf;
+	const float m = (cMin <= aStored || std::isnan(cMin)) ? aStored : cMin;
 	// 0x7482B4..0x7482D9: m^4 x (1 - R9), stored
-	const double m4 = static_cast<double>(m) * m * m * m;
-	const auto p = static_cast<float>(m4 * (1.0 - Raw(c.desire, 9)));
+	const float m4 = m * m * m * m;
+	const auto p = m4 * (1.0f - Raw(c.desire, 9));
 	// 0x7482DD..0x74831B: (1 - D6) x that, clamped to [0, 1]
-	return Clamp01((1.0 - Desire(c.desire, 6)) * p);
+	return Clamp01((1.0f - Desire(c.desire, 6)) * p);
 }
 
 float DesireForCivicBuildings(const DesireContext& c)
@@ -573,7 +576,7 @@ float DesireForCivicBuildings(const DesireContext& c)
 		// unordered, so pop 0 with no homeless passes)
 		if (p != 0)
 		{
-			const double share = static_cast<double>(c.in.homeless) / static_cast<int32_t>(pop);
+			const float share = static_cast<float>(c.in.homeless) / static_cast<int32_t>(pop);
 			if (!(share < k_HomelessShare || std::isnan(share)))
 			{
 				continue;
@@ -585,9 +588,9 @@ float DesireForCivicBuildings(const DesireContext& c)
 			continue;
 		}
 		// 0x7483C0..0x7483EE: s += 0.5 (pop - p + 0.001) / (p + 0.001) + 0.5, stored
-		const double add =
-		    (static_cast<double>(static_cast<int32_t>(pop) - p) + k_Milli) / (static_cast<double>(p) + k_Milli);
-		sum = static_cast<float>(add * k_Half + sum + k_Half);
+		const float add =
+		    (static_cast<float>(static_cast<int32_t>(pop) - p) + k_Milli) / (static_cast<float>(p) + k_Milli);
+		sum = add * k_Half + sum + k_Half;
 	}
 	// 0x7483FC..0x748422: min(s, 1) (fcomp 1; test ah, 1; je -> 1)
 	return (sum < k_One || std::isnan(sum)) ? sum : k_One;
@@ -603,39 +606,39 @@ float DesireForChildren(const DesireContext& c)
 	const auto& s = c.in.stats;
 	// 0x748436..0x748478: A = R0 >= 1 ? 0 : (R0 > 0 ? 1 - R0 : 1)
 	float a = k_One;
-	const double r0 = Raw(c.desire, 0);
-	if (!(r0 < 1.0 || std::isnan(r0)))
+	const float r0 = Raw(c.desire, 0);
+	if (!(r0 < 1.0f || std::isnan(r0)))
 	{
 		a = k_Zero; // 0x7484DB -> 0x74846C: 1 - 1
 	}
-	else if (!(r0 <= 0.0 || std::isnan(r0)))
+	else if (!(r0 <= 0.0f || std::isnan(r0)))
 	{
-		a = static_cast<float>(1.0 - r0); // 0x74846C
+		a = 1.0f - r0; // 0x74846C
 	}
 	// 0x748478..0x748490: B = children < child places (unsigned, jb) ? 1 : 0
 	const float b = s.children < s.childPlaces ? k_One : k_Zero;
 	// 0x748498..0x7484AE: C = adults < adult places ? 1 : 0.5
 	const float cAdults = s.adults < s.adultPlaces ? k_One : k_Half;
 	// 0x7484B6..0x74852A: P = D3 > 0 ? D3 : 0 (stored), M = D4 > 0 ? D4 : 0; Q = (1 - M)(1 - P), stored
-	const double d3 = Desire(c.desire, 3);
-	const float pProtection = (d3 <= 0.0 || std::isnan(d3)) ? k_Zero : static_cast<float>(d3);
-	const double d4 = Desire(c.desire, 4);
-	const double mMercy = (d4 <= 0.0 || std::isnan(d4)) ? 0.0 : d4;
-	const auto q = static_cast<float>((1.0 - pProtection) * (1.0 - mMercy));
+	const float d3 = Desire(c.desire, 3);
+	const float pProtection = (d3 <= 0.0f || std::isnan(d3)) ? k_Zero : d3;
+	const float d4 = Desire(c.desire, 4);
+	const float mMercy = (d4 <= 0.0f || std::isnan(d4)) ? 0.0f : d4;
+	const auto q = (1.0f - pProtection) * (1.0f - mMercy);
 	// 0x748530..0x748561: al = GetPlayer() ? 0.5 x GetAlignmentValue()^3 (the loop of two fmul) : 0, stored
 	float al = k_Zero;
 	if (c.in.hasPlayer)
 	{
 		const float alignment = c.in.alignment; // fst [esp + 8]
-		al = static_cast<float>(static_cast<double>(alignment) * alignment * alignment * k_Half);
+		al = alignment * alignment * alignment * k_Half;
 	}
 	// 0x748569..0x748597: X = fn_73E5E0(4) (player ? player +0x68[4] : 1); v = X (1 + al) Q C B A, stored
-	const double x = c.in.hasPlayer ? static_cast<double>(c.in.tribalPower4) : 1.0;
-	auto v = static_cast<float>(x * (1.0 + al) * q * cAdults * b * a);
+	const float x = c.in.hasPlayer ? c.in.tribalPower4 : 1.0f;
+	auto v = x * (1.0f + al) * q * cAdults * b * a;
 	// 0x74857C..0x7485B4: no creche (+0x744) or not IsFunctional (vt +0xD4) == 1 -> v x 0.5
 	if (!c.in.crecheFunctional)
 	{
-		v = static_cast<float>(static_cast<double>(v) * k_Half);
+		v = v * k_Half;
 	}
 	return Clamp01(v); // 0x7485B8..0x7485F5
 }
@@ -646,7 +649,7 @@ float DesireToBuild(const DesireContext& c)
 	float sum = k_Zero;
 	for (const float site : c.in.siteDesires)
 	{
-		sum = static_cast<float>(static_cast<double>(site) + sum);
+		sum = site + sum;
 	}
 	// 0x74866A..0x748689: 1 < s -> 1
 	return (k_One < sum || std::isnan(sum)) ? k_One : sum;
@@ -681,8 +684,8 @@ float AbodeDesireToBeRepaired(const RepairInput& abode, const GTownInfo& town)
 		return k_Zero;
 	}
 	// 0x52ECF3..0x52ED2A: min((1 - life) x 0.5 + 0.5) x info +0x118 DesireToBeRepaired, 1) (fcom 1; test ah, 1; jne)
-	const double v = ((1.0 - abode.life) * k_Half + k_Half) * abode.desireToBeRepaired;
-	return (v < 1.0 || std::isnan(v)) ? static_cast<float>(v) : k_One;
+	const float v = ((1.0f - abode.life) * k_Half + k_Half) * abode.desireToBeRepaired;
+	return (v < 1.0f || std::isnan(v)) ? v : k_One;
 }
 
 float DesireToRepair(const DesireContext& c)
@@ -691,10 +694,14 @@ float DesireToRepair(const DesireContext& c)
 	float sum = k_Zero;
 	for (const auto& abode : c.in.abodes)
 	{
-		sum = static_cast<float>(static_cast<double>(AbodeDesireToBeRepaired(abode, c.town)) + sum);
+		sum = AbodeDesireToBeRepaired(abode, c.town) + sum;
 	}
 	// 0x7486E3..0x748704: the plans +0x9A8 (next +0x44) vt +0x514 = PlannedMultiMapFixed::GetDesireToBeRepaired
-	// 0x648910 (+0x30 ? info +0x118 : 0). TODO(V6/V11): openblack's plans have no +0x30: 0
+	// 0x648910 (+0x30 ? info +0x118 : 0), each stored
+	for (const float plan : c.in.planRepairDesires)
+	{
+		sum = plan + sum;
+	}
 	// 0x748706..0x748726: 1 < s -> 1
 	return (k_One < sum || std::isnan(sum)) ? k_One : sum;
 }
@@ -709,11 +716,11 @@ float DesireToBuildWonder(const DesireContext& c)
 	// 0x748743..0x748753: b = GetBeliefInPlayer(GetPlayer()) 0x73BAB0, stored. TODO(milagros2): not ported (0)
 	const float belief = c.in.belief;
 	// 0x748757..0x7487A4: b x (1 - min(0.5 (D0 + (D1 + D5)), 0.5)) (fcom 0.5; test ah, 1; jne keeps < 0.5)
-	const auto d5 = static_cast<float>(Desire(c.desire, 5));
-	const auto d15 = static_cast<float>(Desire(c.desire, 1) + d5);
-	double h = (Desire(c.desire, 0) + d15) * k_Half;
+	const auto d5 = Desire(c.desire, 5);
+	const auto d15 = Desire(c.desire, 1) + d5;
+	float h = (Desire(c.desire, 0) + d15) * k_Half;
 	h = (h < k_Half || std::isnan(h)) ? h : k_Half;
-	return static_cast<float>((1.0 - h) * belief);
+	return (1.0f - h) * belief;
 }
 
 float DesireForRelaxation(const DesireContext& c)
@@ -722,18 +729,18 @@ float DesireForRelaxation(const DesireContext& c)
 	const float visual = c.in.visualHour;
 	const float sky = sky_type::At(visual);
 	// 0x7488E0..0x748907: fn_557AE0(0.5 x info +0xEC relaxationMod, the same) (both stored floats)
-	const auto w = static_cast<float>(static_cast<double>(c.town.relaxationMod) * k_Half);
+	const auto w = c.town.relaxationMod * k_Half;
 	const float ramp = sky_type::EveningRamp(visual, w, w);
 	// 0x74890C..0x74892C: x = 1 - sky; x > 0 (fcom 0; test ah, 0x41; je keeps) else 0; R = ramp x x
-	double x = 1.0 - sky;
-	x = (x <= 0.0 || std::isnan(x)) ? 0.0 : x;
-	const double r = ramp * x;
+	float x = 1.0f - sky;
+	x = (x <= 0.0f || std::isnan(x)) ? 0.0f : x;
+	const float r = ramp * x;
 	// 0x74892E..0x74895A: R < 0.1 (or unordered) -> 0.1; R > 1 -> 1
 	if (r < k_Tenth || std::isnan(r))
 	{
 		return k_Tenth;
 	}
-	return r <= 1.0 ? static_cast<float>(r) : k_One;
+	return r <= 1.0f ? r : k_One;
 }
 
 float DesireForSleep(const DesireContext& c)
@@ -742,22 +749,22 @@ float DesireForSleep(const DesireContext& c)
 	const float visual = c.in.visualHour;
 	const float sky = sky_type::At(visual);
 	// 0x748983..0x7489A0: s = fn_557AE0(1, 0) + sky - info +0xD8 bedTimeMod
-	double s = static_cast<double>(sky_type::EveningRamp(visual, 1.0f, 0.0f)) + sky - c.town.bedTimeMod;
+	float s = sky_type::EveningRamp(visual, 1.0f, 0.0f) + sky - c.town.bedTimeMod;
 	// 0x7489A2..0x7489B9: s > 0 (test ah, 0x41; je keeps) else 0; s^2 (not clamped: 6.25 at night)
-	s = (s <= 0.0 || std::isnan(s)) ? 0.0 : s;
-	return static_cast<float>(s * s);
+	s = (s <= 0.0f || std::isnan(s)) ? 0.0f : s;
+	return s * s;
 }
 
 // ---- GetDesire, the modifications ---------------------------------------------------------------------------------
 
 float GetDesire(const TownDesire& desire, size_t d)
 {
-	return static_cast<float>(Desire(desire, d));
+	return Desire(desire, d);
 }
 
 float GetRawDesire(const TownDesire& desire, size_t d)
 {
-	return static_cast<float>(Raw(desire, d));
+	return Raw(desire, d);
 }
 
 float GetDesireVillagerModification(const DesireContext& c, size_t d)
@@ -770,30 +777,30 @@ float GetDesireVillagerModification(const DesireContext& c, size_t d)
 float ModificationGeneral(const DesireContext& c, size_t d)
 {
 	// 0x746493..0x7464E2: 1 - min(+0x510[d] (Town) / ((u64) adults + children + 1e-5 (double)), 1)
-	const double pop = static_cast<double>(c.in.stats.adults + c.in.stats.children) + k_TinyPop;
-	return static_cast<float>(1.0 - MinOne(c.desire.doingNow.at(d) / pop));
+	const auto pop = static_cast<float>(static_cast<double>(c.in.stats.adults + c.in.stats.children) + k_TinyPop);
+	return 1.0f - MinOne(c.desire.doingNow.at(d) / pop);
 }
 
 float ModificationFood(const DesireContext& c, size_t d)
 {
 	// 0x7462A3..0x7462CE: n = (u64) g[0xDA92B4] (150) x +0x510[d] + 1e-4, stored
-	auto n = static_cast<float>(static_cast<double>(c.farmerMaxFood) * c.desire.doingNow.at(d) + k_Tiny);
+	auto n = static_cast<float>(c.farmerMaxFood) * c.desire.doingNow.at(d) + k_Tiny;
 	// 0x7462D2..0x74630C: + (GetStoragePit ? (u64) its GetResource(FOOD) : 0), stored (the pot is not read)
-	const double store = c.in.storageFood.has_value() ? static_cast<double>(*c.in.storageFood) : 0.0;
-	n = static_cast<float>(store + n);
+	const float store = c.in.storageFood.has_value() ? static_cast<float>(*c.in.storageFood) : 0.0f;
+	n = store + n;
 	// 0x746310..0x74633D: 1 - min(n / (fn_747AF0 + 1e-4), 1)
-	return static_cast<float>(1.0 - MinOne(n / (DesiredFood(c) + k_Tiny)));
+	return 1.0f - MinOne(n / (DesiredFood(c) + k_Tiny));
 }
 
 float ModificationWood(const DesireContext& c, size_t d)
 {
 	// 0x746353..0x74637E: (u64) g[0xDA92B8] (250) x +0x510[d] + 1e-4, stored
-	auto n = static_cast<float>(static_cast<double>(c.farmerMaxWood) * c.desire.doingNow.at(d) + k_Tiny);
+	auto n = static_cast<float>(c.farmerMaxWood) * c.desire.doingNow.at(d) + k_Tiny;
 	// 0x746382..0x7463BC: + the storage pit's wood (GetResource(WOOD)), stored
-	const double store = c.in.storageWood.has_value() ? static_cast<double>(*c.in.storageWood) : 0.0;
-	n = static_cast<float>(store + n);
+	const float store = c.in.storageWood.has_value() ? static_cast<float>(*c.in.storageWood) : 0.0f;
+	n = store + n;
 	// 0x7463C0..0x7463ED: 1 - min(n / (fn_747B60 + 1e-4), 1)
-	return static_cast<float>(1.0 - MinOne(n / (WoodMaximum(c) + k_Tiny)));
+	return 1.0f - MinOne(n / (WoodMaximum(c) + k_Tiny));
 }
 
 float ModificationToBuild(const DesireContext& c, [[maybe_unused]] size_t d)
@@ -803,23 +810,23 @@ float ModificationToBuild(const DesireContext& c, [[maybe_unused]] size_t d)
 	auto b = k_Tiny;
 	for (size_t i = 0; i < c.in.siteBuilders.size(); ++i)
 	{
-		a = static_cast<float>(static_cast<double>(c.in.siteBuilders.at(i)) + a);
+		a = static_cast<float>(c.in.siteBuilders.at(i)) + a;
 		const int32_t places = i < c.in.sitePlaces.size() ? c.in.sitePlaces.at(i) : 0;
-		b = static_cast<float>(static_cast<double>(places) + b);
+		b = static_cast<float>(places) + b;
 	}
 	// 0x74645A..0x746480: 1 - min(a / b, 1) (no sites: 1e-4 / 1e-4, so 0)
-	return static_cast<float>(1.0 - MinOne(static_cast<double>(a) / b));
+	return 1.0f - MinOne(a / b);
 }
 
 float GetTemporaryDesireVillagerModification(const TownDesire& desire, uint32_t population, size_t k)
 {
 	// 0x7464F3..0x74651D: pop = (u64) Town +0x618 + +0x61C + 1e-5 (double)
-	const double pop = static_cast<double>(population) + k_TinyPop;
+	const auto pop = static_cast<float>(static_cast<double>(population) + k_TinyPop);
 	// 0x746523..0x746548: x = +0x4DC[k] - +0x454[k]; `fld 0; fcomp st(1); test ah, 0x41; jne` keeps x >= 0, else 0
-	double x = static_cast<double>(desire.doingNow.at(k)) - desire.doingNowAtStart.at(k);
-	x = (x < 0.0) ? 0.0 : x;
+	float x = desire.doingNow.at(k) - desire.doingNowAtStart.at(k);
+	x = (x < 0.0f) ? 0.0f : x;
 	// 0x746548..0x746561: 1 - min(x / pop, 1)
-	return static_cast<float>(1.0 - MinOne(x / pop));
+	return 1.0f - MinOne(x / pop);
 }
 
 // ---- Process -----------------------------------------------------------------------------------------------------
@@ -839,15 +846,15 @@ float CallDesireFunction(TownDesire& desire, const DesireContext& c, size_t d)
 	const auto& multipliers = c.info.at(d).tribeMultiplier;
 	// (openblack, guard) a tribe out of the 9 (Tribe::NONE) takes 1: the original always has a GTribeInfo here
 	const float multiplier = tribe < multipliers.size() ? multipliers.at(tribe) : k_One;
-	const auto raw = static_cast<float>(static_cast<double>(multiplier) * f);
+	const auto raw = multiplier * f;
 	desire.raw.at(d) = raw;
 	// 0x745E06..0x745E4C: raw x GetDesireVillagerModification(d), < -1 (or unordered) -> -1, > 1 -> 1
-	const double v = static_cast<double>(GetDesireVillagerModification(c, d)) * raw;
+	const float v = GetDesireVillagerModification(c, d) * raw;
 	if (v < k_MinusOne || std::isnan(v))
 	{
 		return k_MinusOne;
 	}
-	return v <= 1.0 ? static_cast<float>(v) : k_One;
+	return v <= 1.0f ? v : k_One;
 }
 
 void ProcessDesire(TownDesire& desire, const DesireContext& c, size_t d)
@@ -865,11 +872,11 @@ void ProcessDesire(TownDesire& desire, const DesireContext& c, size_t d)
 	// 0x745CF8..0x745D1C / 0x745D23..0x745D47: Amount / Desired (fild qword: unsigned)
 	if (entry.amount != nullptr)
 	{
-		desire.amount.at(d) = static_cast<float>(static_cast<double>(entry.amount(c)));
+		desire.amount.at(d) = static_cast<float>(entry.amount(c));
 	}
 	if (entry.desired != nullptr)
 	{
-		desire.desired.at(d) = static_cast<float>(static_cast<double>(entry.desired(c)));
+		desire.desired.at(d) = static_cast<float>(entry.desired(c));
 	}
 	// 0x745D4E..0x745D56: +0x118[d] = CallDesireFunction(d)
 	desire.desire.at(d) = CallDesireFunction(desire, c, d);
@@ -973,7 +980,7 @@ void SortDesires(TownDesire& desire)
 	for (size_t d = 0; d < k_Count; ++d)
 	{
 		auto& e = desire.sorted.at(d);
-		e.boosts = static_cast<float>(static_cast<double>(desire.boost.at(d)) + desire.boostA.at(d));
+		e.boosts = desire.boost.at(d) + desire.boostA.at(d);
 		e.value = GetDesire(desire, d);
 		e.index = static_cast<uint32_t>(d);
 	}
@@ -998,7 +1005,7 @@ std::optional<float> Process(TownDesire& desire, const DesireContext& c)
 	// 0x745AE7..0x745B1E: +0x164 = (u64)(adults + children - on the way +0x5CC - worshipping +0x5C4) (u32 arithmetic)
 	const uint32_t people = c.in.stats.children - static_cast<uint32_t>(c.in.onWayToWorship) -
 	                        static_cast<uint32_t>(c.in.worshipping) + c.in.stats.adults;
-	desire.population = static_cast<float>(static_cast<double>(people));
+	desire.population = static_cast<float>(people);
 	// 0x745B24..0x745B30: fn_745CA0(d) for d = 0..16
 	for (size_t d = 0; d < k_Count; ++d)
 	{
@@ -1013,23 +1020,23 @@ std::optional<float> Process(TownDesire& desire, const DesireContext& c)
 		return std::nullopt;
 	}
 	// 0x745B83..0x745BF5: max(R5, R6) and max(R4, R3) (`fcom [stored]; test ah, 0x41; je`: the first if greater)
-	const double r5 = Raw(desire, 5);
-	const auto r6 = static_cast<float>(Raw(desire, 6));
-	const double max56 = r5 > r6 ? r5 : r6;
-	const double r4 = Raw(desire, 4);
-	const auto r3 = static_cast<float>(Raw(desire, 3));
-	const double max34 = r4 > r3 ? r4 : r3;
+	const float r5 = Raw(desire, 5);
+	const auto r6 = Raw(desire, 6);
+	const float max56 = r5 > r6 ? r5 : r6;
+	const float r4 = Raw(desire, 4);
+	const auto r3 = Raw(desire, 3);
+	const float max34 = r4 > r3 ? r4 : r3;
 	// 0x745BF5..0x745C24: (2 R0 + raw1 + boost1 + boostA1 + max34 + max56) / info +0x158 divisorForAverageDesires
-	double sum = Raw(desire, 0);
+	float sum = Raw(desire, 0);
 	sum = sum + sum;
 	sum = sum + desire.raw.at(1) + desire.boost.at(1) + desire.boostA.at(1);
 	sum = sum + max34 + max56;
-	const double average = sum / c.town.divisorForAverageDesires;
+	const float average = sum / c.town.divisorForAverageDesires;
 	// 0x745C2A..0x745C46: player +0xA44 +0x70 += 1, +0x6C += 1 - avg. TODO(estadísticas del jugador): openblack has no
 	// GPlayer +0xA44 (P-5)
 	// 0x745C4C..0x745C8A: avg > info +0x15C thresholdForAverageDesiresHelpSprites (test ah, 0x41; jne skips), the
 	// local player: HelpSpritesVillagerUnhappy(town, avg - 0.6)
-	const auto stored = static_cast<float>(average); // fst [esp + 0xC]
+	const auto stored = average; // fst [esp + 0xC]
 	if (!(average <= c.town.thresholdForAverageDesiresHelpSprites || std::isnan(average)) && c.in.isLocalPlayer)
 	{
 		Warn(c, Warning::VillagersUnhappy, stored - k_UnhappyOffset);
@@ -1059,8 +1066,8 @@ uint32_t CheckVillagerNeeded(const TownDesire& desire, const std::array<GTownDes
 		const auto& entry = k_DesireTable.at(d);
 		// 0x746031..0x74605F: t = trigger + DesireSort::GetInfo 0x746570 +0x18; < 1 or 1 (fcom 1; test ah, 1; je),
 		// stored as a float
-		const double sum = static_cast<double>(trigger) + info.at(d).desireTriggersVillagerAction;
-		const float t = (sum < 1.0 || std::isnan(sum)) ? static_cast<float>(sum) : k_One;
+		const float sum = trigger + info.at(d).desireTriggersVillagerAction;
+		const float t = (sum < 1.0f || std::isnan(sum)) ? sum : k_One;
 		// 0x74605F..0x746073: a child and no +0x60 -> next (no cut)
 		if (child && !entry.children)
 		{
@@ -1083,7 +1090,7 @@ uint32_t CheckVillagerNeeded(const TownDesire& desire, const std::array<GTownDes
 		// return 0. Literal oddity (PLAN §0.5): the modification is asked with the loop index k, not with the
 		// desire's index d, so position k of the order is corrected with the counters of desire number k
 		const float temporary = GetTemporaryDesireVillagerModification(desire, population, k);
-		const double m = static_cast<double>(temporary) * e.value;
+		const float m = temporary * e.value;
 		if (m <= t || std::isnan(m))
 		{
 			if (trace)
@@ -1109,9 +1116,9 @@ uint32_t CheckVillagerNeeded(const TownDesire& desire, const std::array<GTownDes
 float GetDesireSignificanceToVillager(const TownDesire& desire, const GTownDesireInfo& info, size_t d)
 {
 	// 0x746664..0x74669F: D(d) (stored) - info +0x18; > 0 (fcom 0; test ah, 0x41; je keeps) else 0
-	const auto value = static_cast<float>(Desire(desire, d));
-	const double v = static_cast<double>(value) - info.desireTriggersVillagerAction;
-	return (v <= 0.0 || std::isnan(v)) ? k_Zero : static_cast<float>(v);
+	const auto value = Desire(desire, d);
+	const float v = value - info.desireTriggersVillagerAction;
+	return (v <= 0.0f || std::isnan(v)) ? k_Zero : v;
 }
 
 int GetMostDesired(const TownDesire& desire)
@@ -1187,25 +1194,26 @@ float GetRawDesire(entt::entity town, TownDesireInfo d)
 	return t != nullptr && ValidDesire(d) ? GetRawDesire(t->desire, Index(d)) : k_Zero;
 }
 
-double TownNeedsSum(const TownDesire& desire)
+float TownNeedsSum(const TownDesire& desire)
 {
 	// 0x747150..0x747186: fld +0x19C (13); fadd +0x198 (12), +0x18C (9), +0x184 (7), +0x180 (6), +0x17C (5), +0x178 (4),
-	// +0x174 (3), +0x16C (1), +0x168 (0): the raw desires (+0x168, no boosts), in that order on the x87 stack
+	// +0x174 (3), +0x16C (1), +0x168 (0): the raw desires (+0x168, no boosts), in that order on the x87 stack, each fadd
+	// rounded to float (24-bit x87 control word, 0x7DEE0D)
 	const auto& raw = desire.raw;
-	double sum = static_cast<double>(raw.at(13));
+	float sum = raw.at(13);
 	for (const size_t d : {12u, 9u, 7u, 6u, 5u, 4u, 3u, 1u, 0u})
 	{
-		sum += static_cast<double>(raw.at(d));
+		sum += raw.at(d);
 	}
 	// 0x74718C: x 0.2 ([0x8AA3AC], a float); 0x747192..0x7471B7: < 0 -> 0, > 1 -> 1
-	sum *= static_cast<double>(0.2f);
-	return sum < 0.0 ? 0.0 : sum > 1.0 ? 1.0 : sum;
+	sum *= 0.2f;
+	return sum < 0.0f ? 0.0f : sum > 1.0f ? 1.0f : sum;
 }
 
-double TownNeedsSum(entt::entity town)
+float TownNeedsSum(entt::entity town)
 {
 	const auto* t = TownOf(town);
-	return t != nullptr ? TownNeedsSum(t->desire) : 0.0;
+	return t != nullptr ? TownNeedsSum(t->desire) : 0.0f;
 }
 
 const std::array<DesireSort, k_Count>& GetSortedDesires(entt::entity town)
@@ -1304,7 +1312,7 @@ DesireInputs GatherInputs(entt::entity town)
 	}
 	// +0x600 / +0x604 the temporary pots (ecs::town_stores): fn_747A90 0x747AC6 / fn_747B00 0x747B3C test the slot only
 	// (no IsAvailable), then GetResource (vt +0x98: PotStructure 0x66EF00, object_resources). (approximate) a slot whose
-	// entity is gone counts as empty (until TownProcess step 17 clears it, Edificios, a recycled entity could be read). +0x790 the building sites: TODO(V6), none
+	// entity is gone counts as empty (until TownProcess step 17 clears it, Edificios, a recycled entity could be read)
 	if (const auto pot = t->temporaryPots.at(0); pot != entt::null && registry.Valid(pot))
 	{
 		in.potFood = object_resources::GetResource(pot, ResourceType::Food);
@@ -1313,6 +1321,13 @@ DesireInputs GatherInputs(entt::entity town)
 	{
 		in.potWood = object_resources::GetResource(pot, ResourceType::Wood);
 	}
+	// +0x790 the building sites (head first) and +0x9A8 the plans (oldest first): Edificios' DesireInputsOf, in the
+	// list orders the float sums keep
+	auto sites = building_sites::DesireInputsOf(town);
+	in.siteDesires = std::move(sites.siteDesires);
+	in.siteBuilders = std::move(sites.siteBuilders);
+	in.sitePlaces = std::move(sites.sitePlaces);
+	in.planRepairDesires = std::move(sites.planRepairDesires);
 	for (size_t i = 0; i < in.populationWhenNeeded.size(); ++i)
 	{
 		if (const auto* info = town_stats::FindAbodeInfo(in.tribe, static_cast<AbodeNumber>(i)); info != nullptr)

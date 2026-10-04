@@ -116,8 +116,17 @@ struct Villager
 	uint8_t discipleType {0};     ///< +0xF2, VillagerDisciple (g_DiscipleInfos 0x99A1F8)
 	std::array<int16_t, 2> resourceHeld {}; ///< +0xF4 / +0xF6, FOOD and WOOD carried
 	int16_t pregnancy {0};        ///< +0xF8, turns left of a pregnancy (0 none)
+	/// +0xFC: the BuildingSite (its entity, components::BuildingSite) the villager builds (V7, VillagerBuild.cpp):
+	/// written by GotoBuildingSite 0x758A74, GotoStoragePitForBuildingMaterials 0x758912, cleared by ExitBuilding
+	/// 0x7597FC and Building 0x758DF8; 0 in the constructor 0x74F96C / SetToZero 0x74FB43
+	entt::entity buildingSite {entt::null};
 	entt::entity mother {entt::null};      ///< +0x100
 	entt::entity targetThing {entt::null}; ///< +0x118 TargetThing (bw1-decomp Villager.h), what the jobs work on
+	/// +0x118 while in a building state: the index 0..127 of the site's ring point (GotoBuildingSite 0x758A68,
+	/// ReenterBuildingState 0x758FA4, Building 0x758DB2, read by ArrivesAtBuildingSite 0x758B12). The original's union
+	/// with TargetThing (SaveBuilding 0x754A23 saves it as 4 bytes); kept apart: every builder read follows a builder
+	/// write on the same path (V7_spec §2.1)
+	int32_t buildPosIndex {0};
 	/// +0x118 (u8) too: the death reason VillagerDead 0x750929 writes after SetDying (GetDeathReason 0x55CB10; SaveDead
 	/// 0x754CC0). (inferred) a union with the low byte of TargetThing; kept apart, nothing reads TargetThing after death
 	DeathReason deathReason {DeathReason::None};

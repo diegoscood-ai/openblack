@@ -554,7 +554,8 @@ void ProcessAbode(entt::entity abode)
 	{
 		return;
 	}
-	// 0x404443 MultiMapFixed::Process 0x52F700: with +0x74 (a building site), its Process. TODO(V6): no sites yet
+	// 0x404443 MultiMapFixed::Process 0x52F700: with +0x74 (a building site), its Process (vt +0x100). Done by
+	// TownProcess step 3 (Edificios' building_sites::Process) for every abode with a site, just before this
 	// 0x404448..0x4044B4: empty of adults and of children (== 0, test ah, 0x40), built (vt +0x890), not in a script
 	// (GameThingWithPos::IsInScript 0x402280: +0x24 & 0x200; (inferido) no openblack abode has it) and, with a town,
 	// one that is not uninhabitable (+0x5F4)

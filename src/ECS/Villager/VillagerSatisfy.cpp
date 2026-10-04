@@ -96,10 +96,10 @@ uint32_t CheckSatisfyFoodDesire(entt::entity villager)
 	const auto& info = InfoOf(villager);
 	const auto pos = GetResourceDropoffPos(villager, ResourceType::Food);
 	const auto distance = town_queries::GetDistanceInMetres(pos, town_queries::PosOf(villager));
-	const double drop = DropOffScore(v->resourceHeld.at(0), info.maxFoodCarried, distance);
+	const float drop = DropOffScore(v->resourceHeld.at(0), info.maxFoodCarried, distance);
 	// 0x75A084..0x75A090: drop > head.score (fcomp; `test ah, 0x41; jne`) -> GotoStoragePitForDropOff 0x769620 (its
-	// result), after the list is freed
-	constexpr double k_HeadScore = 0.0;
+	// result), after the list is freed (fcomp dword: a float compare)
+	constexpr float k_HeadScore = 0.0f;
 	if (drop > k_HeadScore)
 	{
 		TraceIf(villager, fmt::format("food-desire: drop {:.9f} best 0 0 -> 31", drop));
@@ -121,17 +121,7 @@ uint32_t CheckSatisfyPlaytimeDesire([[maybe_unused]] entt::entity villager)
 	return 0; // 0x763130: xor eax, eax; ret
 }
 
-uint32_t CheckSatisfyAbodesDesire([[maybe_unused]] entt::entity villager)
-{
-	// TODO(V6/V7): 0x758E30 (CheckNeededForBuilding, the plan of the turn +0x5E4, RequestANewAbode). Neutral
-	return 0;
-}
-
-uint32_t CheckSatisfyCivicBuildings([[maybe_unused]] entt::entity villager)
-{
-	// TODO(V6/V7): 0x758E90 (CheckNeededForBuilding, +0x5E4, RequestBestPlanned). Neutral
-	return 0;
-}
+// CheckSatisfyAbodesDesire 0x758E30 / CheckSatisfyCivicBuildings 0x758E90: VillagerBuild.cpp (V7)
 
 uint32_t CheckSatisfySuppyWorship([[maybe_unused]] entt::entity villager)
 {
@@ -140,17 +130,7 @@ uint32_t CheckSatisfySuppyWorship([[maybe_unused]] entt::entity villager)
 	return 0;
 }
 
-uint32_t CheckSatisfyToBuild([[maybe_unused]] entt::entity villager)
-{
-	// TODO(V7): 0x759330 (the building sites). Neutral
-	return 0;
-}
-
-uint32_t CheckSatisfyToRepair([[maybe_unused]] entt::entity villager)
-{
-	// TODO(V11): 0x759370. Neutral
-	return 0;
-}
+// CheckSatisfyToBuild 0x759330 / CheckSatisfyToRepair 0x759370: VillagerBuild.cpp (V7)
 
 uint32_t CheckSatisfySupplyWorkshop([[maybe_unused]] entt::entity villager)
 {

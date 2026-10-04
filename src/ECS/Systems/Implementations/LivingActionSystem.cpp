@@ -28,6 +28,7 @@
 #include "ECS/Registry.h"
 #include "ECS/VillagerAnimations.h"
 #include "ECS/Villager/VillagerAge.h"
+#include "ECS/Villager/VillagerBuild.h"
 #include "ECS/Villager/VillagerCore.h"
 #include "ECS/Villager/VillagerDeath.h"
 #include "ECS/Villager/VillagerDecide.h"
@@ -331,9 +332,36 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
         .state = &ecs::villager::AtHome,
         .exitState = &ecs::villager::ExitAtHome,
     },
-    /* ARRIVES_AT_STORAGE_PIT_FOR_BUILDING_MATERIALS */ k_TodoEntry,
-    /* ARRIVES_AT_BUILDING_SITE */ k_TodoEntry,
-    /* BUILDING */ k_TodoEntry,
+    // V7, the builders (VillagerBuild.cpp): entry EnterBuilding 0x759750 (0 = refused -> 163), exit ExitBuilding
+    // 0x7597B0; +0x50 AlwaysReactToTownEmergency (0x5AC990); SaveBuilding 0x754A00 / LoadBuilding 0x754A60 not ported
+    /* ARRIVES_AT_STORAGE_PIT_FOR_BUILDING_MATERIALS: Villager::ArrivesAtStoragePitForBuildingMaterials 0x758990 (clip
+       340) */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::ArrivesAtStoragePitForBuildingMaterials,
+        .entryState = &ecs::villager::EnterBuilding,
+        .exitState = &ecs::villager::ExitBuilding,
+        .saveState = k_TodoEntry.saveState,
+        .loadState = k_TodoEntry.loadState,
+        .field0x50 = k_TodoEntry.field0x50,
+    },
+    /* ARRIVES_AT_BUILDING_SITE: Villager::ArrivesAtBuildingSite 0x758AF0 (clip 348) */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::ArrivesAtBuildingSite,
+        .entryState = &ecs::villager::EnterBuilding,
+        .exitState = &ecs::villager::ExitBuilding,
+        .saveState = k_TodoEntry.saveState,
+        .loadState = k_TodoEntry.loadState,
+        .field0x50 = k_TodoEntry.field0x50,
+    },
+    /* BUILDING: Villager::Building 0x758C40 (clip BuildingAnimation 0x423E20) */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::BuildingState,
+        .entryState = &ecs::villager::EnterBuilding,
+        .exitState = &ecs::villager::ExitBuilding,
+        .saveState = k_TodoEntry.saveState,
+        .loadState = k_TodoEntry.loadState,
+        .field0x50 = k_TodoEntry.field0x50,
+    },
     /* GOTO_STORAGE_PIT_FOR_WORSHIP_SUPPLIES */ k_TodoEntry,
     /* ARRIVES_AT_STORAGE_PIT_FOR_WORSHIP_SUPPLIES */ k_TodoEntry,
     /* GOTO_WORSHIP_SITE_WITH_SUPPLIES */ k_TodoEntry,
@@ -343,9 +371,11 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* FORESTER_GOTO_FOREST */ k_TodoEntry,
     /* FORESTER_ARRIVES_AT_FOREST */ k_TodoEntry,
     /* FORESTER_CHOPS_TREE */ k_TodoEntry,
+    // (not ported) never entered in W120: no `push 0x33` before a state change in the villager code (V7_spec §1.11)
     /* FORESTER_CHOPS_TREE_FOR_BUILDING */ k_TodoEntry,
     /* FORESTER_FINISHED_FORESTERING */ k_TodoEntry,
     /* ARRIVES_AT_BIG_FOREST */ k_TodoEntry,
+    // (not ported) never entered in W120 (no `push 0x36`, V7_spec §1.11)
     /* ARRIVES_AT_BIG_FOREST_FOR_BUILDING */ k_TodoEntry,
     /* FISHERMAN_ARRIVES_AT_FISHING */ k_TodoEntry,
     /* FISHING */ k_TodoEntry,
@@ -539,10 +569,21 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* CHECK_INTERACT_WITH_ROCK */ k_TodoEntry,
     /* ARRIVES_AT_ROCK_FOR_WOOD */ k_TodoEntry,
     /* GOT_WOOD_FROM_ROCK */ k_TodoEntry,
-    /* REENTER_BUILDING_STATE */ k_TodoEntry,
+    /* REENTER_BUILDING_STATE: Villager::ReenterBuildingState 0x758F60 (V7; also the "after" state of the building rows:
+       a builder resumes here after a reaction) */
+    VillagerStateTableEntry {
+        .state = &ecs::villager::ReenterBuildingState,
+        .entryState = &ecs::villager::EnterBuilding,
+        .exitState = &ecs::villager::ExitBuilding,
+        .saveState = k_TodoEntry.saveState,
+        .loadState = k_TodoEntry.loadState,
+        .field0x50 = k_TodoEntry.field0x50,
+    },
+    // (not ported) never entered in W120: CheckForClearArea 0x7590A0 finds no pushable object (V7_spec §1.2)
     /* ARRIVE_AT_PUSH_OBJECT */ k_TodoEntry,
     /* TAKE_WOOD_FROM_TREE */ k_TodoEntry,
     /* TAKE_WOOD_FROM_POT */ k_TodoEntry,
+    // (not ported) 188 / 189 never entered in W120 (no `push 0xBC / 0xBD`, V7_spec §1.11)
     /* TAKE_WOOD_FROM_TREE_FOR_BUILDING */ k_TodoEntry,
     /* TAKE_WOOD_FROM_POT_FOR_BUILDING */ k_TodoEntry,
     /* SHEPHERD_TAKE_ANIMAL_FOR_SLAUGHTER */ k_TodoEntry,
@@ -647,6 +688,8 @@ const static std::array<VillagerStateTableEntry, static_cast<size_t>(VillagerSta
     /* INTERACT_DECIDE_WHAT_TO_DO_FOR_OTHER_VILLAGER */ k_TodoEntry,
     /* ARTIFACT_DANCE */ k_TodoEntry,
     /* FLEEING_FROM_PREDATOR_REACTION */ k_TodoEntry,
+    // (not ported) never entered in W120: SetupWaitForWood 0x7585A0 only under g_game +0x14 & 0x40000, never set
+    // (V7_spec §1.3)
     /* WAIT_FOR_WOOD */ k_TodoEntry,
     /* INSPECT_OBJECT */ k_TodoEntry,
     /* GO_HOME_AND_CHANGE: Villager::GoHomeAndChange 0x761810, exit ExitGoHomeAndChange 0x761980 (VillagerHome.cpp: the

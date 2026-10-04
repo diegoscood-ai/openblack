@@ -339,6 +339,8 @@ void Construct(entt::entity villager, const GVillagerInfo& info, uint32_t age, u
 	v->lastCheckTurn = 0;
 	v->mother = entt::null;
 	v->targetThing = entt::null;
+	v->buildPosIndex = 0;         // +0x118 (the union with TargetThing)
+	v->buildingSite = entt::null; // +0xFC (0x74F96C)
 	v->pregnancy = 0;
 	// 0x74F9E9: age < grownUpAge -> mother = 0 again (already 0 after SetToZero)
 	if (age < info.grownUpAge)

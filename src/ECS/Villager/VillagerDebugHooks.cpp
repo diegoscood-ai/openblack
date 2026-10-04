@@ -10,6 +10,7 @@
 // The villager core's test hooks (docs/bw1-notes/villagers.md, section Ganchos de prueba): the trace and the
 // OPENBLACK_TEST_VILLAGER_* environment variables. They are not part of the original.
 
+#include <cstdio>
 #include <cstdlib>
 
 #include <algorithm>
@@ -23,6 +24,7 @@
 #include <glm/vec3.hpp>
 #include <spdlog/spdlog.h>
 
+#include "ECS/Abodes.h"
 #include "ECS/Archetypes/VillagerArchetype.h"
 #include "ECS/Components/LivingAction.h"
 #include "ECS/Components/Poisoned.h"
@@ -35,6 +37,7 @@
 #include "ECS/PotResource.h"
 #include "ECS/Registry.h"
 #include "ECS/Components/Town.h"
+#include "ECS/Town/BuildingSites.h"
 #include "ECS/Town/TownQueries.h"
 #include "ECS/Town/TownVillagers.h"
 #include "ECS/Villager/VillagerCore.h"
@@ -318,6 +321,22 @@ void RunDebugHooks(uint32_t turn)
 				}
 			}
 		}
+		// OPENBLACK_TEST_BUILD_AT="<x>,<z>[,<desire>]" (V7): Town::ForceBuildingOfPlannedAtPos(MapCoords(x, 0, z),
+		// desire x 5) 0x73E560 (Edificios), what CHL BUILD_BUILDING does (desire 1 by default; the Land 1 temple:
+		// "1915.05,2508.89", (pending H3) refused until abodes::BuildBy builds a CitadelHeart)
+		if (const char* build = std::getenv("OPENBLACK_TEST_BUILD_AT"); build != nullptr && *build != '\0')
+		{
+			float x = 0.0f;
+			float z = 0.0f;
+			float desire = 1.0f;
+			if (std::sscanf(build, "%f,%f,%f", &x, &z, &desire) >= 2)
+			{
+				const map_coords::MapCoords pos {map_coords::ToFixed(x), map_coords::ToFixed(z), 0.0f};
+				building_sites::ForceBuildingOfPlannedAtPos(pos, desire * 5.0f);
+				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Villager test: build at ({:.2f}, {:.2f}) desire {:.2f}", x, z,
+				                   desire * 5.0f);
+			}
+		}
 		// OPENBLACK_TEST_VILLAGER_BORN_IN_WATER="x,z": a Celtic housewife of 25 there (VillagerArchetype::Create)
 		if (const char* water = std::getenv("OPENBLACK_TEST_VILLAGER_BORN_IN_WATER"); water != nullptr)
 		{
@@ -358,6 +377,23 @@ void RunDebugHooks(uint32_t turn)
 			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Town trace: pots: town {} food {}/{} wood {}/{}", t.id,
 			                   static_cast<uint32_t>(food), amount(food, ResourceType::Food), static_cast<uint32_t>(wood),
 			                   amount(wood, ResourceType::Wood));
+			// V7: the building sites (+0x790, head first) every 50 turns
+			if (turn % 50 == 0)
+			{
+				const auto& sites = building_sites::SitesOf(town);
+				std::string list;
+				for (const auto site : sites)
+				{
+					const auto building = building_sites::GetBuilding(site);
+					list += fmt::format(" [site {} building {} builders {}/{} pile {} pct {:.4f} repair {}]",
+					                    static_cast<uint32_t>(site), static_cast<uint32_t>(building),
+					                    building_sites::GetBuilderCount(site), building_sites::GetMaxBuilders(site),
+					                    building_sites::GetResource(site, ResourceType::Wood),
+					                    building != entt::null ? abodes::GetPercentBuilt(building) : 0.0f,
+					                    building_sites::IsRepairSite(site) ? 1 : 0);
+				}
+				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Town trace: sites: town {} n {}{}", t.id, sites.size(), list);
+			}
 			if (const auto pit = town_queries::GetStoragePit(town); pit != entt::null && turn % 50 == 0)
 			{
 				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Town trace: pit: {} food {} wood {} pulse {}",

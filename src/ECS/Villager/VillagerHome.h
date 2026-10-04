@@ -68,7 +68,8 @@ uint32_t DoGoingHome(entt::entity villager, VillagerStates arrive, VillagerState
 void SetupMoveToOnFootpath(entt::entity villager, entt::entity object, glm::ivec2 pos, VillagerStates final);
 /// Villager::ArrivesHome 0x760930 (37, also 249 and from 35): not at the door -> the walk again (FINAL 37); built and
 /// repaired -> in; hurt: a functional abode -> in, else a tent (238); hungry: in (with SetTopState(163) first when it
-/// is not functional, literal); else SetupBuildingObject (TODO(V7/V11): 0) and in. No abode -> 129 and 0
+/// is not functional, literal); else SetupBuildingObject(abode) (VillagerBuild.h: its repair site) == 1 -> 1, or in. No
+/// abode -> 129 and 0
 uint32_t ArrivesHome(entt::entity villager);
 /// State 37 ARRIVES_HOME
 uint32_t ArrivesHomeState(components::LivingAction& action);
@@ -159,9 +160,7 @@ void SetVillagerMeshes(entt::entity villager, const GVillagerInfo& info, bool ch
 /// Villager::FindPosOutsideAbode 0x753470 (abode; entt::null -> its own): door + GetPosFromAngle(Get3DAngleFromXZ(
 /// abode, door) + (pi/8 - GameFloatRand(pi/4)) (Villager.cpp 0xA97), GameFloatRand(1.5) + 1.5 (0xA96))
 [[nodiscard]] glm::ivec2 FindPosOutsideAbode(entt::entity villager, entt::entity abode);
-/// Villager::SetupBuildingObject 0x758530 (abode): the abode's repair site (AddBuildingSite 0x73B8E0) when it is not
-/// built or repaired. TODO(V7/V11): neutral 0 (no repairing on arrival)
-uint32_t SetupBuildingObject(entt::entity villager, entt::entity abode);
+// Villager::SetupBuildingObject 0x758530 (abode): villager::SetupBuildingObjectForBuilding in VillagerBuild.h (V7)
 /// Villager::IsSexuallyActive 0x761090: StartHavingSexAge (+0x228) <= age < StopHavingSexAge (+0x22C)
 [[nodiscard]] bool IsSexuallyActive(entt::entity villager);
 

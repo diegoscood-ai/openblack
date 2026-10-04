@@ -29,16 +29,18 @@ uint32_t CheckSatisfyFoodDesire(entt::entity villager);
 uint32_t CheckSatisfyWoodDesire(entt::entity villager);
 /// Villager::CheckSatisfyPlaytimeDesire 0x763130 (2): `xor eax, eax; ret`, literal 0
 uint32_t CheckSatisfyPlaytimeDesire(entt::entity villager);
-/// Villager::CheckSatisfyAbodesDesire 0x758E30 (5: CheckNeededForBuilding, Town +0x5E4, RequestANewAbode).
-/// TODO(V6/V7): 0, without touching Town::requestedPlanThisTurn
+/// Villager::CheckSatisfyAbodesDesire 0x758E30 (5): CheckNeededForBuilding (any site); else, once a turn per town (Town
+/// +0x5E4 requestedPlanThisTurn, set before the request), RequestANewAbode and CheckNeededForBuilding again (V7)
 uint32_t CheckSatisfyAbodesDesire(entt::entity villager);
-/// Villager::CheckSatisfyCivicBuildings 0x758E90 (6: RequestBestPlanned). TODO(V6/V7): 0
+/// Villager::CheckSatisfyCivicBuildings 0x758E90 (6): the same with RequestBestPlanned 0x73A650 (V7)
 uint32_t CheckSatisfyCivicBuildings(entt::entity villager);
 /// Villager::CheckSatisfySuppyWorship 0x76CC00 (7) -> GotoStoragePitForWorshipSupplies 0x76BFA0. TODO(milagros2): 0
 uint32_t CheckSatisfySuppyWorship(entt::entity villager);
-/// Villager::CheckSatisfyToBuild 0x759330 (9). TODO(V7): 0 (with no building sites the original gives 0 too)
+/// Villager::CheckSatisfyToBuild 0x759330 (9): GetBestBuildingSite(includeFull = disciple BUILDER) ->
+/// SetupBuildingObject (V7, VillagerBuild.h)
 uint32_t CheckSatisfyToBuild(entt::entity villager);
-/// Villager::CheckSatisfyToRepair 0x759370 (12). TODO(V11): 0
+/// Villager::CheckSatisfyToRepair 0x759370 (12): GetBestRepairBuildingSite 0x747EA0 -> SetupBuildingObject (V7; the
+/// repair sites come from Edificios, V11)
 uint32_t CheckSatisfyToRepair(entt::entity villager);
 /// Villager::CheckSatisfySupplyWorkshop 0x7593A0 (13: Town::GetBestWorkshop 0x740250). TODO(talleres): 0
 uint32_t CheckSatisfySupplyWorkshop(entt::entity villager);

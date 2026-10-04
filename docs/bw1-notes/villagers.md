@@ -36,16 +36,18 @@ In openblack:
 | +0xF2 | `discipleType` | g_DiscipleInfos 0x99A1F8 |
 | +0xF4 / +0xF6 | `resourceHeld` | food and wood it carries |
 | +0xF8 | `pregnancy` | turns remaining (0 = no) |
+| +0xFC | `buildingSite` | the building site it builds (V7, [Builders](#builders-v6v7)) |
 | +0x100 | `mother` | |
 | +0x118 | `targetThing` | TargetThing (bw1-decomp `Villager.h`) |
+| +0x118 (int) | `buildPosIndex` | while building: the site's ring index 0..127 (the original's union with TargetThing, kept apart) |
 | +0x11C | — | union Football* / TradeTown / WanderArea (bw1-decomp `Villager.h`). V1 does not add it: no V1 code reads it |
 | +0x128 / +0x12C | `abode` / `town` | |
 
 `lifeStage` is a mirror of `flags & 0x8` (read by DetailMeshes, drawing and sounds) and `sex` is a mirror of
 GVillagerInfo +0x1F8 (`IsWoman` 0x752620 and SetSpeed read the info one). `task` is not from the original.
 
-Missing from the original (they arrive with their milestone): `next` +0xE4 (home list, V4), `building_site` +0xFC (V6),
-`LastPlayerToInteract` +0x104 (V12), +0x108 / +0x10C / +0x110, `fire_effect` +0x114 (Milagros), +0x124.
+Missing from the original (they arrive with their milestone): `next` +0xE4 (home list, V4), `LastPlayerToInteract`
++0x104 (V12), +0x108 / +0x10C / +0x110, `fire_effect` +0x114 (Milagros), +0x124.
 
 ### Flags
 
@@ -395,7 +397,7 @@ a new case in `test/test_villager_decide.cpp`.
   only 5, 6, 7; only the trace 0x745EC0 reads them), the villager's CheckSatisfy (+0x40), modification (+0x50), children
   (+0x60: 2, 3, 4, 15, 16) and +0x64 (no reader). Per-desire info 0xDA2930 + d·0x90 (+0x18 trigger, +0x58 TribeMultiplier[9]).
   Names for `TOWN_DESIRE_BOOST`: fn_747270 (`_stricmp`).
-- **Functions** (faithful, x87 in double, see assumptions): Food = `Town::CalculateDesireForFood` 0x747F00 (thunk 0x747340):
+- **Functions** (faithful, x87 float steps, see assumptions): Food = `Town::CalculateDesireForFood` 0x747F00 (thunk 0x747340):
   `1 − (comida + 1e-4)/(5·Σ foodReqiredForDinner + 1e-4)`, with the warning `HelpSpritesLowOnFood(min(v,2) − 0,9)`
   (0x747FA0) if v ≥ 0.95 and the town belongs to the local player; Wood 0x747FF0 with S = min(R5+R6+R9+R12, 3), a =
   (craftsmen + 0.001)/(adults + 0.001) + S, **k = max(abodes/10, 1)**, B = 500k, C = 5000k and the LowOnWood warning
@@ -456,8 +458,8 @@ a new case in `test/test_villager_decide.cpp`.
   adding and removing); same counts, the float sums in a different order. **(approximate until V6)** all script homes
   count as functional, and `Town::storagePit` (+0x30) / `Town::creche` (+0x744) are set by script creation
   (AbodeArchetype) instead of StoragePit / Creche::MakeFunctional (the last storehouse wins; the first creche).
-- **(approximate)** the x87 (80-bit) chains are computed in double and stored in float where the original does
-  `fstp dword`.
+- The x87 chains are float steps: the game logic runs with the control word at 24 bits (fn_007DEE00, `and cw, 0xFCFF`
+  at 0x7DEE0D), so each fadd / fmul / fdiv rounds to float (V7; until then they were modelled in double).
 - **(approximate)** the turn's influence (milagros2, `magic::ProcessTurn`) is computed after the desires and not inside
   each Town::Process (the desires do not read it).
 - **(approximate)** `SET_TOWN_DESIRE_BOOST` with negative d does not write (the original writes outside the array).
@@ -605,7 +607,8 @@ Full spec: `dev\documentacion\aldeanos\V5_spec.md`; audit `V5_audit.md`. Code: `
   (Villager::InitialisePhysics 0x5EFEF0), thrown by the hand without landing (0x6373FA) or dying (VillagerDead 0x7507D0)
   lets the log fall as a Pine DeadTree with the carried mesh (`ecs::CreateDroppedLog` in Trees, DeadTree::Create
   0x510BB0 with the mesh override 0xCC5F10 and +0x9C = wood / Pine's woodValue; Fisicas'
-  `PhysicsObjects::AddDroppedObject`). 51 wood gives back a 50 log (DeadTree::GetDefaultResource 0x511330, literal).
+  `PhysicsObjects::AddDroppedObject`). 51 wood gives back a 51 log (DeadTree::GetDefaultResource 0x511330: 350 ×
+  float(51/350) = 50.99999905 rounds to 51.0f, the x87 runs at 24 bits, 0x7DEE0D; V5 said 50, from a double product).
   **(approximate)** from a physics release other than the hand the handler runs after the body was added and without
   the angular velocity. VillagerDead also drops food and wood to nothing (0x7507D9 / 0x7507E2).
 - Reaction 9 (REACT_TO_FLYING_OBJECT) is not about picking up resources: it makes villagers flee (6) or point (162) at a
@@ -613,6 +616,52 @@ Full spec: `dev\documentacion\aldeanos\V5_spec.md`; audit `V5_audit.md`. Code: `
 - Test hook `OPENBLACK_TEST_VILLAGER_CARRY="<food|wood>,<amount>[,<n>[,<tree 0-3>]]"` (turn 2, through PickupResource);
   the trace adds `carry:`, `drop 31:` / `drop 32:`, `carried:`, `speed:`, `food-desire:`, `pot:` and `dropped log:` lines;
   `OPENBLACK_TOWN_TRACE` adds `pots:` / `pit:`.
+
+## Builders (V6/V7)
+
+Full spec: `dev\documentacion\aldeanos\V7_spec.md` (dumps in its `v7\`, `vbuild_0x758340_0x75980F.txt`). Code:
+`Villager/VillagerBuild.{h,cpp}` (VillagerCivic.cpp 0x758340..0x75980F), the rows 39 / 40 / 41 / 184 of
+`LivingActionSystem.cpp`, `Town/TownDesire.cpp` (the site and plan inputs); tests `test/test_villager_build.cpp`. The
+building side (sites, the 128-point ring, the pile, BuildBy, Built) is Edificios' `ecs::building_sites` / `ecs::abodes`
+([buildings.md](buildings.md)); the villager reaches it through `villager::BuildingSiteOps` (mocks in the tests).
+
+- **From 163 to a site**: the town desires Abodes (5), Civic_Buildings (6), To_Build (9) and Repair_Town (12).
+  CheckSatisfyAbodesDesire 0x758E30 / CheckSatisfyCivicBuildings 0x758E90 first try **any** site (CheckNeededForBuilding
+  0x758340: IsBuildingHappening, GetBestBuildingSite with includeFull = BUILDER disciple), then, once a turn per town, set
+  Town +0x5E4 (`requestedPlanThisTurn`, before the request, also when it fails), RequestANewAbode / RequestBestPlanned
+  and try again. To_Build 0x759330 takes the best site, Repair_Town 0x759370 GetBestRepairBuildingSite. SetupBuildingObject
+  0x7584B0 refuses a built-and-repaired building; CheckForClearArea 0x7590A0 is always 0 (no Object class is pushable in
+  W120), so it goes on to SetupGetBuildingSupplies 0x7586E0. A villager arriving at a damaged or unbuilt home
+  (ArrivesHome) calls SetupBuildingObject(abode) 0x758530, which makes the home's (repair) site.
+- **Wood**: ShouldIGetWood (Edificios) false → straight to the ring (GotoBuildingSite); true → DecideHowToGetWood(1)
+  0x75F510: the store (storage pit, else the home, else the town's temporary wood pot) scores
+  `GDM(d, 250) × (stock > capacity ? 1 : 0)`, the forest `GDM(d, 250) × 0.5`; the store wins only when strictly higher.
+  Store → GotoStoragePitForBuildingMaterials 0x7587D0 (the pit's wood edge, FINAL 39) → 39 0x758990 (clip 340): up to
+  its capacity from the pit (ArrivesAtStoragePitForResource, V5) and on to 184. **(approximate until V9)** the forest
+  results (2 BigForest / 3 forest) return 0; the town's forest list is not filled on load yet, so the global FindForest
+  scores the forest.
+- **The ring**: GotoBuildingSite 0x758A00 = SetTopState(163) (the builder leaves and re-enters the list), +0xFC = site,
+  GetRandomBuildPos (one GameFloatRand), a walk with FINAL 40 (footpath beyond 40 m). 184 0x758F60 (also where a
+  builder resumes after a reaction: the "after" state of the building rows): ShouldIGetWood → supplies; touching the
+  building (0.001) → 40; else the walk. 40 0x758AF0 (clip 348): within 0.2 m of its ring point it turns to the building
+  (LookAtPos mode 1), puts **all** its wood on the site's pile (whatever the pile took), then PlayAnimThenSetState(41)
+  keeping the state counter.
+- **The build cycle** 41 0x758C40: once per play of the BuildingAnimation clip (hammer 276 / saw 354 / mallet 380):
+  `f = 1 − 0.2·alignment` (Milagros' LandAlignmentAt), 1 on good land, at most 1.2; `u = min(ftol(WoodUsedPerBuildCycle ×
+  f), pile)` (50 for the men, 40 for the housewives); `x = u / GetWoodValue` (read before the removal), RemoveResource(u),
+  BuildBy(x), the town's wood-used stat. Then: the site gone (Built) or built and repaired → +0xFC = 0 and 163; wood
+  left → the next ring point (GameFloatRand, GameRand(2)) and 40 again; none → SetupGetBuildingSupplies (0 keeps it in 41
+  hammering an empty site, literal). A hut (1400) takes 29 cycles of 50 / 35 of 40; the temple (6500) would take 130
+  **(pending H3)**: `abodes::BuildBy` skips a CitadelHeart (and its plan is TODO(H3)), so the temple site is refused; the
+  in-game check of V7 is with the Aztec houses (V7_spec §16 test 6).
+- **The builder count**: EnterBuilding 0x759750 (entry of 39 / 40 / 41 / 184) refuses when +0xFC is not a valid site and
+  calls AddBuilder when the previous final state had another entry; ExitBuilding 0x7597B0 does nothing towards another
+  building state, else RemoveBuilder (valid site) and +0xFC = 0. So hunger, the hand, death and reactions take the
+  villager out of the list; after a reaction 184 finds +0xFC = 0 and the builder goes to 163 (inferred, V7_spec Q-5).
+- Not ported, never entered in W120: 51, 54, 185, 188, 189, 232 (no state change pushes them; WAIT_FOR_WOOD needs
+  g_game +0x14 & 0x40000, never set). SaveBuilding / LoadBuilding not ported.
+- **Town desires**: To_Build sums the sites' GetDesireForVillagers (newest first), its modification the sites' builders and
+  places; Repair_Town adds the plans' GetDesireToBeRepaired after the abodes (Edificios' `DesireInputsOf`).
 
 ## Worship: return home
 
@@ -720,10 +769,16 @@ Full spec: `dev\documentacion\aldeanos\V12_spec.md` (dumps in its `v12\`). Code:
   cut|cs=0|cs=1`.
 - `OPENBLACK_TEST_TOWN_DESIRE="<d>,<boost>[,<pueblo>]"` (V3): on turn 2, SetBoost like SET_TOWN_DESIRE_BOOST (re-sorts
   order 1) in all towns or in the one with that id.
+- `OPENBLACK_TEST_BUILD_AT="<x>,<z>[,<desire>]"` (V7): on turn 2, Edificios' ForceBuildingOfPlannedAtPos(MapCoords(x, 0,
+  z), desire × 5) (what BUILD_BUILDING does; the Land 1 temple `"1915.05,2508.89"` waits for H3, see above). The trace
+  adds `build: need|supplies|pit for materials|abodes desire|civic desire`, `build goto|184:` (ring, distance,
+  footpath), `build 39:`, `build 40:` (ring, distance, look, wood dropped / added), `build 41:` (a, f, u, pile, value,
+  x, % built, next / supplies / release), `build enter|exit <state> site <id> builders <n>`; `OPENBLACK_TOWN_TRACE` adds
+  `sites:` (every 50 turns: each site's building, builders / max, pile, % built, repair).
 - `OPENBLACK_TEST_VILLAGER_AGE="<edad>[,<n>]"` (V4): on turn 2, only Living::SetAge (the birth turn), without
   meshes or bits (12.99 → 13 and old age). `OPENBLACK_TEST_HOMELESS=<n>` (V4): on turn 2, MakeHomeless of villager n.
 - `OPENBLACK_VILLAGER_TRACE` (V4) adds `home 36: …` (to the door / no abode -> far / tent / wander / vagrant 130),
-  `home 37: not there|arrive (present <n>)|tent|hungry 163+arrive|repair TODO(V7)`, `home 38: emergency|needs(t=…)|
+  `home 37: not there|arrive (present <n>)|tent|hungry 163+arrive|builds its home`, `home 38: emergency|needs(t=…)|
   disciple|something|nothing r4=<r>`, `exit-home <s> -> <next> (stay|leave, present <n>)`, `sleep 120: life <l> ->
   keep|wake`, `tent: tree|spiral try|fail`, `food: …`, `eat: …`, `home-food: took <m> held <h>`, `age: grown|rescale|
   old age r= n= d= -> die|live`, `homeless: into abode|list`, `abode: moves|too crowded`, `vagrant 130: …` and, every 100
@@ -798,6 +853,13 @@ counters / pulse, the help sprites, the world population, Dying, Dead (smoke, sk
 SACRIFICE), CannotExitState, DeleteDependancys, the orphans, the mourning priority, setup and states 205-208 (no
 landscape in the tests: everything is water there, so no soul).
 
+`test/test_villager_build.cpp` (V7, the fixture of test_villager_resources plus a mock building side): the build
+factor and amount at 24-bit float steps, the cycles (29 / 35 / 130 / 82), the ring index, the wood source scores, 41
+(the call order value → RemoveResource → BuildBy → stats, the next ring point, the pile cap, the release without
+RemoveBuilder), 40 (the walk, the index range, the drop of all the wood, the kept counter), GotoBuildingSite, 184,
+GotoStoragePitForBuildingMaterials (+0xFC only from a non-building TOP), 39, EnterBuilding / ExitBuilding, the four
+CheckSatisfy functions (+0x5E4 before the request), SetupBuildingObject(abode) and Repair_Town's plans.
+
 ## Assumptions (inferred / approximate)
 
 1. **(approximate)** "Dancing" (Living +0xD8, the DanceGroup) is approximated with `WorshipVillager::dancing` (set by
@@ -867,6 +929,23 @@ landscape in the tests: everything is water there, so no soul).
     vector from a two-field string (and its y is the terrain height, not a third field): the cache height is 0,
     the literal behaviour for two fields. A three-field string (MapCoords::Set 0x6032E4 would read it unscaled) does not
     reach the command in openblack. None of the game's scripts uses three fields.
+
+27. **(approximate, V7)** The build factor and amount are computed in float steps (the x87 runs at 24 bits in the game
+    logic, GUtilsDistance.h): alignment −0.1 gives u = 51, −0.3 gives 52, and the housewives' u at −0.25 / −0.75 is
+    42 / 46 (V7_spec §1.4 / §6 corrected to these; the earlier 50 / 53 / 41 / 45 came from an extended product). (not
+    verified) in the game.
+28. **(openblack, V7)** `buildPosIndex` is its own member instead of the +0x118 union; SetupBuildingObject(abode) tries
+    AddBuildingSite once (the original loops); null-town guards where the original would read null.
+29. **(approximate until V9)** DecideHowToGetWood's forest results return 0 in SetupGetBuildingSupplies; the town forest
+    list (Town::AsssignTownFeature 0x73EAC0) is not filled, so FindForest gives the forest.
+30. **(V7)** FPU at 24 bits (fn_007DEE00, `and cw, 0xFCFF` at 0x7DEE0D): the x87 intermediates of the villager code
+    are float precision even on the x87 stack; the double models are superseded: LoadFactors / TownNeedsSum /
+    TownNeedsFactor / DropOffScore / DropOffFraction / DroppedLogValue / the speed product (V5), PointTurns /
+    MournTurns / SoulAlpha (V12) and the desire chains of TownDesire.cpp are float steps now.
+31. **(not ported, V7)** The rows 51 FORESTER_CHOPS_TREE_FOR_BUILDING, 54 ARRIVES_AT_BIG_FOREST_FOR_BUILDING, 185
+    ARRIVE_AT_PUSH_OBJECT, 188 / 189 (wood from a tree / pot for building) and 232 WAIT_FOR_WOOD stay `k_TodoEntry`:
+    none is entered in W120 (no `push` of those states before a state change; CheckForClearArea finds no pushable
+    object; SetupWaitForWood needs g_game +0x14 & 0x40000, never set). Decision P-1 of V7_spec §18.
 
 No longer assumptions: the writer of +0x24 & 0x400 (controlled by script) is GameThingWithPos::SetControlledByScript
 0x402240 (`ecs::script_held`; also the vortex, fn_005FE3B0 0x5FE474); the walking state of SetupMoveToWithHug is

@@ -28,6 +28,9 @@
 
 namespace openblack::ecs::villager
 {
+/// Villager::IsStateEntryFunctionSameAs 0x7524D0 (a, b): the entry functions (+0x10 of the state rows, 0xD091A8,
+/// VillagerOriginalFns.h) of both states are the same (EnterInScript, EnterPlayAnim, EnterBuilding)
+[[nodiscard]] bool IsStateEntryFunctionSameAs(VillagerStates a, VillagerStates b);
 /// MobileWallHug::AreWeThere(pos, r) 0x60AD60 (vt +0x85C): the x / z distance from the villager to `pos` is less than
 /// its speed (+0x5A, u16 MapCoords a turn: openblack's WallHug::speed in metres) + r. (aproximado: floats in metres
 /// instead of the 16.16 MapCoords integers)

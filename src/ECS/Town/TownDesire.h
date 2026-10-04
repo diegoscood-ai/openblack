@@ -32,8 +32,9 @@
 // the readers the other sessions use (audio, milagros2). Offsets are TownDesire's (Town +0x34) unless "Town +".
 //
 // Two layers: the pure one (a DesireContext of plain values; what test/test_town_desire.cpp checks) and the entity
-// one (GatherInputs from the ECS, then the pure functions). The x87 chains of the original are computed in double and
-// stored to float where the original stores (fstp dword) (aproximado: 64-bit instead of 80-bit intermediates).
+// one (GatherInputs from the ECS, then the pure functions). The x87 chains of the original are float steps: the game
+// logic runs with the x87 control word at 24 bits (fn_007DEE00, `and cw, 0xFCFF` at 0x7DEE0D), so every fadd / fmul /
+// fdiv rounds to float, as here (ints are loaded exactly by fild: exact as floats below 2^24).
 
 namespace openblack::ecs::town_desire
 {
@@ -66,13 +67,16 @@ struct DesireInputs
 	/// the temporary pots +0x600 / +0x604 (Town::temporaryPots, ecs::town_stores): their GetResource, nullopt without one
 	std::optional<uint32_t> potFood;
 	std::optional<uint32_t> potWood;
-	/// the building sites +0x790 (V6: none yet): their BuildingSite::GetDesireForVillagers 0x43BD70, site +0x634 and
-	/// fn_43BBD0, in list order
+	/// the building sites +0x790 (head first: the newest first): their BuildingSite::GetDesireForVillagers 0x43BD70,
+	/// site +0x634 and fn_43BBD0 (building_sites::DesireInputsOf, Edificios)
 	std::vector<float> siteDesires;
 	std::vector<uint32_t> siteBuilders;
 	std::vector<int32_t> sitePlaces;
-	/// the abode list +0x754 (newest first) for Repair_Town; the plans +0x9A8 give 0 (V6/V11)
+	/// the abode list +0x754 (newest first) for Repair_Town
 	std::vector<RepairInput> abodes;
+	/// the plans +0x9A8 (oldest first) for Repair_Town: PlannedMultiMapFixed::GetDesireToBeRepaired 0x648910 (+0x30 ?
+	/// info +0x118 : 0; building_sites::DesireInputsOf)
+	std::vector<float> planRepairDesires;
 	/// GAbodeInfo::Find(tribe, i) 0x405B30 +0x1B4 PopulationWhenNeeded for the 16 abode numbers; nullopt: no record
 	/// (the original would read a null record; openblack skips it)
 	std::array<std::optional<int32_t>, 16> populationWhenNeeded {};
@@ -239,9 +243,10 @@ uint32_t CheckVillagerNeeded(const components::TownDesire& desire, const std::ar
 [[nodiscard]] float GetDesire(entt::entity town, TownDesireInfo d);
 [[nodiscard]] float GetRawDesire(entt::entity town, TownDesireInfo d);
 /// fn_00747150 (this = TownDesire, Town +0x34; SetStateSpeed 0x7539BD): S = 0.2 x (raw 13 + 12 + 9 + 7 + 6 + 5 + 4 + 3
-/// + 1 + 0) (+0x168, no boosts) clamped to [0, 1]; returned on the x87 stack (double). 0 without a town
-[[nodiscard]] double TownNeedsSum(const components::TownDesire& desire);
-[[nodiscard]] double TownNeedsSum(entt::entity town);
+/// + 1 + 0) (+0x168, no boosts) clamped to [0, 1]; returned on the x87 stack (float precision: the x87 control word is
+/// 24 bits, 0x7DEE0D). 0 without a town
+[[nodiscard]] float TownNeedsSum(const components::TownDesire& desire);
+[[nodiscard]] float TownNeedsSum(entt::entity town);
 /// +0x278 (GetSortedDesire 0x7465D0 = &order1[k]) and +0x344 (Town +0x378: value +0x37C, type +0x380, the one
 /// GGuidance::CheckTownDesiresSFX 0x71B130 reads). An empty (all 0) array without a town
 [[nodiscard]] const std::array<DesireSort, k_Count>& GetSortedDesires(entt::entity town);

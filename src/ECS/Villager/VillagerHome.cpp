@@ -17,6 +17,7 @@
 #include <fmt/format.h>
 #include <glm/gtc/constants.hpp>
 
+#include "ECS/Abodes.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/LivingAction.h"
 #include "ECS/Components/Mesh.h"
@@ -42,6 +43,7 @@
 #include "ECS/Town/TownQueries.h"
 #include "ECS/Town/TownVillagers.h"
 #include "ECS/Villager/VillagerAge.h"
+#include "ECS/Villager/VillagerBuild.h"
 #include "ECS/Villager/VillagerCore.h"
 #include "ECS/Villager/VillagerDecide.h"
 #include "ECS/Villager/VillagerFood.h"
@@ -436,7 +438,7 @@ uint32_t ArrivesHome(entt::entity villager)
 		return 1;
 	}
 	// 0x76096B..0x760985: IsBuilt (vt +0x890) && IsRepaired (vt +0x88C: Abode 0x4016A0, the life (vt +0x884) not below 1)
-	if (abode_queries::IsBuilt(abode) && !(life::LifeOf(abode) < 1.0f))
+	if (abode_queries::IsBuilt(abode) && abodes::IsRepaired(abode))
 	{
 		return in();
 	}
@@ -476,12 +478,13 @@ uint32_t ArrivesHome(entt::entity villager)
 		}
 		return in();
 	}
-	// 0x760AB0..0x760ABB: SetupBuildingObject(abode) == 1 -> 1 (TODO(V7/V11): 0)
-	if (SetupBuildingObject(villager, abode) == 1)
+	// 0x760AB0..0x760ABB: SetupBuildingObject(abode) 0x758530 == 1 -> 1 (the abode's site, a repair site made now if it
+	// has none: V7, VillagerBuild.cpp)
+	if (SetupBuildingObjectForBuilding(villager, abode) == 1)
 	{
+		TraceIf(villager, "home 37: builds its home");
 		return 1;
 	}
-	TraceIf(villager, "home 37: repair TODO(V7)");
 	return in();
 }
 
@@ -1305,13 +1308,6 @@ glm::ivec2 FindPosOutsideAbode(entt::entity villager, entt::entity abode)
 	const float angle = spread + toDoor;
 	// 0x7534EF..0x75350E: door + GetPosFromAngle(a, d)
 	return door + tq::GetPosFromAngle(angle, distance);
-}
-
-uint32_t SetupBuildingObject([[maybe_unused]] entt::entity villager, [[maybe_unused]] entt::entity abode)
-{
-	// TODO(V7/V11): Villager::SetupBuildingObject 0x758530: AddBuildingSite 0x73B8E0 (the repair site) for an abode that
-	// is not built or repaired, and the walk to it. Neutral: openblack has no building sites
-	return 0;
 }
 
 bool IsSexuallyActive(entt::entity villager)

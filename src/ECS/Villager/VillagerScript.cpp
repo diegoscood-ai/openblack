@@ -52,17 +52,6 @@ entt::entity EntityOf(LivingAction& action)
 	return Entities().ToEntity(action);
 }
 
-/// Villager::IsStateEntryFunctionSameAs 0x7524D0 (a, b): the entry functions (+0x10 of the 0x90-byte rows, 0xD091A8)
-/// of both states are the same (all four dwords; the first 0 -> the same at once, 0x7524F4)
-bool IsStateEntryFunctionSameAs(VillagerStates a, VillagerStates b)
-{
-	const auto entryOf = [](VillagerStates s) {
-		const auto i = static_cast<size_t>(static_cast<uint8_t>(s));
-		return i < k_OriginalStateFns.size() ? k_OriginalStateFns.at(i).entry : 0u;
-	};
-	return entryOf(a) == entryOf(b);
-}
-
 /// Living::IsStateForInterface 0x417070 (vt +0x968): the state is 0x18 IN_HAND
 bool IsStateForInterface(VillagerStates state)
 {
@@ -124,6 +113,17 @@ void SetAnim(entt::entity villager, int32_t n)
 	VillagerSetStateClip(villager, n != 0);
 }
 } // namespace
+
+bool IsStateEntryFunctionSameAs(VillagerStates a, VillagerStates b)
+{
+	// 0x7524D0: the entry functions (+0x10 of the 0x90-byte rows, 0xD091A8) of both states (all four dwords; the first
+	// 0 -> the same at once, 0x7524F4)
+	const auto entryOf = [](VillagerStates s) {
+		const auto i = static_cast<size_t>(static_cast<uint8_t>(s));
+		return i < k_OriginalStateFns.size() ? k_OriginalStateFns.at(i).entry : 0u;
+	};
+	return entryOf(a) == entryOf(b);
+}
 
 bool AreWeThere(entt::entity villager, const glm::vec2& pos, float r)
 {

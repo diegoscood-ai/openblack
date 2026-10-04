@@ -440,11 +440,12 @@ TEST_F(VillagerResourcesTest, LoadFactors)
 	EXPECT_EQ(Bits(villager::LoadFactors(200, 0, info, false).wood), 0x3F733333u); // 0.949999988
 	EXPECT_EQ(villager::LoadFactors(250, 0, info, false).wood, 0.75f);
 	EXPECT_EQ(villager::LoadFactors(300, 0, info, false).wood, 0.75f);
-	EXPECT_EQ(villager::LoadFactors(0, 127, info, false).food, 1.0);
-	EXPECT_DOUBLE_EQ(villager::LoadFactors(0, 128, info, false).food, 0.99666669050852452);
-	EXPECT_DOUBLE_EQ(villager::LoadFactors(0, 140, info, false).food, 0.91666669050852456);
-	EXPECT_DOUBLE_EQ(villager::LoadFactors(0, 150, info, false).food, 0.85000002384185791);
-	EXPECT_EQ(villager::LoadFactors(0, 170, info, false).food, 0.75); // the 0.75 clamp, not +0x378
+	// foodF in float steps (24-bit x87 control word, 0x7DEE0D)
+	EXPECT_EQ(villager::LoadFactors(0, 127, info, false).food, 1.0f);
+	EXPECT_EQ(Bits(villager::LoadFactors(0, 128, info, false).food), 0x3F7F258Cu); // 0.99666667
+	EXPECT_EQ(Bits(villager::LoadFactors(0, 140, info, false).food), 0x3F6AAAABu); // 0.916666687
+	EXPECT_EQ(Bits(villager::LoadFactors(0, 150, info, false).food), 0x3F59999Au); // 0.850000024
+	EXPECT_EQ(villager::LoadFactors(0, 170, info, false).food, 0.75f); // the 0.75 clamp, not +0x378
 	// the trader (disciple 9): 500 / 500, so wood 250 gives 1.75 - 0.5 -> 1
 	EXPECT_EQ(villager::LoadFactors(250, 0, info, true).wood, 1.0f);
 }
@@ -453,25 +454,26 @@ TEST_F(VillagerResourcesTest, TownNeeds)
 {
 	const auto& info = Info();
 	TownDesire desire;
-	EXPECT_NEAR(villager::TownNeedsFactor(town_desire::TownNeedsSum(desire), info), 0.850000024, 1e-9);
+	// float steps (24-bit x87 control word, 0x7DEE0D)
+	EXPECT_EQ(villager::TownNeedsFactor(town_desire::TownNeedsSum(desire), info), 0.85f);
 	desire.raw.at(0) = 1.0f; // Food
 	desire.raw.at(1) = 1.0f; // Wood
-	EXPECT_NEAR(town_desire::TownNeedsSum(desire), 0.400000006, 1e-9);
-	EXPECT_NEAR(villager::TownNeedsFactor(town_desire::TownNeedsSum(desire), info), 1.050000027, 1e-9);
+	EXPECT_EQ(Bits(town_desire::TownNeedsSum(desire)), 0x3ECCCCCDu);                                  // 0.400000006
+	EXPECT_EQ(Bits(villager::TownNeedsFactor(town_desire::TownNeedsSum(desire), info)), 0x3F866667u); // 1.05000007
 	// ForPlaytime 2, ForChildren 8, ForRain 10, ForSun 11, Wonder 14, Relaxation 15, Sleep 16 are not summed
 	TownDesire others;
 	for (const size_t d : {2u, 8u, 10u, 11u, 14u, 15u, 16u})
 	{
 		others.raw.at(d) = 9.0f;
 	}
-	EXPECT_NEAR(villager::TownNeedsFactor(town_desire::TownNeedsSum(others), info), 0.850000024, 1e-9);
+	EXPECT_EQ(villager::TownNeedsFactor(town_desire::TownNeedsSum(others), info), 0.85f);
 	// a sum of 10 (S clamped to 1, the term to 0.5): 1.35; a negative one: 0.85
 	TownDesire high;
 	high.raw.at(5) = 10.0f;
-	EXPECT_NEAR(villager::TownNeedsFactor(town_desire::TownNeedsSum(high), info), 1.350000024, 1e-9);
+	EXPECT_EQ(Bits(villager::TownNeedsFactor(town_desire::TownNeedsSum(high), info)), 0x3FACCCCDu); // 1.35000002
 	TownDesire low;
 	low.raw.at(3) = -3.0f;
-	EXPECT_NEAR(villager::TownNeedsFactor(town_desire::TownNeedsSum(low), info), 0.850000024, 1e-9);
+	EXPECT_EQ(villager::TownNeedsFactor(town_desire::TownNeedsSum(low), info), 0.85f);
 }
 
 TEST_F(VillagerResourcesTest, AtStructureAddResource)
@@ -674,12 +676,12 @@ TEST_F(VillagerResourcesTest, FoodFromNothingAtTheTemporaryPot)
 
 TEST_F(VillagerResourcesTest, CheckSatisfyFoodDesire)
 {
-	// v5calc.py
-	EXPECT_NEAR(villager::DropOffScore(74, 150, 0.0f), 0.493315518, 1e-8);
-	EXPECT_NEAR(villager::DropOffScore(74, 150, 100.0f), 0.492271006, 1e-8);
+	// v5calc.py's formulas in float steps (24-bit x87 control word, 0x7DEE0D)
+	EXPECT_EQ(Bits(villager::DropOffScore(74, 150, 0.0f)), 0x3EFC93DBu);   // 0.493315548
+	EXPECT_EQ(Bits(villager::DropOffScore(74, 150, 100.0f)), 0x3EFC0AF3u); // 0.492271036
 	EXPECT_EQ(villager::DropOffFraction(150, 150), 0.0f);
-	EXPECT_NEAR(villager::DropOffFraction(149, 150), 0.00666666636f, 1e-9f);
-	EXPECT_NEAR(villager::DropOffFraction(-20, 150), 1.13333321f, 1e-6f);
+	EXPECT_EQ(Bits(villager::DropOffFraction(149, 150)), 0x3BDA7400u); // 0.00666666031
+	EXPECT_EQ(Bits(villager::DropOffFraction(-20, 150)), 0x3F911110u); // 1.13333321
 	// a town with no field, fish farm or flock: nothing held -> 0 (no 31)
 	const auto town = MakeTown(2);
 	auto a = MakeVillager();
@@ -713,8 +715,9 @@ TEST_F(VillagerResourcesTest, CreateDroppedResource)
 	ASSERT_TRUE(log.has_value());
 	EXPECT_EQ(log->carriedObject, 13);
 	EXPECT_EQ(log->multiplier, static_cast<float>(51.0 / 350.0));
-	// DeadTree::GetDefaultResource: 51 gives back 50, 100 gives 100
-	EXPECT_EQ(villager::DroppedLogValue(350, log->multiplier, 1.0f), 50);
+	// DeadTree::GetDefaultResource: 51 gives back 51 (350 x float(51 / 350) = 50.99999905 rounds to 51.0f under the
+	// 24-bit x87 control word, 0x7DEE0D), 100 gives 100
+	EXPECT_EQ(villager::DroppedLogValue(350, log->multiplier, 1.0f), 51);
 	EXPECT_EQ(villager::DroppedLogValue(350, villager::DroppedLogFor(13, 100, 50, 350.0f)->multiplier, 1.0f), 100);
 	// the entity: TREE_1 shown, wood 51 -> a log with TREE_1's mesh (347) and float(51 / 350), then DropWood(0)
 	const auto town = MakeTown();

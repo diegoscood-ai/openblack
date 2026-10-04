@@ -68,7 +68,7 @@ constexpr float k_DropOffMaxDistance = 500.0f;
 /// [0x8AB274] = 0.75: the lower clamp of both load factors (0x753AA1, 0x753AD1)
 constexpr float k_MinLoadFactor = 0.75f;
 /// [0x8AA3B4] = 0.5: the town-needs term's upper clamp (0x7539DF)
-constexpr double k_MaxTownNeedsTerm = 0.5;
+constexpr float k_MaxTownNeedsTerm = 0.5f;
 
 Registry& Entities()
 {
@@ -265,52 +265,53 @@ int32_t CarriedObjectFor(const CarriedInput& in)
 LoadFactor LoadFactors(int16_t wood, int16_t food, const GVillagerInfo& info, bool trader)
 {
 	// 0x7539F8..0x753A53: disciple 9 TRADER -> MaxTraderWood / FoodCarried (+0x278 / +0x274), else +0x268 / +0x264,
-	// each `fild qword` (the high dword 0: unsigned)
-	const double maxWood = static_cast<double>(trader ? info.maxTraderWoodCarried : info.maxWoodCarried);
-	const double maxFood = static_cast<double>(trader ? info.maxTraderFoodCarried : info.maxFoodCarried);
+	// each `fild qword` (the high dword 0: unsigned; exact in a float: at most 500 in info.dat)
+	// The x87 runs with a 24-bit precision control (fn_007DEE00, 0x7DEE0D): every step below rounds to float, on the
+	// stack too
+	const auto maxWood = static_cast<float>(trader ? info.maxTraderWoodCarried : info.maxWoodCarried);
+	const auto maxFood = static_cast<float>(trader ? info.maxTraderFoodCarried : info.maxFoodCarried);
 	// 0x753A57..0x753A81: (SpeedModWhenFullLoadOfWood (+0x374) + 1) - (movsx +0xF6) / MW, stored as a float
 	// (openblack, test-only guard) a capacity of 0 (only the tests' zero-filled infos; info.dat has 150 / 250 / 500 in
 	// all 63 records) gives no load term; the original would give 0.75 there (0 / 0 = NaN, then the clamp)
-	const double woodLoad = maxWood != 0.0 ? static_cast<double>(wood) / maxWood : 0.0;
-	const double foodLoad = maxFood != 0.0 ? static_cast<double>(food) / maxFood : 0.0;
-	float woodF = static_cast<float>(static_cast<double>(info.speedModWhenFullLoadOfWood) + 1.0 - woodLoad);
-	// 0x753A85..0x753A9B: (SpeedModWhenFullLoadOfFood (+0x378) + 1) - (movsx +0xF4) / MF, kept on the x87 stack
-	double foodF = static_cast<double>(info.speedModWhenFullLoadOfFood) + 1.0 - foodLoad;
+	const float woodLoad = maxWood != 0.0f ? static_cast<float>(wood) / maxWood : 0.0f;
+	const float foodLoad = maxFood != 0.0f ? static_cast<float>(food) / maxFood : 0.0f;
+	float woodF = (info.speedModWhenFullLoadOfWood + 1.0f) - woodLoad;
+	// 0x753A85..0x753A9B: (SpeedModWhenFullLoadOfFood (+0x378) + 1) - (movsx +0xF4) / MF, kept on the x87 stack (float
+	// precision, 0x7DEE0D)
+	float foodF = (info.speedModWhenFullLoadOfFood + 1.0f) - foodLoad;
 	// 0x753A9D..0x753AC9: woodF < 0.75 (0x8AB274) -> 0.75; > 1 -> 1
 	woodF = woodF < k_MinLoadFactor ? k_MinLoadFactor : woodF > 1.0f ? 1.0f : woodF;
 	// 0x753AD1..0x753AF7: the same for foodF, with 0.75 too (not +0x378)
-	const auto minFood = static_cast<double>(k_MinLoadFactor);
-	foodF = foodF < minFood ? minFood : foodF > 1.0 ? 1.0 : foodF;
+	foodF = foodF < k_MinLoadFactor ? k_MinLoadFactor : foodF > 1.0f ? 1.0f : foodF;
 	return {woodF, foodF};
 }
 
-double TownNeedsFactor(double townNeedsSum, const GVillagerInfo& info)
+float TownNeedsFactor(float townNeedsSum, const GVillagerInfo& info)
 {
 	// 0x7539C2..0x7539F4: S / DivisorForTownNeedsSpeedMod (+0x370); < 0 -> 0; > 0.5 -> 0.5; + BaseForTownNeedsSpeedMod
 	// (+0x36C, read at 0x7539AE)
 	// (openblack, test-only guard) a divisor of 0 (only the tests' zero-filled infos; info.dat has 2.0) gives no term;
-	// the original would give 0.5 there (S / 0 = inf, then the clamp)
-	const auto divisor = static_cast<double>(info.divisorForTownNeedsSpeedMod);
-	double term = divisor != 0.0 ? townNeedsSum / divisor : 0.0;
-	term = term < 0.0 ? 0.0 : term > k_MaxTownNeedsTerm ? k_MaxTownNeedsTerm : term;
-	return term + static_cast<double>(info.baseForTownNeedsSpeedMod);
+	// the original would give 0.5 there (S / 0 = inf, then the clamp). On the x87 stack at float precision (0x7DEE0D)
+	const float divisor = info.divisorForTownNeedsSpeedMod;
+	float term = divisor != 0.0f ? townNeedsSum / divisor : 0.0f;
+	term = term < 0.0f ? 0.0f : term > k_MaxTownNeedsTerm ? k_MaxTownNeedsTerm : term;
+	return term + info.baseForTownNeedsSpeedMod;
 }
 
 float DropOffFraction(int16_t capacity, uint32_t maxFoodCarried)
 {
 	// 0x75A031..0x75A058: fild (movsx) capacity; fadd 1e-5; fild qword MaxFoodCarried; fadd 1e-5; fdivp; fsubr 1;
-	// fstp float
-	const auto eps = static_cast<double>(k_DropOffEpsilon);
-	return static_cast<float>(1.0 - (static_cast<double>(capacity) + eps) / (static_cast<double>(maxFoodCarried) + eps));
+	// fstp float; every step at float precision (24-bit x87 control word, 0x7DEE0D)
+	return 1.0f - (static_cast<float>(capacity) + k_DropOffEpsilon) /
+	                  (static_cast<float>(maxFoodCarried) + k_DropOffEpsilon);
 }
 
-double DropOffScore(int16_t held, uint32_t maxFoodCarried, float distance)
+float DropOffScore(int16_t held, uint32_t maxFoodCarried, float distance)
 {
 	// GetFoodCapacity 0x7514D0: the 16-bit Max - held
 	const auto capacity = static_cast<int16_t>(static_cast<uint16_t>(maxFoodCarried) - static_cast<uint16_t>(held));
-	// 0x75A061..0x75A07C: GetDistanceModifier(distance, 500) x frac
-	return static_cast<double>(gutils::GetDistanceModifier(distance, k_DropOffMaxDistance)) *
-	       static_cast<double>(DropOffFraction(capacity, maxFoodCarried));
+	// 0x75A061..0x75A07C: GetDistanceModifier(distance, 500) x frac (on the x87 stack: float precision, 0x7DEE0D)
+	return gutils::GetDistanceModifier(distance, k_DropOffMaxDistance) * DropOffFraction(capacity, maxFoodCarried);
 }
 
 std::optional<DroppedLog> DroppedLogFor(int32_t carriedObject, int16_t wood, uint32_t minWoodToShowGraphic,
@@ -327,14 +328,14 @@ std::optional<DroppedLog> DroppedLogFor(int32_t carriedObject, int16_t wood, uin
 		return std::nullopt;
 	}
 	// 0x7509C6..0x7509E7: fild wood (stored as a float, exact); fdivr GetWoodValue (vt +0x664); fstp +0x9C
-	return DroppedLog {carriedObject, static_cast<float>(static_cast<double>(wood) / static_cast<double>(logWoodValue))};
+	return DroppedLog {carriedObject, static_cast<float>(wood) / logWoodValue};
 }
 
 int32_t DroppedLogValue(uint32_t woodValue, float multiplier, float scale)
 {
-	// DeadTree::GetDefaultResource 0x511330: fild qword woodValue; fmul +0x9C; fmul scale; __ftol (truncated)
-	return static_cast<int32_t>(static_cast<double>(woodValue) * static_cast<double>(multiplier) *
-	                            static_cast<double>(scale));
+	// DeadTree::GetDefaultResource 0x511330: fild qword woodValue; fmul +0x9C; fmul scale; __ftol (truncated); each fmul
+	// rounds to float (24-bit x87 control word, 0x7DEE0D; woodValue is exact in a float)
+	return static_cast<int32_t>(static_cast<float>(woodValue) * multiplier * scale);
 }
 
 // ---- carrying ----------------------------------------------------------------------------------------------------
@@ -582,6 +583,11 @@ glm::ivec2 GetResourceDropoffPos(entt::entity villager, ResourceType type)
 	}
 	// 0x753ED3..0x753EEB: no town -> my position
 	return me;
+}
+
+town_stores::TemporaryStore GetTemporaryStore(entt::entity town, const map_coords::MapCoords& from, ResourceType type)
+{
+	return TemporaryStore(town, from, type);
 }
 
 glm::ivec2 GetResourceNearestEdge(entt::entity object, [[maybe_unused]] ResourceType type, [[maybe_unused]] entt::entity villager)

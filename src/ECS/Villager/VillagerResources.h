@@ -73,20 +73,22 @@ struct CarriedInput
 /// Villager::SetStateCarriedObject 0x7501A0: the new +0xF1 (CARRIED_OBJECT)
 [[nodiscard]] int32_t CarriedObjectFor(const CarriedInput& in);
 /// SetStateSpeed 0x753A06..0x753AF7: the load factors, clamp(1 + SpeedModWhenFullLoad - held / Max, 0.75, 1); the wood
-/// one is stored as a float (0x753A81), the food one stays on the x87 stack (approximate: double)
+/// one is stored as a float (0x753A81), the food one stays on the x87 stack (float precision: the x87 control word is
+/// 24 bits, 0x7DEE0D)
 struct LoadFactor
 {
 	float wood {1.0f};
-	double food {1.0};
+	float food {1.0f};
 };
 [[nodiscard]] LoadFactor LoadFactors(int16_t wood, int16_t food, const GVillagerInfo& info, bool trader);
 /// SetStateSpeed 0x7539AE..0x7539F4: base (+0x36C) + clamp(S / divisor (+0x370), 0, 0.5), S = town_desire::TownNeedsSum
-/// (on the x87 stack: double)
-[[nodiscard]] double TownNeedsFactor(double townNeedsSum, const GVillagerInfo& info);
+/// (on the x87 stack: float precision, 0x7DEE0D)
+[[nodiscard]] float TownNeedsFactor(float townNeedsSum, const GVillagerInfo& info);
 /// CheckSatisfyFoodDesire 0x75A010..0x75A07C: frac = (float)(1 - (capacity + 1e-5) / (MaxFoodCarried + 1e-5)) (stored);
-/// GetDistanceModifier(distance, 500) x frac (on the x87 stack). `held` is +0xF4 (capacity = (int16)(max - held))
+/// GetDistanceModifier(distance, 500) x frac (on the x87 stack: float precision, 0x7DEE0D). `held` is +0xF4 (capacity =
+/// (int16)(max - held))
 [[nodiscard]] float DropOffFraction(int16_t capacity, uint32_t maxFoodCarried);
-[[nodiscard]] double DropOffScore(int16_t held, uint32_t maxFoodCarried, float distance);
+[[nodiscard]] float DropOffScore(int16_t held, uint32_t maxFoodCarried, float distance);
 /// CreateDroppedResource 0x750940's test and the log's wood multiplier (+0x9C, 0x7509C6..0x7509E7: (float)(wood /
 /// log.GetWoodValue)); nullopt when nothing is dropped (c0 <= 1 or >= 16, or wood <= MinWoodToShowGraphic)
 struct DroppedLog
@@ -96,7 +98,7 @@ struct DroppedLog
 };
 [[nodiscard]] std::optional<DroppedLog> DroppedLogFor(int32_t carriedObject, int16_t wood, uint32_t minWoodToShowGraphic,
                                                       float logWoodValue);
-/// DeadTree::GetDefaultResource 0x511330: ftol((qword)woodValue x +0x9C x scale) (x87)
+/// DeadTree::GetDefaultResource 0x511330: ftol((qword)woodValue x +0x9C x scale) (x87, float steps)
 [[nodiscard]] int32_t DroppedLogValue(uint32_t woodValue, float multiplier, float scale);
 
 // ---- carrying ----------------------------------------------------------------------------------------------------
@@ -151,6 +153,10 @@ uint16_t GetResourceFrom(entt::entity villager, entt::entity object, ResourceTyp
 /// point (the town's temporary pot of that type is made if it has none: a side effect, literal); without a town the
 /// villager's position
 [[nodiscard]] glm::ivec2 GetResourceDropoffPos(entt::entity villager, ResourceType type);
+/// Town::GetTemporaryResourceStorePotOrPos 0x73E900 (ecs::town_stores: the pot is made if the town has none), or the
+/// tests' (SetTemporaryStoreForTests). For DecideHowToGetWood 0x75F596 (VillagerBuild.cpp)
+[[nodiscard]] town_stores::TemporaryStore GetTemporaryStore(entt::entity town, const map_coords::MapCoords& from,
+                                                          ResourceType type);
 /// MultiMapFixed::GetResourceNearestEdge (vt +0x8D4): StoragePit 0x733400 = its GetArrivePos; MultiMapFixed 0x401590 ->
 /// GetResourcePos 0x401560 = its position (+0x14)
 [[nodiscard]] glm::ivec2 GetResourceNearestEdge(entt::entity object, ResourceType type, entt::entity villager);

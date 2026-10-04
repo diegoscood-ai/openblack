@@ -29,6 +29,8 @@
 #include "ECS/Registry.h"
 #include "ECS/Systems/Implementations/VillagerTeleport.h"
 #include "ECS/Systems/LivingActionSystemInterface.h"
+#include "ECS/Town/BuildingSites.h"
+#include "ECS/Villager/VillagerBuild.h"
 #include "ECS/Villager/VillagerCore.h"
 #include "ECS/Villager/VillagerDeath.h"
 #include "InfoConstants.h"
@@ -574,8 +576,17 @@ bool villager_worship::CheckWorshipActivity(entt::entity villager, bool requireR
 	{
 		return false;
 	}
-	// CheckNeededForWorshipSiteBuilding 0x76C930 is skipped. (inferido) openblack's sites are always built
-	if (!GotoWorshipSiteForWorship(villager))
+	// 0x76BB83: CheckNeededForWorshipSiteBuilding 0x76C930 == 1 -> no GotoWorshipSiteForWorship. Its site is the
+	// villager's (GetWorshipSite, not null here: the citadel's FindOrCreateWorshipSite 0x76C95A is not reached);
+	// 0x76C96D: Town::GetBuildingSiteInList(site) -> else 0; 0x76C981: SetTopState(163) (vt +0x8E8, push 0xA3);
+	// 0x76C98A: Villager::SetupBuildingObject(BuildingSite*) 0x7584B0 == 1 -> 1
+	bool building = false;
+	if (const auto buildingSite = building_sites::GetBuildingSiteInList(town, siteEntity); buildingSite != entt::null)
+	{
+		ecs::villager::SetTopState(villager, VillagerStates::DecideWhatToDo);
+		building = ecs::villager::SetupBuildingObject(villager, buildingSite) == 1;
+	}
+	if (!building && !GotoWorshipSiteForWorship(villager))
 	{
 		return false;
 	}

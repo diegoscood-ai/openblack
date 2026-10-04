@@ -168,6 +168,7 @@ entt::entity AbodeArchetype::Create(uint32_t townId, const glm::vec3& position, 
 	auto& registry = Locator::entitiesRegistry::value();
 	// (openblack) the Abode class's tap handlers, once (the vtable's InterfaceValidToTap / InterfaceTap)
 	abodes::RegisterTapHandler();
+	abodes::ConnectDrawMeshListener();
 
 	// If there is no town, assign to closest
 	if (registry.Context().towns.find(townId) == registry.Context().towns.end())

@@ -47,6 +47,9 @@ void InterfaceTap(entt::entity abode, const glm::vec3& handPosition);
 /// Abode::InterfaceValidToTap 0x406820 / InterfaceTap 0x406830 in ecs::hand_tap (Register<Abode>). Once: the later
 /// calls do nothing (hand_tap::Register appends without checking). AbodeArchetype::Create calls it
 void RegisterTapHandler();
+/// (openblack) the generated DrawMesh models (construction and FragMesh) are erased when their DrawMesh goes: the
+/// listener, connected at every abode's creation (idempotent) so the physics can rely on it
+void ConnectDrawMeshListener();
 
 // ---- life and damage -----------------------------------------------------------------------------------------------
 
@@ -143,7 +146,7 @@ bool Built(entt::entity building);
 /// The order in the .cpp
 void MakeFunctional(entt::entity building);
 /// MultiMapFixed::Repaired 0x52EC70 + Abode::Repaired 0x4047B0 (vt +0x8AC): the site's ToBeDeleted, RemoveDamage (vt
-/// +0x8B8, Abode 0x403F40: TODO(Fisicas), the FragMesh), +0x58 &= ~4, MakeFunctional with a town. True
+/// +0x8B8, Abode 0x403F40: physics::Buildings::RemoveDamage), +0x58 &= ~4, MakeFunctional with a town. True
 bool Repaired(entt::entity building);
 /// Abode::IncreaseLife(x) 0x405ED0 (vt +0x5BC): wasAbove = vt +0x894 < life; Object::IncreaseLife 0x637870 (cap 1);
 /// !wasAbove && vt +0x894 < the new life -> RestartBeingFunctional (vt +0x91C 0x401680). Returns the new life

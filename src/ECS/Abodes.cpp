@@ -480,6 +480,12 @@ void OnDrawMeshDestroyed(entt::registry& registry, entt::entity entity)
 }
 } // namespace
 
+void abodes::ConnectDrawMeshListener()
+{
+	// connected once per registry (entt's sink::connect disconnects the same listener first: idempotent)
+	Locator::entitiesRegistry::value().OnDestroy<DrawMesh>().connect<&OnDrawMeshDestroyed>();
+}
+
 bool abodes::HasDestructionMesh(entt::entity building)
 {
 	auto& registry = Locator::entitiesRegistry::value();
@@ -846,7 +852,10 @@ bool abodes::Repaired(entt::entity building)
 		building_sites::ToBeDeleted(a->buildingSite);
 		a = AbodeOf(building);
 	}
-	// RemoveDamage (vt +0x8B8, Abode 0x403F40). TODO(Fisicas): the FragMesh (BuildingDamage) has no "remove" API yet
+	// RemoveDamage (vt +0x8B8, Abode 0x403F40): the DestructionMesh goes and the whole model is drawn again
+	// (physics::Buildings::RemoveDamage; it redraws the construction itself when it had one)
+	physics::Buildings::RemoveDamage(building);
+	a = AbodeOf(building);
 	// 0x52EC8D: +0x58 &= ~4
 	a->buildFlags &= ~Abode::k_NotRepaired;
 	// Abode::Repaired 0x4047B0: with a town MakeFunctional
@@ -1063,6 +1072,15 @@ void abodes::RedrawConstruction(entt::entity building)
 	}
 	else
 	{
+		return;
+	}
+	if (AbodeOf(building) != nullptr && HasDestructionMesh(building))
+	{
+		// Abode::Draw 0x515F70 with a DestructionMesh: the physics' FragMesh plus the intact model partly built over it
+		// (RedrawBuilding), not MultiMapFixed::Draw's: its DrawMesh is the physics', left as it is
+		registry.Remove<AbodeConstructionDraw, NotDrawn>(building);
+		physics::Buildings::Redraw(building);
+		registry.SetDirty();
 		return;
 	}
 	const auto* mesh = registry.TryGet<const Mesh>(building);

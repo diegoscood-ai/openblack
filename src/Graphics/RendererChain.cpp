@@ -65,8 +65,7 @@ void Renderer::DrawPSysChain(RenderPass viewId, const Camera& camera, const psys
 		{
 			return;
 		}
-		const auto texture = entt::hashed_string(("raw/" + creator->texture).c_str());
-		const auto alphaTexture = entt::hashed_string(("raw/" + creator->texture + "a").c_str());
+		const auto [texture, alphaTexture] = RawTextureIds(creator->texture);
 		if (!textures.Contains(texture))
 		{
 			return;
@@ -151,12 +150,7 @@ void Renderer::DrawPSysChain(RenderPass viewId, const Camera& camera, const psys
 		{
 			return;
 		}
-		bgfx::VertexLayout layout;
-		layout.begin()
-		    .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
-		    .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
-		    .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true)
-		    .end();
+		const auto& layout = PSysQuadLayout();
 		const auto count = static_cast<uint32_t>(vertices.size());
 		if (bgfx::getAvailTransientVertexBuffer(count, layout) < count)
 		{

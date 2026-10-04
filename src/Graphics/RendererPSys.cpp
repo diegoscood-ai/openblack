@@ -36,6 +36,32 @@
 using namespace openblack;
 using namespace openblack::graphics;
 
+std::pair<entt::id_type, entt::id_type> Renderer::RawTextureIds(const std::string& texture) const
+{
+	if (const auto it = _rawTextureIds.find(texture); it != _rawTextureIds.end())
+	{
+		return it->second;
+	}
+	const std::pair<entt::id_type, entt::id_type> ids {entt::hashed_string(("raw/" + texture).c_str()),
+	                                                   entt::hashed_string(("raw/" + texture + "a").c_str())};
+	_rawTextureIds.emplace(texture, ids);
+	return ids;
+}
+
+const bgfx::VertexLayout& Renderer::PSysQuadLayout()
+{
+	static const bgfx::VertexLayout s_layout = [] {
+		bgfx::VertexLayout layout;
+		layout.begin()
+		    .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
+		    .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
+		    .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true)
+		    .end();
+		return layout;
+	}();
+	return s_layout;
+}
+
 void Renderer::DrawPSysSprites(std::span<const psys::Effect::DrawAtom> atoms, const Camera& camera, RenderPass viewId) const
 {
 	struct Vertex
@@ -55,9 +81,9 @@ void Renderer::DrawPSysSprites(std::span<const psys::Effect::DrawAtom> atoms, co
 	while (i < atoms.size())
 	{
 		const auto* creator = atoms[i].creator;
-		const auto texture = entt::hashed_string(("raw/" + creator->texture).c_str());
-		const auto alphaTexture = entt::hashed_string(("raw/" + creator->texture + "a").c_str());
+		const auto [texture, alphaTexture] = RawTextureIds(creator->texture);
 		std::vector<Vertex> vertices;
+		vertices.reserve(6 * (atoms.size() - i));
 		size_t j = i;
 		for (; j < atoms.size(); ++j)
 		{
@@ -113,12 +139,7 @@ void Renderer::DrawPSysSprites(std::span<const psys::Effect::DrawAtom> atoms, co
 		{
 			continue;
 		}
-		bgfx::VertexLayout layout;
-		layout.begin()
-		    .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
-		    .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
-		    .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true)
-		    .end();
+		const auto& layout = PSysQuadLayout();
 		const auto count = static_cast<uint32_t>(vertices.size());
 		if (bgfx::getAvailTransientVertexBuffer(count, layout) < count)
 		{

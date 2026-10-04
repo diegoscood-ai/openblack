@@ -105,6 +105,11 @@ class Renderer final: public RendererInterface
 	/// Sorted effect's sprite (or a run of them, each its own Z object, LH3DSprite::AddDrawing 0x840C70), or the sprites
 	/// of a Queued / Immediate effect between its other items (LH3DSprite::Draw 0x840530)
 	void DrawPSysSprites(std::span<const psys::Effect::DrawAtom> atoms, const Camera& camera, RenderPass viewId) const;
+	/// (openblack) the ids of "raw/<texture>" and "raw/<texture>a" (entt::hashed_string), made once per name: the PSys
+	/// draws asked them per run, building two strings each time
+	[[nodiscard]] std::pair<entt::id_type, entt::id_type> RawTextureIds(const std::string& texture) const;
+	/// (openblack) the position / uv / colour layout of the PSys world quads, built once
+	[[nodiscard]] static const bgfx::VertexLayout& PSysQuadLayout();
 	/// One chain ribbon (fn_0067B3F0, RendererChain.cpp): from its own Z object for a Sorted effect (fn_0067B380, the
 	/// joint n / 2), else inside its effect (fn_0067B370)
 	void DrawPSysChain(RenderPass viewId, const Camera& camera, const psys::Effect::DrawChain& chain) const;
@@ -298,6 +303,8 @@ private:
 	mutable bgfx::TextureHandle _landLightTexture = BGFX_INVALID_HANDLE;
 	mutable std::array<glm::vec4, 2> _hazeUniforms {}; ///< u_haze and u_hazeColour of the pass being drawn
 	mutable haze::Params _haze;                         ///< the haze of the pass being drawn (graphics::haze::Frame)
+	/// RawTextureIds' cache (draw-owned)
+	mutable std::unordered_map<std::string, std::pair<entt::id_type, entt::id_type>> _rawTextureIds;
 	mutable float _sunGlare {0.0f};                     ///< [0xFA2778]: sun glare visibility 0..255, smoothed
 	mutable std::unique_ptr<Clouds> _clouds;
 	mutable std::unique_ptr<Foliage> _foliage;

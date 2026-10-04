@@ -34,6 +34,17 @@ endif ()
 
 project(openblack VERSION 0.1.0)
 
+# Build memory (openblack, 2026-10-03): Ninja runs cores+2 jobs, and every link of the ~93 executables reads the whole
+# static openblack_lib (~480 MB), so many links at once ran out of RAM. Links go through a pool of
+# OPENBLACK_LINK_JOBS (other generators ignore job pools; this sets the JOB_POOLS property, so -DCMAKE_JOB_POOLS is
+# not used).
+set(OPENBLACK_LINK_JOBS 2 CACHE STRING "How many executables Ninja links at the same time")
+if (NOT OPENBLACK_LINK_JOBS GREATER 0)
+  set(OPENBLACK_LINK_JOBS 1)
+endif ()
+set_property(GLOBAL APPEND PROPERTY JOB_POOLS openblack_link_pool=${OPENBLACK_LINK_JOBS})
+set(CMAKE_JOB_POOL_LINK openblack_link_pool)
+
 # Configure C++ standard
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

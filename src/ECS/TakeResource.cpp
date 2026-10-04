@@ -21,8 +21,13 @@ using namespace openblack::ecs;
 
 void take_resource::TriggerSupplyHelpIfThrownByMe(entt::entity object)
 {
-	// 0x73376D / 0x77E7B6: Object +0x24 & 0x40 (in the physics) and SearchForPhysicsObject 0x646950 (the list
-	// 0xD47814, 0x1DC bytes each, by +0x18 the object) -> both are PhysicsObjects::Find
+	// 0x73376D / 0x77E7B6: Object +0x24 & 0x40 (IN_PHYSICS: PhysicsObjects::IsFlying; a resting proxy keeps its list
+	// entry with the bit cleared, 0x6375A0 / 0x645EE0), then SearchForPhysicsObject 0x646950 (the list 0xD47814,
+	// 0x1DC bytes each, by +0x18 the object: PhysicsObjects::Find)
+	if (!physics::PhysicsObjects::IsFlying(object))
+	{
+		return;
+	}
 	const auto* po = physics::PhysicsObjects::Find(object);
 	// 0x733780..0x733796 / 0x77E7D2..0x77E7DD: PhysicsObject +0x24 (its GInterfaceStatus) == MyInterfaceStatus 0x555880
 	if (po == nullptr || !po->byPlayer)

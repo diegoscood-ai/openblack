@@ -60,6 +60,7 @@ public:
 		TurnPhysicsObjects,
 		TurnParticles,
 		MagicFrame,
+		PreDraw,
 
 		_count,
 	};
@@ -101,6 +102,7 @@ public:
 	    "Turn: Physics",        //
 	    "Turn: Particles",      //
 	    "Magic (frame)",        //
+	    "Pre Draw",             //
 	};
 
 private:

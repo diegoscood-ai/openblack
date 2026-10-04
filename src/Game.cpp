@@ -1806,7 +1806,10 @@ bool Game::Run() noexcept
 			    .drawBoundingBoxes = config.drawBoundingBoxes,
 			    .wireframe = config.wireframe,
 			};
-			Locator::rendererInterface::value().PreDraw(drawDesc);
+			{
+				auto preDraw = profiler.BeginScoped(Profiler::Stage::PreDraw);
+				Locator::rendererInterface::value().PreDraw(drawDesc);
+			}
 			Locator::rendererInterface::value().DrawScene(drawDesc);
 		}
 

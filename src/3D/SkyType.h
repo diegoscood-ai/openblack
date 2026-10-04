@@ -51,7 +51,7 @@ void SetThresholds(float a, float b, float c, float d);
 
 /// fn_0086A2C0: the hour brought into [0, 24) (0x86A2C4..0x86A308), [0xFA26C4] = hour (0x86A310) and [0xFA26BC] =
 /// Time2SkyType(hour) (0x86A31C). DrawSky 0x5E21FD..0x5E2226 calls it once a frame with GLandAlignement::VisualTime
-/// [0xBF3380]: Renderer::DrawScene does, before the land light table and the dome.
+/// [0xBF3380]: Renderer::PreDraw does, before the land light table and the dome.
 void SampleFrame(float visualHour);
 /// [0xFA26BC], the sky type of the last SampleFrame (0 before the first one, .bss)
 [[nodiscard]] float Frame();

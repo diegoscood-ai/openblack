@@ -122,8 +122,10 @@ public:
 	virtual void Reset(glm::u16vec2 resolution) const noexcept = 0;
 	/// (openblack engine) a new land: what the draw would load lazily (chimney smoke alpha, the foliage mod)
 	virtual void PreloadForLand() const noexcept = 0;
-	/// (openblack engine) the frame's writes of the draw (sky type, dome, land light, light, shadows, clouds), on the
-	/// logic side, just before DrawScene, which then only reads
+	/// (openblack engine) the frame's writes of the draw, on the logic side, just before DrawScene, which then only
+	/// reads: the sky type, the dome, the land light table, the frame's light, the dynamic shadows, the clouds (and
+	/// their collection), the haze, the foliage, the PSys surface creators, the mists, the chimney smoke, the rain and
+	/// the influence border
 	virtual void PreDraw(const DrawSceneDesc& drawDesc) const noexcept = 0;
 	virtual void DrawScene(const DrawSceneDesc& drawDesc) const noexcept = 0;
 	/// The size of the Main view (ConfigureView), what the overlays are laid out for; 0 x 0 before it.

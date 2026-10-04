@@ -1213,7 +1213,7 @@ void openblack::ecs::UpdateTrees(float seconds)
 	// Tree::PreDraw 0x74A883: b = 200 + 55 x (horizontal view direction . normalize(camera focus - light position)),
 	// floored at 200, and Tree::Draw multiplies the tree's colour by b/256. The light is the one LH3DTech keeps
 	// [0xEA9E90], the same one every model is lit with (src/Graphics/ModelLight.h), placed once a frame by fn_005E5830
-	// from Renderer::DrawScene, which runs after this, so the trees use the last frame's as in the original: by day the
+	// from Renderer::PreDraw, which runs after this, so the trees use the last frame's as in the original: by day the
 	// default sun 0xEA1C88 = (-500000, 500000, -500000), and only in full night (sky type > 1.5, [0x8C5838]) 3 units
 	// from the player's hand towards the camera.
 	const auto light = model_light::Light();

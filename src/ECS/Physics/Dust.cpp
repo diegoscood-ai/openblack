@@ -19,9 +19,6 @@
 
 #include "3D/FrameAnim.h"
 #include "Common/GameRandom.h"
-#include "ECS/Components/Sprite.h"
-#include "ECS/Components/Transform.h"
-#include "ECS/Registry.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "Graphics/Lh3dColour.h"
 #include "Graphics/Texture2D.h"
@@ -31,7 +28,6 @@
 #include "Resources/ResourcesInterface.h"
 
 using namespace openblack;
-using namespace openblack::ecs::components;
 using namespace openblack::ecs::physics;
 
 namespace
@@ -41,11 +37,11 @@ constexpr float k_Life = 1.0f;
 
 struct Puff
 {
-	entt::entity entity;
 	glm::vec3 velocity;
 	float size;
 	float age;
 	uint32_t seed; ///< rand % 16 of the cell
+	DustParticleDraw draw; ///< what is drawn, from the last Update (the Sprite + Transform of the puff's entity before)
 };
 std::vector<Puff> g_Puffs;
 
@@ -121,13 +117,9 @@ void Dust::Emit(glm::vec3 at, glm::vec3 velocity, uint32_t argb, float size)
 	const glm::vec4 colour = lh3d_colour::ToVec4(argb);
 	const float a = colour.a;
 	const glm::vec3 rgb(colour);
-	auto& registry = Locator::entitiesRegistry::value();
-	const auto entity = registry.Create();
-	// normal blending with the tint premultiplied by its alpha
-	registry.Assign<Sprite>(entity, *texture, CellUv(16 + seed), glm::vec2(1.0f / 8.0f), glm::vec4(rgb * a, a), false);
-	registry.Assign<Transform>(entity, at, glm::mat3(1.0f), glm::vec3(0.0f));
-	g_Puffs.push_back({entity, velocity, size, 0.0f, seed});
-	registry.SetDirty();
+	// normal blending with the tint premultiplied by its alpha; size 0 until the first Update
+	const DustParticleDraw draw {*texture, at, 0.0f, CellUv(16 + seed), glm::vec2(1.0f / 8.0f), glm::vec4(rgb * a, a)};
+	g_Puffs.push_back({velocity, size, 0.0f, seed, draw});
 }
 
 void Dust::Update(float seconds)
@@ -136,33 +128,34 @@ void Dust::Update(float seconds)
 	{
 		return;
 	}
-	auto& registry = Locator::entitiesRegistry::value();
 	for (auto& puff : g_Puffs)
 	{
 		puff.age += seconds;
 		// fn_00846010: age += dt, gone once past the kind's life (kind 4: 1 s; 0: 3 s; others 2 s), before moving
-		if (puff.age > k_Life || !registry.Valid(puff.entity))
+		if (puff.age > k_Life)
 		{
-			if (registry.Valid(puff.entity))
-			{
-				registry.Destroy(puff.entity);
-			}
-			puff.entity = entt::null;
 			continue;
 		}
-		auto& transform = registry.Get<Transform>(puff.entity);
-		transform.position += puff.velocity * seconds;
+		puff.draw.position += puff.velocity * seconds;
 		// half size = size x (1 - age) x min(1, age / 0.125)
-		const float half = puff.size * (1.0f - puff.age) * std::min(1.0f, puff.age / 0.125f);
-		transform.scale = glm::vec3(half);
+		puff.draw.halfSize = puff.size * (1.0f - puff.age) * std::min(1.0f, puff.age / 0.125f);
 		// cell 16 + ((rand % 16 + (int)(2 age)) & 15) (frame_anim::DustCell)
-		registry.Get<Sprite>(puff.entity).uvMin = CellUv(graphics::frame_anim::DustCell(puff.seed, puff.age));
+		puff.draw.uvMin = CellUv(graphics::frame_anim::DustCell(puff.seed, puff.age));
 	}
-	std::erase_if(g_Puffs, [](const Puff& p) { return p.entity == entt::null; });
-	registry.SetDirty();
+	std::erase_if(g_Puffs, [](const Puff& p) { return p.age > k_Life; });
 }
 
 void Dust::Clear()
 {
 	g_Puffs.clear();
+}
+
+void Dust::Snapshot(std::vector<DustParticleDraw>& out)
+{
+	out.clear();
+	out.reserve(g_Puffs.size());
+	for (const auto& puff : g_Puffs)
+	{
+		out.push_back(puff.draw);
+	}
 }

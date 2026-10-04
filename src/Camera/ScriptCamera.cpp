@@ -20,6 +20,7 @@
 
 #include "3D/CameraTracks.h"
 #include "3D/LandIslandInterface.h"
+#include "3D/ObjectMatrix.h"
 #include "3D/TempleInteriorInterface.h"
 #include "Camera.h"
 #include "CameraShake.h"
@@ -306,8 +307,8 @@ void UpdateDualMode(State& state, DualMode& mode)
 	float heading = mode.heading;
 	if (static_cast<double>(std::abs(v.x)) > k_DualFlatEpsilon || static_cast<double>(std::abs(v.z)) > k_DualFlatEpsilon)
 	{
-		const float horizontal = v.x * v.x + v.z * v.z;
-		heading = mode.heading - (horizontal > k_NoHeadingSquared ? ArcTan2(-v.z, v.x) : 0.0f);
+		// call 0x7FAA50 (0x462117), its value still on the FPU stack: fsubr [esi + 0x20] (24 bits, 0x46211C); fstp 0x462122
+		heading = static_cast<float>(static_cast<double>(mode.heading) - lh_matrix::GetYAngle(v));
 	}
 	// 0x462126..0x462318: SetPointFromPointDistanceHeadingAndPitch 0x442810 from the focus; the position heads for it
 	// (0x407D60 on x and y, its inline copy on z)
@@ -621,26 +622,6 @@ glm::vec3 PointFromDistanceHeadingAndPitch(const glm::vec3& p, float distance, f
 	return {x, y, z};
 }
 
-float ArcTan2(float x, float y)
-{
-	// fn_007FA990 (the symbols call it ??GLHPoint): fpatan with st1 = the quotient, st0 = 1
-	if (!(x < y) && !(-y > x)) // 0x7FA990..0x7FA9AE: x >= |y|
-	{
-		return std::atan(y / x);
-	}
-	if (!(y < x) && !(-x > y)) // 0x7FA9BD..0x7FA9DB: y >= |x|
-	{
-		return static_cast<float>(1.5707963705062866 - static_cast<double>(std::atan(x / y))); // [0x8C7B48]
-	}
-	if (!(-y < x) && x < y) // 0x7FA9F0..0x7FAA0E: x <= -|y|
-	{
-		const double turn = 3.1415927410125732; // [0x8D45D0]
-		const double a = std::atan(y / x);
-		return static_cast<float>(y < 0.0f ? a - turn : a + turn); // 0x7FAA10..0x7FAA34
-	}
-	return static_cast<float>(-1.5707963705062866 - static_cast<double>(std::atan(x / y))); // [0x9361E8], 0x7FAA3B
-}
-
 void HeadingAndPitchFromPoints(const glm::vec3& a, const glm::vec3& b, float& heading, float& pitch)
 {
 	const glm::vec3 v = a - b; // 0x4428D3..0x4428F3
@@ -650,13 +631,11 @@ void HeadingAndPitchFromPoints(const glm::vec3& a, const glm::vec3& b, float& he
 		pitch = k_VerticalPitch; // 0x44292B: 0x3FC50A6B
 		return;
 	}
-	// fn_007FAA50 (the symbols call it SetUnitDirectionVectorFromScreenPoint): 0 when x^2 + z^2 <= 1e-6, else
-	// fn_007FA990(-z, x)
-	const float horizontal = v.x * v.x + v.z * v.z;
-	const float direction = horizontal > k_NoHeadingSquared ? ArcTan2(-v.z, v.x) : 0.0f;
-	heading = k_Pi - direction; // fsubr [0x8C36A0]
-	// 0x442950..0x442976: fn_007FA990(sqrt(z^2 + x^2), y)
-	pitch = ArcTan2(std::sqrt(v.z * v.z + v.x * v.x), v.y);
+	// fn_007FAA50 (the symbols call it SetUnitDirectionVectorFromScreenPoint), call 0x44293A: 0 when x^2 + z^2 <= 1e-6,
+	// else fn_007FA990(-z, x); its value still on the FPU stack: fsubr [0x8C36A0] (24 bits, 0x44293F); fstp 0x44294D
+	heading = static_cast<float>(static_cast<double>(k_Pi) - lh_matrix::GetYAngle(v));
+	// 0x442950..0x442976: fn_007FA990(sqrt(z^2 + x^2), y) (call 0x44296D), fstp dword 0x442976
+	pitch = static_cast<float>(lh_matrix::ArcTanOctant(std::sqrt(v.z * v.z + v.x * v.x), v.y));
 }
 
 glm::vec3 FollowPoint(const ThingInfo& thing, bool update)

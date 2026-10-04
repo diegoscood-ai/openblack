@@ -42,20 +42,6 @@ using namespace components;
 
 namespace
 {
-float Wrap(float angle)
-{
-	// fn_007FAAF0: once into [-pi, pi]
-	if (angle > glm::pi<float>())
-	{
-		angle -= glm::two_pi<float>();
-	}
-	else if (angle < -glm::pi<float>())
-	{
-		angle += glm::two_pi<float>();
-	}
-	return angle;
-}
-
 float Ground(const LandIslandInterface& island, float x, float z)
 {
 	return island.GetHeightAt(glm::vec2(x, z));
@@ -159,7 +145,8 @@ void UpdateMobileDrawing(float turnFraction, float milliseconds)
 				draw.yaw = yaw;
 				draw.hasYaw = true;
 			}
-			const float d = Wrap(Wrap(yaw) - draw.yaw);
+			// fn_007FAAF0 0x7FAAF0 (lh_matrix::WrapAngle): once into [-pi, pi]
+			const float d = lh_matrix::WrapAngle(lh_matrix::WrapAngle(yaw) - draw.yaw);
 			float rate = 0.003f;
 			if (std::abs(d) > glm::half_pi<float>())
 			{
@@ -174,7 +161,7 @@ void UpdateMobileDrawing(float turnFraction, float milliseconds)
 			{
 				draw.yaw += d > 0.0f ? step : -step;
 			}
-			draw.yaw = Wrap(draw.yaw);
+			draw.yaw = lh_matrix::WrapAngle(draw.yaw);
 			// the same rotation the pathfinding gives the transform (InitializeStep: AngleY(angle + 90 degrees))
 			draw.rotation = lh_matrix::AngleY(draw.yaw + glm::half_pi<float>());
 		}

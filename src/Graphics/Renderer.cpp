@@ -62,6 +62,7 @@
 #include "ECS/Components/Sprite.h"
 #include "ECS/Components/Stream.h"
 #include "ECS/Physics/Buildings.h"
+#include "ECS/Physics/Dust.h"
 #include "ECS/Physics/FragMesh.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
@@ -2464,6 +2465,7 @@ struct ZObject
 	bool morphWithTerrain {false};
 	bool fading {false};
 	entt::entity sprite {entt::null};
+	int dust {-1}; ///< a puff of the pass's dust list (ecs::physics::Dust::Snapshot), drawn as the sprites
 	/// a sprite of a Sorted effect (manager::SortedFrame::sprites): LH3DSprite::AddDrawing 0x840C70 from 0x67B0D2
 	int psysSprite {-1};
 	/// a mesh atom of a Sorted effect (RenderContext::psysAtoms), opaque or not: fn_00679F60 from 0x67A246
@@ -2483,8 +2485,8 @@ struct ZObject
 	/// shadows inside it (DrawShadowsOnObject); a new kind must be added here too
 	[[nodiscard]] bool IsModel() const
 	{
-		return sprite == entt::null && psysSprite < 0 && psysMesh < 0 && psysChain < 0 && queuedEffect < 0 && mist < 0 &&
-		       smoke < 0 && cloud < 0 && rain < 0 && boat < 0 && ripple < 0;
+		return sprite == entt::null && dust < 0 && psysSprite < 0 && psysMesh < 0 && psysChain < 0 && queuedEffect < 0 &&
+		       mist < 0 && smoke < 0 && cloud < 0 && rain < 0 && boat < 0 && ripple < 0;
 	}
 };
 
@@ -2809,6 +2811,15 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 			                                   {.writeAlpha = true, .premultiplied = true}));
 
 			bgfx::submit(static_cast<bgfx::ViewId>(viewId), toBgfx(spriteShader->GetRawHandle()));
+		};
+		// the physics' dust puffs: a list taken from the game (ecs::physics::Dust::Snapshot), each drawn as the
+		// components::Sprite + Transform it was (identity rotation, the half size in x / y, normal blending)
+		static std::vector<ecs::physics::DustParticleDraw> s_dust; // refilled every pass, kept for its capacity
+		ecs::physics::Dust::Snapshot(s_dust);
+		const auto drawDust = [&drawSprite](const ecs::physics::DustParticleDraw& puff, RenderPass viewId) {
+			const ecs::components::Sprite sprite {puff.texture, puff.uvMin, puff.uvExtent, puff.tint, false};
+			const ecs::components::Transform transform {puff.position, glm::mat3(1.0f), glm::vec3(puff.halfSize)};
+			drawSprite(sprite, transform, viewId);
 		};
 		// LH3DSprite::Draw also goes to the Z-sorter: in the main pass the sprites are sorted with the blended models
 		const bool spritesSorted = desc.drawEntities && desc.drawSprites && desc.viewId == graphics::RenderPass::Main;
@@ -3252,6 +3263,11 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					    // LH3DSprite::AddDrawing 0x840C70: the sprite's +0/+4/+8, (x^2 + y^2) + z^2
 					    sorted.Submit({.sprite = entity}, zsorter::Key(transform.position, cameraOrigin));
 				    });
+				// the dust, the same key (it came in the loop above while its puffs were entities)
+				for (size_t i = 0; i < s_dust.size(); ++i)
+				{
+					sorted.Submit({.dust = static_cast<int>(i)}, zsorter::Key(s_dust[i].position, cameraOrigin));
+				}
 			}
 			if (mistsSorted)
 			{
@@ -3308,7 +3324,7 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 					                    : z.queuedEffect >= 0 ? 7
 					                    : z.mist >= 0         ? 8
 					                    : z.smoke >= 0        ? 9
-					                    : z.sprite != entt::null ? 10
+					                    : z.sprite != entt::null || z.dust >= 0 ? 10
 					                    : z.meshId == ecs::components::Hand::k_MeshId && !z.fading ? 11
 					                    : z.fading                                                 ? 12
 					                    : z.IsModel()                                              ? 0
@@ -3482,6 +3498,11 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 						drawSprite(sprite, transform, k_Blended);
 						continue;
 					}
+					if (instance.dust >= 0)
+					{
+						drawDust(s_dust[static_cast<size_t>(instance.dust)], k_Blended);
+						continue;
+					}
 					if (!instance.IsModel())
 					{
 						continue;
@@ -3558,6 +3579,10 @@ void Renderer::DrawPass(const DrawSceneDesc& desc) const
 				    [&drawSprite, &desc](const Sprite& sprite, const Transform& transform) {
 					    drawSprite(sprite, transform, desc.viewId);
 				    });
+				for (const auto& puff : s_dust)
+				{
+					drawDust(puff, desc.viewId);
+				}
 			}
 		}
 	}

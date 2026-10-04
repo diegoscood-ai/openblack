@@ -24,6 +24,17 @@ namespace
 {
 constexpr float k_MinDeterminant = 1e-10f; ///< [0xC371D4]
 
+// fn_007FA990's qword constants: float(pi / 2) and float(pi) as doubles (0x3FF921FB60000000, 0x400921FB60000000)
+constexpr double k_HalfPiF = 1.5707963705062866;       ///< [0x8C7B48]
+constexpr double k_MinusHalfPiF = -1.5707963705062866; ///< [0x9361E8]
+constexpr double k_PiF = 3.1415927410125732;           ///< [0x8D45D0]
+// fn_007FAA50 / fn_007FAAF0's dword constants
+constexpr float k_NoYAngle = 1e-6f;            ///< [0x9A2BAC] 0x358637BD
+constexpr float k_PiFloat = 3.14159274f;       ///< [0x8C36A0] 0x40490FDB
+constexpr float k_MinusPiFloat = -3.14159274f; ///< [0x8C79A4] 0xC0490FDB
+constexpr float k_TwoPiFloat = 6.28318548f;    ///< [0x8AB210] 0x40C90FDB
+static_assert(static_cast<double>(k_PiFloat) == k_PiF && static_cast<double>(k_PiFloat / 2.0f) == k_HalfPiF);
+
 /// A value of the FPU stack (fsin / fcos, extended) times a float, rounded once to 24 bits by the fmul
 float Mul(double extended, float value)
 {
@@ -221,6 +232,54 @@ glm::mat3 lh_matrix::AxisAngle(const glm::vec3& axis, float a)
 	m[1][2] = v - sx;                 // [ecx + 0x14] 0x7FB257..0x7FB25B
 	m[2][2] = Mul(c, 1.0f - zz) + zz; // 0x7FB25E..0x7FB26E
 	return m;
+}
+
+double lh_matrix::ArcTanOctant(float a, float b)
+{
+	// the fcomp / fnstsw / test pairs: `test ah, 1` = C0 (less or unordered), `test ah, 0x41` = C0 | C3 (also equal);
+	// written so that a NaN takes the same branch as in the original
+	if (a >= b && !(-b > a)) // 0x7FA990..0x7FA99D (fcomp b; test ah 1; jne), 0x7FA99F..0x7FA9AE (-b; test ah 0x41; je)
+	{
+		return std::atan(static_cast<double>(b / a)); // fdiv 0x7FA9B4; fld1; fpatan 0x7FA9BA (not rounded)
+	}
+	if (b >= a && !(-a > b)) // 0x7FA9BD..0x7FA9CA, 0x7FA9CC..0x7FA9DB
+	{
+		// fdiv 0x7FA9E1; fpatan 0x7FA9E7; fsubr 0x7FA9E9 (24 bits)
+		return static_cast<float>(k_HalfPiF - std::atan(static_cast<double>(a / b)));
+	}
+	if (-b >= a && !(a >= b)) // 0x7FA9F0..0x7FA9FF (-b; test ah 1; jne), 0x7FAA01..0x7FAA0E (fcomp b; test ah 1; je)
+	{
+		const double t = std::atan(static_cast<double>(b / a)); // fdiv 0x7FAA1E; fpatan 0x7FAA29
+		// fcomp [0x8AA398] 0x7FAA14, test ah 1 0x7FAA26: b < 0 -> fsub 0x7FAA34, else fadd 0x7FAA2D (24 bits)
+		return static_cast<float>(!(b >= 0.0f) ? t - k_PiF : t + k_PiF);
+	}
+	// 0x7FAA3B..0x7FAA47: fdiv; fpatan; fsubr (24 bits)
+	return static_cast<float>(k_MinusHalfPiF - std::atan(static_cast<double>(a / b)));
+}
+
+double lh_matrix::GetYAngle(const glm::vec3& v)
+{
+	const float xx = v.x * v.x;       // 0x7FAA5D..0x7FAA61
+	const float zz = v.z * v.z;       // 0x7FAA65..0x7FAA67
+	const float horizontal = xx + zz; // faddp 0x7FAA69
+	if (!(horizontal > k_NoYAngle))   // fcomp [0x9A2BAC] 0x7FAA6B; test ah 0x41; jne 0x7FAA91
+	{
+		return 0.0; // fld [0x8AA398] 0x7FAA91
+	}
+	return ArcTanOctant(-v.z, v.x); // 0x7FAA7A..0x7FAA88: [esp] = -z (fchs; fstp), [esp + 4] = x
+}
+
+float lh_matrix::WrapAngle(float a)
+{
+	if (a > k_PiFloat) // fcomp [0x8C36A0] 0x7FAAF4; test ah 0x41; jne 0x7FAB0C
+	{
+		return a - k_TwoPiFloat; // fsub [0x8AB210] 0x7FAB05
+	}
+	if (!(a >= k_MinusPiFloat)) // fcomp [0x8C79A4] 0x7FAB0C; test ah 1; je 0x7FAB24
+	{
+		return a + k_TwoPiFloat; // fadd [0x8AB210] 0x7FAB1D
+	}
+	return a; // fld a 0x7FAB24
 }
 
 glm::mat4x3 lh_matrix::Inverse(const glm::mat4x3& m)

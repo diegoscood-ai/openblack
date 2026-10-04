@@ -21,6 +21,7 @@
 #include <glm/geometric.hpp>
 #include <gtest/gtest.h>
 
+#include "3D/ObjectMatrix.h"
 #include "Camera/ScriptCamera.h"
 
 using namespace openblack;
@@ -262,12 +263,12 @@ TEST(ScriptCameraFollow, PointFromDistanceHeadingAndPitch)
 
 TEST(ScriptCameraFollow, ArcTan2ByOctants)
 {
-	// fn_007FA990(x, y) is atan2(y, x) in each octant
+	// fn_007FA990(x, y) (lh_matrix::ArcTanOctant, stored as a float by the camera's fstp) is atan2(y, x) in each octant
 	for (const float x : {-3.0f, -1.0f, -0.25f, 0.25f, 1.0f, 3.0f})
 	{
 		for (const float y : {-3.0f, -1.0f, -0.25f, 0.0f, 0.25f, 1.0f, 3.0f})
 		{
-			EXPECT_NEAR(script_camera::ArcTan2(x, y), std::atan2(y, x), 1e-5f) << x << " " << y;
+			EXPECT_NEAR(static_cast<float>(lh_matrix::ArcTanOctant(x, y)), std::atan2(y, x), 1e-5f) << x << " " << y;
 		}
 	}
 }

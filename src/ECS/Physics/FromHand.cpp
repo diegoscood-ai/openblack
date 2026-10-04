@@ -122,7 +122,8 @@ void PlaceWithoutBody(entt::entity entity)
 std::optional<bool> InitialisePhysicsFromHand(entt::entity entity, glm::vec3 velocity, bool dontReplant)
 {
 	// Object::InitialisePhysicsFromHand 0x636F00 (bw1-decomp src/Black/Object.cpp:447), from the hand (thrower NULL).
-	// Living 0x5EFD80 / Villager 0x5EFE90 add FLYING and the disciple around it (AddObject sets FLYING in openblack).
+	// Living 0x5EFD80 / Villager 0x5EFE90 add FLYING and the disciple around it: FLYING (the class's initialisePhysics)
+	// at the end, only when the object does not land (0x5EFDD7..0x5EFDEB).
 	// TODO(physics): the angular velocity (GInterfaceStatus::ThrowAngularVelocity) is 0.
 	auto& registry = Locator::entitiesRegistry::value();
 	const bool tree = registry.AnyOf<Tree, DeadTree>(entity); // IsAnyKindOfTree (vt +0x478)
@@ -138,6 +139,9 @@ std::optional<bool> InitialisePhysicsFromHand(entt::entity entity, glm::vec3 vel
 	// only raised out of the ground), ZeroForces, RaiseUntilNotIntersecting and PHYSICS_OBJECT_FLAG_FROM_HAND
 	const bool thrown = velocity.x * velocity.x + velocity.z * velocity.z > 4.0f;
 	po->body.AdjustToGroundLevel(thrown, !tree);
+	// AdjustToGroundLevel ends copying the matrix into the turn-start one (0x7FCE6B): a put-down villager's landType
+	// comes from the ground-aligned rows, not the hand's (RaiseUntilNotIntersecting does the same when it raises it)
+	PhysicsObjects::SyncTurnStart(*po);
 	const float oldAltitude = po->body.Centre().y;
 	po->body.ZeroForces();
 	PhysicsObjects::RaiseUntilNotIntersecting(*po);
@@ -201,6 +205,14 @@ std::optional<bool> InitialisePhysicsFromHand(entt::entity entity, glm::vec3 vel
 		// TODO(creature): Creature::CheckAllCreaturesForCatching 0x47CBD0.
 	}
 	// TODO(creature): a toy -> ConsiderMakingCreatureMimicPlayer(DETECTED_PLAYER_ACTION_PLAY_WITH_TOY) (0x637457).
+	// Living::InitialisePhysicsFromHand, once Object's has returned: po not NULL (test edi, edi 0x5EFDD3), not LANDED
+	// (test [po + 0x1D8], 8 0x5EFDD7) and po->object still this one (cmp [po + 0x18], esi 0x5EFDE0) -> SetTopState(FLYING
+	// 0xA) 0x5EFDEB. Find(entity) is the "still this one" (the ones taken out of the physics are gone), so a put-down
+	// villager or animal goes to LANDED through its EndPhysics without passing through FLYING.
+	if (auto* now = PhysicsObjects::Find(entity); now != nullptr && (now->flags & PhysicsObject::Landed) == 0)
+	{
+		PhysicsObjects::InitialisePhysicsOfClass(*now, true);
+	}
 	SPDLOG_LOGGER_INFO(spdlog::get("game"),
 	                   "Hand: released {} at ({:.1f}, {:.1f}, {:.1f}) v ({:.1f}, {:.1f}, {:.1f}) thrown {} tilt ({:.2f}, {:.2f}): {}",
 	                   static_cast<uint32_t>(entity), at.x, at.y, at.z, velocity.x, velocity.y, velocity.z, thrown, tilt.x, tilt.y,

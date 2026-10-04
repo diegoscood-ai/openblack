@@ -58,6 +58,7 @@
 #include "ECS/Registry.h"
 #include "3D/L3DMesh.h"
 #include "3D/LandIslandInterface.h"
+#include "3D/ObjectMatrix.h"
 #include "3D/DayNightClock.h"
 #include "Graphics/ModelLight.h"
 #include "Game.h"
@@ -572,14 +573,16 @@ entt::entity openblack::ecs::FellTree(entt::entity tree, entt::entity chopper)
 	// the direction from the forester to the tree (y 0) and its angle a = fn_007FAA50 = atan2(x, -z) (0 when shorter than
 	// sqrt(0.001)): velocity (sin a, 0, -cos a) k = k along that direction; spin (cos a, 0, sin a) x 0.4 rad/s
 	const glm::vec3 d(transform.position.x - from.x, 0.0f, transform.position.z - from.z);
-	// 0x51179E: |d|^2 <= 0.001 (0x8AA3B0) gives a = 0
-	const float a = glm::dot(d, d) <= 0.001f ? 0.0f : std::atan2(d.x, -d.z);
-	const glm::vec3 velocity(std::sin(a) * k, 0.0f, -std::cos(a) * k);
+	// 0x51179E: |d|^2 <= 0.001 (0x8AA3B0) gives a = 0 (fld [0x8AA398] 0x5117BE); else call 0x7FAA50 (0x5117A8), whose
+	// value stays on the FPU stack for the fsin / fcos (0x5117C4..0x5117F8): the double, not rounded to a float
+	const double a = glm::dot(d, d) <= 0.001f ? 0.0 : lh_matrix::GetYAngle(d);
+	const glm::vec3 velocity(static_cast<float>(std::sin(a) * k), 0.0f, static_cast<float>(-std::cos(a) * k));
 	// The spin is a BODY-space angular velocity: PhysicsObject::AddObject 0x6443A0 (0x6445DB-0x644691) builds the angular
 	// momentum as (w I) summed over the body matrix rows, the tree's matrix with its yaw (SetUpPos 0x63A603), so in world
 	// it is R x (cos a, 0, sin a) x 0.4. And PhysOb::Integrate 0x7FE260 turns the rows by R(w, angle), which is a turn by
 	// -angle in openblack's right-handed PhysOb (tmp_dis/physics/physob.md, "Sign convention"), so the axis is negated.
-	const glm::vec3 spin = -(transform.rotation * (0.4f * glm::vec3(std::cos(a), 0.0f, std::sin(a))));
+	const glm::vec3 spin =
+	    -(transform.rotation * (0.4f * glm::vec3(static_cast<float>(std::cos(a)), 0.0f, static_cast<float>(std::sin(a)))));
 
 	// DeadTree::DeadTree 0x510880 takes over the tree's 3D object (mesh, matrix, scale) and info; the roots do not break
 	// off (only Tree::EndPhysics sets that flag)
@@ -606,6 +609,7 @@ entt::entity openblack::ecs::FellTree(entt::entity tree, entt::entity chopper)
 		// (0x51186B: what a Living set moving; a villager's body does not hit it, Substep 0x64583E),
 		// RaiseUntilNotIntersecting 0x644800 and +0x1A4 = 2 (0x511883: a felled tree, its fall sounds at 0x6460D5)
 		po->body.AdjustToGroundLevel(false, true);
+		ecs::physics::PhysicsObjects::SyncTurnStart(*po); // AdjustToGroundLevel's copy into the turn-start matrix (0x7FCE6B)
 		po->flags |= ecs::physics::PhysicsObject::PushedByLiving;
 		ecs::physics::PhysicsObjects::RaiseUntilNotIntersecting(*po);
 		po->kind = 2;

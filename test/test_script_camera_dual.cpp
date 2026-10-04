@@ -24,6 +24,7 @@
 #include <glm/geometric.hpp>
 #include <gtest/gtest.h>
 
+#include "3D/ObjectMatrix.h"
 #include "Camera/CameraShake.h"
 #include "Camera/PlayerCameraScript.h"
 #include "Camera/ScriptCamera.h"
@@ -87,7 +88,7 @@ void ExpectedDual(const glm::vec3& a, float ha, std::optional<float> ra, const g
 	const float apart = std::sqrt((a.x - b.x) * (a.x - b.x) + (a.z - b.z) * (a.z - b.z));
 	const float distance = (apart + rb.value_or(30.0f) + ra.value_or(30.0f)) * factor + tallest * 1.4f;
 	const glm::vec3 v = b - a;
-	const float heading = script_camera::k_DualHeading - script_camera::ArcTan2(-v.z, v.x);
+	const auto heading = static_cast<float>(static_cast<double>(script_camera::k_DualHeading) - lh_matrix::GetYAngle(v));
 	position = script_camera::PointFromDistanceHeadingAndPitch(focus, distance, heading, script_camera::k_DualPitch);
 }
 

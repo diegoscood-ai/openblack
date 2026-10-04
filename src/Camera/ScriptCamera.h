@@ -82,8 +82,6 @@ constexpr float k_HalfPi = 1.57079637f;
 /// 0x3FC50A6B
 constexpr double k_VerticalEpsilon = 0.01;
 constexpr float k_VerticalPitch = 1.53938043f;
-/// fn_007FAA50 0x7FAA6B: dx^2 + dz^2 <= [0x9A2BAC] (0x358637BD) has no heading
-constexpr float k_NoHeadingSquared = 9.99999997e-07f;
 /// GetHeadingAndPitchFromPoints 0x44293F: [0x8C36A0] = 0x40490FDB
 constexpr float k_Pi = 3.14159274f;
 /// fn_006ED710: the facing heading's limit 8 pi ([0x942190] = 0x41C90FDB), 2 pi ([0x8AB210] = 0x40C90FDB) and the
@@ -264,11 +262,9 @@ using ThingReader = std::function<std::optional<ThingInfo>(entt::entity)>;
 [[nodiscard]] float ThingViewingDistance(float height);
 /// GCamera::SetPointFromPointDistanceHeadingAndPitch 0x442810: p + d (sin h cos q, sin q, cos h cos q)
 [[nodiscard]] glm::vec3 PointFromDistanceHeadingAndPitch(const glm::vec3& p, float distance, float heading, float pitch);
-/// fn_007FA990(x, y): the arc tangent of y / x by octants (fpatan of the smaller over the larger), as atan2(y, x)
-[[nodiscard]] float ArcTan2(float x, float y);
 /// GCamera::GetHeadingAndPitchFromPoints 0x4428D0(a, b): v = a - b; |v.x| and |v.z| < 0.01 -> heading 0, pitch 1.5393804;
-/// else heading = pi - fn_007FAA50(v) (0 when v.x^2 + v.z^2 <= 1e-6, else ArcTan2(-v.z, v.x)) and pitch =
-/// ArcTan2(sqrt(v.x^2 + v.z^2), v.y)
+/// else heading = pi - fn_007FAA50(v) (lh_matrix::GetYAngle: 0 when v.x^2 + v.z^2 <= 1e-6, else fn_007FA990(-v.z, v.x))
+/// and pitch = fn_007FA990(sqrt(v.x^2 + v.z^2), v.y) (lh_matrix::ArcTanOctant)
 void HeadingAndPitchFromPoints(const glm::vec3& a, const glm::vec3& b, float& heading, float& pitch);
 /// The point CameraModeFollow aims at for a thing: a flock's GetFlockPos with half its leader's height; anything else its
 /// MapCoords point (with `update`, CameraModeFollow::Update, the Game3DObject's position when it has one) and half its

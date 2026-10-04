@@ -24,7 +24,12 @@ namespace openblack::ecs::components
 /// Abode +0x90 DestructionMesh: a building a rock knocked pieces out of, drawn from its FragMesh.
 struct BuildingDamage
 {
-	std::shared_ptr<physics::FragMesh> mesh;
+	/// never changed once set (openblack, for the draw snapshot): an impact or a merge makes a new FragMesh and puts it
+	/// here (Buildings.cpp), so a FragMeshDraw taken earlier keeps the old one
+	std::shared_ptr<const physics::FragMesh> mesh;
+	/// the FragMesh's last hitter (the pass-through pair of Abode::ReactToPhysicsImpact; Abode::SetUpPhysOb 0x402DD0 and
+	/// fn_646D60 clear it). Kept here so that the FragMesh stays unchanged; it goes with the FragMesh (RemoveDamage)
+	entt::entity lastHitter {entt::null};
 	entt::id_type intactMesh {0}; ///< the building's own mesh: its Mesh component, which the damage never changes
 	/// the FragMesh's model (FragMesh::BuildMesh, with the partly built draw over it), drawn as the building's
 	/// components::DrawMesh while that DrawMesh holds this id. Kept here as well because the DrawMesh can be taken away
@@ -41,7 +46,7 @@ struct BuildingDamage
 /// up, and vanishes after 100 turns per triangle.
 struct Fragment
 {
-	std::shared_ptr<physics::FragMesh> mesh;
+	std::shared_ptr<const physics::FragMesh> mesh; ///< never changed once the fragment is made
 	entt::entity parent {entt::null};
 	entt::id_type generatedMesh {0};
 	int turnsLeft {0};

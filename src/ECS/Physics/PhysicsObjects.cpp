@@ -119,7 +119,7 @@ size_t g_Capacity = 0;
 std::array<PhysicsObjects::ClassHandlers, static_cast<size_t>(PhysicsClass::_Count)> g_ClassHandlers;
 
 PhysicsObject* Add(entt::entity entity, glm::vec3 velocity, glm::vec3 angularVelocity, entt::entity thrower, bool fromHand,
-                   bool spreadReaction);
+                   bool spreadReaction, bool initialiseClass);
 
 const PhysicsObjects::ClassHandlers& HandlersOf(entt::entity entity)
 {
@@ -465,8 +465,8 @@ entt::entity EndPhysicsOfClass(PhysicsObject& po)
 /// that becomes a DeadTree never calls it (Tree::EndPhysics 0x74BBD9..0x74BC3A: the DeadTree is inserted with no InBounds
 /// test at 0x74BC0A and returned). Tree::EndPhysics 0x74B830 searches the cells (0x74B9C0) before its insert, so a
 /// replanted tree does not see itself. Object::EndPhysics 0x6375A0 always returns the object, never NULL.
-/// 0x637613..0x63763A: with insert and the object not UNAVAILABLE (GameThing +0xA bit 0, 0x637617: here, still in the
-/// registry), MapCoords::InBounds 0x6042C0 of its MapCoords (+0x14): inside the 512 x 512 cells it goes back in the map
+/// 0x637613..0x63763A: with insert and the object not UNAVAILABLE (GameThing +0xA bit 0, 0x637617: ecs::IsAvailable),
+/// MapCoords::InBounds 0x6042C0 of its MapCoords (+0x14): inside the 512 x 512 cells it goes back in the map
 /// cells, outside it is deleted (ToBeDeleted(0), vt +0xC at 0x63763A). Returns entt::null when the object that stays
 /// is the deleted one; GameTurnUpdate makes the returned object the resting proxy (0x645EE0).
 entt::entity EndPhysics(PhysicsObject& po)
@@ -484,7 +484,9 @@ entt::entity EndPhysics(PhysicsObject& po)
 		map_cells::InsertMapObject(kept);
 		return kept;
 	}
-	if (!living && registry.Valid(entity) && !PhysicsObjects::BackInMap(entity))
+	// 0x637617: test byte [esi+0xA], 1 (GameThing::IsAvailable inline): an UNAVAILABLE (marked) object is neither put
+	// back in the cells nor deleted again
+	if (!living && ecs::IsAvailable(entity) && !PhysicsObjects::BackInMap(entity))
 	{
 		return kept == entity ? entt::null : kept;
 	}
@@ -564,8 +566,7 @@ void AddProxy(entt::entity entity)
 	po->body.resting = true;
 	po->flags = PhysicsObject::Awake;
 	// SetUpPos 0x7FC760: the turn-start matrix is the body's own (a proxy knocked this turn moves from where it rests)
-	po->turnStartRotation = po->body.Rotation();
-	po->turnStartCentre = po->body.Centre();
+	PhysicsObjects::SyncTurnStart(*po);
 	po->turnStarted = true;
 	if (Locator::entitiesRegistry::value().AnyOf<Abode, StoragePit>(entity))
 	{
@@ -581,7 +582,9 @@ void BeginTurn()
 	for (size_t i = 0; i < g_Objects.size();)
 	{
 		auto& po = *g_Objects[i];
-		if (!registry.Valid(po.entity))
+		// 0x645013..0x645026: the object not IsAvailable (vt +0x2C at 0x645018) -> PhysOb::DeInitialise 0x7FB730 and the
+		// entry goes (the last one moves into its slot, 0x64502B..0x645180)
+		if (!ecs::IsAvailable(po.entity))
 		{
 			RemoveAt(i);
 			continue;
@@ -592,8 +595,7 @@ void BeginTurn()
 		}
 		po.forceSum = glm::vec3(0.0f);
 		// 0x645187..0x64519B: the end matrix (PhysOb +0x7C) becomes the turn-start one (+0xAC)
-		po.turnStartRotation = po.body.Rotation();
-		po.turnStartCentre = po.body.Centre();
+		PhysicsObjects::SyncTurnStart(po);
 		po.turnStarted = true;
 		po.body.lastHit = nullptr;
 		po.hitBy = nullptr;
@@ -834,6 +836,11 @@ void Substep()
 		{
 			const auto entity = po.entity;
 			RemoveAt(i);
+			// 0x645D15..0x645D2B: only an object still IsAvailable (vt +0x2C at 0x645D1A) gets ToBeDeleted(0) (vt +0xC)
+			if (!ecs::IsAvailable(entity))
+			{
+				continue;
+			}
 			if (registry.AllOf<Fragment>(entity))
 			{
 				Buildings::DestroyFragment(entity);
@@ -1163,12 +1170,29 @@ float PhysicsObjects::Weight(entt::entity entity)
 PhysicsObject* PhysicsObjects::AddObject(entt::entity entity, glm::vec3 velocity, glm::vec3 angularVelocity,
                                          entt::entity thrower, bool fromHand)
 {
-	return Add(entity, velocity, angularVelocity, thrower, fromHand, fromHand);
+	return Add(entity, velocity, angularVelocity, thrower, fromHand, fromHand, true);
 }
 
 PhysicsObject* PhysicsObjects::AddObjectFromHand(entt::entity entity, glm::vec3 velocity, glm::vec3 angularVelocity)
 {
-	return Add(entity, velocity, angularVelocity, entt::null, true, false);
+	// the class's initialisePhysics comes after the landing test (Living 0x5EFDD7): from_hand calls InitialisePhysicsOfClass
+	return Add(entity, velocity, angularVelocity, entt::null, true, false, false);
+}
+
+void PhysicsObjects::InitialisePhysicsOfClass(PhysicsObject& po, bool fromHand)
+{
+	if (const auto& handlers = HandlersOf(po.entity); handlers.initialisePhysics)
+	{
+		handlers.initialisePhysics(po.entity, po, fromHand);
+	}
+}
+
+void PhysicsObjects::SyncTurnStart(PhysicsObject& po)
+{
+	// rep movsd, 12 dwords PhysOb +0x7C -> +0xAC (SetUpPos 0x7FC94C..0x7FC98F, AdjustToGroundLevel 0x7FCE56..0x7FCE6B,
+	// GameTurnUpdate 0x645187..0x64519B): the three rows and the translation
+	po.turnStartRotation = po.body.Rotation();
+	po.turnStartCentre = po.body.Centre();
 }
 
 PhysicsObject* PhysicsObjects::AddDroppedObject(entt::entity entity, glm::vec3 velocity, glm::vec3 angularVelocity,
@@ -1185,6 +1209,7 @@ PhysicsObject* PhysicsObjects::AddDroppedObject(entt::entity entity, glm::vec3 v
 	}
 	po->flags |= PhysicsObject::NoObjectCollision; // 0x750A6D: or [po+0x1D8], 0x10
 	po->body.AdjustToGroundLevel(false, true);     // 0x750A78..0x750A7F
+	SyncTurnStart(*po);                            // the copy at the end of AdjustToGroundLevel (0x7FCE6B)
 	RaiseUntilNotIntersecting(*po);                // 0x750A89
 	return po;
 }
@@ -1192,7 +1217,7 @@ PhysicsObject* PhysicsObjects::AddDroppedObject(entt::entity entity, glm::vec3 v
 namespace
 {
 PhysicsObject* Add(entt::entity entity, glm::vec3 velocity, glm::vec3 angularVelocity, entt::entity thrower, bool fromHand,
-                   bool spreadReaction)
+                   bool spreadReaction, bool initialiseClass)
 {
 	MakeSureEndSlotIsFree(); // AddObject 0x6443C9
 	auto& registry = Locator::entitiesRegistry::value();
@@ -1224,17 +1249,17 @@ PhysicsObject* Add(entt::entity entity, glm::vec3 velocity, glm::vec3 angularVel
 		return nullptr;
 	}
 	// SetUpPos 0x7FC760: the turn-start matrix is the body's own (drawn there until the next turn starts)
-	po->turnStartRotation = po->body.Rotation();
-	po->turnStartCentre = po->body.Centre();
+	PhysicsObjects::SyncTurnStart(*po);
 	po->body.SetAngularVelocity(angularVelocity);
 	const float speed = glm::length(velocity);
 	po->body.velocity = speed > PhysOb::k_MaxSpeed ? velocity * (PhysOb::k_MaxSpeed / speed) : velocity;
 	po->flags = PhysicsObject::Awake | (fromHand ? PhysicsObject::FromHand : 0);
 	po->byPlayer = fromHand;
-	if (const auto& handlers = HandlersOf(entity); handlers.initialisePhysics)
+	if (initialiseClass)
 	{
-		// Living::InitialisePhysics(FromHand) of a villager or an animal: ECS/LivingPhysics
-		handlers.initialisePhysics(entity, *po, fromHand);
+		// Living::InitialisePhysics of a villager or an animal (ECS/LivingPhysics). Not for AddObjectFromHand: the
+		// hand's InitialisePhysicsFromHand calls it after its landing test (Living 0x5EFDD7..0x5EFDEB)
+		PhysicsObjects::InitialisePhysicsOfClass(*po, fromHand);
 	}
 	g_Objects.push_back(std::move(po));
 	// Object::InitialisePhysics 0x637480: out of the map cells while it flies (IsObjectInMap vt +0x178 at 0x6374AC,
@@ -1265,7 +1290,9 @@ void PhysicsObjects::RemoveObject(entt::entity entity)
 			ForgetThrower(entity);
 			// (inferido, not read) out of the physics without EndPhysics: back in the map cells at once while it exists,
 			// not at the next map_cells::Sync. Nothing for a resting proxy (it never left) or one held out (a tornado's)
-			if (Locator::entitiesRegistry::value().Valid(entity))
+			// the original's only insert is Object::EndPhysics' (0x646B20 -> 0x637617 test byte [esi+0xA], 1): never for an
+			// UNAVAILABLE (marked) object
+			if (ecs::IsAvailable(entity))
 			{
 				map_cells::InsertMapObject(entity);
 			}
@@ -1383,6 +1410,7 @@ void PhysicsObjects::RaiseUntilNotIntersecting(PhysicsObject& po)
 			{
 				// C.y += best, fn_007FD140 (the object's origin) and PhysOb::SetUpPos 0x7FC760
 				po.body.SetUpPos(po.body.Rotation(), po.body.ObjectOrigin() + glm::vec3(0.0f, best, 0.0f));
+				SyncTurnStart(po); // SetUpPos copies the matrix into the turn-start one (0x7FC94C..0x7FC98F)
 				raised = true;
 				break;
 			}
@@ -1397,8 +1425,13 @@ void PhysicsObjects::RaiseUntilNotIntersecting(PhysicsObject& po)
 bool PhysicsObjects::BackInMap(entt::entity entity)
 {
 	auto& registry = Locator::entitiesRegistry::value();
-	// 0x637613..0x63763A: with insert and the object not UNAVAILABLE (here: still in the registry), MapCoords::InBounds
-	// 0x6042C0 of its MapCoords (+0x14)
+	// 0x637617 (test byte [esi+0xA], 1): an UNAVAILABLE object (a zombie of the dead list) is neither put back in the
+	// cells nor deleted; for every caller of Object::EndPhysics, the villager's and the animal's too
+	if (!ecs::IsAvailable(entity))
+	{
+		return false;
+	}
+	// 0x637613..0x63763A: with insert and the object available, MapCoords::InBounds 0x6042C0 of its MapCoords (+0x14)
 	const auto* transform = registry.TryGet<const Transform>(entity);
 	if (transform == nullptr || map_coords::InBounds(map_coords::FromWorld(nullptr, transform->position)))
 	{
@@ -1470,7 +1503,10 @@ void PhysicsObjects::UpdateFrame(float turnFraction, float seconds)
 	bool moving = false;
 	for (const auto& po : g_Objects)
 	{
-		if (!registry.Valid(po->entity))
+		// (dead list plan) an UNAVAILABLE (marked) object is not posed: fn_00646FE0 itself has no IsAvailable test (its
+		// vt +0x2C at 0x6470ED is DeadTree's LH3DObject [0xCC5F04]), but the original's body of a marked object goes at the
+		// next turn start (0x645018) and the object is out of the cells (CleanupWhenDeleted 0x6377F0), so it is not drawn
+		if (!ecs::IsAvailable(po->entity))
 		{
 			continue;
 		}

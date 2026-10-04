@@ -21,6 +21,7 @@
 #include <spdlog/spdlog.h>
 
 #include "3D/LandIslandInterface.h"
+#include "3D/ObjectMatrix.h"
 #include "ECS/Components/Abode.h"
 #include "ECS/Components/Animal.h"
 #include "ECS/Components/AnimatedStatic.h"
@@ -1907,7 +1908,7 @@ void map_cells::detail::SetShapeProviderForTests(ShapeProvider provider)
 
 float map_cells::detail::YAngleOf(const glm::mat3& rotation)
 {
-	// GetYXZ 0x7FAB30: y = fn_007FA990(m8, -m6) (0x7FAB42..0x7FAB5F); glm's column 2 is the LHMatrix's row 2.
-	// (aproximado) std::atan2, not fn_007FA990's fpatan of the ratio by octant: the last bit may differ
-	return std::atan2(-rotation[2][0], rotation[2][2]);
+	// GetYXZ 0x7FAB30: y = fn_007FA990(m8, -m6) (pushes -m6, then m8: 0x7FAB42..0x7FAB51; call 0x7FAB54), stored with
+	// fstp dword 0x7FAB5F; glm's column 2 is the LHMatrix's row 2
+	return static_cast<float>(lh_matrix::ArcTanOctant(rotation[2][2], -rotation[2][0]));
 }

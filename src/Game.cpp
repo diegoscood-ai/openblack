@@ -85,6 +85,7 @@
 #include "ECS/GroundMarks.h"
 #include "ECS/PetitNavire.h"
 #include "ECS/Physics/Buildings.h"
+#include "ECS/Physics/Dust.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/PuzzleGames.h"
 #include "ECS/Rivers.h"
@@ -1960,6 +1961,8 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 
 	// Reset everything. Deletes all entities and their components
 	Locator::entitiesRegistry::value().Reset();
+	// the dust puffs are plain data now (not entities): they go with the map (ECS/Physics/Dust, Motor's OK)
+	ecs::physics::Dust::Clear();
 	// TODO(#661): split entities that are permanent from map entities and move hand and camera to init
 	// We need a hand for the player
 	Locator::handSystem::value().Initialize();

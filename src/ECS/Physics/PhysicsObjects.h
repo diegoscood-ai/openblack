@@ -44,13 +44,19 @@ struct PhysicsObject
 	entt::entity entity {entt::null};
 	entt::entity thrower {entt::null};
 	PhysOb body;
-	/// the body's rotation at the start of the turn (po+0xBC.. / +0xD8, what Animal::EndPhysics reads the landType from)
+	/// the turn-start matrix's rows (PhysOb +0xAC / +0xB8 / +0xC4 = po+0xD4 / +0xE0 / +0xEC, right / up / fwd = glm's
+	/// columns 0 / 1 / 2): Villager::EndPhysics 0x5F0A60 and Animal::EndPhysics 0x5F0D80 read the landType from its
+	/// right.y (po+0xD8), the villager's heading from its up / fwd rows (po+0xE0 / +0xEC). The current matrix is the
+	/// body's (PhysOb +0x7C / +0x88 / +0x94 = po+0xA4 / +0xB0 / +0xBC: po+0xBC is the current fwd row, not this one).
+	/// Written with turnStartCentre by SyncTurnStart
 	glm::mat3 turnStartRotation {1.0f};
-	/// the body's centre at the start of the turn (with turnStartRotation, PhysOb +0xAC: the matrix the drawing
-	/// interpolates from)
+	/// the turn-start matrix's translation (PhysOb +0xD0 = po+0xF8; the current one, the centre of mass, is +0xA0 =
+	/// po+0xC8): the matrix the drawing interpolates from (fn_007FCE80)
 	glm::vec3 turnStartCentre {0.0f};
-	/// a game turn has started since the body was added: until then it is drawn where it is (SetUpPos 0x7FC760 makes
-	/// the two matrices equal; (inferred) what AdjustToGroundLevel / RaiseUntilNotIntersecting do to +0xAC is not read)
+	/// a game turn has started since the body was added: until then it is drawn where it is. Before the first turn the
+	/// two matrices are equal anyway: SetUpPos 0x7FC760 (0x7FC94C..0x7FC98F), AdjustToGroundLevel 0x7FCB80
+	/// (0x7FCE56..0x7FCE6B) and so RaiseUntilNotIntersecting when it raises the body (SetUpPos at 0x644BE7) all copy
+	/// the 12 floats of the current matrix into the turn-start one (PhysicsObjects::SyncTurnStart)
 	bool turnStarted {false};
 	uint32_t flags {0};
 	bool villager {false};
@@ -103,8 +109,13 @@ public:
 	/// code for that class (or nothing, when it has none).
 	struct ClassHandlers
 	{
-		/// Living::InitialisePhysics / InitialisePhysicsFromHand (0x5EFD80): the body was just added (fromHand: by
-		/// the hand's InitialisePhysicsFromHand 0x636F00).
+		/// Living::InitialisePhysics / InitialisePhysicsFromHand (0x5EFD80): the object flies (FLYING). AddObject
+		/// calls it once the body is built (fromHand: AddObject's own flag, the debug throws). From the hand
+		/// (from_hand::InitialisePhysicsFromHand, through InitialisePhysicsOfClass) it comes last, after the whole of
+		/// Object::InitialisePhysicsFromHand 0x636F00 (AddObject, AdjustToGroundLevel, RaiseUntilNotIntersecting, the
+		/// LANDED test, RemoveObject or CreateDroppedResource and the flying-object reaction) and only when the object
+		/// did not land: Living 0x5EFDD7..0x5EFDEB sets FLYING only when the po is not LANDED and po->object is still
+		/// this one (a put-down villager or animal never enters FLYING).
 		std::function<void(entt::entity, PhysicsObject&, bool fromHand)> initialisePhysics;
 		/// ReactToPhysicsImpact (vt +0x7AC), the class's part. Returns false when the object is gone (consumed, dead,
 		/// turned into something else).
@@ -144,13 +155,22 @@ public:
 	static PhysicsObject* AddObject(entt::entity entity, glm::vec3 velocity, glm::vec3 angularVelocity,
 	                                entt::entity thrower = entt::null, bool fromHand = false);
 	/// AddObject for Object::InitialisePhysicsFromHand 0x636F00 (physics::from_hand): PHYSICS_OBJECT_FLAG_FROM_HAND and
-	/// the player are set, but the flying-object reaction is left to the caller (it is only spread when the object does
-	/// not land, 0x637412).
+	/// the player are set, but the flying-object reaction (only spread when the object does not land, 0x637412) and the
+	/// class's initialisePhysics (Living 0x5EFDD7, after the landing test) are left to the caller.
 	static PhysicsObject* AddObjectFromHand(entt::entity entity, glm::vec3 velocity, glm::vec3 angularVelocity);
+	/// The class's ClassHandlers::initialisePhysics, if any, for a body AddObjectFromHand built (the Living part of
+	/// InitialisePhysicsFromHand 0x5EFDD7..0x5EFDEB: the caller only calls it when the object did not land).
+	static void InitialisePhysicsOfClass(PhysicsObject& po, bool fromHand);
+	/// The turn-start matrix becomes the current one (the `rep movsd` of 12 dwords PhysOb +0x7C -> +0xAC at the end of
+	/// SetUpPos 0x7FC98F and of AdjustToGroundLevel 0x7FCE6B): turnStartRotation / turnStartCentre = the body's. Called
+	/// by Add, AddProxy, BeginTurn (0x645187..0x64519B), RaiseUntilNotIntersecting after each raise, and by every caller
+	/// of PhysOb::AdjustToGroundLevel right after it.
+	static void SyncTurnStart(PhysicsObject& po);
 	/// What a villager drops when released without landing (Villager::CreateDroppedResource 0x750A05..0x750A89):
 	/// Object::InitialisePhysics(velocity, angularVelocity, thrower 0, add 1, status 0) (vt +0x784 -> AddObject), then
 	/// with a body: po+0x90 = angularMomentum when given (PhysOb +0x68, L in world space), flag 0x10
-	/// (NoObjectCollision), PhysOb::AdjustToGroundLevel(false, true) 0x7FCB80 and RaiseUntilNotIntersecting 0x644800.
+	/// (NoObjectCollision), PhysOb::AdjustToGroundLevel(false, true) 0x7FCB80 (SyncTurnStart) and
+	/// RaiseUntilNotIntersecting 0x644800.
 	static PhysicsObject* AddDroppedObject(entt::entity entity, glm::vec3 velocity, glm::vec3 angularVelocity,
 	                                       std::optional<glm::vec3> angularMomentum);
 	/// RemoveObject (0x646A00) without EndPhysics.
@@ -165,7 +185,8 @@ public:
 	static bool BackInMap(entt::entity entity);
 	/// RaiseUntilNotIntersecting (0x644800): resting bodies are made for the objects of the map cells under the body's
 	/// square (C +- R) that InteractsWithPhysicsObjects (ShouldPhysicsRaiseObjectUntilNotIntersectingThis 0x6377D0),
-	/// then the body goes up by max(fn_007FDD60 both ways) until no overlapping body pushes it more than 0.001.
+	/// then the body goes up by max(fn_007FDD60 both ways) until no overlapping body pushes it more than 0.001. Each
+	/// raise is fn_007FD140 + PhysOb::SetUpPos (0x644BE0 / 0x644BE7), so the turn-start matrix follows (SyncTurnStart).
 	static void RaiseUntilNotIntersecting(PhysicsObject& po);
 	[[nodiscard]] static PhysicsObject* Find(entt::entity entity);
 	/// Is the object flying (in physics and not a resting proxy)?

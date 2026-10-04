@@ -13,6 +13,7 @@ addresses in `C:\Users\diewgarc\dev\documentacion\physics\` (`physob.md`, `physi
 - [Water in impacts and when dropping](#water-in-impacts-and-when-dropping)
 - [Rocks that split](#rocks-that-split-rocksplitintwo-0x6e7560)
 - [Who owns what: class handlers and the hand's API](#who-owns-what-class-handlers-and-the-hands-api)
+- [The physical shield test](#the-physical-shield-test-hito-2)
 - [Pending](#pending), [Test hooks](#test-hooks), [Sources](#sources)
 
 Status: the engine and what is described here is **faithful** (ported from the original) except what is marked and what is in
@@ -23,7 +24,14 @@ drowning) is in [water.md](water.md).
 
 - **Penalty contacts** on a cloud of vertices (point masses): each vertex below the ground or inside
   another body receives a normal spring and a Coulomb friction anchor. No impulses and no restitution coefficient: the
-  bounce comes from the spring and the damping of probing the vertices **0.06 s ahead** (`x + v·0,06`).
+  bounce comes from the spring and the damping of probing the vertices **0.06 s ahead** (`x + v·0.06`).
+- **Penetration against another body** (fn_007FDD60, 0x7FDC90..0x7FDD0E): the ray from the centre T to the predicted
+  vertex hits a face of the other body at `hit = T + s·dir`; `pen = predLen − dot(hit − T, dir) / predLen` with
+  `predLen = max(|world − T|, 0.001)` (vertex +0x20, read by the `fdiv` at 0x7FDCF5 and the `fsubr` at 0x7FDD01), so
+  `pen = (1 − s)·predLen`, the depth of the predicted vertex past the face. It is positive from the first substep the
+  0.06 s look-ahead crosses the surface: that is what stops a fast body before it tunnels
+  (`documentacion/physics/shield_physics.md`). Before Hito 2 openblack divided by +0x1C (`len`, the unpredicted length),
+  and a rock at 33 m/s went through a physical shield.
 - **dt 0.005 s, 20 substeps per 0.1 s turn**, semi-implicit Euler. Gravity 9.81; max. speed 124 (the same as the
   hand throw); max. ω 3π. No linear damping; the angular one keeps `d4` per second.
 - The original accumulates torque as F×r and rotates the rows the other way round; the two inversions cancel out. The port uses r×F and
@@ -31,8 +39,8 @@ drowning) is in [water.md](water.md).
 - **Ground**: `GetAltitude` per vertex and the **flat normal of the exact triangle** (`LH3DIsland::GetNormal` 0x803630,
   raw heights without the flattening at the sea edge), with the original's two tables (T1 0xE9B2D8, T2 0xE9A2D8, built by
   fn_00803890): `land_normal::OfCell`, checked branch by branch (`documentacion/physics/step2_misc.md` §4).
-- **Sea**: if the ground under the centre is < 0,0001, the centre is below the radius and the cell has no land:
-  buoyancy `frac·m·g/density`, drag ×100, and **no contact with the bottom**. Density rises by 6,67e-5 per
+- **Sea**: if the ground under the centre is < 0.0001, the centre is below the radius and the cell has no land:
+  buoyancy `frac·m·g/density`, drag ×100, and **no contact with the bottom**. Density rises by 6.67e-5 per
   submerged substep (it soaks up water); above 1 it sinks. Below −4R the object is deleted.
 - **Rest**: threshold 1 (4 if already at rest), grows after 15000 counts; the counter starts at −scale·half height·1000
   (0x7FB7D6) and adds 5 per substep.
@@ -42,7 +50,7 @@ drowning) is in [water.md](water.md).
 
 ## Bodies
 
-- Mass = `escala³ · info.weight` (Object::GetWeight 0x638480), minimum 0.01. Houses 2000, static.
+- Mass = `scale³ · info.weight` (Object::GetWeight 0x638480), minimum 0.01. Houses 2000, static.
 - By default, the vertices and triangles of the `isPhysics` submeshes (bit 13) or, if there are none, those of LOD 0.
   **The user's modified `AllMeshes.g3d` has no physics submeshes in the rocks**, so the drawing mesh is used
   (40–109 vertices; the original art has 12–24).
@@ -69,16 +77,27 @@ drowning) is in [water.md](water.md).
 - **Pair skip** (0x64583E..0x645866): a villager's body (+0x1A4 == 1) does not hit what a Living pushed (flag 2:
   `Object::PushObject` 0x6396BA, `Ball::KickBallAtDestination` 0x435D99, `FelledTree::Create` 0x51186B). Nothing in
   openblack sets flag 2 yet (pending, with those three).
-- Each turn, each moving body looks at the box `|v.xz|·0,1 + R` and adds as **obstacles at rest** the objects
+- Each turn, each moving body looks at the box `|v.xz|·0.1 + R` and adds as **obstacles at rest** the objects
   that interact: rocks and statics, mobile objects, villagers, animals, dead trees, hand pots, houses and
   storehouses. **Standing trees do not interact** (thrown things pass through them); neither do fields, forests nor piles.
 - Object–object collision: ray from the centre of A to each vertex against the triangles of B; the forces go to both. An
   obstacle that does not manage to stay still (threshold 4) starts flying: that is how a villager is knocked down or a rock pushed.
-- At the end of the turn: `impacto = |ΣF|·0,05` (mean force), G = impact / (m·g) (≈1 when resting), and
+- At the end of the turn: `impact = |ΣF|·0.05` (mean force), G = impact / (m·g) (≈1 when resting), and
   `ReactToPhysicsImpact` on both bodies. The damage is attributed to the player who threw what hits.
-- **Damage**: villagers and animals, if G > 2, lose `(G−2)·0,03` of life (× defenceMultiplierCrush; 1 for villagers).
-  Rocks (not hit by another rock), if G > 4 and height > 0.7: life −(G−4)·0,005, and they split below 0.01.
+- **Damage**: villagers and animals, if G > 2, lose `(G−2)·0.03` of life (× defenceMultiplierCrush; 1 for villagers).
+  Rocks (not hit by another rock), if G > 4 and height > 0.7: life −(G−4)·0.005, and they split below 0.01.
   Tree or dead tree hitting a storehouse: it becomes wood. Houses: see below.
+- **End of a body's physics** (EndPhysics vt +0x790): `Object::EndPhysics` 0x6375A0 clears IN_PHYSICS, sets the map
+  coordinates from Pos and, with insert and the object available (0x637617), puts it back in the map cells when
+  `MapCoords::InBounds` 0x6042C0, else deletes it (`ToBeDeleted(0)`). It always returns the object. Villager
+  (0x5F0B81) and Animal (0x5F0E01) call it in the middle of theirs, after SetYAngle and before their landing, water
+  and death work (`PhysicsObjects::BackInMap` from `ECS/LivingPhysics.cpp`); the other classes after their part. A
+  tree that becomes a DeadTree never calls it: the DeadTree goes in the cells with no InBounds test (0x74BC0A).
+- **In physics or not.** The original's flag IN_PHYSICS (`GameThingWithPos +0x24 & 0x40`) is set by
+  `Object::InitialisePhysicsFromHand` (0x636F2F) and cleared by `Object::EndPhysics` (0x6375A0) and `RemoveObject`
+  (0x646B56). A body at rest keeps its entry in the list as the resting proxy (0x645EE0) with the flag already
+  cleared, so the flag is `PhysicsObjects::IsFlying(entity)` (an entry that is not resting), not
+  `PhysicsObjects::Find(entity) != nullptr`.
 - **End of flight**: a thrown tree ends up as a DeadTree in the pose it was left in; a hand pot on land
   becomes a pile; villagers and animals get up; a villager that ends up in a cell with water goes to DROWNING (60 s)
   and a sunken animal is deleted (see [water.md](water.md#sinking-drowning-and-being-deleted)).
@@ -92,7 +111,7 @@ Code: `src/ECS/Physics/Buildings.*`, `FragMesh.*`, components `BuildingDamage` a
 - Only rocks (row 3) and the row-20 toy break buildings, with `p = |v|·masa` of the hitter:
   **p > 2000** breaks; 1000–2000 and 300–1000 only make sound (`editor.sad` 431–436 and 437–442).
 - On the first hit the building is copied into triangles in world coordinates (LOD 0 submeshes). An **infinite
-  cylinder** through the rock's position, in the direction of `0,3·v` and with radius `R + 0,7`, decides:
+  cylinder** through the rock's position, in the direction of `0.3·v` and with radius `R + 0.7`, decides:
   - triangles with all 3 vertices inside break;
   - those with 1–2 are split through the midpoint of the longest side (up to 3 times depending on their size);
   - small ones go by majority.
@@ -135,9 +154,9 @@ Code: `src/ECS/Physics/CollisionSounds.*`, `Dust.*`, `PartialBuild.*`. Reports `
 (full table in `snd/full_matrix.md`) and `building_visuals.md`.
 
 - **Collision sound** (`AttemptToAddSoundEvent` 0x6464F0), once per turn on each awake body with something that
-  hit it or `F > 0,5·m·g`: collision type of each side (info `collideSound`; piece = BUSH; DeadTree mesh 406 =
-  HOLLOW_WOOD; no object = GROUND, or WATER in the sea), level by `g = impacto / (peso de info sin escalar · 9,81)`
-  (3 if < 1,25, 1 if > 3, otherwise 2), and `GAudio::SamplePlayAnimEffect(objeto, |g_camera − punto|, {nivel, 0, A, B, 75},
+  hit it or `F > 0.5·m·g`: collision type of each side (info `collideSound`; piece = BUSH; DeadTree mesh 406 =
+  HOLLOW_WOOD; no object = GROUND, or WATER in the sea), level by `g = impact / (unscaled info weight · 9.81)`
+  (3 if < 1.25, 1 if > 3, otherwise 2), and `GAudio::SamplePlayAnimEffect(object, |g_camera − point|, {level, 0, A, B, 75},
   0, editor.sad, track = A ≠ 0x16)` (0x646919): the sample is chosen by the `editor.sad` animation table in the audio
   core (B4, [audio.md](audio.md#b4-the-worlds-callers-on-the-channels)), in 3D on the object, which is the owner
   of the channel. A pair does not sound again until two turns later. A rock against a building: the building sounds.
@@ -200,14 +219,14 @@ Code: `src/ECS/Physics/CollisionSounds.*`, `Dust.*`, `PartialBuild.*`. Reports `
   - Hook: `OPENBLACK_HAND_TEST_DROP` (types 4 tree, 5 animal added). Checked on Land1 (1788.4; 2710):
     rock → in physics with LANDED and at rest after 0.9 s; tree → replanted; villager and animal → out of physics
     on the spot; pot → pile; villager in the sea (1464; 2016) → sinks and DROWNING 600 turns; rock over a
-    building at (1780.4; 2713.3) → raised to y 38,3, without landing.
+    building at (1780.4; 2713.3) → raised to y 38.3, without landing.
 
 ## Rocks that split (Rock::SplitInTwo 0x6E7560)
 
 - A rock with 2D radius > 3.6 cannot be picked up: **clicking on it hits it immediately**. A rock that can be
   picked up is hit with a short click (< 225 ms). Condition: height > 0.7. No hit counter.
 - Two rocks of the same type come out, scale × 0.7935 (∛½: half the volume), only the Y angle, at
-  `Pos ± (cos a, 0, sin a)·0,7935·R2D` with random `a`; the original is deleted and the halves enter physics (they fall or
+  `Pos ± (cos a, 0, sin a)·0.7935·R2D` with random `a`; the original is deleted and the halves enter physics (they fall or
   keep flying with its velocity). Sound G_RockTap_01..04 (130 + counter 0xD559AC) in 3D at the hand's point, with the rock as owner (0x6E751D).
 - Strong impacts also split them (see damage).
 
@@ -218,8 +237,8 @@ vt +0x7AC, `EndPhysics` vt +0x790, `HasSunk` vt +0x7B8). openblack keeps that sp
 `PhysicsObjects::SetClassHandlers(PhysicsClass, ClassHandlers)`: one entry per class (`PhysicsObjects::ClassOf`:
 Villager, Animal, Tree, DeadTree, Pot, Rock, Fragment, Building, Shield, Other), set by the system that owns the class.
 `reactToImpact` gets an `ImpactInfo` (G of the turn, who hit it, the thrower, whether the hand threw it). An empty handler
-keeps the physics' own code for the class. The hand registers Tree, DeadTree and Pot (`HandPhysics.cpp`); the villagers'
-and animals' parts are still inside `PhysicsObjects.cpp` until session Personas moves them.
+keeps the physics' own code for the class. The hand registers Tree, DeadTree and Pot (`HandPhysics.cpp`); session
+Personas registers Villager and Animal (`ECS/LivingPhysics.cpp`).
 
 A class's `dropSfx` (DropSfx vt +0x794) is played by `RemoveObjectWithEndPhysics` (RemoveObject 0x646B2E..0x646B48) for
 the object EndPhysics returned, when LANDED and on land; only the tree has one (`Tree::DropSfx` 0x74BC60, registered by
@@ -245,6 +264,19 @@ physics object, an IMMOVABLE one (flag 0x1000) or one already flying; the list n
 openblack cannot make a body for (no mesh; the original would crash in `PhysOb::Initialise`) is put on the ground
 (`physics::from_hand::PlaceWithoutBody`); openblack's old ballistic flight for it is gone.
 
+## The physical shield test (Hito 2)
+
+`dev/_audit/Fisicas/before_hito1` (hito-1 exe) and `dev/_audit/Fisicas/after_hito2` (commit 4b6895f2), captured with
+`dev/_scratch/Fisicas/capture/capture.sh` and `OPENBLACK_PHYSICS_TRACE=1`: a PhysicalShield of radius 40 and a rock
+(mass 6.75, radius 0.37) thrown at it at 35.5 m/s.
+
+| turn after the throw | before (len) | after (predLen) |
+|---|---|---|
+| +23 | 33.7 m/s, 21.5 m from the centre, 0 contacts | 33.7 m/s, 21.5 m, 0 contacts |
+| +24 | 33.8 m/s, 38 contacts, G 0.12 | 25.7 m/s, 15 contacts, G 8.3 |
+| +25 | 33.9 m/s, through the shield | 8.3 m/s, 5 contacts, G 20.4 |
+| +26..+32 | lands inside the dome | slides along the outside (14.3..17.7 m, 7.0..5.2 m/s) |
+
 ## Pending
 
 - (not verified) the angular damping step `pow(d4, 0.005)` of `PhysOb::SetUpConstants` 0x7FB810: openblack takes the
@@ -255,7 +287,8 @@ openblack cannot make a body for (no mesh; the original would crash in `PhysOb::
   "half-built".
 - Buildings: repair by villagers (building site, wood), creature hits; what happens to the building itself (alignment,
   aggressor, inhabitants, the town's emergency, −0.2 of a building site) is session Edificios' (`ECS/Abodes`).
-- Villagers and animals on landing: the original's three postures and the corpses (today they get up or disappear).
+- Villagers and animals on landing: the original's three postures (V13, session Personas; the physics side is in
+  `documentacion/physics/v13_physics.md`).
 - Complete villager death (`VillagerDead` 0x7506C0) and the creature's mimicry when something dropped by the
   player sinks: in [water.md](water.md#pending).
 - From dropping: the disciple sound
@@ -266,24 +299,24 @@ openblack cannot make a body for (no mesh; the original would crash in `PhysOb::
   `.text` in `documentacion/agua/re/scan_tree5c.py`): they are the trees of the forest miracle, which this tree does not have.
 - The terrain normal without the original's quantisation.
 - Tooltip "Golpear para Romper" ("Hit to Break", 0xEF7) and checking the player's influence before hitting a rock.
-- **better physics** mod (requested by the user, disabled by default): building pieces with a collision mesh that
-  can be grabbed; the engine stays faithful to the original.
+- (pending, only noted) a **better physics** mod: building pieces with a collision mesh that can be grabbed; the
+  engine stays faithful to the original. Not designed and not coded.
 
 ## Test hooks
 
-`OPENBLACK_TEST_PHYSICS="x,z,altura,vx,vy,vz[,escala[,n]]"`, `OPENBLACK_TEST_HIT_VILLAGER="velocidad[,escala[,índice]]"`,
-`OPENBLACK_TEST_THROW_TREE="x,z,vx,vy,vz"`, `OPENBLACK_TEST_HIT_ABODE="velocidad[,escala[,índice[,n]]]"` (n rocks against a house, one every 1.5 s), `OPENBLACK_HAND_TEST_SPLIT="x,z,escala,rondas"`,
+`OPENBLACK_TEST_PHYSICS="x,z,height,vx,vy,vz[,scale[,n]]"`, `OPENBLACK_TEST_HIT_VILLAGER="speed[,scale[,index]]"`,
+`OPENBLACK_TEST_THROW_TREE="x,z,vx,vy,vz"`, `OPENBLACK_TEST_HIT_ABODE="speed[,scale[,index[,n]]]"` (n rocks against a house, one every 1.5 s), `OPENBLACK_HAND_TEST_SPLIT="x,z,scale,rounds"`,
 `OPENBLACK_PHYSICS_TRACE=1` (position, velocity, contacts, G, density and radius of each body per turn),
-`OPENBLACK_TEST_SEA="x,z,tipo[,altura]"` (type = `villager|animal|tree|pot|rock`: creates it at that height above the
+`OPENBLACK_TEST_SEA="x,z,type[,height]"` (type = `villager|animal|tree|pot|rock`: creates it at that height above the
 point and puts it into physics with no velocity; writes the cell, the density and `GET_LAND_HEIGHT` there and on the reference
 land, and traces the counter of the drowning villager every 100 turns),
-`OPENBLACK_HAND_TEST_DROP="x,z,segundos[,tipo]"` (the hand holds a rock 0, a pot of 300 food 1 or of wood 2,
+`OPENBLACK_HAND_TEST_DROP="x,z,seconds[,type]"` (the hand holds a rock 0, a pot of 300 food 1 or of wood 2,
 the first villager 3, the first tree 4 or the first animal 5, and **drops it gently** at (x, z) after those seconds of game time; the log says whether it ended up in physics).
 
 ## Sources
 
 - `C:\Users\diewgarc\dev\documentacion\physics\`: `physob.md`, `physicsobject.md`, `physob_bodies.md`, `rock_split.md`,
-  `fragmesh.md`, `abode_damage.md`, `collision_sounds.md` (full table in `snd/full_matrix.md`) and
+  `fragmesh.md`, `abode_damage.md`, `shield_physics.md`, `step4_doubts.md` (EndPhysics order), `collision_sounds.md` (full table in `snd/full_matrix.md`) and
   `building_visuals.md`.
 - `bw1-decomp` `src/Black/Object.cpp:447` (`Object::InitialisePhysicsFromHand`, matched).
 - `documentacion/agua/re/scan_tree5c.py` (sweep of the `Tree`+0x5C flag).

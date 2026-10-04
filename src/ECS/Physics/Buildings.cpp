@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -39,6 +40,7 @@
 #include "ECS/Fire/FireGraphic.h"
 #include "ECS/MapCells.h"
 #include "ECS/Registry.h"
+#include "ECS/ToBeDeleted.h"
 #include "ECS/Town/AbodeQueries.h"
 #include "ECS/Town/AbodeVillagers.h"
 #include "CollisionSounds.h"
@@ -216,27 +218,35 @@ bool Buildings::ReactToPhysicsImpact(entt::entity building, PhysicsObject& po)
 			damage = &registry.Assign<BuildingDamage>(building);
 			damage->intactMesh = registry.Get<const Mesh>(building).id;
 		}
+		// (openblack, for the draw snapshot) the impact works on a FragMesh of its own: a new one, or a copy of the
+		// building's, which takes the old one's place once broken (a FragMeshDraw taken before keeps the old one)
+		std::shared_ptr<FragMesh> broken;
 		if (!damage->mesh)
 		{
-			damage->mesh = FragMesh::FromEntity(building);
-			if (!damage->mesh)
+			broken = FragMesh::FromEntity(building);
+			if (!broken)
 			{
 				return true;
 			}
 		}
-		else if (damage->mesh->lastHitter == hit->entity)
-		{
-			// the same rock again: they stop colliding, so it goes through
-			po.thrower = hit->entity;
-			hit->thrower = building;
-		}
 		else
 		{
-			damage->mesh->lastHitter = hit->entity;
+			if (damage->lastHitter == hit->entity)
+			{
+				// the same rock again: they stop colliding, so it goes through
+				po.thrower = hit->entity;
+				hit->thrower = building;
+			}
+			else
+			{
+				damage->lastHitter = hit->entity;
+			}
+			broken = std::make_shared<FragMesh>(*damage->mesh);
 		}
 		// (a repair would rebuild it from the intact model once the draw percent reaches 0.2; nobody repairs yet)
-		auto pieces = damage->mesh->Impact(hit->body.Centre(), hit->body.velocity * 0.3f, hit->body.Radius() + 0.7f);
-		const float remaining = damage->mesh->GetRemaining();
+		auto pieces = broken->Impact(hit->body.Centre(), hit->body.velocity * 0.3f, hit->body.Radius() + 0.7f);
+		const float remaining = broken->GetRemaining();
+		damage->mesh = std::move(broken);
 		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Buildings: impact p {:.0f}, {} pieces, {:.2f} left", p, pieces.size(), remaining);
 		// the Fragments are made inside FragMesh::Impact, before the remaining part is read
 		for (const auto& piece : pieces)
@@ -277,12 +287,16 @@ entt::entity Buildings::FragmentEndPhysics(entt::entity fragment, const PhysicsO
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	auto& f = registry.Get<Fragment>(fragment);
-	auto* damage = registry.Valid(f.parent) ? registry.TryGet<BuildingDamage>(f.parent) : nullptr;
+	// Fragment::EndPhysics 0x76F440..0x76F455: the parent (+0xA4) must be IsAvailable (vt +0x2C at 0x76F450)
+	auto* damage = ecs::IsAvailable(f.parent) ? registry.TryGet<BuildingDamage>(f.parent) : nullptr;
 	if (f.area > 9.0f && damage != nullptr && damage->mesh)
 	{
 		const auto& transform = registry.Get<const Transform>(fragment);
 		const auto toWorld = glm::translate(glm::mat4(1.0f), transform.position) * glm::mat4(transform.rotation);
-		damage->mesh->Merge(*f.mesh, toWorld);
+		// (openblack, for the draw snapshot) merged into a copy, which takes the old FragMesh's place
+		auto merged = std::make_shared<FragMesh>(*damage->mesh);
+		merged->Merge(*f.mesh, toWorld);
+		damage->mesh = std::move(merged);
 		RedrawBuilding(f.parent, *damage);
 		DestroyFragment(fragment);
 		return entt::null;
@@ -308,6 +322,7 @@ void Buildings::RemoveDamage(entt::entity building)
 		return;
 	}
 	damage->mesh.reset();
+	damage->lastHitter = entt::null; // it went with the FragMesh
 	if (damage->generatedMesh != 0 || damage->morphed)
 	{
 		// the FragMesh's DrawMesh goes (only ours: the Mesh was never changed), then its model (a no-op when
@@ -347,7 +362,9 @@ void Buildings::ProcessTurn()
 	auto& registry = Locator::entitiesRegistry::value();
 	std::vector<entt::entity> expired;
 	registry.Each<Fragment>([&](entt::entity entity, Fragment& f) {
-		if (f.parent != entt::null && !registry.Valid(f.parent))
+		// Fragment::ProcessTimer 0x76EAF3..0x76EB06: a parent (+0xA4) no longer IsAvailable (vt +0x2C at 0x76EAFF) is
+		// forgotten
+		if (f.parent != entt::null && !ecs::IsAvailable(f.parent))
 		{
 			f.parent = entt::null;
 		}
@@ -369,14 +386,14 @@ void Buildings::ForgetHitter(entt::entity hitter, entt::entity building)
 	{
 		if (auto* damage = registry.TryGet<BuildingDamage>(building); damage != nullptr && damage->mesh)
 		{
-			damage->mesh->lastHitter = entt::null;
+			damage->lastHitter = entt::null;
 		}
 		return;
 	}
 	registry.Each<BuildingDamage>([hitter](entt::entity, BuildingDamage& damage) {
-		if (damage.mesh && damage.mesh->lastHitter == hitter)
+		if (damage.mesh && damage.lastHitter == hitter)
 		{
-			damage.mesh->lastHitter = entt::null;
+			damage.lastHitter = entt::null;
 		}
 	});
 }
@@ -400,6 +417,23 @@ void Buildings::DestroyFragment(entt::entity fragment)
 
 void Buildings::AppendFragMeshes(graphics::world_triangles::Frame& out, const FragMesh::FrameLight& frame)
 {
+	static std::vector<FragMeshDraw> s_draws; // kept for its capacity; emptied after the draw (no FragMesh held on)
+	SnapshotFragMeshes(s_draws, frame);
+	AppendFragMeshes(out, s_draws);
+	s_draws.clear();
+}
+
+void Buildings::AppendFragMeshes(graphics::world_triangles::Frame& out, const std::vector<FragMeshDraw>& draws)
+{
+	for (const auto& draw : draws)
+	{
+		draw.mesh->AppendDraw(out, draw.hasMatrix ? &draw.world : nullptr, draw.light);
+	}
+}
+
+void Buildings::SnapshotFragMeshes(std::vector<FragMeshDraw>& out, const FragMesh::FrameLight& frame)
+{
+	out.clear();
 	auto& registry = Locator::entitiesRegistry::value();
 	// Abode::Draw 0x516080..0x5160E9: the DestructionMesh +0x90 (only while it is what the building draws)
 	registry.Each<const BuildingDamage, const Transform, const DrawMesh>(
@@ -422,7 +456,9 @@ void Buildings::AppendFragMeshes(graphics::world_triangles::Frame& out, const Fr
 			    tintSpecular = lh3d_colour::Argb(glow.r, glow.g, glow.b, 0xFF);
 		    }
 		    // 0x5160DB..0x5160E9: no matrix (the triangles are in the world), the position of the LH3DObject (+0x40 + 0x38)
-		    damage.mesh->AppendDraw(out, nullptr, FragMesh::ObjectLight(transform.position, tint, tintSpecular, frame));
+		    out.push_back({damage.mesh, false, glm::mat4(1.0f),
+		                   FragMesh::ObjectLight(transform.position, tint, tintSpecular, frame), transform.position,
+		                   tint, tintSpecular});
 	    });
 	// Fragment::Draw 0x76EC00 (GetWorldMatrix vt+0x63C, then its translation) and PhysicsObject::DrawAll 0x646E57..
 	// 0x646E77 (the LH3DObject's matrix +0x14 and translation +0x38): the same matrix; the FragMesh +0x94 keeps the
@@ -438,6 +474,7 @@ void Buildings::AppendFragMeshes(graphics::world_triangles::Frame& out, const Fr
 		    const auto position = flying != nullptr ? flying->position : transform.position;
 		    const auto matrix = flying != nullptr ? lh_matrix::Model(flying->position, flying->rotation, transform.scale)
 		                                          : lh_matrix::Model(transform);
-		    fragment.mesh->AppendDraw(out, &matrix, FragMesh::ObjectLight(position, 0xFFFFFFFFu, 0, frame));
+		    out.push_back({fragment.mesh, true, matrix, FragMesh::ObjectLight(position, 0xFFFFFFFFu, 0, frame), position,
+		                   0xFFFFFFFFu, 0});
 	    });
 }

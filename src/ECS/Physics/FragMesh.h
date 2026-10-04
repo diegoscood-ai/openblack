@@ -133,8 +133,6 @@ public:
 	/// Not ported: its second pass (0x7F7A0F..0x7F7CC6), the snow over the mesh ([0xEDD394], the snow map [0xEDC344])
 	void AppendDraw(graphics::world_triangles::Frame& out, const glm::mat4* matrix, const DrawLight& light) const;
 
-	entt::entity lastHitter {entt::null};
-
 private:
 	void ComputeAdjacency(Primitive& primitive) const;
 

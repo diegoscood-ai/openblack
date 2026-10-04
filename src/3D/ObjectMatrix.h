@@ -76,6 +76,30 @@ void TurnRows(glm::mat3& m, int axis, float a);
 /// 0x7FB1E7..0x7FB26E) = glm::rotate(-a, axis); the translation 0 (0x7FB273..0x7FB279). `axis` is unit length
 [[nodiscard]] glm::mat3 AxisAngle(const glm::vec3& axis, float a);
 
+/// fn_007FA990(a, b) 0x7FA990 (the symbols' ??GLHPoint is folded code): atan2(b, a) by octants, the fpatan of the
+/// smaller over the larger (each quotient a float fdiv):
+/// - a >= b and !(-b > a) (a >= |b|; 0x7FA990..0x7FA9AE): atan(b / a);
+/// - b >= a and !(-a > b) (b >= |a|; 0x7FA9BD..0x7FA9DB): 1.5707963705062866 [0x8C7B48] - atan(a / b);
+/// - -b >= a and !(a >= b) (a <= -|b|; 0x7FA9F0..0x7FAA0E): atan(b / a) + 3.1415927410125732 [0x8D45D0], or - when
+///   !(b >= 0) (fcomp [0x8AA398], 0x7FAA14; -0 counts as >= 0);
+/// - else (b <= -|a|): -1.5707963705062866 [0x9361E8] - atan(a / b) (0x7FAA3B..0x7FAA47).
+/// The ties |a| == |b| go to the first branch that takes them; (0, 0) is 0 / 0 in the first, NaN. fpatan is not rounded
+/// by the precision control, so the first branch returns the extended value (here the double, for the caller's fstp or
+/// product to round); the other three end in a 24-bit fsubr / fadd / fsub, so they return a float value. The constants
+/// are float(pi / 2) and float(pi) kept as doubles
+[[nodiscard]] double ArcTanOctant(float a, float b);
+/// fn_007FAA50(v) 0x7FAA50 (the symbols' GUtils::SetUnitDirectionVectorFromScreenPoint is folded code), the LH3D yaw of
+/// a direction: x x + z z (float products and sum, 0x7FAA5D..0x7FAA69) <= 1e-6 [0x9A2BAC] (fcomp, test ah 0x41) -> 0
+/// [0x8AA398]; else ArcTanOctant(-z, x) (pushes x, then -z: 0x7FAA7A..0x7FAA88) = atan2(x, -z): 0 along -z, pi / 2 along
+/// +x. Returned on the FPU stack (ArcTanOctant's value), y is not read. Villager::EndPhysics 0x5F0AE0..0x5F0AF6 adds
+/// pi [0x8C36A0] (a 24-bit fadd) and passes the float to WrapAngle. Not LH3DMath::GetYAngle(LHPoint*) 0x841290, a
+/// different function: atan2(z, x) (fpatan of z over x), plus 2 pi when negative, in [0, 2 pi)
+[[nodiscard]] double GetYAngle(const glm::vec3& v);
+/// fn_007FAAF0(a) 0x7FAAF0 (the symbols' GVillagerStateTableInfo::GetInfo is folded code): a > pi [0x8C36A0] (fcomp,
+/// test ah 0x41) -> a - 2 pi [0x8AB210]; else !(a >= -pi) [0x8C79A4] (test ah 1) -> a + 2 pi; else a. Once only (10 ->
+/// 3.7168), and +-pi itself stays; the result is a float (24-bit fsub / fadd, or the argument)
+[[nodiscard]] float WrapAngle(float a);
+
 /// LH3DMath's InverseSquareRoot 0x841170: 1 / sqrt(x) from a 128-byte table of the exponent's last bit and the
 /// mantissa's first 6 (index (bits >> 17) & 0x7F, 0x84118E..0x84119D) under the exponent (0x5F000000 - (e << 22)) &
 /// 0xFF800000 (0x841179..0x8411A0), then one Newton step ((3 - (x y) y) y) 0.5 ([0x8C2C50] = 3, [0x8AA3B4] = 0.5,

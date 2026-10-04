@@ -84,9 +84,7 @@ void ProcessSharksTurn()
 		// Whale::Process 0x775280: +0x2C = Pos
 		shark.turnStart = transform.position;
 	});
-	// later in GGame::ProcessTurn, GlobalGameLists::Process 0x5913ED: MoveAlongPath of the WALK_PATH list (the sharks
-	// are the only MobileObjects the original scripts walk), before GScript::Process 0x54E693 runs the scripts
-	ProcessMobileWalkPaths();
+	// (the WALK_PATH list, GlobalGameLists::Process 0x5913ED, is the turn's step 0x54E651: Game::GameLogicLoop)
 }
 
 void UpdateSharks(float turnFraction, float gameMilliseconds)

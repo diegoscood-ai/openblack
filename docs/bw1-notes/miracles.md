@@ -2171,7 +2171,7 @@ Reviewed in the "rayo3" lane of milagros2 (`Creators/Mesh.{h,cpp}`, the `mesh_at
   0), 1,0, 0)`, from fn_006717F0, which `PSysGlobal::GameLoopEnd` 0x68F5B0 → fn_006721B0 calls **once per turn** (step
   11 of `GGame::ProcessTurn`, after the spells): it processes it (vt 0x100) and, if it returns 5 (finished: `MaxSpellAge`
   25 of `SF_ExplodeObject`), deletes it (fn_006718C0) and on the next turn another is made. `OnClearMap` 0x68F820 empties the
-  two queues (fn_006811D0, fn_00681200). In openblack: `explode_object::GameLoopEnd` from `magic::ProcessTurnEnd` and
+  two queues (fn_006811D0, fn_00681200). In openblack: `explode_object::GameLoopEnd` from `magic::ProcessPSysGameLoopEnd` (0x54E688) and
   `Clear` from `magic::OnLoadMap`.
 - **`UR_ExplodeObject`** (vtable 0x938A98; ctor 0x6BECA0: +0x10 |= 6, a creating rule; DefineProperties 0x6B0C70:
   `RandomFactor` +0x30 = 0.3 and `MaxTrigsPerFrag` +0x2C = 15; the file sets RandomFactor 0.889381 and does not give

@@ -43,9 +43,15 @@ void weather::ProcessTurnStart([[maybe_unused]] uint32_t turn)
 	// in a game): no reader in openblack
 }
 
-void weather::ProcessTurnEnd()
+void weather::ProcessWeatherThings()
 {
+	// 0x54E6CB
 	weather_thing::ProcessWeatherThings();
+}
+
+void weather::ProcessClimate()
+{
+	// 0x54E6DA
 	climate::ProcessAll(game_clock::Turn());
 	RunDebugHooks(game_clock::Turn());
 }

@@ -457,9 +457,10 @@ row 129 of `Data\Textures\atmos.raw`, which is a row of white strokes.
 
 ### Order in the turn (`WeatherLoop.cpp`)
 
-`Magic/MagicLoop.cpp` calls, in the slots of `GGame::ProcessTurn` 0x54E5C0: `ProcessTurnStart` in slot 1
-(`LH3DAtmos::UpdateGame`), `ProcessTurnEnd` in slot 12 (`ProcessWeatherThings` and `GClimate::ProcessAll`), and `UpdateFrame`
-every frame from `magic::Update` (the rain streaks). `OnLoadMap` leaves everything empty.
+In the steps of `GGame::ProcessTurn` 0x54E5C0 ([engine-loop.md](engine-loop.md) §2): `ProcessTurnStart` from
+`Magic/MagicLoop.cpp` (`LH3DAtmos::UpdateGame`, 0x54E5D7); `ProcessWeatherThings` (0x54E6CB) and `ProcessClimate`
+(`GClimate::ProcessAll`, 0x54E6DA, with the bookmarks and highlights in between) from `Game::GameLogicLoop`; and
+`UpdateFrame` every frame from `magic::Update` (the rain streaks). `OnLoadMap` leaves everything empty.
 
 ### Not ported / UNVERIFIED
 

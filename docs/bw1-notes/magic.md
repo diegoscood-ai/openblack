@@ -342,9 +342,10 @@ fn_007215C0 lowers it by 0x20 per turn when `g_game+0x205A28 == 1` (unidentified
 `GGame::ProcessTurn` 0x54E5C0 calls, in this order: atmosphere (1), influence rings (2), players (3), dances (4),
 forests (5), the living, fire (6), reactions (7), `Spell::ProcessSpells` (8), the particle containers (9), physics
 (10), the PSys sounds (11), `GScript::Process`, weather (12), `CHand::GameTurnUpdate` (13) and the rewards (14). In
-openblack `Game.cpp` calls `magic::ProcessTurn` (1..8) after `livingActionSystem`, then runs the scripts block, which
-ends with `psys::manager::ProcessTurn` (9), and afterwards `magic::ProcessTurnEnd` (11..14). The only difference in
-order is that the scripts go before 9 and not between 11 and 12. The spells' PSys are not advanced by the manager:
+openblack `Game::GameLogicLoop` calls `magic::ProcessTurn` (1..8) after `livingActionSystem`, then
+`psys::manager::ProcessTurn` (9) and the fireflies, the physics, `magic::ProcessPSysGameLoopEnd` (11), the scripts,
+the weather things and the climate (12), `magic::ProcessHandTurn` (13), in the original's order
+([engine-loop.md](engine-loop.md) §2); the rewards (14) are not ported. The spells' PSys are not advanced by the manager:
 they are advanced by their spell in 8.
 
 ### Hooks and traces

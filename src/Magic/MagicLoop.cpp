@@ -82,11 +82,15 @@ void magic::OnLoadMap()
 	ResetDebugHooks();
 }
 
-void magic::ProcessTurnStart(uint32_t turn)
+void magic::ProcessGameInputs()
 {
 	// GGame::ProcessOneGameTurn 0x54D620 runs ProcessGameInputs (GInterface::Process: ProcessPowerUpSystem with the last
-	// frame's time) before ProcessGameCode; here it goes first                [M2 gestures]
+	// frame's time) before ProcessGameCode                                     [M2 gestures]
 	hand_casting::ProcessTurn(); // Hand/HandCasting.cpp
+}
+
+void magic::ProcessTurnStart(uint32_t turn)
+{
 	// GGame::ProcessTurn 0x54E5C0, the order of the calls. Each lane adds its line in its slot.
 	//  1 LH3DAtmos::UpdateGame 0x8356E0                                     [M6a weather]
 	weather::ProcessTurnStart(turn); // ECS/Weather/WeatherLoop.cpp
@@ -134,20 +138,21 @@ void magic::ProcessTurn(uint32_t turn)
 	//  9 GParticleContainer::ProcessParticleContainers (psys::manager::ProcessTurn, at the end of Game.cpp's scripts
 	//    block; the spells' own PSys were stepped in 8)
 	// 10 the physics' GameTurnUpdate (already in openblack)
-	// 11..14: ProcessTurnEnd, after 9
+	// 11 ProcessPSysGameLoopEnd, 13 ProcessHandTurn: called by Game::GameLogicLoop at their steps
 }
 
-void magic::ProcessTurnEnd()
+void magic::ProcessPSysGameLoopEnd()
 {
-	// The one swap: the original runs GScript::Process between 11 and 12; openblack's scripts block runs before 9.
-	// 11 PSysGlobal::GameLoopEnd 0x68F5B0 -> fn_006D11A0, the PSys sounds    [S sounds]
+	// 11 PSysGlobal::GameLoopEnd 0x68F5B0 (0x54E688) -> fn_006D11A0, the PSys sounds    [S sounds]
 	//    (first fn_006721B0 -> fn_006717F0: the EXPLODE_OBJECT effect empties the exploded meshes' queue)
 	psys::explode_object::GameLoopEnd(); // PSys/Rules/ExplodeObject.cpp
 	//    (fn_006D11A0 0x6D11AB..0x6D11C5: [0xD01A38] x 0.001)
 	audio::spell_sounds::ProcessTurn(static_cast<float>(game_clock::MsPerTurn()) * 0.001f); // Audio/Services/SpellSounds.cpp
-	// --- (GScript::Process in the original)
-	// 12 the weather things / GClimate::ProcessAll 0x7741A0 / 0x771BE0      [M6a]
-	weather::ProcessTurnEnd(); // ECS/Weather/WeatherLoop.cpp (+ OPENBLACK_TEST_WEATHER)
+}
+
+void magic::ProcessHandTurn()
+{
+	// (Game.cpp: GScript::Process, the weather things, the bookmarks, the climate and the belief come before, 0x54E693..)
 	// 13 CHand::GameTurnUpdate 0x46E4E0: first HandStateGrain's raise (fn_005B2D70, ECS/.../HandGrain.cpp), then the held
 	//    object's ProcessInHand (a spell seed: SpellSeed::ProcessInHand)
 	//    (0x46E4E3..0x46E4FB: [0xD01A38] x 0.001 [0x8AA3B0])
@@ -168,7 +173,7 @@ void magic::ProcessTurnEnd()
 			ecs::fire::CheckToSeeIfObjectIsNearOnFireObject(*held);
 		}
 	}
-	// 14 Reward::ProcessList 0x6E6890                                      [M7b]
+	// (Reward::ProcessList 0x6E6890 comes after GameThing::ProcessDeadList, 0x54E70C: not here)        [M7b]
 }
 
 void magic::Update(float seconds)

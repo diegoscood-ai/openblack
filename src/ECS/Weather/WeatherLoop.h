@@ -11,7 +11,8 @@
 
 #include <cstdint>
 
-// The weather's calls from the game loop (Magic/MagicLoop.cpp calls these in the slots of GGame::ProcessTurn 0x54E5C0).
+// The weather's calls from the game loop: ProcessTurnStart from Magic/MagicLoop.cpp, ProcessWeatherThings and
+// ProcessClimate from Game.cpp, each in its slot of GGame::ProcessTurn 0x54E5C0.
 
 namespace openblack::weather
 {
@@ -19,9 +20,11 @@ namespace openblack::weather
 void OnLoadMap();
 /// Slot 1: LH3DAtmos::UpdateGame(VisualTime, 0.1) 0x8356E0, the first thing of a game turn
 void ProcessTurnStart(uint32_t turn);
-/// Slot 12: WeatherThing::ProcessWeatherThings 0x7741A0 and GClimate::ProcessAll 0x771BE0, after the scripts (the turn
+/// WeatherThing::ProcessWeatherThings 0x7741A0 (0x54E6CB), after GLandAlignement::UpdateTime
+void ProcessWeatherThings();
+/// GClimate::ProcessAll 0x771BE0 (0x54E6DA), after Bookmark::ProcessAll and ScriptHighlight::ProcessHighlights (the turn
 /// of the last ProcessTurnStart); then the test hooks
-void ProcessTurnEnd();
+void ProcessClimate();
 /// Every frame (magic::Update, game seconds): LH3DAtmos::Update3D 0x8357A0, the rain streaks (Rain.cpp)
 void UpdateFrame(float seconds);
 /// OPENBLACK_TEST_WEATHER / OPENBLACK_WEATHER_TRACE (WeatherDebugHooks.cpp), every turn

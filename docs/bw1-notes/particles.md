@@ -251,10 +251,10 @@ the PSys atoms. Report: `visuals_sound.md` §3; what follows is verified in the 
   For the fireball lanes: `SizeFromThrow` (> 0.6 → 1, > 0.3 → 2, otherwise 3) and `SizeFromImpactSpeed` of
   UpdateRuleGravityWithFloor fn_006A1630 (< Medium → 3, < Large → 2, otherwise 1; before that it requires alpha ≥
   MinAlpha, |v| ≥ Small and that the atom does not already have that action).
-- In openblack: `audio::spell_sounds::ProcessTurn` goes in slot 11, inside `magic::ProcessTurnEnd`
-  (`MagicLoop.cpp`), which `Game.cpp` calls right after `psys::manager::ProcessTurn` (slot 9, at the end of the
-  scripts block). Thus the sound sees this turn's atoms, as in the original. The only remaining order change
-  is that `GScript::Process` goes before slot 9 and not between 11 and 12. The bank loader in
+- In openblack: `audio::spell_sounds::ProcessTurn` goes in slot 11, inside `magic::ProcessPSysGameLoopEnd`
+  (`MagicLoop.cpp`), which `Game::GameLogicLoop` calls at 0x54E688, after `psys::manager::ProcessTurn` (slot 9),
+  the fireflies and the physics, and before `GScript::Process`. Thus the sound sees this turn's atoms, as in the
+  original, and in the original's order. The bank loader in
   `Game.cpp` stopped reading a
   .sad at the first empty sample: spells.sad has an empty one at 31, so 32..88 were missing (teleport
   pool, lightning bolts, fireworks...). Now it skips it and continues.

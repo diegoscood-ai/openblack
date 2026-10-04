@@ -86,6 +86,7 @@
 #include "ECS/PuzzleGames.h"
 #include "ECS/Rivers.h"
 #include "ECS/WaterRings.h"
+#include "ECS/Weather/WeatherLoop.h"
 #include "ECS/Map.h"
 #include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
@@ -97,6 +98,7 @@
 #include "ECS/Systems/PlayerSystemInterface.h"
 #include "ECS/Systems/RenderingSystemInterface.h"
 #include "ECS/MobileDrawing.h"
+#include "ECS/MobileWalkPaths.h"
 #include "ECS/ObjectCreationIndex.h"
 #include "ECS/Sharks.h"
 #include "EngineConfig.h"
@@ -104,6 +106,7 @@
 #include "Graphics/FrameBuffer.h"
 #include "Graphics/RendererInterface.h"
 #include "Help/HelpSystem.h"
+#include "Help/ToolTips.h"
 #include "Help/ScriptControl.h"
 #include "Input/GameActionMapInterface.h"
 #include "Input/InterfaceActive.h"
@@ -533,6 +536,9 @@ bool Game::GameLogicLoop() noexcept
 	using namespace ecs::components;
 	using namespace ecs::systems;
 
+	// GGame::ProcessOneGameTurn 0x54D620: ProcessGameInputs 0x54C3D0 (GInterface::Process 0x5CEC10) before
+	// ProcessGameCode, so before the turn number goes up
+	magic::ProcessGameInputs();
 	// ProcessNetworkPackets 0x54CD93 / GGame::StartTurn 0x54E507: the turn number goes up at the start of the turn
 	game_clock::StartTurn();
 	const auto currentTime = std::chrono::steady_clock::now();
@@ -549,18 +555,25 @@ bool Game::GameLogicLoop() noexcept
 	// the reactions' clock (GGame +0x205A40) for the whole turn, and the ones whose initiator went (ECS/Effects/Reactions)
 	ecs::effects::reactions::BeginTurn();
 
+	// GGame::ProcessTurn 0x54E5C0, call by call (docs/bw1-notes/engine-loop.md §2)
 	// Living::ProcessLiving: where each villager and animal starts this turn's move (drawn between it and the end)
 	ecs::BeginMobileTurn();
-	// fn_00775140 (0x54E5C7): the sharks' turn (Whale::Process), then the WALK_PATH list (GlobalGameLists::Process)
+	// 0x54E5C7 Whale::ProcessAll 0x775140: the sharks' turn
 	ecs::ProcessSharksTurn();
-	// GGame::ProcessTurn 0x54E637..0x54E646: the influence rings, the players (their towns' Town::Process, ECS/Town) and
-	// the dances before GlobalGameLists and the villagers (Magic/MagicLoop.cpp, slots 1..4)
+	// 0x54E5D7..0x54E646: LH3DAtmos::UpdateGame, the influence rings, the players (their towns' Town::Process, ECS/Town)
+	// and the dances (Magic/MagicLoop.cpp)
 	magic::ProcessTurnStart(turn);
-	// GlobalGameLists::Process 0x591449: the PuzzleGames (fn_006D7480), before the scripts
+	// 0x54E651 GlobalGameLists::Process 0x591370: Field::Process (0x591379), FishFarm::Process (0x591398), MoveAlongPath of
+	// the WALK_PATH list (0x5913ED), (not ported) fn_00606880 (0x59140B) and fn_0066E1C0 (0x591429), the PuzzleGames
+	// fn_006D7480 (0x591449)
+	ecs::ProcessFieldsTurn(turn);
+	ecs::ProcessFishFarmsTurn(turn);
+	ecs::ProcessMobileWalkPaths();
 	ecs::ProcessPuzzleGamesTurn();
-	// 0x54E656 Forest::ProcessForests, before Living::ProcessLiving (slot 5)
+	// 0x54E656 Forest::ProcessForests, before Living::ProcessLiving
 	magic::ProcessForests(turn);
 
+	// 0x54E65B Living::ProcessLiving 0x5EC810
 	{
 		auto pathfinding = profiler.BeginScoped(Profiler::Stage::PathfindingUpdate);
 		Locator::pathfindingSystem::value().Update();
@@ -571,36 +584,49 @@ bool Game::GameLogicLoop() noexcept
 		// Living::ProcessLiving for the animals: Animal::ProcessState (ecs/AnimalAI.h)
 		ecs::animal_ai::ProcessAnimalsTurn(_dayNightClock->GetVisualTime());
 	}
-	// The miracles' part of GGame::ProcessTurn after Living (Magic/MagicLoop.cpp: fire, reactions, spells...)
+	// 0x54E660..0x54E66F: the fire, the balls, the reactions, the spells (Magic/MagicLoop.cpp)
 	{
 		auto magicTurn = profiler.BeginScoped(Profiler::Stage::TurnMagic);
 		magic::ProcessTurn(turn);
 	}
-	// GGame::ProcessTurn 0x54E67E: PhysicsObject::GameTurnUpdate, after FireFly::ProcessAll and before GScript::Process
+	// 0x54E674 GParticleContainer::ProcessParticleContainers 0x63E090: the particle effects, one step per turn of the
+	// turn's length (the test hooks first)
+	psys::manager::RunDebugHooks();
+	magic::RunDebugHooks();
+	{
+		auto particlesTurn = profiler.BeginScoped(Profiler::Stage::TurnParticles);
+		psys::manager::ProcessTurn(game_clock::k_TurnSeconds);
+	}
+	// 0x54E679 FireFly::ProcessAll 0x52B7A0
+	ecs::ProcessFireFliesTurn(*_dayNightClock);
+	// 0x54E67E PhysicsObject::GameTurnUpdate 0x644FC0
 	{
 		auto physicsTurn = profiler.BeginScoped(Profiler::Stage::TurnPhysicsObjects);
 		ecs::physics::PhysicsObjects::GameTurnUpdate();
 	}
+	// 0x54E688 PSysGlobal::GameLoopEnd 0x68F5B0: the exploded meshes' queue and the PSys sounds (Magic/MagicLoop.cpp)
+	magic::ProcessPSysGameLoopEnd();
 
 	{
 		auto scripts = profiler.BeginScoped(Profiler::Stage::ScriptsUpdate);
+		// 0x54E693 GScript::Process 0x6EB6B0
 		auto& lhvm = Locator::vm::value();
 		lhvm.LookIn(lhvm::ScriptType::All);
 		// GScript::Process: fn_0070D480 (the things no script variable holds any more are released)
 		ecs::script_held::Process();
 		// GScript::Process: ProcessFade(false) once per turn
 		_screenFade->ProcessTurn();
-		// GGame::ProcessTurn: GLandAlignement::UpdateTime once per turn
+		// 0x54E69E HelpSystem::Process 0x5C8FE0: the tooltips' turn (Help/ToolTips.h); 0x54E6A9 HelpProfile::Process
+		// (not ported)
+		help::tooltips::ProcessTurn();
+		// 0x54E6C3 GLandAlignement::UpdateTime 0x5E1FE0
 		_dayNightClock->ProcessTurn();
-		// GGame::ProcessTurn 0x54E74E: GCamera::Validate 0x441F50, the script camera's things that have gone are dropped
-		script_camera::Validate();
 		// OPENBLACK_TIME_OF_DAY=<script hour> pins the clock there every turn (screenshots), over the scripts' times
 		if (const char* hour = std::getenv("OPENBLACK_TIME_OF_DAY"); hour != nullptr)
 		{
 			_dayNightClock->ForceScriptTime(std::clamp(static_cast<float>(std::atof(hour)), 0.0f, 24.0f));
 		}
 		Locator::skySystem::value().SetTime(_dayNightClock->GetScriptTime());
-		ecs::ProcessFireFliesTurn(*_dayNightClock);
 		if (turn % 50 == 0 && std::getenv("OPENBLACK_CLOCK_TRACE") != nullptr)
 		{
 			SPDLOG_LOGGER_INFO(spdlog::get("game"),
@@ -622,34 +648,37 @@ bool Game::GameLogicLoop() noexcept
 				}
 			}
 		}
-		ecs::ProcessFishFarmsTurn(turn);
-		ecs::ProcessFieldsTurn(turn);
-		// GGame::ProcessTurn 0x54E763..0x54E771: Fragment::ProcessTimer 0x76EAF0 for each fragment, once a turn
-		ecs::physics::Buildings::ProcessTurn();
-		// PSysGlobal: the particle effects, one step per turn of the turn's length
-		psys::manager::RunDebugHooks();
-		magic::RunDebugHooks();
-		{
-			auto particlesTurn = profiler.BeginScoped(Profiler::Stage::TurnParticles);
-			psys::manager::ProcessTurn(game_clock::k_TurnSeconds);
-		}
-		// GGame::EndTurn 0x54E960 (unpaused: this loop does not run in pause): GSoundMap::Update 0x71D6F0 (+ Dump),
-		// SoundTag::ProcessSoundTags 0x71E5F0 (the street lanterns' too), then GAudio::ProcessAudioGameTurn 0x427080 after
-		// turn 5 (its music, atmos, channels and listener), AtmosProcess(0) before
-		// GGame::ProcessTurn 0x54E711..0x54E729: GSpookyVoices::Process, HelpSpritesCheckMoonPhase, ProcessTownDesireSFX
-		// (and the heart beat of GInterfaceStatus::Process 0x5DC50D), Audio/Services/Guidance.h
-		audio::guidance::ProcessGameTurn();
-		audio::ProcessTurn();
-		ecs::audio_queries::RunTestHooks(turn); // OPENBLACK_AUDIO_TEST_VIEW / _ANIM / _LANTERN / _CITADEL
 	}
-	// The end of the miracles' turn, after the particle step: the PSys sounds, the seed in the hand (Magic/MagicLoop.cpp)
-	magic::ProcessTurnEnd();
-	// GGame::ProcessTurn 0x54E738: GGame::Update3DInfluence, the influence circles rebuilt every 10 turns when a radius
-	// moved (ECS/Influence/InfluenceCircles.cpp). (aproximado) the original calls it between the spooky voices
-	// (0x54E711..0x54E729) and GCamera::Validate (0x54E74E), which openblack's turn runs elsewhere; here, as there, it
-	// comes after every radius of the turn
+	// 0x54E6CB WeatherThing::ProcessWeatherThings 0x7741A0
+	weather::ProcessWeatherThings();
+	// 0x54E6D0 Bookmark::ProcessAll 0x439DD0 and 0x54E6D5 ScriptHighlight::ProcessHighlights 0x70A460: (not ported)
+	// 0x54E6DA GClimate::ProcessAll 0x771BE0 (+ the weather's test hooks)
+	weather::ProcessClimate();
+	// 0x54E6DF GBelief::ProcessOncePerTurn 0x4380B0: (not ported)
+	// 0x54E6F1 CHand::GameTurnUpdate 0x46E4E0 (Magic/MagicLoop.cpp)
+	magic::ProcessHandTurn();
+	// 0x54E6F8 AddPlayerSparkles, 0x54E6FD MobileObject::AddMobileObjectCheckSum, 0x54E704 GameThing::ProcessDeadList(0),
+	// 0x54E70C Reward::ProcessList: (not ported)
+	// 0x54E711..0x54E731: GSpookyVoices::Process, HelpSpritesCheckMoonPhase, ProcessTownDesireSFX (and the heart beat of
+	// GInterfaceStatus::Process 0x5DC50D), GConfirmation::Process (Audio/Services/Guidance.h)
+	audio::guidance::ProcessGameTurn();
+	// 0x54E738 GGame::Update3DInfluence 0x555280: the influence circles rebuilt every 10 turns when a radius moved
+	// (ECS/Influence/InfluenceCircles.cpp)
 	influence::Update3DInfluence();
+	// 0x54E743 / 0x54E74E: GCamera::CheckStackedModesForValidity 0x441D40 and Validate 0x441F50, the script camera's things
+	// that have gone are dropped
+	script_camera::Validate();
+	// 0x54E763..0x54E771: Fragment::ProcessTimer 0x76EAF0 for each fragment, once a turn
+	ecs::physics::Buildings::ProcessTurn();
+	// 0x54E77A MusicMoodController::UpdateOnGameTurn 0x633EF0: (not verified) in audio::ProcessTurn
+	// GGame::EndTurn 0x54E960 (unpaused: this loop does not run in pause): GSoundMap::Update 0x71D6F0 (+ Dump),
+	// SoundTag::ProcessSoundTags 0x71E5F0 (the street lanterns' too), then GAudio::ProcessAudioGameTurn 0x427080 after
+	// turn 5 (its music, atmos, channels and listener), AtmosProcess(0) before
+	audio::ProcessTurn();
+	ecs::audio_queries::RunTestHooks(turn); // OPENBLACK_AUDIO_TEST_VIEW / _ANIM / _LANTERN / _CITADEL
 	ecs::effects::reactions::EndTurn();
+	// GGame::ProcessOneGameTurn 0x54D620 after ProcessGameCode: fn_005557D0, DoWallHuggerLookahead 0x609A50,
+	// RepairMissingMothers (Personas)
 
 	// OPENBLACK_STATE_HASH: the state of this turn, for the replay test (Debug/StateHash.h)
 	state_hash::OnTurnEnd(turn);
@@ -728,11 +757,31 @@ bool Game::Update() noexcept
 		}
 	}
 
+	// Update Game Logic in Registry: GGame::Loop 0x54D28A ProcessNetworkPackets, the turns before the frame clock and the draw
+	{
+		auto gameLogic = profiler.BeginScoped(Profiler::Stage::GameLogic);
+		// 0x54CD45: while LocalTimerSaysDoATurn and fewer than 1 turn this frame (game_clock::TurnDue)
+		while (game_clock::TurnDue())
+		{
+			if (GameLogicLoop())
+			{
+				return false; // Quit event
+			}
+		}
+		if (game_clock::IsPaused())
+		{
+			// GGame::EndTurn while paused: GAudio::AtmosProcess(0)
+			audio::Paused();
+		}
+	}
+	// GGame::Loop 0x54D2A8..0x54D3A6: the remainder, the visual clock, g_game_time_inc and the fraction of the turn;
+	// LH3DRender::StartFrame 0x82F14E: g_delta_time
+	game_clock::UpdateFrameClock();
+	game_clock::UpdateRealClock();
 	{
 		auto cameraSection = profiler.BeginScoped(Profiler::Stage::CameraUpdate);
-		// GCamera::Update 0x441F80 (GGame::ProcessGraphicsEngine 0x54D879): the script camera mode moves it while it
-		// lives, else the player's model. The frame's game ms are those of the last frame clock (aproximado: the
-		// original runs it after the turns of the loop)
+		// GCamera::Update 0x441F80 (GGame::ProcessGraphicsEngine 0x54D879, after the turns and the frame clock): the script
+		// camera mode moves it while it lives, else the player's model, with this frame's game ms
 		const auto lastDrawn = camera.GetOrigin(); // g_camera: the camera drawn the frame before, shake included
 		if (!script_camera::UpdateCamera(camera, static_cast<float>(game_clock::CameraFrameMs()) * 0.001f,
 		                                 game_clock::FrameGameMs(), game_clock::FrameGameSeconds()))
@@ -756,28 +805,6 @@ bool Game::Update() noexcept
 		}
 		Locator::cameraBookmarkSystem::value().Update(deltaTime);
 	}
-
-	// Update Game Logic in Registry: GGame::Loop 0x54D28A ProcessNetworkPackets, the turns before the frame clock and the draw
-	{
-		auto gameLogic = profiler.BeginScoped(Profiler::Stage::GameLogic);
-		// 0x54CD45: while LocalTimerSaysDoATurn and fewer than 1 turn this frame (game_clock::TurnDue)
-		while (game_clock::TurnDue())
-		{
-			if (GameLogicLoop())
-			{
-				return false; // Quit event
-			}
-		}
-		if (game_clock::IsPaused())
-		{
-			// GGame::EndTurn while paused: GAudio::AtmosProcess(0)
-			audio::Paused();
-		}
-	}
-	// GGame::Loop 0x54D2A8..0x54D3A6: the remainder, the visual clock, g_game_time_inc and the fraction of the turn;
-	// LH3DRender::StartFrame 0x82F14E: g_delta_time
-	game_clock::UpdateFrameClock();
-	game_clock::UpdateRealClock();
 	// Process3dEngine 0x54DAB5..0x54DD76: the full screen film's frame (Video/VideoPlayer.h), paced by the wall
 	// clock (the game is paused while it plays)
 	video::Get().Process(game_clock::FrameRealMs());

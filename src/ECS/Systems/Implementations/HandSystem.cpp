@@ -570,8 +570,8 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 	UpdatePickupSound(_pickSource.has_value() && _held.has_value());
 	// Once per game turn: the amount in the hand (0xEEA "Cantidad: %3.0f", ForceToolTips), forced every turn of the
 	// scooping (ProcessInInteract: Pile 0x66E6E4, Field 0x52989F, FishFarm 0x52DAD6) and once when the locked select
-	// ends (Pile 0x66E8DA, Field 0x529AD9, FishFarm 0x52D92A); its lifetime keeps it about 13 turns after that. Then the
-	// help system's turn (HelpSystem::Process 0x5C8FE0 -> fn_005C9D00, not ported apart from the tooltips)
+	// ends (Pile 0x66E8DA, Field 0x529AD9, FishFarm 0x52D92A); its lifetime keeps it about 13 turns after that. (The
+	// help system's turn, HelpSystem::Process 0x5C8FE0, is Game::GameLogicLoop's step 0x54E69E)
 	if (_toolTipTurn != game_clock::Turn())
 	{
 		_toolTipTurn = game_clock::Turn();
@@ -588,7 +588,6 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 		{
 			help::tooltips::Force(helptext::k_ToolTipAmountInHand, static_cast<float>(std::atof(test)));
 		}
-		help::tooltips::ProcessTurn();
 	}
 	// the KMIcon's fade, in real time (fn_00447850 -> fn_00448AC0(g_delta_time * 0.001))
 	help::tooltips::Frame(seconds);

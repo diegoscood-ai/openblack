@@ -118,7 +118,8 @@ Differences with §1-§3 (owners and order in `turn_order.md`):
   it at creation in the turn (Living::CallVirtualFunctionsForCreation 0x5EC9B0 → SetStateAnim 0x5ECB10)
   **(pending: Personas)**.
 - Bullet was stepped every frame with the wall clock (openblack-only); it only answers ray casts **(not original)**.
-- Several turn steps were out of order; `turn_order.md` lists them and the fixes.
+- The turn steps follow §2 since the turn-order commit (Game::GameLogicLoop names each call site); what is not
+  ported is marked there and in `turn_order.md`.
 
 ## 6. Threads (plan)
 

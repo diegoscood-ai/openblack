@@ -12,12 +12,14 @@
 #include <cstdlib>
 #include <memory>
 
+#include <L3DFile.h>
 #include <entt/entity/entity.hpp>
 
 #include "3D/HandAnimator.h"
 #include "Audio/LH/SamplePlay.h"
 #include "Common/Zoomer.h"
 #include "Enums.h"
+#include "ECS/PotResource.h"
 #include "ECS/Systems/HandSystemInterface.h"
 
 #if !defined(LOCATOR_IMPLEMENTATIONS)
@@ -52,6 +54,13 @@ public:
 	[[nodiscard]] float GetHandScale() const noexcept override { return _handScale; }
 	[[nodiscard]] glm::mat4 GetHandMatrix() const noexcept override;
 	[[nodiscard]] int32_t GetInterfaceHandState() const noexcept override { return _interfaceHandState; }
+	[[nodiscard]] entt::entity GetClickedObject() const noexcept override;
+	void ClearClicked() noexcept override;
+	void RememberTapped(entt::entity object) noexcept override;
+	[[nodiscard]] bool PositionClicked(const glm::vec3& position, float radius) const noexcept override;
+	void ClearClickedPosition() noexcept override;
+	void SetHandReach(float metres) noexcept override { _handReach = metres <= 1800.0f ? metres : 1800.0f; }
+	[[nodiscard]] float GetHandReach() const noexcept override { return _handReach; }
 	[[nodiscard]] std::vector<entt::entity> GetThrownObjects() const noexcept override;
 	[[nodiscard]] const std::vector<glm::mat4>* GetBoneMatrices() const noexcept override;
 	[[nodiscard]] std::vector<std::string> GetAnimationNames() const noexcept override;
@@ -122,7 +131,7 @@ private:
 	/// Wood store (village store pit) under the point, if any.
 	[[nodiscard]] std::optional<entt::entity> FindWoodStore(glm::vec3 point) const noexcept;
 	/// DeleteObjectAndTakeResource: the store takes the tree's wood and the tree is deleted.
-	void DepositInStore(entt::entity object, entt::entity store) noexcept;
+	void DepositInStore(entt::entity object, entt::entity store, const pot_resource::Dropper& is) noexcept;
 	[[nodiscard]] bool IsHoldingTree() const noexcept;
 
 	// ---- HandSpellSeed.cpp: a spell seed in the hand (GInterface's apply states, SpellSeed's interface virtuals) ----
@@ -232,7 +241,24 @@ private:
 	float _testMouseMoveIn {-1.0f};
 	void UpdatePickupParticles(float seconds, bool emitting) noexcept;
 	[[nodiscard]] glm::vec3 ModelPosition(size_t vertex, const std::vector<glm::mat4>& bones) const noexcept;
-	[[nodiscard]] glm::mat3 FrameRotation(glm::vec3 cameraForward) const noexcept;
+	/// HandNearObject.cpp: g_0xD1A3A0, the land behind the hand seen from the camera (GLandscape::Draw 0x5E4848)
+	void UpdatePointBehindHand() noexcept;
+	/// HandNearObject.cpp: GInterface::FindObjectNearMapCoord fn_005D39E0 for the action's point `at`
+	[[nodiscard]] std::optional<entt::entity> FindObjectNearMapCoord(glm::vec3 at) const noexcept;
+	/// HandMorph.cpp: Morphable::LoadBase 0x618360 / ReadBinary 0x617AE0: Base2, Evil2 and Good2 on the CPU
+	void LoadMorphMeshes() noexcept;
+	/// HandMorph.cpp: CHand::PrepareForDrawing 0x46C550: SetTextureSet, the alignment, Morphable::UpdateMorphing 0x618C40
+	void UpdateMorphing() noexcept;
+	/// HandMorph.cpp: Morphable::MorphTexture 0x619500 (Blend4444 fn_00870640) into _morphTexels
+	void MorphTexture() noexcept;
+	/// HandMorph.cpp: Morphable::MorphVertices 0x618D10 into _morphVertices
+	void MorphVertices() noexcept;
+	/// HandMorph.cpp: the morph's only GPU upload (the hand mesh's skin and sub-meshes)
+	void UploadMorph(bool texture, bool vertices) noexcept;
+	/// HandFrame.cpp: CHand fn_0046E160's rotation (d from the mouse ray, side = d x up; X side, Y side x up, Z -up)
+	[[nodiscard]] glm::mat3 HandMatrixRotation(glm::vec3 up) noexcept;
+	/// HandFrame.cpp: the empty hand's up (ORHP's tail: the land normal, three 0.4 s Zoomers)
+	glm::vec3 UpdateNormalUp(float seconds) noexcept;
 
 	std::array<entt::entity, 2> _hands;
 	std::unique_ptr<HandAnimator> _animator;
@@ -245,14 +271,28 @@ private:
 	// Hand geometry from Hand_Boned_Base2.l3d (vertices live in the space of their bone).
 	std::vector<glm::vec3> _vertices;
 	std::vector<uint32_t> _vertexBones;
-	/// Local frame measured on the mesh: palm -> fingers, palm normal, lateral (thumb side).
-	glm::vec3 _frameFingers {0.0f, 1.0f, 0.0f};
-	glm::vec3 _frameNormal {0.0f, 0.0f, 1.0f};
-	glm::vec3 _frameLateral {1.0f, 0.0f, 0.0f};
-	/// Index fingertip in the pointing pose (Ccan_pickup), model space: the interaction point.
-	glm::vec3 _hotspot {0.0f};
-	/// Front-most vertex of each fingertip: dug into the ground while gripping.
-	std::vector<size_t> _tipVertices;
+	glm::vec3 _handHeadingBack {0.0f, 0.0f, 1.0f}; ///< fn_0046E160's d (H, CHand +0x84)
+	openblack::Zoomer3d _up;                      ///< the up Zoomers 0xD13FB0 / FE0 / 4010
+	glm::vec3 _normalUp {0.0f, 1.0f, 0.0f};       ///< g_D13F60
+	float _upMouseX {-1e30f};                     ///< the mouse's x when the up last took a target (CHand +0x4858)
+	bool _inNormalState {false};
+	float _handReach {1800.0f};
+	/// HandClicked.cpp: fn_005D3700, once an interface tick before the action states
+	void UpdateTapMemory(bool actionReleased) noexcept;
+	entt::entity _clickedObject {entt::null};     ///< GInterface +0x45C
+	uint32_t _clickedTurn {0};                    ///< +0x468
+	glm::vec3 _clickedPosition {0.0f};            ///< +0x46C (zeroed when cleared)
+	uint32_t _clickedPositionTurn {0};            ///< +0x478                   ///< CHand +0x4838 ([0x8CBEAC] in the ctor 0x46BC3E)                  ///< HandStateNormal entered (its Enter snaps the up Zoomers)
+	std::optional<glm::vec3> _collidePoint;       ///< GInterface +0x3F0 (m_ActionCollide.pos): the land or object hit
+	// the good / evil morph (Morphable): meshes [1] base, [2] evil, [3] good on the CPU, the blend results
+	std::unique_ptr<l3d::L3DFile> _morphBase;
+	std::unique_ptr<l3d::L3DFile> _morphEvil;
+	std::unique_ptr<l3d::L3DFile> _morphGood;
+	std::vector<uint16_t> _morphTexels;
+	std::vector<l3d::L3DVertex> _morphVertices;
+	float _morphApplied {0.0f};       ///< Morphable +0xA0 (MorphInit 0x617310 zeroes it)
+	int32_t _morphTextureSet {1};     ///< CHand +0x4840 (1 in the ctor 0x46BBC9 and OnClearMap 0x46E91C)
+	std::optional<glm::vec3> _pointBehindHand;    ///< g_0xD1A3A0, valid while g_0xD2017C
 	/// Palm centre (bind pose, model space): held objects sit under it.
 	glm::vec3 _palmCenter {0.0f};
 
@@ -267,9 +307,6 @@ private:
 	HoldType _holdType {HoldType::None};
 	float _loweringMultiplier {0.0f};
 	bool _rooted {false};
-	/// Hand roll towards the side grip (+-pi/2); the original only rolls while giving an object to the creature.
-	/// CHand +0xD4: the hand's roll Zoomer (ObtainRequiredHandPosition 0x5B42D4)
-	openblack::Zoomer _roll;
 	/// HandStateHolding::Update: the hand follows its required position with a spring in 10 ms steps.
 	bool _springActive {false};
 	float _springTime {0.0f};
@@ -382,10 +419,6 @@ private:
 	/// HandStateNormal::Enter resets the zoomer to the current distance from view.
 	bool _handDistanceValid {false};
 	std::optional<glm::vec3> _gripPoint;
-	glm::mat3 _gripRotation {1.0f};
 	std::optional<glm::vec3> _smoothedPosition;
-	float _tipClearance {0.45f};
-	float _vertexClearance {0.05f};
-	float _clawDepth {0.12f};
 };
 } // namespace openblack::ecs::systems

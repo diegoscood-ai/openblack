@@ -88,6 +88,8 @@ void Texture2D::Create(uint16_t width, uint16_t height, uint16_t layers, Texture
 
 	const auto* bgfxMemory = reinterpret_cast<const bgfx::Memory*>(memory);
 	const bool hasMips = filter == Filter::LinearMipmapLinear && bgfxMemory != nullptr;
+	_sourceFormat = format;
+	_hasMips = hasMips;
 	if (hasMips)
 	{
 		const auto chain = BuildRgba8MipChain(bgfxMemory->data, width, height, layers, toBgfx(format));
@@ -109,6 +111,38 @@ void Texture2D::Create(uint16_t width, uint16_t height, uint16_t layers, Texture
 	_storageSize = textureInfo.storageSize;
 
 	bgfx::frame();
+}
+
+void Texture2D::Update(const void* data, uint32_t size) noexcept
+{
+	if (!bgfx::isValid(toBgfx(_handle)) || data == nullptr)
+	{
+		return;
+	}
+	const uint16_t width = _resolution.x;
+	const uint16_t height = _resolution.y;
+	if (!_hasMips)
+	{
+		bgfx::updateTexture2D(toBgfx(_handle), 0, 0, 0, 0, width, height, bgfx::copy(data, size));
+		return;
+	}
+	// the RGBA8 chain Create built, one level after the other
+	const auto chain = BuildRgba8MipChain(data, width, height, 1, toBgfx(_sourceFormat));
+	size_t offset = 0;
+	uint16_t w = width;
+	uint16_t h = height;
+	for (uint8_t mip = 0; offset < chain.size(); ++mip)
+	{
+		const auto bytes = static_cast<uint32_t>(w) * h * 4u;
+		bgfx::updateTexture2D(toBgfx(_handle), 0, mip, 0, 0, w, h, bgfx::copy(chain.data() + offset, bytes));
+		offset += bytes;
+		if (w == 1 && h == 1)
+		{
+			break;
+		}
+		w = std::max<uint16_t>(1, w / 2);
+		h = std::max<uint16_t>(1, h / 2);
+	}
 }
 
 void Texture2D::DumpTexture() const

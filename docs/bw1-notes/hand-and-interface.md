@@ -217,3 +217,51 @@ The original shows a single tooltip next to the hand, and the hand's state picks
 - The amount 0xEEA is forced every turn of the scooping and once when it ends (Pile 0x66E8DA, Field 0x529AD9, FishFarm
   0x52D92A). It then stays about 13 turns, until «Soltar» takes over.
 - Out of the influence a second press with something in the hand does nothing (ActionPressedHolding 0x5D16BE).
+
+## Hito 2 (2026-10-04): placement, near object, morph, tap memory
+
+**Where the hand goes, as the original** (dev\documentacion\hand\placement\README.md)
+- **Empty hand:** HandStateNormal::Update 0x5B71A0 puts the model origin at the required position. That point is on the
+  mouse ray, one hand length (3.2 × handScale) short of the land, not over the sea, clamped to [2, reach].
+- **Matrix:** fn_0046E160, with the heading from the camera → mouse ray. The up is the land's normal at the hand, through
+  three 0.4 s Zoomers that are snapped to (0, 1, 0) on every HandStateNormal::Enter. Nothing lifts the hand above the
+  land.
+- **Land grip:** HandStateCamera puts the origin at the grabbed land point, freezes the up, keeps the heading live, and
+  takes the scale from the grip point.
+- **Root bone:** every clip applies its root.
+- **Removed:** openblack's own placement (index fingertip 0.45 above the point, palm-down frame, vertex lift, fingertips
+  dug in 0.12, dead roll).
+- **Held object pull-in:** 0.5 × Get2DRadius of the held object (0x5B676B). **(not ported)**: the creature's push.
+- **Action point:** `_interactionPoint` is GInterface +0x3F0: the collided object's position, otherwise the land under the
+  cursor. GetPlayerHandPositions returns the hand itself.
+
+**FindObjectNearMapCoord fn_005D39E0** (dev\documentacion\hand\fonmc\README.md)
+- When a click hits nothing, it takes the nearest object within ±5 of the land behind the hand, as seen from the camera.
+  That point is GLandscape::Draw 0x5E4848, the box of the bones without the root.
+- The search goes through the cells, skips fragments, and keeps the nearest one if it is not farther than the action
+  point. A fish shoal is tried first.
+- **(approximate)**: the press path filters the result with the hover's class filter.
+
+**Grip dust:** SPOT_VISUAL 2 through psys::manager::CreateSpotVisual, made by packet 0x2B → 0x63D6D8.
+**(not ported)**: the packet's one-turn delay.
+
+**Good and evil** (dev\documentacion\hand\morph\README.md, HandMorph.cpp)
+- CHand::PrepareForDrawing 0x46C550 morphs the hand when the local player's alignment moves 0.03 or more.
+- **Texture:** Blend4444 fn_00870640 between Base2 and Evil2 / Good2, at t = min(255, trunc(|a|·256)).
+- **Vertices:** MorphVertices 0x618D10. Evil2 grows claws.
+- MorphAnims changes nothing for the hand.
+- Test hook: `OPENBLACK_TEST_HAND_ALIGNMENT=<-1..1>`.
+
+**Reach:** CHand +0x4838 (1800; at most 1800, fn_0046BF20) is set by SET_INTERFACE_INTERACTION
+(HandSystemInterface::SetHandReach).
+
+**Tap memory** (dev\documentacion\hand\clicked\README.md)
+- **The slot:** GInterface +0x45C (the object) and +0x46C (the land point). It is written by RememberTapped fn_005D36D0,
+  from Tap and from fn_005D3700 when the action button is released idle, and it lasts 15 s of game time.
+- **Readers:** GAME_THING_CLICKED, CLEAR_CLICKED_OBJECT, CLEAR_CLICKED_POSITION and POSITION_CLICKED (fn_005D0460)
+  (session Intro wires them).
+- **(approximate)**: the per-tick check uses last frame's hover.
+
+**Store:** Object::DoDeleteObjectAndTakeResource 0x63A940 is in ecs::object_delivery (ObjectDelivery.h).
+DepositInStore passes the giver's interface. **(pending)**: until session Edificios' take_resource lands, the store's
+Supply trigger and reaction 0x16.

@@ -73,6 +73,22 @@ public:
 	[[nodiscard]] virtual float GetHandScale() const noexcept = 0;
 	/// The player hand's model position (CHand +0x78) and matrix
 	[[nodiscard]] virtual glm::mat4 GetHandMatrix() const noexcept = 0;
+	/// CHand fn_0046BF20: the hand's reach (CHand +0x4838, 1800 from the ctor 0x46BC3E), at most 1800; SET_INTERFACE_INTERACTION
+	/// sets it (session Intro, the table 0x70B220: 75 for JUST_GRAB)
+	virtual void SetHandReach(float metres) noexcept = 0;
+	[[nodiscard]] virtual float GetHandReach() const noexcept = 0;
+	/// GInterface +0x45C: the object tapped or clicked in the last 15 s (GAME_THING_CLICKED 0x70AEB0); entt::null when none
+	/// or it no longer exists
+	[[nodiscard]] virtual entt::entity GetClickedObject() const noexcept = 0;
+	/// +0x460 / +0x464 = 0 (GameThingClicked 0x70AF84, CLEAR_CLICKED_OBJECT 0x70B0E0)
+	virtual void ClearClicked() noexcept = 0;
+	/// RememberTapped fn_005D36D0: the object and the current turn
+	virtual void RememberTapped(entt::entity object) noexcept = 0;
+	/// fn_005D0460 (POSITION_CLICKED 0x70B120): GUtils::GetDistanceInMetres(+0x46C, pos) <= radius (`test ah, 0x41`). +0x46C
+	/// is the land point of the last land tap in the last 15 s, (0, 0, 0) once cleared
+	[[nodiscard]] virtual bool PositionClicked(const glm::vec3& position, float radius) const noexcept = 0;
+	/// CLEAR_CLICKED_POSITION 0x70B100: +0x46C / +0x470 / +0x474 = 0, the turn +0x478 stays
+	virtual void ClearClickedPosition() noexcept = 0;
 	/// GInterface +0x3AC, the interface's hand state (fn_005D7E40) of the last turn: GET_HAND_STATE 413 (0x6FF730)
 	[[nodiscard]] virtual int32_t GetInterfaceHandState() const noexcept = 0;
 	/// Objects thrown by the hand that are still in flight (the original's physics objects)

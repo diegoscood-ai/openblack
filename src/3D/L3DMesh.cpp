@@ -205,6 +205,34 @@ bool L3DMesh::Load(const l3d::L3DFile& l3d) noexcept
 	return result;
 }
 
+void L3DMesh::RebuildSubMeshes(const l3d::L3DFile& l3d, const std::vector<l3d::L3DVertex>& vertices) noexcept
+{
+	std::vector<std::unique_ptr<L3DSubMesh>> rebuilt;
+	size_t first = 0;
+	for (uint32_t i = 0; i < l3d.GetSubmeshHeaders().size(); ++i)
+	{
+		const auto count = l3d.GetVertexSpan(i).size();
+		auto subMesh = std::make_unique<L3DSubMesh>(*this);
+		const auto span = first + count <= vertices.size() ? std::span<const l3d::L3DVertex>(vertices.data() + first, count)
+		                                                   : std::span<const l3d::L3DVertex>();
+		if (!subMesh->Load(l3d, i, span))
+		{
+			return;
+		}
+		first += count;
+		rebuilt.emplace_back(std::move(subMesh));
+	}
+	_subMeshes = std::move(rebuilt);
+}
+
+void L3DMesh::UpdateSkin(SkinId id, const std::vector<uint16_t>& texels) noexcept
+{
+	if (const auto skin = _skins.find(id); skin != _skins.end())
+	{
+		skin->second->Update(texels.data(), static_cast<uint32_t>(texels.size() * sizeof(uint16_t)));
+	}
+}
+
 bool L3DMesh::LoadFromFilesystem(const std::filesystem::path& path) noexcept
 {
 	SPDLOG_LOGGER_DEBUG(spdlog::get("game"), "Loading L3DMesh from file: {}", path.generic_string());

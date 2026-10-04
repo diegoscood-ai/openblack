@@ -121,6 +121,12 @@ public:
 		}
 	}
 
+	/// The hand's good / evil morph: the sub-meshes built again from `l3d` with `vertices` (all the file's vertices, the
+	/// same count and order) instead of the file's; the skins stay. No bgfx::frame() (session Motor's draw thread)
+	void RebuildSubMeshes(const l3d::L3DFile& l3d, const std::vector<l3d::L3DVertex>& vertices) noexcept;
+	/// The hand's good / evil morph: the skin `id` gets these ARGB4444 texels (Morphable::MorphTexture 0x619500, the
+	/// material's dirty flag +0x138)
+	void UpdateSkin(SkinId id, const std::vector<uint16_t>& texels) noexcept;
 	[[nodiscard]] uint8_t GetNumSubMeshes() const { return static_cast<uint8_t>(_subMeshes.size()); }
 	[[nodiscard]] const std::vector<std::unique_ptr<L3DSubMesh>>& GetSubMeshes() const { return _subMeshes; }
 	/// The mesh's own skins, or (a generated mesh without any) those of its skin source

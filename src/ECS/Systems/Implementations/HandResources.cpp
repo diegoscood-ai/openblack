@@ -12,6 +12,7 @@
 #include "HandSystem.h"
 
 #include "Audio/Services/Guidance.h"
+#include "ECS/ObjectDelivery.h"
 
 #include "HandSystemDetail.h"
 
@@ -309,35 +310,14 @@ std::optional<entt::entity> HandSystem::FindWoodStore(glm::vec3 point) const noe
 	return store;
 }
 
-void HandSystem::DepositInStore(entt::entity object, entt::entity store) noexcept
+void HandSystem::DepositInStore(entt::entity object, entt::entity store, const pot_resource::Dropper& is) noexcept
 {
-	auto& registry = Locator::entitiesRegistry::value();
-	// Object::DoDeleteObjectAndTakeResource: AddResource(WOOD, GetDefaultResource()) (ecs::TreeWood: Tree 0x74B7A0 or
-	// DeadTree 0x511330; a MagicTree's GetWoodValueMultiplier is its Tree::woodValueMultiplier)
-	auto wood = ecs::TreeWood(object);
-	const uint32_t total = wood;
-	StoragePitStore::AddResource(store, ResourceType::Wood, wood);
-	// 0x63A9C7..0x63A9E6, after DoCreatureMimicAfterAddingResource (vt +0x68C): the IS is the local one (inferred: the
-	// hand) -> ResourceDropSFX(IS, this+0x14, this->GetGuidanceResourceType()) where `this` (edi) is the receiver, the
-	// store (esi is the object: GetPos 0x63AA2B, ToBeDeleted 0x63AAB1): StoragePit keeps GameThing's 0x71BDD0 (0), so
-	// GetResourceDropSample 0x71B5F0 gives 0 and nothing is said (PlayNow and GetNearestTown still run)
-	audio::guidance::ResourceDropSFX(registry.Get<const Transform>(store).position, audio::guidance::RainType::None);
-	// 0x63AA13..0x63AA93: GAudio::PlaySoundEffect 0x429E30 with bank InGame (GAudio+0x3AC), owner the object (+0x20), is3D
-	// 1, track 0, sample 155 G_TreeMulch_01 + the counter [0xD4437C] = ([0xD4437C] + 1) & 3, at the object's point
-	// (GetPos -> MapCoords::GetLHPoint 0x605C40)
-	{
-		audio::PlayOptions options;
-		options.sample = {audio::Bank(audio::SfxBank::InGame), 155 + audio::NextCounter(audio::Counter::TreeMulch)};
-		options.owner = audio::Owner::Thing(object);
-		options.is3D = true;
-		options.track = false;
-		options.position = registry.Get<const Transform>(object).position;
-		audio::PlaySoundEffect(options);
-	}
+	// openblack's roots of an uprooted tree go first (they are not part of the original's tree)
 	DropRoots(object, false);
-	// CleanupWhenDeleted 0x6377F0: RemoveMapObject vt +0x548 (a tree that hit the store from the physics may be in)
-	ecs::map_cells::RemoveMapObject(object);
-	registry.Destroy(object);
-	registry.SetDirty();
-	SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand: {} wood added to the village store", total);
+	// StoragePit::DeleteObjectAndTakeResource 0x733750: the Supply help trigger (0x7337A6), then
+	// Object::DoDeleteObjectAndTakeResource 0x63A940 (ecs::object_delivery: the wood taken, the sounds, ToBeDeleted),
+	// then the reaction 0x16 (0x7337BA). TODO(Edificios HEAD): ecs::take_resource::StoragePit(store, object, is) does the
+	// three; until it is in, only 0x63A940 (the trigger and the reaction: (pending))
+	ecs::object_delivery::DoDeleteObjectAndTakeResource(store, object, is);
+	Locator::entitiesRegistry::value().SetDirty();
 }

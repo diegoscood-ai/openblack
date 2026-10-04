@@ -267,7 +267,8 @@ void HandSystem::Release(glm::vec3 velocity) noexcept
 				_held.reset();
 				_pickSource.reset();
 				fire::SetOutMagicHand(entity); // GMagicHand::RemoveFromHand 0x5FB0B0: FireEffect::SetOutMagicHand
-				DepositInStore(entity, *store);
+				// Tree::ApplyThisToMapCoord 0x74BFD0: s->DeleteObjectAndTakeResource(this, is), the hand's interface
+				DepositInStore(entity, *store, pot_resource::Dropper {true, PlayerNames::PLAYER_ONE, true});
 				return;
 			}
 		}

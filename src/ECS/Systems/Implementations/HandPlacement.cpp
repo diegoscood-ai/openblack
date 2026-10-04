@@ -73,6 +73,8 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
+#include "ECS/ObjectMetrics.h"
+#include "PSys/PSysManager.h"
 #include "ECS/Rocks.h"
 #include "ECS/Villager/VillagerHome.h"
 #include "FileSystem/FileSystemInterface.h"
@@ -97,11 +99,7 @@ namespace
 {
 // Hand_Boned_*2.l3d: 0 = palm (root), 8..19 = four fingers (3 phalanges), 10/13/16/19 = fingertips, 20/21 = thumb.
 constexpr std::array<uint32_t, 1> k_PalmBones = {0};
-constexpr std::array<uint32_t, 12> k_FingerBones = {8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19};
 constexpr std::array<uint32_t, 4> k_TipBones = {10, 13, 16, 19};
-constexpr std::array<uint32_t, 2> k_ThumbBones = {20, 21};
-constexpr std::array<const char*, 4> k_ClosedPoses = {"Chorn", "Cphile", "Cgrip", "Chold_fingers"};
-constexpr const char* k_PointPose = "Ccan_pickup";
 } // namespace
 
 glm::vec3 HandSystem::ModelPosition(size_t vertex, const std::vector<glm::mat4>& bones) const noexcept
@@ -138,19 +136,6 @@ void HandSystem::LoadGeometry() noexcept
 	const auto& parents = mesh->GetBoneParents();
 	const auto root = static_cast<size_t>(std::distance(
 	    parents.begin(), std::find(parents.begin(), parents.end(), std::numeric_limits<uint32_t>::max())));
-	// Evaluate a clip with its root replaced by the bind root, so only the fingers move.
-	const auto evaluateLocked = [&](const char* name) {
-		auto bones = _animator->Evaluate(name, 0.0f);
-		if (bones.size() == bind.size())
-		{
-			const auto correction = bind[root] * glm::affineInverse(bones[root]);
-			for (auto& m : bones)
-			{
-				m = correction * m;
-			}
-		}
-		return bones;
-	};
 	const auto centroid = [&](const auto& boneSet, const std::vector<glm::mat4>& bones) {
 		glm::vec3 c(0.0f);
 		int n = 0;
@@ -167,76 +152,7 @@ void HandSystem::LoadGeometry() noexcept
 
 	const auto palm = centroid(k_PalmBones, bind);
 	_palmCenter = palm;
-	_frameFingers = glm::normalize(centroid(k_FingerBones, bind) - palm);
-	// Palm normal: the side the fingertips close towards.
-	const auto openTips = centroid(k_TipBones, bind);
-	_frameNormal = glm::vec3(0.0f);
-	for (const auto* name : k_ClosedPoses)
-	{
-		if (!_animator->Has(name))
-		{
-			continue;
-		}
-		auto d = centroid(k_TipBones, evaluateLocked(name)) - openTips;
-		d -= _frameFingers * glm::dot(d, _frameFingers);
-		if (glm::length(d) > 1e-3f)
-		{
-			_frameNormal = glm::normalize(d);
-			break;
-		}
-	}
-	if (glm::length(_frameNormal) < 0.5f)
-	{
-		const glm::vec3 z(0.0f, 0.0f, 1.0f);
-		_frameNormal = glm::normalize(z - _frameFingers * glm::dot(z, _frameFingers));
-	}
-	_frameLateral = glm::cross(_frameFingers, _frameNormal);
-
-	// Index = fingertip closest to the thumb; its front-most vertex in the pointing pose is the interaction point.
-	const float side = glm::dot(centroid(k_ThumbBones, bind) - palm, _frameLateral) >= 0.0f ? 1.0f : -1.0f;
-	uint32_t indexTip = k_TipBones[0];
-	float best = -std::numeric_limits<float>::max();
-	for (const auto tip : k_TipBones)
-	{
-		const float score = glm::dot(centroid(std::array {tip}, bind), _frameLateral) * side;
-		if (score > best)
-		{
-			best = score;
-			indexTip = tip;
-		}
-	}
-	const auto pointing = _animator->Has(k_PointPose) ? evaluateLocked(k_PointPose) : bind;
-	best = -std::numeric_limits<float>::max();
-	_tipVertices.clear();
-	for (const auto tip : k_TipBones)
-	{
-		size_t front = 0;
-		float frontScore = -std::numeric_limits<float>::max();
-		for (size_t v = 0; v < _vertices.size(); ++v)
-		{
-			if (_vertexBones[v] != tip)
-			{
-				continue;
-			}
-			const float score = glm::dot(ModelPosition(v, bind), _frameFingers);
-			if (score > frontScore)
-			{
-				frontScore = score;
-				front = v;
-			}
-			if (tip == indexTip)
-			{
-				const auto p = ModelPosition(v, pointing);
-				if (glm::dot(p, _frameFingers) > best)
-				{
-					best = glm::dot(p, _frameFingers);
-					_hotspot = p;
-				}
-			}
-		}
-		_tipVertices.push_back(front);
-	}
-	SPDLOG_LOGGER_INFO(logger, "Hand: {} vertices, index fingertip = bone {}", _vertices.size(), indexTip);
+	SPDLOG_LOGGER_INFO(logger, "Hand: {} vertices", _vertices.size());
 	// Debug: OPENBLACK_HAND_GRIP_PROBE=1 logs where the fist of the hold poses is relative to the model origin.
 	if (std::getenv("OPENBLACK_HAND_GRIP_PROBE") != nullptr)
 	{
@@ -277,19 +193,7 @@ void HandSystem::LoadGeometry() noexcept
 	}
 }
 
-glm::mat3 HandSystem::FrameRotation(glm::vec3 cameraForward) const noexcept
-{
-	glm::vec3 forward(cameraForward.x, 0.0f, cameraForward.z);
-	forward = glm::length(forward) > 1e-4f ? glm::normalize(forward) : glm::vec3(0.0f, 0.0f, -1.0f);
-	const glm::vec3 down(0.0f, -1.0f, 0.0f);
-	const auto lateral = glm::cross(forward, down);
-	// Map the mesh frame (fingers, palm normal, lateral) onto (forward, down, lateral): palm towards the ground.
-	const glm::mat3 world(forward, down, lateral);
-	const glm::mat3 local(_frameFingers, _frameNormal, _frameLateral);
-	return world * glm::transpose(local);
-}
-
-void HandSystem::Place(std::optional<glm::vec3> groundPoint, glm::vec3 cameraForward, bool gripping,
+void HandSystem::Place(std::optional<glm::vec3> groundPoint, [[maybe_unused]] glm::vec3 cameraForward, bool gripping,
                        std::chrono::microseconds dt) noexcept
 {
 	auto& registry = Locator::entitiesRegistry::value();
@@ -298,13 +202,16 @@ void HandSystem::Place(std::optional<glm::vec3> groundPoint, glm::vec3 cameraFor
 	{
 		return;
 	}
-	const auto& bones = _animator->GetBoneMatrices();
 	_lastDt = static_cast<float>(dt.count()) / 1e6f;
-	// CHand::SetDistanceFromView (0x46C0D0) with the distance from the camera to the point under the cursor, and the
-	// model scale k = 3.2 * handScale / 555.294 (the bind joint Y extent of Hand_Boned_Base2): the hand is 3.2 units long.
-	if (groundPoint && Locator::camera::has_value())
+	// GLandscape::Draw 0x5E4848: the land behind the hand, from this frame's bones (the animator ran in Update)
+	UpdatePointBehindHand();
+	// CHand::SetDistanceFromView (0x46C0D0) with the hand's distance from the camera (HandStateNormal: the required position;
+	// HandStateCamera: hand->pos, the grip point), clamped to [2 ([0x8CBEA4]), CHand +0x4838] (0x46C0E4), and the model
+	// scale k = 3.2 * handScale / 555.294 (the bind joint Y extent of Hand_Boned_Base2): the hand is 3.2 units long.
+	const auto scalePoint = gripping && !_held && _gripPoint ? _gripPoint : groundPoint;
+	if (scalePoint && Locator::camera::has_value())
 	{
-		const float d = glm::clamp(glm::distance(Locator::camera::value().GetOrigin(), *groundPoint), 2.0f, 1800.0f);
+		const float d = glm::clamp(glm::distance(Locator::camera::value().GetOrigin(), *scalePoint), 2.0f, _handReach);
 		_handScale = d < 10.0f ? std::pow(d / 10.0f, 0.8f) : 1.0f;
 		if (d > 150.0f)
 		{
@@ -312,19 +219,21 @@ void HandSystem::Place(std::optional<glm::vec3> groundPoint, glm::vec3 cameraFor
 		}
 		transform.scale = glm::vec3(3.2f * _handScale / 555.294f);
 	}
-	const float scale = transform.scale.x;
 
 	if (gripping && !_held)
 	{
-		// Grip Landscape: the fingertips stay dug into the point where the land was grabbed.
+		// HandStateCamera (Grip Landscape): the hand stays at the grabbed land point
+		_inNormalState = false;
 		if (!_gripPoint)
 		{
 			if (!_interactionPoint && !groundPoint)
 			{
 				return;
 			}
-			_gripPoint = _interactionPoint ? _interactionPoint : groundPoint;
-			_gripRotation = transform.rotation;
+			// the change to Cgrip (0x5B075B): hand->pos = the land point under the mouse (g_D13F30, fn_0046DF60(false);
+			// while gripping ResolveCursorPoint gives the land itself). (not ported) with an object, a bubble or the leash
+			// in the interface (+0x3C8 / +0x3D0 / +0x3D8) the original keeps the Normal position instead
+			_gripPoint = groundPoint ? groundPoint : _interactionPoint;
 			// StartLandscapeGrip fn_005D1AB0: one branch, chosen by the water bit of the cell (InBounds && IsLand,
 			// 0x5D1F94; off the map or without a block counts as water): land -> dust (the grip packet 0x2B,
 			// SF_GripLandscape) and G_HandGrabLand; water -> the ring, G_HandInWater and the fish scare.
@@ -339,7 +248,11 @@ void HandSystem::Place(std::optional<glm::vec3> groundPoint, glm::vec3 cameraFor
 			{
 				if (game == nullptr || !game->GetScreenFade().IsWideScreenOn())
 				{
-					EmitGripDust(*_gripPoint);
+					// packet 0x2B (fn_00550CF0 at 0x5D1FC9) -> 0x63D6D8 -> GParticleContainer::CreateSpotVisual(pos, 2)
+					// 0x63E540: SPOT_VISUAL 2 GRIP_LANDSCAPE (SF_GripLandscape, 100 turns, Z-sorted), stepped once a turn
+					// and drawn with the turn fraction (documentacion\hand\gripdust\README.md). (not ported) the
+					// packet's one-turn delay: it is made at the grab
+					psys::manager::CreateSpotVisual(2, *_gripPoint, 0.0f, entt::null);
 					GripLandSound(*_gripPoint);
 				}
 			}
@@ -348,12 +261,6 @@ void HandSystem::Place(std::optional<glm::vec3> groundPoint, glm::vec3 cameraFor
 				SplashHand(*_gripPoint);
 			}
 		}
-		glm::vec3 claw(0.0f);
-		for (const auto v : _tipVertices)
-		{
-			claw += ModelPosition(v, bones);
-		}
-		claw /= static_cast<float>(std::max<size_t>(1, _tipVertices.size()));
 		if (std::getenv("OPENBLACK_HAND_TRACE") != nullptr && groundPoint)
 		{
 			static int frame = 0;
@@ -364,8 +271,10 @@ void HandSystem::Place(std::optional<glm::vec3> groundPoint, glm::vec3 cameraFor
 				                   glm::distance(*_gripPoint, *groundPoint));
 			}
 		}
-		transform.rotation = _gripRotation;
-		transform.position = *_gripPoint - glm::vec3(0.0f, _clawDepth, 0.0f) - _gripRotation * (claw * scale);
+		// it stays at the grabbed point (0x5B04C4, no offset); fn_0046E160 with the last Normal up (g_D13F60, frozen) and
+		// the heading from the camera -> mouse ray every frame
+		transform.rotation = HandMatrixRotation(_normalUp);
+		transform.position = *_gripPoint;
 		_smoothedPosition = transform.position;
 		_interactionPoint = _gripPoint;
 		registry.SetDirty();
@@ -377,31 +286,19 @@ void HandSystem::Place(std::optional<glm::vec3> groundPoint, glm::vec3 cameraFor
 		return;
 	}
 
-	auto rotation = FrameRotation(cameraForward);
-	auto position = *groundPoint + glm::vec3(0.0f, _tipClearance, 0.0f) - rotation * (_hotspot * scale);
 	const float seconds = static_cast<float>(dt.count()) / 1e6f;
-	// Side grip for trees: the hand rolls to +-pi/2 and floats at 0.6 * (max(lowering, 1.9) + 0.1 * height) with
-	// lowering = max(0.1 * height, 3.2 * 0.3) (0x5B3E30, fn_0046DC30). HandStateHolding::Update rolls to +-pi/2
-	// (tree/side/villager) or +-pi (above) only while an object is being given to the creature. TODO: creature give.
-	// ObtainRequiredHandPosition: the Zoomer CHand +0xD4 heads for the roll in 0.4 s [0x3ECCCCCD] (a time, not a speed;
-	// 0x5B42A5 / 0x5B42CD), with the speed ebp ((inferido) 0: the register is also written as TimeM2 at 0x5B431F, which
-	// is only ever 0), then the Update inline 0x5B42DF ((aproximado) it adds c4 b before c3 a, Zoomer::Update the other
-	// way: the last bit). (inferido) the destination is set every frame: the conditions 0x5B4251..0x5B42CD are not
-	// ported
-	constexpr float k_RollSeconds = 0.4f;
-	const float rollTarget = 0.0f;
-	_roll.SetDestinationWithSpeedAndTime(rollTarget, 0.0f, k_RollSeconds);
-	_roll.Update(seconds);
-	if (std::abs(_roll.value) > 1e-3f)
+	// HandStateNormal::Update 0x5B71A0: the model origin (CHand +0x78) is the required position itself, and the matrix is
+	// fn_0046E160 with the smoothed up (ORHP's tail 0x5B6DE0..0x5B7145); no lift over the land
+	const bool normalState = !(_held || _tug) || _holdType == HoldType::None;
+	if (normalState && !_inNormalState)
 	{
-		// (inferido) the sense of the turn: the original turns by fn_007FB180(dir, [CHand +0xD4] + vt+0x14 + [esp+0x20])
-		// at 0x5B49A0..0x5B49C8 (lh_matrix::AxisAngle = glm::rotate(-a)), but its axis dir ([esp+0xA4]) and how that
-		// matrix reaches the hand's (fn_007FAFF0 0x5B4AE5 and after) are not read: here glm's +roll about forward. Not
-		// seen today (the destination is always 0)
-		const auto forward = rotation * _frameFingers;
-		rotation = glm::mat3(glm::rotate(glm::mat4(1.0f), _roll.value, forward)) * rotation;
-		position = *groundPoint + glm::vec3(0.0f, _tipClearance, 0.0f) - rotation * (_hotspot * scale);
+		// HandStateNormal::Enter 0x5B5D00: the up Zoomers at (0, 1, 0) (0x5B5D0C / 0x5B5D4D / 0x5B5D93)
+		_up.SetPosition(glm::vec3(0.0f, 1.0f, 0.0f));
+		_upMouseX = -1e30f;
 	}
+	_inNormalState = normalState;
+	auto rotation = HandMatrixRotation(UpdateNormalUp(seconds));
+	auto position = *groundPoint;
 	// Hand state 8 (CHand::GetRequiredState 0x46CD10: the held object IsSpellSeed) is HandStateGrain (HandGrain.cpp)
 	const bool seedHeld = _held && registry.Valid(*_held) && registry.AllOf<SpellSeed>(*_held);
 	hand_grain::SetHoldingSeed(seedHeld);
@@ -442,15 +339,6 @@ void HandSystem::Place(std::optional<glm::vec3> groundPoint, glm::vec3 cameraFor
 			}
 			grip.y += hand_grain::Height();
 		}
-		glm::vec3 back(0.0f, 0.0f, 1.0f);
-		if (Locator::camera::has_value())
-		{
-			const auto ray = *groundPoint - Locator::camera::value().GetOrigin();
-			if (glm::length(glm::vec2(ray.x, ray.z)) > 1e-4f)
-			{
-				back = -glm::normalize(glm::vec3(ray.x, 0.0f, ray.z));
-			}
-		}
 		auto up = HeldSway(grip) * glm::vec3(0.0f, 1.0f, 0.0f);
 		if (const float tilt = seedHeld ? hand_grain::Tilt() : 0.0f; tilt != 0.0f && Locator::camera::has_value())
 		{
@@ -464,22 +352,9 @@ void HandSystem::Place(std::optional<glm::vec3> groundPoint, glm::vec3 cameraFor
 				up = lh_matrix::AxisAngle(glm::normalize(toCamera), tilt) * up;
 			}
 		}
-		const auto side = glm::normalize(glm::cross(back, up));
-		rotation = glm::mat3(side, glm::cross(side, up), -up);
+		// fn_0046E160, as every state (HandStateHolding 0x5B5603..)
+		rotation = HandMatrixRotation(up);
 		position = grip;
-	}
-	// No vertex (wrist included) below the landscape: lift just enough (our addition; not while holding a tree,
-	// where the original places the hand origin at the grip point).
-	if (Locator::terrainSystem::has_value() && !_held && !_tug)
-	{
-		const auto& terrain = Locator::terrainSystem::value();
-		float lift = 0.0f;
-		for (size_t v = 0; v < _vertices.size(); ++v)
-		{
-			const auto w = position + rotation * (ModelPosition(v, bones) * scale);
-			lift = std::max(lift, terrain.GetHeightAt(glm::vec2(w.x, w.z)) + _vertexClearance - w.y);
-		}
-		position.y += lift;
 	}
 	if (_held && _releaseArmed && _smoothedPosition)
 	{
@@ -515,7 +390,7 @@ void HandSystem::Place(std::optional<glm::vec3> groundPoint, glm::vec3 cameraFor
 	}
 	transform.rotation = rotation;
 	transform.position = *_smoothedPosition;
-	_interactionPoint = groundPoint;
+	_interactionPoint = _collidePoint ? _collidePoint : groundPoint; // m_ActionCollide.pos
 	UpdateHeldObject();
 	registry.SetDirty();
 }
@@ -671,6 +546,7 @@ std::optional<glm::vec3> HandSystem::ResolveCursorPoint(const glm::vec3& origin,
                                                         std::chrono::microseconds dt) noexcept
 {
 	_cursorObject.reset();
+	_collidePoint.reset(); // PreDrawProcess 0x5CEA5C zeroes +0x3F0 every frame
 	const float seconds = static_cast<float>(dt.count()) / 1e6f;
 	auto mouseDir = glm::normalize(direction);
 	// OPENBLACK_TEST_CAST_PATH: during the test press the hand is dragged along a line (HandSpellSeed.cpp)
@@ -727,13 +603,7 @@ std::optional<glm::vec3> HandSystem::ResolveCursorPoint(const glm::vec3& origin,
 		{
 			// Living (not a creature): hover just in front of it, at the distance of its centre minus its 2D radius,
 			// then corrected for the height difference along the ray.
-			float radius2D = 0.0f;
-			auto& meshes = Locator::resources::value().GetMeshes();
-			if (const auto* mesh = registry.TryGet<const Mesh>(hit->entity); mesh != nullptr && meshes.Contains(mesh->id))
-			{
-				const auto size = meshes.Handle(mesh->id)->GetBoundingBox().Size() * transform.scale;
-				radius2D = 0.5f * std::max(size.x, size.z);
-			}
+			const float radius2D = ecs::object::Get2DRadius(hit->entity); // Get2DRadius vt +0x64
 			const auto& op = transform.position;
 			const float d = glm::distance(op, origin) - radius2D;
 			const auto p1 = origin + mouseDir * d;
@@ -751,14 +621,8 @@ std::optional<glm::vec3> HandSystem::ResolveCursorPoint(const glm::vec3& origin,
 			}
 			if (_held && registry.Valid(*_held))
 			{
-				float heldRadius = 0.0f;
-				auto& meshes = Locator::resources::value().GetMeshes();
-				if (const auto* mesh = registry.TryGet<const Mesh>(*_held); mesh != nullptr && meshes.Contains(mesh->id))
-				{
-					const auto size = meshes.Handle(mesh->id)->GetBoundingBox().Size() * registry.Get<const Transform>(*_held).scale;
-					heldRadius = 0.5f * std::max(size.x, size.z);
-				}
-				p += glm::normalize(origin - p) * (heldRadius * 0.5f);
+				// 0x5B676B..0x5B6804: the held object's Get2DRadius (vt +0x64) x 0.5. (not ported) + the creature's push
+				p += glm::normalize(origin - p) * (ecs::object::Get2DRadius(*_held) * 0.5f);
 			}
 			pos = p;
 		}
@@ -767,6 +631,9 @@ std::optional<glm::vec3> HandSystem::ResolveCursorPoint(const glm::vec3& origin,
 	{
 		return std::nullopt;
 	}
+	// GInterface +0x3F0: the collided object's Pos (obj +0x14, 0x5D5D09..0x5D5D2B), else the land under the cursor
+	// (fn_005D5980 from PreDrawProcess 0x5CEAA6)
+	_collidePoint = hit ? std::optional(registry.Get<const Transform>(hit->entity).position) : land;
 
 	// g_HandDistZoomer: towards the distance of the surface, in 0.1 s when coming closer and 0.28 s when moving away
 	// (2.0 s only while a creature give or a CameraModeNew3 move is pending, which openblack does not have); at least 1.
@@ -782,8 +649,21 @@ std::optional<glm::vec3> HandSystem::ResolveCursorPoint(const glm::vec3& origin,
 	{
 		_handDistance.SetPosition(1.0f);
 	}
-	// Never beyond the land under the cursor (the view distance of CHand::fn_0046DF60).
-	const float distance = landDistance ? std::min(_handDistance.value, *landDistance) : _handDistance.value;
+	// Never beyond the land under the cursor (the view distance of CHand::fn_0046DF60). The empty hand
+	// (HandStateNormal: subtractHandSize) stops 3.2 (fn_0046C040, 0x46E0D3) x handScale (+0x4834) x Size1 (+0x90) short
+	// of it, not over the sea (land y < 0.1, [0x8AB22C] at 0x46E02E); every branch is clamped to [2 ([0x8CBEA4],
+	// 0x46E116), CHand +0x4838] (0x46E0EA..0x46E147). (inferred) Size1 is 1 for the hand. (not ported) with no land hit
+	// the original takes |cam - hand->pos|
+	std::optional<float> viewDistance = landDistance;
+	if (landDistance && !_held && !_tug && land->y >= 0.1f)
+	{
+		viewDistance = *landDistance - 3.2f * _handScale;
+	}
+	if (viewDistance)
+	{
+		viewDistance = std::clamp(*viewDistance, 2.0f, _handReach);
+	}
+	const float distance = viewDistance ? std::min(_handDistance.value, *viewDistance) : _handDistance.value;
 	return origin + mouseDir * distance;
 }
 

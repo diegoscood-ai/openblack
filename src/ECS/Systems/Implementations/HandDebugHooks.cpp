@@ -772,7 +772,7 @@ void HandSystem::RunDebugHooks() noexcept
 						                   Locator::entitiesRegistry::value().Get<Abode>(*pit).woodAmount);
 					};
 					dump("before");
-					DepositInStore(oak, *pit);
+					DepositInStore(oak, *pit, pot_resource::Dropper {true, PlayerNames::PLAYER_ONE, true});
 					dump("after");
 				}
 			}

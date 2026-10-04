@@ -171,6 +171,9 @@ public:
 	            const void* memory) noexcept;
 
 	[[nodiscard]] const std::string& GetName() const { return _name; }
+	/// New texels for the whole texture, in the format Create was given (converted the same way when it built mips).
+	/// bgfx::updateTexture2D with bgfx::copy; no bgfx::frame()
+	void Update(const void* data, uint32_t size) noexcept;
 	[[nodiscard]] const TextureHandle& GetNativeHandle() const { return _handle; }
 	[[nodiscard]] glm::u16vec2 GetResolution() const { return _resolution; }
 	[[nodiscard]] uint16_t GetLayerCount() const { return _numLayers; }
@@ -187,6 +190,8 @@ protected:
 	uint16_t _stride;
 	uint16_t _numLayers;
 	TextureFormat _format;
+	TextureFormat _sourceFormat {TextureFormat::RGBA8}; ///< the format Create was given
+	bool _hasMips {false};
 	uint32_t _storageSize;
 	uint32_t _samplerFlags = 0;
 

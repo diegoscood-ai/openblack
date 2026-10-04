@@ -139,11 +139,12 @@ L3DSubMesh::L3DSubMesh(L3DMesh& mesh) noexcept
 
 L3DSubMesh::~L3DSubMesh() noexcept = default;
 
-bool L3DSubMesh::Load(const l3d::L3DFile& l3d, uint32_t meshIndex) noexcept
+bool L3DSubMesh::Load(const l3d::L3DFile& l3d, uint32_t meshIndex, std::span<const l3d::L3DVertex> vertices) noexcept
 {
 	const auto& header = l3d.GetSubmeshHeaders()[meshIndex];
 	const auto primitiveSpan = l3d.GetPrimitiveSpan(meshIndex);
-	const auto& verticesSpan = l3d.GetVertexSpan(meshIndex);
+	const std::span<const l3d::L3DVertex> verticesSpan =
+	    vertices.size() == l3d.GetVertexSpan(meshIndex).size() ? vertices : std::span<const l3d::L3DVertex>(l3d.GetVertexSpan(meshIndex));
 	const auto& indexSpan = l3d.GetIndexSpan(meshIndex);
 	const auto& vertexGroupSpans = l3d.GetVertexGroupSpan(meshIndex);
 	const auto& boneSpans = l3d.GetBoneSpan(meshIndex);

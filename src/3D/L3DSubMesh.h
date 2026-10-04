@@ -12,6 +12,7 @@
 #include <cstdint>
 
 #include <memory>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -66,7 +67,9 @@ public:
 	explicit L3DSubMesh(graphics::L3DMesh& mesh) noexcept;
 	~L3DSubMesh() noexcept;
 
-	bool Load(const l3d::L3DFile& l3d, uint32_t meshIndex) noexcept;
+	/// `vertices`, when not empty, replaces the file's vertices of this sub-mesh (the same count and order: the hand's
+	/// good / evil morph, Morphable::MorphVertices 0x618D10)
+	bool Load(const l3d::L3DFile& l3d, uint32_t meshIndex, std::span<const l3d::L3DVertex> vertices = {}) noexcept;
 	/// GJUtils::SetMaterialProperties 0x57E120 on every primitive: a new material type (blending, Z write) and the
 	/// double-sided bit
 	void SetMaterialProperties(const MaterialProperties& properties) noexcept;

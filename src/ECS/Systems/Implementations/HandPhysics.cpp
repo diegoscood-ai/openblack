@@ -49,8 +49,15 @@ void HandSystem::RegisterPhysicsHandlers() noexcept
 		auto& registry = Locator::entitiesRegistry::value();
 		if (po.hitBy != nullptr && registry.Valid(po.hitBy->entity) && registry.AllOf<StoragePit>(po.hitBy->entity))
 		{
+			// Tree::ReactToPhysicsImpact 0x74B6B0: h->DeleteObjectAndTakeResource(this, po +0x24) with the PhysicsObject
+			// still alive (0x74B6F9: the store's Supply help trigger 0x7337A6 reads it), the thrower's interface as `is`
+			pot_resource::Dropper dropper;
+			if (po.byPlayer)
+			{
+				dropper = pot_resource::Dropper {true, PlayerNames::PLAYER_ONE, true};
+			}
+			DepositInStore(entity, po.hitBy->entity, dropper);
 			PhysicsObjects::RemoveObject(entity);
-			DepositInStore(entity, po.hitBy->entity);
 			return false;
 		}
 		return true;

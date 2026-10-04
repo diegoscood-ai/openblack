@@ -132,8 +132,11 @@ bool HandSystem::Initialize() noexcept
 	    HandArchetype::Create(glm::vec3(0.0f), glm::half_pi<float>(), 0.0f, glm::half_pi<float>(), 0.01f, true);
 
 	LoadAnimations();
+	LoadMorphMeshes();
 	RegisterPhysicsHandlers();
 	RegisterTapHandlers();
+	// HandStateNormal::Enter 0x5B5D00: the up Zoomers at (0, 1, 0)
+	_up.SetPosition(glm::vec3(0.0f, 1.0f, 0.0f));
 	// the builder 0x5C9FC0 asks the hand's state for its tooltip every turn (fn_005D78D0)
 	help::tooltips::SetStateSubmitter([this]() { SubmitToolTips(); });
 	return false;
@@ -191,6 +194,9 @@ bool HandSystem::SendTap(entt::entity object) noexcept
 	// == 1 && !IsCannotBePickedUp -> packet 0x20 -> 0x5DA650, which checks InterfaceValidToTap again and calls InterfaceTap.
 	// InterfaceMustBeInInfluenceForInteraction is Object's 0x4028A0 = 1 for every ported class (only ScriptHighlight
 	// 0x709840 overrides it, not ported). IsCannotBePickedUp 0x401A10: the flag 0x2000 of SET_ID_PICKUPABLE 169.
+	// Tap 0x5D3930 first remembers the object (RememberTapped fn_005D36D0 at 0x5D3967; (not ported) not a Reward under
+	// the leash), whatever SendTap then does
+	RememberTapped(object);
 	const pot_resource::Dropper is {true, PlayerNames::PLAYER_ONE, true};
 	if (!InInfluence() || !hand_tap::ValidToTap(object, is) || thing_flags::IsCannotBePickedUp(object))
 	{
@@ -214,11 +220,6 @@ HandSystem::GetPlayerHandPositions() const noexcept
 	    registry.Get<Transform>(hands[static_cast<size_t>(Side::Left)]).position,
 	    registry.Get<Transform>(hands[static_cast<size_t>(Side::Right)]).position,
 	};
-	// The player's hand interacts through the index fingertip (or the grip point), not the mesh origin.
-	if (_interactionPoint)
-	{
-		result[static_cast<size_t>(Side::Left)] = _interactionPoint;
-	}
 	// TODO(#693): Hand Getter should return an optional if the hand doesn't have a valid position
 	// When the position is zero, it probably means it's not on the map (e.g. mouse is in the sky)
 	if (result[static_cast<size_t>(Side::Left)] == glm::zero<glm::vec3>())
@@ -328,6 +329,8 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 		return;
 	}
 	const float seconds = static_cast<float>(dt.count()) / 1e6f;
+	// CHand::PrepareForDrawing 0x46C550 runs before the hand's state machine: the good / evil morph
+	UpdateMorphing();
 
 	// Cursor speed (px/s) normalised to -1..+1 like the original L layers expect. Quick response while the
 	// mouse moves, slower return to neutral once it stops.
@@ -387,8 +390,25 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 	}
 	_hovered = (_held || _tug || gripping) ? std::nullopt : FindObjectUnderHand();
 	const bool actionPressed = actionHeld && !_actionWasHeld;
+	// ActionPressed fn_005D1330 (0x5D13A1 / 0x5D14A6): with nothing collided (+0x400), the object near the action's point
+	// (FindObjectNearMapCoord fn_005D39E0) becomes the collided object, and the branches below test it. (approximate)
+	// the hover's class filter (FindObjectUnderHand) stands for the pick-up / tap tests (vt 0x6FC, 0x740) and the locked
+	// select's (vt 0x6CC) is the field / pile branches'; SetObject's IsInteractable (vt 0x190, fn_005D5E40): (inferred)
+	// every ported class is interactable. A fish farm (0x5D3AAC) goes to the fish branch through the action's point
+	std::optional<entt::entity> nearObject;
+	if (actionPressed && !_held && !_tug && !gripping && !_hovered && !_cursorObject && _interactionPoint)
+	{
+		nearObject = FindObjectNearMapCoord(*_interactionPoint);
+		if (nearObject)
+		{
+			_cursorObject = nearObject;
+			_hovered = FindObjectUnderHand();
+		}
+	}
 	const bool actionReleased = !actionHeld && _actionWasHeld;
 	_actionWasHeld = actionHeld;
+	// fn_005D3700 (InterfaceActionProcess, before the action states): the last thing tapped or clicked
+	UpdateTapMemory(actionReleased);
 	// GInterface +0x48 m_InInfluence: every ported class needs it for taps, locked selects and pick-ups
 	// (Object::InterfaceMustBeInInfluenceForInteraction 0x4028A0 = 1, vt 0x714)
 	const auto TapInInfluence = [this]() { return InInfluence(); };
@@ -626,11 +646,8 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 	}
 	// Grip drag lives mostly in the root translation of Lgrip_lr/Lgrip_fb.
 	_animator->SetLayerTranslationScale(clip == "Cgrip" ? 1.0f : 0.0f);
-	// The palm always faces the ground, except in the camera states where the root motion is the drag itself.
-	// Cgrip and the hold poses animate the root bone (CAnim applies A_0 * R_0 to the root); the other poses are
-	// placed by our own palm-down frame.
-	const bool rootAnimated = clip == "Cgrip" || clip == "Chold_side" || clip == "Chold_above";
-	_animator->SetRootLocked(!rootAnimated || _animator->IsSpecialHold());
+	// Every clip applies its root bone (CAnim A_0 * R_0) under fn_0046E160's matrix, as the original
+	_animator->SetRootLocked(false);
 	_animator->Update(dt);
 }
 

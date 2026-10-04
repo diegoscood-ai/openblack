@@ -152,6 +152,17 @@ public:
 		return _registry.view<Components...>().size();
 	}
 	[[nodiscard]] decltype(auto) Valid(entt::entity entity) const { return _registry.valid(entity); }
+	/// (openblack) every storage of the registry with its type id: the entities' own first (entt keeps it apart from
+	/// the components'), then the components' in the registry's order (Debug/StateHash.h)
+	template <typename Func>
+	void EachStorage(Func func) const
+	{
+		func(entt::type_hash<entt::entity>::value(), *_registry.storage<entt::entity>());
+		for (auto [id, storage] : _registry.storage())
+		{
+			func(id, storage);
+		}
+	}
 	/// entt's on_destroy sink of a component (Remove, Destroy and Reset publish it)
 	template <typename Component>
 	[[nodiscard]] decltype(auto) OnDestroy()

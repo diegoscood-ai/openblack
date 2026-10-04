@@ -58,6 +58,8 @@
 #include "Common/GameRandom.h"
 #include "Common/StringUtils.h"
 #include "Debug/DebugGuiInterface.h"
+#include "Debug/FixedClock.h"
+#include "Debug/StateHash.h"
 #include "ECS/Archetypes/PlayerArchetype.h"
 #include "ECS/AudioQueries.h"
 #include "ECS/Components/CameraBookmark.h"
@@ -301,6 +303,8 @@ Game::Game(Arguments&& args) noexcept
 	}
 	sInstance = this;
 	// the GGame ctor 0x54B58A (the game timer at speed 1); paused until a map is loaded (openblack)
+	// OPENBLACK_FIXED_FRAME_MS: the same ms every frame, for runs that must repeat (Debug/FixedClock.h)
+	fixed_clock::InstallFromEnvironment();
 	game_clock::Reset();
 	game_clock::Start(true);
 
@@ -536,8 +540,12 @@ bool Game::GameLogicLoop() noexcept
 	_lastGameLoopTime = currentTime;
 	const uint32_t turn = game_clock::Turn();
 
+	auto& profiler = Locator::profiler::value();
 	// Build Map Grid Acceleration Structure
-	Locator::entitiesMap::value().Rebuild();
+	{
+		auto mapRebuild = profiler.BeginScoped(Profiler::Stage::TurnMapRebuild);
+		Locator::entitiesMap::value().Rebuild();
+	}
 	// the reactions' clock (GGame +0x205A40) for the whole turn, and the ones whose initiator went (ECS/Effects/Reactions)
 	ecs::effects::reactions::BeginTurn();
 
@@ -553,8 +561,6 @@ bool Game::GameLogicLoop() noexcept
 	// 0x54E656 Forest::ProcessForests, before Living::ProcessLiving (slot 5)
 	magic::ProcessForests(turn);
 
-	auto& profiler = Locator::profiler::value();
-
 	{
 		auto pathfinding = profiler.BeginScoped(Profiler::Stage::PathfindingUpdate);
 		Locator::pathfindingSystem::value().Update();
@@ -566,9 +572,15 @@ bool Game::GameLogicLoop() noexcept
 		ecs::animal_ai::ProcessAnimalsTurn(_dayNightClock->GetVisualTime());
 	}
 	// The miracles' part of GGame::ProcessTurn after Living (Magic/MagicLoop.cpp: fire, reactions, spells...)
-	magic::ProcessTurn(turn);
+	{
+		auto magicTurn = profiler.BeginScoped(Profiler::Stage::TurnMagic);
+		magic::ProcessTurn(turn);
+	}
 	// GGame::ProcessTurn 0x54E67E: PhysicsObject::GameTurnUpdate, after FireFly::ProcessAll and before GScript::Process
-	ecs::physics::PhysicsObjects::GameTurnUpdate();
+	{
+		auto physicsTurn = profiler.BeginScoped(Profiler::Stage::TurnPhysicsObjects);
+		ecs::physics::PhysicsObjects::GameTurnUpdate();
+	}
 
 	{
 		auto scripts = profiler.BeginScoped(Profiler::Stage::ScriptsUpdate);
@@ -617,7 +629,10 @@ bool Game::GameLogicLoop() noexcept
 		// PSysGlobal: the particle effects, one step per turn of the turn's length
 		psys::manager::RunDebugHooks();
 		magic::RunDebugHooks();
-		psys::manager::ProcessTurn(game_clock::k_TurnSeconds);
+		{
+			auto particlesTurn = profiler.BeginScoped(Profiler::Stage::TurnParticles);
+			psys::manager::ProcessTurn(game_clock::k_TurnSeconds);
+		}
 		// GGame::EndTurn 0x54E960 (unpaused: this loop does not run in pause): GSoundMap::Update 0x71D6F0 (+ Dump),
 		// SoundTag::ProcessSoundTags 0x71E5F0 (the street lanterns' too), then GAudio::ProcessAudioGameTurn 0x427080 after
 		// turn 5 (its music, atmos, channels and listener), AtmosProcess(0) before
@@ -635,6 +650,9 @@ bool Game::GameLogicLoop() noexcept
 	// comes after every radius of the turn
 	influence::Update3DInfluence();
 	ecs::effects::reactions::EndTurn();
+
+	// OPENBLACK_STATE_HASH: the state of this turn, for the replay test (Debug/StateHash.h)
+	state_hash::OnTurnEnd(turn);
 
 	// mods: their turn event, at the end of the game's turn (the turn of game_clock, as it began)
 	mods::lua::OnTurn(turn);
@@ -660,6 +678,10 @@ bool Game::Update() noexcept
 		current = previous;
 	}
 	auto deltaTime = std::chrono::duration_cast<std::chrono::microseconds>(current - previous);
+	if (fixed_clock::Enabled())
+	{
+		deltaTime = fixed_clock::AdvanceFrame();
+	}
 
 	Locator::debugGui::value().SetScale(config.guiScale);
 	// mod graphics.hd-tweaks changed in the Mods menu: its villager textures and meshes, before anything uses them
@@ -771,6 +793,8 @@ bool Game::Update() noexcept
 	video::GetFallingSpell().ProcessFrame(game_clock::FrameRealMs());
 	// fn_00646FE0 (GLandscape::Draw 0x5E49DC): the physics objects drawn between their last two turn poses (before the
 	// trees' bending, which takes them as sources, and before the drawing), and the dust
+	// the profile's "Frame Updaters" (no return before its End below: Profiler::End checks the level)
+	profiler.Begin(Profiler::Stage::FrameUpdaters);
 	ecs::physics::PhysicsObjects::UpdateFrame(GetTurnFraction(), game_clock::FrameGameSeconds());
 
 	// Fields: visibility and sinking with their food (Field::Draw)
@@ -808,6 +832,7 @@ bool Game::Update() noexcept
 
 	// fn_005C6BB0 (from HelpSystem::Draw3D): the cinema bars slide with the game time of this frame
 	_screenFade->UpdateWideScreen(static_cast<float>(game_clock::FrameGameMs()));
+	profiler.End(Profiler::Stage::FrameUpdaters);
 	// HelpSystem::Draw3D 0x5C59A0: the texts' slide-in and the click cue's fade, with g_game_time_inc, or g_delta_time
 	// in the citadel (g_game+0x205A28 == 1, fn_005CC760 0x5CC7BE; inferred: openblack's temple interior stands for it)
 	if (auto* helpSystem = help::Get(); helpSystem != nullptr)
@@ -899,7 +924,10 @@ bool Game::Update() noexcept
 				Locator::handSystem::value().Update(deltaTime, mouseDelta, _handGripping, _handAction);
 			}
 			// The miracles' per-frame part (the one-shot orbs' texture), in game time
-			magic::Update(game_clock::FrameGameSeconds());
+			{
+				auto magicFrame = profiler.BeginScoped(Profiler::Stage::MagicFrame);
+				magic::Update(game_clock::FrameGameSeconds());
+			}
 
 			// Palm towards the ground, index fingertip on the point under the cursor, fingertips dug in while gripping.
 			const bool overLand = intersectionTransform.position != glm::zero<glm::vec3>();

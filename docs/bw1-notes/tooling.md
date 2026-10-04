@@ -17,7 +17,8 @@ the extensions of the BWLandEditor map editor.
 
 ## Disassembly of runblack.exe
 
-Scripts in `C:\Users\diewgarc\dev\documentacion`:
+Scripts in `C:\Users\diewgarc\dev\herramientas\dis` (`bwdis.py`, `callers.py`, `refs.py`, `scan.py`, `vtq.py`,
+`anim_vt.py`; `multi\vt.py` and `multi\potinfo.py` are in `C:\Users\diewgarc\dev\documentacion`):
 
 - `python bwdis.py ADDR:SIZE [ADDR:SIZE...]` disassembles `runblack.exe` with capstone. It annotates symbols, floats from the
   data section (`; =0.67`) and strings.
@@ -47,6 +48,12 @@ Built in `cmake-build-presets\ninja-multi-vcpkg\bin\Release`:
 - **Shaders with #include**: `bgfx_compile_shaders` only follows the top-level file. The `vs_object_*.sc` variants
   (and `vs_static_shadow_instanced_static.sc`) include `vs_object.sc`/another variant: after changing the included file you have to
   `touch` the variants, or the executable keeps the old version for static and instanced meshes.
+- Replay and profile switches (openblack dev tools, not original; [engine-loop.md](engine-loop.md) §7):
+  `OPENBLACK_STATE_HASH=<file>` writes a hash of the game state at the end of each turn;
+  `OPENBLACK_FIXED_FRAME_MS=<ms>` makes every frame that many ms (game timer, engine timer, audio ticks, the frame's
+  delta; not Lightning's 10 s wall-clock timeout, PSys/Rules/Lightning.cpp); `OPENBLACK_PROFILE=<s>` now ends
+  each summary with the memory (RAM working set, peak and private bytes; bgfx textures, render targets, GPU,
+  transient buffers).
 
 ## Data formats
 

@@ -191,3 +191,26 @@ set_property(
   DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT openblack
 )
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
+# Determinism (openblack engine, docs/bw1-notes/engine-loop.md "Floating point"): the game logic must give the same
+# floats on every build and thread, as the original's (its x87 FPU at 24 bits: one rounding per operation). Fused or
+# reassociated float math changes them, so these flags stop the configure.
+function(openblack_check_deterministic_fp)
+  set(flags "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_RELEASE} ${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${CMAKE_CXX_FLAGS_DEBUG}")
+  foreach (target openblack_lib openblack)
+    if (TARGET ${target})
+      get_target_property(options ${target} COMPILE_OPTIONS)
+      if (options)
+        string(APPEND flags " ${options}")
+      endif ()
+    endif ()
+  endforeach ()
+  foreach (bad "/fp:fast" "/fp:contract" "/arch:AVX2" "/arch:AVX512" "-ffast-math" "-mfma" "-ffp-contract=fast")
+    string(FIND "${flags}" "${bad}" at)
+    if (NOT at EQUAL -1)
+      message(FATAL_ERROR "${bad}: fused or reassociated float math changes the game's results (determinism, "
+                          "docs/bw1-notes/engine-loop.md 'Floating point'). Remove it.")
+    endif ()
+  endforeach ()
+endfunction ()
+openblack_check_deterministic_fp()

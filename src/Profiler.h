@@ -54,6 +54,12 @@ public:
 		MainPassDrawSprites,
 		GuiDraw,
 		RendererFrame,
+		FrameUpdaters,
+		TurnMapRebuild,
+		TurnMagic,
+		TurnPhysicsObjects,
+		TurnParticles,
+		MagicFrame,
 
 		_count,
 	};
@@ -89,6 +95,12 @@ public:
 	    "Draw Sprites",         //
 	    "Encode GUI Draw",      //
 	    "Renderer Frame",       //
+	    "Frame Updaters",       //
+	    "Turn: Map Rebuild",    //
+	    "Turn: Magic",          //
+	    "Turn: Physics",        //
+	    "Turn: Particles",      //
+	    "Magic (frame)",        //
 	};
 
 private:

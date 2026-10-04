@@ -40,6 +40,7 @@ macro (OPENBLACK_SETUP_AND_ADD_JSON_TEST TEST_NAME TEST_SOURCE)
 endmacro ()
 
 openblack_setup_and_add_test(test_game_initialize test_game_initialize.cpp)
+openblack_setup_and_add_test(test_replay_determinism test_replay_determinism.cpp)
 openblack_setup_and_add_test(test_load_scene test_load_scene.cpp)
 openblack_setup_and_add_test(test_fixed test_fixed.cpp)
 openblack_setup_and_add_test(test_zoomer test_zoomer.cpp)

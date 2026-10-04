@@ -411,6 +411,11 @@ void crt::Srand(uint32_t seed) noexcept
 	S().crtSeed = seed;
 }
 
+uint32_t crt::Seed() noexcept
+{
+	return S().crtSeed;
+}
+
 float crt::Random(float a, float b) noexcept
 {
 	// 0x81D181..0x81D19E: fild rand(); fmul [0x9A3700]; fld b; fsub a; fmulp; fadd a

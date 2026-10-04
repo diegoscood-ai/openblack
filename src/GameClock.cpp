@@ -9,6 +9,7 @@
 
 #include "GameClock.h"
 
+#include <atomic>
 #include <chrono>
 
 namespace openblack::game_clock
@@ -21,7 +22,8 @@ uint32_t WallTicks()
 	return static_cast<uint32_t>(duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count());
 }
 
-TickSource g_TickSource = &WallTicks;
+/// atomic: the music thread reads the ticks too (Audio/LH/MusicStream.cpp through device::TickCount)
+std::atomic<TickSource> g_TickSource {&WallTicks};
 
 /// The fields of GGame and the statics of GGame::Loop the clock is made of
 struct State
@@ -86,12 +88,12 @@ void Timer::Start(uint32_t now)
 
 uint32_t TickCount()
 {
-	return g_TickSource();
+	return g_TickSource.load(std::memory_order_relaxed)();
 }
 
 void SetTickSource(TickSource source)
 {
-	g_TickSource = source != nullptr ? source : &WallTicks;
+	g_TickSource.store(source != nullptr ? source : &WallTicks, std::memory_order_relaxed);
 }
 
 void Reset()

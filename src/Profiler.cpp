@@ -15,6 +15,8 @@
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
 
+#include "Debug/MemoryStats.h"
+
 void openblack::Profiler::Begin(Stage stage)
 {
 	assert(_currentLevel < 255);
@@ -91,6 +93,8 @@ void openblack::Profiler::Accumulate(const Entry& entry)
 		                    totals.total / _frames, 100.0 * totals.total / std::max(_framesTotal, 1e-9), totals.runs,
 		                    totals.worst);
 	}
+	// the memory at the end of the interval (Debug/MemoryStats.h)
+	text += "\n  " + memory_stats::Format(memory_stats::Take(true));
 	if (auto logger = spdlog::get("game"); logger)
 	{
 		SPDLOG_LOGGER_INFO(logger, "{}", text);

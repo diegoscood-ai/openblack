@@ -20,6 +20,7 @@ verified in the executable or measured, except where marked **(inferred)** or **
 |---|---|
 | [tooling.md](tooling.md) | Disassembly, symbols, openblack tools, data formats, LND and BWLandEditor maps |
 | [engine-math.md](engine-math.md) | Coordinates (MapCoords 16.16, cells, InBounds, spiral: `ecs::map_coords`), GUtils distances and sigmoids (`gutils`), object size (2D radius, height and overrides: `ecs::object`), game clock (turn, fraction, dt, pause: `game_clock`), terrain height, LH matrices, Zoomer |
+| [engine-loop.md](engine-loop.md) | Game turns and frames: the original loop and turn call by call, the interface's packets, random streams between turn and draw, openblack's loop, threads plan, state hash and fixed clock for replay tests |
 | [openblack-internals.md](openblack-internals.md) | Where everything is in the code, building, tests, test hooks, debugging crashes, pitfalls (Vulkan, makeRef), commits with several sessions |
 
 **The hand and objects**

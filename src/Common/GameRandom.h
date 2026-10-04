@@ -117,6 +117,8 @@ namespace crt
 int32_t Rand() noexcept;
 /// _srand 0x7C882A
 void Srand(uint32_t seed) noexcept;
+/// (openblack) the seed _rand goes on from (_tiddata +0x14), for Debug/StateHash.h
+[[nodiscard]] uint32_t Seed() noexcept;
 /// ?Random@@YAMMM@Z 0x81D180: ((rand() x k) x (b - a)) + a, k [0x9A3700] (0x81D18E..0x81D19E)
 float Random(float a, float b) noexcept;
 } // namespace crt

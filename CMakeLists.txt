@@ -44,6 +44,13 @@ if (NOT OPENBLACK_LINK_JOBS GREATER 0)
 endif ()
 set_property(GLOBAL APPEND PROPERTY JOB_POOLS openblack_link_pool=${OPENBLACK_LINK_JOBS})
 set(CMAKE_JOB_POOL_LINK openblack_link_pool)
+# Build memory: every MSVC compile holds its own RAM, so at most OPENBLACK_COMPILE_JOBS at once, whatever -j says
+set(OPENBLACK_COMPILE_JOBS 8 CACHE STRING "How many sources Ninja compiles at the same time")
+if (NOT OPENBLACK_COMPILE_JOBS GREATER 0)
+  set(OPENBLACK_COMPILE_JOBS 1)
+endif ()
+set_property(GLOBAL APPEND PROPERTY JOB_POOLS openblack_compile_pool=${OPENBLACK_COMPILE_JOBS})
+set(CMAKE_JOB_POOL_COMPILE openblack_compile_pool)
 
 # Configure C++ standard
 set(CMAKE_CXX_STANDARD 23)

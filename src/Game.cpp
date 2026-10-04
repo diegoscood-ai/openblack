@@ -690,16 +690,9 @@ bool Game::Update() noexcept
 	mods::lua::OnFrame(static_cast<float>(deltaTime.count()) / 1e6f);
 	mods::native::OnFrame(static_cast<float>(deltaTime.count()) / 1e6f);
 
-	// Physics
-	{
-		auto physics = profiler.BeginScoped(Profiler::Stage::PhysicsUpdate);
-		if (_frameCount > 0)
-		{
-			auto& dynamicsSystem = Locator::dynamicsSystem::value();
-			dynamicsSystem.Update(deltaTime);
-			dynamicsSystem.UpdatePhysicsTransforms();
-		}
-	}
+	// (openblack) Bullet is not stepped: the original has no rigid-body world (its physics is
+	// PhysicsObject::GameTurnUpdate 0x644FC0, once a turn); the dynamics system only answers ray casts (the hand, the
+	// camera, the console). Stepping it with the wall clock moved the Features and dropped their yaw every frame.
 
 	// Input events
 	{

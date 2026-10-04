@@ -50,14 +50,17 @@ entt::entity FeatureArchetype::Create(const glm::vec3& position, FeatureInfo typ
 	if (l3dMesh->HasPhysicsMesh())
 	{
 		auto& shape = l3dMesh->GetPhysicsMesh();
-		btVector3 bodyInertia(0, 0, 0);
-		shape.calculateLocalInertia(l3dMesh->GetMass(), bodyInertia);
+		// (openblack) a static body (mass 0) for the ray casts only: the original has no rigid-body world, and
+		// L3DMesh's mass is a placeholder 1. Placed and turned as the Transform (AngleY above)
+		const btVector3 bodyInertia(0, 0, 0);
 
 		btTransform startTransform;
 		startTransform.setIdentity();
 		startTransform.setOrigin(btVector3(transform.position.x, transform.position.y, transform.position.z));
+		const auto& r = transform.rotation;
+		startTransform.setBasis(btMatrix3x3(r[0][0], r[1][0], r[2][0], r[0][1], r[1][1], r[2][1], r[0][2], r[1][2], r[2][2]));
 
-		btRigidBody::btRigidBodyConstructionInfo rbInfo(l3dMesh->GetMass(), nullptr, &shape, bodyInertia);
+		btRigidBody::btRigidBodyConstructionInfo rbInfo(0.0f, nullptr, &shape, bodyInertia);
 
 		registry.Assign<RigidBody>(entity, rbInfo, startTransform);
 	}

@@ -408,7 +408,13 @@ void HandSystem::RunDebugHooks() noexcept
 		if (point)
 		{
 			SplashHand(*point);
-			const bool caught = TryPickUpFish(*point);
+			// as the press does: packet 0x1B, applied at the next turn's start
+			const auto farm = FishFarmUnderHand(*point);
+			const bool caught = farm.has_value();
+			if (caught)
+			{
+				SendStartLockedSelect(*farm);
+			}
 			_pickPressHeld = caught;
 			_testActionSeconds = 3.0f;
 			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand test: fish at ({:.1f}, {:.1f}), catching {}", point->x, point->z, caught);
@@ -426,7 +432,12 @@ void HandSystem::RunDebugHooks() noexcept
 		});
 		if (field)
 		{
-			const bool taking = TryPickUpField(*field);
+			// as the press does: packet 0x1B, applied at the next turn's start
+			const bool taking = FieldValidForLockedSelect(*field);
+			if (taking)
+			{
+				SendStartLockedSelect(*field);
+			}
 			_pickPressHeld = taking;
 			const float seconds = static_cast<float>(std::atof(fieldTest));
 			_testActionSeconds = seconds > 1.0f ? seconds : 3.0f;

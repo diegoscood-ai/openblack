@@ -33,11 +33,15 @@
 #include "ECS/Components/Spell.h"
 #include "ECS/Components/SpellSeed.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/Fire/FireEffect.h"
 #include "ECS/Influence/Influence.h"
 #include "ECS/MapCoords.h"
+#include "ECS/Physics/FromHand.h"
 #include "ECS/Registry.h"
+#include "ECS/ToBeDeleted.h"
 #include "Game.h"
 #include "GameClock.h"
+#include "Input/GamePackets.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Magic/CastRules.h"
@@ -240,7 +244,7 @@ std::vector<TestCastEvent>& TestCastEvents()
 bool HandSystem::IsHoldingSeed() const noexcept
 {
 	auto& registry = Locator::entitiesRegistry::value();
-	return _held && registry.Valid(*_held) && registry.AllOf<SpellSeed>(*_held);
+	return _held && ecs::IsAvailable(*_held) && registry.AllOf<SpellSeed>(*_held);
 }
 
 bool HandSystem::IsHandReadyForObject() const noexcept
@@ -252,11 +256,24 @@ bool HandSystem::IsHandReadyForObject() const noexcept
 void HandSystem::GetSpellInfo(glm::vec3& interfacePos, glm::vec3& handPos, glm::vec3& cameraForward,
                               glm::vec3& velocity) const noexcept
 {
-	const auto& hand = Locator::entitiesRegistry::value().Get<const Transform>(_hands[static_cast<size_t>(Side::Left)]);
-	// +0x00: the status's map position (inf: the point under the hand) as a world point; +0x0C: status +0xC8, the hand
-	interfacePos = _interactionPoint.value_or(hand.position);
-	handPos = hand.position;
-	cameraForward = Locator::camera::has_value() ? glm::normalize(Locator::camera::value().GetForward()) : glm::vec3(0.0f);
+	// GInterfaceStatus::UpdateSpellInfo 0x5DC8F0, from the synced status (packets 0x15 / 0x16 / 0x17):
+	// +0x00 MapCoords(+0x14) as a world point (0x5DC915..0x5DC945), +0x0C the hand +0xC8 (0x5DC8FC), +0x18
+	// normalize(+0xBC - +0xB0) (0x5DC948), +0x24 the velocity +0x10C (0x5DC9F5)
+	interfacePos = SyncMapPoint();
+	handPos = _turnHand;
+	const glm::vec3 forward = _syncCameraFocus - _syncCameraPosition;
+	cameraForward = glm::length(forward) > 0.0f ? glm::normalize(forward) : glm::vec3(0.0f);
+	velocity = _turnVelocity;
+}
+
+void HandSystem::LiveHandThrowData(glm::vec3& handPos, glm::vec3& velocity) const noexcept
+{
+	// CHand's throw block +0x48C8 (velocity) and +0x48E0 (HandPos): in the holding state ObtainRequiredHandPosition
+	// writes +0x48E0 as an LH3DObject's translation + 0.2 state +0x108 (0x5B553F..0x5B55A1), (inferred) the held
+	// object's (ebx = held +0x40 at 0x5B3CBA). (approximate) the held object's Transform position, the hand's without one
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto& source = _held && registry.Valid(*_held) ? *_held : _hands[static_cast<size_t>(Side::Left)];
+	handPos = registry.Get<const Transform>(source).position;
 	velocity = _handVelocity;
 }
 
@@ -276,16 +293,40 @@ void HandSystem::EndAction() noexcept
 
 void HandSystem::ForceDropHeld() noexcept
 {
+	// GInterface::ForceDropHeld 0x5D4350: packet 0x4D with zero velocity (0x5D4361..0x5D4389) and the held object's
+	// matrix position and YXZ angles (0x5D4393..0x5D43C3), then 0x1D with no fields (0x5D442C); the next turn applies
+	// them (ApplyForceDropHeld)
 	if (!_held)
+	{
+		// 0x5D4391 -> 0x5D43CA: no held object, the status's +0x44.. copied as they are
+		game_packets::Packet data {game_packets::Type::ThrowData};
+		data.data = {_statusThrowVelocity.x, _statusThrowVelocity.y, _statusThrowVelocity.z, 0.0f, 0.0f, 0.0f,
+		             _statusThrowHandPosition.x, _statusThrowHandPosition.y, _statusThrowHandPosition.z};
+		data.rotation = _statusThrowRotation;
+		game_packets::Push(data);
+	}
+	else
+	{
+		PushThrowData(glm::vec3(0.0f));
+	}
+	game_packets::Push({game_packets::Type::ThrowHeld});
+}
+
+void HandSystem::ApplyForceDropHeld() noexcept
+{
+	// 0x5DA8F0 (packet 0x1D): the hand holds (+0x90), its first object IsAvailable, then its ThrowObjectFromHand(status,
+	// 1) (vt 0x758); (pending) fn_005DA100 with the result when it is not 3
+	auto& registry = Locator::entitiesRegistry::value();
+	if (!_held || !ecs::IsAvailable(*_held)) // 0x5DA90F IsAvailable (vt 0x2C)
 	{
 		return;
 	}
-	auto& registry = Locator::entitiesRegistry::value();
 	const auto entity = *_held;
 	if (!IsHoldingSeed())
 	{
-		// Object::ThrowObjectFromHand(status, 1) with the 0x4D packet's zero velocity: it falls
-		ThrowObjectFromHand(glm::vec3(0.0f), true);
+		// Object::ThrowObjectFromHand(status, 1) with the 0x4D's zero velocity and pose: it falls (from_hand::Throw with
+		// dont_replant 1, as from_hand::ForceDrop)
+		ThrowObjectFromHand(_statusThrowVelocity, true, true);
 		return;
 	}
 	// SpellSeed::ThrowObjectFromHand 0x72ACD0 (forced) -> ApplyToWorshipSite 0x729A80: the charge goes back to the icon's
@@ -303,8 +344,9 @@ void HandSystem::ForceDropHeld() noexcept
 
 int HandSystem::FailApply(glm::vec3 point) noexcept
 {
-	// packet 0x2B (point, 4): the fail spot visual; LH_SAMPLE_G_SPELLCASTFAILURE (0x25)
-	psys::manager::CreateSpotVisual(k_SpotVisualFailCast, point, 0.0f, entt::null);
+	// packet 0x2B (point, 4) (0x5D1914..0x5D1928): the fail spot visual at the next turn's start; the sample
+	// LH_SAMPLE_G_SPELLCASTFAILURE (0x25) at once
+	game_packets::Push({game_packets::Type::SpotVisual, entt::null, point, k_SpotVisualFailCast});
 	PlaySample(audio::SoundId::G_SpellCastFailure);
 	if (SeedTrace())
 	{
@@ -341,7 +383,7 @@ void HandSystem::EndApplyOnRelease() noexcept
 void HandSystem::SeedActionPressed() noexcept
 {
 	const auto seed = *_held;
-	const auto target = _cursorObject && Locator::entitiesRegistry::value().Valid(*_cursorObject) ? *_cursorObject : entt::null;
+	const auto target = _cursorObject && ecs::IsAvailable(*_cursorObject) ? *_cursorObject : entt::null;
 	const bool inInfluence = gestures::GetHandStatus().inInfluence;
 	// GetCreatureToGiveTo, then m_ActionCollide.object; ValidAsInterfaceTarget (Object 0x402840 = 1). Giving to a
 	// creature (InterfaceValidToGiveObject) needs a creature. InterfaceMustBeInInfluenceForInteraction is 1 (0x4028A0).
@@ -447,26 +489,56 @@ int HandSystem::SendSeedApplyToMapCoord() noexcept
 	// packet 0x4D: the hand's throw data (CHand +0x48C8) goes into the status (ThrowVelocity +0x44, HandPos +0x5C)
 	state.gesture.position = point; // m_Gesture.SetPos
 	_applySentTurn = turn;
-	// packet 0x12 -> GInterface 0x5DA400: held->IsAvailable, ValidToApplyThisToMapCoord, ApplyThisToMapCoord 0x728E20
+	// SendApplyToMapCoord 0x5D3340: the 0x4D (0x5D35C8: CHand's throw block as it is), a 0x16 (0x5D360D: the apply
+	// MapCoords and CHand+0x48E0 into +0x14 / +0xA4; fn_005D2250's last-sent values untouched) and the 0x12 (0x5D362D)
+	glm::vec3 handPos;
+	glm::vec3 velocity;
+	LiveHandThrowData(handPos, velocity);
+	if (const char* test = std::getenv("OPENBLACK_TEST_THROW_VEL"); test != nullptr)
+	{
+		std::sscanf(test, "%f,%f,%f", &velocity.x, &velocity.y, &velocity.z);
+	}
+	game_packets::Packet data {game_packets::Type::ThrowData};
+	data.data = {velocity.x, velocity.y, velocity.z, 0.0f, 0.0f, 0.0f, handPos.x, handPos.y, handPos.z};
+	game_packets::Push(data);
+	game_packets::Packet hand {game_packets::Type::Hand};
+	hand.coords = ecs::map_coords::FromWorld(point);
+	hand.data[0] = handPos.x;
+	hand.data[1] = handPos.y;
+	hand.data[2] = handPos.z;
+	game_packets::Push(hand);
+	// packet 0x12 with the gesture (GestureSystemPacketData: type, size, position)
+	game_packets::Packet apply {game_packets::Type::ApplyToMapCoord, entt::null, position, state.gesture.gesture};
+	apply.data = {state.gesture.size, point.x, point.y, point.z};
+	game_packets::Push(apply);
+	return 1;
+}
+
+void HandSystem::ApplySeedToMapCoord(const game_packets::Packet& packet) noexcept
+{
+	// GInterface 0x5DA400 (packet 0x12): held->IsAvailable, ValidToApplyThisToMapCoord, ApplyThisToMapCoord 0x728E20
+	const auto seed = *_held;
+	const auto position = packet.position;
+	const float size = packet.data[0];
+	const glm::vec3 point(packet.data[1], packet.data[2], packet.data[3]);
+	// UpdateSpellInfo's status fields (the synced +0x14 and camera), the 0x4D's hand and velocity
+	glm::vec3 interfacePos;
+	glm::vec3 turnHand;
+	glm::vec3 cameraForward;
+	glm::vec3 turnVelocity;
+	GetSpellInfo(interfacePos, turnHand, cameraForward, turnVelocity);
+	const glm::vec3 handPos = _statusThrowHandPosition;
+	const glm::vec3 velocity = _statusThrowVelocity;
 	int result = 0;
 	if (ValidToApplyThisToMapCoord(seed, position) && magic::seed::CanCast(seed, position))
 	{
-		glm::vec3 interfacePos;
-		glm::vec3 handPos;
-		glm::vec3 cameraForward;
-		glm::vec3 velocity;
-		GetSpellInfo(interfacePos, handPos, cameraForward, velocity);
-		if (const char* test = std::getenv("OPENBLACK_TEST_THROW_VEL"); test != nullptr)
-		{
-			std::sscanf(test, "%f,%f,%f", &velocity.x, &velocity.y, &velocity.z);
-		}
 		psys::ProcessInfo handInfo;
 		handInfo.interfacePos = interfacePos;
 		handInfo.handPos = handPos;
 		handInfo.cameraForward = cameraForward;
 		handInfo.direction = velocity; // status +0x44 ThrowVelocity
 		entt::entity spell = entt::null;
-		if (magic::seed::Cast(seed, position, &spell, state.gesture.size, handInfo) != 0)
+		if (magic::seed::Cast(seed, position, &spell, size, handInfo) != 0)
 		{
 			if (spell != entt::null && IsSpellKeptInHand(seed))
 			{
@@ -487,14 +559,13 @@ int HandSystem::SendSeedApplyToMapCoord() noexcept
 			{
 				SPDLOG_LOGGER_INFO(spdlog::get("game"),
 				                   "Hand seed: cast {} at ({:.1f}, {:.1f}) gesture {} size {:.1f} velocity ({:.1f}, {:.1f}, {:.1f}) -> spell {}",
-				                   InfoOf(seed).debugString.data(), position.x, position.z, state.gesture.gesture,
-				                   state.gesture.size, velocity.x, velocity.y, velocity.z,
+				                   InfoOf(seed).debugString.data(), position.x, position.z, packet.value, size,
+				                   velocity.x, velocity.y, velocity.z,
 				                   spell == entt::null ? -1 : static_cast<int>(spell));
 			}
 		}
 	}
 	HandleSeedApplyResult(result, seed);
-	return 1;
 }
 
 int HandSystem::SendSeedApplyToObject() noexcept
@@ -505,26 +576,13 @@ int HandSystem::SendSeedApplyToObject() noexcept
 	}
 	const auto seed = *_held;
 	auto& registry = Locator::entitiesRegistry::value();
-	const auto target = _cursorObject && registry.Valid(*_cursorObject) ? *_cursorObject : entt::null;
+	const auto target = _cursorObject && ecs::IsAvailable(*_cursorObject) ? *_cursorObject : entt::null;
 	if (target == entt::null || !ValidToApplyThisToObject(seed, target))
 	{
 		return 0;
 	}
-	// SpellSeed::ApplyThisToObject 0x728D10's first branches, before the gesture and the cast: a spell dispenser, a
-	// WorshipTotem or a spell icon takes the seed back (Worship/Worship.cpp). The original deletes the seed from the
-	// ToBeDeleted list, so its InterfaceSetOutMagicHand still sees it: the hand lets go first here.
-	if (worship::IsSeedReturnPoint(target, SeedOf(seed).creator.player))
-	{
-		if (_held && *_held == seed)
-		{
-			SeedLeftHand(seed);
-			_held.reset();
-		}
-		_seedAction = SeedAction::None;
-		EndApplyOnRelease();
-		worship::ApplySeedToObject(seed, target);
-		return 1;
-	}
+	// SendApplyToObject 0x5D30D0 for every seed target, a return point too (its branch is ApplyThisToObject's, in the
+	// handler): +0x444 (m_ApplySentTurn) and fn_00729AF0 (GestureAllowsCast, 0x5D3162) at the send
 	const auto turn = game_clock::Turn(); // g_game +0x205A40
 	auto& state = gestures::State();
 	if (!_applySentTurn || *_applySentTurn != turn)
@@ -540,39 +598,82 @@ int HandSystem::SendSeedApplyToObject() noexcept
 			state.gesture.gesture = level;
 		}
 		_applySentTurn = turn;
-		// packet 0x11 -> 0x5DA1A0 -> SpellSeed::ApplyThisToObject 0x728D10: a spell dispenser, a worship site (above),
-		// a MagicFireBall, else the object cast fn_00729690 (the keep / remove rule of ApplyThisToMapCoord).
-		// TODO(magic): ApplyToMagicFireBall 0x728AE0 (0x728D9A) is not ported
-		int result = 0;
-		glm::vec3 interfacePos;
+		// packet 0x4D (0x5D328D: the hand's velocity and position into the status; (approximate) the live hand), then
+		// 0x11 with the gesture
 		glm::vec3 handPos;
-		glm::vec3 cameraForward;
 		glm::vec3 velocity;
-		GetSpellInfo(interfacePos, handPos, cameraForward, velocity);
-		psys::ProcessInfo handInfo;
-		handInfo.interfacePos = interfacePos;
-		handInfo.handPos = handPos;
-		handInfo.cameraForward = cameraForward;
-		handInfo.direction = velocity;
-		const auto position = magic::ToMap(registry.Get<const Transform>(target).position);
-		entt::entity spell = entt::null;
-		if (magic::seed::Cast(seed, position, &spell, state.gesture.size, handInfo) != 0)
-		{
-			if (spell != entt::null && IsSpellKeptInHand(seed))
-			{
-				result = 1;
-			}
-			else
-			{
-				// 0x728DEF: CreateSpotVisual(the object's pos, 3, 1.0, spell), as on the land
-				const auto at = registry.Get<const Transform>(target).position;
-				psys::manager::CreateSpotVisual(k_SpotVisualSucceedCast, at, 0.0f, spell);
-				result = k_ResultRemoved;
-			}
-		}
-		HandleSeedApplyResult(result, seed);
+		LiveHandThrowData(handPos, velocity);
+		game_packets::Packet data {game_packets::Type::ThrowData};
+		data.data = {velocity.x, velocity.y, velocity.z, 0.0f, 0.0f, 0.0f, handPos.x, handPos.y, handPos.z};
+		game_packets::Push(data);
+		const auto at = registry.Get<const Transform>(target).position;
+		game_packets::Packet apply {game_packets::Type::ApplyToObject, target, at, state.gesture.gesture};
+		apply.data[0] = state.gesture.size;
+		game_packets::Push(apply);
 	}
 	return 1;
+}
+
+void HandSystem::ApplySeedToObject(const game_packets::Packet& packet) noexcept
+{
+	// 0x5DA1A0 (packet 0x11): the target interactable, the hand holding, ValidToApplyThisToObject again (0x5DA21E)
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto seed = *_held;
+	const auto target = packet.object;
+	// IsInteractable of the target (0x5DA1C8) and of the held seed (0x5DA208)
+	if (!Interactable(target) || !Interactable(seed) || !ValidToApplyThisToObject(seed, target))
+	{
+		return;
+	}
+	// SpellSeed::ApplyThisToObject 0x728D10's first branches, before the gesture and the cast: a spell dispenser, a
+	// WorshipTotem or a spell icon takes the seed back (Worship/Worship.cpp). The original deletes the seed from the
+	// ToBeDeleted list, so its InterfaceSetOutMagicHand still sees it: the hand lets go first here.
+	if (worship::IsSeedReturnPoint(target, SeedOf(seed).creator.player))
+	{
+		if (_held && *_held == seed)
+		{
+			SeedLeftHand(seed);
+			_held.reset();
+		}
+		_seedAction = SeedAction::None;
+		EndApplyOnRelease();
+		worship::ApplySeedToObject(seed, target);
+		return;
+	}
+	// SpellSeed::ApplyThisToObject 0x728D10: a spell dispenser, a worship site (above), a MagicFireBall, else the
+	// object cast fn_00729690 (the keep / remove rule of ApplyThisToMapCoord).
+	// TODO(magic): ApplyToMagicFireBall 0x728AE0 (0x728D9A) is not ported
+	int result = 0;
+	const float size = packet.data[0];
+	glm::vec3 interfacePos;
+	glm::vec3 turnHand;
+	glm::vec3 cameraForward;
+	glm::vec3 turnVelocity;
+	GetSpellInfo(interfacePos, turnHand, cameraForward, turnVelocity);
+	const glm::vec3 handPos = _statusThrowHandPosition; // status +0x5C
+	const glm::vec3 velocity = _statusThrowVelocity;    // status +0x44
+	psys::ProcessInfo handInfo;
+	handInfo.interfacePos = interfacePos;
+	handInfo.handPos = handPos;
+	handInfo.cameraForward = cameraForward;
+	handInfo.direction = velocity;
+	const auto position = magic::ToMap(registry.Get<const Transform>(target).position);
+	entt::entity spell = entt::null;
+	if (magic::seed::Cast(seed, position, &spell, size, handInfo) != 0)
+	{
+		if (spell != entt::null && IsSpellKeptInHand(seed))
+		{
+			result = 1;
+		}
+		else
+		{
+			// 0x728DEF: CreateSpotVisual(the object's pos, 3, 1.0, spell), as on the land
+			const auto at = registry.Get<const Transform>(target).position;
+			psys::manager::CreateSpotVisual(k_SpotVisualSucceedCast, at, 0.0f, spell);
+			result = k_ResultRemoved;
+		}
+	}
+	HandleSeedApplyResult(result, seed);
 }
 
 void HandSystem::HandleSeedApplyResult(int result, entt::entity seed) noexcept

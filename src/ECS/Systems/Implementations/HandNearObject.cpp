@@ -28,6 +28,7 @@
 #include "ECS/MapCells.h"
 #include "ECS/MapCoords.h"
 #include "ECS/Registry.h"
+#include "ECS/ToBeDeleted.h"
 #include "Locator.h"
 
 using namespace openblack;
@@ -114,7 +115,7 @@ std::optional<entt::entity> HandSystem::FindObjectNearMapCoord(glm::vec3 at) con
 				continue;
 			}
 			ecs::map_cells::ForEachInCell(cell, [&](entt::entity object) {
-				if (!registry.Valid(object) || registry.AllOf<Fragment>(object))
+				if (!ecs::IsAvailable(object) || registry.AllOf<Fragment>(object))
 				{
 					return true;
 				}

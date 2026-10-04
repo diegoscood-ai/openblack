@@ -67,12 +67,14 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
+#include "ECS/ToBeDeleted.h"
 #include "ECS/SeaCells.h"
 #include "ECS/Physics/FromHand.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Abodes.h"
 #include "ECS/Rocks.h"
 #include "ECS/Systems/HandTap.h"
+#include "Input/GamePackets.h"
 #include "ECS/ThingFlags.h"
 #include "Common/HelpText.h"
 #include "Help/ToolTips.h"
@@ -135,6 +137,7 @@ bool HandSystem::Initialize() noexcept
 	LoadMorphMeshes();
 	RegisterPhysicsHandlers();
 	RegisterTapHandlers();
+	RegisterPacketHandlers();
 	// HandStateNormal::Enter 0x5B5D00: the up Zoomers at (0, 1, 0)
 	_up.SetPosition(glm::vec3(0.0f, 1.0f, 0.0f));
 	// the builder 0x5C9FC0 asks the hand's state for its tooltip every turn (fn_005D78D0)
@@ -202,7 +205,8 @@ bool HandSystem::SendTap(entt::entity object) noexcept
 	{
 		return false;
 	}
-	hand_tap::Tap(object, is, _interactionPoint.value_or(glm::vec3(0.0f)));
+	// packet 0x20 (0x5D3904): applied at the next turn's start (HandTurn.cpp ApplyTap)
+	game_packets::Push({game_packets::Type::Tap, object});
 	return true;
 }
 
@@ -384,6 +388,9 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 	actionHeld = TestCastActionHeld(seconds, actionHeld);
 
 	// Pick up / drop with the action button (right). Only while not gripping the land.
+	// a destroyed held object (openblack destroys at once while the deferred deletion is off) leaves the hand here; a
+	// deleted one (Unavailable) at the turn's ValidateHands 0x5DC610. (pending) CHand::GameTurnUpdate 0x46E4E0 (step 28)
+	// also drops it the same turn (IsAvailable != 1 -> CHand::ThrowObject), for a deletion after step I
 	if (_held && !Locator::entitiesRegistry::value().Valid(*_held))
 	{
 		_held.reset();
@@ -418,7 +425,12 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 		// at once (StartTapOrLockedSelect 0x5D1A00) in the influence (m_InInfluence || !vt 0x714). Out of it the field
 		// goes on to the pick-up / tap path, where it is neither placeable (Object 0x402870) nor tappable (Object
 		// 0x4196B0): nothing.
-		_pickPressHeld = TapInInfluence() && !thing_flags::IsCannotBePickedUp(*_hovered) && TryPickUpField(*_hovered);
+		_pickPressHeld =
+		    TapInInfluence() && !thing_flags::IsCannotBePickedUp(*_hovered) && FieldValidForLockedSelect(*_hovered);
+		if (_pickPressHeld)
+		{
+			SendStartLockedSelect(*_hovered);
+		}
 	}
 	else if (actionPressed && _hovered && !_held)
 	{
@@ -427,11 +439,11 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 		const auto source = PotInfoOf(*_hovered);
 		if (source != PotInfo::_COUNT && source != PotInfo::HandWood && source != PotInfo::HandFood)
 		{
-			if (TapInInfluence() && !thing_flags::IsCannotBePickedUp(*_hovered))
+			_pickPressHeld = TapInInfluence() && !thing_flags::IsCannotBePickedUp(*_hovered);
+			if (_pickPressHeld)
 			{
-				PickUp(*_hovered);
+				SendStartLockedSelect(*_hovered);
 			}
-			_pickPressHeld = _held.has_value();
 		}
 		else if (!ValidForPlaceInHand(*_hovered) || thing_flags::IsCannotBePickedUp(*_hovered) || !TapInInfluence())
 		{
@@ -456,7 +468,7 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 		}
 	}
 	else if (actionPressed && !_held && !_hovered && !gripping && _cursorObject &&
-	         Locator::entitiesRegistry::value().Valid(*_cursorObject) && abodes::InterfaceValidToTap(*_cursorObject))
+	         ecs::IsAvailable(*_cursorObject) && abodes::InterfaceValidToTap(*_cursorObject))
 	{
 		// GInterface::ActionPressed fn_005D1330 sends the object under the cursor to StartGrab 0x5D1740 when it can go into
 		// the hand or it is only tappable (Abode::InterfaceValidToTap 0x406820 = 1, so FindObjectUnderHand leaves abodes
@@ -467,9 +479,10 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 		SendTap(*_cursorObject);
 	}
 	else if (actionPressed && !_held && !_hovered && !gripping && _interactionPoint && TapInInfluence() &&
-	         TryPickUpFish(*_interactionPoint))
+	         FishFarmUnderHand(*_interactionPoint))
 	{
-		// fish: the locked select starts at once, like piles, in the influence (ActionPressed fn_005D1330)
+		// fish: the locked select starts at the press, like piles, in the influence (ActionPressed fn_005D1330)
+		SendStartLockedSelect(*FishFarmUnderHand(*_interactionPoint));
 		_pickPressHeld = true;
 	}
 	else if (actionPressed && IsHoldingSeed())
@@ -494,17 +507,19 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 	UpdateSeedInHand(actionHeld);
 	if (actionReleased && _pickPressHeld)
 	{
-		// Releasing the press that picked it up ends the grab / scooping (packet 0x1C); the object stays in the hand.
+		// Releasing the press that picked it up ends the grab / scooping (state 3's end 0x5D4870: packet 0x1C); the
+		// object stays in the hand.
 		_pickPressHeld = false;
-		_pickSource.reset();
+		SendEndLockedSelect();
 	}
 	else if (actionReleased && _held && _releaseArmed)
 	{
 		_releaseArmed = false;
 		// State 12 (0x5D4DB0) sends the holding spring's velocity (CHand+0x48C8, units per second, capped at 124) and
 		// every release takes the same path: Object::InitialisePhysicsFromHand decides thrown (vel.x^2 + vel.z^2 > 4)
-		// or put down, a hand pot |v|^2 <= 5 (HandHolding.cpp).
-		Release(_handVelocity);
+		// or put down, a hand pot |v|^2 <= 5 (HandHolding.cpp). Sent as packets 0x4D + 0x12, applied at the next turn's
+		// start (HandTurn.cpp)
+		SendRelease(_handVelocity);
 	}
 	if (_pendingPick)
 	{
@@ -514,7 +529,7 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 		// (OneOffSpellSeed::InterfaceTap 0x72A640).
 		constexpr float k_PickUpHoldSeconds = 0.225f;
 		_pendingPickTime += seconds;
-		if (!Locator::entitiesRegistry::value().Valid(*_pendingPick))
+		if (!ecs::IsAvailable(*_pendingPick))
 		{
 			_pendingPick.reset();
 		}
@@ -550,10 +565,11 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 			}
 			else
 			{
-				// a one-shot orb held for 225 ms is picked up itself (GenericPickup 0x5D2800, packet 0x13 ->
-				// PlaceObjectInMagicHand -> OneOffSpellSeed::InterfaceSetInMagicHand 0x72A530; Worship.cpp)
-				PickUp(entity);
-				_pickPressHeld = _held.has_value();
+				// anything else held for 225 ms (a one-shot orb among them, OneOffSpellSeed::InterfaceSetInMagicHand
+				// 0x72A530) is picked up itself: GenericPickup 0x5D2800, packet 0x13 -> PlaceObjectInMagicHand.
+				// (not verified) a release during the wait (state 7, State_WaitPickup 0x5D4A90 only watches the
+				// object's +0x24 & 4): here it clears _pickPressHeld
+				SendPlaceInHand(entity);
 			}
 		}
 	}
@@ -566,8 +582,10 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 			_pickPressHeld = false;
 		}
 	}
-	UpdateMultiPickUp(seconds, actionHeld);
-	UpdatePickupSound(_pickSource.has_value() && _held.has_value());
+	// the locked select's particles and looping sound: PSysGlobal::StartMultiPickup (0x1B's handler) to StopMultiPickup
+	// (the interface's end 0x5D48B4, at once)
+	const bool multiPickup = _pickSource.has_value() && _held.has_value() && !_lockedSelectStopped;
+	UpdatePickupSound(multiPickup);
 	// Once per game turn: the amount in the hand (0xEEA "Cantidad: %3.0f", ForceToolTips), forced every turn of the
 	// scooping (ProcessInInteract: Pile 0x66E6E4, Field 0x52989F, FishFarm 0x52DAD6) and once when the locked select
 	// ends (Pile 0x66E8DA, Field 0x529AD9, FishFarm 0x52D92A); its lifetime keeps it about 13 turns after that. (The
@@ -591,7 +609,7 @@ void HandSystem::Update(std::chrono::microseconds dt, glm::vec2 mouseDelta, bool
 	}
 	// the KMIcon's fade, in real time (fn_00447850 -> fn_00448AC0(g_delta_time * 0.001))
 	help::tooltips::Frame(seconds);
-	UpdatePickupParticles(seconds, _pickSource.has_value() && _held.has_value() && std::getenv("OPENBLACK_NO_PICKUP_PSYS") == nullptr);
+	UpdatePickupParticles(seconds, multiPickup && std::getenv("OPENBLACK_NO_PICKUP_PSYS") == nullptr);
 	UpdateTestSplash(seconds);
 	UpdateTestAbode(seconds);
 	UpdateRootsAndPiles(seconds);

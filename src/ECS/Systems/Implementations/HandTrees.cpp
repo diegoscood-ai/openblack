@@ -70,6 +70,7 @@
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Physics/PhysOb.h"
 #include "ECS/Registry.h"
+#include "ECS/ToBeDeleted.h"
 #include "ECS/StoragePitStore.h"
 #include "ECS/Fire/FireEffect.h"
 #include "ECS/Effects/Alignment.h"
@@ -96,7 +97,7 @@ using namespace openblack::ecs::systems::hand_detail;
 bool HandSystem::IsHoldingTree() const noexcept
 {
 	// Tree::GetHoldType and DeadTree::GetHoldType return HOLD_TYPE_TREE.
-	return _held && Locator::entitiesRegistry::value().Valid(*_held) &&
+	return _held && ecs::IsAvailable(*_held) &&
 	       Locator::entitiesRegistry::value().AnyOf<Tree, DeadTree>(*_held);
 }
 
@@ -151,21 +152,21 @@ void HandSystem::Replant(entt::entity tree) noexcept
 		}
 		else if (const auto* farm = registry.TryGet<const components::FishFarm>(object); farm != nullptr)
 		{
-			if (registry.Valid(farm->town) && registry.AllOf<components::Town>(farm->town))
+			if (ecs::IsAvailable(farm->town) && registry.AllOf<components::Town>(farm->town))
 			{
 				id = registry.Get<const components::Town>(farm->town).id;
 			}
 		}
 		else if (const auto* totem = registry.TryGet<const components::TotemStatue>(object); totem != nullptr)
 		{
-			if (registry.Valid(totem->townCentre))
+			if (ecs::IsAvailable(totem->townCentre))
 			{
 				id = abodeTown(totem->townCentre);
 			}
 		}
 		else if (registry.AllOf<components::Pot>(object))
 		{
-			if (const auto store = ecs::StoragePitStore::OwnerOf(object); store != entt::null && registry.Valid(store))
+			if (const auto store = ecs::StoragePitStore::OwnerOf(object); ecs::IsAvailable(store))
 			{
 				id = abodeTown(store);
 			}
@@ -355,7 +356,7 @@ void HandSystem::UpdateTug(float seconds, bool actionHeld) noexcept
 		return;
 	}
 	auto& registry = Locator::entitiesRegistry::value();
-	if (!registry.Valid(*_tug) || !registry.AllOf<Tree>(*_tug))
+	if (!ecs::IsAvailable(*_tug) || !registry.AllOf<Tree>(*_tug))
 	{
 		_tug.reset();
 		return;
@@ -425,6 +426,8 @@ void HandSystem::Uproot(entt::entity tree) noexcept
 	// fn_008251F0 -> fn_00825240: a ground mark (ecs/GroundMarks.h) that melts into the land and fades after 15 s
 	ecs::ground_marks::Create(transform.position, transform.rotation, (extentX + extentZ) * transform.scale.x * 0.3f);
 	EmitGripDust(transform.position);
+	// (pending, H3c) the original's tug ends in GenericPickup 0x5D2800 -> packet 0x13 (0x5D2864), applied at the next
+	// turn's start; here the tree goes into the hand at once
 	PickUp(tree);
 	UpdateRoots(tree);
 }
@@ -433,7 +436,7 @@ void HandSystem::UpdateRoots(entt::entity tree, bool dying) noexcept
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	// Only rooted objects (Object::IsARootedObject: living trees) have roots; a dying tree hands them over to the fall.
-	if (!registry.Valid(tree) || (!dying && !registry.AllOf<Tree>(tree)))
+	if (!ecs::IsAvailable(tree) || (!dying && !registry.AllOf<Tree>(tree)))
 	{
 		return;
 	}
@@ -523,7 +526,7 @@ void HandSystem::UpdateRootsAndPiles(float seconds) noexcept
 	}
 	std::erase_if(_fallingRoots, [](const FallingRoots& roots) { return roots.entity == entt::null; });
 	std::erase_if(_roots, [&registry](const auto& pair) {
-		if (registry.Valid(pair.first))
+		if (ecs::IsAvailable(pair.first))
 		{
 			return false;
 		}
@@ -566,6 +569,8 @@ bool HandSystem::TakeTreeFromForest(entt::entity forestEntity) noexcept
 	{
 		return false;
 	}
+	// (pending, H3c) BigForest::InterfaceSetInMagicHand runs inside the 0x13's handler (0x5DA77C), at the next turn's
+	// start; here at once
 	PickUp(tree);
 	return _held.has_value();
 }

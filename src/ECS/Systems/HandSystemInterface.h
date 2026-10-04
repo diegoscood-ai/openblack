@@ -89,6 +89,14 @@ public:
 	[[nodiscard]] virtual bool PositionClicked(const glm::vec3& position, float radius) const noexcept = 0;
 	/// CLEAR_CLICKED_POSITION 0x70B100: +0x46C / +0x470 / +0x474 = 0, the turn +0x478 stays
 	virtual void ClearClickedPosition() noexcept = 0;
+	/// GInterface::Process 0x5CEC10's hand part (fn_005D2250 -> GInterfaceStatus::Process 0x5DC4E0), once a turn right after
+	/// game_packets::ProcessOneSuperpacket (ProcessGameInputs 0x54C3D0)
+	virtual void ProcessTurn() noexcept = 0;
+	/// GInterfaceStatus::SetToZero 0x5DBA00 on a new land: the synced hand, the turn motion and the throw data
+	virtual void ResetTurnState() noexcept = 0;
+	/// GInterfaceStatus +0x10C: the synced hand's velocity, units per second (fn_005DBC60; GLandscape::Draw 0x5E435F's
+	/// hand wind reads it)
+	[[nodiscard]] virtual glm::vec3 GetTurnHandVelocity() const noexcept = 0;
 	/// GInterface +0x3AC, the interface's hand state (fn_005D7E40) of the last turn: GET_HAND_STATE 413 (0x6FF730)
 	[[nodiscard]] virtual int32_t GetInterfaceHandState() const noexcept = 0;
 	/// Objects thrown by the hand that are still in flight (the original's physics objects)

@@ -26,6 +26,7 @@
 #include "ECS/FishShoals.h"
 #include "ECS/Physics/PhysicsObjects.h"
 #include "ECS/Registry.h"
+#include "ECS/ToBeDeleted.h"
 #include "ECS/Rocks.h"
 #include "ECS/StoragePitStore.h"
 #include "ECS/Systems/HandTap.h"
@@ -82,11 +83,11 @@ int32_t HandSystem::InterfaceHandState() const noexcept
 	// fn_005D7F20: the object under the hand (GInterface +0x400)
 	const auto& registry = Locator::entitiesRegistry::value();
 	std::optional<entt::entity> object = _tug ? _tug : _hovered;
-	if (!object && _cursorObject && registry.Valid(*_cursorObject) && hand_tap::Find(*_cursorObject) != nullptr)
+	if (!object && _cursorObject && ecs::IsAvailable(*_cursorObject) && hand_tap::Find(*_cursorObject) != nullptr)
 	{
 		object = _cursorObject; // a tap-only object (an abode) is the interface's object too
 	}
-	if (!object || !registry.Valid(*object))
+	if (!object || !ecs::IsAvailable(*object))
 	{
 		return 3;
 	}
@@ -138,11 +139,11 @@ void HandSystem::SubmitToolTips() noexcept
 	const int32_t state = InterfaceHandState();
 	_interfaceHandState = state;
 	const auto object = [&]() -> entt::entity {
-		if (_hovered && registry.Valid(*_hovered))
+		if (_hovered && ecs::IsAvailable(*_hovered))
 		{
 			return *_hovered;
 		}
-		return _cursorObject && registry.Valid(*_cursorObject) ? *_cursorObject : entt::null;
+		return _cursorObject && ecs::IsAvailable(*_cursorObject) ? *_cursorObject : entt::null;
 	}();
 	switch (state)
 	{
@@ -245,7 +246,7 @@ void HandSystem::SubmitToolTips() noexcept
 		const auto held = _held ? *_held : entt::null;
 		// the target under the hand: (not ported) the scaffolds 0xEA5, a creature to give to 0xE87;
 		// ValidToApplyThisToObject (vt 0x71C): 0xE8E (0xE8D on a sacrifice altar, not ported)
-		if (held != entt::null && _cursorObject && registry.Valid(*_cursorObject) && HeldValidToApplyTo(*_cursorObject))
+		if (held != entt::null && _cursorObject && ecs::IsAvailable(*_cursorObject) && HeldValidToApplyTo(*_cursorObject))
 		{
 			help::tooltips::Submit(0xE8E, k_ActionRight, 0, false);
 			break;

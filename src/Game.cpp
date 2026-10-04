@@ -124,6 +124,7 @@
 #include "Help/SpiritsRuntime.h"
 #include "Input/GameActionMapInterface.h"
 #include "Input/InterfaceActive.h"
+#include "Input/GamePackets.h"
 #include "Input/HandDemo.h"
 #include "LHScriptX/Script.h"
 #include "LandBalance.h"
@@ -625,8 +626,15 @@ bool Game::GameLogicLoop() noexcept
 	using namespace ecs::components;
 	using namespace ecs::systems;
 
-	// GGame::ProcessOneGameTurn 0x54D620: ProcessGameInputs 0x54C3D0 (GInterface::Process 0x5CEC10) before
-	// ProcessGameCode, so before the turn number goes up
+	// GGame::ProcessOneGameTurn 0x54D620: ProcessGameInputs 0x54C3D0 (ProcessBufferedKeys -> ProcessOneSuperpacket ->
+	// GInterface::Process 0x5CEC10) before ProcessGameCode, so before the turn number goes up: the packets the last
+	// flush passed on (Input/GamePackets), the hand's part of GInterface::Process (fn_005D2250 -> GInterfaceStatus::Process),
+	// then the interface's pump with ProcessPowerUpSystem
+	game_packets::ProcessOneSuperpacket();
+	if (Locator::handSystem::has_value())
+	{
+		Locator::handSystem::value().ProcessTurn();
+	}
 	magic::ProcessGameInputs();
 	// ProcessNetworkPackets 0x54CD93 / GGame::StartTurn 0x54E507: the turn number goes up at the start of the turn
 	game_clock::StartTurn();
@@ -875,6 +883,8 @@ bool Game::Update() noexcept
 			audio::Paused();
 		}
 	}
+	// GGame::Loop 0x54D291 fn_005525E0: the packets sent so far go to the session; the next turn applies them
+	game_packets::Flush();
 	// GGame::Loop 0x54D2A8..0x54D3A6: the remainder, the visual clock, g_game_time_inc and the fraction of the turn;
 	// LH3DRender::StartFrame 0x82F14E: g_delta_time
 	game_clock::UpdateFrameClock();
@@ -1936,6 +1946,13 @@ bool Game::LoadMap(const std::filesystem::path& path) noexcept
 
 	psys::manager::Clear();
 	magic::OnLoadMap();
+	// (inferred) a new land: no packet of the last one waits (their objects are gone), and the interface status's
+	// synced hand and turn motion start again (GInterfaceStatus::SetToZero 0x5DBA00)
+	game_packets::Reset();
+	if (Locator::handSystem::has_value())
+	{
+		Locator::handSystem::value().ResetTurnState();
+	}
 	// GSetup::LoadMapFeatures -> GLandBalance::Init: every land balance value back to 1 before the script
 	land_balance::Reset();
 	// ClearMap -> GData::Reset: the object creation counter back to 0 (2 on the first land: two HelpSpirits)

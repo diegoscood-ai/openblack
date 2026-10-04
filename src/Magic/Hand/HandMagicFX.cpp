@@ -32,6 +32,7 @@
 #include "ECS/Components/SpellSeed.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
+#include "ECS/ToBeDeleted.h"
 #include "ECS/Systems/HandSystemInterface.h"
 #include "Enums.h"
 #include "FileSystem/FileSystemInterface.h"
@@ -343,7 +344,8 @@ const ecs::components::SpellSeed* InHandSeed()
 		return nullptr;
 	}
 	auto& registry = Locator::entitiesRegistry::value();
-	return registry.Valid(g_State.inHandSeed) ? registry.TryGet<const ecs::components::SpellSeed>(g_State.inHandSeed) : nullptr;
+	return ecs::IsAvailable(g_State.inHandSeed) ? registry.TryGet<const ecs::components::SpellSeed>(g_State.inHandSeed)
+	                                             : nullptr;
 }
 } // namespace
 
@@ -429,7 +431,7 @@ void hand_fx::Update(float seconds)
 	if (Locator::handSystem::has_value())
 	{
 		if (const auto held = Locator::handSystem::value().GetHeldObject();
-		    held && registry.Valid(*held) && registry.AllOf<ecs::components::SpellSeed>(*held))
+		    held && ecs::IsAvailable(*held) && registry.AllOf<ecs::components::SpellSeed>(*held))
 		{
 			s.glowAlpha = k_GlowAlpha;
 		}
@@ -485,7 +487,7 @@ void hand_fx::CreateInHandEffect(entt::entity seed)
 {
 	ReleaseInHandEffect();
 	auto& registry = Locator::entitiesRegistry::value();
-	if (!registry.Valid(seed) || !registry.AllOf<ecs::components::SpellSeed>(seed))
+	if (!ecs::IsAvailable(seed) || !registry.AllOf<ecs::components::SpellSeed>(seed))
 	{
 		return;
 	}

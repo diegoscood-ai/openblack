@@ -21,6 +21,7 @@
 #include "Enums.h"
 #include "ECS/PotResource.h"
 #include "ECS/Systems/HandSystemInterface.h"
+#include "Input/GamePackets.h"
 
 #if !defined(LOCATOR_IMPLEMENTATIONS)
 #error "Locator interface implementations should only be included in Locator.cpp, use interface instead."
@@ -32,6 +33,8 @@ namespace openblack::ecs::systems
 class HandSystem final: public HandSystemInterface
 {
 public:
+	/// HandTurn.cpp: the packet handlers go with the system (game_packets::ClearHandlers)
+	~HandSystem();
 	bool Initialize() noexcept override;
 	[[nodiscard]] std::array<entt::entity, static_cast<size_t>(Side::_Count)> GetPlayerHands() const noexcept override;
 	[[nodiscard]] std::array<std::optional<glm::vec3>, static_cast<size_t>(Side::_Count)>
@@ -43,7 +46,11 @@ public:
 	std::optional<glm::vec3> ResolveCursorPoint(const glm::vec3& origin, const glm::vec3& direction,
 	                                            std::optional<glm::vec3> land, bool gripping,
 	                                            std::chrono::microseconds dt) noexcept override;
-	[[nodiscard]] std::optional<entt::entity> GetHeldObject() const noexcept override { return _held; }
+	/// The held object while it is available (IsInteractable): a deleted one is not held any more (ValidateHands)
+	[[nodiscard]] std::optional<entt::entity> GetHeldObject() const noexcept override
+	{
+		return _held && Interactable(*_held) ? _held : std::nullopt;
+	}
 	void PlaceObjectInMagicHand(entt::entity entity) noexcept override { PickUp(entity); }
 	// HandSpellSeed.cpp
 	[[nodiscard]] bool IsHandReadyForObject() const noexcept override;
@@ -54,6 +61,10 @@ public:
 	[[nodiscard]] float GetHandScale() const noexcept override { return _handScale; }
 	[[nodiscard]] glm::mat4 GetHandMatrix() const noexcept override;
 	[[nodiscard]] int32_t GetInterfaceHandState() const noexcept override { return _interfaceHandState; }
+	/// HandTurn.cpp: GInterface::Process 0x5CEC10's hand part, once a turn at the turn's start
+	void ProcessTurn() noexcept override;
+	void ResetTurnState() noexcept override;
+	[[nodiscard]] glm::vec3 GetTurnHandVelocity() const noexcept override { return _turnVelocity; }
 	[[nodiscard]] entt::entity GetClickedObject() const noexcept override;
 	void ClearClicked() noexcept override;
 	void RememberTapped(entt::entity object) noexcept override;
@@ -71,18 +82,26 @@ private:
 	void LoadAnimations() noexcept;
 	void LoadGeometry() noexcept;
 	[[nodiscard]] std::optional<entt::entity> FindObjectUnderHand() const noexcept;
-	void PickUp(entt::entity entity) noexcept;
+	/// `genericPickupSounds` false when the packet 0x13 path already played them at the send (GenericPickupSounds)
+	void PickUp(entt::entity entity, bool genericPickupSounds = true,
+	            std::optional<glm::vec3> statusPoint = std::nullopt) noexcept;
+	/// GInterface::GenericPickup 0x5D2800's sounds (the pick-up and a villager's scream)
+	void GenericPickupSounds(entt::entity entity, bool inPhysics) noexcept;
+	/// HandTurn.cpp: GenericPickup 0x5D2800 -> packet 0x13 (0x5D2864), action state 7 (WAIT FOR PLACE IN HAND)
+	void SendPlaceInHand(entt::entity entity) noexcept;
 	/// HandHolding.cpp: a gentle release (zero velocity) through Release
 	void Drop() noexcept;
 	/// HandHolding.cpp: the hand opens with the holding spring's velocity: ApplyThisToMapCoord (a tree on a wood
 	/// store, a hand pot put down at |v|^2 <= 5), then ThrowObjectFromHand -> InitialisePhysicsFromHand
-	void Release(glm::vec3 velocity) noexcept;
+	void Release(glm::vec3 velocity, std::optional<glm::vec3> mapPoint = std::nullopt, bool statusPose = false) noexcept;
 	/// HandHolding.cpp: Object::ThrowObjectFromHand(status, dont_replant) 0x6385E0: the held object leaves the hand
 	/// (RemoveFromHand), then physics::from_hand::Throw. Release passes dont_replant 0, ForceDropHeld 1 (packet 0x1D, no
 	/// ApplyThisToMapCoord)
-	void ThrowObjectFromHand(glm::vec3 velocity, bool dontReplant) noexcept;
+	/// With statusPose, the held object first takes the pose the 0x4D carried (status +0x5C / +0x68, 0x6385E0)
+	void ThrowObjectFromHand(glm::vec3 velocity, bool dontReplant, bool statusPose = false) noexcept;
 	void UpdateHeldObject() noexcept;
-	void UpdateMultiPickUp(float seconds, bool actionHeld) noexcept;
+	/// HandResources.cpp: PileResource::ProcessInInteract 0x66E520, one game turn of scooping from a pile
+	bool ProcessInInteractPile() noexcept;
 	/// HandTrees.cpp: BigForest::InterfaceSetInMagicHand 0x4393C0: the forest gives a Conifer to the hand
 	bool TakeTreeFromForest(entt::entity forest) noexcept;
 	/// HandFish.cpp: the splash of gripping the water (StartLandscapeGrip fn_005D1AB0)
@@ -90,13 +109,17 @@ private:
 	/// HandFish.cpp: the sound of gripping the land (StartLandscapeGrip, G_HandGrabLand_01..06)
 	void GripLandSound(glm::vec3 point) noexcept;
 	/// HandFish.cpp: the action over the water next to a fish starts catching from its farm (FishFarm locked select)
-	bool TryPickUpFish(glm::vec3 point) noexcept;
+	bool TryPickUpFish(entt::entity farm, glm::vec3 point) noexcept;
 	/// HandFish.cpp: FishFarm::ProcessInInteract per game turn; false if the source is not a fish farm
-	bool UpdateFishPickUp(float seconds) noexcept;
+	bool ProcessInInteractFish() noexcept;
 	/// HandFish.cpp: the action on a field starts taking its food (Field::NetworkFriendlyStartLockedSelect 0x529900)
-	bool TryPickUpField(entt::entity field) noexcept;
+	bool TryPickUpField(entt::entity field, std::optional<glm::vec3> point = std::nullopt) noexcept;
+	/// HandFish.cpp: Field::ValidForLockedSelectProcess 0x5299E0 (growth > 0 and food > 1)
+	[[nodiscard]] static bool FieldValidForLockedSelect(entt::entity field) noexcept;
+	/// HandFish.cpp: FindObjectNearMapCoord 0x5D39E0's water branch: the FishFarm of a shown fish near the point
+	[[nodiscard]] static std::optional<entt::entity> FishFarmUnderHand(glm::vec3 point) noexcept;
 	/// HandFish.cpp: Field::ProcessInInteract 0x529730 per game turn; false if the source is not a field
-	bool UpdateFieldPickUp(float seconds) noexcept;
+	bool ProcessInInteractField() noexcept;
 	/// Test hook OPENBLACK_TEST_SPLASH="x,z": a hand splash there every second
 	void UpdateTestSplash(float seconds) noexcept;
 	/// Pot::AddResourceToPos: a hand pot put down merges into a same-type pile or store nearby, else a new pile.
@@ -113,6 +136,79 @@ private:
 	/// The tap handlers (ecs::hand_tap) of the classes whose owners have not registered them yet: rocks, abodes, spell
 	/// icons and one-shot orbs, through their public APIs
 	void RegisterTapHandlers() noexcept;
+	/// HandTurn.cpp: the hand's packet handlers (game_packets::SetHandler)
+	void RegisterPacketHandlers() noexcept;
+	/// HandTurn.cpp: State 12 0x5D4DB0's packets 0x4D (the throw) and 0x12 (DropOnMapCoord -> SendApplyToMapCoord)
+	void SendRelease(glm::vec3 velocity) noexcept;
+	/// HandSpellSeed.cpp: the packet 0x1D's handler 0x5DA8F0 (the held object's ThrowObjectFromHand(status, 1))
+	void ApplyForceDropHeld() noexcept;
+	/// HandTurn.cpp: the packet 0x20's handler 0x5DA650 (InterfaceValidToTap again, InterfaceTap)
+	void ApplyTap(entt::entity object) noexcept;
+	/// HandTurn.cpp: fn_005D2250, the first part of GInterface::Process: the packets 0x15 / 0x16 / 0x17 when the hand or
+	/// the camera moved, with the throttle 0xD18230
+	void SendHandSync() noexcept;
+	/// HandTurn.cpp: fn_005DBC60, the first step of GInterfaceStatus::Process: the synced hand's motion this turn
+	void UpdateTurnMovement() noexcept;
+	/// HandTurn.cpp: fn_005DC810 -> fn_00721480: a spell of the list answers Spell::NeedsContinualPackets 0x7214C0
+	[[nodiscard]] static bool HandCastNeedsContinualPackets() noexcept;
+	/// The status's map point (+0x14) as a world point (MapCoords::GetLHPoint)
+	[[nodiscard]] glm::vec3 SyncMapPoint() const noexcept;
+	/// HandSpellSeed.cpp: the hand's live position (CHand +0x78) and the holding velocity, what a seed's 0x4D sends
+	void LiveHandThrowData(glm::vec3& handPos, glm::vec3& velocity) const noexcept;
+	/// GInterfaceStatus's synced block (the local player's; research: dev\documentacion\hand\handsync\README.md)
+	ecs::map_coords::MapCoords _syncMapCoords {}; ///< +0x14, from 0x15 / 0x16
+	glm::vec3 _syncHand {0.0f};                   ///< +0xA4, from 0x15 / 0x16
+	glm::vec3 _syncCameraPosition {0.0f};         ///< +0xB0, from 0x15 / 0x17
+	glm::vec3 _syncCameraFocus {0.0f};            ///< +0xBC, from 0x15 / 0x17
+	glm::vec3 _turnHand {0.0f};                   ///< +0xC8, the synced hand of this turn (fn_005DBC60's end)
+	glm::vec3 _turnDelta {0.0f};                  ///< +0xE8
+	glm::vec3 _stillMotion {0.0f};                ///< +0xF4
+	uint32_t _stillTurns {0};                     ///< +0xA0
+	float _turnSpeed {0.0f};                      ///< +0x100
+	float _turnHeading {0.0f};                    ///< +0x104
+	float _turnRate {0.0f};                       ///< +0x108
+	glm::vec3 _turnVelocity {0.0f};               ///< +0x10C
+	float _turnSideAcceleration {0.0f};           ///< +0x118
+	/// fn_005D2250's statics: what was sent last (0xD17D48 / 0xD17D68 / 0xD17D58 / 0xD17D78) and the countdown 0xD18230
+	ecs::map_coords::MapCoords _sentMapCoords {};
+	glm::vec3 _sentHand {0.0f};
+	glm::vec3 _sentCameraFocus {0.0f};
+	glm::vec3 _sentCameraPosition {0.0f};
+	uint8_t _syncCountdown {0};
+	/// GInterface +0x3F0: the action collide's MapCoords, kept while the hand points at nothing
+	ecs::map_coords::MapCoords _actionCoords {};
+	/// HandTurn.cpp: GInterface::StartLockedSelect 0x5D1950: packet 0x1B and action state 3
+	void SendStartLockedSelect(entt::entity object) noexcept;
+	/// HandTurn.cpp: action state 3's end 0x5D4870: packet 0x1C and PSysGlobal::StopMultiPickup at once
+	void SendEndLockedSelect() noexcept;
+	/// HandTurn.cpp: the packet 0x1B's handler 0x5DA950 (NetworkFriendlyStartLockedSelect)
+	void ApplyStartLockedSelect(entt::entity object) noexcept;
+	/// HandTurn.cpp: the packet 0x1C's handler 0x5DAA10 (NetworkFriendlyEndLockedSelect)
+	void ApplyEndLockedSelect(entt::entity object) noexcept;
+	/// HandTurn.cpp: GInterfaceStatus::Process 0x5DC4E0's locked select (+0x3C): the influence and ProcessInInteract
+	void ProcessLockedSelect() noexcept;
+	/// HandTurn.cpp: GInterfaceStatus::ValidateHands 0x5DC610, a deleted held object leaves the hand
+	void ValidateHands() noexcept;
+	/// GInterface +0x400: the object of the action state 3 (the locked select sent with 0x1B, ended with 0x1C)
+	std::optional<entt::entity> _lockedSelectAction;
+	/// PSysGlobal::StopMultiPickup ran at the interface (0x5D48B4): the particles and the looping sound stop while the
+	/// 0x1C waits for its turn
+	bool _lockedSelectStopped {false};
+	/// HandSpellSeed.cpp: the packet 0x12's handler 0x5DA400 for a seed (SpellSeed::ApplyThisToMapCoord 0x728E20)
+	void ApplySeedToMapCoord(const game_packets::Packet& packet) noexcept;
+	/// HandSpellSeed.cpp: the packet 0x11's handler 0x5DA1A0 for a seed (SpellSeed::ApplyThisToObject 0x728D10)
+	void ApplySeedToObject(const game_packets::Packet& packet) noexcept;
+	/// GInterfaceStatus +0x44: the throw velocity the packet 0x4D set
+	glm::vec3 _statusThrowVelocity {0.0f};
+	/// GInterfaceStatus +0x5C: the position the packet 0x4D set (the held object's at the release, the hand's for a seed)
+	glm::vec3 _statusThrowHandPosition {0.0f};
+	/// GInterfaceStatus +0x68: HandAngles, the held object's rotation the packet 0x4D set (see Packet::rotation)
+	glm::mat3 _statusThrowRotation {1.0f};
+	/// HandTurn.cpp: the packet 0x4D of a release (state 12 0x5D4E9F..0x5D513D) or of ForceDropHeld (0x5D4393..0x5D43C3):
+	/// the velocity, and the held object's position and rotation at the send
+	void PushThrowData(glm::vec3 velocity) noexcept;
+	/// HandTurn.cpp: GameThingWithPos::IsInteractable vt 0x190 (0x5701B0: IsAvailable; Abode 0x407200: built > 0)
+	[[nodiscard]] static bool Interactable(entt::entity object) noexcept;
 	/// HandToolTips.cpp: fn_005D7E40, the interface's hand state (GInterface +0x3AC) for the hand's state now
 	[[nodiscard]] int32_t InterfaceHandState() const noexcept;
 	/// HandToolTips.cpp: fn_005D78D0, the tooltip of the hand state (table 0xBF1C10), once per turn
@@ -182,6 +278,9 @@ private:
 	/// 0x5DA1A0 -> vt 0x720 ApplyThisToObject -> HandleApplyResult fn_005DA100. False: nothing applied (the press arms the
 	/// put down / throw as before)
 	bool HeldActionPressedOnObject(bool inInfluence) noexcept;
+	/// HandApplyToObject.cpp: the packet 0x11's handler 0x5DA1A0 (the checks again, ApplyThisToObject vt 0x720 and
+	/// HandleApplyResult fn_005DA100)
+	void ApplyHeldToObject(entt::entity target) noexcept;
 	/// fn_005CED60 RemoveFirstFromHand: the held object leaves the hand without physics (GMagicHand::RemoveFromHand
 	/// 0x5FB0B0: FireEffect::SetOutMagicHand); the caller places it
 	std::optional<entt::entity> RemoveFirstFromHand() noexcept;
@@ -344,14 +443,13 @@ private:
 	bool _actionWasHeld {false};
 
 	/// Resource being gathered into the hand pile (HandWood / HandFood) while the action is held over it.
+	/// GInterfaceStatus +0x3C, the locked select's object (set by 0x1B's handler, cleared by 0x1C's or when it ends)
 	std::optional<entt::entity> _pickSource;
-	float _pickTime {0.0f};
-	/// The game turn (game_clock::Turn) the multi pick-up has done its turn's work for: ProcessInInteract runs once per
-	/// game turn (CHand::GameTurnUpdate)
-	uint32_t _pickTurn {0};
-	/// Game turns since the locked select started (GInterfaceStatus::Process counter).
+	/// Game turns since the locked select started (GInterfaceStatus +0x40).
 	uint32_t _pickTurns {0};
-	/// Hand x,z frozen over the pile while scooping (HandStateHolding::Update, locked interact).
+	/// Hand x,z frozen over the pile while scooping (HandStateHolding::Update, locked interact): only the hand's draw;
+	/// the influence check reads the synced +0xC8 (_turnHand). (inferred) the live point under the hand when the 0x1B
+	/// is applied: the original's lock point was not checked
 	glm::vec3 _pickLock {0.0f};
 	/// The press that picked the object up is still held: its release does not drop it (state 7).
 	bool _pickPressHeld {false};

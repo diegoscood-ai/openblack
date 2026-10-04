@@ -158,26 +158,12 @@ void magic::ProcessPSysGameLoopEnd()
 void magic::ProcessHandTurn()
 {
 	// (Game.cpp: GScript::Process, the weather things, the bookmarks, the climate and the belief come before, 0x54E693..)
-	// 13 CHand::GameTurnUpdate 0x46E4E0: first HandStateGrain's raise (fn_005B2D70, ECS/.../HandGrain.cpp), then the held
-	//    object's ProcessInHand (a spell seed: SpellSeed::ProcessInHand)
+	// 13 CHand::GameTurnUpdate 0x46E4E0: HandStateGrain's raise (fn_005B2D70, ECS/.../HandGrain.cpp); (pending) the held
+	//    object no longer available -> CHand::ThrowObject, +0x490C = GetHoldType, the +0x48FC / +0x49B4 / +0x4950
+	//    clean-ups. The held object's ProcessInHand is NOT here: GInterfaceStatus::Process 0x5DC4E0 -> ProcessHands
+	//    0x5DC6A0 at the turn's start (HandSystem::ProcessTurn, HandTurn.cpp)
 	//    (0x46E4E3..0x46E4FB: [0xD01A38] x 0.001 [0x8AA3B0])
 	ecs::systems::hand_grain::GameTurnUpdate(static_cast<float>(game_clock::MsPerTurn()) * 0.001f);
-	if (Locator::handSystem::has_value())
-	{
-		const auto held = Locator::handSystem::value().GetHeldObject();
-		auto& registry = Locator::entitiesRegistry::value();
-		if (held.has_value() && registry.Valid(*held) && registry.AllOf<ecs::components::SpellSeed>(*held))
-		{
-			seed::ProcessInHand(*held);
-		}
-		else if (held.has_value() && registry.Valid(*held) &&
-		         influence::CalculatePlayerInfluence(PlayerNames::PLAYER_ONE, ecs::fire::traits::FireCentre(*held)) > 0.0f)
-		{
-			// Object::ProcessInHand 0x639AD0: inside the holder's influence it catches the fires it is held over
-			// (inferido: openblack has only the local player's hand, taken as PLAYER_ONE)
-			ecs::fire::CheckToSeeIfObjectIsNearOnFireObject(*held);
-		}
-	}
 	// (Reward::ProcessList 0x6E6890 comes after GameThing::ProcessDeadList, 0x54E70C: not here)        [M7b]
 }
 

@@ -57,6 +57,7 @@
 #include "ECS/Components/MorphWithTerrain.h"
 #include "ECS/Components/Pot.h"
 #include "ECS/Components/SpellSeed.h"
+#include "ECS/Components/Forest.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/AnimalAI.h"
@@ -77,7 +78,7 @@
 #include "ECS/Villager/VillagerCore.h"
 #include "ECS/Physics/FromHand.h"
 #include "ECS/Physics/PhysicsObjects.h"
-#include "ECS/StoragePitStore.h"
+#include "ECS/ObjectResources.h"
 #include "ECS/Fire/FireEffect.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "InfoConstants.h"
@@ -95,14 +96,12 @@ using namespace openblack::ecs::components;
 using namespace openblack::ecs::systems;
 using namespace openblack::ecs::systems::hand_detail;
 
-void HandSystem::PickUp(entt::entity entity) noexcept
+void HandSystem::PickUp(entt::entity entity, bool genericPickupSounds, std::optional<glm::vec3> statusPoint) noexcept
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	_pickSource.reset();
 	_pickFish = false;
 	_pickField = false;
-	_pickTime = 0.0f;
-	_pickTurn = game_clock::Turn();
 	_lastHeldPosition.reset();
 	_handVelocity = glm::vec3(0.0f);
 	// GInterface::PlaceObjectInMagicHand: an object in physics leaves it (RemoveObject)
@@ -117,7 +116,7 @@ void HandSystem::PickUp(entt::entity entity) noexcept
 	}
 	// Food / wood: the hand grabs a HandFood / HandWood pile and keeps pulling from the source while held over it
 	// (GPotInfo.amountPickedUpInitially / PerTurn / PerTurnEnd / multiPickUpRampTime from info.dat).
-	if (auto* pot = registry.TryGet<Pot>(entity); pot != nullptr)
+	if (registry.AllOf<Pot>(entity))
 	{
 		const auto& pots = Locator::infoConstants::value().pot;
 		const auto& sourceType = registry.Get<Mesh>(entity);
@@ -136,31 +135,32 @@ void HandSystem::PickUp(entt::entity entity) noexcept
 			const auto handType =
 			    pots[static_cast<size_t>(sourceInfo)].resourceType == ResourceType::Wood ? PotInfo::HandWood : PotInfo::HandFood;
 			const auto& handInfo = pots[static_cast<size_t>(handType)];
-			// PotStructure::GetResource: a store pile offers the store's total.
-			const auto store = StoragePitStore::OwnerOf(entity);
+			// PileResource::NetworkFriendlyStartLockedSelect 0x66E710: n = min(the hand pot's amountPickedUpInitially,
+			// GetResource) (0x66E735..0x66E75F; a store pile offers the store's total), RemoveResource(type, n, the
+			// hand's interface, &poisoned) (0x66E77E), Pot::Create(status MapCoords +0x14, the hand pot's info, n)
+			// (0x66E7A3), SetPoisoned(poisoned || its own) (0x66E7D5)
 			const auto resource = pots[static_cast<size_t>(sourceInfo)].resourceType;
-			const uint32_t available = store != entt::null ? StoragePitStore::GetResource(store, resource) : pot->amount;
-			const auto take = std::min<uint32_t>(available, handInfo.amountPickedUpInitially);
+			const auto take =
+			    std::min<uint32_t>(object_resources::GetResource(entity, resource), handInfo.amountPickedUpInitially);
 			if (take == 0)
 			{
 				return;
 			}
-			const auto position = registry.Get<Transform>(entity).position;
+			const auto position = statusPoint.value_or(registry.Get<Transform>(entity).position);
+			// (approximate) RemoveResource's out flag (0x66EE60: *out = IsPoisoned) read just before it
+			const bool poisoned = object_resources::IsPoisoned(entity);
+			const pot_resource::Dropper hand {true, PlayerNames::PLAYER_ONE, true};
+			object_resources::RemoveResource(entity, resource, take, hand);
 			const auto pile = archetypes::PotArchetype::Create(position, 0.0f, handType, static_cast<int32_t>(take));
 			if (pile == entt::null)
 			{
 				return;
 			}
-			if (store != entt::null)
+			if (poisoned)
 			{
-				StoragePitStore::RemoveResource(store, resource, take);
+				registry.Get<Pot>(pile).poisoned = true;
 			}
-			else
-			{
-				pot->amount = static_cast<uint16_t>(pot->amount - take);
-				SinkPile(entity);
-			}
-			_pickSource = entity;
+			_pickSource = entity; // an emptied loose pile is gone: the first turn's IsAvailable ends the select
 			_pickTurns = 0;
 			_pickLock = _interactionPoint.value_or(position);
 			entity = pile;
@@ -197,21 +197,8 @@ void HandSystem::PickUp(entt::entity entity) noexcept
 		_heldHeight = _heldTop;
 		_holdRadius = 0.2f * 0.5f * std::max(box.Size().x * transform.scale.x, box.Size().z * transform.scale.z);
 	}
-	// GInterface::GenericPickup 0x5D2800 (0x5D2881..0x5D28B7): every object but a rooted tree or forest (IsTree /
-	// IsForest without the uprooted bit +0x24 & 0x40) gets SoundTag::Create(its MapCoords +0x14, 10 G_PickUpObject,
-	// track 0, mode 3, loops 0, +0x40 0, is3D 1, InGame, delay 0) 0x71EB60, a point tag at the object's point (x, altitude
-	// + height, z) that plays at once (fn_0071EA40). A DeadTree is not IsTree (it has no override of
-	// GameThingWithPos::IsTree 0x402320, which returns 0), so it sounds too.
 	const auto pickupPoint = transform.position;
-	const auto pickupTag = [&pickupPoint](int sample) {
-		audio::tags::Create(pickupPoint, sample, false, 3, 0, false, true, audio::SfxBank::InGame, 0);
-	};
-	if (registry.AllOf<Tree>(entity) && caught)
-	{
-		// a thrown tree caught again: already out of the ground (+0x24 & 0x40), no uprooting
-		pickupTag(10);
-	}
-	else if (registry.AllOf<Tree>(entity))
+	if (registry.AllOf<Tree>(entity) && !caught)
 	{
 		// Tree::InterfaceSetInMagicHand 0x74B730 (rooted, +0x24 & 0x40 clear): SoundTag::Create(the tree's MapCoords,
 		// GetRandomSample(32 G_TreeBreak_01, 3) 0x71ED40, track 0, mode 3, loops 0, 0, is3D 1, InGame, delay 0)
@@ -222,17 +209,10 @@ void HandSystem::PickUp(entt::entity entity) noexcept
 		                    0);
 		_heldAltitude = 0.0f;
 	}
-	else
+	if (genericPickupSounds)
 	{
-		pickupTag(10);
-	}
-	// 0x5D28C5..0x5D295D: a villager (IsVillager vt +0x2C8) that is alive (Object::IsAlive 0x402610: GetLife() > 0 and
-	// available) screams with a second point tag of the same form: a child (IsChild vt +0xAF8) 180 + GetRandomSample(7)
-	// G_PickUpChild_01.., else a woman (Villager::IsWoman 0x752620) 194 G_PickUpWoman_01.., else 187 G_PickUpMan_01..
-	if (registry.AllOf<Villager>(entity) && ecs::life::LifeOf(entity) > 0.0f)
-	{
-		const int first = ecs::villager::IsChild(entity) ? 180 : ecs::villager::IsWoman(entity) ? 194 : 187;
-		pickupTag(audio::tags::RandomSample(first, 7));
+		// (the packet 0x13 path plays these when it is sent: GenericPickupSounds)
+		GenericPickupSounds(entity, caught);
 	}
 	ComputeHoldParameters(entity);
 	_held = entity;
@@ -246,7 +226,34 @@ void HandSystem::PickUp(entt::entity entity) noexcept
 	SPDLOG_LOGGER_DEBUG(spdlog::get("game"), "Hand: picked up entity {}", static_cast<uint32_t>(entity));
 }
 
-void HandSystem::Release(glm::vec3 velocity) noexcept
+void HandSystem::GenericPickupSounds(entt::entity entity, bool inPhysics) noexcept
+{
+	// GInterface::GenericPickup 0x5D2800 (0x5D2881..0x5D28B7), when the packet 0x13 is sent: every object but a rooted
+	// tree or forest (IsTree / IsForest without +0x24 & 0x40 IN_PHYSICS, PhysicsObjects::IsFlying) gets
+	// SoundTag::Create(its MapCoords +0x14, 10 G_PickUpObject, track 0, mode 3, loops 0, +0x40 0, is3D 1, InGame, delay 0)
+	// 0x71EB60, a point tag at the object's point that plays at once (fn_0071EA40); a DeadTree is not IsTree
+	// (GameThingWithPos::IsTree 0x402320 = 0), so it sounds too
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto pickupPoint = registry.Get<const Transform>(entity).position;
+	const auto pickupTag = [&pickupPoint](int sample) {
+		audio::tags::Create(pickupPoint, sample, false, 3, 0, false, true, audio::SfxBank::InGame, 0);
+	};
+	const bool rooted = registry.AnyOf<Tree, BigForest>(entity) && !inPhysics;
+	if (!rooted)
+	{
+		pickupTag(10);
+	}
+	// 0x5D28C5..0x5D295D: a villager (IsVillager vt +0x2C8) that is alive (Object::IsAlive 0x402610: GetLife() > 0 and
+	// available) screams with a second point tag of the same form: a child (IsChild vt +0xAF8) 180 + GetRandomSample(7)
+	// G_PickUpChild_01.., else a woman (Villager::IsWoman 0x752620) 194 G_PickUpWoman_01.., else 187 G_PickUpMan_01..
+	if (registry.AllOf<Villager>(entity) && ecs::life::LifeOf(entity) > 0.0f)
+	{
+		const int first = ecs::villager::IsChild(entity) ? 180 : ecs::villager::IsWoman(entity) ? 194 : 187;
+		pickupTag(audio::tags::RandomSample(first, 7));
+	}
+}
+
+void HandSystem::Release(glm::vec3 velocity, std::optional<glm::vec3> mapPoint, bool statusPose) noexcept
 {
 	// The hand opens (packet 0x12, GInterface 0x5DA400): held->ApplyThisToMapCoord(status, pos) whatever the speed, then
 	// ThrowObjectFromHand(status, dont_replant 0) 0x6385E0 -> InitialisePhysicsFromHand(ThrowVelocity, ...)
@@ -262,7 +269,8 @@ void HandSystem::Release(glm::vec3 velocity) noexcept
 		// (DeleteObjectAndTakeResource, 3), thrown or not
 		if (registry.AnyOf<Tree, DeadTree>(entity))
 		{
-			if (const auto store = _interactionPoint ? FindWoodStore(*_interactionPoint) : std::nullopt; store)
+			const auto at = mapPoint ? mapPoint : _interactionPoint;
+			if (const auto store = at ? FindWoodStore(*at) : std::nullopt; store)
 			{
 				_held.reset();
 				_pickSource.reset();
@@ -280,10 +288,10 @@ void HandSystem::Release(glm::vec3 velocity) noexcept
 			ecs::animal_ai::SetupPotReaction(entity);
 		}
 	}
-	ThrowObjectFromHand(velocity, false);
+	ThrowObjectFromHand(velocity, false, statusPose);
 }
 
-void HandSystem::ThrowObjectFromHand(glm::vec3 velocity, bool dontReplant) noexcept
+void HandSystem::ThrowObjectFromHand(glm::vec3 velocity, bool dontReplant, bool statusPose) noexcept
 {
 	// Object::ThrowObjectFromHand(status, dont_replant) 0x6385E0: out of the hand, then the physics' part
 	// (ECS/Physics/FromHand: the hand pot put down, InitialisePhysicsFromHand)
@@ -295,6 +303,16 @@ void HandSystem::ThrowObjectFromHand(glm::vec3 velocity, bool dontReplant) noexc
 	_held.reset();
 	_pickSource.reset();
 	fire::SetOutMagicHand(entity); // GMagicHand::RemoveFromHand 0x5FB0B0: FireEffect::SetOutMagicHand
+	// 0x6385E0 (bw1-decomp Object.cpp:1245): the matrix from the status's HandAngles (+0x68) and HandPos (+0x5C), the
+	// object's scale kept, before InitialisePhysicsFromHand. (pending) HelpProfile::Trigger(4) for the local player
+	auto& registry = Locator::entitiesRegistry::value();
+	if (statusPose && registry.Valid(entity))
+	{
+		auto& transform = registry.Get<Transform>(entity);
+		transform.position = _statusThrowHandPosition;
+		// SetYXZMatrixOnly(HandAngles.y, .x, .z) 0x7FAC10 (Object.cpp:1254): see Packet::rotation
+		transform.rotation = _statusThrowRotation;
+	}
 	physics::from_hand::Throw(entity, velocity, dontReplant);
 }
 

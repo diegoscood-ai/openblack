@@ -23,6 +23,7 @@
 #include "ECS/Components/Villager.h"
 #include "ECS/MobileDrawing.h"
 #include "ECS/Registry.h"
+#include "ECS/ToBeDeleted.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Resources/ResourceManager.h"
@@ -67,7 +68,8 @@ void UpdateCarriedProps()
 	// the props of villagers that stop carrying, or are gone
 	std::vector<entt::entity> gone;
 	registry.Each<const CarriedProp>([&](entt::entity prop, const CarriedProp& carried) {
-		const auto* animation = registry.Valid(carried.owner) ? registry.TryGet<const SkeletalAnimation>(carried.owner) : nullptr;
+		const auto* animation =
+		    ecs::IsAvailable(carried.owner) ? registry.TryGet<const SkeletalAnimation>(carried.owner) : nullptr;
 		if (animation == nullptr || animation->carriedObject != carried.type || animation->pose.size() <= k_GripBone ||
 		    Hidden(carried.owner))
 		{
@@ -83,7 +85,7 @@ void UpdateCarriedProps()
 	registry.Each<const Villager, const SkeletalAnimation>([&](entt::entity villager, const Villager&, const SkeletalAnimation& animation) {
 		const auto type = animation.carriedObject;
 		if (type > 1 && type < static_cast<int32_t>(k_PropMeshes.size()) && k_PropMeshes.at(static_cast<size_t>(type)) != 0 &&
-		    animation.pose.size() > k_GripBone && !Hidden(villager))
+		    animation.pose.size() > k_GripBone && !Hidden(villager) && ecs::IsAvailable(villager))
 		{
 			wanted.emplace_back(villager, type);
 		}

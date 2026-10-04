@@ -62,7 +62,6 @@
 #include "ECS/Components/Pot.h"
 #include "ECS/Components/Tree.h"
 #include "ECS/Components/Villager.h"
-#include "ECS/Influence/Influence.h"
 #include "ECS/MapCells.h"
 #include "ECS/PotResource.h"
 #include "ECS/Components/Sprite.h"
@@ -70,7 +69,8 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
-#include "ECS/StoragePitStore.h"
+#include "ECS/ToBeDeleted.h"
+#include "ECS/ObjectResources.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "InfoConstants.h"
 #include "LandBalance.h"
@@ -129,45 +129,13 @@ PotInfo HandSystem::PotInfoOf(entt::entity entity) noexcept
 	return PotInfo::_COUNT;
 }
 
-void HandSystem::UpdateMultiPickUp(float seconds, bool actionHeld) noexcept
+bool HandSystem::ProcessInInteractPile() noexcept
 {
-	if (!_held || !_pickSource || !actionHeld)
-	{
-		_pickSource.reset();
-		_pickFish = false;
-		return;
-	}
 	auto& registry = Locator::entitiesRegistry::value();
-	if (!registry.Valid(*_pickSource) || !registry.Valid(*_held))
+	const auto* pile = registry.TryGet<const Pot>(*_held);
+	if (!registry.AllOf<Pot>(*_pickSource) || pile == nullptr)
 	{
-		_pickSource.reset();
-		_pickFish = false;
-		return;
-	}
-	if (_pickFish)
-	{
-		if (!UpdateFishPickUp(seconds))
-		{
-			_pickSource.reset();
-			_pickFish = false;
-		}
-		return;
-	}
-	if (_pickField)
-	{
-		if (!UpdateFieldPickUp(seconds))
-		{
-			_pickSource.reset();
-			_pickField = false;
-		}
-		return;
-	}
-	auto* source = registry.TryGet<Pot>(*_pickSource);
-	auto* pile = registry.TryGet<Pot>(*_held);
-	if (source == nullptr || pile == nullptr)
-	{
-		_pickSource.reset();
-		return;
+		return false;
 	}
 	// PileResource::ProcessInInteract (0x66E520), once per game turn while the locked select lasts (no distance
 	// check). The values come from the hand pot's info:
@@ -176,77 +144,39 @@ void HandSystem::UpdateMultiPickUp(float seconds, bool actionHeld) noexcept
 	const auto handType = PotInfoOf(*_held);
 	const bool wood = handType == PotInfo::HandWood;
 	const auto& info = Locator::infoConstants::value().pot[static_cast<size_t>(wood ? PotInfo::HandWood : PotInfo::HandFood)];
-	const auto store = StoragePitStore::OwnerOf(*_pickSource);
 	const auto resource = wood ? ResourceType::Wood : ResourceType::Food;
-	_pickTime += seconds;
-	bool changed = false;
-	// once per game turn (at most one a frame)
-	while (_pickTurn != game_clock::Turn())
+	// fn_0066CD30: t = n / GPotInfo::GetTicksToChangeOver 0x66CD00 (ftol(1000 / [0xD01A38] * ramp time), the
+	// NumGameTicksPerSecond conversion), <= 0 (or NaN) gives 0 and >= 1 gives 1
+	const auto ticks = static_cast<float>(game_clock::TicksForSeconds(info.multiPickUpRampTime));
+	const float ratio = static_cast<float>(_pickTurns) / ticks;
+	const float t = ratio > 0.0f ? std::min(ratio, 1.0f) : 0.0f;
+	auto take = static_cast<uint32_t>(static_cast<float>(info.amountPickedUpPerTurn) +
+	                                  static_cast<float>(info.amountPickedUpPerTurnEnd - info.amountPickedUpPerTurn) * t * t);
+	const uint32_t room = info.maxAmountCanBePickedUp > pile->amount ? info.maxAmountCanBePickedUp - pile->amount : 0u;
+	// GetResource / RemoveResource (vt +0x98 / +0xA0) of the source with the hand's interface: a storage pit's pile
+	// takes from the pit, a loose pile from itself (JustRemoveFromPot: emptied, it goes through ToBeDeleted), and the
+	// hand's branch (desire, alignment, belief) runs
+	const uint32_t available = object_resources::GetResource(*_pickSource, resource);
+	take = std::min({take, available, room, 65535u - pile->amount});
+	if (take == 0)
 	{
-		_pickTurn = game_clock::Turn();
-		// GInterfaceStatus::Process 0x5DC558: the locked select ends where the hand (status+0xC8; here the x,z it is
-		// frozen at) is out of the player's influence (CalculatePlayerInfluence(.., 0, 0, allies) <= 0)
-		if (influence::CalculatePlayerInfluence(PlayerNames::PLAYER_ONE, _pickLock) <= 0.0f)
-		{
-			_pickSource.reset();
-			break;
-		}
-		++_pickTurns;
-		// fn_0066CD30: t = n / GPotInfo::GetTicksToChangeOver 0x66CD00 (ftol(1000 / [0xD01A38] * ramp time), the
-		// NumGameTicksPerSecond conversion), <= 0 (or NaN) gives 0 and >= 1 gives 1
-		const auto ticks = static_cast<float>(game_clock::TicksForSeconds(info.multiPickUpRampTime));
-		const float ratio = static_cast<float>(_pickTurns) / ticks;
-		const float t = ratio > 0.0f ? std::min(ratio, 1.0f) : 0.0f;
-		auto take = static_cast<uint32_t>(static_cast<float>(info.amountPickedUpPerTurn) +
-		                                  static_cast<float>(info.amountPickedUpPerTurnEnd - info.amountPickedUpPerTurn) * t * t);
-		const uint32_t room = info.maxAmountCanBePickedUp > pile->amount ? info.maxAmountCanBePickedUp - pile->amount : 0u;
-		const uint32_t available = store != entt::null ? StoragePitStore::GetResource(store, resource) : source->amount;
-		take = std::min({take, available, room, 65535u - pile->amount});
-		if (take == 0)
-		{
-			_pickSource.reset();
-			break;
-		}
-		if (store != entt::null)
-		{
-			StoragePitStore::RemoveResource(store, resource, take);
-		}
-		else
-		{
-			source->amount = static_cast<uint16_t>(source->amount - take);
-		}
-		pile->amount = static_cast<uint16_t>(pile->amount + take);
-		changed = true;
-		// UpdateMultiPickup(type, t^2): the looping pick-up sound's pitch, 60 + 180 t^2 percent (UpdatePickupSound)
-		_pickupSoundFraction = t * t;
+		return false;
 	}
-	if (changed && _pickSource)
-	{
-		// An emptied loose pile is deleted; the piles of a store stay (buried when empty), and the store already
-		// resized the piles it took from.
-		if (store == entt::null && source->amount == 0)
-		{
-			ecs::map_cells::RemoveMapObject(*_pickSource); // CleanupWhenDeleted 0x6377F0: RemoveMapObject vt +0x548
-			registry.Destroy(*_pickSource);
-			_pickSource.reset();
-		}
-		else if (store == entt::null)
-		{
-			SinkPile(*_pickSource);
-		}
-		registry.SetDirty();
-	}
+	object_resources::RemoveResource(*_pickSource, resource, take,
+	                                  pot_resource::Dropper {true, PlayerNames::PLAYER_ONE, true});
+	auto& handPot = registry.Get<Pot>(*_held); // the source's deletion may have moved the pool
+	handPot.amount = static_cast<uint16_t>(handPot.amount + take);
+	// UpdateMultiPickup(type, t^2): the looping pick-up sound's pitch, 60 + 180 t^2 percent (UpdatePickupSound)
+	_pickupSoundFraction = t * t;
+	registry.SetDirty();
+	const bool sourceLeft = ecs::IsAvailable(*_pickSource);
 	if (std::getenv("OPENBLACK_HAND_TRACE") != nullptr)
 	{
-		static float traceTime = 0.0f;
-		traceTime += seconds;
-		if (traceTime > 0.5f)
-		{
-			traceTime = 0.0f;
-			SPDLOG_LOGGER_INFO(spdlog::get("game"), "Pick trace: turn {} hand pile {}, source left {}", _pickTurns, pile->amount,
-			                   _pickSource ? static_cast<int>(source->amount) : -1);
-		}
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Pick trace: turn {} hand pile {}, source left {}", _pickTurns, handPot.amount,
+		                   sourceLeft ? static_cast<int>(object_resources::GetResource(*_pickSource, resource)) : -1);
 	}
+	// an emptied loose pile is gone: the next turn's IsAvailable would end the select
+	return sourceLeft;
 }
 
 void HandSystem::SinkPile(entt::entity pile) noexcept
@@ -295,6 +225,10 @@ std::optional<entt::entity> HandSystem::FindWoodStore(glm::vec3 point) const noe
 	std::optional<entt::entity> store;
 	float best = std::numeric_limits<float>::max();
 	registry.Each<const StoragePit, const Transform>([&](entt::entity entity, const StoragePit&, const Transform& transform) {
+		if (!ecs::IsAvailable(entity))
+		{
+			return;
+		}
 		float radius = 8.0f;
 		if (const auto* fixed = registry.TryGet<const Fixed>(entity); fixed != nullptr)
 		{

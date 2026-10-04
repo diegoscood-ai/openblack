@@ -73,8 +73,9 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
+#include "ECS/ToBeDeleted.h"
 #include "ECS/ObjectMetrics.h"
-#include "PSys/PSysManager.h"
+#include "Input/GamePackets.h"
 #include "ECS/Rocks.h"
 #include "ECS/Villager/VillagerHome.h"
 #include "FileSystem/FileSystemInterface.h"
@@ -250,9 +251,9 @@ void HandSystem::Place(std::optional<glm::vec3> groundPoint, [[maybe_unused]] gl
 				{
 					// packet 0x2B (fn_00550CF0 at 0x5D1FC9) -> 0x63D6D8 -> GParticleContainer::CreateSpotVisual(pos, 2)
 					// 0x63E540: SPOT_VISUAL 2 GRIP_LANDSCAPE (SF_GripLandscape, 100 turns, Z-sorted), stepped once a turn
-					// and drawn with the turn fraction (documentacion\hand\gripdust\README.md). (not ported) the
-					// packet's one-turn delay: it is made at the grab
-					psys::manager::CreateSpotVisual(2, *_gripPoint, 0.0f, entt::null);
+					// and drawn with the turn fraction (documentacion\hand\gripdust\README.md); the packet is applied at the
+					// next turn's start (HandTurn.cpp)
+					game_packets::Push({game_packets::Type::SpotVisual, entt::null, *_gripPoint, 2});
 					GripLandSound(*_gripPoint);
 				}
 			}
@@ -300,7 +301,7 @@ void HandSystem::Place(std::optional<glm::vec3> groundPoint, [[maybe_unused]] gl
 	auto rotation = HandMatrixRotation(UpdateNormalUp(seconds));
 	auto position = *groundPoint;
 	// Hand state 8 (CHand::GetRequiredState 0x46CD10: the held object IsSpellSeed) is HandStateGrain (HandGrain.cpp)
-	const bool seedHeld = _held && registry.Valid(*_held) && registry.AllOf<SpellSeed>(*_held);
+	const bool seedHeld = _held && ecs::IsAvailable(*_held) && registry.AllOf<SpellSeed>(*_held);
 	hand_grain::SetHoldingSeed(seedHeld);
 	if ((_held || _tug) && _holdType != HoldType::None)
 	{
@@ -316,7 +317,7 @@ void HandSystem::Place(std::optional<glm::vec3> groundPoint, [[maybe_unused]] gl
 		auto grip = _tug ? registry.Get<Transform>(*_tug).position +
 		                       registry.Get<Transform>(*_tug).rotation * glm::vec3(0.0f, lowering, 0.0f)
 		                 : *groundPoint + glm::vec3(0.0f, height, 0.0f);
-		if (_pickSource && registry.Valid(*_pickSource))
+		if (_pickSource && ecs::IsAvailable(*_pickSource))
 		{
 			// HandStateHolding::Update (0x5B3EA8) while a pile is locked: x,z frozen, y = ground + pile GetHeight().
 			float pileHeight = 1.0f;
@@ -418,8 +419,9 @@ std::optional<HandSystem::CursorHit> HandSystem::PickObjectAlongRay(const glm::v
 	std::optional<CursorHit> best;
 	float bestT = std::numeric_limits<float>::max();
 	const auto skip = [&](entt::entity entity) {
+		// a deleted object (Unavailable, freed later in the turn) is not under the cursor
 		if (entity == _hands[0] || entity == _hands[1] || (_held && entity == *_held) || (_tug && entity == *_tug) ||
-		    registry.AllOf<HandFxPart>(entity))
+		    registry.AllOf<HandFxPart>(entity) || !ecs::IsAvailable(entity))
 		{
 			return true;
 		}
@@ -619,7 +621,7 @@ std::optional<glm::vec3> HandSystem::ResolveCursorPoint(const glm::vec3& origin,
 			{
 				p = origin + dir;
 			}
-			if (_held && registry.Valid(*_held))
+			if (_held && ecs::IsAvailable(*_held))
 			{
 				// 0x5B676B..0x5B6804: the held object's Get2DRadius (vt +0x64) x 0.5. (not ported) + the creature's push
 				p += glm::normalize(origin - p) * (ecs::object::Get2DRadius(*_held) * 0.5f);
@@ -681,7 +683,7 @@ std::optional<entt::entity> HandSystem::FindObjectUnderHand() const noexcept
 	// only takes an object nearer than the clicked point (it is not a hover reach).
 	std::optional<entt::entity> best;
 	auto cursorObject = _cursorObject;
-	if (cursorObject && registry.Valid(*cursorObject) && registry.AllOf<SpellSeedGraphic>(*cursorObject))
+	if (cursorObject && ecs::IsAvailable(*cursorObject) && registry.AllOf<SpellSeedGraphic>(*cursorObject))
 	{
 		// the seed inside an orb or over a spell icon is drawn by its owner (OneOffSpellSeed::Draw 0x518E90 ->
 		// SpellSeedGraphic::DrawSpellGraphic 0x519AD0; a SpellSeedGraphic is not an Object): (inferido) a ray that hits
@@ -689,13 +691,13 @@ std::optional<entt::entity> HandSystem::FindObjectUnderHand() const noexcept
 		const auto graphic = *cursorObject;
 		cursorObject.reset();
 		registry.Each<const OneOffSpellSeed>([&](entt::entity owner, const OneOffSpellSeed& orb) {
-			if (orb.graphic == graphic)
+			if (orb.graphic == graphic && ecs::IsAvailable(owner))
 			{
 				cursorObject = owner;
 			}
 		});
 		registry.Each<const SpellIcon>([&](entt::entity owner, const SpellIcon& icon) {
-			if (icon.graphic == graphic)
+			if (icon.graphic == graphic && ecs::IsAvailable(owner))
 			{
 				cursorObject = owner;
 			}
@@ -705,7 +707,7 @@ std::optional<entt::entity> HandSystem::FindObjectUnderHand() const noexcept
 	// ValidForPlaceInHand (vt 0x6FC) or InterfaceValidToTap (vt 0x740). A one-shot orb is both (Mobile::ValidForPlaceInHand
 	// 0x425B00 = 1, OneOffSpellSeed::InterfaceValidToTap 0x72A630 = 1); a spell icon of the player only taps
 	// (Object::ValidForPlaceInHand 0x402870 = 0, SpellIcon::InterfaceValidToTap 0x7263C0).
-	if (cursorObject && registry.Valid(*cursorObject) &&
+	if (cursorObject && ecs::IsAvailable(*cursorObject) &&
 	    (registry.AnyOf<Mobile, Tree, DeadTree, Pot, Field, BigForest, OneOffSpellSeed>(*cursorObject) ||
 	     worship::InterfaceValidToTap(*cursorObject, PlayerNames::PLAYER_ONE)) &&
 	    _hands[0] != *cursorObject && _hands[1] != *cursorObject)
@@ -732,7 +734,7 @@ std::optional<entt::entity> HandSystem::FindObjectUnderHand() const noexcept
 	}
 	// a spell seed out of the hand (drawn over its spell by 0x729020: a forest seed cast from an icon) or a teleport stone
 	// (its invisible draw collision) when ValidForPlaceInHand: SpellSeed 0x728580, MagicTeleport 0x5FC440 (the seed's)
-	if (!best && cursorObject && registry.Valid(*cursorObject) && SeedToPlaceInHand(*cursorObject) != entt::null &&
+	if (!best && cursorObject && ecs::IsAvailable(*cursorObject) && SeedToPlaceInHand(*cursorObject) != entt::null &&
 	    _hands[0] != *cursorObject && _hands[1] != *cursorObject)
 	{
 		best = *cursorObject;

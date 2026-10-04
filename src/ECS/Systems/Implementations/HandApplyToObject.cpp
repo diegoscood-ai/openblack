@@ -29,6 +29,8 @@
 #include "ECS/Components/Villager.h"
 #include "ECS/Fire/FireEffect.h"
 #include "ECS/Registry.h"
+#include "ECS/ToBeDeleted.h"
+#include "Input/GamePackets.h"
 #include "Locator.h"
 #include "Magic/Core/Spell.h"
 #include "Magic/Core/SpellSeed.h"
@@ -87,7 +89,7 @@ bool ValidToApplyThisToObject(entt::entity held, entt::entity target)
 entt::entity HandSystem::SeedToPlaceInHand(entt::entity object) noexcept
 {
 	auto& registry = Locator::entitiesRegistry::value();
-	if (object == entt::null || !registry.Valid(object))
+	if (!ecs::IsAvailable(object))
 	{
 		return entt::null;
 	}
@@ -108,7 +110,7 @@ entt::entity HandSystem::SeedToPlaceInHand(entt::entity object) noexcept
 bool HandSystem::PickUpSeedOrStone(entt::entity object, bool inInfluence) noexcept
 {
 	auto& registry = Locator::entitiesRegistry::value();
-	if (!registry.Valid(object) || !registry.AnyOf<SpellSeed, MagicTeleport>(object))
+	if (!ecs::IsAvailable(object) || !registry.AnyOf<SpellSeed, MagicTeleport>(object))
 	{
 		return false;
 	}
@@ -134,6 +136,7 @@ bool HandSystem::PickUpSeedOrStone(entt::entity object, bool inInfluence) noexce
 	// down) and the hand takes it; a MagicTeleport's 0x5FC470 is GInterfaceStatus::PlaceObjectInMagicHand(its seed)
 	// 0x5DC870 -> 0x5DA6F0 on the seed (the same), and returns 0, so the outer call only ends the action and the hand
 	// shows its first object, the seed. The seed's spell closes (SpellWithObjects::CloseDown 0x721300) and the stone goes.
+	// (pending, H3c) the 0x13 is applied at once here, not at the next turn's start
 	const int result = worship::interface::PlaceSeedInMagicHand(PlayerNames::PLAYER_ONE, seed);
 	_pickPressHeld = _held.has_value();
 	if (ApplyTrace())
@@ -174,13 +177,13 @@ bool HandSystem::HeldValidToApplyTo(entt::entity target) const noexcept
 bool HandSystem::HeldActionPressedOnObject(bool inInfluence) noexcept
 {
 	auto& registry = Locator::entitiesRegistry::value();
-	if (!_held || !registry.Valid(*_held))
+	if (!_held || !Interactable(*_held))
 	{
 		return false;
 	}
 	const auto held = *_held;
 	// GetCreatureToGiveTo (no creature), else m_ActionCollide.object [this+0x400]: the object under the hand
-	const auto target = _cursorObject && registry.Valid(*_cursorObject) ? *_cursorObject : entt::null;
+	const auto target = _cursorObject && Interactable(*_cursorObject) ? *_cursorObject : entt::null;
 	// ValidAsInterfaceTarget vt 0x6F0 (Object 0x402840 = 1). InterfaceValidToGiveObject vt 0x748 needs a creature (M8).
 	// 0x5D15D6..0x5D15E9: out of the influence ([this+0x48] == 0) and InterfaceMustBeInInfluenceForInteraction (vt 0x714,
 	// Object 0x4028A0 = 1) -> 0x5D16BE, the branch without a target
@@ -197,7 +200,28 @@ bool HandSystem::HeldActionPressedOnObject(bool inInfluence) noexcept
 	// a villager: ApplyOnlyAfterRecSystem vt 0x738 (Object 0x402920) = 0 and ValidForLockedApplyProcess vt 0x72C (Object
 	// 0x4028F0) = 0, so SendApplyToObject 0x5D30D0 (0x5D1684): the hand holds something (status +0x90, 0x5D30FA),
 	// ValidAsInterfaceTarget, the validity again (0x5D3126), not a seed: packet 0x11 (0x5D32A7) and action state 0x12
-	// (0x5D32B9); the packet's 0x5DA1A0 checks the same (IsInteractable, +0x90, vt 0x71C) and calls vt 0x720 (0x5DA251)
+	// (0x5D32B9). The next turn's start applies it (ApplyHeldToObject)
+	game_packets::Push({game_packets::Type::ApplyToObject, target, registry.Get<const Transform>(target).position});
+	_releaseArmed = false;
+	return true;
+}
+
+void HandSystem::ApplyHeldToObject(entt::entity target) noexcept
+{
+	// 0x5DA1A0 (packet 0x11): fn_005D3680, then the target interactable, the hand holding (status +0x90), its first
+	// object interactable and ValidToApplyThisToObject (vt 0x71C) == 1; then vt 0x720 ApplyThisToObject (0x5DA251).
+	// A target gone or the hand empty: EndAction fn_005D1260 (0x5DA2B3; the action state is already reset here).
+	// (not verified) fn_005D3680
+	if (!_held || !Interactable(*_held) || !Interactable(target))
+	{
+		return;
+	}
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto held = *_held;
+	if (held == target || !ValidToApplyThisToObject(held, target))
+	{
+		return;
+	}
 	int result = 0;
 	if (registry.AllOf<Villager>(held) && registry.AllOf<MagicTeleport>(target))
 	{
@@ -241,11 +265,9 @@ bool HandSystem::HeldActionPressedOnObject(bool inInfluence) noexcept
 			RemoveFirstFromHand(); // GInterfaceStatus fn_005DC1E0
 		}
 	}
-	_releaseArmed = false;
 	if (ApplyTrace())
 	{
 		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Hand: applied {} to object {}: result {:#x}, still held {}",
 		                   static_cast<uint32_t>(held), static_cast<uint32_t>(target), result, _held.has_value());
 	}
-	return true;
 }

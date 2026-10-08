@@ -13,8 +13,8 @@ Sources: the script's source text and its single-quest test launcher, the script
 lists, the land map scripts, the shared notify, reminder and reward scripts, and the game's text table. Every row is
 n/a: the game never runs this quest. To restore it openblack would need, besides the usual dialogue, camera and
 challenge record commands, villager and animal flocks, food stores and resources, dances, building fire and
-anti-influence areas, which are all stubs in `src/CHLApi.cpp` (its `Create` only makes mobile statics and rocks, so not
-even the marauders or the cattle would appear).
+anti-influence areas, some of which (dances and reading a store's resources among them) are still stubs in
+`src/CHLApi.cpp` (its `Create` makes villagers and animals, so the marauders and the cattle would appear).
 
 ## Is it in the game?
 

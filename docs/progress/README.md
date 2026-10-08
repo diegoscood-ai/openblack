@@ -1,10 +1,14 @@
 # openblack progress
 
+> These notes were written by raffclar ([raffclar/openblack](https://github.com/raffclar/openblack)) and given to
+> this fork. Their statuses are re-marked for this tree: what this tree's code does, not his branch.
+
 How much of Black & White (2001) openblack does, domain by domain. Each folder is one domain of the game; each file in
 it is one feature, broken down into everything the original game does for that feature, so it can be ticked off.
 
-Measured against `miracles-rework` at `40d5d371` (stack 1 plus the miracles, their fixes, hand navigation, the hand
-morph and the editor camera speed). Update a row's status in the same change that does the work.
+Measured against this fork's `local/hand-hbn` at `b51e3431`; raffclar first measured them against his
+`miracles-rework` at `40d5d371`. Update a row's status in the same
+change that does the work.
 
 ## Status
 

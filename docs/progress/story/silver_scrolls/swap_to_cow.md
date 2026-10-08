@@ -11,7 +11,7 @@ for when the player's creature is not already a cow. It is compiled into the shi
 Sources: the script's source text and the decompile of the compiled challenge file, Land 4's map script, the game's text
 table. Every row is n/a: the game itself never runs this quest, so there is nothing for openblack to match. If openblack
 ever wants to restore it, it needs the same commands as the other swap quests (dialogue, flocks, animal states, timers,
-challenge records, the swap) which are all stubs in `src/CHLApi.cpp`.
+challenge records, the swap), of which the challenge records and the swap are still stubs in `src/CHLApi.cpp`.
 
 ## Is it in the game?
 

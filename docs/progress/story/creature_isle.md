@@ -9,7 +9,7 @@ Tyke. openblack targets the original game only.
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The Creature Isle land and its challenges | n/a | expansion not supported |
-| Tyke, the young creature who follows the player's | n/a | expansion not supported |
-| The Brotherhood's trials | n/a | expansion not supported |
-| The expansion's extra creature spells | n/a | commented out in `src/Enums.h` |
+| The Creature Isle land and its challenges | n/a | the expansion is not supported |
+| Tyke, the young creature who follows the player's | n/a | the expansion is not supported |
+| The Brotherhood's trials | n/a | the expansion is not supported |
+| The expansion's extra creature spells | n/a | the expansion is not supported (its spells are commented out in `src/Enums.h`) |

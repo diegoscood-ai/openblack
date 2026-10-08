@@ -39,16 +39,16 @@ cup final and so on) are listed in [../story/minigames.md](../story/minigames.md
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | The creature's "watch telly" and "fart" actions exist but are empty: choosing them does nothing | n/a | nothing to port |
-| "Tell a friend a joke" is fully built (it walks up fluttering its eyelids, talks, and its friend reacts) but is missing from the game's table of actions, so it can never be chosen | todo | could be added as an openblack extra; not in [secret_behaviours.md](secret_behaviours.md) for that reason |
+| "Tell a friend a joke" is fully built (it walks up fluttering its eyelids, talks, and its friend reacts) but is missing from the game's table of actions, so it can never be chosen | todo | not in our tree; could be added as an extra; not in [secret_behaviours.md](secret_behaviours.md) for that reason |
 | The developers' key menus and nine named key layouts | n/a | see [hidden_keys_and_cheats.md](hidden_keys_and_cheats.md) |
-| The dance formations can lay dancers out as shapes: circle, heart, spiral, octagon, square, triangle, wavy circle, lines, random scatter, a figure eight, lightning, a star, a man, a fish, a cockerel and the letters of the alphabet (`Data/Letter*.DAN` and friends) | todo | which shipped dances use them is unconfirmed; see [../worship/worship_sites.md](../worship/worship_sites.md) |
+| The dance formations can lay dancers out as shapes: circle, heart, spiral, octagon, square, triangle, wavy circle, lines, random scatter, a figure eight, lightning, a star, a man, a fish, a cockerel and the letters of the alphabet (`Data/Letter*.DAN` and friends) | todo | our tree has no reader for the dance files (`Data/Letter*.DAN` and friends); which shipped dances use the shapes is unconfirmed; see [../scripts/dance_scripts.md](../scripts/dance_scripts.md) |
 
 ## Data nothing loads
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| `Scripts/dance.txt` is a land for editing dances, but its landscape (`dance.led`) does not ship | n/a | |
-| `Scripts/comp.txt` is a computer-player test land loading a landscape from a developer folder that does not ship | n/a | |
+| `Scripts/dance.txt` is a land for editing dances, but its landscape (`dance.led`) does not ship | n/a |  |
+| `Scripts/comp.txt` is a computer-player test land loading a landscape from a developer folder that does not ship | n/a |  |
 | `Scripts/demo2.txt` sets up Land 3 with the player in the Japanese town, apparently for a demo | n/a | (unconfirmed which demo) |
 | The playground "Construct" (`Scripts/Playgrounds/construct.txt`, on `construct.lnd`), announced as "Testing landscape": one Norse house, two villagers, a temple and a row of objects | n/a | not a game file: it is openblack's own test land, added to openblack's test data in 2021. It sits with the playgrounds only when copied into the install's playground folder, and then the skirmish box lists it as "construct" like any other land there; see [../multiplayer/maps/construct.md](../multiplayer/maps/construct.md) |
 | Four of the hidden phone box's recordings are never played (numbers 3, 12, 13 and 14) | n/a | in the script sound bank |

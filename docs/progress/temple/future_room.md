@@ -9,7 +9,7 @@ Network play itself is reached from the front end (../multiplayer/).
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The room's camera comes in along its path | done | see ../camera/temple_camera.md |
-| "The future is still uncertain..." fades in to half over two seconds, each time the camera comes in | done | `TempleInterior::UpdateOptionsAndFutureRooms` |
-| While the sessions are shown the room turns slowly by itself | todo | TODO in `TempleCameraModel.cpp` (unconfirmed when the game shows sessions here) |
-| Whether the room is open to the player | todo | (unconfirmed what decides it) |
+| The room's camera comes in along its path | done | see ../camera/temple_camera.md (`src/Camera/TempleCameraModel.cpp`) |
+| "The future is still uncertain..." fades in to half over two seconds, each time the camera comes in | done | `TempleInterior::UpdateOptionsAndFutureRooms` (alpha up to 128, at 64 a second) |
+| While the sessions are shown the room turns slowly by itself | todo | TODO in `src/Camera/TempleCameraModel.cpp` (unconfirmed when the game shows sessions here) |
+| Whether the room is open to the player | todo | (unconfirmed what decides it); our tree always lets the player in |

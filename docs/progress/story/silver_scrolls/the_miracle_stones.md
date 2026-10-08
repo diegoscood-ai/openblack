@@ -14,8 +14,8 @@ Sources: the script's source text and its single-quest test launcher, the script
 lists, the land map scripts, the two shipped singing stone challenges, the shared notify, reminder, reward and creature
 swap scripts, and the game's text table. Every row is n/a: the game never runs this quest. To restore it openblack would
 need highlights, villagers, clicking objects, spells cast by script, special effects, rewards from the sky and the
-creature swap, which are all stubs in `src/CHLApi.cpp` (its `Create` makes the stones and bases, being mobile statics,
-but not the villagers or the chimp).
+creature swap, of which the rewards and the swap are still stubs in `src/CHLApi.cpp` (its `Create` makes the stones, the
+bases and the villagers, but not the chimp).
 
 ## Is it in the game?
 

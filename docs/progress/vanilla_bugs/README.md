@@ -63,8 +63,8 @@ A file leaves out a group it has no rows for.
 ## The openblack column
 
 Whether openblack should reproduce a vanilla bug for fidelity or fix it is a policy question for the project, decided
-per bug. Until it is decided a row says **undecided**. Where the progress files already record what openblack does,
-the column says so:
+per bug. Until it is decided a row says **undecided**. The column is measured against this tree's code (`src/` and
+`test/`), and says what it does:
 
 - **reproduced**: openblack behaves the same way today.
 - **differs: …**: openblack behaves differently today (not a decision, just the current state).

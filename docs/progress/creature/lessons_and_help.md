@@ -6,14 +6,16 @@ screen and says so in a line or two of text. These messages wait their turn on a
 can be switched off in the options. The general help system and advisors belong to [../interface/](../interface/) and
 [../story/](../story/); this file covers what the creature has to say.
 
-**Progress: 0/84 done, 10 partial — 6%**
+**Progress: 0/84 done, 9 partial — 5%**
+
+How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../bw1-notes/creature.md).
 
 ## How creature help is shown
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | Creature help is run by the challenge script's creature help scripts, which open a dialogue with the good advisor | todo | the scripts are in `Scripts/Quests/challenge.chl`; nothing in openblack asks for them |
-| Help about the creature acting on a thing: the advisor clings to the bottom left, reads out what the creature is doing, waits, then gives the lesson in a line | todo | needs the dialogue, advisor clinging and the creature's action text (`START_DIALOGUE`, `TEXT_READ`, `SPIRIT_HOME`, `GET_ACTION_TEXT_FOR_OBJECT` are stubs in `src/CHLApi.cpp`) |
+| Help about the creature acting on a thing: the advisor clings to the bottom left, reads out what the creature is doing, waits, then gives the lesson in a line | todo | the help system's dialogue natives work (`START_DIALOGUE`, `TEXT_READ`, `SPIRIT_HOME` in `src/CHLApi.cpp`, `src/Help`), but nothing asks for the creature help scripts; `GET_ACTION_TEXT_FOR_OBJECT` always pushes the same text (828) |
 | Help about the creature acting on a place, worded the same way | todo | as above |
 | Help as a single line of text | todo | as above |
 | Help as two lines, one after the other | todo | as above |
@@ -24,31 +26,31 @@ can be switched off in the options. The general help system and advisors belong 
 | A message isn't shown again until enough time has passed since it was last shown | todo | not modelled |
 | Only the player's own creature gives help | todo | not modelled |
 | The creature help option in the game's options turns it all on or off | partial | the option is in `src/Gui/GameMenu.cpp` (`creatureHelp`), but nothing reads it |
-| Scripts can turn creature help on or off | todo | `SET_CREATURE_HELP` is a stub in `src/CHLApi.cpp` |
+| Scripts can turn creature help on or off | todo | `SET_CREATURE_HELP` is a stub in `src/CHLApi.cpp`; `DEV_FUNCTION` 10 and 11 are not ported |
 
 ## Lessons from feedback
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| It wants a desire more | partial | the words are made (`creature_learning::DesireLessonText`) and kept as a thought, shown only in the debug spawner |
+| It wants a desire more | partial | the words are made (`creature_learning::DesireLessonText`, `src/Creature/CreatureLearning.cpp`) and kept as a thought, shown only in the debug spawner |
 | It wants a desire less | partial | as above |
 | A source drives a desire more readily (for example, it will eat when only a little hungry) | todo | not worded |
 | A source drives a desire less readily | todo | not worded |
-| It thinks better of an action | partial | `creature_learning::ActionLessonText`, debug only |
+| It thinks better of an action | partial | `creature_learning::ActionLessonText`, shown only in the debug spawner |
 | It thinks worse of an action | partial | as above |
-| It will choose, or avoid, a kind of thing for a desire | partial | `creature_learning::ObjectLessonText`, debug only |
+| It will choose, or avoid, a kind of thing for a desire | partial | `creature_learning::ObjectLessonText`, shown only in the debug spawner |
 | A stroke or slap taught it nothing | todo | not shown; see [learning_from_feedback.md](learning_from_feedback.md) |
 
 ## Lessons from watching
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| It has learnt an ordinary skill | partial | kept as a thought ("I've learnt to ..."), debug only |
-| It has learnt a miracle | partial | kept as a thought ("I've learnt the miracle ..."), debug only |
+| It has learnt an ordinary skill | partial | kept as a thought ("I've learnt to ...", `CreatureMindSystem::SeeSkill`), shown only in the debug spawner; skills are only shown to it from the debug spawner |
+| It has learnt a miracle | partial | kept as a thought ("I've learnt the miracle ...", `CreatureMindSystem::SeeMiracle`), shown only in the debug spawner; sightings only from the debug spawner |
 | It has nearly learnt a skill | todo | not shown |
-| It has nearly learnt a miracle | todo | worked out (`LearningEvent::NearlyLearnt`) but not shown |
+| It has nearly learnt a miracle | todo | not worked out: there is no "nearly" moment in `creature_watching` |
 | It can't learn a skill yet | todo | not shown |
-| It can't learn a miracle yet | todo | worked out (`LearningEvent::TooYoung`) but not shown |
+| It can't learn a miracle yet | todo | `creature_watching::SeeMiracle` marks it ignored, nothing is shown |
 | It hasn't learnt a skill it is being shown | todo | not shown |
 | It can't learn this at its stage of growing up | todo | not shown |
 | It is too young to copy the player | todo | not shown |
@@ -78,7 +80,7 @@ can be switched off in the options. The general help system and advisors belong 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | A throw that missed | todo | not shown |
-| A miracle that fizzled | partial | it plays its embarrassed and sad actions (`CreatureMindSystem::ShowFizzle`), but no message; see [creature_casting.md](creature_casting.md) |
+| A miracle that fizzled | todo | the creature casts no miracle; see [creature_casting.md](creature_casting.md) |
 | Fishing that went wrong | todo | not shown |
 | Dancing with villagers that went wrong | todo | not shown |
 | Making a fire that went wrong | todo | not shown |
@@ -133,9 +135,9 @@ can be switched off in the options. The general help system and advisors belong 
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Its thoughts (the last few things it learnt or decided) are kept | partial | `creature_mind_model::Think`, newest eight; shown only in `src/Debug/CreatureSpawnerMind.cpp` |
-| What the creature is doing can be read as a line of text | todo | the action text scripts ask for is a stub (`GET_ACTION_TEXT_FOR_OBJECT`) |
-| A light bulb appears over its head when it tries a miracle it hasn't learnt | todo | no light bulb effect |
+| Its thoughts (the last few things it learnt or decided) are kept | partial | `creature_mind_model::Think`, newest eight (`k_MaxThoughts`); shown only in `src/Debug/CreatureSpawnerMind.cpp` |
+| What the creature is doing can be read as a line of text | todo | `GET_ACTION_TEXT_FOR_OBJECT` pops nothing and always pushes the same help text (828) (`src/CHLApi.cpp`); the creature's own action text is not modelled |
+| A light bulb appears over its head when it tries a miracle it hasn't learnt | todo | no light bulb effect, and the creature casts no miracle |
 | It makes a sound that shows its mood | todo | not modelled; its voice in general is in [animation.md](animation.md) |
 | Music changes its mood, and its mood changes the music | todo | not modelled; see [../audio/](../audio/) |
 | It talks: speech items it says to villagers, friends and the player | todo | not modelled |

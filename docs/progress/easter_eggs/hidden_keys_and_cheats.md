@@ -6,7 +6,7 @@ rebindable keys are owned by [../interface/key_bindings.md](../interface/key_bin
 number keys by [../camera/places_and_bookmarks.md](../camera/places_and_bookmarks.md). Date-based surprises (special
 days, the night voices, real weather, villagers named from the address book) are in [../pc_integration/](../pc_integration/).
 
-**Progress: 1/5 done, 0 partial — 20%**
+**Progress: 0/5 done, 1 partial — 10%**
 
 ## Keys outside the bindings
 
@@ -15,11 +15,11 @@ hides it.
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| **Ctrl+Alt+T** saves a "creature snapshot": a file `creaturesnapshot.csn` in the current profile's folder, then plays a confirmation sound and a force-feedback jolt on a force-feedback mouse | todo | not in openblack; works in single player and online alike |
-| The snapshot holds the camera's position and focus, the time of day and the sky it gives, the camera lens, whether the game is online (and the online game's name), then for each of up to eight human players who has a creature: their online player record, the creature's body and size, its head size, its colours, its whole 3D state, and the animation it is playing with its frame | todo | nothing in the game reads the file back; it matches the stills the creature web page expects (`creatureshot_N.jpg`, see [launch_switches_and_files.md](launch_switches_and_files.md)), so it was most likely for Lionhead's creature web site (unconfirmed) |
-| **R** (when unbound) repeats the last miracle, if the hand is free to take it | todo | one of the two keyboard miracle keys; the pairing of R and M with "repeat" and "choose" is from the two keyboard miracle routines (unconfirmed which is which) |
-| **M** (when unbound) starts choosing a miracle with the keyboard, if the hand is free to take it | todo | see the row above (unconfirmed) |
-| **P** with no Shift, Ctrl or Alt held pauses and unpauses the game | done | `src/Game.cpp` (openblack also pauses with a modifier held) |
+| **Ctrl+Alt+T** saves a "creature snapshot": a file `creaturesnapshot.csn` in the current profile's folder, then plays a confirmation sound and a force-feedback jolt on a force-feedback mouse | todo | not in our tree; works in single player and online alike in the game |
+| The snapshot holds the camera's position and focus, the time of day and the sky it gives, the camera lens, whether the game is online (and the online game's name), then for each of up to eight human players who has a creature: their online player record, the creature's body and size, its head size, its colours, its whole 3D state, and the animation it is playing with its frame | todo | not in our tree; nothing in the game reads the file back |
+| **R** (when unbound) repeats the last miracle, if the hand is free to take it | todo | no keyboard miracle keys in our tree (unconfirmed which of R and M is which in the game) |
+| **M** (when unbound) starts choosing a miracle with the keyboard, if the hand is free to take it | todo | see the row above |
+| **P** with no Shift, Ctrl or Alt held pauses and unpauses the game | partial | P pauses and unpauses (`game_clock::Pause`, `src/Game.cpp`), but also with Shift, Ctrl or Alt held |
 | There are no typed cheat codes: the game keeps a buffer of typed keys, but it only replays them, one by one, into the normal key handling each frame; nothing matches sequences | n/a | checked in the key-buffer handling; nothing to port |
 
 ## Developer key menus left in the program

@@ -35,6 +35,10 @@ Issues for these are filed as `agent-task`; nothing else in them is touched on t
 - villagers fleeing from and watching miracles;
 - flowers.
 
+## Being done by raffclar's agents (pull requests open)
+
+- (none open; pull request #4, physics, was closed without merging. Its branch is kept here for reference.)
+
 ## Done recently
 
 See `CHANGELOG.md`.

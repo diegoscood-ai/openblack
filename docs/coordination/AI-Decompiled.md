@@ -33,7 +33,9 @@ Issues for these are filed as `agent-task`; nothing else in them is touched on t
 - the visible new particle effects (belief sprites, electric arcs, the gesture light sheet, the hand glow,
   camera-distance scaling);
 - villagers fleeing from and watching miracles;
-- flowers.
+- flowers;
+- an untextured rock on Land 5 (issue #128);
+- a wonder built with fences instead of its mesh (issue #129).
 
 ## Being done by raffclar's agents (pull requests open)
 

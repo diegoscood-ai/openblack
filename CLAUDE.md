@@ -78,26 +78,75 @@ Push to the fork after every commit that builds and passes the tests, and keep a
 
 ## Code
 
-The docs in this repository are the detailed rules; this is the short version every change must follow.
+Every change follows these conventions; the docs in this repository have the detail:
+`docs/refactor/README.md` (where state lives, services, events, resources), `docs/refactor/TESTING.md` (tests and
+fidelity runs), `.github/contributing-style.md` (formatting, naming) and `docs/bw1-notes/` (research on the original
+game). Reviews hold pull requests to all of it.
 
-- **Read first:** `docs/refactor/README.md` (where state lives, services, events, resources),
-  `docs/refactor/TESTING.md` (tests and fidelity runs), `.github/contributing-style.md` (formatting, naming),
-  `docs/bw1-notes/` (research on the original game).
-- **Fidelity.** Reproduce the original game's behaviour exactly. Research unknowns (Ghidra, `docs/bw1-notes`, the game's
-  data) until they are known; never tune, approximate or guess. If something can't be determined, say so in the pull
-  request with the evidence you have.
-- **Modern C++20**: RAII and value types (no raw `new`/`delete`), `std::optional`, `std::span`, `std::array`,
-  `enum class`, `<algorithm>`/`std::ranges`, `constexpr` constants named `k_PascalCase`, designated initializers,
-  `[[nodiscard]]` on getters and pure functions. Modern engine and BGFX patterns; don't copy the original game's design.
-- **State**: entity data in components, shared state in Locator services, files through the resource caches, pure logic
-  in free functions. No new globals or singletons.
-- **Comments** describe behaviour in plain English. No addresses, assembly, Mac symbols or the original game's internal
-  or decompiled names.
-- **Formatting**: clang-format and cmake-format as CI checks them (`.github/workflows/format-check.yml`); format only the
-  lines you change.
-- **Never commit** build output, `vcpkg` changes, `imgui.ini`, screenshots, game data or local notes.
+### Fidelity
 
-## Reading the code base
+- Reproduce the original game's behaviour exactly. Research unknowns (Ghidra, `docs/bw1-notes`, the game's data) until
+  they are known; never tune, approximate or guess. If something can't be determined, say so in the pull request with
+  the evidence you have.
+- Preserve the original's visuals, but build them with modern BGFX and C++ techniques.
 
-- Read files with an offset and limit instead of whole; the code base is large.
-- Filter logs for the lines you need instead of dumping them.
+### Comments
+
+- Comments stay plain English and describe behaviour. No Mac symbols, addresses, assembly or the original game's internal
+  names.
+- Avoid decompiled function names: they change between versions and developer setups.
+
+### Modern C++
+
+The code base is C++20. Write modern, idiomatic C++:
+
+- Follow modern game engine patterns and shader techniques. **Do not** directly lift design patterns from the original
+  game.
+- Implement visual shading code using modern game development patterns.
+- The `Graphics` namespace is for renderer code and `3D` is for assets code.
+- Own resources with RAII: `std::unique_ptr`/`std::shared_ptr` and value types, never raw `new`/`delete`.
+- Use `std::optional` for values that may be absent, `std::span` for views over contiguous data, `std::array` over C
+  arrays, `enum class` over plain enums.
+- Prefer `<algorithm>` and `std::ranges` over hand-written loops where they read better.
+- Use `constexpr` for constants (named `k_PascalCase`), designated initializers for aggregates, and `[[nodiscard]]` on
+  getters and pure functions.
+- Keep pure logic (formulas, state machines) free of global state so it can be unit tested with fakes, never with the
+  real game data.
+
+### EnTT
+
+Game state and services use [EnTT](https://github.com/skypjack/entt):
+
+- **ECS.** Entities live in the registry (`ecs::Registry`, `Locator::entitiesRegistry`). Their data goes in components:
+  plain structs in `src/ECS/Components`. Entities are made by archetypes in `src/ECS/Archetypes`. Behaviour goes in
+  systems: an interface in `src/ECS/Systems/<Name>SystemInterface.h` (`<Name>Interface.h` for services that aren't
+  systems) and an implementation in `src/ECS/Systems/Implementations`, guarded by `LOCATOR_IMPLEMENTATIONS` so that only
+  `Locator.cpp` (and tests that build their own locator) include it. Data belonging to an entity, such as a player's
+  alignment, is a component on that entity rather than a field of a system.
+- **Service locator.** Systems and services are reached through `Locator` (`entt::locator`, declared in `src/Locator.h`
+  and emplaced in `src/Locator.cpp`), by their interface. Don't add singletons or globals.
+- **Events.** One-way notifications are plain structs in `src/ECS/Events`, published through `Locator::events`.
+- **Resources.** Assets are loaded once through the resource caches (`Locator::resources`, loaders in
+  `src/Resources/Loaders.cpp`) and looked up by `entt::hashed_string` ids. Pass `.value()` of a hashed string to
+  `Contains`. Any file loading or asset management goes through the resource caches.
+
+Use these where they fit. A small value type or a pure function doesn't need to be a component or a system.
+
+### Testing
+
+- Write unit tests for components and systems. Use mocks and fakes (`test/mock`, `test/support`) for dependencies.
+  Don't test systems through the locator; it is only used to inject.
+- Tests live in `test/`, registered in `test/CMakeLists.txt` in their area's test executable. Run them both through
+  `ctest` and as whole executables (`docs/refactor/TESTING.md`).
+- Every commit builds and passes the tests, so history can be bisected.
+
+### Formatting and what not to commit
+
+- clang-format and cmake-format as CI checks them (`.github/workflows/format-check.yml`); format only the lines you
+  change.
+- Never commit build output, `vcpkg` changes, `imgui.ini`, screenshots, game data or local notes.
+
+## Token optimisation
+
+- Always read with explicit offset and limit instead of slurping whole files.
+- Avoid tailing logs directly. Tail and filter for the relevant lines when checking for specific events.

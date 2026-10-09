@@ -16,7 +16,7 @@ game's data) and land in `AI-Decompiled` with the next publish, after which they
 - **Camera and rendering:** the font cache's start-up table, the clouds built when the landscape opens, the fight
   camera's fly-to, the camera flights (their midpoint, cancelling on input, the double click's best angle), and the rest of the draw list under raffclar's names.
 - **Game logic:** picking a tree by its drawn pixels (the leaves' clear parts don't count), town aggression, villagers
-  walking round a fire, fire attacking a town, and belief from miracles.
+  walking round a fire, villagers fleeing from and watching miracles, and belief from miracles.
 
 Done since the last update: the cloud mist frames, the street lanterns' flicker only in the dark, the snow and rain
 placed once at start-up, the creature running from what frightens it, and a creature loaded from its file keeping the
@@ -33,7 +33,6 @@ Issues for these are filed as `agent-task`; nothing else in them is touched on t
 - the hand catching and feeding fireballs;
 - the visible new particle effects (belief sprites, electric arcs, the gesture light sheet, the hand glow,
   camera-distance scaling);
-- villagers fleeing from and watching miracles;
 - flowers;
 - an untextured rock on Land 5 (issue #128);
 - a wonder built with fences instead of its mesh (issue #129).

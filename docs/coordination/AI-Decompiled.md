@@ -10,11 +10,11 @@ game's data) and land in `AI-Decompiled` with the next publish, after which they
 
 ## In progress here (do not start these)
 
-- **Creature, magic, particles:** the creature mirroring its bones from its species' table, Land 2's other two creatures, the lightning strike's particles, the remaining
+- **Creature, magic, particles:** the creature mirroring its bones from its species' table, Land 2's other two creatures, the storm's lightning strikes (and a stray strike effect that ran every turn), the remaining
   particle rules, and the creature's real radius (the size every routine reads for its distance to the edge).
 - **Camera and rendering:** the fight camera's ease and keyboard skip, the camera's keyboard gate, and the rest of the
   draw list under raffclar's names.
-- **Game logic:** the hand's mesh test, villagers walking round a fire, villagers fleeing from and watching miracles,
+- **Game logic:** a held miracle's release (the lightning kept striking after a short click), the hand's mesh test, villagers walking round a fire, villagers fleeing from and watching miracles,
   and belief from miracles.
 
 Done since the last update: the font cache's start-up table, the clouds built when the landscape opens, the camera

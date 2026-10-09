@@ -14,6 +14,7 @@ game's data) and land in `AI-Decompiled` with the next publish, after which they
   particle rules, and the creature's real radius (the size every routine reads for its distance to the edge).
 - **Camera and rendering:** the fight camera's ease and keyboard skip, the camera's keyboard gate, and the rest of the
   draw list under raffclar's names.
+- **Testbed:** the testbed core with its flat land and its scenarios, used by the verification checks.
 - **Game logic:** a held miracle's release (the lightning kept striking after a short click), the hand's mesh test, villagers walking round a fire, villagers fleeing from and watching miracles,
   and belief from miracles.
 
@@ -26,7 +27,6 @@ CREATURE_SET_KNOWS_ACTION and CREATURE_FORCE_FRIENDS script commands.
 
 Issues for these are filed as `agent-task`; nothing else in them is touched on this side:
 - the editor additions and script decompile/recompile in the editor;
-- the testbed core with its flat land, and the testbed scenarios;
 - the creature status and fight panels;
 - the debug GUI's menu-bar hiding and mouse-over gating;
 - the temple leash posts;

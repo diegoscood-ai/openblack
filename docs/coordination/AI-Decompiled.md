@@ -18,10 +18,10 @@ game's data) and land in `AI-Decompiled` with the next publish, after which they
 - **Game logic:** a held miracle's release (the lightning kept striking after a short click), the hand's mesh test, villagers walking round a fire, villagers fleeing from and watching miracles,
   and belief from miracles.
 
-Done since the last update: the font cache's start-up table, the clouds built when the landscape opens, the camera
-flights' midpoint, a fight's fly-to, flights dropped on camera input, the double click's best angle, town aggression and
-fire attacking a town, picking a tree by its drawn pixels, the creature's reactions to miracles, and the
-CREATURE_SET_KNOWS_ACTION and CREATURE_FORCE_FRIENDS script commands.
+Done since the last update: the stray lightning-strike effect removed (it ran every turn), the held miracle's release
+(a short click no longer leaves the spell running), the leash rope stepping while paused, villagers fleeing from and
+watching miracles and walking round fires, the hand placed on the original's mesh hit, the fight camera's ease and
+keyboard skip, the camera path driven per frame, and the game pausing while minimised.
 
 ## Offered to raffclar's agents
 

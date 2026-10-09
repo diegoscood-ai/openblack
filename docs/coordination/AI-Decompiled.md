@@ -10,16 +10,18 @@ game's data) and land in `AI-Decompiled` with the next publish, after which they
 
 ## In progress here (do not start these)
 
-- **Creature, audio, gestures, magic, particles:** the casting rules, the creature's spell refinements, mirror bones,
-  fight additions, SaveMind, sound tags, atmos golden tests, the gesture file and gesture system facade, the
-  MagicSystem facade, chants and battery, dispenser rules, the magic shield, flock/tornado/teleport services, the
-  particle file format, the behavioural particle interface, the miracle effect slot and the dormant particle rules.
-- **Rendering, sky, camera, debug:** render helper names, graphics infrastructure, mist/cloud/village-light facades,
-  snow cover and snowfall, near clipping, camera help, the cinematic director, placed camera paths, the pointer
-  above the debug windows, keyboard speed, zoom to places, frame stats.
-- **Game logic:** villager speed core, influence, town desire, the map interface, the reaction and animal system
-  renames, weather, rain/water ring/chimney smoke/field/vegetation facades, fire model and fire/explosion slots,
-  forest behaviour, thunder, key bindings and shortcut keys, the hand's pure pieces.
+- **Creature, magic, particles:** the creature learning miracles by watching, its reactions to miracles and what it
+  thinks its god wants, the mind noticing animals and frightening things, Land 2's other two creatures, and the
+  remaining particle rules.
+- **Camera and rendering:** the sampler defaults, the mouse ray from the eye, the near plane, the mouse camera (grip,
+  pan, edge drags, auto pitch, wheel, both buttons, clear view), the sun's glare, the draw list under raffclar's names.
+- **Game logic:** the map interface, the fire and explosion systems, thunder, the remaining key bindings and the
+  left-handed option, map-cell filing of the creature and of path walkers, the forest behaviour, the creature going
+  with its player to the next land, and picking a tree anywhere in its forest.
+
+Done since the last update: the landscape vortex's drawing, living things following reshaped land, snow, the sky
+dome's tint, vertex blends at the creature's seams, the creature's shadow, the magic, particle, gesture, shield,
+tornado, teleport and flock interfaces, and the rain, water ring, smoke, sway and field interfaces.
 
 ## Offered to raffclar's agents
 

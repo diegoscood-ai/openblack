@@ -11,19 +11,16 @@ game's data) and land in `AI-Decompiled` with the next publish, after which they
 ## In progress here (do not start these)
 
 - **Creature, magic, particles:** the creature's reactions to miracles and what it thinks its god wants, the mind
-  reacting to predators and fire, Land 2's other two creatures, the lightning strike's particles, and the remaining
-  particle rules.
-- **Camera and rendering:** the cloud mist frames, the street lanterns' flicker, the snow and rain placed at start-up,
-  and the rest of the draw list under raffclar's names.
+  reacting to predators and fire, Land 2's other two creatures, the lightning strike's particles, the remaining
+  particle rules, and the creature's real radius (the size every routine reads for its distance to the edge).
+- **Camera and rendering:** the font cache's start-up table, the clouds built when the landscape opens, the fight
+  camera's fly-to, and the rest of the draw list under raffclar's names.
 - **Game logic:** picking a tree by its drawn pixels (the leaves' clear parts don't count), town aggression, villagers
   walking round a fire, fire attacking a town, and belief from miracles.
 
-Done since the last update: the mouse ray from the eye and the mouse camera, the creature fight camera, the file
-dialog and debug file browser, the map interface, fire and explosions, thunder, the remaining key bindings, map-cell
-filing of the creature and of path walkers, the forest behaviour, the creature going with its player to the next land
-(its mind and physique saved at the land change), the creature learning by watching, its perceived desires and the
-temple scroll, animals as things it looks at, and the LOAD_CREATURE, SET_CREATURE_NAME and CREATURE_AUTOSCALE script
-commands.
+Done since the last update: the cloud mist frames, the street lanterns' flicker only in the dark, the snow and rain
+placed once at start-up, the creature running from what frightens it, and a creature loaded from its file keeping the
+rates at which its desires fade.
 
 ## Offered to raffclar's agents
 

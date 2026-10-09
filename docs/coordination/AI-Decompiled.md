@@ -14,7 +14,7 @@ game's data) and land in `AI-Decompiled` with the next publish, after which they
   reacting to predators and fire, Land 2's other two creatures, the lightning strike's particles, the remaining
   particle rules, and the creature's real radius (the size every routine reads for its distance to the edge).
 - **Camera and rendering:** the font cache's start-up table, the clouds built when the landscape opens, the fight
-  camera's fly-to, and the rest of the draw list under raffclar's names.
+  camera's fly-to, the camera flights (their midpoint, cancelling on input, the double click's best angle), and the rest of the draw list under raffclar's names.
 - **Game logic:** picking a tree by its drawn pixels (the leaves' clear parts don't count), town aggression, villagers
   walking round a fire, fire attacking a town, and belief from miracles.
 

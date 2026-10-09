@@ -10,7 +10,7 @@ game's data) and land in `AI-Decompiled` with the next publish, after which they
 
 ## In progress here (do not start these)
 
-- **Creature, magic, particles:** the creature mirroring its bones from its species' table, Land 2's other two creatures, the storm's lightning strikes (and a stray strike effect that ran every turn), the remaining
+- **Creature, magic, particles:** the creature mirroring its bones from its species' table, the creature's three leash posts in its pen, Land 2's other two creatures, the storm's lightning strikes (and a stray strike effect that ran every turn), the remaining
   particle rules, and the creature's real radius (the size every routine reads for its distance to the edge).
 - **Camera and rendering:** the fight camera's ease and keyboard skip, the camera's keyboard gate, and the rest of the
   draw list under raffclar's names.
@@ -29,7 +29,6 @@ Issues for these are filed as `agent-task`; nothing else in them is touched on t
 - the editor additions and script decompile/recompile in the editor;
 - the creature status and fight panels;
 - the debug GUI's menu-bar hiding and mouse-over gating;
-- the temple leash posts;
 - the hand catching and feeding fireballs;
 - the visible new particle effects (belief sprites, electric arcs, the gesture light sheet, the hand glow,
   camera-distance scaling);

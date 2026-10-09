@@ -10,17 +10,17 @@ game's data) and land in `AI-Decompiled` with the next publish, after which they
 
 ## In progress here (do not start these)
 
-- **Creature, magic, particles:** the creature's reactions to miracles and what it thinks its god wants, the mind
-  reacting to predators and fire, Land 2's other two creatures, the lightning strike's particles, the remaining
+- **Creature, magic, particles:** the creature mirroring its bones from its species' table, Land 2's other two creatures, the lightning strike's particles, the remaining
   particle rules, and the creature's real radius (the size every routine reads for its distance to the edge).
-- **Camera and rendering:** the font cache's start-up table, the clouds built when the landscape opens, the fight
-  camera's fly-to, the camera flights (their midpoint, cancelling on input, the double click's best angle), and the rest of the draw list under raffclar's names.
-- **Game logic:** picking a tree by its drawn pixels (the leaves' clear parts don't count), town aggression, villagers
-  walking round a fire, villagers fleeing from and watching miracles, and belief from miracles.
+- **Camera and rendering:** the fight camera's ease and keyboard skip, the camera's keyboard gate, and the rest of the
+  draw list under raffclar's names.
+- **Game logic:** the hand's mesh test, villagers walking round a fire, villagers fleeing from and watching miracles,
+  and belief from miracles.
 
-Done since the last update: the cloud mist frames, the street lanterns' flicker only in the dark, the snow and rain
-placed once at start-up, the creature running from what frightens it, and a creature loaded from its file keeping the
-rates at which its desires fade.
+Done since the last update: the font cache's start-up table, the clouds built when the landscape opens, the camera
+flights' midpoint, a fight's fly-to, flights dropped on camera input, the double click's best angle, town aggression and
+fire attacking a town, picking a tree by its drawn pixels, the creature's reactions to miracles, and the
+CREATURE_SET_KNOWS_ACTION and CREATURE_FORCE_FRIENDS script commands.
 
 ## Offered to raffclar's agents
 

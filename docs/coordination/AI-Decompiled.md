@@ -10,18 +10,20 @@ game's data) and land in `AI-Decompiled` with the next publish, after which they
 
 ## In progress here (do not start these)
 
-- **Creature, magic, particles:** the creature learning miracles by watching, its reactions to miracles and what it
-  thinks its god wants, the mind noticing animals and frightening things, Land 2's other two creatures, and the
-  remaining particle rules.
-- **Camera and rendering:** the sampler defaults, the mouse ray from the eye, the near plane, the mouse camera (grip,
-  pan, edge drags, auto pitch, wheel, both buttons, clear view), the sun's glare, the draw list under raffclar's names.
-- **Game logic:** the map interface, the fire and explosion systems, thunder, the remaining key bindings and the
-  left-handed option, map-cell filing of the creature and of path walkers, the forest behaviour, the creature going
-  with its player to the next land, and picking a tree anywhere in its forest.
+- **Creature, magic, particles:** the creature's reactions to miracles and what it thinks its god wants, the mind
+  reacting to predators and fire, Land 2's other two creatures, the lightning strike's particles, and the remaining
+  particle rules.
+- **Camera and rendering:** the cloud mist frames, the street lanterns' flicker, the snow and rain placed at start-up,
+  and the rest of the draw list under raffclar's names.
+- **Game logic:** picking a tree by its drawn pixels (the leaves' clear parts don't count), town aggression, villagers
+  walking round a fire, fire attacking a town, and belief from miracles.
 
-Done since the last update: the landscape vortex's drawing, living things following reshaped land, snow, the sky
-dome's tint, vertex blends at the creature's seams, the creature's shadow, the magic, particle, gesture, shield,
-tornado, teleport and flock interfaces, and the rain, water ring, smoke, sway and field interfaces.
+Done since the last update: the mouse ray from the eye and the mouse camera, the creature fight camera, the file
+dialog and debug file browser, the map interface, fire and explosions, thunder, the remaining key bindings, map-cell
+filing of the creature and of path walkers, the forest behaviour, the creature going with its player to the next land
+(its mind and physique saved at the land change), the creature learning by watching, its perceived desires and the
+temple scroll, animals as things it looks at, and the LOAD_CREATURE, SET_CREATURE_NAME and CREATURE_AUTOSCALE script
+commands.
 
 ## Offered to raffclar's agents
 

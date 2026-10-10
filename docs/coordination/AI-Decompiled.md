@@ -10,26 +10,13 @@ game's data) and land in `AI-Decompiled` with the next publish, after which they
 
 ## In progress here (do not start these)
 
-- **Creature, magic, particles:** the creature's body without its mind: its size in the pen, its per-turn pose
-  (with the head, hands and feet scaled by its size), its feet on the ground, growth, fatness and alignment, its
-  needs, and a creature casting a miracle; Land 2's other two creatures; the remaining particle rules (objects as
-  emitters, the creature-spell particles).
-- **Camera and rendering:** the creature's leash posts and the rest of the leash (lengths, walk-back, moods, tug,
-  tying, the rope's speed, issue #135), and the miracles' camera takes.
-- **Testbed:** more scenario fixtures (a temple with the creature's pen); the per-consumer draw hooks of the
-  miracle effects (fragments, tribal power, shield domes, globes, and an empty hook for the hand glow); and the gesture light sheet (issues
-  #120 and #121, taken back on this side).
-- **Object draw list:** the original's per-frame object draw list (block cull, rebuild rule, on-screen test), which
-  steps the script highlight's glints.
-- **Game logic:** the hand's part in the leash and the posts, and the hand and pick-up issues.
+- **Creature, magic, particles:** the creature's drawn pose blended between turns (so its size and body move smoothly), its body's shape updated once a turn, the objects-as-emitters particle rules, the creature-spell particles, and the sway springs a physical hit drives; Land 2's other two creatures.
+- **Rendering:** the renderer honouring the original's object draw list (objects the list doesn't draw aren't drawn), and its debug readout.
+- **Object draw list:** the gold scroll's rising sparkles and a lit highlight's active effect.
+- **Leash and hand:** tying the creature with the hand (right double-click with the leash).
+- **Testbed and checks:** several scenarios run in one game launch, to shorten the checks; the particle ribbons' corner maths behind raffclar's names.
 
-Done since the last update: the testbed (issues #101-#104 and #106) with five example scenarios, a thrown
-object leaving from the hand's drawn pose (#134), a thrown miracle bubble turning about its centre (#133), the
-creature's fatness, needs and age carried to the next land, its radius and life, the miracles that reach it, the
-forest miracle's camera take, the stray lightning-strike effect removed (it ran every turn), the held miracle's release
-(a short click no longer leaves the spell running), the leash rope stepping while paused, villagers fleeing from and
-watching miracles and walking round fires, the hand placed on the original's mesh hit, the fight camera's ease and
-keyboard skip, the camera path driven per frame, and the game pausing while minimised.
+Done since the last update: the magic system and particle system behind raffclar's interfaces (the four magic stores now behind the magic facade), the light sheet's draw (#121), the original's object draw list with its land visibility and the script highlight's glints, the creature sleeping as long as the original, its small needs, its size spells, its leash posts drawn in the temple and the leash keeping it within reach, a crash when a villager walked round a tree that was destroyed, the profiler stages, the L3D ray cast, and testbed scenarios for a recognised gesture, a creature fight in its pen and the temple's leash posts.
 
 ## Offered to raffclar's agents
 

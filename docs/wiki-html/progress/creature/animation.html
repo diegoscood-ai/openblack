@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Creature animation — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="here" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#creature-animation">Creature animation</a><ul>
+<li><a href="#playing-animations-on-the-body">Playing animations on the body</a></li>
+<li><a href="#layers">Layers</a></li>
+<li><a href="#the-animation-set">The animation set</a></li>
+<li><a href="#animation-events">Animation events</a></li>
+<li><a href="#scripts">Scripts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="creature-animation">Creature animation</h1>
+<p>Every species shares one list of animations, from the creature spec file: moving, faces, sitting and sleeping, the
+actions it plays once, looking, picking up, throwing, eating, fighting, dancing, rewards and punishments, recoils,
+gestures on top of the body, pointing and catching. Each animation exists for the species' base mesh and may have its
+own version for the evil, good, thin and fat meshes, blended as the body is.</p>
+<p><strong>Progress: 39/56 done, 5 partial — 74%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../animation.html">Skeletal animation (villagers and animals)</a>, <a href="../../creature.html">The creature: groundwork, random streams and what is unknown</a>.</p>
+<h2 id="playing-animations-on-the-body">Playing animations on the body</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Animations are known by their place in the creature spec file, which every species shares</td>
+<td>done</td>
+<td><code>src/Creature/CreatureLayers.h</code> (<code>creature_layers::animations</code>), <code>Data/ctrspec27.txt</code>; test <code>AnimationNames</code></td>
+</tr>
+<tr>
+<td>Each species' animations come from its body file, for its base, evil, good, thin and fat meshes</td>
+<td>done</td>
+<td><code>CreatureRig</code> from <code>Data/CTR/*.cbn</code> (<code>src/Resources/Loaders.cpp</code>); test <code>CreatureRigLoaderTest.AnimationsFollowTheSpecFile</code></td>
+</tr>
+<tr>
+<td>An animation is the base's pulled towards the evil or good and the thin or fat versions, keyframe by keyframe</td>
+<td>done</td>
+<td><code>creature_animation::Blend</code> (<code>src/Creature/CreatureAnimation.cpp</code>), called by <code>CreatureAnimationSystem</code>; tests <code>TranslationsBlendLinearlyOnBothAxes</code>, <code>RotationsBlendOnTheMatrices</code></td>
+</tr>
+<tr>
+<td>A variant without its own version moves as the base does, adjusted by how its stand differs</td>
+<td>done</td>
+<td><code>creature_animation::AdjustFromStand</code> in <code>CreatureAnimationSystem</code>; test <code>AVariantWithoutItsOwnMovesByItsStand</code></td>
+</tr>
+<tr>
+<td>A bone a variant doesn't move keeps that variant's stand</td>
+<td>done</td>
+<td>test <code>BonesAVariantDoesNotMoveTakeItsStand</code></td>
+</tr>
+<tr>
+<td>The rest pose blends as the body does</td>
+<td>done</td>
+<td><code>creature_animation::BlendRest</code> in <code>CreatureAnimationSystem</code>; test <code>TheRestPoseBlendsAsTheBody</code></td>
+</tr>
+<tr>
+<td>Weak and strong bodies move as the base does</td>
+<td>done</td>
+<td><code>src/Creature/CreatureAnimation.h</code>: only the evil-good and thin-fat axes are blended</td>
+</tr>
+<tr>
+<td>Bigger creatures play their animations more slowly</td>
+<td>done</td>
+<td><code>creature_layers::PlaybackRate</code> in <code>CreatureAnimationSystem</code>; test <code>BiggerCreaturesPlayMoreSlowly</code></td>
+</tr>
+<tr>
+<td>Animations can be played mirrored, the left side's bones swapped with the right's</td>
+<td>done</td>
+<td><code>skeletal_animation::MirrorJoints</code> (<code>src/3D/SkeletalAnimation.cpp</code>); tests <code>MirrorBonesPairAcrossTheBody</code>, <code>AMirroredAnimationMovesTheOtherSide</code></td>
+</tr>
+<tr>
+<td>Changing animation blends smoothly from the last pose into the new one (unconfirmed how the game does it)</td>
+<td>todo</td>
+<td>each animation starts from its beginning without blending (<code>src/Creature/CreatureLayers.h</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="layers">Layers</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Standing, the creature breathes: once every five seconds at size 1, more slowly the bigger it is</td>
+<td>done</td>
+<td><code>creature_animation::BreathPeriod</code> in <code>CreatureAnimationSystem</code>; tests <code>BreathingTakesFiveSecondsAtSizeOne</code>, <code>TheBreathingPeriodEasesToItsTarget</code>, <code>CreatureAnimationSystemTest.ProcessTurnEasesTheBreathingButNotTheFatnessShown</code></td>
+</tr>
+<tr>
+<td>Its breathing quickens fast and calms slowly</td>
+<td>done</td>
+<td><code>creature_animation::EaseBreathPeriod</code>; test <code>BreathingCalmsSlowlyAndQuickensFast</code></td>
+</tr>
+<tr>
+<td>An action plays once, then the body stands again; nothing new starts while one plays</td>
+<td>done</td>
+<td><code>creature_layers::AdvanceBody</code>; test <code>AnActionPlaysOnceThenTheBodyStands</code></td>
+</tr>
+<tr>
+<td>Sitting, sleeping, pooing, being sick and casting are a start, a loop for as long as wanted, and an end</td>
+<td>done</td>
+<td>test <code>ASitStartsLoopsUntilToldThenEnds</code>; the agendas in <code>src/Creature/CreatureIdleMind.cpp</code></td>
+</tr>
+<tr>
+<td>A loop can hold its last frame, as lying where it fell</td>
+<td>done</td>
+<td><code>creature_layers</code> hold loop (<code>holdLoop</code>)</td>
+</tr>
+<tr>
+<td>A missing animation ends at once</td>
+<td>done</td>
+<td>test <code>AMissingAnimationEndsAtOnce</code></td>
+</tr>
+<tr>
+<td>The head turns on top of the body with the look animations</td>
+<td>done</td>
+<td><code>creature_layers::TurnHead</code> in <code>CreatureAnimationSystem</code>; see <a href="face_eyes_hair.html">face_eyes_hair.md</a></td>
+</tr>
+<tr>
+<td>The face plays on top of the body</td>
+<td>done</td>
+<td><code>creature_layers::AdvanceFace</code> in <code>CreatureAnimationSystem</code>; see <a href="face_eyes_hair.html">face_eyes_hair.md</a></td>
+</tr>
+<tr>
+<td>A gesture plays once on top of the body: nod, head shake, yawn, thirsty, squirting water, talking</td>
+<td>partial</td>
+<td>the gesture layer is played and drawn (<code>CreatureAnimationSystem</code>, test <code>AGesturePlaysOnce</code>), but only the debug spawner starts one (<code>CreatureMindSystem::PlayGesture</code>); the yawn before sleep is the tired action, not a gesture</td>
+</tr>
+<tr>
+<td>Walking and running blend with the stand by speed, keeping the feet on the ground</td>
+<td>done</td>
+<td>see <a href="locomotion.html">locomotion.md</a></td>
+</tr>
+<tr>
+<td>Reaching blends four animations by where the thing lies</td>
+<td>done</td>
+<td><code>creature_reach</code> in <code>CreatureObjectActionSystem</code>; see <a href="object_actions.html">object_actions.md</a></td>
+</tr>
+<tr>
+<td>Fights play their own states and moves at their own pace</td>
+<td>done</td>
+<td><code>CreatureFightSystem</code>; see <a href="fighting.html">fighting.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-animation-set">The animation set</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Moving: stand, walk, run, turning on the spot and stepping off at 0, 90 and 180 degrees each way</td>
+<td>done</td>
+<td>see <a href="locomotion.html">locomotion.md</a></td>
+</tr>
+<tr>
+<td>A jump to the side (unconfirmed what plays it)</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Sleep, poo, be sick, sit</td>
+<td>done</td>
+<td>the mind's agendas (<code>creature_mind::Sleep</code>, <code>SitDown</code> in <code>src/Creature/CreatureIdleMind.cpp</code>)</td>
+</tr>
+<tr>
+<td>Cast and cast up (the powered-up casting pose)</td>
+<td>partial</td>
+<td>the casting pose plays in fights (<code>fight::animations::k_Cast</code>, see <a href="creature_casting.html">creature_casting.md</a>); the powered-up pose is unconfirmed</td>
+</tr>
+<tr>
+<td>Scatter (unconfirmed what plays it)</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The actions played once: summon, angry, hungry, happy, sad, tired, hot, cold, scratch, frightened, sneeze, confused, feeling nice, impress, need a poo, feel playful, play, look at me, taunt, drink, friendly wave, embarrassed, pick me</td>
+<td>partial</td>
+<td>most are played by the mind's actions (<code>src/Creature/CreaturePlanActions.cpp</code>); embarrassed and play have no named animation or action yet (<code>creature_layers::animations</code>)</td>
+</tr>
+<tr>
+<td>Relaxed stand</td>
+<td>todo</td>
+<td>no relaxed stand animation is named or played</td>
+</tr>
+<tr>
+<td>Picking up front and back, left and right, holding, taking from the hand</td>
+<td>partial</td>
+<td>reaching and holding play (<code>CreatureObjectActionSystem</code>); taking from the hand is todo (see <a href="object_actions.html">object_actions.md</a>)</td>
+</tr>
+<tr>
+<td>Throwing flat and high, tossing away, eating, putting down, lobbing gently</td>
+<td>done</td>
+<td><code>creature_throw</code> in <code>CreatureObjectActionSystem</code>; see <a href="object_actions.html">object_actions.md</a></td>
+</tr>
+<tr>
+<td>Stroking, shaking, smelling and examining what it holds</td>
+<td>done</td>
+<td><code>creature_object_actions::Kind::Keep</code></td>
+</tr>
+<tr>
+<td>Knocking things down front and back, left and right, and kicking low</td>
+<td>done</td>
+<td><code>creature_reach::k_DestroyAnimations</code> in <code>CreatureObjectActionSystem</code></td>
+</tr>
+<tr>
+<td>Fainting, getting up, powering up a blow, the creation pose (unconfirmed)</td>
+<td>partial</td>
+<td>faint and get up play in fights, power-up in the fight's stance (<code>CreatureFightSystem</code>); the creation pose doesn't</td>
+</tr>
+<tr>
+<td>Fight start, stance, finish, blows at five heights and the special, twice over, steps, blocks</td>
+<td>done</td>
+<td>see <a href="fighting.html">fighting.md</a></td>
+</tr>
+<tr>
+<td>Rewards for each part of the body stroked and punishments high, middle and low, hard and gentle</td>
+<td>done</td>
+<td>see <a href="learning_from_feedback.html">learning_from_feedback.md</a></td>
+</tr>
+<tr>
+<td>Recoils from blows high, middle and low, to each side, top and bottom, and wobbles</td>
+<td>done</td>
+<td>see <a href="fighting.html">fighting.md</a></td>
+</tr>
+<tr>
+<td>Pointing low and high, left and right</td>
+<td>done</td>
+<td><code>creature_object_actions::k_PointAnimations</code> in <code>CreatureObjectActionSystem</code></td>
+</tr>
+<tr>
+<td>Kissing high and low, howling, laughing, crying, aha, praying, rude gesture</td>
+<td>todo</td>
+<td>the actions that play them (see <a href="friends_and_other_creatures.html">friends_and_other_creatures.md</a>) are todo</td>
+</tr>
+<tr>
+<td>Dances: start, finish and five dance moves</td>
+<td>todo</td>
+<td>see <a href="town_actions.html">town_actions.md</a></td>
+</tr>
+<tr>
+<td>Catching: stepping right, back and front, catching high and low to each side</td>
+<td>todo</td>
+<td>no catching in our tree: no catch clips are blended and nothing plays them</td>
+</tr>
+<tr>
+<td>Three animations reserved for scripts</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="animation-events">Animation events</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sounds are placed on moments of animations: footsteps as feet land, roars as the mouth opens, snores</td>
+<td>done</td>
+<td><code>creature_audio</code> in <code>CreatureAudioSystem</code>; tests <code>EventsFireOnceAcrossFrames</code>, <code>LoopWrapsWithoutDoubleFiring</code></td>
+</tr>
+<tr>
+<td>Mirrored animations pass the same events</td>
+<td>done</td>
+<td>test <code>MirroredAnimationPassesTheSameEvents</code></td>
+</tr>
+<tr>
+<td>Sounds don't depend on the frame rate</td>
+<td>done</td>
+<td>test <code>SoundsDoNotDependOnTheFrameRate</code></td>
+</tr>
+<tr>
+<td>A sound is picked by the creature's size, species, the ground under it and the action</td>
+<td>done</td>
+<td>tests <code>SizeKey</code>, <code>KeysInBankOrder</code>, <code>TheKeysAreTheKeyTheBanksArePlayedBy</code>; the ground from <code>ecs::sea_cells::GetSurfaceType</code></td>
+</tr>
+<tr>
+<td>Voices come from the species' own bank; other players' creatures are heard in their voices only when a script allows</td>
+<td>done</td>
+<td><code>CreatureAudioSystem</code>; tests <code>VoiceBankStem</code>, <code>CreatureAudioSystemTest.AnotherPlayersCreatureSpeaksOnlyWhenTheScriptLetsIt</code>; see <a href="../audio/index.html">../audio</a></td>
+</tr>
+<tr>
+<td>Footsteps, blows, snores, eating and drinking come from the bank all creatures share</td>
+<td>done</td>
+<td><code>creature_audio::EventKind::Generic</code>; test <code>CreatureAudioRequest.TheSharedBankForFootstepsAndTheSpeciesOwnForItsVoice</code></td>
+</tr>
+<tr>
+<td>Things are taken hold of and let go at a moment of the animation particular to the species</td>
+<td>done</td>
+<td><code>CreatureObjectActionSystem</code> (the action's event moment from the rig)</td>
+</tr>
+<tr>
+<td>Footprints are laid as feet land</td>
+<td>done</td>
+<td><code>FootprintSystem</code>; see <a href="locomotion.html">locomotion.md</a></td>
+</tr>
+<tr>
+<td>Scripts can turn a creature's sounds on or off</td>
+<td>done</td>
+<td><code>SET_CREATURE_SOUND</code> sets <code>audio::GetScriptAudioState().creatureSound</code> (<code>src/CHLApi.cpp</code>), which <code>CreatureAudioSystem</code> reads; test <code>TheScriptLetsOtherVoicesBeHeard</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="scripts">Scripts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scripts can play a static or individual animation on a creature</td>
+<td>todo</td>
+<td>the creature parts of the script-state natives are stubs (<code>src/CHLApi.cpp</code>)</td>
+</tr>
+<tr>
+<td>Scripts can override a thing's state animation</td>
+<td>todo</td>
+<td><code>OVERRIDE_STATE_ANIMATION</code> works for villagers and animals but is a stub for creatures (<code>src/CHLApi.cpp</code>)</td>
+</tr>
+<tr>
+<td>Scripts can turn the animation speed changes on or off</td>
+<td>todo</td>
+<td><code>SET_ANIMATION_MODIFY</code> is a stub</td>
+</tr>
+<tr>
+<td>Scripts can play a gesture</td>
+<td>todo</td>
+<td><code>PLAY_GESTURE</code> is a stub</td>
+</tr>
+<tr>
+<td>The debug spawner plays any animation, face or gesture</td>
+<td>done</td>
+<td><code>src/Debug/CreatureSpawner.cpp</code> (openblack only)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Disciples — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="here" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#disciples">Disciples</a><ul>
+<li><a href="#making-disciples">Making disciples</a></li>
+<li><a href="#each-discipline">Each discipline</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="disciples">Disciples</h1>
+<p>A villager the player picks up and puts down on something becomes a disciple of that work and keeps at it for good:
+on a field a farmer, in a forest a forester, at the sea a fisherman, at a building site a builder, by another villager a
+breeder, in another town a missionary, at the workshop a craftsman, at the storage pit a trader, at the worship site a
+worshipper.</p>
+<p><strong>Progress: 1/21 done, 7 partial — 21%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../villagers.html">Villagers: data, state machine and speed</a>.</p>
+<h2 id="making-disciples">Making disciples</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dropping a villager from the hand onto a place makes it a disciple of the work there</td>
+<td>todo</td>
+<td>the hand picks up and drops villagers, but the landing makes no disciple (TODO in <code>src/ECS/LivingPhysics.cpp</code>)</td>
+</tr>
+<tr>
+<td>The disciple's work is chosen from what the drop point is (field, forest, sea, building site, workshop, storage pit, worship site, villager, other town)</td>
+<td>todo</td>
+<td>the disciple table is read (<code>src/ECS/Villager/VillagerDisciple.cpp</code>) but no drop point chooses a type</td>
+</tr>
+<tr>
+<td>Only an adult in its own town (or a missionary in another) can be made a disciple</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A disciple shows its icon above its head when the hand is near</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The town counts its disciples of each kind</td>
+<td>done</td>
+<td>the town stats count the disciples by type (<code>town_stats::Compute</code>, <code>src/ECS/Town/TownStats.cpp</code>); no villager is made a disciple yet</td>
+</tr>
+<tr>
+<td>Making a disciple moves the player's alignment as the town tables say</td>
+<td>todo</td>
+<td>See ../worship/</td>
+</tr>
+<tr>
+<td>Disciples interacted with by the hand ask what state they would take up</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Disciples with nothing to do look for their work, then wait</td>
+<td>partial</td>
+<td><code>DISCIPLE_NOTHING_TO_DO</code> and <code>DiscipleDecideWhatToDo</code> are ported (<code>src/ECS/Villager/VillagerDisciple.cpp</code>), but dormant: nothing makes a disciple</td>
+</tr>
+<tr>
+<td>Picking a disciple up and dropping it back in town frees it</td>
+<td>todo</td>
+<td>the hand's reset of a disciple is a TODO (<code>src/ECS/LivingPhysics.cpp</code>)</td>
+</tr>
+<tr>
+<td>The town takes back its disciples when it changes owner</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="each-discipline">Each discipline</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Farmer disciple: farms fields endlessly</td>
+<td>partial</td>
+<td>the farmer's job check is ported (<code>DiscipleDecideWhatToDo</code>), dormant</td>
+</tr>
+<tr>
+<td>Forester disciple: fells trees for the store endlessly</td>
+<td>partial</td>
+<td>the forester's job check is ported (<code>DiscipleDecideWhatToDo</code>), dormant</td>
+</tr>
+<tr>
+<td>Fisherman disciple: fishes endlessly</td>
+<td>partial</td>
+<td>the fisherman's job check is ported (<code>DiscipleDecideWhatToDo</code>), dormant</td>
+</tr>
+<tr>
+<td>Builder disciple: builds and repairs sites</td>
+<td>partial</td>
+<td>the builder's job check and its full-site rule are ported (<code>DiscipleDecideWhatToDo</code>, <code>src/ECS/Villager/VillagerBuild.cpp</code>), dormant</td>
+</tr>
+<tr>
+<td>Breeder disciple: wanders the town making babies with willing partners, the villagers reacting to him</td>
+<td>todo</td>
+<td>the breeder's check returns 0 and <code>BREEDER_DISCIPLE</code> is a TODO row</td>
+</tr>
+<tr>
+<td>Missionary disciple: goes to another town and preaches, winning belief for the player</td>
+<td>todo</td>
+<td><code>MISSIONARY_DISCIPLE</code> is a TODO row; the town turn's missionary step is a TODO</td>
+</tr>
+<tr>
+<td>Craftsman disciple: keeps the workshop supplied with wood</td>
+<td>todo</td>
+<td>the craftsman's check calls the workshop desire, which is a TODO; see <a href="../building/workshop_and_scaffolds.html">../building/workshop_and_scaffolds.md</a></td>
+</tr>
+<tr>
+<td>Trader disciple: carries goods between towns</td>
+<td>todo</td>
+<td>the trader's check returns 0; the trader's states are TODO rows</td>
+</tr>
+<tr>
+<td>Worship disciple: worships at the site endlessly</td>
+<td>partial</td>
+<td>the worship disciple goes to worship (<code>DiscipleDecideWhatToDo</code>), dormant</td>
+</tr>
+<tr>
+<td>Protection disciple</td>
+<td>n/a</td>
+<td>in the table but never made in the game</td>
+</tr>
+<tr>
+<td>Change-house disciple: moves to the abode it is dropped by</td>
+<td>partial</td>
+<td>the change-house case and state 234 are ported (<code>DiscipleDecideWhatToDo</code>, <code>src/ECS/Villager/VillagerHome.cpp</code>), dormant</td>
+</tr>
+<tr>
+<td>Villagers that come out of an arrival vortex given a flock become disciples from the vortex, standing in a crowd, until the script disbands the flock</td>
+<td>todo</td>
+<td>the vortex disciple's case is ported (<code>SCRIPT_IN_CROWD</code>, a TODO row), and nothing makes one; only Land 2's arrival gives one: <a href="../story/portals_per_land.html#land-2-arrival">../story/portals_per_land.md</a>; how a vortex throws villagers out: <a href="../story/portals.html#arriving">../story/portals.md</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

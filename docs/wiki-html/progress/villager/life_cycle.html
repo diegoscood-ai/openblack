@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Villager life cycle — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="here" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#villager-life-cycle">Villager life cycle</a><ul>
+<li><a href="#creation">Creation</a></li>
+<li><a href="#age-and-growing-up">Age and growing up</a></li>
+<li><a href="#families-and-children">Families and children</a></li>
+<li><a href="#tribes">Tribes</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="villager-life-cycle">Villager life cycle</h1>
+<p>Villagers are born, grow up, pair off, have children and die of old age. Each belongs to a tribe and a town, and lives
+in an abode with a family.</p>
+<p><strong>Progress: 24/28 done, 2 partial — 89%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../villagers.html">Villagers: data, state machine and speed</a>.</p>
+<h2 id="creation">Creation</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Villagers placed by the land script at a position, near an abode, with a tribe, job and age</td>
+<td>done</td>
+<td>CREATE_VILLAGER_POS (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>) and the villager's constructor with its age, scale and food draws (<code>src/ECS/Archetypes/VillagerArchetype.cpp</code>, <code>villager::Construct</code>, <code>src/ECS/Villager/VillagerCore.cpp</code>); <code>test/test_villager_core.cpp</code></td>
+</tr>
+<tr>
+<td>Town villagers created straight into a town by script (by town, by type, special ones)</td>
+<td>done</td>
+<td>CREATE_TOWN_VILLAGER, CREATE_SPECIAL_TOWN_VILLAGER and CREATE_VILLAGER (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>)</td>
+</tr>
+<tr>
+<td>A new villager joins the nearest town and an abode in it with room</td>
+<td>done</td>
+<td>the map script's handlers house it: the abode at the position, else an abode with room in the town, else the vagrants (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>, <code>town_villagers::AddVillagerToTown</code>)</td>
+</tr>
+<tr>
+<td>A villager made over water starts drowning instead of standing</td>
+<td>done</td>
+<td>made in the water it starts in <code>DROWNING</code> (<code>villager::Construct</code>)</td>
+</tr>
+<tr>
+<td>A newly made villager waits a random while before its first decision</td>
+<td>done</td>
+<td><code>CREATED</code>, then the first decision (<code>src/ECS/Villager/VillagerCore.cpp</code>)</td>
+</tr>
+<tr>
+<td>Sex follows the job: housewives are women, the other jobs men</td>
+<td>done</td>
+<td>the villager info's sex (<code>src/ECS/Archetypes/VillagerArchetype.cpp</code>)</td>
+</tr>
+<tr>
+<td>Each villager has its own small difference in speed and size from when it was made</td>
+<td>done</td>
+<td>the speed factor (<code>src/ECS/VillagerSpeed.cpp</code>) and the scale drawn for the age (<code>SetScaleForAge</code>, <code>src/ECS/Villager/VillagerAge.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="age-and-growing-up">Age and growing up</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Age counts in game time, a year every fixed number of turns, with birthdays</td>
+<td>done</td>
+<td>the age kept as the birth turn, 1500 turns a year (<code>src/ECS/Villager/VillagerAge.cpp</code>); <code>test/test_villager_age.cpp</code></td>
+</tr>
+<tr>
+<td>Children are smaller, scaled up with age until adult size</td>
+<td>done</td>
+<td>the child's scale by age, rescaled every quarter year (<code>src/ECS/Villager/VillagerAge.cpp</code>)</td>
+</tr>
+<tr>
+<td>Children use the child models of their tribe</td>
+<td>done</td>
+<td>the child meshes of the tribe (<code>src/ECS/Archetypes/VillagerArchetype.cpp</code>)</td>
+</tr>
+<tr>
+<td>A child becomes an adult at the age of growing up, takes a job and the town's counts change</td>
+<td>done</td>
+<td>the child grows up at its info's age, the counts move, and <code>GO_HOME_AND_CHANGE</code> gives it the adult mesh (<code>src/ECS/Villager/VillagerAge.cpp</code>, <code>src/ECS/Villager/VillagerHome.cpp</code>)</td>
+</tr>
+<tr>
+<td>Old villagers walk slower; young ones too</td>
+<td>done</td>
+<td>the age factor of the speed (<code>src/ECS/VillagerSpeed.cpp</code>)</td>
+</tr>
+<tr>
+<td>Villagers die of old age, more likely the older they get, checked at bed time</td>
+<td>done</td>
+<td>the old age death checked when going to bed (<code>CheckWhenGoingToBed</code>, <code>src/ECS/Villager/VillagerAge.cpp</code>, <code>src/ECS/Villager/VillagerHome.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="families-and-children">Families and children</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A couple shares an abode; a man and a woman are spouses</td>
+<td>done</td>
+<td>the abode's man and woman slots (<code>abode_villagers::AddVillagerToAbode</code>, <code>src/ECS/Town/AbodeVillagers.cpp</code>)</td>
+</tr>
+<tr>
+<td>Couples have sex at home at night, more often when the town wants children</td>
+<td>partial</td>
+<td>a woman falls pregnant at bed time with a man at home, by the town's desire for children (<code>CheckWhenGoingToBed</code>, <code>CheckGetPregnantAtHome</code>, <code>src/ECS/Villager/VillagerHome.cpp</code>); the at-home sex states are TODO rows</td>
+</tr>
+<tr>
+<td>Couples meet outside and have sex when promiscuous or waiting for a mate</td>
+<td>todo</td>
+<td><code>START_HAVING_SEX</code>, <code>HAVING_SEX</code> and <code>WAIT_FOR_MATE</code> are TODO rows</td>
+</tr>
+<tr>
+<td>A woman falls pregnant and gives birth after a pregnancy, a child appearing at home</td>
+<td>done</td>
+<td>the pregnancy's count down and the birth states 110 to 112, the child at home (<code>src/ECS/Villager/VillagerBirth.cpp</code>); <code>test/test_villager_birth.cpp</code></td>
+</tr>
+<tr>
+<td>The town's desire for children drives how many are born</td>
+<td>done</td>
+<td><code>WillHousewifeGetPregnant</code> reads the town's desire for children (<code>src/ECS/Villager/VillagerBirth.cpp</code>)</td>
+</tr>
+<tr>
+<td>Children follow their mother about</td>
+<td>done</td>
+<td><code>CHILD_FOLLOWS_MOTHER</code> (<code>src/ECS/Villager/VillagerDecide.cpp</code>)</td>
+</tr>
+<tr>
+<td>Children go to the crèche when the town has one, and play there</td>
+<td>done</td>
+<td><code>ChildGotoCreche</code> and <code>CHILD_AT_CRECHE</code> (<code>src/ECS/Villager/VillagerChild.cpp</code>); See ../building/civic_buildings.md</td>
+</tr>
+<tr>
+<td>Children whose mother dies are orphaned and mourn her</td>
+<td>done</td>
+<td><code>FindChildrenAndOrphanThem</code> and the mourning (<code>src/ECS/Villager/VillagerMourning.cpp</code>)</td>
+</tr>
+<tr>
+<td>Children play in the town rather than work</td>
+<td>partial</td>
+<td>children follow their mother or go to the creche instead of working (<code>src/ECS/Villager/VillagerDecide.cpp</code>); their play is not ported; See play_and_gossip.md</td>
+</tr>
+<tr>
+<td>Breeder disciples raise the birth rate of the town they are put in</td>
+<td>todo</td>
+<td>no breeder disciple; See disciples.md</td>
+</tr>
+<tr>
+<td>Abodes swap a man for a woman between them so couples can form</td>
+<td>done</td>
+<td><code>SwapMaleForFemaleFrom</code> in the town's shuffle (<code>src/ECS/Town/AbodeVillagers.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="tribes">Tribes</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nine tribes, each with its own villager models</td>
+<td>done</td>
+<td>the villager info table by tribe (<code>src/Enums.h</code>, <code>src/ECS/Archetypes/VillagerArchetype.cpp</code>)</td>
+</tr>
+<tr>
+<td>Each tribe has its own speed and need tables in the info data</td>
+<td>done</td>
+<td>the info's speeds, food, life and age values are read by the villager code (<code>src/InfoConstants.h</code>, <code>src/ECS/VillagerSpeed.cpp</code>, <code>src/ECS/Villager/VillagerFood.cpp</code>, <code>src/ECS/Villager/VillagerAge.cpp</code>)</td>
+</tr>
+<tr>
+<td>A villager that moves into a town of another tribe changes tribe</td>
+<td>done</td>
+<td><code>ChangeTribeIfRequired</code> on leaving <code>GO_HOME_AND_CHANGE</code> (<code>src/ECS/Villager/VillagerHome.cpp</code>)</td>
+</tr>
+<tr>
+<td>A town's tribe decides its buildings and its tribal power to the player</td>
+<td>done</td>
+<td>the town's tribe picks its buildings (the tribe's abode info) and the miracles read the player's per-tribe power (<code>magic::GetTribalPower</code>); see ../town/wonder.md</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

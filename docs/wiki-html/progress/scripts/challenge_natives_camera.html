@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Challenge natives: camera, cut scenes and fades — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="here" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#challenge-natives-camera-cut-scenes-and-fades">Challenge natives: camera, cut scenes and fades</a><ul>
+<li><a href="#used-by-the-shipped-scripts">Used by the shipped scripts</a></li>
+<li><a href="#not-used-by-the-shipped-scripts">Not used by the shipped scripts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="challenge-natives-camera-cut-scenes-and-fades">Challenge natives: camera, cut scenes and fades</h1>
+<p>The challenge scripts' functions for the camera: setting and gliding it, following objects, cut-scene control, the cinema bars, fades, lens, shakes and the challenge log's pictures. The game has 464 of these functions in all; the language statement each comes from is shown in italics, and "called" counts are calls in the shipped <code>challenge.chl</code>. How the virtual machine runs them is in <a href="../engine/script_vm.html">../engine/script_vm.md</a>; what each challenge is about is in <a href="../story/index.html">../story/</a>.</p>
+<p><strong>Progress: 43/58 done, 3 partial — 77%</strong></p>
+<h2 id="used-by-the-shipped-scripts">Used by the shipped scripts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Puts the camera's eye at a position at once: <em>set camera position to ‹position›</em> (called 307 times in 85 scripts)</td>
+<td>done</td>
+<td><code>SetCameraPosition</code> in <code>src/CHLApi.cpp</code>: <code>script_camera::SetPosition</code> (<code>src/Camera/ScriptCamera.cpp</code>), only in the script camera mode, as the original; <code>test/test_script_camera.cpp</code></td>
+</tr>
+<tr>
+<td>Points the camera at a position at once: <em>set camera focus to ‹position›</em> (called 290 times in 85 scripts)</td>
+<td>done</td>
+<td><code>SetCameraFocus</code>: <code>script_camera::SetFocus</code>, only in the script camera mode</td>
+</tr>
+<tr>
+<td>Glides the camera's eye to a position over a number of seconds: <em>move camera position to ‹position› time ‹time›</em> (called 769 times in 162 scripts)</td>
+<td>done</td>
+<td><code>MoveCameraPosition</code>: <code>script_camera::MovePosition</code>, in seconds of the wall clock; <code>test/test_script_camera.cpp</code></td>
+</tr>
+<tr>
+<td>Glides the camera's point of view to a position over a number of seconds: <em>move camera focus to ‹position› time ‹time›</em> (called 737 times in 161 scripts)</td>
+<td>done</td>
+<td><code>MoveCameraFocus</code>: <code>script_camera::MoveFocus</code></td>
+</tr>
+<tr>
+<td>Gives the camera's current eye position: <em>camera position</em> (called 561 times in 171 scripts)</td>
+<td>done</td>
+<td><code>GetCameraPosition</code>: the drawn camera's position</td>
+</tr>
+<tr>
+<td>Gives the position the camera is looking at: <em>camera focus</em> (called 263 times in 111 scripts)</td>
+<td>done</td>
+<td><code>GetCameraFocus</code>: the drawn camera's focus</td>
+</tr>
+<tr>
+<td>Whether an object is in the camera's view: <em>‹object› viewed</em> (called 53 times in 36 scripts)</td>
+<td>done</td>
+<td><code>GameThingFieldOfView</code>: <code>field_of_view::ThingInView</code> (<code>src/Camera/FieldOfView.cpp</code>), the screen test of the thing's bounding sphere or point</td>
+</tr>
+<tr>
+<td>Whether a position is in the camera's view: <em>‹position› viewed</em> (called 54 times in 30 scripts)</td>
+<td>done</td>
+<td><code>PosFieldOfView</code>: <code>field_of_view::PosInView</code>, false inside the temple</td>
+</tr>
+<tr>
+<td>Takes the camera from the player at the start of a cut scene (part of the language's cinema and camera blocks): <em>begin cinema / begin camera (opening the block)</em> (called 328 times in 181 scripts)</td>
+<td>done</td>
+<td><code>StartCameraControl</code>: <code>help::script_control::StartCameraControl</code> and <code>script_camera::BeginFrom</code>, which takes over the player's zoomers; no camera mode inside the temple</td>
+</tr>
+<tr>
+<td>Gives the camera back to the player at the end of a cut scene: <em>end cinema / end camera (closing the block)</em> (called 450 times in 238 scripts)</td>
+<td>done</td>
+<td><code>EndCameraControl</code>: <code>help::script_control::EndCameraControl</code> then <code>script_camera::End</code> (the player's mode from where the camera is, the lens back to 70 degrees); a stopped task gives it back too</td>
+</tr>
+<tr>
+<td>Brings the black cinema bars in or out: <em>the cinema block's bars (opening and closing it)</em> (called 754 times in 235 scripts)</td>
+<td>done</td>
+<td><code>SetWidescreen</code>: <code>help::script_control::SetWideScreen</code> for the holding task; the bars slide in the help system's wide-screen time (<code>src/3D/ScreenFade.cpp</code>)</td>
+</tr>
+<tr>
+<td>Whether the camera has finished a glide: <em>camera ready</em> (called 493 times in 153 scripts)</td>
+<td>done</td>
+<td><code>HasCameraArrived</code>: <code>script_camera::ScriptArrived</code> in the script mode, else the player's zoomers against their destinations</td>
+</tr>
+<tr>
+<td>Keeps the camera's point of view on a moving object: <em>move camera focus follow ‹target›</em> (called 4 times in 3 scripts)</td>
+<td>done</td>
+<td><code>FocusFollow</code>: <code>script_camera::FocusFollow</code>; <code>ScriptCameraFollow</code> tests in <code>test/test_script_camera.cpp</code></td>
+</tr>
+<tr>
+<td>Takes a picture of the camera's view for the challenge log in the temple: <em>snapshot (a challenge log picture)</em> (called 137 times in 76 scripts)</td>
+<td>todo</td>
+<td><code>Snapshot</code> logs "not implemented" (no challenge log)</td>
+</tr>
+<tr>
+<td>Gives one of the camera positions placed in the landscape by name: <em>camera position named in the landscape</em> (called 13 times in 11 scripts)</td>
+<td>done</td>
+<td><code>ConvertCameraPosition</code>: the "Cam" entry of the land's <code>camera.edt</code></td>
+</tr>
+<tr>
+<td>Gives one of the camera focus positions placed in the landscape by name: <em>camera ‹camera enum›</em> (called 19 times in 13 scripts)</td>
+<td>done</td>
+<td><code>ConvertCameraFocus</code>: the "Cam" entry's focus</td>
+</tr>
+<tr>
+<td>Starts a camera that keeps two objects in view: <em>begin dual camera to [object] and [object]</em> (called 6 times in 5 scripts)</td>
+<td>done</td>
+<td><code>StartDualCamera</code>: <code>script_camera::StartDual</code> (<code>src/Camera/ScriptCamera.cpp</code>); <code>test/test_script_camera_dual.cpp</code>; there is no mode stack, so the dual always goes on top of the script mode <span class="state approx">approximate</span></td>
+</tr>
+<tr>
+<td>Stops the two-object camera: <em>end dual camera</em> (called 6 times in 5 scripts)</td>
+<td>done</td>
+<td><code>ReleaseDualCamera</code>: <code>script_camera::ReleaseDual</code></td>
+</tr>
+<tr>
+<td>Glides the camera in front of an object, at a distance, over a time: <em>move camera to face ‹target› distance ‹distance› time ‹time›</em> (called 14 times in 7 scripts)</td>
+<td>done</td>
+<td><code>MoveCameraToFaceObject</code>: <code>script_camera::FaceObject</code> then the moves; creatures have no facing angle yet</td>
+</tr>
+<tr>
+<td>Flies the camera along one of the camera paths made for the land: <em>camera path ‹camera enum›</em> (called 12 times in 11 scripts)</td>
+<td>done</td>
+<td><code>RunCameraPath</code>: <code>script_camera::RunPath</code>, the land's <code>camera.edt</code> tracks (<code>src/3D/CameraTracks.cpp</code>)</td>
+</tr>
+<tr>
+<td>Whether the cinema bars have finished moving: <em>widescreen ready</em> (called 17 times in 14 scripts)</td>
+<td>done</td>
+<td><code>WidescreenTransistionFinished</code>: <code>ScreenFade::IsWideScreenTransitionFinished</code></td>
+</tr>
+<tr>
+<td>Loads a set of camera zones that keep the camera away from places: <em>set camera zones to ‹filename›</em> (called 10 times in 3 scripts)</td>
+<td>partial</td>
+<td><code>SetCameraZone</code>: <code>player_camera::SetCameraZone</code> (<code>src/Camera/PlayerCameraScript.cpp</code>) loads the zone file; the player's camera does not read the zones yet</td>
+</tr>
+<tr>
+<td>Sets the following camera's distance, speed and angle and whether it stays behind: <em>set camera properties distance ‹distance› speed ‹speed› angle ‹angle› enable/disable behind</em> (called once in 1 script)</td>
+<td>done</td>
+<td><code>CameraProperties</code>: <code>script_camera::SetFollowProperties</code> (distance, speed, angle, behind)</td>
+</tr>
+<tr>
+<td>Shakes the camera, strongest near a position, for a time: <em>shake camera at ‹position› radius ‹radius› amplitude ‹amplitude› [time ‹duration›]</em> (called 31 times in 20 scripts)</td>
+<td>done</td>
+<td><code>ShakeCamera</code>: <code>camera_shake::StartCameraShake</code> (<code>src/Camera/CameraShake.cpp</code>), applied to the drawn camera in any mode outside the temple; <code>test/test_script_camera_dual.cpp</code></td>
+</tr>
+<tr>
+<td>Turns a recorded sequence on an object on or off (unconfirmed): <em>enable/disable ‹avi sequence› avi sequence</em> (called 2 times in 2 scripts)</td>
+<td>done</td>
+<td><code>SetAviSequence</code>: sequence 1 plays the intro film <code>intro.bik</code> with its pause and fade, sequence 2 the falling-spell film (<code>src/Video/</code>). Our wiki differs: it starts one of the game's full-screen films (1 the intro, 2 the falling spell), not a sequence on an object (<a href="../../video.html#the-five-videos">video</a>)</td>
+</tr>
+<tr>
+<td>Updates the challenge log picture with what is going on: <em>update snapshot (the challenge log picture)</em> (called 110 times in 60 scripts)</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Fades the screen to a colour over a time: <em>set fade red ‹red› green ‹green› blue ‹blue› time ‹time›</em> (called 116 times in 48 scripts)</td>
+<td>done</td>
+<td><code>SetFade</code>: <code>ScreenFade::FadeTo</code>, every argument truncated</td>
+</tr>
+<tr>
+<td>Fades the screen back in over a time: <em>set fade in time ‹duration›</em> (called 110 times in 47 scripts)</td>
+<td>done</td>
+<td><code>SetFadeIn</code>: <code>ScreenFade::FadeBackToNormal</code></td>
+</tr>
+<tr>
+<td>Whether the fade has finished: <em>fade ready</em> (called 171 times in 38 scripts)</td>
+<td>done</td>
+<td><code>FadeFinished</code>: <code>ScreenFade::IsFinished</code></td>
+</tr>
+<tr>
+<td>Keeps the camera looking at an object as it moves: <em>set camera focus follow ‹target›</em> (called 32 times in 27 scripts)</td>
+<td>done</td>
+<td><code>SetFocusFollow</code>: the same code as focus follow</td>
+</tr>
+<tr>
+<td>Keeps the camera's eye moving with an object: <em>set camera position follow ‹target›</em> (called 5 times in 5 scripts)</td>
+<td>done</td>
+<td><code>SetPositionFollow</code>: <code>script_camera::PositionFollow</code> and <code>PlaceFollowNow</code></td>
+</tr>
+<tr>
+<td>Keeps the camera following an object at a distance: <em>set camera follow ‹target› distance ‹distance›</em> (called 2 times in 2 scripts)</td>
+<td>done</td>
+<td><code>SetFocusAndPositionFollow</code>: <code>script_camera::FocusAndPositionFollow</code> and <code>PlaceFollowNow</code></td>
+</tr>
+<tr>
+<td>Puts the camera's lens back to normal: <em>reset camera lens [time ‹lens›]</em> (called once in 1 script)</td>
+<td>done</td>
+<td><code>SetCameraLens</code>: the lens back to 70 degrees over the given time, as the original reads its argument</td>
+</tr>
+<tr>
+<td>Changes the camera's lens (field of view) over a time: <em>set camera lens ‹lens› [time ‹time›]</em> (called 25 times in 7 scripts)</td>
+<td>done</td>
+<td><code>MoveCameraLens</code>: <code>script_camera::SetFov</code> over the time, in game seconds</td>
+</tr>
+<tr>
+<td>Whether an object can see the camera within an angle: <em>‹object› can view camera in ‹degrees› degrees</em> (called 4 times in 3 scripts)</td>
+<td>todo</td>
+<td><code>GameThingCanViewCamera</code> logs "not implemented" and pushes false</td>
+</tr>
+<tr>
+<td>Updates the picture of a challenge log entry: <em>update snapshot picture</em> (called 13 times in 4 scripts)</td>
+<td>todo</td>
+<td><code>UpdateSnapshotPicture</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives a position a distance in front of the camera: <em>facing camera position distance ‹distance›</em> (called 7 times in 4 scripts)</td>
+<td>done</td>
+<td><code>GetFacingCameraPosition</code>: the drawn camera's position plus the distance along the view (the direction is inferred)</td>
+</tr>
+<tr>
+<td>Whether the camera is within a turn (unconfirmed): <em>within rotation</em> (called once in 1 script)</td>
+<td>todo</td>
+<td><code>WithinRotation</code> logs "not implemented" and pushes false</td>
+</tr>
+<tr>
+<td>Narrows the screen to a window over a time: <em>set clipping window across ‹across› down ‹down› width ‹width› height ‹height› time ‹time›</em> (called 2 times in 1 script)</td>
+<td>todo</td>
+<td><code>SetClippingWindow</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Widens the screen back from the window over a time: <em>clear clipping window time ‹time›</em> (called once in 1 script)</td>
+<td>todo</td>
+<td><code>ClearClippingWindow</code> logs "not implemented"</td>
+</tr>
+</tbody>
+</table>
+<h2 id="not-used-by-the-shipped-scripts">Not used by the shipped scripts</h2>
+<p>The game has these but no shipped script calls them; mods and fan-made challenges can.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Keeps the camera's eye on a moving object: <em>move camera position follow ‹target›</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>PositionFollow</code>: <code>script_camera::PositionFollow</code>, at the thing's viewing distance, with "behind"</td>
+</tr>
+<tr>
+<td>Changes the two objects the two-object camera keeps in view: <em>set dual camera to ‹obj1› ‹obj2›</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>UpdateDualCamera</code>: <code>script_camera::UpdateDual</code></td>
+</tr>
+<tr>
+<td>Starts the two-object camera on an object and a fixed point: <em>dual camera with a point (no statement in the language)</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>CreateDualCameraWithPoint</code>: <code>script_camera::StartDualWithPoint</code></td>
+</tr>
+<tr>
+<td>Puts the camera in front of an object, at a distance, at once: <em>set camera to face ‹value› distance ‹value›</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>SetCameraToFaceObject</code>: <code>script_camera::FaceObject</code> then position and focus set at once</td>
+</tr>
+<tr>
+<td>Gives how far away things are still drawn (unconfirmed): <em>get inclusion distance</em> (not called by the shipped scripts)</td>
+<td>partial</td>
+<td><code>GetInclusionDistance</code>: the player camera's inclusion distance, but nothing updates it, so it stays at its start value</td>
+</tr>
+<tr>
+<td>Keeps the camera following an object at a distance: <em>move camera follow ‹value› distance ‹value›</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>FocusAndPositionFollow</code>: <code>script_camera::FocusAndPositionFollow</code></td>
+</tr>
+<tr>
+<td>Locks the camera's turning about a point: <em>enable/disable fixed camera rotation at ‹value›</em> (not called by the shipped scripts)</td>
+<td>partial</td>
+<td><code>SetFixedCamRotation</code>: <code>player_camera::ForceRotateAboutPoint</code> records the point; the player's camera model does not read it yet</td>
+</tr>
+<tr>
+<td>Remembers where the camera is: <em>store camera details</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>StoreCameraDetails</code>: the drawn camera's position and focus kept in the script camera's state</td>
+</tr>
+<tr>
+<td>Puts the camera back where it was remembered: <em>restore camera details</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>RestoreCameraDetails</code>: <code>script_camera::SetPositionAndFocus</code> to the stored ones (also the player's camera outside the script mode, inferred)</td>
+</tr>
+<tr>
+<td>Sets the camera's eye, view and lens at once: <em>set camera position ‹value› focus ‹value› lens ‹value›</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>SetCameraPosFocLens</code>: position, focus and lens at once, the lens not turned into radians as the original</td>
+</tr>
+<tr>
+<td>Glides the camera's eye, view and lens over a time: <em>move camera position ‹value› focus ‹value› lens ‹value› time ‹value›</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>MoveCameraPosFocLens</code>: position, focus and lens moved over the time</td>
+</tr>
+<tr>
+<td>Lets the camera clip close to things, or puts it back: <em>enable/disable clipping distance [‹value›]</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>SetGraphicsClipping</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives the remembered camera eye: <em>stored camera position</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>GetStoredCameraPosition</code>: the stored position</td>
+</tr>
+<tr>
+<td>Gives the remembered camera view: <em>stored camera focus</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>GetStoredCameraFocus</code>: the stored focus</td>
+</tr>
+<tr>
+<td>Turns drawing the sun on or off: <em>draw the sun on/off (no statement in the language)</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>SetSunDraw</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Sets one of the player's camera bookmarks to a position: <em>set bookmark ‹value› to ‹value›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>SetBookmarkPosition</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Keeps the camera looking at a rival god's hand: <em>set camera focus follow computer player ‹player›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>SetFocusFollowComputerPlayer</code> logs "not implemented": there are no computer players</td>
+</tr>
+<tr>
+<td>Keeps the camera's eye moving with a rival god's hand: <em>set camera position follow computer player ‹player›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>SetPositionFollowComputerPlayer</code> logs "not implemented": there are no computer players</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

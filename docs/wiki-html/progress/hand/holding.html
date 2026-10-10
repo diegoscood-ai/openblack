@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Holding — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="here" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#holding">Holding</a><ul>
+<li><a href="#where-the-held-thing-hangs">Where the held thing hangs</a></li>
+<li><a href="#swaying-and-turning">Swaying and turning</a></li>
+<li><a href="#giving-to-the-creature">Giving to the creature</a></li>
+<li><a href="#losing-what-is-held">Losing what is held</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="holding">Holding</h1>
+<p>How the hand carries what it has picked up: where the thing hangs, how the hand lifts to make room for it, how it sways
+and turns with the mouse, and what happens when the thing goes away or the hand meets the creature. How it moves is
+in <a href="hand_physics.html">hand_physics.md</a>.</p>
+<p>openblack: <code>HandSystem</code> holds what the hand picks up (<code>HandHolding.cpp</code>, <code>HandPlacement.cpp</code> in
+<code>src/ECS/Systems/Implementations/</code>), hanging and posing it by the game's hold rules (<code>magic::hand_hold::HoldTypeOf</code>,
+<code>HoldLift</code>, <code>src/Magic/HandHoldPose.cpp</code>), the same rules the miracle seeds use (<code>magic::hand_hold::SeedHang</code>). Tests:
+<code>test/test_hand_hold_pose.cpp</code>.</p>
+<p><strong>Progress: 20/28 done, 1 partial — 73%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../hand-and-interface.html">The hand and the interface</a>.</p>
+<h2 id="where-the-held-thing-hangs">Where the held thing hangs</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each thing says how it is held: on the palm (most objects), the magic grip (miracle seeds), from the side (pots, piles, mobile objects, some statics), the tree grip or the villager grip (people and animals)</td>
+<td>done</td>
+<td><code>HandSystem::ComputeHoldParameters</code> (<code>HandHolding.cpp</code>): ABOVE by default, MAGIC for a seed until ready, then its info's hold (<code>magic::hand_hold::HoldTypeOf</code>, <code>src/Magic/HandHoldPose.cpp</code>), SIDE for mobile objects, pots and some statics, TREE for trees, VILLAGER for villagers and animals; test <code>HandHoldPose.ASeedIsHeldAsAMiracleNotYetReadyUntilItIsReady</code></td>
+</tr>
+<tr>
+<td>Held on the palm, the thing hangs 0.2 units under the hand</td>
+<td>done</td>
+<td><code>magic::hand_hold::HoldLift</code> (<code>src/Magic/HandHoldPose.cpp</code>) from <code>HandPlacement.cpp</code>: ABOVE hangs 0.2; test <code>HandHoldPose.TheHandRisesByHowItHolds</code></td>
+</tr>
+<tr>
+<td>Held in the magic grip (a miracle's seed), it hangs 3.2 times the hand's size under it</td>
+<td>done</td>
+<td><code>magic::hand_hold::HoldLift</code>: MAGIC hangs 3.2 x the hand's scale; test <code>HandHoldPose.TheHandRisesByHowItHolds</code></td>
+</tr>
+<tr>
+<td>Held from the side or in the tree or villager grip, it hangs its own lowering times its height under the hand, at least 1.9 units</td>
+<td>done</td>
+<td><code>magic::hand_hold::SeedHang</code> and <code>HoldLift</code> (<code>src/Magic/HandHoldPose.cpp</code>) from <code>HandPlacement.cpp</code>: max(lowering x height, 1.9) for the SIDE, TREE and VILLAGER holds; test <code>HandHoldPose.TheHandRisesByHowItHolds</code></td>
+</tr>
+<tr>
+<td>A standing tree hangs a further tenth of its height lower</td>
+<td>done</td>
+<td><code>HandPlacement.cpp</code>: plus 0.1 x height for a rooted object (a tree)</td>
+</tr>
+<tr>
+<td>The hand rises by the whole of that hanging distance (as measured the frame before); the cursor's point on the land is raised by 0.6 of it</td>
+<td>done</td>
+<td><code>HandPlacement.cpp</code>: the hand's origin is the grip point; the cursor's search ray aims at the land point + 0.6 x the grip height</td>
+</tr>
+<tr>
+<td>The held thing is drawn at its own size, and the hand's pose opens by how big it is next to the hand (up to the hand's full span)</td>
+<td>done</td>
+<td><code>HandSystem::Update</code>: <code>Chold_above</code> / <code>Chold_side</code> at a frame set by the hold radius against 3.2 x the hand's scale</td>
+</tr>
+<tr>
+<td>Each hold plays its own still pose: palm, magic, side, tree or villager</td>
+<td>done</td>
+<td><code>HandSystem::Update</code>: <code>Chold_above</code> for ABOVE, <code>Cwiggle</code> at half for MAGIC, <code>Chold_side</code> for SIDE, TREE and VILLAGER, as our wiki gives them</td>
+</tr>
+<tr>
+<td>Every game turn the hold is asked again of the thing, so a thing that changes (a pile growing) changes grip</td>
+<td>done</td>
+<td><code>HandSystem::GameTurnUpdate</code> (<code>HandTurn.cpp</code>) asks the hold type again each turn (the radius, lowering and height stay the pick-up's, approximate); a food pot's radius follows its amount every frame</td>
+</tr>
+<tr>
+<td>A held handful is drawn as the in-hand pile, sized by its amount</td>
+<td>partial</td>
+<td>The hand's pots keep scale 1 (<code>PotArchetype::SetSize</code>); the hand opens as the food in it grows (<code>ComputeHoldParameters</code>)</td>
+</tr>
+<tr>
+<td>Held wood and branches use their own in-hand meshes</td>
+<td>done</td>
+<td>The hand's wood pot is drawn with its own pot info's mesh (<code>PotArchetype</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="swaying-and-turning">Swaying and turning</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The held thing tilts as the cursor runs ahead of the hand: up to 0.3 radians each way, at 80 pixels of lag</td>
+<td>done</td>
+<td><code>HandSystem::HeldSway</code> (<code>HandHolding.cpp</code>) with <code>magic::hand_hold::CursorSway</code> and <code>HeldUp</code> (<code>src/Magic/HandHoldPose.cpp</code>): tiltX and tiltY = 0.3 / 80 x the clamped lag, about the camera line and its level side axis; test <code>HandHoldPose.TheCursorRunningAheadSwaysTheHandUpToThreeTenthsOfARadian</code></td>
+</tr>
+<tr>
+<td>A thing held on the palm, or from the side, turns half round (or a quarter round) over 0.4 seconds to face the creature it is offered to</td>
+<td>todo</td>
+<td>Giving to the creature is not ported</td>
+</tr>
+<tr>
+<td>A right hand turns it the other way from a left hand</td>
+<td>todo</td>
+<td>Our hand is not mirrored and has no left-handed mode</td>
+</tr>
+<tr>
+<td>The held thing faces the camera, rolled about the line to it</td>
+<td>done</td>
+<td><code>HandSystem::HeldSway</code>: the roll about the line to the camera (<code>magic::hand_hold::HeldUp</code>); the held object's matrix from the heading (<code>magic::hand_hold::HeldBasis</code>); test <code>HandHoldPose.TheHandRollsBackAboutTheLineToTheCamera</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="giving-to-the-creature">Giving to the creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Over a creature that would take what the hand holds, the hand offers it for 1.1 seconds after leaving it</td>
+<td>todo</td>
+<td>Not ported (giving to the creature); see <a href="../creature/index.html">../creature/</a></td>
+</tr>
+<tr>
+<td>While the creature reaches for it, the hand is drawn to the creature's hand over half a second</td>
+<td>todo</td>
+<td>Not ported</td>
+</tr>
+<tr>
+<td>Moving the hand more than 15 times the creature's size away calls the giving off</td>
+<td>todo</td>
+<td>Not ported</td>
+</tr>
+<tr>
+<td>The creature takes what is held, then looks at it, eats it, plays with it or throws it as it likes</td>
+<td>todo</td>
+<td>Not ported; see <a href="../creature/index.html">../creature/</a></td>
+</tr>
+<tr>
+<td>Things the creature took from the hand teach it the player wanted it to have them</td>
+<td>todo</td>
+<td>unconfirmed: giving alone teaches nothing in the code traced; see <a href="../creature/feeding_and_thrown_things.html">../creature/feeding_and_thrown_things.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="losing-what-is-held">Losing what is held</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every turn, a held thing that no longer exists, or is no longer in the hand's care, is dropped from it</td>
+<td>done</td>
+<td><code>HandSystem::ValidateHands</code> (<code>HandTurn.cpp</code>): a held object no longer interactable leaves the hand with no physics; <code>GameTurnUpdate</code> lets go of one no longer available</td>
+</tr>
+<tr>
+<td>A held thing that is destroyed leaves the hand, which empties and stops holding</td>
+<td>done</td>
+<td><code>HandSystem::Update</code>: a destroyed held object leaves the hand at once; <code>ValidateHands</code> for one marked deleted</td>
+</tr>
+<tr>
+<td>Each turn the held thing is kept at the hand's position on the map, so it stays in the right place for the game</td>
+<td>done</td>
+<td><code>HandTurn.cpp</code>: each turn the held object is placed at the synced hand's map coordinates (the altitude above the land kept as a float)</td>
+</tr>
+<tr>
+<td>A held miracle that runs out leaves the hand</td>
+<td>done</td>
+<td>A seed marked for deletion is no longer interactable: <code>ValidateHands</code> takes it out (<code>SeedLeftHand</code>)</td>
+</tr>
+<tr>
+<td>A scribble shakes the held thing out of the hand</td>
+<td>done</td>
+<td><code>gestures</code> (<code>src/Magic/Gestures/PowerUpSystem.cpp</code>) calls the hand's <code>ForceDropHeld</code> on a scribble: a drop with no speed, applied at the next turn (<code>HandSpellSeed.cpp</code>); see <a href="../gesture/scribble.html">../gesture/scribble.md</a></td>
+</tr>
+<tr>
+<td>People react to a burning thing held near them (reach 30, running 20–50 m)</td>
+<td>done</td>
+<td><code>fire::StartedMoving</code> when the object enters the hand (<code>HandHolding.cpp</code>); a held burning object spreads its fire only inside the holder's influence (<code>HandTurn.cpp</code>); see <a href="../physics/fire.html">../physics/fire.md</a></td>
+</tr>
+<tr>
+<td>A held thing carried through trees bends them</td>
+<td>done</td>
+<td><code>UpdateTreeBends</code> (<code>src/ECS/Trees.cpp</code>) takes the object the hand carries as a source</td>
+</tr>
+<tr>
+<td>The camera can still be moved while holding something</td>
+<td>done</td>
+<td>The camera's land grip (<code>DefaultWorldCameraModel</code>) does not depend on what the hand holds; the hand state is 20 whatever it holds</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

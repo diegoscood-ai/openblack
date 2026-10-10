@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Sculptor — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-sculptor">The Sculptor</a><ul>
+<li><a href="#where-it-sits-in-the-story">Where it sits in the story</a></li>
+<li><a href="#how-it-appears">How it appears</a></li>
+<li><a href="#the-introduction">The introduction</a></li>
+<li><a href="#bringing-the-rock">Bringing the rock</a></li>
+<li><a href="#while-he-carves">While he carves</a></li>
+<li><a href="#the-sculptors-death">The sculptor's death</a></li>
+<li><a href="#the-reward">The reward</a></li>
+<li><a href="#after-it-ends">After it ends</a></li>
+<li><a href="#unused-material">Unused material</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-sculptor">The Sculptor</h1>
+<p>The third step of finding the creature-gate stones on the first land: the last stone was destroyed long ago, so the
+village sculptor offers to carve a new one if the player brings him the right rock from the old hermit's quarry. He
+carves it for a minute beside his house and hands over the cow gate stone for the plinth.</p>
+<p><strong>Land:</strong> 1 · <strong>Giver:</strong> the sculptor, a villager working outside his house on the edge of the Norse village · <strong>Script:</strong> TheSculptor · <strong>Reward:</strong> the cow gate stone, the last of the three that open the creatures' gates · <strong>Repeatable:</strong> no</p>
+<p>Sources: the land's challenge scripts (the original source text, checked against the PC game's compiled
+<code>challenge.chl</code>), the land's map script (<code>Land1.txt</code>) and the game's text table. openblack is judged on this tree: of
+the 67 commands the quest needs only 4 log "not implemented" in <code>src/CHLApi.cpp</code> (a flock and the record among them);
+the dialogue, advisor, scroll, villager-making, camera move, timer, effect, animation and property commands work, as do
+making objects (<code>Create</code>), the pick-up, moveable, indestructible and fire flags, the camera cuts, fades, widescreen and
+music. The land's control script stops before this quest is reached, in Choose Your Creature's gate-stone loop (see
+<a href="../../scripts/land1_script.html">../../scripts/land1_script.md</a>), so none of it happens in game; rows are todo unless the
+notes say otherwise. The land as a whole is in <a href="../land_1.html">../land_1.md</a>; the quest that starts it is
+<a href="choose_your_creature.html">Choose Your Creature</a>. An earlier, never compiled silver-scroll version with the same title is
+in <a href="../silver_scrolls/the_sculptor_cut_silver.html">../silver_scrolls/the_sculptor_cut_silver.md</a>.</p>
+<p><strong>Progress: 1/47 done, 33 partial — 37%</strong></p>
+<h2 id="where-it-sits-in-the-story">Where it sits in the story</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The quest is a gold (story) scroll, titled "The Sculptor"</td>
+<td>partial</td>
+<td><code>CreateHighlight</code> is real (<code>src/ECS/ScriptHighlight</code>); never started: Choose Your Creature stops before the second stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>It is started by the creature trainer once the tiger and ape stones are both on the plinth (the second from <a href="the_lost_brother.html">The Lost Brother</a>): "Good. You have two of the Gate Stones. But the third could be a problem.", "The Villagers say the final one was destroyed aeons ago. All is not lost, though." and "The Village sculptor can carve a new Gate Stone for you. You should see him."; the camera rises to look down towards his house</td>
+<td>todo</td>
+<td>the plinth's stone count <code>ObjectInfoBits</code> is a stub, so Choose Your Creature never starts this quest; see <a href="choose_your_creature.html">choose_your_creature.md</a></td>
+</tr>
+<tr>
+<td>The uncarved rock stands in the old hermit's quarry from the start of the land (placed by the land's map)</td>
+<td>done</td>
+<td>our tree loads the land's mobile statics (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>, <code>Land1.txt</code>)</td>
+</tr>
+<tr>
+<td>A separate watcher keeps the rock in play from the end of the opening until it is carved: lost or left outside the player's influence it is made again at the quarry; left for a minute after being dropped more than 50 from the quarry and more than 20 from the sculptor's spot it is put back; once set down by the sculptor that becomes its home spot; it sparkles once this quest asks for it</td>
+<td>partial</td>
+<td><code>ProtectQuarryRock</code> (started by <code>FollowUs</code>) calls only real natives (<code>GetInfluence</code>, <code>CREATE</code>, timers), but the held read (property 9) is not handled by <code>GetProperty</code>; see <a href="choose_your_creature.html">choose_your_creature.md</a></td>
+</tr>
+<tr>
+<td>Taking the uncarved rock to the plinth early brings out the trainer: "The stone isn't carved. Perhaps the sculptor can help?" (and again every three minutes it is left there)</td>
+<td>partial</td>
+<td>part of <a href="choose_your_creature.html">choose_your_creature.md</a>: reached only after the gate-stone loop starts, which waits on a stubbed plinth reading</td>
+</tr>
+<tr>
+<td>Placing the carved stone on the plinth with the other two opens the gates and starts the choice of creature (the creatures in the glade)</td>
+<td>todo</td>
+<td>the plinth reading is a stub; see <a href="choose_your_creature.html">choose_your_creature.md</a></td>
+</tr>
+<tr>
+<td>A new game that skips straight to choosing the creature (or keeps the old creature) deletes the rock and never starts this quest</td>
+<td>partial</td>
+<td>the skip questions are real (<code>CanSkipTutorial</code>, the SkipBox) and <code>LandControl1</code> deletes the rock (<code>ObjectDelete</code>)</td>
+</tr>
+<tr>
+<td>The quest can't leave the story stuck: the rock is remade if lost, a dead or lost sculptor is replaced by his cousin, and the carved stone is remade if lost</td>
+<td>partial</td>
+<td>the same script; never started: Choose Your Creature stops before the second stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-it-appears">How it appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The sculptor (a sculptor villager) is made beside his house; any loose rocks lying within 30 of him are held aside by the script until someone picks them up, so only rocks the player brings count</td>
+<td>partial</td>
+<td><code>CREATE</code> makes villagers and the rock checks use real distance natives; never started: Choose Your Creature stops before the second stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>Until his introduction is over he can't be hurt, burnt, moved or picked up</td>
+<td>partial</td>
+<td><code>SetIndestructable</code>, <code>SetHurtByFire</code>, <code>SetIdMoveable</code>, <code>SetIdPickupable</code> are real; never started: Choose Your Creature stops before the second stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>A half-finished sculpture is made in front of his house, fixed in place</td>
+<td>partial</td>
+<td><code>CREATE</code> makes mobile statics and the flags are real; never started: Choose Your Creature stops before the second stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>A gold scroll appears over his house, 5.5 up; he walks out to his sculpture and works at it in a loop</td>
+<td>partial</td>
+<td><code>CreateHighlight</code>, <code>MoveGameThing</code> on villagers and the script states are real; never started: Choose Your Creature stops before the second stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>Until the scroll or the house is clicked, whenever the camera is within 100 of the scroll and it is on screen, the good advisor pops out at most every 30 seconds, points at it and says "Hey! This dusty, chisel-wielding fellow must be the sculptor the Gatekeeper told us about."</td>
+<td>partial</td>
+<td>the shared notify script calls only real natives (<code>SpiritEject</code>, <code>RunText</code>); never started: Choose Your Creature stops before the second stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>Clicking it puts the uncarved rock back at the quarry wherever the player had taken it, starts the rock's sparkle and gives the quarry a patch of the player's influence (radius 30)</td>
+<td>partial</td>
+<td><code>SetPosition</code>, <code>InfluencePosition</code> and <code>SpecialEffectObject</code> are real; never started: Choose Your Creature stops before the second stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-introduction">The introduction</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A widescreen cut-scene with the happy generic script theme; the sculptor in high detail</td>
+<td>partial</td>
+<td>widescreen, music and <code>SetHighGraphicsDetail</code> (<code>ecs::super_villager</code>) are real; never started: Choose Your Creature stops before the second stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>The camera comes down on him; he turns to face the camera and gossips</td>
+<td>partial</td>
+<td><code>MoveCameraPosition</code>, <code>SetFocus</code> on villagers and <code>PlayJcSpecial</code> (partly) are real; never started: Choose Your Creature stops before the second stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>The quest is recorded: "The Sculptor", 0 done, alignment 0, reminder (good advisor) "We need to get a carveable stone for the sculptor from the Hermit's Quarry over here."</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub; the challenge log is not drawn</td>
+</tr>
+<tr>
+<td>"Holy one, I hear you're looking for a Gate Stone." Then, with a thank-you bow: "I am a sculptor. If you provide me with the right rock I'll carve one for you."</td>
+<td>partial</td>
+<td><code>RunText</code> is real; never started: Choose Your Creature stops before the second stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>He turns and points towards the quarry while the camera looks that way: "You'll find the rock I need in the Old Hermit's Quarry. Please bring it here."</td>
+<td>partial</td>
+<td>real villager, camera and text natives; never started: Choose Your Creature stops before the second stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>He goes back to his sculpture; the screen fades to black and a flock of 20 doves is made at the quarry rock</td>
+<td>todo</td>
+<td>the fade and <code>FlockCreate</code> are real, but filling the flock with doves (<code>PopulateContainer</code>) is a stub</td>
+</tr>
+<tr>
+<td>A cut to the rock, fade in, and the camera circles it for about six seconds; another fade</td>
+<td>partial</td>
+<td>cuts, fades and camera moves are real; never started: Choose Your Creature stops before the second stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>Back at the sculptor: "I'm definitely the best sculptor in the Village." The camera looks across towards the quarry and the music stops</td>
+<td>partial</td>
+<td>real text, camera and music natives; never started: Choose Your Creature stops before the second stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>From then on he can be hurt, burnt, moved and picked up</td>
+<td>partial</td>
+<td>the flags are real; never started: Choose Your Creature stops before the second stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="bringing-the-rock">Bringing the rock</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Until carving starts, when no other dialogue is running and the camera is within 200 of the rock with it on screen and not held, the evil advisor points at it: "Here's the stone you need!" at most every 30 seconds</td>
+<td>partial</td>
+<td>real advisor and field-of-view natives; the held read (property 9) is not handled; never started: Choose Your Creature stops before the second stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>The first time the rock is picked up, the record goes to 30% with the reminder "You need to drop the carveable stone next to the sculptor."</td>
+<td>todo</td>
+<td>the record (<code>UpdateSnapshot</code>) is a stub and the held read (property 9) is not handled</td>
+</tr>
+<tr>
+<td>Dropping the rock within 15 of the living sculptor (rock and sculptor both on the ground) starts the carving scene; the rock can't be picked up during it</td>
+<td>partial</td>
+<td>distance reads and the pick-up flag are real; flying and held reads are partly handled; never started: Choose Your Creature stops before the second stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>Widescreen: he walks up to stand beside the rock and the camera looks at it; he is impressed. The record goes to 80% with alignment +1 and the reminder "The sculptor's still carving the Gate Stone."</td>
+<td>todo</td>
+<td>the record is a stub; the villager and camera natives are real</td>
+</tr>
+<tr>
+<td>"Oh that's excellent. Exactly the right kind of rock to work with." Then, facing the camera: "Thank you. Come back later and I'll have it finished."</td>
+<td>partial</td>
+<td><code>RunText</code> is real; never started: Choose Your Creature stops before the second stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>The rock is set upright on the ground and he starts carving it for 60 seconds</td>
+<td>todo</td>
+<td>setting the rock upright needs the angle properties, which <code>SetProperty</code> does not handle; <code>CreateTimer</code> is real</td>
+</tr>
+<tr>
+<td>Any other rock the player drops within 15 of him first (checked every 3 seconds) gets, once only, a cut-scene where he looks unimpressed: "Hmm. Actually this rock isn't right for carving. Try another."</td>
+<td>partial</td>
+<td>real distance, villager and text natives; never started: Choose Your Creature stops before the second stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="while-he-carves">While he carves</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Picking the rock up or moving it more than 3 away stops the carving: "Hey! I haven't finished working on carving the Gate Stone yet!"; the record drops back to 30% with the reminder "You need to drop the carveable stone next to the sculptor." and the time left is kept</td>
+<td>todo</td>
+<td>the held read (property 9) is not handled and the record is a stub</td>
+</tr>
+<tr>
+<td>Putting it back down within 15 of him: "Thank you. Now, if you don't mind. I've got carving to do." He walks to it, carves, the rock is set upright, the record returns to 80% (alignment +1) and the carving goes on for the time that was left</td>
+<td>todo</td>
+<td>the record is a stub and the angles are not handled</td>
+</tr>
+<tr>
+<td>Picking the sculptor up stops him; when he is put down he walks back to the rock if it is within 30, otherwise to his sculpture, and goes on working</td>
+<td>todo</td>
+<td>the held read (property 9) is not handled</td>
+</tr>
+<tr>
+<td>If he is away from his sculpture while not carving a rock, he has 60 seconds to walk back to it; if he doesn't make it the script kills him as lost</td>
+<td>partial</td>
+<td>real timers and villager moves; never started: Choose Your Creature stops before the second stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-sculptors-death">The sculptor's death</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>If he dies (or is lost), after 2 seconds his body becomes a skeleton and fades away once it is off screen and the camera is more than 100 away</td>
+<td>todo</td>
+<td><code>SetSkeleton</code> is a stub; <code>ObjectDelete</code> is real</td>
+</tr>
+<tr>
+<td>His cousin (a new sculptor, aged 33) comes out of the house in a cut-scene. The good advisor points at him: "What a senseless waste of human life!" and the evil advisor "Come on. Let's do another!"; if he was lost instead: "Oh dear. That's one very lost sculptor." and "Good riddance. Sculpting is for wusses."</td>
+<td>partial</td>
+<td><code>CREATE</code> of a villager and the advisor lines are real; never started: Choose Your Creature stops before the second stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>If the rock is within 15 the cousin says "Hey! That was my cousin! Now I've got to complete his sculpture." (lost: "Hmm. My sculpting cousin's vanished. I'd better finish his work.") and goes to the rock; otherwise "Oi! You killed my cousin! I suppose I've got to finish his work now." (lost: "My sculpting cousin has disappeared. I'd better finish his carving.") and goes to the sculpture</td>
+<td>partial</td>
+<td>real villager and text natives; never started: Choose Your Creature stops before the second stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>The cousin carries on the quest exactly as the sculptor did; killing him brings another</td>
+<td>partial</td>
+<td>the same script; never started: Choose Your Creature stops before the second stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-reward">The reward</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>With a second left on the carving, a cut-scene: the cow gate stone appears where the rock was, turned half round from it, and the rock fades away</td>
+<td>partial</td>
+<td><code>CREATE</code> makes the stone (a mobile static) and <code>ObjectDelete</code> removes the rock; never started: Choose Your Creature stops before the second stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>The new stone is handed to its own watcher: it sparkles, is remade where it was carved if lost, and is put back there a minute after being dropped anywhere but the plinth</td>
+<td>partial</td>
+<td><code>ProtectGateKey3</code> calls only real natives (the held read is not handled); see <a href="choose_your_creature.html">choose_your_creature.md</a></td>
+</tr>
+<tr>
+<td>The camera looks at the stone; the sculptor faces the camera. The record closes fully done (alignment 0) with the reminder "The sculptor's finished the Gate Stone. We must return it to the Gate."</td>
+<td>todo</td>
+<td>the record is a stub; the camera and villager natives are real</td>
+</tr>
+<tr>
+<td>"I've finished! It's ready to be placed with the others by the Gate." The camera swings round to look past the stone at the plinth, and the sculptor walks off a little way</td>
+<td>partial</td>
+<td>real text, camera and villager natives; never started: Choose Your Creature stops before the second stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>The player takes the stone to the plinth; that is <a href="choose_your_creature.html">Choose Your Creature</a>'s part</td>
+<td>todo</td>
+<td>the plinth reading is a stub; see <a href="choose_your_creature.html">Choose Your Creature</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="after-it-ends">After it ends</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The sculptor goes back to working on his sculpture; a minute later (if alive) he walks between two spots by it and is then left to live as an ordinary villager</td>
+<td>partial</td>
+<td><code>ReleaseFromScript</code> and the villager moves are real; never started: Choose Your Creature stops before the second stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>The half-finished sculpture stays in front of his house</td>
+<td>partial</td>
+<td>made by <code>CREATE</code> if the script ran; never started: Choose Your Creature stops before the second stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>The script never removes its gold scroll (undetermined: whether the game hides a scroll whose record is fully done)</td>
+<td>partial</td>
+<td>the same script; never started: Choose Your Creature stops before the second stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>Music: the happy generic script theme for the introduction</td>
+<td>partial</td>
+<td><code>StartMusic</code> plays it (<code>src/Audio/Services/GameMusic</code>); never started: Choose Your Creature stops before the second stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="unused-material">Unused material</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A commented-out lightning-bolt reward from the sky for bringing the rock</td>
+<td>n/a</td>
+<td>commented out</td>
+</tr>
+<tr>
+<td>A commented-out older carving scene with a sledgehammer and a 90-second timer, and older code for walking the sculptor back to the rock</td>
+<td>n/a</td>
+<td>commented out</td>
+</tr>
+<tr>
+<td>Commented-out updates to the Choose Your Creature record at each step</td>
+<td>n/a</td>
+<td>commented out</td>
+</tr>
+<tr>
+<td>An earlier silver-scroll version of the quest, never compiled</td>
+<td>n/a</td>
+<td>see <a href="../silver_scrolls/the_sculptor_cut_silver.html">../silver_scrolls/the_sculptor_cut_silver.md</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

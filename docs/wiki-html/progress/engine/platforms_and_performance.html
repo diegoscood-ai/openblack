@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Platforms and performance — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="here" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#platforms-and-performance">Platforms and performance</a><ul>
+<li><a href="#systems">Systems</a></li>
+<li><a href="#threads">Threads</a></li>
+<li><a href="#frames">Frames</a></li>
+<li><a href="#loading">Loading</a></li>
+<li><a href="#memory">Memory</a></li>
+<li><a href="#crashes-and-quitting">Crashes and quitting</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="platforms-and-performance">Platforms and performance</h1>
+<p>What the game runs on and how it behaves as a program: the systems and graphics it needs, its threads, how it paces
+frames and loads, how it uses memory, and what happens when it crashes. openblack's own tools for measuring
+performance are counted here too; its debug windows are in <a href="../debug/index.html">../debug/</a>.</p>
+<p><strong>Progress: 17/23 done, 3 partial — 80%</strong></p>
+<h2 id="systems">Systems</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Runs on Windows</td>
+<td>done</td>
+<td>built and tested on Windows in CI (<code>.github/workflows/ci-vcpkg.yml</code>)</td>
+</tr>
+<tr>
+<td>Runs on a Mac (the game had a Mac release)</td>
+<td>done</td>
+<td>built and tested on macOS in CI (<code>.github/workflows/ci-vcpkg.yml</code>)</td>
+</tr>
+<tr>
+<td>Runs on Linux</td>
+<td>done</td>
+<td>built and tested on Ubuntu in CI (openblack only)</td>
+</tr>
+<tr>
+<td>Builds for Android, iOS, ARM Linux and ARM Windows</td>
+<td>partial</td>
+<td>cross-compiled in CI (<code>.github/workflows/ci-cross-compile.yml</code>); <code>src/FileSystem/AndroidFileSystem.cpp</code>; not known to be playable there (unconfirmed)</td>
+</tr>
+<tr>
+<td>Draws through the system's modern graphics interface rather than DirectX 7</td>
+<td>done</td>
+<td>bgfx with Direct3D 12, Vulkan or Metal (<code>src/EngineConfig.h</code>, <code>--backend-type</code>)</td>
+</tr>
+<tr>
+<td>The disc must be in the drive and its copy protection pass</td>
+<td>n/a</td>
+<td>openblack reads an existing install</td>
+</tr>
+<tr>
+<td>The minimum machine of 2001 (a 350 MHz processor, 64 MB of memory, an 8 MB 3D card)</td>
+<td>n/a</td>
+<td>modern machines only</td>
+</tr>
+</tbody>
+</table>
+<h2 id="threads">Threads</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The world and the drawing share one main loop, a turn and a frame at a time</td>
+<td>done</td>
+<td><code>Game::Update</code> (turns, then the frame) and <code>Game::Run</code></td>
+</tr>
+<tr>
+<td>The keyboard is read on its own thread and its keys handed to the loop under a lock</td>
+<td>n/a</td>
+<td>openblack reads keys from SDL's events on the main thread</td>
+</tr>
+<tr>
+<td>Music streams on a thread of its own</td>
+<td>done</td>
+<td>the music's six tracks are fed by a thread of their own every 120 ms (<code>src/Audio/Engine/MusicStream.cpp</code>); see ../audio/</td>
+</tr>
+<tr>
+<td>The graphics are submitted from a render thread so the game doesn't wait on the card</td>
+<td>done</td>
+<td>bgfx is built multithreaded (<code>vcpkg.json</code> feature <code>multithreaded</code>), its render thread apart from the main thread</td>
+</tr>
+<tr>
+<td>Network play runs its own threads</td>
+<td>todo</td>
+<td>see ../multiplayer/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="frames">Frames</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Frames are drawn as fast as they can be, or held to the screen's refresh</td>
+<td>done</td>
+<td><code>--no-vsync</code> (on by default, as the original); the turn rate is separate, see game_loop_and_clock.md</td>
+</tr>
+<tr>
+<td>Average and slowest (95th percentile) frame times can be logged</td>
+<td>done</td>
+<td><code>src/Common/FrameStats.cpp</code>, <code>--frame-stats</code>; test <code>test/test_frame_stats.cpp</code></td>
+</tr>
+<tr>
+<td>The cost of each part of a frame can be measured, with the GPU's time per render view</td>
+<td>done</td>
+<td><code>src/Profiler.cpp</code>, <code>--frame-stats-views</code></td>
+</tr>
+<tr>
+<td>Crowds of creatures and villagers can be benchmarked and the results written out</td>
+<td>partial</td>
+<td>the benchmark recorder exists (<code>src/Debug/BenchmarkRecorder.cpp</code>, test <code>test/test_benchmark.cpp</code>) but nothing in the game starts it; no crowd scenarios in our tree</td>
+</tr>
+<tr>
+<td>A fixed time per frame for repeatable runs</td>
+<td>done</td>
+<td><code>OPENBLACK_FIXED_FRAME_MS</code> (<code>src/Debug/FixedClock.cpp</code>), also for the audio (<code>src/Audio/Device/FixedClockSampleOutput.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="loading">Loading</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A loading box with progress text shows while the game starts and while a land loads</td>
+<td>todo</td>
+<td>the window stays blank until loading ends</td>
+</tr>
+<tr>
+<td>Meshes, animations, textures and sounds are loaded once and looked up by name</td>
+<td>done</td>
+<td>resource caches (<code>src/Resources</code>), loaded in <code>Game::Initialize</code></td>
+</tr>
+<tr>
+<td>The next land's resources are loaded when changing land, the last land's freed</td>
+<td>partial</td>
+<td><code>Game::LoadMap</code> clears the world; assets stay loaded for the whole run</td>
+</tr>
+</tbody>
+</table>
+<h2 id="memory">Memory</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The game manages its own memory heaps and writes a leak report to the install folder on exit</td>
+<td>n/a</td>
+<td>openblack uses the standard allocator and owns memory through RAII</td>
+</tr>
+<tr>
+<td>Memory use (process and graphics memory) can be logged for profiling</td>
+<td>done</td>
+<td><code>src/Debug/MemoryStats.cpp</code> (working set, peak, private bytes and the bgfx memory), logged with <code>OPENBLACK_PROFILE</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="crashes-and-quitting">Crashes and quitting</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A crash writes a report with the call stack into a crashes folder, named after the time, then exits</td>
+<td>done</td>
+<td><code>src/Common/CrashHandler.cpp</code>, <code>CrashReport.cpp</code>; test <code>CrashReport.NamesFilesAfterTheTime</code></td>
+</tr>
+<tr>
+<td>Aborts, assertions, uncaught exceptions and signals are each reported with an exit code as the shell expects</td>
+<td>done</td>
+<td>tests <code>CrashReport.AbortLikeCrashesExitWithThree</code>, <code>CrashReport.SignalsExitAsShellsReportThem</code></td>
+</tr>
+<tr>
+<td>The system's own crash dialogs can be asked for instead</td>
+<td>done</td>
+<td><code>--crash-dialogs</code>; test <code>CrashReport.FindsTheCrashDialogsSwitch</code></td>
+</tr>
+<tr>
+<td>A save that crashed the game while loading is not loaded again</td>
+<td>todo</td>
+<td>see saving_and_loading.md</td>
+</tr>
+<tr>
+<td>Closing the window or quitting from the menu ends the game cleanly</td>
+<td>done</td>
+<td><code>Game::ProcessEvents</code>, the menu's quit question</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

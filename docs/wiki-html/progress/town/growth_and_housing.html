@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Town growth and housing — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="here" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#town-growth-and-housing">Town growth and housing</a><ul>
+<li><a href="#the-town">The town</a></li>
+<li><a href="#housing-its-people">Housing its people</a></li>
+<li><a href="#growing">Growing</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="town-growth-and-housing">Town growth and housing</h1>
+<p>A town is a collection of abodes and civic buildings around a town centre, with an area on the map. It houses its
+people, plans new buildings as it grows, and grows outwards when the player gives it wood and scaffolds.</p>
+<p><strong>Progress: 20/24 done, 3 partial — 90%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../buildings.html">Buildings, building sites and towns (the building side)</a>.</p>
+<h2 id="the-town">The town</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Towns are made by the land script with an owner and a tribe</td>
+<td>done</td>
+<td><code>src/ECS/Archetypes/TownArchetype.cpp</code>, CREATE_TOWN in <code>src/LHScriptX/FeatureScriptCommands.cpp</code></td>
+</tr>
+<tr>
+<td>A town has an area worked out from its buildings, and a centre</td>
+<td>done</td>
+<td>the town rectangle from its abodes and fields (<code>town_placement::SetTownArea</code>, <code>ExtendTownArea</code>, <code>src/ECS/Town/TownPlacement.cpp</code>) and its centre (<code>Town::centre</code>); <code>test/test_town_area.cpp</code></td>
+</tr>
+<tr>
+<td>A town can be marked uninhabitable by script</td>
+<td>done</td>
+<td>SET_TOWN_UNINHABITABLE sets <code>Town::uninhabitable</code> (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>), and an uninhabitable town takes no villager (<code>town_villagers::AddVillagerToTown</code>)</td>
+</tr>
+<tr>
+<td>A town has a congregation point, which scripts can move</td>
+<td>done</td>
+<td>SET_TOWN_CONGREGATION_POS (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>), read by the emergency's congregation (<code>src/ECS/Villager/VillagerEmergency.cpp</code>)</td>
+</tr>
+<tr>
+<td>The town's own forests, fields, fish farms and flocks are assigned to it at load</td>
+<td>done</td>
+<td>the forests at the end of the load (<code>town_features::AssignTownFeatures</code>, <code>src/ECS/Town/TownFeatures.cpp</code>); fields and fish farms take their town when made, and CREATE_FLOCK puts the flock on its town's list (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>)</td>
+</tr>
+<tr>
+<td>A town knows its nearest towns</td>
+<td>partial</td>
+<td>a nearest town search (<code>map_cells::GetNearestTown</code>), used by scripts, scaffolds and placement; no per-town list of neighbours</td>
+</tr>
+<tr>
+<td>Each town has its own influence</td>
+<td>done</td>
+<td><code>src/ECS/Influence/InfluenceSources.cpp</code>; See ../worship/</td>
+</tr>
+<tr>
+<td>A town turn runs its steps in the game's order: needs, abodes, repairs, artefacts, spell icons, emergencies, dying</td>
+<td>partial</td>
+<td><code>ProcessTown</code> runs the steps in the original's order (<code>src/ECS/Town/TownProcess.cpp</code>): plans, sites, abodes, desires, worship, repairs, emergency, pots, belief, shuffling; the artefacts, spell icons, desire flags, creature attitude, missionaries and the town's alignment step are TODO</td>
+</tr>
+</tbody>
+</table>
+<h2 id="housing-its-people">Housing its people</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Villagers are housed in abodes with room for adults and for children</td>
+<td>done</td>
+<td><code>abode_villagers::AddVillagerToAbode</code> and the room for adults and children (<code>src/ECS/Town/AbodeVillagers.cpp</code>); <code>test/test_villager_home.cpp</code></td>
+</tr>
+<tr>
+<td>The best abode for a new villager is scored by room and by who already lives there (wanting a man, a villager)</td>
+<td>done</td>
+<td><code>CalculateScoreForAddingVillagerToAbode</code>, <code>CalculateDesireToGainMale</code> and <code>FindAbodeWithSpaceInTown</code> (<code>src/ECS/Town/AbodeVillagers.cpp</code>, <code>src/ECS/Town/TownVillagers.cpp</code>)</td>
+</tr>
+<tr>
+<td>The town keeps a list of its homeless, newest first</td>
+<td>done</td>
+<td><code>town_villagers::Homeless</code>, head first (<code>src/ECS/Town/TownVillagers.cpp</code>), filled by making a villager homeless (<code>src/ECS/Villager/VillagerHome.cpp</code>)</td>
+</tr>
+<tr>
+<td>Villagers are shuffled between abodes to fit families</td>
+<td>done</td>
+<td><code>town_villagers::ShuffleVillagersAroundAbodes</code>, one move a call, from the town turn (<code>src/ECS/Town/TownProcess.cpp</code>)</td>
+</tr>
+<tr>
+<td>A town checks whether its villagers need a new abode</td>
+<td>done</td>
+<td><code>CheckNeedNewAbode</code> (<code>src/ECS/Villager/VillagerHome.cpp</code>), from the villagers' decisions and growing up</td>
+</tr>
+<tr>
+<td>Overcrowded abodes push villagers out</td>
+<td>done</td>
+<td>a villager of a too crowded abode moves to a better one or becomes homeless (<code>CheckNeedNewAbode</code>, <code>abode_villagers::IsTooCrowded</code>)</td>
+</tr>
+<tr>
+<td>The town's population counts for its desires and influence</td>
+<td>done</td>
+<td>the turn's town stats (<code>town_stats::Compute</code>, <code>src/ECS/Town/TownStats.cpp</code>) feed the desires (<code>src/ECS/Town/TownDesire.cpp</code>) and the influence; <code>test/test_town_stats.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="growing">Growing</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The town keeps planned buildings: outlines where it means to build</td>
+<td>done</td>
+<td>the town's plan list (<code>ecs::plans</code>, <code>src/ECS/Town/BuildingSites.cpp</code>), filled by CREATE_PLANNED_ABODE, destroyed buildings and scaffolds</td>
+</tr>
+<tr>
+<td>When it wants abodes or civic buildings it picks the best plan and opens a building site</td>
+<td>done</td>
+<td><code>building_sites::RequestBestPlanned</code> and <code>GetDesireToBeBuilt</code>, asked by the builders' desires (<code>src/ECS/Villager/VillagerBuild.cpp</code>); See ../building/construction.md</td>
+</tr>
+<tr>
+<td>It asks for a new abode when there is no plan</td>
+<td>done</td>
+<td><code>building_sites::RequestANewAbode</code> takes the best house plan (<code>src/ECS/Town/BuildingSites.cpp</code>). Our wiki differs: the town never invents a plan; without a house plan no abode is asked for (<a href="../../buildings.html#plans-and-building-sites">buildings</a>)</td>
+</tr>
+<tr>
+<td>It looks for clear ground suited to a building in its area</td>
+<td>done</td>
+<td>the plan's spot is checked (<code>town_placement::IsSuitableForFixedAbodeInTown</code>, <code>src/ECS/Town/TownPlacement.cpp</code>). Our wiki differs: the town searches for no ground of its own; only a plan's spot, a scaffold's or the rival's is checked (<a href="../../buildings.html#plans-and-building-sites">buildings</a>)</td>
+</tr>
+<tr>
+<td>A script forces a planned building to be built</td>
+<td>done</td>
+<td>BUILD_BUILDING (<code>src/CHLApi.cpp</code>) through <code>building_sites::ForceBuildingOfPlannedAtPos</code></td>
+</tr>
+<tr>
+<td>A new building changes the town's area and stats and draws villagers' attention</td>
+<td>partial</td>
+<td>the town area is redone when a structure joins or leaves (<code>src/ECS/Archetypes/AbodeArchetype.cpp</code>, <code>src/ECS/Abodes.cpp</code>) and the stats each turn; the new building reaction is not made yet (only logged in <code>abodes::Built</code>)</td>
+</tr>
+<tr>
+<td>Scaffolds dropped by the player in the town become its buildings</td>
+<td>done</td>
+<td>a scaffold offers the building the town wants and, put down, becomes its site (<code>src/ECS/Scaffolds.cpp</code>); See ../building/workshop_and_scaffolds.md</td>
+</tr>
+<tr>
+<td>The town grows only as fast as its wood allows</td>
+<td>done</td>
+<td>builders carry wood from the storage pit to the site's pile, and the site only grows with the wood used (<code>src/ECS/Villager/VillagerBuild.cpp</code>, <code>src/ECS/Town/BuildingSites.cpp</code>)</td>
+</tr>
+<tr>
+<td>Towns of the computer player grow and attack on their own</td>
+<td>todo</td>
+<td>no computer player; See ../multiplayer/ (the rival gods' towns in the story are scripted; unconfirmed how much is AI)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

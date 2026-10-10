@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vanilla bugs: multiplayer and skirmish — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="here" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#vanilla-bugs-multiplayer-and-skirmish">Vanilla bugs: multiplayer and skirmish</a><ul>
+<li><a href="#soft-locks-and-lost-progress">Soft-locks and lost progress</a></li>
+<li><a href="#wrong-outcomes">Wrong outcomes</a></li>
+<li><a href="#missing-or-wrong-feedback">Missing or wrong feedback</a></li>
+<li><a href="#data-and-text-errors">Data and text errors</a></li>
+<li><a href="#harmless">Harmless</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="vanilla-bugs-multiplayer-and-skirmish">Vanilla bugs: multiplayer and skirmish</h1>
+<p>Bugs in the original game's skirmish and network play and in the shipped skirmish land scripts
+(<code>Scripts/Playgrounds/</code>).</p>
+<p><strong>Bugs: 9 (soft-locks and lost progress: 1)</strong></p>
+<h2 id="soft-locks-and-lost-progress">Soft-locks and lost progress</h2>
+<table>
+<thead>
+<tr>
+<th>Bug</th>
+<th>What the player sees</th>
+<th>Evidence</th>
+<th>Found in</th>
+<th>openblack</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Start Skirmish Game ends the current game at once without the confirmation the text table has for it ("Starting a Skirmish game end the current game. Do you wish to do this?")</td>
+<td>The game in progress is thrown away without a question</td>
+<td>Version 1.2 never shows the line</td>
+<td><a href="../multiplayer/skirmish.html">skirmish.md</a></td>
+<td>undecided (not in this tree yet: the menu's Start Skirmish Game button does nothing, so the game goes on)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="wrong-outcomes">Wrong outcomes</h2>
+<table>
+<thead>
+<tr>
+<th>Bug</th>
+<th>What the player sees</th>
+<th>Evidence</th>
+<th>Found in</th>
+<th>openblack</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The online winning conditions switch off the building goals (houses, wonders, new towns, converts) by default, with a developers' note that a bug was still to be fixed</td>
+<td>Those goals are not offered for online games</td>
+<td>The game's condition list</td>
+<td><a href="../multiplayer/maps/firestorm.html">firestorm.md</a></td>
+<td>undecided (not in this tree yet: no online play)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="missing-or-wrong-feedback">Missing or wrong feedback</h2>
+<table>
+<thead>
+<tr>
+<th>Bug</th>
+<th>What the player sees</th>
+<th>Evidence</th>
+<th>Found in</th>
+<th>openblack</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A god the computer takes over is named with a random line from the first 99 of the text table, which are villagers' grumbles, not names (unconfirmed that players saw it)</td>
+<td>A rival god named something like "Work, work, work. I'm sick of it."</td>
+<td>The naming reads the text table by index</td>
+<td><a href="../rival_gods/skirmish_opponents.html">skirmish_opponents.md</a></td>
+<td>undecided (not in this tree yet: no network play)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="data-and-text-errors">Data and text errors</h2>
+<table>
+<thead>
+<tr>
+<th>Bug</th>
+<th>What the player sees</th>
+<th>Evidence</th>
+<th>Found in</th>
+<th>openblack</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>Death Comes To Those That Wait</em> writes its 119 named villagers with a misspelt command (<code>CREATE_SPECIAL_TOWNVILLAGER</code>), which the game skips</td>
+<td>None of the land's named villagers is ever made</td>
+<td>119 lines in the shipped file, none with the correct spelling (checked in the game data)</td>
+<td><a href="../scripts/land_script_commands.html">land_script_commands.md</a>, <a href="../scripts/playground_scripts.html">playground_scripts.md</a>, <a href="../multiplayer/maps/death_comes_to_those_that_wait.html">death_comes_to_those_that_wait.md</a></td>
+<td>reproduced (each line is logged and skipped, <code>Script::Load</code>; the map's file is not in our game folder, so not checked)</td>
+</tr>
+<tr>
+<td><em>Death Comes To Those That Wait</em> gives town 21 a misspelt miracle (<code>EXPLSION_PU1</code>)</td>
+<td>That town never offers the miracle</td>
+<td>One line in the shipped file (checked in the game data)</td>
+<td><a href="../scripts/land_script_commands.html">land_script_commands.md</a></td>
+<td>reproduced (the miracle is not found and nothing is given, <code>magic::script::CreateNewTownSpell</code>; the progress file says to ignore it as the game does)</td>
+</tr>
+<tr>
+<td><em>Death Comes To Those That Wait</em> gives two towns the number 15 (a Greek town and the Tibetan town in the middle)</td>
+<td>Undetermined what the game does with the repeated number</td>
+<td>Two town lines in the shipped file (checked in the game data)</td>
+<td><a href="../multiplayer/maps/death_comes_to_those_that_wait.html">death_comes_to_those_that_wait.md</a></td>
+<td>undecided (this tree's lookup takes the first town with that number, <code>ecs::town_queries::FindTownWithID</code>; what the game does is not determined)</td>
+</tr>
+<tr>
+<td><em>Death Comes To Those That Wait</em> places 86 fireflies in two lists that partly repeat Three Gods' spots, and only 35 of them stand on one of the map's trees; its last firefly reward table is Land 2's</td>
+<td>The other 51 are removed at the first nightfall and the land tops up to 50 instead</td>
+<td>86 firefly lines in the shipped file (count checked in the game data); spots compared with the map's trees</td>
+<td><a href="../nature/fireflies.html">fireflies.md</a>, <a href="../multiplayer/maps/death_comes_to_those_that_wait.html">death_comes_to_those_that_wait.md</a></td>
+<td>differs: <code>CREATE_FIRE_FLY</code> is empty, so none of the 86 is placed; the land tops up to 50 at nightfall</td>
+</tr>
+</tbody>
+</table>
+<h2 id="harmless">Harmless</h2>
+<table>
+<thead>
+<tr>
+<th>Bug</th>
+<th>What the player sees</th>
+<th>Evidence</th>
+<th>Found in</th>
+<th>openblack</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>One firefly reward line in <em>Death Comes To Those That Wait</em> lacks its closing bracket</td>
+<td>nothing visible: the game reads it anyway</td>
+<td>One line in the shipped file (checked in the game data)</td>
+<td><a href="../scripts/land_script_commands.html">land_script_commands.md</a></td>
+<td>differs: the line is logged and skipped (<code>Script::Load</code>), where the game reads it</td>
+</tr>
+<tr>
+<td>Each clan in the clan list carries a yes/no flag that the game stores but never reads</td>
+<td>nothing visible</td>
+<td>Checked in the Windows and Mac versions</td>
+<td><a href="../multiplayer/clans.html">clans.md</a></td>
+<td>undecided (not in this codebase: the clan list is the online service's, bwgame-service)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

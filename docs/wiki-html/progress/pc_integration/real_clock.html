@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The real clock and calendar — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="here" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-real-clock-and-calendar">The real clock and calendar</a><ul>
+<li><a href="#night-whispers-when">Night whispers: when</a></li>
+<li><a href="#night-whispers-how-likely">Night whispers: how likely</a></li>
+<li><a href="#night-whispers-whose-name">Night whispers: whose name</a></li>
+<li><a href="#night-whispers-how-it-sounds">Night whispers: how it sounds</a></li>
+<li><a href="#the-real-moon">The real moon</a></li>
+<li><a href="#script-functions">Script functions</a></li>
+<li><a href="#special-days">Special days</a></li>
+<li><a href="#time-played-and-saved-games">Time played and saved games</a></li>
+<li><a href="#other-uses-of-the-clock">Other uses of the clock</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-real-clock-and-calendar">The real clock and calendar</h1>
+<p>Everything in the game that reads the date and time of the player's computer, rather than the game's own clock: voices
+that whisper the player's name late at night, the real moon's phase, script functions that read the real date and time,
+the smiley footprints of the first of April, the time played, the dates on saved games, and the times the online
+features send and compare. The game's own day and night, and its in-game calendar, are owned by
+<a href="../sky/day_night_cycle.html">../sky/day_night_cycle.md</a> and <a href="../engine/game_loop_and_clock.html">../engine/game_loop_and_clock.md</a>.
+All of the game's reads of the clock were traced; the dates and hours below are the only ones it acts on.</p>
+<p><strong>Progress: 26/46 done, 5 partial — 62%</strong></p>
+<h2 id="night-whispers-when">Night whispers: when</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>On real nights a ghostly voice now and then whispers the player's own name</td>
+<td>done</td>
+<td><code>audio::spooky</code> (<code>src/Audio/Services/SpookyVoices.cpp</code>), run once a game turn from the guidance (<code>src/Audio/Services/Guidance.cpp</code>); tests in <code>test/audio/test_spooky_voices.cpp</code>; the advisors' summary rows are in ../story/advisors.md ("Spooky voices")</td>
+</tr>
+<tr>
+<td>A real night is from 20:45 to 20:59, and from 23:00 to 05:59, by the computer's local clock</td>
+<td>done</td>
+<td><code>spooky::NightNow</code>; test <code>SpookySoundex.NightByTheClock</code></td>
+</tr>
+<tr>
+<td>The clock is read every 100 game turns, about every 10 seconds of play</td>
+<td>done</td>
+<td>a countdown of 100 calls of <code>spooky::Process</code>, which runs only with the game's turns; test <code>SpookyTest.CountdownAndCounter</code></td>
+</tr>
+<tr>
+<td>Never on the first two lands</td>
+<td>done</td>
+<td><code>spooky::Process</code> does nothing on lands 1 and 2</td>
+</tr>
+<tr>
+<td>Never when no name could be matched (see below)</td>
+<td>done</td>
+<td>no sample without a matching name (<code>spooky::GetName</code> gives 0), so it never sounds</td>
+</tr>
+<tr>
+<td>There is no option to turn it off</td>
+<td>done</td>
+<td>our tree has no option either</td>
+</tr>
+<tr>
+<td>Nothing stops it in a multiplayer game</td>
+<td>done</td>
+<td>nothing in <code>spooky::Process</code> checks for a multiplayer game, as in the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="night-whispers-how-likely">Night whispers: how likely</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each real-night check counts up by one; the count starts at 0 and goes back to 0 after each whisper</td>
+<td>done</td>
+<td>the counter in <code>spooky::Process</code>, back to 0 in <code>PlaySpookyVoice</code>; test <code>SpookyTest.CountdownAndCounter</code></td>
+</tr>
+<tr>
+<td>A check whispers when (1 − r³) × 1000, cut to a whole number, is below the count, with r a local random number from 0 to 1</td>
+<td>done</td>
+<td><code>spooky::Process</code>, with the local random stream (<code>game_random::LocalFloatRand</code>)</td>
+</tr>
+<tr>
+<td>So it is rare at first and grows: about 0.3% a check after 10 checks (under 2 minutes), 2% after 60 (10 minutes), 6.4% after 180 (30 minutes), 14% after 360 (an hour), and certain after 1000</td>
+<td>done</td>
+<td>follows from the rule above</td>
+</tr>
+<tr>
+<td>A check that does not whisper may instead have the evil advisor say, once per run of the game, "Night's falling. Beware. The foul are abroad." with a chance of 0.02%</td>
+<td>done</td>
+<td>every night check that does not whisper calls <code>guidance::OneOff(1)</code>, which says the line once per run at its chance (<code>src/Audio/Services/Guidance.cpp</code>); see ../story/advisors.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="night-whispers-whose-name">Night whispers: whose name</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The name is looked up as the game starts up, and again as each game starts</td>
+<td>done</td>
+<td><code>spooky::Init</code> at the game's one-time start and <code>spooky::UpdatePlayerName</code> at each land (<code>Game.cpp</code>)</td>
+</tr>
+<tr>
+<td>The game first tries the player's profile name</td>
+<td>partial</td>
+<td>our tree has no profiles: the name comes from <code>OPENBLACK_PLAYER_NAME</code> (<code>Game.cpp</code>), a stand-in (see ../interface/profiles.md)</td>
+</tr>
+<tr>
+<td>If that does not match, it tries a second name the game holds for the player (unconfirmed which: most likely the online player's name)</td>
+<td>todo</td>
+<td>the network name is not ported (no network login in our tree)</td>
+</tr>
+<tr>
+<td>If that does not match either, it tries the name Windows was registered to, from the system's setup information</td>
+<td>n/a</td>
+<td>read from the Windows registry; Windows-only</td>
+</tr>
+<tr>
+<td>Each word of the name is tried in turn</td>
+<td>done</td>
+<td><code>spooky::SoundexOverlap</code> (words split at spaces)</td>
+</tr>
+<tr>
+<td>A word matches a recorded name when their first letters are the same exactly (case counts) and their next three sound codes match</td>
+<td>done</td>
+<td><code>spooky::SoundsAlike</code> and <code>GetNextSoundexCode</code>; tests <code>SpookySoundex.LetterCodes</code>, <code>NextCodeKeepsTheW120Quirk</code>, <code>ComparisonAndOverlap</code>. Our wiki differs: h, w and y give the letter itself as their code rather than none, and a letter with the same code as the one before is not skipped but gives that code plus one (<a href="../../audio.html#guidance-and-night-voices-in-openblack">audio</a>)</td>
+</tr>
+<tr>
+<td>There are 100 recorded names: James, John, Peter, Pete, Matthew, Mark, Simon, Paul, Timothy, Tim, Jon, Andrew, Andy, Jamie, Will, William, Oliver, Ollie, Richard, Rich, Dan, Ben, Neil, Rob, Robert, Russell, Jeremy, Jez, Gary, Mike, Chris, Christopher, Dave, David, Aaron, Wayne, Ian, Phil, Julian, Ed, Tom, Charlie, Jack, Steven, Steve, Liam, Jason, Nick, Nicholas, Thomas, Darren, Kevin, Lee, Terry, Adrian, Dominic, Alex, Matt, Nathan, Adam, Alan, Graham, Angus, Abdul, Achmed, Mohammed, Habib, Gareth, Jo, Joe, Janice, Claire, Sophie, Vicky, Mel, Rachel, Emma, Gemma, Alison, Caroline, Jade, Kylie, Lucy, Sam, Debbie, Jasmine, Lisa, Louise, Emily, Amanda, Lizzie, Daisy, Katie, Sarah, Cat, Amy, Naomi, Helen, Karen, Rebecca</td>
+<td>done</td>
+<td>the 100 <code>HELP_TEXT_SPOOKY_NAMES_*</code> texts (<code>spooky::k_FirstName</code>), the first match winning (<code>spooky::FindSoundAlikeName</code>); tests <code>SpookySoundex.TheInstallationsNames</code> and its synthetic twin</td>
+</tr>
+<tr>
+<td>The whisper is that name's recording, from the advisors' sound bank</td>
+<td>done</td>
+<td>the name's sample from the voice table, played from the Guidance bank (<code>spooky::Init</code>, <code>PlaySpookyVoice</code>)</td>
+</tr>
+<tr>
+<td>The game's info table also lists five named voices: Tblamb, Revans, Aevans, Bill and Pmolyneux</td>
+<td>done</td>
+<td>read into <code>InfoConstants::spookyVoice</code> (<code>src/InfoConstants.h</code>) and, as in the game, used by nothing (<a href="../../audio.html#guidance-and-night-voices-in-openblack">audio</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="night-whispers-how-it-sounds">Night whispers: how it sounds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The volume is the normal one times or divided by 1 + a³, a a local random number up to 0.65, so 78% to 127%</td>
+<td>done</td>
+<td><code>spooky::PlaySpookyVoice</code>; test <code>SpookyTest.PlaySpookyVoiceBuildsTheVolumeUp</code>. Our wiki differs: the volume is scaled by the random number up to 0.8 and the pitch by the one up to 0.65, and the volume change builds up from one whisper to the next because the sound options are kept (<a href="../../audio.html#guidance-and-night-voices-in-openblack">audio</a>)</td>
+</tr>
+<tr>
+<td>The pitch is the sample's own times or divided by 1 + b³, b up to 0.8, so 0.66 to 1.51 times</td>
+<td>done</td>
+<td><code>spooky::PlaySpookyVoice</code>. Our wiki differs: the pitch is the one scaled by the random number up to 0.65, the volume the one up to 0.8 (<a href="../../audio.html#guidance-and-night-voices-in-openblack">audio</a>)</td>
+</tr>
+<tr>
+<td>A third random number from 0 to 179 is set on the sound (unconfirmed: most likely where it is heard from)</td>
+<td>partial</td>
+<td>drawn and kept (<code>spooky::State::field2C</code>), but our sample player does not use it</td>
+</tr>
+<tr>
+<td>It is played as a plain sound, not placed in the world (unconfirmed)</td>
+<td>done</td>
+<td>played 2D (<code>spooky::PlaySpookyVoice</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-real-moon">The real moon</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The moon in the sky shows the real moon's phase, from the computer's clock</td>
+<td>done</td>
+<td>see ../sky/moon.md: <code>moon::Phase</code> (<code>src/Graphics/Moon.cpp</code>); test <code>Moon.PhaseFollowsTheRealMoon</code></td>
+</tr>
+<tr>
+<td>The clock is read at most once every 2 seconds for it</td>
+<td>done</td>
+<td>our tree reads it every frame, which gives the same phase (../sky/moon.md)</td>
+</tr>
+<tr>
+<td>Scripts can ask how full the moon is</td>
+<td>todo</td>
+<td><code>GET_MOON_PERCENTAGE</code> is a stub in <code>src/CHLApi.cpp</code> that gives 0</td>
+</tr>
+<tr>
+<td>The advisors remark on the moon's phase</td>
+<td>done</td>
+<td>the guidance's moon remark (<code>RemarkOnMoonPhase</code>, <code>src/Audio/Services/Guidance.cpp</code>) uses the real phase (<code>moon::Phase</code> of the computer's clock) at a real night; see ../interface/help_system.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-functions">Script functions</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>"get real time" gives the local time as an hour with a fraction: hours + minutes / 60 + seconds / 3600</td>
+<td>todo</td>
+<td><code>GET_REAL_TIME</code> is a stub in <code>src/CHLApi.cpp</code> that gives 0</td>
+</tr>
+<tr>
+<td>"get real day" gives the day of the month, 1 to 31</td>
+<td>todo</td>
+<td><code>GET_REAL_DAY</code> is a stub in <code>src/CHLApi.cpp</code> that gives 0</td>
+</tr>
+<tr>
+<td>"get real weekday" gives the day of the week, 1 to 7 with Sunday as 1</td>
+<td>todo</td>
+<td>our tree binds both day functions to stubs (<code>GetRealDay115</code>, <code>GetRealDay116</code>); the second one of the pair is the weekday in the game</td>
+</tr>
+<tr>
+<td>"get real month" gives the month, 1 to 12</td>
+<td>todo</td>
+<td><code>GET_REAL_MONTH</code> is a stub in <code>src/CHLApi.cpp</code> that gives 0</td>
+</tr>
+<tr>
+<td>"get real year" gives the full year, e.g. 2026</td>
+<td>todo</td>
+<td><code>GET_REAL_YEAR</code> is a stub in <code>src/CHLApi.cpp</code> that gives 0</td>
+</tr>
+<tr>
+<td>In a multiplayer game each of them reports "This is not multiplayer friendly yet!" as a script error, but still gives the value</td>
+<td>todo</td>
+<td>no multiplayer game in our tree</td>
+</tr>
+<tr>
+<td>None of the shipped challenge scripts use them</td>
+<td>n/a</td>
+<td>searched all the game's script sources; only mods would see the difference</td>
+</tr>
+</tbody>
+</table>
+<h2 id="special-days">Special days</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>On the first of April every creature leaves a smiley face instead of its own footprint</td>
+<td>done</td>
+<td><code>FootprintSystem::IsAprilFools</code> (<code>src/ECS/Systems/Implementations/FootprintSystem.cpp</code>), <code>creature_footprints::IsAprilFools</code>; tests <code>CreatureFootprints.AprilFoolsSmileyKeepsTheSpeciesSize</code>, <code>FootprintSystemDate.AprilFoolsComesFromTheInjectedDate</code>; see ../terrain/land_marks.md</td>
+</tr>
+<tr>
+<td>The day is the computer's local date, from midnight to midnight, read again for every print, so prints change mid-walk at midnight</td>
+<td>partial</td>
+<td>our tree reads the local date once, when the footprints are reset at each land (<code>FootprintSystem::Reset</code>), not for every print, so the prints do not change at midnight</td>
+</tr>
+<tr>
+<td>The smiley keeps the size the species' own print would have</td>
+<td>done</td>
+<td>test <code>CreatureFootprints.AprilFoolsSmileyKeepsTheSpeciesSize</code></td>
+</tr>
+<tr>
+<td>The smiley is the eighth picture in the row of footprint pictures</td>
+<td>done</td>
+<td><code>creature_footprints::k_SmileyCell</code> (<code>src/Creature/CreatureFootprints.h</code>)</td>
+</tr>
+<tr>
+<td>It applies to every creature on the land, the player's, the enemies' and in multiplayer games, with no option to turn it off</td>
+<td>partial</td>
+<td>as the game; our tree adds a debug override in the creature spawner (<code>src/Debug/CreatureSpawnerFootprints.cpp</code>)</td>
+</tr>
+<tr>
+<td>No other date changes anything: no Christmas, Halloween, New Year, Easter, birthday or release-date surprise</td>
+<td>n/a</td>
+<td>every read of the date in the game was traced; only the first of April and the real-night hours are acted on</td>
+</tr>
+<tr>
+<td>The Christmas music and the "White Christmas" singing-stones song play from a script on any date</td>
+<td>n/a</td>
+<td>not date-based; see ../audio/music.md and ../nature/one_shot_features.md</td>
+</tr>
+<tr>
+<td>The in-game calendar (days, months, years and seasons) is the land's own, set by its script, not the real date</td>
+<td>n/a</td>
+<td>see ../weather/climates.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="time-played-and-saved-games">Time played and saved games</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The real time is noted when a game starts</td>
+<td>partial</td>
+<td>our tree counts from when its engine started, on the game's own clock (<code>game_clock::EngineMs</code>, <code>src/3D/Implementations/TempleInterior.cpp</code>), not the real one</td>
+</tr>
+<tr>
+<td>When the game is closed, the time since then is added to the total time played, which is kept in the player profile</td>
+<td>todo</td>
+<td>no total in our tree (no profiles)</td>
+</tr>
+<tr>
+<td>The save game room's scroll shows the total time played, including the current session, as hours, minutes and seconds</td>
+<td>todo</td>
+<td><code>src/3D/TempleScrolls.cpp</code> shows only this session's time</td>
+</tr>
+<tr>
+<td>Each saved game is labelled with the time and date it was saved, in the user's own Windows format: the time, a space, then the long date (the short date if the long one is not available)</td>
+<td>todo</td>
+<td><code>TempleScrolls</code> shows a date field, but our saved games are made-up placeholders</td>
+</tr>
+<tr>
+<td>If the time and date together are 62 characters or more, the label is left blank</td>
+<td>todo</td>
+<td>no saved games in our tree</td>
+</tr>
+<tr>
+<td>The real time is noted as each land's statistics start (unconfirmed what for)</td>
+<td>todo</td>
+<td>it is saved with the statistics and never shown; perhaps the online record's time played (unconfirmed) (<a href="../interface/statistics_counted.html">../interface/statistics_counted.md</a>)</td>
+</tr>
+<tr>
+<td>The music notes the real time each mood was last chosen (unconfirmed what for)</td>
+<td>todo</td>
+<td>see ../audio/music.md (unconfirmed)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="other-uses-of-the-clock">Other uses of the clock</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The e-mail feature notes the start-up time and ignores older mail</td>
+<td>n/a</td>
+<td>see villager_names_from_contacts.md</td>
+</tr>
+<tr>
+<td>The real weather queries send the computer's date as day.month.year</td>
+<td>n/a</td>
+<td>see real_weather.md</td>
+</tr>
+<tr>
+<td>The creature upload file is given a random number from a generator seeded with the clock</td>
+<td>todo</td>
+<td>no <code>creature.lhp</code> in our tree; see online_services.md</td>
+</tr>
+<tr>
+<td>A config text file named after the detail level is given a line with the date, time and detail level (unconfirmed when)</td>
+<td>n/a</td>
+<td>a developer log, not a player feature</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

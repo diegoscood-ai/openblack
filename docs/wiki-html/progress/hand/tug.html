@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pulling things free — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="here" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#pulling-things-free">Pulling things free</a><ul>
+<li><a href="#taking-hold">Taking hold</a></li>
+<li><a href="#pulling">Pulling</a></li>
+<li><a href="#coming-free">Coming free</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="pulling-things-free">Pulling things free</h1>
+<p>Grabbing a standing tree doesn't lift it at once: the hand pulls at it, the tree leans and stretches towards the hand
+like a spring, and it only comes free once the pull is strong enough for its weight. Too heavy for the hand's strength,
+it never comes free. Everything else the hand can take comes free as soon as the hand has faded into its pulling pose.</p>
+<p>openblack: the pull is in <code>HandSystem</code> (<code>BeginTug</code>, <code>UpdateTug</code>, <code>HandTrees.cpp</code>), simpler than the game's spring: a tree
+comes free once the hand has moved weight / 1000 sideways; the uprooted tree leaves its roots hole (<code>HandSystem::Uproot</code>).
+No unit test covers the pull yet.</p>
+<p><strong>Progress: 9/22 done, 8 partial — 59%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../hand-and-interface.html">The hand and the interface</a>.</p>
+<h2 id="taking-hold">Taking hold</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Only standing trees are really pulled; big forests, fields, piles and fireballs wait for the press to become a hold instead, and anything else comes free once the hand's pulling pose has faded in</td>
+<td>partial</td>
+<td>Trees are tugged from the press (<code>HandSystem::BeginTug</code>, <code>HandTrees.cpp</code>); a big forest waits the 225 ms timer, piles and fields start a locked select, other objects are taken once the 0.13 s pull pose blend is over (<code>_pendingTugHold</code> in <code>HandSystem::Update</code>). The magic fireball is not in our tree</td>
+</tr>
+<tr>
+<td>The hand takes hold at the point it gripped, measured from the thing's base on the land</td>
+<td>partial</td>
+<td><code>BeginTug</code> keeps the grab point (the action point) and its depth along the mouse ray, not an offset from the base</td>
+</tr>
+<tr>
+<td>The slope of the land under the thing is taken as the plane the pull works in, set at a height found from the camera's ground distances to the base and to the hand</td>
+<td>partial</td>
+<td>Differs on purpose (user's choice, 2026-09-30): no pull plane; the hand is the mouse ray at the grab depth and only its horizontal move counts (<code>HandSystem::UpdateTug</code>)</td>
+</tr>
+<tr>
+<td>The pull only starts once the hand's 0.13-second fade into the pulling pose is done</td>
+<td>todo</td>
+<td>The tree's tug starts at the press with no 0.13 s wait; the 0.13 s blend only gates the other objects' pick-up</td>
+</tr>
+<tr>
+<td>The hand's hold distance is the thing's hold lowering times its height</td>
+<td>done</td>
+<td><code>HandSystem::ComputeHoldParameters</code> from <code>BeginTug</code></td>
+</tr>
+<tr>
+<td>The hand holds it with the pose its kind is held with (palm, side, tree or villager grip)</td>
+<td>done</td>
+<td>The hand takes the tree's hold type and is placed at the grip of the leaning tree (<code>HandPlacement.cpp</code>, the tug branch of the hand's placement)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="pulling">Pulling</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hand's point follows the cursor across the plane of the land under the thing</td>
+<td>partial</td>
+<td>The ray at the grab depth, its horizontal move from the grab point (<code>UpdateTug</code>); no plane of the land</td>
+</tr>
+<tr>
+<td>The pull is a spring of 1000 per unit between where the hand is and where it gripped the thing</td>
+<td>partial</td>
+<td><code>UpdateTug</code> compares 1000 x the horizontal pull with the weight (threshold weight / 1000); no spring acting on the tree</td>
+</tr>
+<tr>
+<td>The pull is capped at the hand's greatest force</td>
+<td>todo</td>
+<td>No force cap in our tug</td>
+</tr>
+<tr>
+<td>The pull turns the thing about its base, with a heaviness of 1000 against turning and a damping of 4000 times its turning speed</td>
+<td>partial</td>
+<td>The tree leans towards the hand by 0.25 rad x pull / threshold at once (<code>UpdateTug</code>); no turning dynamics, heaviness or damping</td>
+</tr>
+<tr>
+<td>As it is pulled the thing stretches along its height, up to 1.3 times, easing over 0.3 seconds</td>
+<td>todo</td>
+<td>No stretch: <code>HandDrawPose::upStretch</code> stays 1 (see the comment in <code>UpdateTug</code>)</td>
+</tr>
+<tr>
+<td>Things of the rock material don't lean while pulled</td>
+<td>done</td>
+<td>Only trees are tugged in our tree too, so it never shows</td>
+</tr>
+<tr>
+<td>The thing is drawn leaning and stretched, with the hand on it</td>
+<td>partial</td>
+<td>The tree is drawn leaning (a <code>HandDrawPose</code> on it, the Transform untouched) with the hand at its grip; no stretch</td>
+</tr>
+<tr>
+<td>The pull gives the thing a velocity, kept for when it comes free</td>
+<td>todo</td>
+<td>The uprooted tree gets no velocity from the tug</td>
+</tr>
+</tbody>
+</table>
+<h2 id="coming-free">Coming free</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A tree comes free once the hand's greatest force is at least its weight (its mass times 9.81) and the pull beats its mass</td>
+<td>partial</td>
+<td>The tree comes free once the horizontal pull passes weight / 1000 (<code>UpdateTug</code>), so 1000 x pull &gt; weight; the hand force cap test is missing</td>
+</tr>
+<tr>
+<td>Something too heavy for the hand's force never comes free</td>
+<td>todo</td>
+<td>Any tree comes free once the hand moves far enough; no test of the hand's force against the weight</td>
+</tr>
+<tr>
+<td>A tree that comes free is uprooted, leaving its roots hole</td>
+<td>done</td>
+<td><code>HandSystem::Uproot</code>: the roots ground mark (<code>ecs::ground_marks::Create</code>, 15 s), then the place-in-hand packet; a firefly on it is freed and may leave a one-shot seed (<code>HandHolding.cpp</code>, <code>Worship/FireFlyReward.cpp</code>)</td>
+</tr>
+<tr>
+<td>A person or animal comes free at once and is redrawn off the ground</td>
+<td>done</td>
+<td>Non-tree objects are taken once the 0.13 s pull pose blend is over (<code>_pendingTugHold</code> in <code>HandSystem::Update</code>), then the place-in-hand packet</td>
+</tr>
+<tr>
+<td>Things that aren't trees come free at once</td>
+<td>done</td>
+<td>Same path as the previous row (<code>HandSystem::Update</code>)</td>
+</tr>
+<tr>
+<td>Once free, the thing is held as anything else</td>
+<td>done</td>
+<td>See <a href="holding.html">holding.md</a>; <code>HandHolding.cpp</code></td>
+</tr>
+<tr>
+<td>Uprooting a tree plays its creak and counts towards the player's alignment</td>
+<td>done</td>
+<td><code>HandHolding.cpp</code>: a random tree-break sound and <code>ecs::effects::alignment::UpdateForTree</code> (evil); no unit test</td>
+</tr>
+<tr>
+<td>Letting go before it comes free leaves it rooted, leaning and stretched as it was last drawn, until its next growth step redraws it</td>
+<td>done</td>
+<td><code>UpdateTug</code>'s end removes the tree's <code>HandDrawPose</code>, so it is drawn upright from its logic on the next frame, as our wiki says the original does. Our wiki differs: a release before the uproot draws the tree upright again on the next frame, since the tug never wrote its pose (<a href="../../trees.html#tug-handstatetug-enter-0x5b7df0--update-0x5b8070-in-handtreescpp">page</a>)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

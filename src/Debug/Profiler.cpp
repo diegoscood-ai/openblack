@@ -62,6 +62,8 @@ void Profiler::Draw() noexcept
 	            static_cast<double>(stats->cpuTimeEnd - stats->cpuTimeBegin) * toMsCpu,
 	            static_cast<double>(stats->gpuTimeEnd - stats->gpuTimeBegin) * toMsGpu, stats->maxGpuLatency);
 	ImGui::Text("Wait Submit %0.3f, Wait Render %0.3f", stats->waitSubmit * toMsCpu, stats->waitRender * toMsCpu);
+	// steps taken at least once a frame (the leash rope) run faster than real time without it
+	ImGui::Text("Vertical sync: %s", config.vsync ? "on (waits for the screen's refresh)" : "off (--no-vsync)");
 
 	ImGui::Columns(5);
 	ImGui::Checkbox("Sky", &config.drawSky);

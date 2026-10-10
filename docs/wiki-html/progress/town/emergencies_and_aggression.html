@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Town emergencies and aggression — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="here" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#town-emergencies-and-aggression">Town emergencies and aggression</a><ul>
+<li><a href="#aggression">Aggression</a></li>
+<li><a href="#emergencies">Emergencies</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="town-emergencies-and-aggression">Town emergencies and aggression</h1>
+<p>A town remembers who has harmed it. Harm by its own god makes it want mercy, harm by others makes it want protection.
+When something important in it is damaged the town falls into a state of emergency: its people run, hide in buildings
+and afterwards gather in the town.</p>
+<p><strong>Progress: 5/16 done, 4 partial — 44%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../buildings.html">Buildings, building sites and towns (the building side)</a>.</p>
+<h2 id="aggression">Aggression</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each harm to a town's villager or building adds aggression against whoever did it, the first harm more</td>
+<td>todo</td>
+<td>only the last aggressor is recorded (<code>town_emergency::UpdateAggressor</code>, <code>src/ECS/Town/TownEmergency.cpp</code>); the per-player aggression slots are not ported</td>
+</tr>
+<tr>
+<td>The more often a town is attacked, the less each attack adds</td>
+<td>todo</td>
+<td>the per-player aggression slots and their decaying factor are not ported (<code>UpdateAggressor</code>)</td>
+</tr>
+<tr>
+<td>Aggression fades each turn into the wants of mercy (from its owner) and protection (from others)</td>
+<td>todo</td>
+<td>the protection and mercy desires read the town's <code>protectionDesire</code> and <code>mercyDesire</code> (<code>src/ECS/Town/TownDesire.cpp</code>), which stay 0: the town turn's player interaction step is a TODO (<code>src/ECS/Town/TownProcess.cpp</code>)</td>
+</tr>
+<tr>
+<td>The town remembers its last attacker and when</td>
+<td>partial</td>
+<td><code>Town::aggressor</code> and <code>aggressorTurn</code> (<code>src/ECS/Components/Town.h</code>), written by a destructive effect (<code>src/ECS/Effects/EffectValues.cpp</code>) and the physical shield; fire, crushed buildings and other harm write none yet</td>
+</tr>
+<tr>
+<td>Villagers shelter under a magic shield while the town wants protection</td>
+<td>partial</td>
+<td>villagers walk under a shield and stand amazed (<code>src/ECS/Systems/Implementations/VillagerShield.cpp</code>), gated by the town's protection desire, which stays 0, so only the homeless react in a normal game; See ../villager/reactions.md</td>
+</tr>
+<tr>
+<td>Damage done to a town's villagers lowers its belief in the attacker</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The town's attitude to the creature changes when the creature harms it</td>
+<td>todo</td>
+<td>See ../creature/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="emergencies">Emergencies</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Damage to the town centre, the storage pit or an abode on fire puts the town in a state of emergency</td>
+<td>done</td>
+<td>a storage pit or town centre knocked below its functional threshold (<code>abodes::ReduceLife</code>, <code>src/ECS/Abodes.cpp</code>), or either on fire (<code>town_emergency::ProcessTownEmergency</code>, <code>src/ECS/Town/TownEmergency.cpp</code>), starts it for 1200 turns</td>
+</tr>
+<tr>
+<td>In an emergency villagers run at fleeing speed</td>
+<td>done</td>
+<td>(GameFloatRand(0.5) + 0.75) times the fleeing speed while the town is in its emergency (<code>src/ECS/VillagerSpeed.cpp</code>)</td>
+</tr>
+<tr>
+<td>Villagers go and hide in a nearby building, then look to see if it is safe</td>
+<td>todo</td>
+<td><code>GO_AND_HIDE_IN_NEARBY_BUILDING</code> and <code>LOOK_TO_SEE_IF_IT_IS_SAFE</code> are TODO rows of the villager state table (<code>src/ECS/Systems/Implementations/LivingActionSystem.cpp</code>)</td>
+</tr>
+<tr>
+<td>Villagers rush to fight the town's most important fire</td>
+<td>partial</td>
+<td>firefighting reactions (<code>src/ECS/Systems/Implementations/VillagerFire.cpp</code>); choosing the town's most important abode on fire is not ported</td>
+</tr>
+<tr>
+<td>After the emergency, villagers gather at the town's congregation point, then go back to their lives</td>
+<td>done</td>
+<td>the call to every housed villager, the congregation walk and the stops (states 242 and 243, <code>src/ECS/Villager/VillagerEmergency.cpp</code>, <code>town_emergency::CallAllVillagersToTownEmergency</code>); <code>test/test_villager_repair.cpp</code></td>
+</tr>
+<tr>
+<td>While the emergency lasts the town stops worshipping, and its worship share comes back when it ends</td>
+<td>done</td>
+<td>(added) the worship percentage is saved and set to 0 during the emergency, then restored (<code>town_emergency::ProcessTownEmergency</code>, <code>src/ECS/Town/TownEmergency.cpp</code>)</td>
+</tr>
+<tr>
+<td>Some villagers always react to their town's emergency, whatever they are doing</td>
+<td>done</td>
+<td>the original's per-state answer column (<code>k_TownEmergencyReaction</code>, <code>src/ECS/Villager/VillagerOriginalFns.h</code>) for every row</td>
+</tr>
+<tr>
+<td>The town counts its dying and its recent deaths</td>
+<td>partial</td>
+<td>the deaths by reason and player and the last death's turn (<code>components::TownDeaths</code>, written by <code>src/ECS/Villager/VillagerDeath.cpp</code>); the dying are not counted</td>
+</tr>
+<tr>
+<td>A town with no buildings left is completely destroyed and empties</td>
+<td>todo</td>
+<td>the empty town countdown runs but its end is a TODO (<code>src/ECS/Town/TownProcess.cpp</code>); <code>town_belief::SetTownEmpty</code> is not called</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

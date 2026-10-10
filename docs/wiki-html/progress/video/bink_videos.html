@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bink videos — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="here" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#bink-videos">Bink videos</a><ul>
+<li><a href="#the-files">The files</a></li>
+<li><a href="#start-up">Start-up</a></li>
+<li><a href="#the-loading-screen">The loading screen</a></li>
+<li><a href="#the-storys-intro-film">The story's intro film</a></li>
+<li><a href="#the-creatures-fall">The creature's fall</a></li>
+<li><a href="#options-and-keys">Options and keys</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="bink-videos">Bink videos</h1>
+<p>The game ships five Bink videos: two start-up pictures, a pre-intro, the story's intro film, a strip of tip pictures for
+the loading screen and the film behind the creature's fall at the end of the game. This file is what each is for and
+when the game shows it; how they are decoded and drawn is in <a href="bink_playback.html">bink_playback.md</a>. openblack plays the
+intro and the falling-spell film; the other three are only decoded, for the debug Video window.</p>
+<p><strong>Progress: 10/29 done, 8 partial — 48%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../video.html">Bink videos (.bik)</a>.</p>
+<h2 id="the-files">The files</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Data/logo.bik</code>: the publisher's and studio's pictures, two still frames</td>
+<td>partial</td>
+<td>decoded by our Bink decoder and playable in the debug Video window (test <code>BinkDecoder.LogoAndTipsMatchTheOriginalInAnyOrder</code>); the game never shows it (no start-up sequence); see <a href="bink_playback.html">bink_playback.md</a></td>
+</tr>
+<tr>
+<td><code>Data/pre_intro.bik</code>: the pre-intro film, about 100 seconds</td>
+<td>partial</td>
+<td>decoded by our Bink decoder and playable in the debug Video window (test <code>BinkDecoder.PreIntroMatchesTheOriginal</code>); the game never plays it (no front end or profiles); see <a href="bink_playback.html">bink_playback.md</a></td>
+</tr>
+<tr>
+<td><code>Data/INTRO.bik</code>: the story's intro film, about 67 seconds</td>
+<td>done</td>
+<td>played by SET_AVI_SEQUENCE sequence 1 (<code>src/CHLApi.cpp</code>, <code>src/Video/VideoPlayer.cpp</code>); test <code>BinkDecoder.IntroMatchesTheOriginal</code>; see <a href="bink_playback.html">bink_playback.md</a></td>
+</tr>
+<tr>
+<td><code>Data/tips.bik</code>: 35 still pictures for the loading screen's tips</td>
+<td>partial</td>
+<td>decoded by our Bink decoder (test <code>BinkDecoder.LogoAndTipsMatchTheOriginalInAnyOrder</code>); no loading screen shows it; see <a href="bink_playback.html">bink_playback.md</a></td>
+</tr>
+<tr>
+<td><code>Data/Spells/fall/fall.bik</code>: the film behind the creature's fall, 50 seconds</td>
+<td>done</td>
+<td><code>src/Video/FallingSpellVideo.cpp</code>; test <code>BinkDecoder.FallMatchesTheOriginal</code>; see <a href="bink_playback.html">bink_playback.md</a></td>
+</tr>
+<tr>
+<td>No other videos ship with the game; Creature Isle is not supported</td>
+<td>n/a</td>
+<td>searched <code>C:\projects\black</code>; no expansion videos</td>
+</tr>
+<tr>
+<td>The videos have no sound of their own: every sound with them comes from the game's music and sound banks</td>
+<td>done</td>
+<td>the films' sounds and music come from the game's banks (<code>src/Video/FallingSpellVideo.cpp</code>, <code>src/Audio</code>); see <a href="bink_playback.html">bink_playback.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="start-up">Start-up</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The logo pictures show at every start of the game, before the front end</td>
+<td>todo</td>
+<td>openblack goes straight to the land; see <a href="bink_playback.html">bink_playback.md</a></td>
+</tr>
+<tr>
+<td>The pre-intro plays on a first run, before any player profile exists, with the trailer music</td>
+<td>todo</td>
+<td>openblack keeps no profiles (../interface/profiles.md)</td>
+</tr>
+<tr>
+<td>The pre-intro ends at its last frame or on a key press, and the trailer music stops with it</td>
+<td>todo</td>
+<td>the pre-intro is not played; see <a href="bink_playback.html">bink_playback.md</a></td>
+</tr>
+<tr>
+<td>The cursor is hidden while the pre-intro plays</td>
+<td>todo</td>
+<td>the pre-intro is not played; see <a href="bink_playback.html">bink_playback.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-loading-screen">The loading screen</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>While a land loads, one of the tip pictures shows with a tip of the day under it</td>
+<td>todo</td>
+<td>openblack has no loading screen</td>
+</tr>
+<tr>
+<td>The tip is picked at random by the time; with player profiles already made, two first-run tips are skipped</td>
+<td>todo</td>
+<td>(unconfirmed which two tips those are)</td>
+</tr>
+<tr>
+<td>The tip's text comes from the game's help texts, with its control codes blanked out</td>
+<td>todo</td>
+<td>the texts load (<code>src/Gui/TextDatabase.h</code>); no loading screen</td>
+</tr>
+<tr>
+<td>The picture fades in, with the game's version shown in a corner and a progress bar</td>
+<td>todo</td>
+<td>no loading screen</td>
+</tr>
+<tr>
+<td>The tip picture is cleared when a full-screen film starts</td>
+<td>todo</td>
+<td>no loading screen or tip picture; see <a href="bink_playback.html">bink_playback.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-storys-intro-film">The story's intro film</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It plays at the start of a new game, in the first land's opening scene: after the boy is saved from the sharks the screen fades to black and the film plays</td>
+<td>done</td>
+<td>the opening scene's script plays <code>INTRO.bik</code> through SET_AVI_SEQUENCE (<code>src/CHLApi.cpp</code>, <code>src/Video/VideoPlayer.cpp</code>), checked in Land 1</td>
+</tr>
+<tr>
+<td>When it ends the opening carries on: a fireball streaks across the sky, the camera follows it and the family is left on the beach</td>
+<td>partial</td>
+<td>the script carries on after the film; the falling light and the hand that lifts the boy are wired but still drafted; see ../story/land_1.md and ../story/cutscenes.md</td>
+</tr>
+<tr>
+<td>It fades out two seconds before its end and the screen fades back from the script's fade</td>
+<td>done</td>
+<td><code>VideoPlayer::ScheduleIntro</code> (fades from 58 s, ends at 60 s) and the script fade removed by SET_AVI_SEQUENCE; test <code>VideoPlayerTest.IntroSchedule</code>; see <a href="bink_playback.html">bink_playback.md</a></td>
+</tr>
+<tr>
+<td>Skipping the intro film on a new player's first game is not allowed</td>
+<td>partial</td>
+<td>the no-skip flag exists (test <code>VideoPlayerTest.NoSkipClearedByTheEnd</code>), but nothing sets it without profiles; see <a href="bink_playback.html">bink_playback.md</a></td>
+</tr>
+<tr>
+<td>The game is paused and the cinema bars are on while it plays</td>
+<td>done</td>
+<td>tests <code>VideoPlayerTest.PlayKeepsThePauseAndTheWideScreen</code>, <code>VideoPlayerMaths.BarsFullAtOnceDuringTheFilm</code>; see <a href="bink_playback.html">bink_playback.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-creatures-fall">The creature's fall</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It plays at the end of the game, when the creature has climbed the volcano and leapt in</td>
+<td>partial</td>
+<td>SET_AVI_SEQUENCE sequence 2 plays it (<code>src/CHLApi.cpp</code>, <code>FallingSpellVideo::KickOff</code>; tests <code>FallingSpellVideoTest.*</code>), but the ending's script is never reached; see ../story/ending.md; the scene round it: <a href="../story/gold_scrolls/so_this_is_a_fight_to_the_death.html#into-the-volcano">../story/gold_scrolls/so_this_is_a_fight_to_the_death.md</a></td>
+</tr>
+<tr>
+<td>The player's creature is drawn falling in front of the film, with glows on its hands, sparks and a burst of light</td>
+<td>partial</td>
+<td>the sparks and light burst are drawn (<code>src/Magic/Objects/FallingSpell.cpp</code>, <code>src/Graphics/RendererFallingSpell.cpp</code>); the falling creature and its hand glows are not ported</td>
+</tr>
+<tr>
+<td>The camera follows the fall along its recorded path</td>
+<td>partial</td>
+<td>the path file is read and followed (<code>falling_spell::CameraPath</code>, <code>FallingSpell::UpdateCamera</code>; tests <code>FallingSpell.CameraFollowsTheFilm</code>, <code>CameraPathDriftsLikeTheOriginal</code>), but the camera hook is not connected in the game</td>
+</tr>
+<tr>
+<td>Sounds and a white fade are timed to the film</td>
+<td>done</td>
+<td><code>src/Video/FallingSpellVideo.cpp</code>; tests <code>FallingSpellVideoTest.StatesAndSounds</code>, <code>TheWhiteFadeEndsIt</code>; see <a href="bink_playback.html">bink_playback.md</a></td>
+</tr>
+<tr>
+<td>It only plays when the player has a creature</td>
+<td>done</td>
+<td><code>FallingSpellVideo::KickOff</code>; test <code>FallingSpellVideoTest.NoCreatureNoFilm</code>; see <a href="bink_playback.html">bink_playback.md</a></td>
+</tr>
+<tr>
+<td>Afterwards the creature is put back on the land and the game speed and music are restored</td>
+<td>todo</td>
+<td>the ending's script is never reached; see ../story/ending.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="options-and-keys">Options and keys</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Escape skips a film (fading it out)</td>
+<td>done</td>
+<td><code>VideoPlayer::EscapeKey</code>; tests <code>VideoPlayerTest.SkipFadesOver48Frames</code>, <code>FallingSpellVideoTest.EscapeSkips</code>; see <a href="bink_playback.html">bink_playback.md</a></td>
+</tr>
+<tr>
+<td>The video option in the game's options</td>
+<td>todo</td>
+<td>(unconfirmed what it changes; see ../interface/options.md)</td>
+</tr>
+<tr>
+<td>Films run while the world is paused; the land's ambience is hushed</td>
+<td>done</td>
+<td>the game is paused while a film plays and the ambience mix is skipped while <code>video::IsPlaying</code> (<code>src/Video/VideoPlayer.cpp</code>, <code>src/Audio/Game/AudioSystem.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

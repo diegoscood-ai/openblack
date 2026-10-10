@@ -1,0 +1,819 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Object actions — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="here" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#object-actions">Object actions</a><ul>
+<li><a href="#picking-up-and-holding">Picking up and holding</a></li>
+<li><a href="#looking-things-over">Looking things over</a></li>
+<li><a href="#eating-and-drinking">Eating and drinking</a></li>
+<li><a href="#sleeping-and-resting">Sleeping and resting</a></li>
+<li><a href="#bodily-functions">Bodily functions</a></li>
+<li><a href="#throwing-and-letting-go">Throwing and letting go</a></li>
+<li><a href="#knocking-things-down">Knocking things down</a></li>
+<li><a href="#fire-and-water">Fire and water</a></li>
+<li><a href="#gestures-and-expressions">Gestures and expressions</a></li>
+<li><a href="#going-places">Going places</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="object-actions">Object actions</h1>
+<p>Everything a creature does with the things around it and on the spot: picking things up and holding them, looking them
+over, eating and drinking, sleeping, its bodily functions, throwing, knocking things down, and the gestures and
+expressions it makes. Each action is chosen by the creature's mind (see <a href="decision_making.html">decision_making.md</a>) and
+played on its body by animations, with the thing taken hold of or let go of at a moment of the animation.</p>
+<p><strong>Progress: 57/123 done, 17 partial — 53%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../creature.html">The creature: groundwork, random streams and what is unknown</a>.</p>
+<h2 id="picking-up-and-holding">Picking up and holding</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature walks up to a thing, stopping short of it by both their sizes, and reaches for it</td>
+<td>done</td>
+<td><code>CreatureObjectActionSystem</code> (pick up), <code>CreatureLocomotionSystem::MoveToObject</code></td>
+</tr>
+<tr>
+<td>Reaching blends four reaching animations (front and back, left and right) by where the thing lies</td>
+<td>done</td>
+<td><code>src/Creature/CreatureReach</code>; tests <code>CreatureReach.ACornerTakesAllTheWeight</code>, <code>TheMiddleBlendsAllFourEvenly</code></td>
+</tr>
+<tr>
+<td>A thing on the creature's left is reached for with the other hand, the animations mirrored</td>
+<td>done</td>
+<td>test <code>CreatureReach.TheOtherSideIsReachedMirrored</code></td>
+</tr>
+<tr>
+<td>Something out of reach of the four animations makes it step closer and try again, then give up</td>
+<td>done</td>
+<td>tests <code>CreatureReach.StretchingPastTheCornersExtrapolatesThenFails</code>, <code>CreatureIdleMind.AnObjectStepWaitsForTheHandsAndGivesUpWhenTheyFail</code></td>
+</tr>
+<tr>
+<td>The thing is taken hold of at the moment of the animation set for the species</td>
+<td>done</td>
+<td><code>CreatureObjectActionSystem::Moment</code>, at the take-hold time of the species' animations</td>
+</tr>
+<tr>
+<td>What it holds rides in its hand, held by its middle, turned with the hand</td>
+<td>done</td>
+<td><code>components::CreatureHeldObject</code>, drawn by <code>CreatureObjectActionSystem::UpdateHeldDraw</code>; test <code>CreatureObjectActionSystemTest.TakenHoldOfAndLetGoOfThingsAreDrawnAtOnceWhereTheyAre</code></td>
+</tr>
+<tr>
+<td>Only light enough things can be picked up; the heavier the creature is the more it can lift</td>
+<td>partial</td>
+<td>anything mobile, villagers, animals that may be put in a hand, and food pots can be picked up (<code>CreatureObjectActionSystem::CanPickUp</code>); no weight limit by size (see <a href="physiology.html">physiology.md</a>); scaffolds have their own pick-up and stealing rules (see <a href="../building/workshop_and_scaffolds.html">../building/workshop_and_scaffolds.md</a>)</td>
+</tr>
+<tr>
+<td>A villager picked up stops what it was doing</td>
+<td>done</td>
+<td><code>CreatureObjectActionSystem::Moment</code> takes it out of the physics and the map as the player's hand does (<code>ecs::living::InterfaceSetInMagicHand</code>)</td>
+</tr>
+<tr>
+<td>Carrying something heavy makes the creature stronger over time</td>
+<td>done</td>
+<td><code>CreatureObjectActionSystem::ProcessTurn</code> with the species' carrying rate; test <code>CreaturePhysiology.CarryingMakesItStronger</code></td>
+</tr>
+<tr>
+<td>A young creature that hasn't learnt to pick things up can't, and is told so</td>
+<td>todo</td>
+<td>see <a href="development_phases.html">development_phases.md</a></td>
+</tr>
+<tr>
+<td>The player can give the creature something by dropping it into its hand, and it takes it</td>
+<td>todo</td>
+<td>the hand can't hand things to a creature; see <a href="../hand/index.html">../hand</a> and <a href="feeding_and_thrown_things.html">feeding_and_thrown_things.md</a></td>
+</tr>
+<tr>
+<td>Holding something it has no more use for, it puts it down</td>
+<td>done</td>
+<td><code>creature_mind::PutDownHeld</code> (<code>src/Creature/CreatureIdleMind.cpp</code>)</td>
+</tr>
+<tr>
+<td>Holding a villager always frightens the creature's town</td>
+<td>done</td>
+<td><code>creature_object_actions::AttitudeTo</code>; test <code>CreatureObjectActions.TheTownFearsThrowingAndEatingVillagers</code>; the town's view is only read by the debug spawner</td>
+</tr>
+</tbody>
+</table>
+<h2 id="looking-things-over">Looking things over</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Examine by picking up: it picks the thing up and turns it over in its hand</td>
+<td>done</td>
+<td>plan action <code>ExamineByPickingUp</code> (<code>src/Creature/CreaturePlanActions.cpp</code>); test <code>CreatureIdleMind.ACuriousCreatureLooksSomethingOver</code></td>
+</tr>
+<tr>
+<td>While holding it, it strokes, shakes, smells or looks closely at it</td>
+<td>done</td>
+<td>the four keep animations (<code>creature_object_actions::k_KeepAnimationCount</code>, <code>Kind::Keep</code>)</td>
+</tr>
+<tr>
+<td>Examine by looking: it goes up to the thing and looks at it for a while</td>
+<td>done</td>
+<td>plan action <code>ExamineByLooking</code></td>
+</tr>
+<tr>
+<td>Examine by following: it follows a living thing about for a while</td>
+<td>done</td>
+<td>plan action <code>ExamineByFollowing</code>; <code>CreatureLocomotionSystem::Follow</code></td>
+</tr>
+<tr>
+<td>Examine a place: it goes to where something happened and looks round there</td>
+<td>todo</td>
+<td>no reaction to where a miracle struck in our tree</td>
+</tr>
+<tr>
+<td>Inspect another creature: walks up to it and looks it over</td>
+<td>todo</td>
+<td>see <a href="friends_and_other_creatures.html">friends_and_other_creatures.md</a></td>
+</tr>
+<tr>
+<td>Look at what it holds in its hand, eat it, stroke it or throw it, as chosen for the thing</td>
+<td>partial</td>
+<td>the keep animations and eating play; choosing among them by the thing is the idle rule only (<code>CreatureIdleMind.cpp</code>); see <a href="feeding_and_thrown_things.html">feeding_and_thrown_things.md</a></td>
+</tr>
+<tr>
+<td>Look but don't approach, or look at something forever, as scripts and reactions ask</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>What it learns about a thing it examined counts towards its beliefs about such things</td>
+<td>partial</td>
+<td>see <a href="beliefs_and_opinions.html">beliefs_and_opinions.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="eating-and-drinking">Eating and drinking</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Eat after examining: picks up food, looks it over and eats it</td>
+<td>done</td>
+<td>plan action <code>EatAfterExamining</code> and the hunger need; tests <code>CreatureIdleMind.EatingIsPickingUpExaminingAndEating</code>, <code>CreatureNeedsMind.ItPicksFoodUpAndEatsIt</code></td>
+</tr>
+<tr>
+<td>Eat alive: grabs a living thing (villager, animal) and eats it</td>
+<td>done</td>
+<td>plan action <code>EatAlive</code> (live food target)</td>
+</tr>
+<tr>
+<td>Eating a villager removes them from their home and town and frightens the town</td>
+<td>done</td>
+<td><code>Consume</code> in <code>CreatureObjectActionSystem.cpp</code> kills it (<code>ecs::life::Kill</code>); tests <code>CreatureObjectActionSystemTest.AVillagerEatenDiesAsAnyDeathGoes</code>, <code>CreatureObjectActions.TheTownFearsThrowingAndEatingVillagers</code></td>
+</tr>
+<tr>
+<td>Each thing eaten is worth the food value the game's tables give its kind</td>
+<td>done</td>
+<td><code>CreatureObjectActionSystem::FoodValueOf</code> (villagers, animals and things by their tables, pots by the food in them)</td>
+</tr>
+<tr>
+<td>Eating fills it, fattens it if it overeats, and builds up poo</td>
+<td>done</td>
+<td><code>CreaturePhysiologySystem::Eat</code>; see <a href="physiology.html">physiology.md</a></td>
+</tr>
+<tr>
+<td>Stomp and eat: stamps on something first, then eats it</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Stone and eat: kills something with a thrown stone, then eats it</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Eat from the storehouse's food pile where it lies</td>
+<td>partial</td>
+<td>plan action <code>EatFromFoodPile</code> eats pots and piles of food it can pick up; eating from the storehouse in place is todo</td>
+</tr>
+<tr>
+<td>Eat from a field, pulling up the crops</td>
+<td>todo</td>
+<td>see <a href="../resources/index.html">../resources</a></td>
+</tr>
+<tr>
+<td>Eat from a tree, shaking fruit down</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Eat from a magic food pile</td>
+<td>partial</td>
+<td>magic food piles count as food pots in <code>FoodValueOf</code> (unconfirmed they are all eaten the same way)</td>
+</tr>
+<tr>
+<td>Fish and eat: wades in, scoops up fish and eats them</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Food it can't pick up is given up uneaten</td>
+<td>done</td>
+<td>test <code>CreatureNeedsMind.FoodItCantPickUpIsGivenUpUneaten</code></td>
+</tr>
+<tr>
+<td>Poisoned food makes it sick and holds back its hunger for a while</td>
+<td>todo</td>
+<td>see <a href="feeding_and_thrown_things.html">feeding_and_thrown_things.md</a></td>
+</tr>
+<tr>
+<td>Drink from the sea: goes to the water's edge, kneels and drinks</td>
+<td>done</td>
+<td>plan action <code>DrinkFromTheSea</code>; test <code>CreatureNeedsMind.ItDrinksAtTheWatersEdge</code></td>
+</tr>
+<tr>
+<td>Drinking quenches its thirst and it doesn't want water again for a while</td>
+<td>done</td>
+<td><code>CreatureMindSystem</code> (<code>k_WaterSuppressSeconds</code>)</td>
+</tr>
+<tr>
+<td>Eats the grain from fields only when the time is ripe</td>
+<td>todo</td>
+<td>(unconfirmed what "ripe" means here)</td>
+</tr>
+<tr>
+<td>Eating gets the creature's own eating sounds</td>
+<td>done</td>
+<td>from the animations' sound moments (<code>CreatureAudioSystem</code>); see <a href="animation.html">animation.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="sleeping-and-resting">Sleeping and resting</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sleep on the spot: lies down, sleeps with its eyes closed until rested, gets up</td>
+<td>done</td>
+<td>plan action <code>SleepOnTheSpot</code> and the tiredness need; test <code>CreatureNeedsMind.ItSleepsWithItsEyesClosedUntilRested</code></td>
+</tr>
+<tr>
+<td>Sleep by something (a tree, its home, a friend)</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Sleep at a given place, as scripts and its home ask</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Sleeping heals it and rests it, faster asleep than awake</td>
+<td>done</td>
+<td><code>CreaturePhysiologySystem</code>; see <a href="physiology.html">physiology.md</a></td>
+</tr>
+<tr>
+<td>Rest to get better: lies down when hurt until healthier</td>
+<td>partial</td>
+<td>after a knock-out it rests until it comes round (<code>CreatureFightSystem</code>, <code>CreaturePhysiologySystem::WakeFromFaint</code>); resting by choice when hurt is todo</td>
+</tr>
+<tr>
+<td>Rest on the spot for a little while</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Sit down for a while, and get up</td>
+<td>done</td>
+<td>plan action <code>SitDown</code>; tests <code>CreatureIdleMind.SometimesItSitsForAWhile</code>, <code>AnAbandonedSitEnds</code></td>
+</tr>
+<tr>
+<td>Faints wherever it is when exhausted, starved or out of life, and comes round later</td>
+<td>done</td>
+<td>test <code>CreatureNeedsMind.FaintedItLiesStillThenComesRound</code>; see <a href="physiology.html">physiology.md</a></td>
+</tr>
+<tr>
+<td>Woken up, it looks dazed for a moment</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="bodily-functions">Bodily functions</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Poo: squats and has a poo, which takes about four seconds</td>
+<td>done</td>
+<td>plan action <code>Poo</code>; test <code>CreatureNeedsMind.APooTakesFourSecondsAndDropsAsItEnds</code></td>
+</tr>
+<tr>
+<td>The poo is left on the ground as a thing others can see, step in or pick up</td>
+<td>partial</td>
+<td><code>CreaturePhysiologySystem::Poo</code> leaves a lump of poo (a mobile object) behind it; nothing steps in it or reacts to it</td>
+</tr>
+<tr>
+<td>Poo discreetly: goes somewhere out of the way first</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Some things can be pooed on and others not</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Puke: when ill, it is sick</td>
+<td>done</td>
+<td>plan action <code>Puke</code>, <code>CreaturePhysiologySystem::Puke</code></td>
+</tr>
+<tr>
+<td>Fart</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Sneeze</td>
+<td>done</td>
+<td>plan action <code>Sneeze</code> (an emote)</td>
+</tr>
+<tr>
+<td>Shiver when cold</td>
+<td>done</td>
+<td>plan action <code>Shiver</code></td>
+</tr>
+<tr>
+<td>Show it is hot: fans itself</td>
+<td>done</td>
+<td>plan action <code>ShowHotness</code></td>
+</tr>
+<tr>
+<td>Scratch an itch</td>
+<td>done</td>
+<td>plan action <code>Scratch</code></td>
+</tr>
+<tr>
+<td>An evil winner of a fight poos on the loser</td>
+<td>done</td>
+<td><code>CreatureFightSystem</code> (evil winners walk up to the loser and have a poo)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="throwing-and-letting-go">Throwing and letting go</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hurl: picks something up and throws it hard at a target, playing a flat or high throw by the target's height</td>
+<td>done</td>
+<td>plan action <code>Hurl</code>; <code>src/Creature/CreatureThrow</code>; tests <code>CreatureThrow.TheReleaseVelocityLandsOnTheTarget</code>, <code>HighTargetsBlendInTheHighThrow</code></td>
+</tr>
+<tr>
+<td>An angry creature hurls what it picks up at a home or a tree</td>
+<td>done</td>
+<td><code>creature_mind::Hurl</code> (<code>CreatureIdleMind.cpp</code>), the target from <code>NearestHurlTarget</code> (<code>CreatureMindSystem.cpp</code>); test <code>CreatureIdleMind.ThrowingAboutAimsFromWhereItStands</code></td>
+</tr>
+<tr>
+<td>Hurl what it already holds in its hand</td>
+<td>done</td>
+<td>the throw lets go of what is held (<code>CreatureObjectActionSystem::Release</code>)</td>
+</tr>
+<tr>
+<td>What is thrown flies until it lands, bounces and comes to rest</td>
+<td>done</td>
+<td>the release goes into our physics objects (<code>PhysicsObjects::AddObject</code>, <code>from_hand::InitialisePhysicsFromHand</code> in <code>CreatureObjectActionSystem::ReleaseHeld</code>); test <code>CreatureThrow.FlightTimeIsTheTimeToFallTheDistance</code></td>
+</tr>
+<tr>
+<td>It won't throw at something too close</td>
+<td>done</td>
+<td>test <code>CreatureThrow.ItThrowsAtNothingTooClose</code></td>
+</tr>
+<tr>
+<td>Things thrown hurt what they land on, and villagers thrown are hurt or killed</td>
+<td>done</td>
+<td>what it releases flies in our physics objects and strikes as any thrown thing does (see <a href="../physics/index.html">../physics</a>)</td>
+</tr>
+<tr>
+<td>A thrown villager frightens the creature's town</td>
+<td>done</td>
+<td>test <code>CreatureObjectActions.TheTownFearsThrowingAndEatingVillagers</code></td>
+</tr>
+<tr>
+<td>Throw around: tosses something about playfully nearby</td>
+<td>done</td>
+<td>plan action <code>ThrowAround</code></td>
+</tr>
+<tr>
+<td>Throw in the sea: carries something to the shore and throws it in</td>
+<td>partial</td>
+<td>plan action <code>ThrowInTheSea</code> throws it somewhere nearby, not at the sea (noted in <code>CreaturePlanActions.cpp</code>)</td>
+</tr>
+<tr>
+<td>Throw to impress: throws something far in front of an audience of villagers</td>
+<td>partial</td>
+<td>plan action <code>ThrowToImpress</code> throws nearby without an audience</td>
+</tr>
+<tr>
+<td>Practice throwing</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Throw stones into the sea with a friend</td>
+<td>todo</td>
+<td>see <a href="friends_and_other_creatures.html">friends_and_other_creatures.md</a></td>
+</tr>
+<tr>
+<td>Throw something at the camera</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Throw a ball at something, kick a ball around</td>
+<td>partial</td>
+<td>plan actions <code>ThrowBallAtObject</code> and <code>KickBallAround</code> throw what it picks up nearby; balls aren't special; the toy actions in full: <a href="../nature/toys.html">../nature/toys.md</a></td>
+</tr>
+<tr>
+<td>Catch something thrown at it and hold it (catching a fireball to throw back always fails in the game, so it never happens)</td>
+<td>todo</td>
+<td>the physics' creature catch hook (<code>PhysicsObjects::SetCreatureCatchHook</code>) is never set, so no creature catches; see <a href="../physics/throwing_and_landing.html">../physics/throwing_and_landing.md</a> and <a href="../../physics.html#pending">physics.md</a></td>
+</tr>
+<tr>
+<td>Put down: sets what it holds down gently</td>
+<td>done</td>
+<td><code>Kind::PutDown</code> in <code>CreatureObjectActionSystem</code></td>
+</tr>
+<tr>
+<td>Discard: tosses what it holds away, with some of the hand's swing</td>
+<td>done</td>
+<td><code>Kind::Discard</code>; test <code>CreatureThrow.TossingKeepsSomeOfTheHandsSpeed</code></td>
+</tr>
+<tr>
+<td>Lob gently</td>
+<td>done</td>
+<td><code>Kind::Lob</code>, the gentle lob animation (<code>creature_throw::k_GentleLob</code>)</td>
+</tr>
+<tr>
+<td>Its throw can go wrong while it is unskilled: the thing goes astray</td>
+<td>todo</td>
+<td>see <a href="lessons_and_help.html">lessons_and_help.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="knocking-things-down">Knocking things down</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Walks up and strikes with the four striking animations blended</td>
+<td>done</td>
+<td><code>src/Creature/CreatureReach</code> striking animations, <code>Kind::Destroy</code> in <code>CreatureObjectActionSystem</code></td>
+</tr>
+<tr>
+<td>Stomp on something</td>
+<td>partial</td>
+<td>plan action <code>Stomp</code>: at the blow a home takes damage, a tree is felled and anything else mobile is deleted; no crushing or squash</td>
+</tr>
+<tr>
+<td>Kick something</td>
+<td>partial</td>
+<td>plan action <code>Kick</code>, as stomping</td>
+</tr>
+<tr>
+<td>Kick a tree</td>
+<td>done</td>
+<td>plan action <code>KickTree</code>: the tree is felled (<code>ecs::FellTree</code>); see <a href="../nature/index.html">../nature</a></td>
+</tr>
+<tr>
+<td>A home struck is damaged by the creature's size</td>
+<td>partial</td>
+<td><code>CreatureObjectActionSystem</code> gives the home the blow a thrown thing gives (<code>ecs::abodes::OnPhysicalDamage</code>, marked approximate), not one by the creature's size</td>
+</tr>
+<tr>
+<td>Things it stamps on are crushed: villagers and animals killed, small things broken</td>
+<td>todo</td>
+<td>villagers and animals can't be struck (<code>CanDestroy</code>: trees, homes and mobile objects only)</td>
+</tr>
+<tr>
+<td>Break a rock, smash stones in half</td>
+<td>todo</td>
+<td>see <a href="../nature/rocks_splitting_and_heat.html">../nature/rocks_splitting_and_heat.md</a></td>
+</tr>
+<tr>
+<td>Destroy whoever attacked it</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A struck thing's town fears the creature</td>
+<td>done</td>
+<td><code>creature_object_actions::AttitudeTo</code> (a strike is feared); only the debug spawner reads it</td>
+</tr>
+</tbody>
+</table>
+<h2 id="fire-and-water">Fire and water</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Start a fire, or set something on fire</td>
+<td>todo</td>
+<td>see <a href="../physics/index.html">../physics</a></td>
+</tr>
+<tr>
+<td>Put out a fire by stamping on it</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Put out a fire with the water miracle</td>
+<td>todo</td>
+<td>the creature casts no miracle; see <a href="creature_casting.html">creature_casting.md</a></td>
+</tr>
+<tr>
+<td>Put out a fire on itself, by rolling or running to water</td>
+<td>todo</td>
+<td>a burning creature takes no harm (<code>src/ECS/Fire/FireObjectTraits.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="gestures-and-expressions">Gestures and expressions</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Point at something, low or high, to its left or right, turning to it first</td>
+<td>partial</td>
+<td><code>CreatureObjectActionSystem::PointAt</code> (<code>Kind::Point</code>), but only the debug spawner starts it; no plan action points</td>
+</tr>
+<tr>
+<td>Point at the camera, at the hand, or at something off-screen to show the player</td>
+<td>partial</td>
+<td>plan action <code>PointAtCamera</code> turns to the camera and plays its look-at-me animation; pointing at the hand or off-screen things is todo</td>
+</tr>
+<tr>
+<td>Wave at the player</td>
+<td>done</td>
+<td>plan action <code>WaveAtPlayer</code></td>
+</tr>
+<tr>
+<td>Wave at something</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Look at the hand, look at the camera</td>
+<td>done</td>
+<td>plan actions <code>LookAtHand</code>, <code>PointAtCamera</code> (face the camera and emote)</td>
+</tr>
+<tr>
+<td>Look at the camera in wide screen, during cut scenes</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Pull silly faces</td>
+<td>done</td>
+<td>plan action <code>PullSillyFaces</code></td>
+</tr>
+<tr>
+<td>Show an impressive animation</td>
+<td>done</td>
+<td>plan action <code>ShowImpressiveAnimation</code></td>
+</tr>
+<tr>
+<td>Be sad, be frightened on the spot</td>
+<td>done</td>
+<td>plan actions <code>BeSad</code>, <code>BeFrightenedOnTheSpot</code></td>
+</tr>
+<tr>
+<td>Look confused</td>
+<td>todo</td>
+<td>no plan action; the confused animation only plays when a route fails (<code>CreatureLocomotionSystem</code>)</td>
+</tr>
+<tr>
+<td>Be pathetic to the player, to get attention</td>
+<td>done</td>
+<td>plan action <code>BePatheticToPlayer</code></td>
+</tr>
+<tr>
+<td>Be cross with the player</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Show the player how nice it thinks they are</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Howl at the player</td>
+<td>done</td>
+<td>plan action <code>HowlAtPlayer</code></td>
+</tr>
+<tr>
+<td>Pray to the player</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Look at its reflection in the water</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Watch the telly (unconfirmed what it shows)</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Behave strangely, get high (from magic mushrooms and toadstools)</td>
+<td>todo</td>
+<td>see <a href="feeding_and_thrown_things.html">feeding_and_thrown_things.md</a></td>
+</tr>
+<tr>
+<td>Communicate its state: show the player its strongest desire</td>
+<td>done</td>
+<td>plan action <code>CommunicateState</code>; test <code>CreatureIdleMind.ItShowsItsStrongestDesireOnceAMinute</code></td>
+</tr>
+<tr>
+<td>Show a lesson it has learnt, by playing the action</td>
+<td>todo</td>
+<td>see <a href="lessons_and_help.html">lessons_and_help.md</a></td>
+</tr>
+<tr>
+<td>Draw a shape in the air for a gesture (circle, star, spiral, heart and others)</td>
+<td>todo</td>
+<td>the gestures before casting are in <a href="creature_casting.html">creature_casting.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="going-places">Going places</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Go to the top of a hill and look round, sit on it, or walk along a ridge</td>
+<td>todo</td>
+<td>the look-about plan actions (<code>LookAtMountains</code> and others) gaze from where it stands</td>
+</tr>
+<tr>
+<td>Explore the coast, explore the towns</td>
+<td>todo</td>
+<td>see <a href="idle_behaviour.html">idle_behaviour.md</a></td>
+</tr>
+<tr>
+<td>Run around a race track</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Go to the middle of the screen, to where the player is looking</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Go to the hand</td>
+<td>partial</td>
+<td>the leash leads it to the hand (<a href="leash.html">leash.md</a>); going to the hand by itself is todo</td>
+</tr>
+<tr>
+<td>Run to something</td>
+<td>partial</td>
+<td>it runs when the plan asks for it (<code>CreatureLocomotionSystem</code>, <code>Pace::Run</code>)</td>
+</tr>
+<tr>
+<td>Run away from something, from a place, from the player</td>
+<td>done</td>
+<td>plan actions <code>RunAwayFromObject</code> and <code>RunAwayFromPlayer</code>; <code>CreatureLocomotionSystem::FleeFrom</code></td>
+</tr>
+<tr>
+<td>Go to a teleport and use it</td>
+<td>todo</td>
+<td>the teleport miracle moves no creature in our tree</td>
+</tr>
+<tr>
+<td>Sit down on a beach</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Enter the citadel</td>
+<td>todo</td>
+<td>see <a href="home_and_pen.html">home_and_pen.md</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

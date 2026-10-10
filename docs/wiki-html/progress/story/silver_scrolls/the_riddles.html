@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Riddles — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-riddles">The Riddles</a><ul>
+<li><a href="#how-it-appears">How it appears</a></li>
+<li><a href="#the-riddle-annikas-scene">The riddle (Annika's scene)</a></li>
+<li><a href="#the-answers">The answers</a></li>
+<li><a href="#the-night-wolves">The night wolves</a></li>
+<li><a href="#success">Success</a></li>
+<li><a href="#reward-the-zebra">Reward: the zebra</a></li>
+<li><a href="#advisors-music-and-the-creature">Advisors, music and the creature</a></li>
+<li><a href="#script-quirks-and-unused-parts">Script quirks and unused parts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-riddles">The Riddles</h1>
+<p>A land 2 silver scroll: once the player owns the second Indian village (Town3), a woman there offers an ancient riddle
+whose answer is four things to be put at once inside a ring of toadstools in the woods nearby: a wolf, something hot,
+a creature's dropping and a shield miracle. Solving it raises the "great power" the riddle promised: a zebra creature
+the player may swap to. The land as a whole is in <a href="../land_2.html">../land_2.md</a>, the land's control script in
+<a href="../../scripts/land2_script.html">../../scripts/land2_script.md</a>, the script program in
+<a href="../../scripts/challenge_scripts.html">../../scripts/challenge_scripts.md</a>.</p>
+<p><strong>Land:</strong> 2 · <strong>Giver:</strong> Annika, a woman of the Indian village Town3, at her hut · <strong>Script:</strong> LostTreasure · <strong>Reward:</strong> a zebra creature to swap to · <strong>Repeatable:</strong> no</p>
+<p>Sources: the quest's script source (<code>LostTreasure.txt</code>), the shared creature-swap script it ends with
+(<code>SwapCreatures.txt</code>), the scroll-notice and reminder helpers, and its trigger in the land's control script
+(<code>LandControl2.txt</code>), all checked against the PC game's compiled <code>challenge.chl</code> (object types, distances, which shield
+is which); the game's English text table for every line and its speaker. openblack's state is judged on this tree: of
+the 67 script functions the quest and the scripts it starts need, 5 only log "not implemented" in <code>src/CHLApi.cpp</code>, and
+the land's control script never runs (see the first row of <a href="../land_2.html">../land_2.md</a>), so the quest never appears;
+every row is todo unless the notes say otherwise. The internal script name ("lost treasure") is not shown to the player;
+the scroll is titled "The Riddles".</p>
+<p><strong>Progress: 0/48 done, 5 partial — 5%</strong></p>
+<h2 id="how-it-appears">How it appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's control script starts the check for Town3 (the Indian village, id 13) at the start of the land</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs (<a href="../../scripts/land2_script.html">../../scripts/land2_script.md</a>)</td>
+</tr>
+<tr>
+<td>Every 6 minutes it looks whether Town3 belongs to the player; the first time it does, the quest starts (so up to 6 minutes after taking the village)</td>
+<td>todo</td>
+<td><code>GET_PROPERTY</code> of a town's player is not ported; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>A silver scroll is made over Annika's hut (the house found within 5 of its spot), 5 above it</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> is real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Eight toadstools at 0.8 size are made in a ring of radius 10 around the riddle's spot, 45 degrees apart, each turned to face the centre: the "ring of life"</td>
+<td>todo</td>
+<td><code>CREATE_WITH_ANGLE_AND_SCALE</code> makes features (<code>CreateScriptObject</code> in <code>src/CHLApi.cpp</code>); the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Until the scroll or the hut is clicked, whenever the camera is within 100 of the scroll with it on screen, the evil advisor steps out, points at it and says "There's something going on in this hut.", at most every 30 seconds; the scroll then stays active</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; the shared scroll-notice script; see <a href="../challenges_and_rewards.html">../challenges_and_rewards.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-riddle-annikas-scene">The riddle (Annika's scene)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A cut scene starts with the second generic script music; Annika (an Indian housewife) comes out of her hut in high detail and walks to a spot in front of it</td>
+<td>partial</td>
+<td><code>START_MUSIC</code> works (<code>src/Audio/GameMusic.cpp</code>); villager CREATE, high detail and <code>MOVE_GAME_THING</code> on villagers are real too; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The camera glides in over 3 seconds, holds 2 seconds, then closes on the hut over 3 more; when she has arrived and the camera stopped, she faces the camera, which then drifts slightly over 8 seconds</td>
+<td>todo</td>
+<td><code>MoveCameraPosition</code>, <code>MoveCameraFocus</code> are real and <code>SET_FOCUS</code> works on villagers; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The challenge is recorded in the player's challenge log: title "The Riddles", success 0, alignment 0, and as its reminder this whole scene, so replaying the reminder (or tapping the scroll again) tells the riddle again</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; see <a href="../challenges_and_rewards.html">../challenges_and_rewards.md</a></td>
+</tr>
+<tr>
+<td>If her hut is damaged (below full health), the evil advisor: "The woman's saying nothing until her house is all fixed up again. Huh." and she walks home without telling the riddle</td>
+<td>todo</td>
+<td><code>GET_PROPERTY</code> health is not ported; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Otherwise, gossiping: "I have an ancient riddle for you. Solve it and great power will be yours."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The camera cuts to above the ring and glides down to it over 12 seconds while she gives the clues: "Place in the ring something which howls at night." / "Something hot." / "Something unique to your Creature." / "Then all must be protected." / "You need to place all the ingredients in the ring of life at the same time." with three gossip animations between them</td>
+<td>todo</td>
+<td><code>SetCameraPosition</code>, <code>SetCameraFocus</code> are real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The camera cuts back to her: "Knock on my house and I'll remind you of the clues." Two seconds later the camera glides back to where the player had it (4 seconds)</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; the "knock" is the scroll staying active over her hut: tapping it replays the reminder, which is this scene</td>
+</tr>
+<tr>
+<td>She walks back into her hut and fades away; the music stops</td>
+<td>todo</td>
+<td><code>OBJECT_DELETE</code> on a villager is real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>After the first telling, the good advisor: "This looks promising. I wonder what we'll be getting?"</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The wolves and the ring's watch start after the first telling, even if her hut was damaged and the clues weren't given</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; quirk of the source</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-answers">The answers</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>"Something which howls at night": any wolf within 10 of the ring's centre, scripted or not (it need not be one of the night pack)</td>
+<td>todo</td>
+<td><code>CallNear</code> is real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>"Something hot": anything burning within 10 of the centre; a rock heated to 500 or more counts, as does a burning tree, hut or fire</td>
+<td>partial</td>
+<td>the fire test works (<code>IS_FIRE_NEAR</code>, <code>src/Magic/Script/CHLFire.cpp</code>); the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; see <a href="../../nature/rocks_splitting_and_heat.html">../../nature/rocks_splitting_and_heat.md</a></td>
+</tr>
+<tr>
+<td>"Something unique to your Creature": any creature dropping within 10 of the centre; it need not be the player's creature's</td>
+<td>todo</td>
+<td><code>CallNear</code> is real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; see <a href="../../creature/physiology.html">../../creature/physiology.md</a></td>
+</tr>
+<tr>
+<td>"Then all must be protected": a physical shield or a spiritual shield miracle within 5 of the centre</td>
+<td>partial</td>
+<td>finding a shield works (<code>SPELL_AT_POINT</code>, <code>src/Magic/Script/CHLSpells.cpp</code>: a shield standing over the spot); the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; see <a href="../../miracles/physical_shield.html">../../miracles/physical_shield.md</a>, <a href="../../miracles/spiritual_shield.html">../../miracles/spiritual_shield.md</a></td>
+</tr>
+<tr>
+<td>All four must be there at the same moment; they are checked in order (wolf, then a tenth of a second later dropping, shield and fire) and the checking goes on until solved</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Nothing checks the order they arrive in, and nothing reacts to a wolf escaping or a fire going out; there is no time limit and no failure</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; lines for these exist but are unused (below)</td>
+</tr>
+<tr>
+<td>The player may bring the four by any means (the hand, the creature, miracles)</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; the scripts only test positions; undetermined from them how a wolf is best kept inside</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-night-wolves">The night wolves</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>From the first telling on, every night (game time after 21:00 or before 6:00) a pack of five wolves (inner 5, outer 10) appears in a forest near the ring, once that spot is off screen</td>
+<td>todo</td>
+<td><code>FlockCreate</code>, <code>GetGameTime</code> are real; <code>PopulateContainer</code> is a stub; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Two seconds later they go down to the water's edge, and once within 35 of it (or all dead) wander there as a flock</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>At day (after 6:00 and before 21:00) they go back into the forest and, once within 35 of it (or all dead) and the spot is off screen, the pack is removed</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The pack comes back every night for the rest of the land, even after the riddle is solved: the flag meant to stop it is never set by any script</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; quirk of the source</td>
+</tr>
+</tbody>
+</table>
+<h2 id="success">Success</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>When solved, the wolf and the dropping fade away and the shield found is removed (the physical shield if both kinds were there, leaving the spiritual one); the fire is left</td>
+<td>todo</td>
+<td><code>OBJECT_DELETE</code> is real for these; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>A cut scene starts with the fourth epic music; the camera moves to look down at the ring from 15 out and 10 up over 3 seconds</td>
+<td>partial</td>
+<td><code>START_MUSIC</code> and the camera moves work; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The log is updated to success 1, alignment 0 (neutral), with the reminder (good advisor) "Remember, we should ask the woman in this hut about her riddles."</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Both advisors step out; good advisor: "This looks promising. I wonder what we'll be getting?" (the source's comment shows a different first line about a groovy effect was meant here)</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>A zebra creature appears in the ring, turns to the camera and waves; the music stops</td>
+<td>todo</td>
+<td>CREATE of a creature is not ported (<code>CreateScriptObject</code>); <code>CreatureDoAction</code> is a stub; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Evil advisor: "Look. It's a zebra. What do we want with that?"; good: "If we want to swap to the Zebra, summon our Creature and click on him."; evil: "Yeah, yeah. Do we really want a Zebra, though?"; good: "A rare beast indeed. I'm all for it."</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; the last line isn't waited for before the dialogue ends</td>
+</tr>
+</tbody>
+</table>
+<h2 id="reward-the-zebra">Reward: the zebra</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The zebra can't be picked up; a silver scroll stands just above its head</td>
+<td>todo</td>
+<td><code>SetIdPickupable</code>, <code>CreateHighlight</code> are real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; see <a href="creature_swaps.html">creature_swaps.md</a></td>
+</tr>
+<tr>
+<td>It keeps turning to look at the camera; with the camera within 100 of its scroll and the zebra on screen, the evil advisor points: "Swap your Creature with this one if you want.", at most every 60 seconds</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Clicking the zebra or its scroll: if the player's creature isn't within 50 of it, evil advisor: "You'll need to bring our Creature, Boss." and the scroll returns</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Otherwise the leash is taken off, the player's creature walks up to within 15 (given 5 seconds to get within 20), and the two look each other over</td>
+<td>todo</td>
+<td><code>DetachObjectLeash</code> is real; <code>MOVE_GAME_THING</code> on a creature is not ported; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Good advisor every 30 seconds: "Are you sure you want a new Creature? Click the Action Button on the Creature you want to swap to if you are. Click your own Creature to cancel."; clicking the player's own creature, or waiting 110 seconds, cancels</td>
+<td>todo</td>
+<td><code>ClearClickedObject</code>, <code>CreateTimer</code> are real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Clicking the zebra again swaps: a two-creature camera, sparkles on both, both point at each other, the swap sound plays and the player's creature becomes the zebra; three seconds after both animations end the camera is let go</td>
+<td>todo</td>
+<td><code>StartDualCamera</code>, <code>PlaySoundEffect</code> are real; <code>SwapCreature</code> is a stub; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; see <a href="../../creature/species_choice.html">../../creature/species_choice.md</a></td>
+</tr>
+<tr>
+<td>Evil advisor: "Great, Boss. If you want your old Creature back, just return here later." The old creature stays at the spot under its own scroll and can be swapped back the same way, any number of times</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The offer never ends: the swap script sets up a random 60–120 second limit but never checks it, so the swap scroll stays for the rest of the land</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; quirk of the shared script</td>
+</tr>
+</tbody>
+</table>
+<h2 id="advisors-music-and-the-creature">Advisors, music and the creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The quest's lines are spoken by the evil advisor (the notice, the damaged-hut line, the zebra doubts), the good advisor (the hopes, the swap instructions) and Annika</td>
+<td>todo</td>
+<td><code>SpiritEject</code> is real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; see <a href="../advisors.html">../advisors.md</a></td>
+</tr>
+<tr>
+<td>Music: the second generic script theme for Annika's scene, the fourth epic theme for the zebra's arrival; both are stopped at the end of their scenes</td>
+<td>partial</td>
+<td><code>START_MUSIC</code> and <code>STOP_MUSIC</code> work (<code>src/Audio/GameMusic.cpp</code>); the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The creature can supply the dropping and could carry or throw things in, but the quest asks nothing of it until the swap</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-quirks-and-unused-parts">Script quirks and unused parts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The ring's watch has no wait while no wolf is in the ring: it checks continuously</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; as compiled</td>
+</tr>
+<tr>
+<td>The two shield variables are named the wrong way round (the "magic" one holds the physical shield); harmless</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Unused variables in the main script (a tiger, a "chosen one", a clue number, a clue on the ground, a fourth artifact, effect timers) and a "hot object" in the ring's watch point to a longer, step-by-step design</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>A turn-around animation for Annika, an earlier camera focus and a second snapshot after the scene are commented out</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The source's comments quote earlier wordings: Annika's opening ("I've got this here ancient scroll that legend says leads to a great power…"), "Knock on my door…", and the damaged-hut line ("Apparantly the broad won't tell us any more clues until she's fixed her house.")</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>A tiny test script exists that runs the whole quest directly, for testing</td>
+<td>n/a</td>
+<td><code>RunLostTreasure.txt</code></td>
+</tr>
+<tr>
+<td>Unused clues of the earlier design, in the text table but said by no script: "Place in the ring a cunning hunter." / "And a bush of fire if you want to." / "A lump your Creature leaves behind." / "And protect with magic hand and mind."</td>
+<td>n/a</td>
+<td>unused text</td>
+</tr>
+<tr>
+<td>Unused step-by-step clues: "You need to place a cunning hunter into the ring of life." / "Now add to the ring of life, the Burning Bush." / "Next a lump of your Creature's waste products must be placed into the ring." / "Finally, protect the objects you placed into the ring with a Shield." and the hints "You may find one drinking fresh water after dark." / "You will find it between the snow and the sea."; an alternative opening "I have a legend for you. Solve it and you'll gain great power."</td>
+<td>n/a</td>
+<td>unused text; the wolves drinking at the water's edge at night match the first hint</td>
+</tr>
+<tr>
+<td>Unused progress lines: good "Excellent. Something's happening.", evil "Let's get the next clue from that woman!", good "This is getting interesting!", good "We're getting closer! There can't be much more to this.", evil "Something's happening!", good "The wolf's escaped.", good "Well that's pretty unique. I suppose.", evil "The object's no longer hot, Boss."</td>
+<td>n/a</td>
+<td>unused text: the shipped quest has no per-step feedback</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Statistics: what is counted — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="here" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#statistics-what-is-counted">Statistics: what is counted</a><ul>
+<li><a href="#how-the-figures-are-kept">How the figures are kept</a></li>
+<li><a href="#the-influence-and-population-histories">The influence and population histories</a></li>
+<li><a href="#player-stats">Player Stats</a></li>
+<li><a href="#creature-stats">Creature Stats</a></li>
+<li><a href="#town-stats">Town Stats</a></li>
+<li><a href="#miracle-stats">Miracle Stats</a></li>
+<li><a href="#tech-stats">Tech Stats</a></li>
+<li><a href="#counted-but-not-shown">Counted but not shown</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="statistics-what-is-counted">Statistics: what is counted</h1>
+<p>Every figure the game counts for its statistics: when each is counted, for whom, how the Game Statistics box shows it,
+and what is kept in saved games and the profile. The box itself (tabs, list, graphs, controls) is in
+<a href="statistics.html">statistics.md</a>. Rows follow the box's tabs in the order the list shows them.</p>
+<p><strong>Progress: 1/73 done, 40 partial — 29%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../hand-and-interface.html">The hand and the interface</a>.</p>
+<h2 id="how-the-figures-are-kept">How the figures are kept</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each player has a statistics record of their own, made with the player</td>
+<td>done</td>
+<td>one <code>game_stats::Stats</code> per player for the whole game (<code>GameStatsSystem</code>, <code>Locator::gameStatsSystem</code>, <code>src/Game/GameStats.h</code>); the temple's scrolls do not read it yet (<code>src/3D/TempleScrolls.cpp</code>)</td>
+</tr>
+<tr>
+<td>Clearing the map (a new land or a new game) clears every player's counters</td>
+<td>partial</td>
+<td><code>game_stats::ClearAll</code> is ported but nothing calls it on a map clear yet; see <a href="../story/portals.html">../story/portals.md</a></td>
+</tr>
+<tr>
+<td>The influence and population histories are not cleared with the counters: they run on from land to land</td>
+<td>partial</td>
+<td>our <code>ClearAll</code> (not called yet) resets the whole record, histories included; to check against the original</td>
+</tr>
+<tr>
+<td>At the start of a land the game notes each player's alignment, their creature's alignment, the real time and the number of towns</td>
+<td>partial</td>
+<td><code>game_stats::Init</code> stores the alignment, the creature's value, the time and the town count, but nothing calls it yet (<a href="../pc_integration/real_clock.html">../pc_integration/real_clock.md</a>)</td>
+</tr>
+<tr>
+<td>Town totals (population, homes, towns and buildings) are summed from the player's towns at most once a game turn, when a figure needs them</td>
+<td>partial</td>
+<td><code>game_stats::TownTotals</code> is declared; nothing sums it yet</td>
+</tr>
+<tr>
+<td>The global figures (lines of code, frame rates, objects created) are updated every 10 game turns, every 5 in one game mode</td>
+<td>partial</td>
+<td><code>AddToTotalLinesOfCodeExecuted</code> and <code>TrackFrameRate</code> are ported (<code>src/Game/GameStats.cpp</code>) but nothing calls them; <code>ObjectCreated</code> neither</td>
+</tr>
+<tr>
+<td>Everything is kept in saved games: the counters, both histories, the town totals and the global figures</td>
+<td>partial</td>
+<td><code>game_stats::Serialize</code> writes the record in the original's order (test <code>GameStats.SerializeSize</code>); openblack has no saved games to put it in (<a href="../engine/saving_and_loading.html">../engine/saving_and_loading.md</a>)</td>
+</tr>
+<tr>
+<td>The hand and camera figures on Tech Stats are the player's help record, kept in their profile across every game</td>
+<td>partial</td>
+<td>the help record is counted (<code>src/Help/HelpProfile.cpp</code>) but there are no profiles: it starts at 0 every run; see <a href="help_system.html">help_system.md</a> and <a href="profiles.html">profiles.md</a></td>
+</tr>
+<tr>
+<td>In a network game each machine counts every player's figures itself; nothing extra is sent</td>
+<td>n/a</td>
+<td>see <a href="../multiplayer/network_play.html">../multiplayer/network_play.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-influence-and-population-histories">The influence and population histories</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every game turn the player's influence is added to the influence history: their citadel's, each of their towns' and each influence ring they own</td>
+<td>todo</td>
+<td>nothing adds to <code>Stats::influence</code> yet</td>
+</tr>
+<tr>
+<td>Every game turn the player's population (adults and children in all their towns) is added to the population history</td>
+<td>todo</td>
+<td>nothing adds to <code>Stats::population</code> yet</td>
+</tr>
+<tr>
+<td>Each history point is the average of a run of turns: 50 at first</td>
+<td>partial</td>
+<td><code>game_stats::History::Add</code> (test <code>GameStats.HistoryAveragesAndHalves</code>); nothing feeds it yet</td>
+</tr>
+<tr>
+<td>When 500 points are full, neighbouring pairs are averaged into 250 and each later point covers twice as many turns</td>
+<td>partial</td>
+<td>same (<code>History::Add</code>, test <code>GameStats.HistoryAveragesAndHalves</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="player-stats">Player Stats</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>"Final Area Of Influence": the player's influence now, as for the history; a whole number</td>
+<td>todo</td>
+<td>see <a href="../worship/influence.html">../worship/influence.md</a></td>
+</tr>
+<tr>
+<td>"Number Of Gods Defeated": when a god loses, each human god still playing counts one, if the loser was human or one game-wide setting is on; shown out of the number of gods less one</td>
+<td>todo</td>
+<td>(unconfirmed what the setting is) see <a href="../multiplayer/multiplayer_rules.html">../multiplayer/multiplayer_rules.md</a></td>
+</tr>
+<tr>
+<td>"Alignment Change": the player's alignment now less their alignment at the land's start, two decimals, always a number</td>
+<td>partial</td>
+<td><code>Stats::alignmentAtStart</code> is kept by <code>game_stats::Init</code>, which nothing calls yet; no box shows it; see <a href="../worship/alignment.html">../worship/alignment.md</a></td>
+</tr>
+<tr>
+<td>"Total People Killed": villagers whose death is put down to this player</td>
+<td>partial</td>
+<td><code>game_stats::VillagerDied</code> gives the killer one (test <code>GameStats.DeathsGoToTheTownAndTheKiller</code>), but nothing calls it yet</td>
+</tr>
+<tr>
+<td>"Final Total Belief": the belief in the player summed over every town in the world, times 1000; a whole number</td>
+<td>todo</td>
+<td>the summed belief is computed each period in <code>src/ECS/Town/TownBelief.cpp</code> (for <code>WorldBelief</code>) but not kept as this figure; see <a href="../worship/belief.html">../worship/belief.md</a></td>
+</tr>
+<tr>
+<td>"Max Total Belief" and "Min Total Belief": every 10 game turns the summed belief is checked; a new highest skips the lowest test, and the lowest starts at the largest number</td>
+<td>partial</td>
+<td>counted: <code>game_stats::WorldBelief</code> from <code>src/ECS/Town/TownBelief.cpp</code> (test <code>GameStats.WorldBeliefSkipsTheMinimumOnANewMaximum</code>); no box shows it</td>
+</tr>
+<tr>
+<td>"Number Of Artifacts": the artifacts given to towns that belong to the player, counted over every town now</td>
+<td>todo</td>
+<td>see <a href="../town/artefacts.html">../town/artefacts.md</a></td>
+</tr>
+<tr>
+<td>"Creature Growth": the creature's size now over its size when first noted, less one, as a percentage with two decimals</td>
+<td>todo</td>
+<td>see <a href="../creature/growth_and_size.html">../creature/growth_and_size.md</a></td>
+</tr>
+<tr>
+<td>"Creature Alignment Change": the creature's alignment now less at the land's start, two decimals, always a number</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>"Buildings Destroyed": a building the player puts out of action counts when its state is 200 or more</td>
+<td>partial</td>
+<td>counted: <code>game_stats::BuildingStoppedFunctional</code> from <code>abodes::StopBeingFunctional</code> (<code>src/ECS/Abodes.cpp</code>), at state 200 or more; no box shows it</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creature-stats">Creature Stats</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>"Damage", "Hunger" and "Tiredness": the creature's damage, hunger and tiredness now, as percentages with two decimals</td>
+<td>todo</td>
+<td>the same figures feed the creature's status panel (<code>src/Creature/CreatureStatusPanel.cpp</code>, not drawn yet); nothing for the statistics (<a href="../creature/creature_mode.html">../creature/creature_mode.md</a>)</td>
+</tr>
+<tr>
+<td>"Age:": the creature's age now, a whole number</td>
+<td>todo</td>
+<td>see <a href="../creature/development_phases.html">../creature/development_phases.md</a></td>
+</tr>
+<tr>
+<td>"Alignment:": the creature's alignment now, two decimals, its bar out of 1</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>"Animals Killed:"</td>
+<td>todo</td>
+<td>counted by the creature (<a href="../creature/fighting.html">../creature/fighting.md</a>); nothing in our tree</td>
+</tr>
+<tr>
+<td>"Battles Fought:" and "Battles Won:"</td>
+<td>todo</td>
+<td>(<a href="../creature/fighting.html">../creature/fighting.md</a>)</td>
+</tr>
+<tr>
+<td>"Poos Done:" and "Mushrooms Eaten:"</td>
+<td>todo</td>
+<td>(<a href="../creature/physiology.html">../creature/physiology.md</a>)</td>
+</tr>
+<tr>
+<td>A player without a creature shows 0 for every creature figure</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The creature's people killed and creatures defeated are counted and sent online, but the box never lists them</td>
+<td>todo</td>
+<td>the labels "People Killed:" and "Creatures Defeated:" exist unused</td>
+</tr>
+</tbody>
+</table>
+<h2 id="town-stats">Town Stats</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>"Total Births": a child born in one of the player's towns</td>
+<td>partial</td>
+<td><code>game_stats::ChildBorn</code> is ported but not called: <code>ChildBorn</code> in <code>src/ECS/Villager/VillagerBirth.cpp</code> leaves it as a TODO; see <a href="../villager/life_cycle.html">../villager/life_cycle.md</a></td>
+</tr>
+<tr>
+<td>"Total Deaths": a villager dying in one of the player's towns; the player held to blame gets one "Total People Killed"</td>
+<td>partial</td>
+<td><code>game_stats::VillagerDied</code> is ported (test <code>GameStats.DeathsGoToTheTownAndTheKiller</code>) but villager deaths do not call it yet; see <a href="../villager/death.html">../villager/death.md</a></td>
+</tr>
+<tr>
+<td>"Final Total Population", "Final Male Population" and "Final Female Population": the people in the player's towns now; men and women shown out of the total</td>
+<td>todo</td>
+<td>the town stats exist (<code>Town::stats</code>) but nothing sums them for the record</td>
+</tr>
+<tr>
+<td>"Final Total Population Capacity": the places in the player's homes now</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>"Maximum Total/Male/Female Population": checked every game turn; men and women shown out of the highest total</td>
+<td>partial</td>
+<td><code>game_stats::TrackPopulation</code> (test <code>GameStats.PopulationTrackerSkipsTheMinimumOnANewMaximum</code>); nothing calls it yet</td>
+</tr>
+<tr>
+<td>"Minimum Total/Male/Female Population": a turn that sets a new highest skips the lowest test, and the lowest starts at the largest number; men and women out of the lowest total</td>
+<td>partial</td>
+<td>same <code>TrackPopulation</code>, not called yet</td>
+</tr>
+<tr>
+<td>"Total People Converted": when the player takes over a town, its adults and children are added</td>
+<td>partial</td>
+<td>counted: <code>game_stats::TownTakenOver</code> from <code>src/ECS/Town/TownBelief.cpp</code>; no box shows it; see <a href="../town/belief_and_conversion.html">../town/belief_and_conversion.md</a></td>
+</tr>
+<tr>
+<td>"Average Satisfaction Of Villagers": each time a town weighs its desires, one less its average desire is added; shown as the mean of all these, two decimals, its bar out of 1</td>
+<td>partial</td>
+<td>counted: <code>game_stats::TownDesire</code> from <code>src/ECS/Town/TownDesire.cpp</code>; no box shows it; see <a href="../town/town_desires.html">../town/town_desires.md</a></td>
+</tr>
+<tr>
+<td>"Towns Owned": the player's towns now</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>"Total Buildings": over the player's towns a running count of homes and civic buildings is added town by town, so with more than one town the earlier towns count again</td>
+<td>todo</td>
+<td>as the game does; <code>TownTotals::buildings</code> is declared, not summed</td>
+</tr>
+<tr>
+<td>"Total Abodes", "Total Civic Buildings" and "Total Wonders": the player's homes, civic buildings and wonders now</td>
+<td>todo</td>
+<td><code>TownTotals</code> declared, not summed</td>
+</tr>
+<tr>
+<td>"Total Buildings Built": a home finished in one of the player's towns; also "Total Abodes Built", "Total Civic Buildings Built" or "Total Wonders Built" by its kind</td>
+<td>partial</td>
+<td>counted: <code>game_stats::BuildingBuilt</code> by kind from the finished abode (<code>src/ECS/Abodes.cpp</code>); no box shows it</td>
+</tr>
+<tr>
+<td>"Number Of Disciple Farmers, Foresters, Fishermen, Builders, Breeders, Traders, Missionaries, Craftsmen": a villager dropped and made a disciple of that kind</td>
+<td>partial</td>
+<td><code>game_stats::DiscipleMade</code> (test <code>GameStats.SpellsAndDisciples</code>); nothing calls it yet; see <a href="../villager/disciples.html">../villager/disciples.md</a></td>
+</tr>
+<tr>
+<td>"Total Food Eaten": food a town uses</td>
+<td>partial</td>
+<td>counted: <code>game_stats::FoodEaten</code> from the town's food use (<code>src/ECS/Town/TownVillagers.cpp</code>); no box shows it</td>
+</tr>
+<tr>
+<td>"Wood Used": wood a town uses</td>
+<td>partial</td>
+<td><code>game_stats::WoodUsed</code> is ported; the building's wood used (<code>building_sites::AddWoodUsedForBuilding</code>) does not call it yet</td>
+</tr>
+</tbody>
+</table>
+<h2 id="miracle-stats">Miracle Stats</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each miracle the player casts counts once for its kind and power, when it is made</td>
+<td>partial</td>
+<td>counted when the spell is made: <code>PlayerMagic::castCount</code> (<code>src/Magic/Core/Spell.cpp</code>), read through <code>game_stats::SpellsCast</code> (test <code>GameStats.SpellsAndDisciples</code>); no box shows it; see <a href="../miracles/miracle_core.html">../miracles/miracle_core.md</a></td>
+</tr>
+<tr>
+<td>"Total Aggressive Miracles Cast": the fireballs, lightnings and explosions of every power, the two storms, the tornado and the ground flock</td>
+<td>todo</td>
+<td>the per-kind counts are there (<code>castCount</code>), the totals are not summed or shown</td>
+</tr>
+<tr>
+<td>"Total Nice Miracles Cast": the two heals, teleport, forest, the two foods, the two shields, wood, the two waters and the flying flock</td>
+<td>todo</td>
+<td>same</td>
+</tr>
+<tr>
+<td>"Total Creature Miracles Cast": every creature miracle</td>
+<td>todo</td>
+<td>same</td>
+</tr>
+<tr>
+<td>"Number Of Fireballs / Bigger Fireballs / Biggest Fireballs Cast", and the same for Lightnings and Explosions</td>
+<td>partial</td>
+<td>counted per kind and power in <code>castCount</code>; no box shows it</td>
+</tr>
+<tr>
+<td>"Number Of Heals / Bigger Heals Cast", "Number Of Teleport Cast", "Number Of Miracle Forests Cast", "Number Of Miracle Foods / Bigger Miracle Foods Cast"</td>
+<td>partial</td>
+<td>same</td>
+</tr>
+<tr>
+<td>"Number Of Storms / Bigger Storms Cast", "Number Of Tornados Cast", "Number Of Spiritual / Physical Shields Cast"</td>
+<td>partial</td>
+<td>same</td>
+</tr>
+<tr>
+<td>"Number Of Miracle Woods Cast", "Number Of Miracle Waters / Bigger Miracle Waters Cast", "Number Of Flying Flock Cast", "Number Of Ground Flocks Cast"</td>
+<td>partial</td>
+<td>same</td>
+</tr>
+<tr>
+<td>"Number Of Creature Freeze, Small, Big, Weak, Strong, Fat, Thin, Invisible, Compassion, Angry Miracles Cast"</td>
+<td>partial</td>
+<td>counted per kind in <code>castCount</code>, when the creature casts; no box shows it</td>
+</tr>
+<tr>
+<td>"Number Of Creature Itchy Miracles Cast"</td>
+<td>partial</td>
+<td>same</td>
+</tr>
+<tr>
+<td>The Hungry, Frightened, Tired, Ill and Thirsty creature miracles are neither counted nor listed, though their labels exist</td>
+<td>partial</td>
+<td><code>SpellsCast</code> gives 0 for the types the original does not count; nothing lists them</td>
+</tr>
+<tr>
+<td>"Total Chants Used": the chants a worship site spends for the player, one decimal</td>
+<td>partial</td>
+<td>counted: <code>PlayerMagic::chantsUsed</code> from <code>src/Worship/WorshipSite.cpp</code>; no box shows it; see <a href="../worship/worship_sites.html">../worship/worship_sites.md</a> and <a href="../worship/prayer_power.html">../worship/prayer_power.md</a></td>
+</tr>
+<tr>
+<td>"Total Number Of Sacrifices": a villager or an animal sacrificed for the player</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="tech-stats">Tech Stats</h2>
+<p>These figures are shown as one value, in the Total column only.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>"Total Lines Of Code Executed" is invented: each update adds the land's town count times 10,130, plus a random fifth of that again</td>
+<td>partial</td>
+<td><code>game_stats::AddToTotalLinesOfCodeExecuted</code> is ported, not called</td>
+</tr>
+<tr>
+<td>"Max Frame Rate": each update the frame rate is compared with it, one decimal</td>
+<td>partial</td>
+<td><code>TrackFrameRate</code> is ported (keeps the minimum at 0 as the game does) but not called; openblack's own frame statistics are separate (<a href="../debug/diagnostics.html">../debug/diagnostics.md</a>)</td>
+</tr>
+<tr>
+<td>"Min Frame Rate" always reads 0: it starts at 0 and is only tested when no new highest is set</td>
+<td>partial</td>
+<td><code>TrackFrameRate</code> keeps it at 0 as the game does; not called</td>
+</tr>
+<tr>
+<td>"Total Objects Created": every game object made since the counters were cleared</td>
+<td>partial</td>
+<td><code>game_stats::ObjectCreated</code> is ported, not called</td>
+</tr>
+<tr>
+<td>"Time Played": game turns so far over 10, a whole number of seconds of game time</td>
+<td>todo</td>
+<td><code>Statics::startTime</code> is kept by <code>Init</code>; the turns are not turned into this figure</td>
+</tr>
+<tr>
+<td>"Script VM Instructions": the script engine's count of instructions run</td>
+<td>todo</td>
+<td>see <a href="../scripts/index.html">../scripts/</a></td>
+</tr>
+<tr>
+<td>"Total Number Of Statistics" always reads 113</td>
+<td>partial</td>
+<td><code>Statics::version</code> is 113 (<code>src/Game/GameStats.h</code>); no box shows it</td>
+</tr>
+<tr>
+<td>"Distance Dragged": the help record's dragging figure times 3</td>
+<td>todo</td>
+<td>the help record's Drag event is never triggered</td>
+</tr>
+<tr>
+<td>"Time Looking At Sky" and "Time Looking At Ground"</td>
+<td>todo</td>
+<td>the look-at-sky and look-at-land events never come (<code>help_profile::ProcessSpecialTriggers</code> has no camera view)</td>
+</tr>
+<tr>
+<td>"Gestures Done"</td>
+<td>partial</td>
+<td>the help record counts the gestures (<code>src/Magic/Gestures/PowerUpSystem.cpp</code> into <code>help_profile::Trigger</code>, <code>GestureTotal</code>); no box shows it; see <a href="../gesture/miracle_gestures.html">../gesture/miracle_gestures.md</a></td>
+</tr>
+<tr>
+<td>"Zoom Count" (the help record's figure times 9), "Rotate Count" and "Pitch Count"</td>
+<td>partial</td>
+<td>the help record counts zoom, rotate and pitch from the player camera (<code>help_profile::OnPlayerCameraMove</code>, <code>DefaultWorldCameraModel.cpp</code>); no box shows it; see <a href="../camera/index.html">../camera/</a></td>
+</tr>
+<tr>
+<td>"Total Interface Actions", "Total Objects Thrown" and "Total Number Of Things Picked Up"</td>
+<td>partial</td>
+<td>the help record counts every interface event, throws and pick-ups (<code>HandHolding.cpp</code>); no box shows it; see <a href="../hand/index.html">../hand/</a></td>
+</tr>
+<tr>
+<td>"Number Of Fight Attacks", "Number Of Fight Blocks" and "Number Of Fight Steps"</td>
+<td>todo</td>
+<td>the fight events are never triggered; see <a href="../creature/fighting.html">../creature/fighting.md</a></td>
+</tr>
+<tr>
+<td>"Total Polygons Drawn" has a label but is neither counted nor listed</td>
+<td>n/a</td>
+<td>nothing to do</td>
+</tr>
+</tbody>
+</table>
+<h2 id="counted-but-not-shown">Counted but not shown</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>When a human god loses they get the next finishing place; when one god is left, it gets the place after</td>
+<td>todo</td>
+<td>sent online only</td>
+</tr>
+<tr>
+<td>The number of players who have left the game</td>
+<td>todo</td>
+<td>sent online only</td>
+</tr>
+<tr>
+<td>At the end of an online game one record goes to Lionhead's database: the game's version and map, the places, the players' accounts and clan, and every figure above by name</td>
+<td>n/a</td>
+<td>the server is gone; see <a href="../pc_integration/online_services.html">../pc_integration/online_services.md</a> and <a href="../multiplayer/clans.html">../multiplayer/clans.md</a></td>
+</tr>
+<tr>
+<td>If the database can't be reached the player is told "Could not connect to database. Your creature and/or statistics will not be updated."</td>
+<td>n/a</td>
+<td>the server is gone</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

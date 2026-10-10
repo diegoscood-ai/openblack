@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Big Whale — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-big-whale">The Big Whale</a><ul>
+<li><a href="#is-it-in-the-game">Is it in the game?</a></li>
+<li><a href="#set-up-and-introduction">Set-up and introduction</a></li>
+<li><a href="#what-the-player-does">What the player does</a></li>
+<li><a href="#reward">Reward</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-big-whale">The Big Whale</h1>
+<p>A cut first-land challenge, a "Jonah" story: a fisherman's son has been swallowed by a giant whale out at sea; once the
+player's creature goes to the water the whale is thrown up onto the shore, and hitting it makes it spit the son out,
+for a storm miracle seed from the sky. It was never compiled into the game, and none of its lines exist in the text
+table. Its script once borrowed the title "The Beach Temple Puzzle", which the shipped game uses for Land 2's beach
+temple (<a href="./the_beach_temple_puzzle.html">the_beach_temple_puzzle.md</a>), but that line is commented out.</p>
+<p><strong>Land:</strong> 1 (an early version of it; never started) · <strong>Giver:</strong> a Norse fisherman by his house · <strong>Script:</strong> BigFish · <strong>Reward:</strong> a storm miracle seed dropped from the sky · <strong>Repeatable:</strong> no</p>
+<p><strong>Progress: 0/0 done, 0 partial — 0%</strong></p>
+<p>Sources: the script's source text, the uncompiled early Land 1 control script that starts it, the camera path names in
+the script headers, the land map scripts and the game's text table. Every row is n/a: the game never runs this quest.</p>
+<h2 id="is-it-in-the-game">Is it in the game?</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Not in the compiled challenge file; only an uncompiled early Land 1 control script (one that also starts the cut landslide and the cut sculptor's rock) and a single-quest test launcher start it</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Its challenge is named for a whale, and its dialogue lines (the "big whale" lines and its reminder) are all missing from the text table; its advisor nag uses a line from Land 2's lifeguard quest that is missing too</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>It calls the scroll's nag helper with one argument too many for the shipped helper, so it would no longer compile against the shipped scripts</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Its fisherman's house matches no house on the shipped Land 1 (the nearest house at that spot is on Land 3, about 38 away), so the land's layout changed after it was written</td>
+<td>n/a</td>
+<td>never started by the game: checked against every <code>Land&lt;N&gt;.txt</code></td>
+</tr>
+<tr>
+<td>The headers still name its camera path ("big whale"), but the shipped data has no whale model or path for it</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Not reachable at all in the shipped game</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="set-up-and-introduction">Set-up and introduction</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A whale is made at the start of its camera path, at double size, and a Norse fisherman at his house</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>A silver scroll appears over the house; the evil advisor nags within 100 until it is clicked</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The challenge record lines (open and close) are commented out, so it would never show in the challenge log</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Cut scene: the fisherman steps out of the house; the camera glides to him (6 seconds) and he speaks; he turns to the camera and speaks again while the camera swings out to sea (5 seconds); a "fish in the water" shot was still to do</td>
+<td>n/a</td>
+<td>never started by the game: two lines, text missing</td>
+</tr>
+<tr>
+<td>Then both advisors come out for four lines</td>
+<td>n/a</td>
+<td>never started by the game: text missing</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-the-player-does">What the player does</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The quest waits until the player's creature is within 80 of a spot out at sea south of the house, then makes the creature idle</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Cut scene: the camera cuts back to the shore; two lines; the whale swims its path; a giant (three times size) man is made on the beach to stand for the whale thrown up on the shore, with a 1 second camera shake within 100; another line</td>
+<td>n/a</td>
+<td>never started by the game: the real "whale on the shore, crowd gathers, voice from inside" was still to do</td>
+</tr>
+<tr>
+<td>The swimming whale is removed; three more lines</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The quest waits until the beached "whale" is hit by something (the plan: throw a rock at it so it spits out the son)</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Cut scene with three closing lines; the creature is released</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>No timer, no failure and no way to give up</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="reward">Reward</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A storm miracle seed falls from the sky beside the house, with the reward's own camera move (one of two random swoops, then following the seed down)</td>
+<td>n/a</td>
+<td>never started by the game: the shared reward-from-sky script</td>
+</tr>
+<tr>
+<td>A planned ending where the whale swims away into the distance was never written</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

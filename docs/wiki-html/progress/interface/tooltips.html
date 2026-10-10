@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tooltips — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="here" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#tooltips">Tooltips</a><ul>
+<li><a href="#the-tooltip-system">The tooltip system</a></li>
+<li><a href="#how-a-tooltip-looks">How a tooltip looks</a></li>
+<li><a href="#where-tooltips-are-offered">Where tooltips are offered</a></li>
+<li><a href="#status-readouts">Status readouts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="tooltips">Tooltips</h1>
+<p>The words, mouse picture and arrows the hand shows beside it for what it is over: what a click would do, and numbers
+such as a town's desires or a store's food. Which tooltip each thing in the world offers as the hand points at it is
+in ../hand/; this file is the tooltip system and the status readouts it shows.</p>
+<p><strong>Progress: 18/31 done, 4 partial — 65%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../hand-and-interface.html">The hand and the interface</a>.</p>
+<h2 id="the-tooltip-system">The tooltip system</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The game has 170 tooltips, each with a priority and how long it shows, from the info scripts</td>
+<td>done</td>
+<td><code>src/Help/ToolTips.cpp</code> (<code>help::tooltips</code>, <code>k_Count</code> 170), priority and times from the info tables (<code>InfoConstants::toolTips</code>); tests <code>ToolTips.AreTheHelpSystemsTooltipTexts</code></td>
+</tr>
+<tr>
+<td>What the hand is over offers a tooltip every turn; once a turn the shown one lives on or ends</td>
+<td>done</td>
+<td><code>help::tooltips::Submit</code>, <code>ProcessTurn</code> (from <code>help::Process</code>), the hand's part <code>HandSystem::SubmitToolTips</code> (<code>HandToolTips.cpp</code>)</td>
+</tr>
+<tr>
+<td>No tooltips at the None level</td>
+<td>done</td>
+<td>level 0 in <code>help::tooltips::ProcessTurn</code></td>
+</tr>
+<tr>
+<td>At the Minimum level only the important ones (numbers and stats) show</td>
+<td>done</td>
+<td>level 1 keeps priorities of 0.9 and above (<code>Submit</code>, <code>ProcessTurn</code>)</td>
+</tr>
+<tr>
+<td>At the Intelligent level each fades in a second slower each time it is shown, and fades out once read</td>
+<td>done</td>
+<td>the fade-in lasts as many seconds as the text was shown (capped at 80) and a low priority fades out in 1 s once its time is over (<code>ProcessTurn</code>)</td>
+</tr>
+<tr>
+<td>At the All level they show at once and stay</td>
+<td>done</td>
+<td>level 3: no fade-in (<code>ProcessTurn</code>)</td>
+</tr>
+<tr>
+<td>A tooltip keeps others off for its display time, and some linger after the hand leaves</td>
+<td>done</td>
+<td>the display and after-focus turns in <code>Submit</code> and <code>ProcessTurn</code></td>
+</tr>
+<tr>
+<td>A forced tooltip shows at once, over one still showing</td>
+<td>done</td>
+<td><code>Submit(..., force)</code>, <code>Force</code></td>
+</tr>
+<tr>
+<td>The level is the one the player picked in the options</td>
+<td>todo</td>
+<td>the menu's choice is not passed to the tooltips (no caller of <code>help::tooltips::SetLevel</code>); the level stays at its default 2 (<a href="options.html">options.md</a>)</td>
+</tr>
+<tr>
+<td>How many times each tooltip has been shown is kept with the player's profile, so intelligent tooltips stay learnt</td>
+<td>todo</td>
+<td>the counts live in <code>help::tooltips</code> for the run only</td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-a-tooltip-looks">How a tooltip looks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Words beside the hand, sized by the screen's height and kept on the screen</td>
+<td>done</td>
+<td>the input prompt icon at the hand, S = screen height / 25, kept on the screen (<code>Renderer::DrawKeyOrMouse</code>)</td>
+</tr>
+<tr>
+<td>A picture of the mouse with the button to press lit</td>
+<td>done</td>
+<td><code>mousehelp.raw</code> with the bound button lit (<code>Renderer::DrawKeyOrMouseMouse</code>, <code>help::input_prompt::ResolveAction</code>); test <code>ToolTips.ShowTheButtonOfTheirAction</code></td>
+</tr>
+<tr>
+<td>Arrows about the mouse for the ways it can be dragged</td>
+<td>done</td>
+<td>the arrow bits of the align (<code>HandToolTips.cpp</code>), drawn by <code>Renderer::DrawKeyOrMouse</code>; test <code>ToolTips.ArrowsAreTheHandsOwn</code></td>
+</tr>
+<tr>
+<td>Soft glows behind the mouse and the words</td>
+<td>done</td>
+<td>the soft blob panels from <code>atmos.raw</code> behind the icon and the text (<code>Renderer::DrawKeyOrMouse</code>)</td>
+</tr>
+<tr>
+<td>Right of the hand, or left of it near the right of the screen</td>
+<td>done</td>
+<td>the side with its hysteresis in <code>Renderer::DrawKeyOrMouse</code></td>
+</tr>
+<tr>
+<td>Numbers filled into the words, as in "Food Amount: 120"</td>
+<td>done</td>
+<td><code>help::tooltips::Numbers</code> and the text builder: "Food Amount", "Wood Amount", "Food Stored ... Wood ...", the town's believers and population</td>
+</tr>
+<tr>
+<td>The tooltip hides while the menu or a script's cinema bars are up</td>
+<td>done</td>
+<td>under a script's wide screen with an owner none is shown (<code>ProcessTurn</code>); while paused outside the temple the icon is deleted (<code>help::tooltips::Frame</code>), so the menu's pause hides it</td>
+</tr>
+</tbody>
+</table>
+<h2 id="where-tooltips-are-offered">Where tooltips are offered</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Over the player's own creature: interact</td>
+<td>done</td>
+<td><code>HandSystem::SubmitToolTips</code> (<code>HandToolTips.cpp</code>): over a creature of the player's, "Interact"</td>
+</tr>
+<tr>
+<td>Inside the temple: moving, zooming, doors, scrolls and the rooms' toggles</td>
+<td>done</td>
+<td><code>src/3D/TempleToolTips.cpp</code>; see ../temple/</td>
+</tr>
+<tr>
+<td>Over everything else in the world (pick up, throw, cast, leash, tap and so on)</td>
+<td>partial</td>
+<td>pick up, catch, move, tap, drop, plant, throw, apply to a target and the piles' interact are offered (<code>HandToolTips.cpp</code>); cast, leash, scaffolds and giving to the creature are not ported</td>
+</tr>
+<tr>
+<td>On the dialogs' controls</td>
+<td>todo</td>
+<td>see <a href="main_menu.html">main_menu.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="status-readouts">Status readouts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Over a village centre: the town's population and its strongest desires as percentages</td>
+<td>partial</td>
+<td>the town's believers and population are shown (<code>HandToolTips.cpp</code>); the desires' readout is not ported</td>
+</tr>
+<tr>
+<td>Over the village store: the food and wood stored</td>
+<td>done</td>
+<td>"Food Stored ... Wood ..." over a storage pit (<code>HandToolTips.cpp</code>)</td>
+</tr>
+<tr>
+<td>Over a building being built: how far it has got, and the wood it still needs</td>
+<td>todo</td>
+<td>the site to build texts are not ported</td>
+</tr>
+<tr>
+<td>Over a workshop: how far its scaffold is made, and a scaffold's value</td>
+<td>todo</td>
+<td>see <a href="../building/workshop_and_scaffolds.html">../building/workshop_and_scaffolds.md</a></td>
+</tr>
+<tr>
+<td>Over a worship site: people worshipping, prayer power, and a miracle's charge</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Over another god's town: the belief needed to win it, or left, or got</td>
+<td>partial</td>
+<td>a town centre's believers count turns into "Believers Needed" when negative (<code>HandToolTips.cpp</code>); the other readouts are not ported</td>
+</tr>
+<tr>
+<td>Over a villager: their need as a percentage</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Over the temple: its health</td>
+<td>todo</td>
+<td>the temple's entrance offers "Enter Temple" (<code>worship::citadel::EntranceToolTipFor</code>); the heart's readout is not ported</td>
+</tr>
+<tr>
+<td>Over a pile or a field: the amount of food or wood</td>
+<td>partial</td>
+<td>over a pile, "Food Amount" or "Wood Amount" with its amount (<code>HandToolTips.cpp</code>). Our wiki differs: over a field the original offers "Pick Up", not an amount (<a href="../../hand-and-interface.html#the-text-of-each-state-table-0xbf1c10">hand and interface</a>)</td>
+</tr>
+<tr>
+<td>Over a signpost or a scroll: what it is and that it can be read</td>
+<td>todo</td>
+<td>a highlight's tap tooltip override is always 0 (<code>script_highlight::OverwriteTapToolTip</code>, test <code>ScriptHighlight.TapToolTip</code>); the script highlight texts are not ported; see <a href="scrolls_and_signs.html">scrolls_and_signs.md</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

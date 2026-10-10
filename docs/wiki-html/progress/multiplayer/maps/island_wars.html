@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Island Wars — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="here" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#island-wars">Island Wars</a><ul>
+<li><a href="#where-it-comes-from">Where it comes from</a></li>
+<li><a href="#choosing-and-starting-it">Choosing and starting it</a></li>
+<li><a href="#the-land">The land</a></li>
+<li><a href="#the-four-starts">The four starts</a></li>
+<li><a href="#the-computer-gods">The computer gods</a></li>
+<li><a href="#neutral-towns-and-the-middle">Neutral towns and the middle</a></li>
+<li><a href="#nature-and-features">Nature and features</a></li>
+<li><a href="#winning-and-losing">Winning and losing</a></li>
+<li><a href="#online">Online</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="island-wars">Island Wars</h1>
+<p>Four gods on a cluster of low islands: you and three computer gods, all with Nemesis-minded creatures, each hold a
+Japanese town on your own island, with a rich Greek town in the middle and Indian fishing villages between. It is a
+fan's rework, made with a community map editor, of one of Lionhead's later online maps that were only ever offered from
+the online servers.</p>
+<p><strong>Players:</strong> 4 · <strong>Landscape:</strong> <code>Data/Landscape/mpm_4p_2.lnd</code> · <strong>Script:</strong> <code>Scripts/Playgrounds/Island Wars.txt</code> · <strong>Mode:</strong> skirmish</p>
+<p><strong>Progress: 17/31 done, 8 partial — 68%</strong></p>
+<p>What the script builds, object by object, is in
+<a href="../../scripts/playground_scripts.html#island-wars-loading">playground_scripts.md</a> (its "Island Wars" sections); this
+file covers the land as a player meets it. How skirmish is set up is in <a href="../skirmish.html">../skirmish.md</a>; the computer
+gods are in <a href="../../rival_gods/skirmish_opponents.html">../../rival_gods/skirmish_opponents.md</a> and Nemesis's creature
+mind in <a href="../../rival_gods/nemesis.html">../../rival_gods/nemesis.md</a>.</p>
+<h2 id="where-it-comes-from">Where it comes from</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The script opens with a note that it was modified with a fan-made map editor; it is the developers' four-player online map (named <code>mpm_4p_2</code> in the game's online condition list) with three computer gods and their creatures added, temples moved after their towns, and the two small Greek towns' miracles reshuffled</td>
+<td>n/a</td>
+<td>history of the file; the original online download is lost</td>
+</tr>
+<tr>
+<td>Neither the script nor its landscape is among the files the game installs; the skirmish box shows any script placed in its folder</td>
+<td>n/a</td>
+<td>how it reached this install is not part of the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="choosing-and-starting-it">Choosing and starting it</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The skirmish box lists it by its file name, "Island Wars", and it has no start message</td>
+<td>partial</td>
+<td>the debug menu's "Playground Islands" lists it by its start message title, or by its file name when it has none (<code>src/Level.cpp</code>, <code>src/Debug/Gui.cpp</code>); no skirmish box</td>
+</tr>
+<tr>
+<td>Starting it clears the current land, resets the scripts and loads this script and its landscape</td>
+<td>partial</td>
+<td><code>Game::LoadMap</code> loads it from the debug menu; see the next row</td>
+</tr>
+<tr>
+<td>No story script runs on a skirmish land</td>
+<td>todo</td>
+<td>our tree starts the story's control script (<code>LandControlAll</code>) on the start land whatever it is, and leaves the story's scripts running when a land is opened from the debug menu</td>
+</tr>
+<tr>
+<td>The camera starts at the script's start point, kept from another map, which lies off the land's edge over the sea rather than at your temple</td>
+<td>done</td>
+<td><code>START_CAMERA_POS</code> (<code>FeatureScriptCommands::StartCameraPos</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-land">The land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A small square land about 1,270 paces across, three quarters of it at or near sea level: a scatter of low islands, one per god, round a central island, with nothing higher than about half the highest possible height</td>
+<td>done</td>
+<td><code>Game::LoadLandscape</code></td>
+</tr>
+<tr>
+<td>No climate is set, so the land keeps the game's default weather</td>
+<td>todo</td>
+<td>with no climate our weather queries give no rain and no wind (<code>src/ECS/Weather/Weather.h</code>); what the game's weather does on such a land is not determined</td>
+</tr>
+<tr>
+<td>A day of 1,700 seconds with short nights (8.3%) and dawns and dusks (7%)</td>
+<td>done</td>
+<td><code>SET_NIGHTTIME</code> (<code>DayNightClock::SetCycleFromLand</code>)</td>
+</tr>
+<tr>
+<td>The music follows the nearest town's tribe: Japanese at every home, Indian between, Greek in the middle</td>
+<td>done</td>
+<td><code>src/Audio/GameMusic.cpp</code>; see ../../audio/music.md</td>
+</tr>
+<tr>
+<td>Towns project a fifth of their normal influence and gods 1.2 times theirs, so the gods reach across the water</td>
+<td>done</td>
+<td><code>SET_TOWN_INFLUENCE_MULTIPLIER</code> and <code>SET_PLAYER_INFLUENCE_MULTIPLIER</code>, kept in the map script globals and read by <code>src/ECS/Influence</code></td>
+</tr>
+<tr>
+<td>A ring of influence placed near player four's island</td>
+<td>done</td>
+<td><code>CREATE_INFLUENCE_RING</code> (<code>influence::CreateRing</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-four-starts">The four starts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every god has a temple and the same Japanese town: eight houses, a storehouse, a workshop, a village centre, three fields, two fish farms and about 20 villagers</td>
+<td>done</td>
+<td>towns, buildings and villagers as in <a href="../../scripts/playground_scripts.html">playground_scripts.md</a>; fish farms <code>FishFarmArchetype</code></td>
+</tr>
+<tr>
+<td>Each home store starts with 10,000 food and its workshop 10,000 wood (20,000 wood in all)</td>
+<td>done</td>
+<td><code>AbodeArchetype</code> keeps the amounts</td>
+</tr>
+<tr>
+<td>Each home town believes in its god at 2 and offers heal, teleport, shield, physical shield, water and creature compassion</td>
+<td>partial</td>
+<td>belief set (<code>ecs::town_belief::SetBeliefInPlayer</code>) and the town holds its miracles (<code>magic::script::CreateNewTownSpell</code>); how far they reach its god's worship site icons is in <a href="../../miracles/dispensers_and_seeds.html">../../miracles/dispensers_and_seeds.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-computer-gods">The computer gods</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Computer gods are switched on for players two, three and four</td>
+<td>partial</td>
+<td><code>TOGGLE_COMPUTER_PLAYER</code> adds the player (<code>FeatureScriptCommands::ToggleComputerPlayer</code>, <code>PlayerArchetype</code>); no mind thinks for it (see ../skirmish.md)</td>
+</tr>
+<tr>
+<td>Player two has a leopard, player three a gorilla and player four a brown bear, each next to its home town, all with Nemesis's creature mind from the story</td>
+<td>partial</td>
+<td><code>CREATE_CREATURE_FROM_FILE</code> (<code>FeatureScriptCommands::CreateCreatureFromFile</code>, <code>CreatureArchetype</code>) with the mind loaded; it faces a fixed way and takes our starting size; nothing of its god steers it; see ../../scripts/creature_mind_scripts.md</td>
+</tr>
+<tr>
+<td>The creatures are sized to match your own</td>
+<td>todo</td>
+<td><code>SET_COMPUTER_PLAYER_CREATURE_LIKE</code> is empty</td>
+</tr>
+<tr>
+<td>No personalities are loaded, so all three play with the default personality</td>
+<td>todo</td>
+<td>no computer god mind in our tree; see ../../rival_gods/ai.md</td>
+</tr>
+<tr>
+<td>No belief caps are set for anyone: unlike the game's own lands, the computer gods are not handicapped</td>
+<td>done</td>
+<td>nothing to cap</td>
+</tr>
+</tbody>
+</table>
+<h2 id="neutral-towns-and-the-middle">Neutral towns and the middle</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The Greek town in the middle has sixteen houses, a crèche, a workshop, a graveyard, six fields, about 39 people and 10,000 food and 20,000 wood, believes in nobody fully, and offers ten miracles: fire, the strongest fire, lightning, beam explosion and its strongest form, heal and a stronger heal, storm and the strongest storm, and physical shield</td>
+<td>partial</td>
+<td>built with its stores and belief; the towns hold their miracles (<code>magic::script::CreateNewTownSpell</code>), but a town changing hands does not yet pass them on to the winner's worship site (<a href="../../miracles/dispensers_and_seeds.html">../../miracles/dispensers_and_seeds.md</a>)</td>
+</tr>
+<tr>
+<td>Two Greek village centres with no houses, between the homes, each offering fire, a stronger fire, food, wood and water</td>
+<td>partial</td>
+<td>the centres and their belief are made; the towns hold their miracles (<code>magic::script::CreateNewTownSpell</code>), but a town changing hands does not yet pass them on to the winner's worship site (<a href="../../miracles/dispensers_and_seeds.html">../../miracles/dispensers_and_seeds.md</a>)</td>
+</tr>
+<tr>
+<td>Four Indian fishing villages, one on the way from each home to the middle, each with five houses and ten people, offering fire, lightning, creature freeze, invisibility and itchiness</td>
+<td>partial</td>
+<td>towns, houses, villagers and fish farms are built; the towns hold their miracles (<code>magic::script::CreateNewTownSpell</code>), but a town changing hands does not yet pass them on to the winner's worship site (<a href="../../miracles/dispensers_and_seeds.html">../../miracles/dispensers_and_seeds.md</a>)</td>
+</tr>
+<tr>
+<td>The middle and small towns each have a gathering point for worshippers</td>
+<td>done</td>
+<td><code>SET_TOWN_CONGREGATION_POS</code>: the town's congregation position, read by <code>src/ECS/Town/TownQueries.cpp</code></td>
+</tr>
+<tr>
+<td>Four bonfires by the Indian villages</td>
+<td>done</td>
+<td><code>BonfireArchetype</code>; its temperature is not used on creation, as in the original (<a href="../../../map-loading.html#map-script-objects-street-lanterns-bonfires-dead-trees-gates">map-loading</a>)</td>
+</tr>
+<tr>
+<td>Eight one-shot miracles: storms, creature strength and creature freeze</td>
+<td>done</td>
+<td><code>CREATE_ONE_SHOT_SPELL_PU</code> (<code>magic::script::CreateOneShotSpellPu</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="nature-and-features">Nature and features</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>458 trees (bushes, conifers, oaks, palms, beech, olives) and eleven big forests</td>
+<td>done</td>
+<td><code>TreeArchetype</code>, <code>BigForestArchetype</code></td>
+</tr>
+<tr>
+<td>The trees belong to 13 forests that foresters fell and replant</td>
+<td>done</td>
+<td><code>CREATE_FOREST</code> (<code>ecs::CreateForest</code>): the forest the trees after it belong to</td>
+</tr>
+<tr>
+<td>75 animals in 18 flocks: pigs, gulls and a few sheep</td>
+<td>done</td>
+<td><code>CREATE_NEW_ANIMAL</code> (<code>AnimalArchetype</code>) and <code>CREATE_FLOCK</code>; how they behave is the animals' domain</td>
+</tr>
+<tr>
+<td>18 fields, 24 fish farms and six pots of magic wood</td>
+<td>done</td>
+<td><code>FieldArchetype</code>, <code>FishFarmArchetype</code>, <code>PotArchetype</code></td>
+</tr>
+<tr>
+<td>48 rocks and 17 street lanterns</td>
+<td>done</td>
+<td><code>MobileStaticArchetype</code>, <code>StreetLanternArchetype</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="winning-and-losing">Winning and losing</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land has no winning rule of its own; the skirmish's own rule applies</td>
+<td>todo</td>
+<td>not determined what ends a skirmish, and our tree ends none; see ../skirmish.md</td>
+</tr>
+<tr>
+<td>Losing while two or more gods are left shows "You have lost the game." with Watch Game (keep watching the other gods) and Leave Game (leave the skirmish)</td>
+<td>todo</td>
+<td>no end of game in our tree; see ../skirmish.md and <a href="../../story/losing_and_game_over.html">../../story/losing_and_game_over.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="online">Online</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The developers' original of this land was downloaded from the online servers; its winning conditions started at 11,000 food or wood, 2,100 belief and up to 8 towns taken</td>
+<td>n/a</td>
+<td>the servers and that map's online file are gone; the game's condition list still holds its numbers (../multiplayer_rules.md)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Navigation — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="here" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#navigation">Navigation</a><ul>
+<li><a href="#gripping-and-dragging-the-land">Gripping and dragging the land</a></li>
+<li><a href="#dragging-by-the-edges-of-the-screen">Dragging by the edges of the screen</a></li>
+<li><a href="#turning-with-the-middle-button-or-both-buttons">Turning with the middle button or both buttons</a></li>
+<li><a href="#the-hands-hints-while-navigating">The hand's hints while navigating</a></li>
+<li><a href="#recorded-hand-demos">Recorded hand demos</a></li>
+<li><a href="#network-play">Network play</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="navigation">Navigation</h1>
+<p>The player moves around the island with the hand: gripping the land and dragging it, dragging by the edges of the screen to
+turn and tilt the camera, and turning with the middle button or both buttons. This file covers what the hand does while
+it moves the camera; the camera's own keys, zoom, limits, paths and focusing are in <a href="../camera/index.html">../camera/</a>.</p>
+<p><strong>Progress: 32/40 done, 3 partial — 84%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../hand-and-interface.html">The hand and the interface</a>.</p>
+<h2 id="gripping-and-dragging-the-land">Gripping and dragging the land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Holding the Move button with land under the cursor grips the land at the exact point under the cursor</td>
+<td>done</td>
+<td>The hand keeps the grabbed land point (<code>HandSystem::Place</code>, camera state); the camera drags in <code>DefaultWorldCameraModel</code> (<code>Mode::DraggingLandscape</code>, the MOVE action)</td>
+</tr>
+<tr>
+<td>Dragging keeps the gripped land under the cursor, sliding the camera across the island</td>
+<td>done</td>
+<td><code>src/Camera/CameraPan.cpp</code>; test <code>CameraPan.TheLandUnderTheCursorStaysUnderIt</code></td>
+</tr>
+<tr>
+<td>On a slope the plane the land is dragged along leans back towards the camera</td>
+<td>done</td>
+<td><code>src/Camera/CameraPan.cpp</code>; test <code>CameraPan.OnASlopeThePlaneLeansBackTowardsTheCamera</code></td>
+</tr>
+<tr>
+<td>How far the camera moves is limited by how far the cursor went</td>
+<td>done</td>
+<td>test <code>CameraPan.TheMoveIsLimitedByHowFarTheCursorWent</code></td>
+</tr>
+<tr>
+<td>Land gripped too far ahead isn't dragged: every control waits until all are let go, and the camera flies to 1000 from the hand's point when the double-click flight is allowed</td>
+<td>done</td>
+<td><code>DefaultWorldCameraModel::UpdateModeDragging</code> (maximum grip depth); tests <code>WorldCameraLandGrip.*</code></td>
+</tr>
+<tr>
+<td>Pressing with only sky under the cursor drags nothing</td>
+<td>done</td>
+<td>No land under the cursor means no hand position, so <code>DefaultWorldCameraModel::HandleActions</code> never enters the drag mode; test <code>CameraPan.LookingAboveTheLandDragsNothing</code></td>
+</tr>
+<tr>
+<td>The camera stops short of land, or of the sea, in its way while dragging</td>
+<td>done</td>
+<td>tests <code>CameraPan.StopsThreeShortOfLandInItsWay</code>, <code>CameraPan.TheSeaIsMetGoingDownNearTheCamera</code></td>
+</tr>
+<tr>
+<td>Gripping the land plays one of six grab sounds</td>
+<td>done</td>
+<td><code>HandSystem::GripLandSound</code> (<code>HandFish.cpp</code>): a random one of 6 G_HandGrabLand samples, from <code>HandSystem::Place</code></td>
+</tr>
+<tr>
+<td>Gripping the land throws up a puff of dust where the hand takes hold</td>
+<td>done</td>
+<td>The grip packet makes spot visual 2 (grip dust) at the next turn (<code>HandSystem::Place</code>, <code>HandTurn.cpp</code>)</td>
+</tr>
+<tr>
+<td>Gripping the sea splashes a ring on the water and plays the ten water sounds in turn</td>
+<td>done</td>
+<td><code>HandSystem::SplashHand</code> (<code>HandFish.cpp</code>): a water ring and the next of the ten G_HandInWater samples in turn</td>
+</tr>
+<tr>
+<td>Gripping the sea scares the fish near the hand</td>
+<td>done</td>
+<td><code>HandSystem::SplashHand</code> calls <code>ecs::SplashWater</code>, which the fish shoals flee (<code>src/ECS/FishShoals.cpp</code>)</td>
+</tr>
+<tr>
+<td>Gripping is silent while a script holds the cinema bars</td>
+<td>done</td>
+<td><code>HandSystem::Place</code> makes no dust nor sound while a script's widescreen is on</td>
+</tr>
+<tr>
+<td>How far away the hand can reach and grip is set by the land's interface level</td>
+<td>done</td>
+<td>SET_INTERFACE_INTERACTION sets the reach through <code>HandSystemInterface::SetHandReach</code> (<code>src/Help/InterfaceInteraction.cpp</code>); tests <code>InterfaceInteractionTest.EveryLevelAsTheJumpTable</code>, <code>InterfaceInteractionTest.InvalidLevelsLeaveTheReach</code> (<code>test/gui/test_interface_interaction.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="dragging-by-the-edges-of-the-screen">Dragging by the edges of the screen</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The cursor is measured from the middle of the screen, with the cinema bars measured by a 16:9 picture</td>
+<td>done</td>
+<td><code>src/Camera/CameraDrag.cpp</code>; tests <code>CameraDrag.CursorIsMeasuredFromTheMiddle</code>, <code>CameraDrag.TheCinemaBarsMeasureByA16To9Picture</code></td>
+</tr>
+<tr>
+<td>Pressing away from the edges grips the land at once</td>
+<td>done</td>
+<td>test <code>CameraDrag.PressingAwayFromTheEdgesGripsAtOnce</code></td>
+</tr>
+<tr>
+<td>Near the sides and bottom a press is undecided until the mouse has moved far enough, then becomes a pan or a turn</td>
+<td>done</td>
+<td>tests <code>CameraDrag.NothingIsDecidedUntilTheMouseMovesFarEnough</code>, <code>CameraDrag.TheSidesAndBottomOfferTurning</code></td>
+</tr>
+<tr>
+<td>A quick drag from the side towards the middle pans instead of turning</td>
+<td>done</td>
+<td>test <code>CameraDrag.AQuickDragFromTheSideTowardsTheMiddlePans</code></td>
+</tr>
+<tr>
+<td>Turning by the edge holds the cursor on a ring around the middle and turns the camera by the angle swept round it</td>
+<td>done</td>
+<td>tests <code>CameraDrag.EdgeRotateHoldsTheCursorOnTheRing</code>, <code>CameraDrag.EdgeRotateTurnsByTheAngleSweptRoundTheMiddle</code></td>
+</tr>
+<tr>
+<td>At the top, dragging up and down tilts the camera and across turns it</td>
+<td>done</td>
+<td>test <code>CameraDrag.AtTheTopUpAndDownTiltsAndAcrossTurns</code></td>
+</tr>
+<tr>
+<td>A drag down the whole screen tilts by seven thirds of the field of view</td>
+<td>done</td>
+<td>test <code>CameraDrag.ADragDownTheWholeScreenTiltsBySevenThirdsOfTheFieldOfView</code></td>
+</tr>
+<tr>
+<td>A quick tilt downwards over land pans instead</td>
+<td>done</td>
+<td>test <code>CameraDrag.AQuickTiltDownOverLandPans</code></td>
+</tr>
+<tr>
+<td>Watching a fight, the camera offers no tilting</td>
+<td>todo</td>
+<td>No fight camera rule (<code>DefaultWorldCameraModel.cpp</code> has a TODO for it)</td>
+</tr>
+<tr>
+<td>Scripts choose which of pan, turn, tilt and zoom the drags offer</td>
+<td>done</td>
+<td><code>camera_help::GetEnabledFeatures</code> gates zoom, rotate, pitch, the land grab and the double-click flight in <code>DefaultWorldCameraModel</code> (<code>src/Camera/CameraHelp.cpp</code>); test <code>InterfaceInteractionTest.EnableCameraFeaturesMask</code></td>
+</tr>
+<tr>
+<td>In a window the very bottom and the top offer their hints nearer the middle</td>
+<td>done</td>
+<td><code>camera_drag::IdleTricons</code> (windowed), from the display mode; tests <code>CameraDrag.InAWindowTheVeryBottomAndTheTopStartNearerTheMiddle</code>, <code>WorldCameraMouse.InAWindowTheVeryBottomOffersTiltingNearerTheMiddle</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="turning-with-the-middle-button-or-both-buttons">Turning with the middle button or both buttons</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The middle button turns and tilts the camera at the game's rates while the cursor stays frozen</td>
+<td>done</td>
+<td>The middle button (ROTATE_AROUND_MOUSE_ON) turns the camera in <code>DefaultWorldCameraModel</code> (arc ball) with the cursor in relative mode, so it stays put (<code>Game::ProcessEvents</code>)</td>
+</tr>
+<tr>
+<td>Letting go puts the pointer back where it was frozen, so the hand doesn't jump to a new place</td>
+<td>done</td>
+<td><code>Game::ProcessEvents</code> warps the pointer back to where the middle button went down (<code>MouseButtonsState::middlePressPosition</code>)</td>
+</tr>
+<tr>
+<td>While turning, the hand keeps its normal hover on the line of sight through the frozen cursor</td>
+<td>partial</td>
+<td>The middle button counts as a grip for the hand (<code>input::HandGripping</code>), so the hand takes the grip, not its hover</td>
+</tr>
+<tr>
+<td>Both buttons zoom with up and down, and turn only once the mouse has moved far enough across</td>
+<td>done</td>
+<td>Both buttons zoom dy × 1.9 and turn dx × 1.9 once the mouse has moved 2.5 % of the width, as the original's state 22, gated on JustZoom (0x20) (<code>DefaultWorldCameraModel::HandleActions</code> through <code>camera_drag::TwoButtonTurn</code>; tests <code>WorldCameraMouse.BothButtons*</code>)</td>
+</tr>
+<tr>
+<td>Both buttons never grip the land</td>
+<td>done</td>
+<td><code>GameActionMap::Frame</code> clears the MOVE binding while both buttons are held, so the camera does not drag</td>
+</tr>
+<tr>
+<td>Holding both the zoom and rotate modifiers eases in the clear view, during which the hand grips</td>
+<td>partial</td>
+<td><code>DefaultWorldCameraModel.cpp</code>: the camera's glide over half a second; the hand's grip is not ported</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-hands-hints-while-navigating">The hand's hints while navigating</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hovering by the sides or bottom with nothing under it, the hand takes its turning pose; at the top, its tilting pose</td>
+<td>todo</td>
+<td>Not in our tree: the Crotate and Cpitch hint clips are not ported (<code>HandSystem::Update</code>)</td>
+</tr>
+<tr>
+<td>The hint poses stand the hand up towards where the camera looks</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>Dragging, the hand grips while panning, and shows turning or tilting while it does those</td>
+<td>partial</td>
+<td>Gripping plays Cgrip (<code>HandSystem::Update</code>); the turning and tilting poses are not ported</td>
+</tr>
+<tr>
+<td>Showing that it turns the camera, the hand is drawn a third of its height higher</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>Every change of state or pose fades the hand from where it was drawn over 0.13 seconds</td>
+<td>done</td>
+<td>The 0.13 s state blend at each change of the hand's state (<code>HandCrossFade</code> (<code>src/3D/HandCrossFade.h</code>, the hand system's <code>_stateBlend</code>), started in <code>HandSystem::Update</code>); test <code>HandCrossFade.FadesAtAnEvenPaceOverATenthAndAThirdOfASecond</code>. Our wiki differs: the original blends only at a change of the hand's state, not at a change of clip inside a state (<a href="../../hand-and-interface.html#the-hands-clip-handstatenormal">page</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="recorded-hand-demos">Recorded hand demos</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The tutorial plays recorded hand movements that drive the real hand and camera (dragging, casting, giving wood …)</td>
+<td>done</td>
+<td><code>src/Input/HandDemo.cpp</code> (<code>hand_demo::Play</code>, <code>Update</code>) replays the records through the real hand and sets the camera; the CHL opcode is in <code>src/CHLApi.cpp</code>; no unit test. The recorded throw block is not applied (hand-and-interface.md, Pending)</td>
+</tr>
+<tr>
+<td>Scripts ask whether a hand demo is playing and wait for its triggers</td>
+<td>done</td>
+<td>IS_PLAYING_HAND_DEMO and HAND_DEMO_TRIGGER in <code>src/CHLApi.cpp</code> (<code>hand_demo::IsPlaying</code>, <code>ConsumeTrigger</code>)</td>
+</tr>
+<tr>
+<td>Scripts set which keys a hand demo shows being pressed</td>
+<td>done</td>
+<td>SET_HAND_DEMO_KEYS is an empty handler, as the original's (<code>src/CHLApi.cpp</code>)</td>
+</tr>
+<tr>
+<td>A demo can pause the game and leave the player's hand alone while it plays</td>
+<td>done</td>
+<td><code>hand_demo::Play</code> takes the wait-for-trigger flag (the time stands still while waiting) and the keep-hand flag (without it the held object is dropped)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="network-play">Network play</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hand's and camera's movements are sent to the other players, throttled, so they see each other's hands</td>
+<td>todo</td>
+<td>No multiplayer in our tree</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

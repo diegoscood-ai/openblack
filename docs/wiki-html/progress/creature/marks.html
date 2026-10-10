@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wounds, burns and blood — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="here" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#wounds-burns-and-blood">Wounds, burns and blood</a><ul>
+<li><a href="#the-marks">The marks</a></li>
+<li><a href="#where-marks-come-from">Where marks come from</a></li>
+<li><a href="#healing">Healing</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="wounds-burns-and-blood">Wounds, burns and blood</h1>
+<p>Fights and fire leave marks on a creature's skin: cuts, bruises, grazes and burns that start fresh and red and fade
+over time to old scars, and drops of blood that darken as they dry. The marks heal as the creature does and go once
+they are old enough.</p>
+<p><strong>Progress: 15/23 done, 2 partial — 70%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../creature.html">The creature: groundwork, random streams and what is unknown</a>.</p>
+<h2 id="the-marks">The marks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Wounds are small pictures from an atlas of damage, 8 kinds by 8 pictures of 32 texels</td>
+<td>done</td>
+<td><code>creature_marks</code> (<code>src/Creature/CreatureMarks.cpp</code>); damage atlases loaded by <code>CreatureSkinArtLoader</code> (<code>src/Resources/Loaders.cpp</code>)</td>
+</tr>
+<tr>
+<td>Each wound has a place on one of the base mesh's skins, a kind and a picture</td>
+<td>done</td>
+<td><code>creature_marks::Mark</code></td>
+</tr>
+<tr>
+<td>A wound starts with its fresh look and fades towards its old look as it ages</td>
+<td>done</td>
+<td>test <code>WoundsFadeFromFreshToOld</code></td>
+</tr>
+<tr>
+<td>Each kind of wound lasts its own number of healing steps</td>
+<td>done</td>
+<td><code>k_WoundLifetimes</code>; test <code>MarksGoOnceTheirKindHasLasted</code></td>
+</tr>
+<tr>
+<td>Wounds are centred on their place and cut off at the skin's edges</td>
+<td>done</td>
+<td>test <code>WoundsAreCentredAndCutAtTheEdges</code></td>
+</tr>
+<tr>
+<td>A wound's colour is blended over the skin at 8 bits and cut back to 4</td>
+<td>done</td>
+<td>test <code>ColoursBlendAt8BitsAndCutTo4</code></td>
+</tr>
+<tr>
+<td>Blood is painted a texel at a time, red when fresh and browner as it dries, covering three quarters of the skin under it</td>
+<td>done</td>
+<td>test <code>BloodDarkensAsItDries</code></td>
+</tr>
+<tr>
+<td>Blood goes after a set number of steps</td>
+<td>done</td>
+<td><code>k_BloodLifetime</code></td>
+</tr>
+<tr>
+<td>A creature keeps at most 1024 of each; a new one past that takes the oldest's place</td>
+<td>done</td>
+<td>test <code>AFullListLosesItsOldestMark</code></td>
+</tr>
+<tr>
+<td>The skin is painted tattoos first, then wounds, then blood</td>
+<td>done</td>
+<td>painted by <code>creature_skin</code> (<code>src/Creature/CreatureSkin.cpp</code>) in <code>CreatureSkinSystem</code>; test <code>SkinsArePaintedTattoosThenWoundsThenBlood</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="where-marks-come-from">Where marks come from</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Blows in fights leave wounds where they land</td>
+<td>done</td>
+<td><code>CreatureFightSystem</code> adds a wound for each unblocked blow (<code>CreatureSkinSystem::AddWound</code>); see <a href="fighting.html">fighting.md</a></td>
+</tr>
+<tr>
+<td>Blows cut, bruise or graze by where they land; some kinds also bleed</td>
+<td>partial</td>
+<td>the kind of wound each blow leaves is guessed (<code>fight::WoundKind</code>, <code>src/Creature/CreatureFight.h</code>), not known from the game</td>
+</tr>
+<tr>
+<td>Bleeding wounds leave drops of blood</td>
+<td>done</td>
+<td><code>fight::Bleeds</code>; <code>CreatureFightSystem</code> adds the drops (<code>CreatureSkinSystem::AddBlood</code>)</td>
+</tr>
+<tr>
+<td>Fire and fireballs leave burns</td>
+<td>todo</td>
+<td>the burn kind exists (debug spawner, <code>src/Debug/CreatureSpawnerAppearance.cpp</code>) but fire never adds one</td>
+</tr>
+<tr>
+<td>Lightning and other harmful miracles cut and scar the creature</td>
+<td>todo</td>
+<td>no miracle marks a creature's skin in our tree; only fights add wounds</td>
+</tr>
+<tr>
+<td>Being hit by thrown objects marks it (unconfirmed)</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The game keeps a map of where on the body damage has landed (unconfirmed what it drives)</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="healing">Healing</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Marks age a step every 600 counts of healing; a game turn heals by one count</td>
+<td>done</td>
+<td><code>creature_marks::Heal</code> once a turn in <code>CreatureSkinSystem::ProcessTurn</code>; tests <code>MarksAgeEvery600Counts</code>, <code>CreatureSkinSystemTest.TheTurnsHealTheMarks</code></td>
+</tr>
+<tr>
+<td>Healing goes fifty times faster while the creature heals quickly (asleep or resting, unconfirmed)</td>
+<td>todo</td>
+<td>the fast rate is defined (<code>k_FastCountsPerTurn</code>) but not used</td>
+</tr>
+<tr>
+<td>The heal miracle heals marks by its strength</td>
+<td>partial</td>
+<td>the heal's amount is defined (<code>k_HealEffectCounts</code>) but only the debug spawner uses it; no miracle heals a creature's marks</td>
+</tr>
+<tr>
+<td>Old marks go once their kind has lasted, and the skin is repainted</td>
+<td>done</td>
+<td><code>CreatureSkinSystem::ProcessTurn</code></td>
+</tr>
+<tr>
+<td>Marks are kept in saved games</td>
+<td>todo</td>
+<td>no saved games</td>
+</tr>
+<tr>
+<td>The debug spawner can add wounds, burns and blood</td>
+<td>done</td>
+<td><code>src/Debug/CreatureSpawnerAppearance.cpp</code></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

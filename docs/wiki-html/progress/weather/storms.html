@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Storms and thunder — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="here" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#storms-and-thunder">Storms and thunder</a><ul>
+<li><a href="#a-storms-life">A storm's life</a></li>
+<li><a href="#the-weather-at-a-point">The weather at a point</a></li>
+<li><a href="#lightning-and-thunder">Lightning and thunder</a></li>
+<li><a href="#storm-clouds">Storm clouds</a></li>
+<li><a href="#ending-storms">Ending storms</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="storms-and-thunder">Storms and thunder</h1>
+<p>Natural storms are moving weather systems bred by the climates. Within their outer radius they pull the temperature
+towards their own and add rain, snow, cloud and wind, at full strength inside their inner radius. Hot or overcast
+storms flash with lightning and roll with thunder.</p>
+<p><strong>Progress: 18/26 done, 4 partial — 77%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../day-night-weather.html">Day, night and weather in the original</a>.</p>
+<h2 id="a-storms-life">A storm's life</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A storm fades in, lasts a while at full strength and fades out</td>
+<td>done</td>
+<td><code>storms::UpdateAll</code> (<code>src/ECS/Weather/Storms.cpp</code>); tests <code>WeatherTest.StormFadeAndCalcAtmos</code>, <code>StormFadesInOverFadeInTime</code> (<code>test/test_weather.cpp</code>)</td>
+</tr>
+<tr>
+<td>A storm travels towards its destination at its speed and drifts with the wind</td>
+<td>done</td>
+<td><code>src/ECS/Weather/Storms.cpp</code>, <code>climate::ProcessAll</code></td>
+</tr>
+<tr>
+<td>A dead storm lingers a couple of turns before it is removed</td>
+<td>done</td>
+<td><code>src/ECS/Weather/Storms.cpp</code>; test <code>WeatherTest.DeletionTakesTwoTurns</code></td>
+</tr>
+<tr>
+<td>Later storms are laid on top of earlier ones</td>
+<td>done</td>
+<td>The storm list, newest first (<code>src/ECS/Weather/Storms.cpp</code>)</td>
+</tr>
+<tr>
+<td>A storm's strength, radii and cloud height come from its climate's type</td>
+<td>done</td>
+<td><code>climate::CreateStorm</code> (<code>src/ECS/Weather/Climate.cpp</code>)</td>
+</tr>
+<tr>
+<td>Cold storms snow; the snow share falls away above freezing</td>
+<td>done</td>
+<td><code>climate::CreateStorm</code></td>
+</tr>
+<tr>
+<td>Storms are saved and loaded with the game</td>
+<td>todo</td>
+<td>openblack has no saved games. See ../engine/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-weather-at-a-point">The weather at a point</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The weather is held on a grid of 128 by 128 cells of 40 units, calm air plus every storm over the cell</td>
+<td>done</td>
+<td><code>src/ECS/Weather/Atmos.cpp</code>; test <code>WeatherTest.AtmosGridAndHeight</code></td>
+</tr>
+<tr>
+<td>Cells are worked out when asked and kept until the storms move</td>
+<td>done</td>
+<td><code>src/ECS/Weather/Atmos.cpp</code> (the frame stamp)</td>
+</tr>
+<tr>
+<td>Weather heard and seen at the camera is blended between the four nearest cells</td>
+<td>done</td>
+<td>The smooth sampling in <code>src/ECS/Weather/Atmos.cpp</code></td>
+</tr>
+<tr>
+<td>High above the ground the weather gives way to calm air</td>
+<td>done</td>
+<td>The smooth sampling above 200 m (<code>src/ECS/Weather/Atmos.cpp</code>)</td>
+</tr>
+<tr>
+<td>The cloud cover at a point darkens the land and sky</td>
+<td>partial</td>
+<td>The overcast at the camera darkens the land's light (<code>Clouds::WeatherOvercastAtCamera</code>, <code>LandLightTable::Build</code>); the sky's dome is not tinted. See ../sky/lighting.md</td>
+</tr>
+<tr>
+<td>The snow lying in a cell is part of its weather</td>
+<td>partial</td>
+<td>The snow cover byte is there but stays 0: the lying snow is not ported; test <code>WeatherTest.FallingSnowIsNotSnowOnTheGround</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="lightning-and-thunder">Lightning and thunder</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Once faded in, hot or overcast storms flash now and then, at waits drawn from their climate</td>
+<td>done</td>
+<td>The fork and sheet timers in <code>src/ECS/Weather/Storms.cpp</code> start the flash (<code>flash::Start</code>)</td>
+</tr>
+<tr>
+<td>Bright flashes come with thunder, dim ones with a forked bolt</td>
+<td>done</td>
+<td>The flashes of 1.0 and 0.5 (<code>src/ECS/Weather/Storms.cpp</code>); the audio sets the thunder callback, the game's services the bolt one (<code>src/Locator.cpp</code>)</td>
+</tr>
+<tr>
+<td>A flash lasts a moment, flickering down between a tenth and half a second</td>
+<td>done</td>
+<td><code>flash::Age</code>, <code>flash::Frame</code> (<code>src/ECS/Weather/LightningFlash.cpp</code>); tests <code>Lightning.FlashFlickersAsItFades</code>, <code>BoltsFlashAtHalfStrength</code></td>
+</tr>
+<tr>
+<td>The flash lights the land and sky while the camera is inside the storm</td>
+<td>partial</td>
+<td><code>weather::LightningFlashAtCamera</code> lights the land through the light table; the sky's dome takes no flash. See ../sky/sky_dome.md</td>
+</tr>
+<tr>
+<td>Lightning glows on the ground where it struck</td>
+<td>done</td>
+<td>The flash's land light stamp (<code>flash::Frame</code>, <code>src/3D/LandColourStamps.cpp</code>)</td>
+</tr>
+<tr>
+<td>The thunder is one of eleven claps, heard once the sound has travelled to the camera</td>
+<td>done</td>
+<td><code>audio::tags::Thunder</code>, set as the sheet callback when the audio starts (<code>src/Audio/Game/AudioSystem.cpp</code>)</td>
+</tr>
+<tr>
+<td>The forked bolt is drawn from the cloud to the ground</td>
+<td>done</td>
+<td>The fork callback queues the point (<code>psys::lightning_strike::Queue</code>, set in <code>src/Locator.cpp</code>); <code>UR_LightningStrike</code> makes the strike (<code>src/Particles/Rules/Lightning.cpp</code>); test <code>WeatherTest.StormForkEventCallsTheForkCallback</code></td>
+</tr>
+<tr>
+<td>A bolt that reaches the ground strikes what is there (unconfirmed for natural storms)</td>
+<td>done</td>
+<td>With no spell behind it each fork tip applies the weather lightning effect (burn 10000 within 1 m): <code>psys::lightning::StrikeTip</code> / <code>NoSpellTipValues</code> / <code>TipMapPosition</code> in <code>src/Particles/Rules/Lightning.cpp</code>; tests <code>Lightning.strikeTipChoosesTheSpellOrTheWeatherLightning</code>, <code>Lightning.noSpellTipTakesTheWeatherLightningRow</code>, <code>Lightning.noSpellTipMapPosition</code></td>
+</tr>
+<tr>
+<td>Rain and wind sound under a storm</td>
+<td>done</td>
+<td><code>src/Audio/Services/SoundMap.cpp</code>; see ../audio/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="storm-clouds">Storm clouds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each storm draws up to 16 puffs of cloud wandering about its middle</td>
+<td>done</td>
+<td><code>storm_clouds::DrawFrame</code> (<code>src/ECS/Weather/StormClouds.cpp</code>); see ../sky/clouds.md</td>
+</tr>
+<tr>
+<td>A storm's clouds shadow the land</td>
+<td>done</td>
+<td><code>storm_clouds::DrawFrame</code> (the storm's shadow stamp); see ../sky/clouds.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="ending-storms">Ending storms</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scripts end every storm within an area at once</td>
+<td>done</td>
+<td><code>script::KillStormsInArea</code> (<code>src/Magic/Script/CHLWeather.cpp</code>), <code>storms::KillStormsInArea</code>; test <code>WeatherTest.KillStormsInArea</code></td>
+</tr>
+<tr>
+<td>The storm miracle lays its own storm over the land, moved and ended by the miracle</td>
+<td>done</td>
+<td>The miracle's registered storm (<code>src/Particles/Rules/Storm.cpp</code>, <code>src/Magic/Spells/SpellStormAndTornado.cpp</code>); see ../miracles/storm.md</td>
+</tr>
+<tr>
+<td>A storm can be forced over the whole island, and storms ended, from the debug window</td>
+<td>n/a</td>
+<td>openblack-only, <code>src/Debug/Weather.cpp</code>; see ../debug/</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

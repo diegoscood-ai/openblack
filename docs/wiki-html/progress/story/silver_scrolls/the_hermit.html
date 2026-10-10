@@ -1,0 +1,706 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Hermit — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-hermit">The Hermit</a><ul>
+<li><a href="#how-it-appears">How it appears</a></li>
+<li><a href="#the-introduction">The introduction</a></li>
+<li><a href="#the-hermits-wanderings">The hermit's wanderings</a></li>
+<li><a href="#showing-him-the-creature">Showing him the creature</a></li>
+<li><a href="#impressed">Impressed</a></li>
+<li><a href="#the-seed-under-the-rock">The seed under the rock</a></li>
+<li><a href="#damaging-the-hut">Damaging the hut</a></li>
+<li><a href="#killing-him">Killing him</a></li>
+<li><a href="#reward">Reward</a></li>
+<li><a href="#aftermath">Aftermath</a></li>
+<li><a href="#script-quirks">Script quirks</a></li>
+<li><a href="#advisors-music-and-sounds">Advisors, music and sounds</a></li>
+<li><a href="#other-modes-and-unused-material">Other modes and unused material</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-hermit">The Hermit</h1>
+<p>A first-land silver scroll: a hermit on a hillside refuses to worship a god until he sees a huge enough creature. Bring
+a big creature and he converts, tells of a miracle seed under a rock and the player gets a water miracle dispenser; damage
+his hut instead and he buys the player off with a water miracle, then burns the village store in revenge; kill him and
+the advisors are appalled.</p>
+<p><strong>Land:</strong> 1 · <strong>Giver:</strong> the hermit, at his hut on a hillside away from the village · <strong>Script:</strong> HermitMain · <strong>Reward:</strong> a water miracle dispenser (impressed), or a water miracle reward from the sky (hut damaged) · <strong>Repeatable:</strong> no</p>
+<p>Sources: the land's challenge scripts (the original source text, checked against the PC game's compiled
+<code>challenge.chl</code>), the game's text table and the executable. openblack is judged on this tree: of the 77 script functions
+the quest and the scripts it starts need, 10 only log "not implemented" in <code>src/CHLApi.cpp</code>, among them the creature's
+actions, the villager's wandering place, the snapshot and reward commands; creating the hermit and the dispenser works
+(<code>Create</code>). The land's control script starts this quest only in a game that skips the creature training (the start-up
+box's fourth answer; see <a href="../../scripts/land1_script.html">../../scripts/land1_script.md</a>), and it is not checked in game;
+rows are todo unless the notes say otherwise. The land as a whole is in <a href="../land_1.html">../land_1.md</a>, the script's
+function coverage in <a href="../../scripts/challenge_scripts.html">../../scripts/challenge_scripts.md</a>.</p>
+<p><strong>Progress: 0/88 done, 34 partial — 19%</strong></p>
+<h2 id="how-it-appears">How it appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The quest's script starts after the creature's trainer has taught it to eat, the slap-and-stroke lesson and the introduction to the leash (or straight after the creature is chosen if the training is skipped); the Immersion Mushrooms quest starts just before it</td>
+<td>partial</td>
+<td>with the fourth tutorial answer <code>LandControl1</code> starts it straight away (training skipped), just after the mushrooms; with the other answers the land's control script never gets that far</td>
+</tr>
+<tr>
+<td>Five seconds later a silver scroll appears over the hermit's hut and a bonfire is placed in front of it</td>
+<td>partial</td>
+<td>CHL <code>CREATE</code> makes the bonfire and <code>CreateHighlight</code> the scroll (<code>src/ECS/ScriptHighlight.cpp</code>); not checked in game</td>
+</tr>
+<tr>
+<td>Until the scroll or the hut is clicked, whenever the camera is within 100 of the scroll and it is on screen, the evil advisor pops out at most every 30 seconds, points at it and says "We got ourselves a task down here!"</td>
+<td>partial</td>
+<td>the shared notice script's natives work (<code>SpiritEject</code>, <code>SpiritPointPos</code>, <code>RunText</code>, <code>PosFieldOfView</code>, <code>DllGettime</code>); not checked in game</td>
+</tr>
+<tr>
+<td>Clicking the scroll makes it active and the rest begins</td>
+<td>partial</td>
+<td><code>GameThingClicked</code> and <code>SetActive</code> on a scroll work; not checked in game</td>
+</tr>
+<tr>
+<td>Only then is a rock placed on the hill above the hut</td>
+<td>partial</td>
+<td>CHL <code>CREATE</code> makes the rock; not checked in game</td>
+</tr>
+<tr>
+<td>A bronze did-you-know scroll is put next to the rock: "If your Creature picks up rocks the exercise will make him stronger."</td>
+<td>partial</td>
+<td><code>CreateHighlight</code> and <code>HighlightProperties</code> make did-you-know scrolls; not checked in game; bronze scrolls: ../../interface/scrolls_and_signs.md</td>
+</tr>
+<tr>
+<td>The hut's health is set to full</td>
+<td>todo</td>
+<td><code>SetProperty</code> has no health</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-introduction">The introduction</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hermit (the hermit villager) appears at his hut; he can't be picked up, moved or hurt during the scene</td>
+<td>partial</td>
+<td>CHL <code>CREATE</code> makes the villager and the three flags work (<code>SetIdPickupable</code>, <code>SetIdMoveable</code>, <code>SetIndestructable</code>); not checked in game</td>
+</tr>
+<tr>
+<td>A widescreen scene with the hermit's theme: he walks out of his hut, the camera following him over 7 seconds, then to his spot by the fire</td>
+<td>partial</td>
+<td>widescreen, music, <code>MoveGameThing</code> (villagers), <code>SetFocusFollow</code> and the camera moves work; not checked in game</td>
+</tr>
+<tr>
+<td>The camera closes in on him and slowly tilts up over 35 seconds as he talks to it, gossiping: "As I see it, there ain't no need for me to bow before you, son."</td>
+<td>partial</td>
+<td><code>SetFocus</code> (villager), his script animations (<code>SetScriptUlong</code>, <code>SetScriptState</code>) and <code>RunText</code> work; not checked in game</td>
+</tr>
+<tr>
+<td>Unimpressed: "I ain't seen diddly from you which impresses me one itty bit."</td>
+<td>partial</td>
+<td>as above; not checked in game</td>
+</tr>
+<tr>
+<td>"Gods have huge Creatures. That's what my momma always told me."</td>
+<td>partial</td>
+<td>as above; not checked in game</td>
+</tr>
+<tr>
+<td>Very close up, unimpressed: "And until I see a big enough one, you don't mean nothing to me."</td>
+<td>partial</td>
+<td>as above; not checked in game</td>
+</tr>
+<tr>
+<td>The quest is recorded: title "The Hermit", 0 done, alignment 0, reminder "This Hermit still needs to be impressed by your Creature." (good advisor)</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub; how records are kept: <a href="../challenges_and_rewards.html">../challenges_and_rewards.md</a></td>
+</tr>
+<tr>
+<td>He wanders about his spot (within about 6) and the camera returns to where it was; the music stops</td>
+<td>partial</td>
+<td><code>SetScriptState</code> works but his wandering lacks its place and radius (<code>SetScriptStatePos</code>, <code>SetScriptFloat</code> are stubs); the camera return and <code>StopMusic</code> work</td>
+</tr>
+<tr>
+<td>Both advisors pop out. Good: "Ah. Don't leave him as a lost soul. Show him your Creature." Evil: "Tchoh. Let him die alone. It's what he wants. The hick." Evil: "You don't have to justify yourself to him." Evil: "Come on. You've got better things to destroy."</td>
+<td>partial</td>
+<td><code>SpiritEject</code>, <code>RunText</code>, <code>SpiritHome</code> work; not checked in game</td>
+</tr>
+<tr>
+<td>Afterwards he can be picked up, moved and hurt</td>
+<td>partial</td>
+<td>the flags work; but see the death scene below</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-hermits-wanderings">The hermit's wanderings</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every second the script notes where he is (or that the creature is holding him)</td>
+<td>todo</td>
+<td><span class="state approx">inferred</span> never reached: right after the introduction the script takes the hermit for dead, since <code>GetProperty</code> has no health and answers 0, and the death scene runs (see Killing him); <code>InCreatureHand</code> is a stub too</td>
+</tr>
+<tr>
+<td>If he is more than 75 from his spot, not flying, not held and alive, and the dialogue is free, he walks back; he tries again every 10 seconds, and starts wandering again once within 15</td>
+<td>todo</td>
+<td>never reached (inferred, see above); <code>CreateTimer</code>, <code>MoveGameThing</code>, <code>IsDialogueReady</code> work, <code>InCreatureHand</code> is a stub</td>
+</tr>
+<tr>
+<td>This stops once he has set off to take revenge after the hut (see below)</td>
+<td>todo</td>
+<td>never reached <span class="state approx">inferred</span></td>
+</tr>
+</tbody>
+</table>
+<h2 id="showing-him-the-creature">Showing him the creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every 31 passes of its loop the script reads the creature's size and checks the hermit</td>
+<td>todo</td>
+<td>never reached <span class="state approx">inferred</span>; also <code>GetProperty</code> has no scale for a creature (it answers 0)</td>
+</tr>
+<tr>
+<td>A creature larger than size 0.4, within 50 of him, while he is within 50 of his spot and not held, flying or in the creature's hand, impresses him</td>
+<td>todo</td>
+<td>never reached <span class="state approx">inferred</span>; with <code>GetProperty</code> answering 0 for the creature's scale no creature could impress him</td>
+</tr>
+<tr>
+<td>Smaller than 0.2 and within 15: the first time, a widescreen scene with his theme: the creature's leash is let go and it is walked up to him; suspense music sting; unimpressed: "Call that a Creature? I could swat him flat!"; the creature looks sad</td>
+<td>todo</td>
+<td>never reached <span class="state approx">inferred</span>; <code>CreatureDoAction</code> is a stub</td>
+</tr>
+<tr>
+<td>The same size again, after the creature has been more than 50 away and come back within 15: "That durned critter ain't no bigger than the last time I seed him!" and the creature shows off</td>
+<td>todo</td>
+<td>never reached <span class="state approx">inferred</span></td>
+</tr>
+<tr>
+<td>Between 0.2 and 0.4 and within 15: the first time "Ha! Not the largest beast in the land, is he?" and the creature looks embarrassed</td>
+<td>todo</td>
+<td>never reached <span class="state approx">inferred</span></td>
+</tr>
+<tr>
+<td>Between 0.2 and 0.4 again, after it has been away more than 50, within 30: "That durned critter ain't no bigger than the last time I seed him!" and the creature looks angry</td>
+<td>todo</td>
+<td>never reached <span class="state approx">inferred</span></td>
+</tr>
+<tr>
+<td>Each kind of taunt is played at most twice; during them he can't be picked up, moved or hurt</td>
+<td>partial</td>
+<td>the flags work; the taunts are never reached <span class="state approx">inferred</span></td>
+</tr>
+<tr>
+<td>A creature of exactly 0.2 or 0.4 gets no taunt</td>
+<td>todo</td>
+<td>never reached <span class="state approx">inferred</span></td>
+</tr>
+</tbody>
+</table>
+<h2 id="impressed">Impressed</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A widescreen scene with his theme: the hut is made whole; the creature's leash is let go and it walks to stand before him; the hermit walks to his spot</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>Suspense sting; he faces the creature, prays three times: "Yes. Now that is one worthy Creature. I'll get worshipping!"</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>The camera turns to the creature, which does its summoning gesture</td>
+<td>todo</td>
+<td>never reached; <code>CreatureDoAction</code> is a stub</td>
+</tr>
+<tr>
+<td>If the seed under the rock hasn't been found: he points at the rock: "I done seen a firefly a-heading under that there rock at break of dawn." as the camera rises to show it</td>
+<td>todo</td>
+<td>never reached; the scripted seed stands in for the real mechanic: fireflies hide in trees and rocks at dawn and leave a seed when lifted (<a href="../../nature/fireflies.html">../../nature/fireflies.md</a>)</td>
+</tr>
+<tr>
+<td>"Now being as your Creature's so mighty, I be a-wondering whether he can move that rock." as the camera closes on the rock</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>"And see what the fiery little critter's doing under there." (waits for the player)</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>The record becomes 60% done, alignment +0.4, reminder "Look under the rock where the Hermit saw the fireflies."</td>
+<td>todo</td>
+<td>never reached; <code>UpdateSnapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>If the seed was already found, the record goes straight to fully done, alignment 0, with that reminder</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>A water miracle dispenser is given beside his spot (see Reward)</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>The player gains influence round the hermit (radius 4) and round his hut (radius 20)</td>
+<td>todo</td>
+<td>never reached (<code>InfluenceObject</code> works)</td>
+</tr>
+<tr>
+<td>The camera returns, the creature is given back and the music stops</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>When the seed is found (or he dies) the record is updated to fully done with the reminder "This Hermit still needs to be impressed by your Creature."</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>He then walks into his hut and is gone</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-seed-under-the-rock">The seed under the rock</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>From the start, if the rock is in place, a watcher waits for it to be moved more than 5 from its spot, or picked up by the hand or the creature; this can happen before or after the hermit is impressed</td>
+<td>partial</td>
+<td>the watcher runs from the start (<code>GetDistance</code>); a rock held by the hand or the creature is not noticed (<code>GetProperty</code> has no in-hand, <code>InCreatureHand</code> is a stub); not checked in game</td>
+</tr>
+<tr>
+<td>A one-shot "strong" creature miracle seed then appears where the rock was, with a target effect for 10 seconds</td>
+<td>partial</td>
+<td>CHL <code>CREATE</code> makes the one-shot seed and <code>SpecialEffectPosition</code> works; not checked in game; seeds: ../../miracles/dispensers_and_seeds.md</td>
+</tr>
+<tr>
+<td>If the hermit is alive and within 50 of his spot: a widescreen scene; the creature (if within 30 of the rock) is sent to the bottom of the hill; good advisor: "Great! A Miracle Seed! Well, done, Mighty One."</td>
+<td>partial</td>
+<td>the camera and dialogue natives work, but <code>MoveGameThing</code> does not move the creature; not checked in game</td>
+</tr>
+<tr>
+<td>The camera rises and turns to the hermit, who gossips: "Them fireflies turn theirselves into Miracle Seeds at dawn, I reckon."</td>
+<td>partial</td>
+<td>not checked in game</td>
+</tr>
+<tr>
+<td>Good advisor: "This is interesting news. We should watch out for fireflies and see where they hide at dawn."</td>
+<td>partial</td>
+<td>not checked in game</td>
+</tr>
+<tr>
+<td>Otherwise: the creature (if within 100) is sent down the hill; good advisor: "Golly. A Miracle Seed. How did that get there?"; evil: "The fireflies hide and turn themselves into Miracle Seeds at dawn. Duh!"; good: "Oh. Of course. Now that is worth knowing, Leader."</td>
+<td>partial</td>
+<td>not checked in game; <code>MoveGameThing</code> does not move the creature</td>
+</tr>
+</tbody>
+</table>
+<h2 id="damaging-the-hut">Damaging the hut</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Any damage to the hut (its health below full) while he is alive and the dialogue is free sets off this branch, whoever caused it</td>
+<td>todo</td>
+<td><code>GetProperty</code> has no health; the death scene comes first <span class="state approx">inferred</span></td>
+</tr>
+<tr>
+<td>He can't be picked up until he is put down; a second later he can be picked up, moved and hurt again</td>
+<td>partial</td>
+<td>the flags work; the branch is never reached <span class="state approx">inferred</span></td>
+</tr>
+<tr>
+<td>A widescreen scene with his theme, once he has landed: the camera closes in as he despairs: "No! Not my cotton-picking hut! It's my only possession! Leave me alone!"</td>
+<td>todo</td>
+<td>never reached <span class="state approx">inferred</span></td>
+</tr>
+<tr>
+<td>A water miracle reward falls from the sky beside him</td>
+<td>todo</td>
+<td>never reached; <code>CreateReward</code> is a stub; see Reward</td>
+</tr>
+<tr>
+<td>The record becomes 99% done with alignment -0.4 and the reminder "The Hermit is in a bad mood with you, Leader." (good advisor)</td>
+<td>todo</td>
+<td>never reached; <code>UpdateSnapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>He turns away towards his hut in despair; the music stops</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>Evil advisor: "Let's kill him anyway. Go on, Boss." Good: "But you mustn't! Please!"</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>Two seconds later he walks slowly (0.1) to his hut, despairs there and waits 10 seconds</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>He then hurries (0.5) to the Norse village store</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>When he is there, and the camera is within 100 of the store with the store on screen, a widescreen scene with his theme: the camera goes inside the store; evil advisor: "The Hermit is destroying our Village Store supplies!" while the good advisor points at the store</td>
+<td>todo</td>
+<td>never reached (<code>PosFieldOfView</code>, <code>SpiritPointGameThing</code> work)</td>
+</tr>
+<tr>
+<td>He looks about, faces the camera and acts the arsonist; he walks out of the store</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>Good advisor: "Well, you did flatten his hut. What do you expect?"</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>The store is set on fire (burn speed 0.3)</td>
+<td>partial</td>
+<td><code>SetOnFire</code> works (the fire system); the scene is never reached</td>
+</tr>
+<tr>
+<td>He dances mockingly round the fire: "Who's your Daddy? Who's your Daddy now? Oh yeah. Look at that!"</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>He walks back to his hut and the camera returns</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>Once he is at his hut and neither near the camera nor on screen, he fades away and the record is fully done with alignment -0.4</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>If he dies at any point in this branch, the death scene plays instead (see Killing him)</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+</tbody>
+</table>
+<h2 id="killing-him">Killing him</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>If he no longer exists or is dead before being impressed or offended, and the dialogue is free, the death scene plays</td>
+<td>partial</td>
+<td><span class="state approx">inferred</span> it plays, but wrongly: <code>GetProperty</code> has no health and answers 0, so the death scene starts as soon as the introduction ends and the dialogue is free</td>
+</tr>
+<tr>
+<td>Good advisor: "You killed him! You uncaring, horrid, mean god!" while the camera follows his body (or faces the creature if it was holding him, or looks at where he was last seen)</td>
+<td>partial</td>
+<td><span class="state approx">inferred</span> plays wrongly right after the introduction (see above); <code>SetFocusFollow</code>, <code>SetPositionFollow</code>, <code>MoveCameraToFaceObject</code>, <code>RunText</code> work; not checked in game</td>
+</tr>
+<tr>
+<td>Once he has landed, five seconds of his theme</td>
+<td>partial</td>
+<td>the music command works; plays in the wrong death scene <span class="state approx">inferred</span></td>
+</tr>
+<tr>
+<td>The record is closed fully done with alignment -0.6 more than it had (so -0.6 straight away, -1.0 after damaging the hut, -0.2 after impressing him)</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>Killing him after he was impressed but before the seed is found also plays the death scene</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+</tbody>
+</table>
+<h2 id="reward">Reward</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Impressed: a water miracle dispenser (Norse style, at an angle of 90) by his spot</td>
+<td>partial</td>
+<td>CHL <code>CREATE</code> makes spell dispensers and <code>SetMagicProperties</code>, <code>SetActive</code> work (<code>src/Magic/Script/CHLWorship.cpp</code>); never reached; dispensers: ../../miracles/dispensers_and_seeds.md</td>
+</tr>
+<tr>
+<td>If it is the first dispenser of the game: the reward sting, the camera turns to it, a bronze scroll appears at it ("A Miracle Dispenser gives out one-shot Miraculous Wonders when it's fully charged."), another goes beside it ("That there are Miracles hidden all over Eden. Keep your eyes peeled."), and the evil advisor: "This pedestal is a Miracle Dispenser. It charges up and generates one-shot Miracles." then "Click on the signpost for more info."</td>
+<td>todo</td>
+<td>never reached; <code>GetFirstHelp</code>, <code>GetLastHelp</code> are stubs; see <a href="../rewards.html">../rewards.md</a></td>
+</tr>
+<tr>
+<td>Otherwise: "Nice. Another of those cool Miracle Dispensers."</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>Then the dispenser's own help lines are spoken</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>Being given the dispenser marks the land as having a water miracle, so when Nemesis's storm wrecks the village the good advisor says "We'd better use our Water Miracle to put out the flames."</td>
+<td>todo</td>
+<td>the guide's storm never runs in our tree; see <a href="../creature_guide.html">../creature_guide.md</a></td>
+</tr>
+<tr>
+<td>Hut damaged: a water miracle reward falls from the sky beside him; when clicked, its help line is spoken</td>
+<td>todo</td>
+<td><code>CreateReward</code>, <code>GetHelp</code> stubs; see <a href="../rewards.html">../rewards.md</a></td>
+</tr>
+<tr>
+<td>The strong creature seed under the rock, whichever way the quest goes</td>
+<td>partial</td>
+<td>the seed appears when the rock is moved (CHL <code>CREATE</code> one-shot spell); not checked in game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="aftermath">Aftermath</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hermit is gone after any ending (into his hut, faded away, or dead)</td>
+<td>todo</td>
+<td>the endings are never reached; the wrong death scene does not remove him <span class="state approx">inferred</span></td>
+</tr>
+<tr>
+<td>After the hut branch the village store keeps burning until put out</td>
+<td>partial</td>
+<td>fire spreads and is put out by openblack's fire system; the scene is never reached</td>
+</tr>
+<tr>
+<td>The dispenser stays by the hut and keeps recharging</td>
+<td>partial</td>
+<td>dispensers recharge (<code>src/Magic</code>); this one is never given</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-quirks">Script quirks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>If the seed is found before he is impressed, impressing him gives alignment 0, not +0.4</td>
+<td>todo</td>
+<td>never reached; follows from the script</td>
+</tr>
+<tr>
+<td>The dispenser's recharge time is set from the reward's "every so many seconds" value only when the game clock is past zero, which it always is; the hermit passes 0</td>
+<td>todo</td>
+<td>never reached; undetermined: what a recharge time of 0 does to a dispenser</td>
+</tr>
+<tr>
+<td>Any damage to the hut counts as the player's, even fire spreading from elsewhere</td>
+<td>todo</td>
+<td><code>GetProperty</code> has no health</td>
+</tr>
+<tr>
+<td>The hut branch's comments speak of the hermit giving a gesture; the shipped game gives a water miracle</td>
+<td>n/a</td>
+<td>comment only</td>
+</tr>
+<tr>
+<td>During the hut branch his "return home" walks are switched off for good</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+</tbody>
+</table>
+<h2 id="advisors-music-and-sounds">Advisors, music and sounds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hermit speaks with the "man" narrator voice</td>
+<td>partial</td>
+<td><code>RunText</code> plays the narrator's voice with the text (<code>src/Help/HelpSystem.cpp</code>); not checked in game</td>
+</tr>
+<tr>
+<td>Clicking the active scroll again speaks its current reminder through the advisor who owns it</td>
+<td>todo</td>
+<td>the reminder needs <code>Snapshot</code>, a stub</td>
+</tr>
+<tr>
+<td>Music: the hermit's theme for every scene</td>
+<td>partial</td>
+<td><code>StartMusic</code> plays it from its bank (<code>src/Audio</code>); the introduction's can play</td>
+</tr>
+<tr>
+<td>Sounds: the mushroom suspense sting when the creature first faces him (impressed or first small-creature taunt)</td>
+<td>partial</td>
+<td><code>PlaySoundEffect</code>, <code>StopSoundEffect</code> work; those scenes are never reached <span class="state approx">inferred</span></td>
+</tr>
+</tbody>
+</table>
+<h2 id="other-modes-and-unused-material">Other modes and unused material</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A saved game keeps the hermit, his hut, the rock and the record</td>
+<td>todo</td>
+<td>openblack has no saved games</td>
+</tr>
+<tr>
+<td>A test script starts the quest on its own; an unshipped control script had it switched off</td>
+<td>n/a</td>
+<td>not started by the game</td>
+</tr>
+<tr>
+<td>The hermit villager is also used by the fifth land's script and an unshipped waving scene, outside this quest</td>
+<td>n/a</td>
+<td>see ../land_5.md</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

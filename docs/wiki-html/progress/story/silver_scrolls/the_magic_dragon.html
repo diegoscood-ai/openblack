@@ -1,0 +1,611 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Magic Dragon — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-magic-dragon">The Magic Dragon</a><ul>
+<li><a href="#where-it-sits-in-the-land">Where it sits in the land</a></li>
+<li><a href="#set-up">Set-up</a></li>
+<li><a href="#how-it-appears-the-advisor-nag">How it appears (the advisor nag)</a></li>
+<li><a href="#the-introduction-heal-us">The introduction: "heal us"</a></li>
+<li><a href="#healing-the-crusaders">Healing the crusaders</a></li>
+<li><a href="#the-second-scene-light-the-pyre">The second scene: "light the pyre"</a></li>
+<li><a href="#lighting-the-pyre">Lighting the pyre</a></li>
+<li><a href="#smoking-out-the-dragon-the-charge">Smoking out the dragon (the charge)</a></li>
+<li><a href="#listening-at-the-blowholes">Listening at the blowholes</a></li>
+<li><a href="#out-of-the-exit-the-treasure">Out of the exit: the treasure</a></li>
+<li><a href="#aftermath">Aftermath</a></li>
+<li><a href="#script-quirks-and-cut-parts">Script quirks and cut parts</a></li>
+<li><a href="#music-and-sounds">Music and sounds</a></li>
+<li><a href="#creature-involvement">Creature involvement</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-magic-dragon">The Magic Dragon</h1>
+<p>A silver scroll on the fifth land: five worn-out crusaders camped by a cave want to fight the dragon inside. The player
+heals them, then lights their pyre so its smoke fills the cave, then follows the unseen fight by listening at the
+cave's five blowholes. Three crusaders stagger out of the far exit with the dragon's treasure: a flying-flock miracle
+dispenser. The land as a whole is in <a href="../land_5.html">../land_5.md</a>, dispensers in
+<a href="../rewards.html">../rewards.md</a> and <a href="../../miracles/dispensers_and_seeds.html">../../miracles/dispensers_and_seeds.md</a>.</p>
+<p><strong>Land:</strong> 5 · <strong>Giver:</strong> the crusaders' leader, at their camp by the cave mouth near the Tibetan town · <strong>Script:</strong>
+Crusaders · <strong>Reward:</strong> a flying-flock miracle dispenser (doves or bats) by the cave's exit, refilling every 5 minutes,
+and an influence ring round it · <strong>Repeatable:</strong> no</p>
+<p>Sources: the quest's script source (checked against the decompiled shipped <code>challenge.chl</code>, where it is compiled), the
+land's control script, the shared notify, reminder and dispenser-reward scripts, the game's text table
+(<code>InfoScript2.txt</code>). openblack's state is judged on this tree: openblack starts the story's top script, which always
+begins with Land 1's control script, and the land-loading function does nothing, so Land 5's control script never runs
+and this quest never starts. Of the 70 commands it needs, only 3 log "not implemented" in <code>src/CHLApi.cpp</code> (the help
+reads and the challenge record); creating villagers, highlights, effects, timers and dispensers works
+(<code>CreateScriptObject</code>). Every row is todo unless the notes say otherwise.</p>
+<p><strong>Progress: 0/67 done, 15 partial — 11%</strong></p>
+<h2 id="where-it-sits-in-the-land">Where it sits in the land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Land 5's control script starts the quest in the background right after the land's opening (Nemesis's curse on the creature), together with the land's other first quests</td>
+<td>todo</td>
+<td><code>LandControl5</code> never runs: <code>LOAD_MAP</code> is empty (<a href="../../../map-loading.html#pending">map-loading</a>); see <a href="../../scripts/land5_script.html">../../scripts/land5_script.md</a></td>
+</tr>
+<tr>
+<td>Nothing has to be done first; the camp is there from the start of the land</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The quest's title is "The Magic Dragon" (title text 113)</td>
+<td>todo</td>
+<td><code>Snapshot</code>, <code>UpdateSnapshot</code> and <code>UpdateSnapshotPicture</code> are stubs</td>
+</tr>
+<tr>
+<td>No other script waits for it or reads its outcome</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The crusaders come back in the game's ending: its first credits shot ("Black &amp; White", "Designed and Created by Lionhead Studios Ltd.") shows three crusaders sitting and talking at this cave's exit, whether or not the quest was done</td>
+<td>todo</td>
+<td>the ending sequence in the land's control script; see <a href="../ending.html">../ending.md</a>; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="set-up">Set-up</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The cave's entrance and exit and the five blowhole craters along the hill between them are made indestructible</td>
+<td>partial</td>
+<td><code>SetIndestructable</code> works and <code>CallNear</code> finds the features; the script never runs</td>
+</tr>
+<tr>
+<td>A small cauldron (a fifth of normal size) is put in the camp</td>
+<td>todo</td>
+<td><code>CreateWithAngleAndScale</code> makes mobile objects; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Five crusaders (the land's special crusader villagers) are made round the camp and put in one group that keeps within 10 to 25 of its centre</td>
+<td>todo</td>
+<td><code>Create</code>, <code>FlockCreate</code> and <code>FlockAttach</code> work; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Each crusader is indestructible, cannot be picked up, cannot be hurt by fire and cannot be set on fire</td>
+<td>partial</td>
+<td>the flag commands work (<code>SetIndestructable</code>, <code>SetIdPickupable</code>, <code>SetHurtByFire</code>, <code>SetSetOnFire</code>), but the crusaders are never made</td>
+</tr>
+<tr>
+<td>All five sit down for good and face the camp; the group's life is set to 0.6 (worn out from "our last adventure")</td>
+<td>todo</td>
+<td>the health property (<code>SetProperty</code>) is not ported</td>
+</tr>
+<tr>
+<td>A wood pile (a wood store holding 9000 wood) is the pyre, just outside the cave mouth; for now it is indestructible, cannot be picked up, cannot burn and cannot be set on fire</td>
+<td>partial</td>
+<td>the flags work; CHL <code>Create</code> does not make stores (<code>CreateScriptObject</code> in <code>src/CHLApi.cpp</code>)</td>
+</tr>
+<tr>
+<td>Five small helper scripts, one per crusader, wait for the charge into the cave</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-it-appears-the-advisor-nag">How it appears (the advisor nag)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A silver challenge scroll hangs 20 above the camp</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> works (<code>src/ECS/ScriptHighlight.cpp</code>); the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>While it waits, whenever the camera is within 100 of it and it is on screen, the evil advisor steps out, points at it and says "Hey. There's a job for you. Wanna do it?", at most once every 30 seconds and only when no other scene is playing</td>
+<td>todo</td>
+<td>the shared notify script's natives work (<code>SpiritEject</code>, <code>SpiritPointGameThing</code>, <code>RunText</code>); the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The quest waits for this: it goes on only when the scroll, or the camp spot, is clicked; the scroll then takes its opened look</td>
+<td>todo</td>
+<td><code>GameThingClicked</code> and <code>PositionClicked</code> work; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-introduction-heal-us">The introduction: "heal us"</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A scene starts with the creature guide's theme; the leader is drawn in high detail; the camera swings in to the camp (position over 3 seconds, focus over 2), then creeps closer over 20 seconds</td>
+<td>partial</td>
+<td><code>StartMusic</code> works; the camera and high detail natives work too, but the scene never runs</td>
+</tr>
+<tr>
+<td>One crusader whittles a stick throughout; the leader gets up and looks exhausted; two others get up, one sinking back to sit twice, one once</td>
+<td>todo</td>
+<td>the villagers' script animations work; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The scroll is recorded with progress 0 and the reminder "These brave followers are in need of healing, Leader." (spoken by the good advisor when asked for)</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>The leader faces the camera (man's voice): "Holiest One, we worship and adore you."</td>
+<td>todo</td>
+<td><code>RunText</code> works; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The leader: "In your name we'll fight the dragon in this cave, once we've recovered from our last adventure." The camera cuts to look into the cave mouth, a dragon's roar sounds from it, and the camera drifts over 6 seconds</td>
+<td>partial</td>
+<td>the cut, the camera moves and <code>PlaySoundEffect</code> work; the scene never runs</td>
+</tr>
+<tr>
+<td>The leader turns; the camera cuts back to the camp: "If you'd be so good as to heal us, the dragon would stand no chance." while he looks exhausted twice</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The music stops and the scene ends; the leader and the two others sit back down, a quarter of a second apart</td>
+<td>partial</td>
+<td><code>StopMusic</code> works</td>
+</tr>
+</tbody>
+</table>
+<h2 id="healing-the-crusaders">Healing the crusaders</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The player must bring all five crusaders to full life (each at 1 or more); the heal miracle is the way to do it</td>
+<td>partial</td>
+<td>the heal miracle heals people (<code>src/Magic/Spells/SpellHeal.cpp</code>, <a href="../../miracles/heal.html">../../miracles/heal.md</a>), but the crusaders don't exist and the health read is not ported</td>
+</tr>
+<tr>
+<td>There is no time limit and nothing can go wrong: they cannot die, burn or be carried off</td>
+<td>todo</td>
+<td>needs the health read</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-second-scene-light-the-pyre">The second scene: "light the pyre"</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A scene starts with the creature guide's theme; the leader stands up in high detail and faces the camera, which swings round (position over 3 seconds, focus over 2) and then drifts over 30 seconds</td>
+<td>partial</td>
+<td><code>StartMusic</code> works</td>
+</tr>
+<tr>
+<td>The leader: "Thank you, Holiest. We're nearly ready to take on the pesky dragon."</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The camera's focus turns to the cave mouth over 6 seconds; the leader walks to the pyre, faces the cave, and the camera cuts to look at the mouth, drifting over 8 seconds</td>
+<td>partial</td>
+<td>the cut and the camera moves work</td>
+</tr>
+<tr>
+<td>The leader prods the pyre like a campfire; the scroll's progress becomes 0.33 with the reminder "Light the pyre and the caped crusaders can get on with it."</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>The leader: "Our plan is to fill the cave with smoke from this pyre." He turns back to the camp</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>From now on the pyre can burn: it loses its indestructibility and can be hurt by fire and set alight</td>
+<td>partial</td>
+<td><code>SetIndestructable</code>, <code>SetHurtByFire</code>, <code>SetSetOnFire</code> work, but the pyre (a store) isn't made</td>
+</tr>
+<tr>
+<td>The crusaders liven up (gesturing, gossiping, looking impressed); the leader: "The dragon will be unable to see and we'll storm in and dispatch him." and dances</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The camera moves back (2 seconds); the leader walks towards it: "There's one problem. We have no means of lighting the pyre." shrugging twice, then "Can you help us with this?"</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The leader walks back to his place, the music stops, the scene ends and all five sit down one after another</td>
+<td>partial</td>
+<td><code>StopMusic</code> works</td>
+</tr>
+</tbody>
+</table>
+<h2 id="lighting-the-pyre">Lighting the pyre</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The quest waits until there is fire within 10 of the cave's doorway; the pyre is about 3 from it, so setting it alight (a fireball, a burning object thrown on it) is enough, and any other fire that close counts too</td>
+<td>partial</td>
+<td>the test works (<code>IsFireNear</code>, <code>src/Magic/Script/CHLFire.cpp</code>), but the pyre is never made and the script never runs</td>
+</tr>
+<tr>
+<td>No time limit; nothing reminds the player beyond the scroll's reminder</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="smoking-out-the-dragon-the-charge">Smoking out the dragon (the charge)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A scene starts (no music): thick smoke (eight times normal size) pours from the pyre for 30 seconds; 3 seconds later the camera moves in above it (3 seconds), holds 4 seconds</td>
+<td>todo</td>
+<td><code>SpecialEffectPosition</code> works; the scale property works only for villagers and animals; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The camera rises high above the cave mouth and pans along the hill from the first blowhole to the fifth over 28 seconds while smoke bursts out of each blowhole in turn, 3 seconds apart (each eight times size, for 30 seconds)</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The pyre is emptied and removed</td>
+<td>todo</td>
+<td><code>AddResource</code> and <code>ObjectDelete</code> work; no store is made</td>
+</tr>
+<tr>
+<td>The camera cuts to look across the camp to the cave and pulls back slowly over 25 seconds; the scroll's progress becomes 0.66 with the reminder "Let's listen at the blowholes to follow their valiant progress."</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>The charge: the leader walks to the rally point at the mouth, looks into the cave and back, points and cries "Charge!"</td>
+<td>todo</td>
+<td><code>GamePlaySaySoundEffect</code> works; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The other four get up (three of them stand from sitting first) and gather round the rally point; once all five are there the leader shouts "Run forward quickly!" and all run into the cave at 0.7 speed (one a second later), fading away as they reach the doorway</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The scene ends once the last crusader has gone</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="listening-at-the-blowholes">Listening at the blowholes</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>After 10 seconds the fight is followed blowhole by blowhole, strictly in order from the cave mouth's end: each one plays only when the camera is near it (within 50 for the first, within 30 for the others) and the blowhole is on screen</td>
+<td>todo</td>
+<td><code>CallNear</code>, <code>GetDistance</code> and <code>PosFieldOfView</code> work; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The voices are heard as spoken sound lines in crusaders' voices rather than as dialogue boxes</td>
+<td>todo</td>
+<td>undetermined whether their subtitles show; <code>GamePlaySaySoundEffect</code> works; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>First blowhole: smoke (10 seconds); "Cough! Cough!", 2 seconds later "Who's' that?" (the stray apostrophe is in the game's text), 4 seconds later "Get off! That's me!", 2 seconds later "Can you see him?"</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Second: smoke; "Cough! Cough!", then "What's that golden shining, oh Alan, why didn't you go before?", 4 seconds later the dragon roars, then "Go for his head, Barry!"</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Third: smoke; "Tally-Ho!", 2 seconds later "At 'em, lads!", then the dragon roars</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Fourth: smoke; the dragon-fight sound, then "Ralph's dead!" and "Albert's copped it. Flee!" and the camera shakes (within 50, amplitude 0.5, 2 seconds)</td>
+<td>todo</td>
+<td><code>ShakeCamera</code> works; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The dragon is never seen: there is no dragon in the cave or anywhere, only its roars and the fight sound</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>There is no limit on how long the player takes; nothing reminds them which blowhole is next beyond the scroll's reminder</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="out-of-the-exit-the-treasure">Out of the exit: the treasure</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Reaching the fifth blowhole starts a scene: the camera moves to look over it and the gate (3 seconds); smoke, a roar, the camera shakes (within 100, amplitude 0.25, 1 second); 4 seconds later "We've got the treasure, Scarper to the exit, lads!"</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The camera moves to the cave's exit (4 seconds); smoke (half the pyre's size) bursts from it for 20 seconds</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Three crusaders (two did not make it) come out of the exit in high detail, indestructible, unpickable and unhurt by fire (this time not protected from catching fire), at life 0.4, and run out with the running-while-on-fire animation at speeds 0.7, 0.6 and 0.55; one shouts "Run forward quickly!"</td>
+<td>todo</td>
+<td><code>Create</code> makes villagers and the flags work; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>They stop in front of the exit: the leader faces the camera and pants, one pants, one sits down</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A sparkle marks the spot and a flying-flock miracle dispenser appears there, refilling every 5 minutes</td>
+<td>partial</td>
+<td>spell dispensers are made by <code>CreateWithAngleAndScale</code> (<code>src/Worship/SpellDispenser.cpp</code>) and the flying flock miracle exists (<code>src/Magic/Spells/SpellFlock.cpp</code>); see <a href="../../miracles/flocks.html">../../miracles/flocks.md</a>; the script never runs</td>
+</tr>
+<tr>
+<td>The player gains an influence ring of radius 50 round the spot, which is never taken away</td>
+<td>todo</td>
+<td><code>InfluencePosition</code> works; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The leader: "Victory! We bring you the treasure we found inside the cave.", "Take this with our compliments.", "We will leave it here as a holy shrine to you. It might be useful, too."</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The two standing crusaders sit down; the scroll's progress becomes 1 (complete) and the scroll is removed</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>The dispenser's own presentation runs too: the reward sting, the camera flies to a view 21.5 to its side and 14 up (4 seconds), and the evil advisor, pointing, says "Nice. Another of those cool Miracle Dispensers." (or, if it were the first dispenser of the game, explains dispensers and puts up a signpost), then the dispenser's own help lines</td>
+<td>todo</td>
+<td>the shared dispenser-reward script; undetermined exactly how the two scenes are ordered; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="aftermath">Aftermath</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The three survivors wait up to 2 minutes for the player to heal them to full life</td>
+<td>todo</td>
+<td><code>CreateTimer</code>, <code>SetTimerTime</code>, <code>GetTimerTimeRemaining</code> work; needs the health read (not ported)</td>
+</tr>
+<tr>
+<td>Healing them or not makes no difference: the script notes which happened but never uses it (no alignment change, no extra reward)</td>
+<td>todo</td>
+<td>quirk; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>They then walk back into the cave's exit one after another and fade away</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>What stays: the dispenser and the influence ring at the exit; the cave features stay indestructible; the cauldron stays at the old camp</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-quirks-and-cut-parts">Script quirks and cut parts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>One of the four followers (the second) is never told to stand up before walking to the rally point, unlike the other three</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Cut: each crusader was to idle by looking for something and looking exhausted in turn through each stage; the code is commented out (two followers keep an empty wait loop from it)</td>
+<td>n/a</td>
+<td>not in the compiled script</td>
+</tr>
+<tr>
+<td>Cut: a base-camp object, a wait for the camera to be away before making the camp, a dragon murmur and a camera shake at the fourth blowhole in the leader's own spot are commented out</td>
+<td>n/a</td>
+<td>not in the compiled script</td>
+</tr>
+</tbody>
+</table>
+<h2 id="music-and-sounds">Music and sounds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The two camp scenes play the creature guide's theme and stop it at their end; the smoke, blowhole and treasure parts start no music</td>
+<td>partial</td>
+<td><code>StartMusic</code> and <code>StopMusic</code> work, but the script never runs</td>
+</tr>
+<tr>
+<td>Sounds: the dragon's roar (four times), the dragon-fight sound, the reward sting (from the dispenser)</td>
+<td>partial</td>
+<td><code>PlaySoundEffect</code> works (<code>src/Audio</code>); the script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creature-involvement">Creature involvement</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature has no part to play; it could cast heal or set the pyre alight on the player's behalf, which the script cannot tell apart from the player doing it</td>
+<td>todo</td>
+<td>the script checks only the crusaders' life and fire near the cave; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

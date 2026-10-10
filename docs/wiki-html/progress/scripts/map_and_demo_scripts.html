@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Map, demo and test scripts — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="here" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#map-demo-and-test-scripts">Map, demo and test scripts</a><ul>
+<li><a href="#the-map-script-maptxt">The map script (map.txt)</a></li>
+<li><a href="#the-demo-land-demo2txt">The demo land (demo2.txt)</a></li>
+<li><a href="#demo-land-set-up">Demo land: set-up</a></li>
+<li><a href="#demo-land-towns">Demo land: towns</a></li>
+<li><a href="#demo-land-buildings">Demo land: buildings</a></li>
+<li><a href="#demo-land-people">Demo land: people</a></li>
+<li><a href="#demo-land-nature">Demo land: nature</a></li>
+<li><a href="#demo-land-food">Demo land: food</a></li>
+<li><a href="#demo-land-animals">Demo land: animals</a></li>
+<li><a href="#demo-land-objects">Demo land: objects</a></li>
+<li><a href="#demo-land-water-and-paths">Demo land: water and paths</a></li>
+<li><a href="#the-computer-players-test-land-comptxt">The computer players' test land (comp.txt)</a></li>
+<li><a href="#the-dance-test-land-dancetxt">The dance test land (dance.txt)</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="map-demo-and-test-scripts">Map, demo and test scripts</h1>
+<p>Besides the story's lands, <code>Scripts/</code> holds the map script the game reads first (<code>map.txt</code>), a land script for the demo's version of the third land (<code>demo2.txt</code>), and two developers' test lands (<code>comp.txt</code> for the computer players, <code>dance.txt</code> for dances) whose landscapes were never shipped. Land script commands are in <a href="land_script_commands.html">land_script_commands.md</a>.</p>
+<p><strong>Progress: 49/53 done, 1 partial — 93%</strong></p>
+<h2 id="the-map-script-maptxt">The map script (<code>map.txt</code>)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The game starts a new game by reading the map script, whose one line loads the first land's script</td>
+<td>todo</td>
+<td>openblack never reads <code>map.txt</code>; it loads <code>Land1.txt</code> (or <code>--start-level</code>) itself (<code>Game.cpp</code>)</td>
+</tr>
+<tr>
+<td>A map script's other commands (players, date and time, turn length, challenges, the language, an old creature, configuration)</td>
+<td>todo</td>
+<td>see the map script part of <a href="land_script_commands.html">land_script_commands.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-demo-land-demo2txt">The demo land (<code>demo2.txt</code>)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The demo's land script builds its version of the third land on the shipped <code>Land3.lnd</code>, with older commands (old-style animals and town fields)</td>
+<td>done</td>
+<td>every line is a known command with the right arguments when read the way <code>Script.cpp</code> does (<code>--start-level demo2.txt</code>)</td>
+</tr>
+<tr>
+<td>It has no footpath file, as in the game</td>
+<td>done</td>
+<td>nothing to load</td>
+</tr>
+<tr>
+<td>The demo's own challenges</td>
+<td>n/a</td>
+<td>the shipped <code>challenge.chl</code> is the full game's; the demo's scripts aren't shipped</td>
+</tr>
+</tbody>
+</table>
+<h2 id="demo-land-set-up">Demo land: set-up</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Loads the landscape <code>Land3.lnd</code></td>
+<td>done</td>
+<td><code>Game::LoadLandscape</code></td>
+</tr>
+<tr>
+<td>Is land number 3 of the story</td>
+<td>done</td>
+<td>kept in the map script globals (<code>SET_LAND_NUMBER</code>)</td>
+</tr>
+<tr>
+<td>Starts the camera looking at "3237.21,3157.85"</td>
+<td>done</td>
+<td><code>FeatureScriptCommands::StartCameraPos</code></td>
+</tr>
+<tr>
+<td>Creates 0 climates and sets rain, temperature and wind 1, 1 and 1 times</td>
+<td>done</td>
+<td><code>magic::map_script::CreateWeatherClimate</code> and its rain, temperature and wind (<code>src/Magic/Script/MapScriptWeather.cpp</code>); see ../weather/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="demo-land-towns">Demo land: towns</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Creates 6 towns (celtic 2, japanese 1, tibetan 1, indian 1, egyptian 1); owners: neutral 3, player one 2, player two 1</td>
+<td>done</td>
+<td><code>TownArchetype</code> (<code>CREATE_TOWN</code>)</td>
+</tr>
+<tr>
+<td>Sets 6 towns' belief in a player</td>
+<td>done</td>
+<td><code>ecs::town_belief::SetBeliefInPlayer</code> (<code>SET_TOWN_BELIEF</code>)</td>
+</tr>
+<tr>
+<td>Gives towns 13 miracles to offer at their village centres (heal 2, food 2, lightning bolt 2, creature spell compassion 1, fire 1, water 1, creature spell big 1, storm pu1 1, physical shield 1, wood 1)</td>
+<td>done</td>
+<td><code>magic::script::CreateNewTownSpell</code> (<code>CREATE_NEW_TOWN_SPELL</code>): the town holds the miracle; see ../miracles/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="demo-land-buildings">Demo land: buildings</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>21 houses (style F) (Indian 11, Japanese 4, Egyptian 3, Celtic 2, Tibetan 1)</td>
+<td>done</td>
+<td><code>AbodeArchetype</code> (<code>CREATE_ABODE</code>)</td>
+</tr>
+<tr>
+<td>15 houses (style A) (Japanese 5, Egyptian 5, Tibetan 2, Indian 2, Celtic 1)</td>
+<td>done</td>
+<td><code>AbodeArchetype</code> (<code>CREATE_ABODE</code>)</td>
+</tr>
+<tr>
+<td>10 houses (style D) (Egyptian 5, Japanese 2, Tibetan 2, Indian 1)</td>
+<td>done</td>
+<td><code>AbodeArchetype</code> (<code>CREATE_ABODE</code>)</td>
+</tr>
+<tr>
+<td>9 houses (style C) (Egyptian 4, Tibetan 3, Japanese 1, Indian 1)</td>
+<td>done</td>
+<td><code>AbodeArchetype</code> (<code>CREATE_ABODE</code>)</td>
+</tr>
+<tr>
+<td>8 houses (style B) (Japanese 6, Egyptian 2)</td>
+<td>done</td>
+<td><code>AbodeArchetype</code> (<code>CREATE_ABODE</code>)</td>
+</tr>
+<tr>
+<td>6 houses (style E) (Celtic 2, Tibetan 2, Japanese 1, Indian 1)</td>
+<td>done</td>
+<td><code>AbodeArchetype</code> (<code>CREATE_ABODE</code>)</td>
+</tr>
+<tr>
+<td>5 storehouses (Japanese 1, Celtic 1, Tibetan 1, Indian 1, Egyptian 1)</td>
+<td>done</td>
+<td><code>AbodeArchetype</code> (<code>CREATE_ABODE</code>)</td>
+</tr>
+<tr>
+<td>4 workshops (Japanese 1, Celtic 1, Indian 1, Egyptian 1)</td>
+<td>done</td>
+<td><code>AbodeArchetype</code> (<code>CREATE_ABODE</code>)</td>
+</tr>
+<tr>
+<td>4 crèches (Japanese 1, Tibetan 1, Indian 1, Egyptian 1)</td>
+<td>done</td>
+<td><code>AbodeArchetype</code> (<code>CREATE_ABODE</code>)</td>
+</tr>
+<tr>
+<td>4 village centres (Japanese 1, Tibetan 1, Indian 1, Egyptian 1)</td>
+<td>done</td>
+<td><code>AbodeArchetype</code> made the town's centre, with its worship share (<code>CREATE_TOWN_CENTRE</code>)</td>
+</tr>
+<tr>
+<td>69 planned buildings for towns to build later (houses (style F) 19, houses (style C) 12, houses (style B) 11, houses (style A) 11, houses (style D) 9, houses (style E) 4, crèches 1, workshops 1, wonders 1)</td>
+<td>done</td>
+<td><code>FeatureScriptCommands::CreatePlannedAbode</code> (<code>CREATE_PLANNED_ABODE</code>): the town's planned list, never drawn, read by the building sites</td>
+</tr>
+<tr>
+<td>2 temples of rival gods (player one 1, player two 1)</td>
+<td>done</td>
+<td><code>CitadelArchetype</code> (<code>CREATE_CITADEL</code>)</td>
+</tr>
+<tr>
+<td>4 worship sites (japanese for player one 1, celtic for player one 1, egyptian for player two 1, tibetan for player two 1)</td>
+<td>done</td>
+<td><code>magic::script::CreateWorshipSite</code> (<code>CREATE_WORSHIP_SITE</code>): a built site at the player's temple</td>
+</tr>
+</tbody>
+</table>
+<h2 id="demo-land-people">Demo land: people</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>69 housewives living in their houses</td>
+<td>done</td>
+<td><code>VillagerArchetype</code> through <code>CreateVillagerAtAbode</code> (<code>CREATE_VILLAGER_POS</code>)</td>
+</tr>
+<tr>
+<td>27 fishermen living in their houses</td>
+<td>done</td>
+<td><code>VillagerArchetype</code> through <code>CreateVillagerAtAbode</code> (<code>CREATE_VILLAGER_POS</code>)</td>
+</tr>
+<tr>
+<td>26 foresters living in their houses</td>
+<td>done</td>
+<td><code>VillagerArchetype</code> through <code>CreateVillagerAtAbode</code> (<code>CREATE_VILLAGER_POS</code>)</td>
+</tr>
+<tr>
+<td>16 farmers living in their houses</td>
+<td>done</td>
+<td><code>VillagerArchetype</code> through <code>CreateVillagerAtAbode</code> (<code>CREATE_VILLAGER_POS</code>)</td>
+</tr>
+<tr>
+<td>14 shepherds living in their houses</td>
+<td>done</td>
+<td><code>VillagerArchetype</code> through <code>CreateVillagerAtAbode</code> (<code>CREATE_VILLAGER_POS</code>)</td>
+</tr>
+<tr>
+<td>3 town leaders living in their houses</td>
+<td>done</td>
+<td><code>VillagerArchetype</code> through <code>CreateVillagerAtAbode</code> (<code>CREATE_VILLAGER_POS</code>)</td>
+</tr>
+<tr>
+<td>29 villagers placed in towns without a house (housewives 15, fishermen 14)</td>
+<td>done</td>
+<td><code>CreateVillagerInTown</code> (<code>CREATE_TOWN_VILLAGER</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="demo-land-nature">Demo land: nature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1643 trees and bushes (PalmB 599, Palm 363, BushB 154, Conifer 88, Pine 80, PalmC 72, BushA 55, Beech 52, Cedar 50, HedgeA 41, PalmA 24, Olive 18, Hedge 16, Copse 10, Cypress 9, ConiferA 8, Bush 4)</td>
+<td>done</td>
+<td><code>TreeArchetype</code> (<code>CREATE_NEW_TREE</code>)</td>
+</tr>
+<tr>
+<td>22 forests that trees belong to (foresters fell and replant them)</td>
+<td>done</td>
+<td><code>ecs::CreateForest</code> (<code>CREATE_FOREST</code>): the forest the trees after it are looked up in</td>
+</tr>
+<tr>
+<td>14 dead trees</td>
+<td>done</td>
+<td><code>DeadTreeArchetype</code> (<code>CREATE_DEAD_TREE</code>) with its life and three angles</td>
+</tr>
+<tr>
+<td>16 big forest models</td>
+<td>done</td>
+<td><code>BigForestArchetype</code> (<code>CREATE_NEW_BIG_FOREST</code>)</td>
+</tr>
+<tr>
+<td>20 × feature "Spikey Pilar Lime"</td>
+<td>done</td>
+<td><code>FeatureArchetype</code> (<code>CREATE_NEW_FEATURE</code>)</td>
+</tr>
+<tr>
+<td>4 × feature "Pilar2 Lime"</td>
+<td>done</td>
+<td><code>FeatureArchetype</code> (<code>CREATE_NEW_FEATURE</code>)</td>
+</tr>
+<tr>
+<td>1 × feature "Tibetan Large Pillar Feature"</td>
+<td>done</td>
+<td><code>FeatureArchetype</code> (<code>CREATE_NEW_FEATURE</code>)</td>
+</tr>
+<tr>
+<td>70 patches of mist</td>
+<td>done</td>
+<td><code>MistArchetype</code> (<code>CREATE_MIST</code>)</td>
+</tr>
+<tr>
+<td>38 fireflies</td>
+<td>todo</td>
+<td><code>CREATE_FIRE_FLY</code> is empty; see <a href="../nature/fireflies.html#where-they-come-from">../nature/fireflies.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="demo-land-food">Demo land: food</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>8 fields (Wheat 8)</td>
+<td>done</td>
+<td><code>FieldArchetype</code> (<code>CREATE_NEW_TOWN_FIELD</code>)</td>
+</tr>
+<tr>
+<td>7 fish farms</td>
+<td>done</td>
+<td><code>FishFarmArchetype</code> (<code>CREATE_TOWN_FISH_FARM</code>)</td>
+</tr>
+<tr>
+<td>29 pots (MagicWood 27, MagicFood 2)</td>
+<td>done</td>
+<td><code>PotArchetype</code> (<code>CREATE_POT</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="demo-land-animals">Demo land: animals</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>39 × cow (older command)</td>
+<td>done</td>
+<td><code>AnimalArchetype</code> through create new animal (<code>CREATE_ANIMAL</code>), with a random age</td>
+</tr>
+<tr>
+<td>16 × dove (older command)</td>
+<td>done</td>
+<td><code>AnimalArchetype</code> through create new animal (<code>CREATE_ANIMAL</code>), with a random age</td>
+</tr>
+<tr>
+<td>6 × sheep (older command)</td>
+<td>done</td>
+<td><code>AnimalArchetype</code> through create new animal (<code>CREATE_ANIMAL</code>), with a random age</td>
+</tr>
+<tr>
+<td>6 flocks</td>
+<td>done</td>
+<td><code>FeatureScriptCommands::CreateFlock</code> (<code>CREATE_FLOCK</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="demo-land-objects">Demo land: objects</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>94 × rocks and boulders (Rock 87, Boulder1Sand 7)</td>
+<td>done</td>
+<td><code>MobileStaticArchetype</code> (<code>CREATE_MOBILE_STATIC</code>)</td>
+</tr>
+<tr>
+<td>31 × fences (CeltFenceTall 31)</td>
+<td>done</td>
+<td><code>MobileStaticArchetype</code> (<code>CREATE_MOBILE_STATIC</code>)</td>
+</tr>
+<tr>
+<td>18 × WeepingStoneReward</td>
+<td>done</td>
+<td><code>MobileStaticArchetype</code> (<code>CREATE_MOBILE_STATIC</code>)</td>
+</tr>
+<tr>
+<td>1 × Vortex</td>
+<td>done</td>
+<td><code>MobileStaticArchetype</code> (<code>CREATE_MOBILE_STATIC</code>)</td>
+</tr>
+<tr>
+<td>1 × CreatureCage</td>
+<td>done</td>
+<td><code>MobileStaticArchetype</code> (<code>CREATE_MOBILE_STATIC</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="demo-land-water-and-paths">Demo land: water and paths</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1 arenas</td>
+<td>partial</td>
+<td>an <code>Arena</code> is kept (<code>CREATE_ARENA</code>); the creature fights that use it are not wired into the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-computer-players-test-land-comptxt">The computer players' test land (<code>comp.txt</code>)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Loads a developers' landscape (<code>DEVDATA\Landscape\old.led</code>) that isn't shipped, so neither the game nor openblack can open it</td>
+<td>n/a</td>
+<td>the landscape is missing from the game</td>
+</tr>
+<tr>
+<td>Builds five Celtic towns with 43 buildings, 168 villagers, 19 cows, 65 trees and two temples and two worship sites (the player's and a rival's), and switches on a second computer player with an old-style creature</td>
+<td>n/a</td>
+<td>for reference: what the test land would build; every command it uses is covered in land_script_commands.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-dance-test-land-dancetxt">The dance test land (<code>dance.txt</code>)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Loads a dance test landscape (<code>dance.led</code>) that isn't shipped, and builds nothing else</td>
+<td>n/a</td>
+<td>the landscape is missing from the game</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

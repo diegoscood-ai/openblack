@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fire — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="here" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#fire">Fire</a><ul>
+<li><a href="#heat-and-burning">Heat and burning</a></li>
+<li><a href="#catching-and-spreading">Catching and spreading</a></li>
+<li><a href="#putting-fires-out">Putting fires out</a></li>
+<li><a href="#villagers-and-fire">Villagers and fire</a></li>
+<li><a href="#the-creature-and-fire">The creature and fire</a></li>
+<li><a href="#buildings-trees-and-fields-burning">Buildings, trees and fields burning</a></li>
+<li><a href="#look-and-sound">Look and sound</a></li>
+<li><a href="#saving">Saving</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="fire">Fire</h1>
+<p>Anything can be heated. Each heated object holds a temperature; at its burning point it catches, burns hotter, loses
+life, chars and heats everything within reach, so fire spreads from tree to tree and house to house until it burns out,
+is beaten out by villagers, or is cooled by water or rain. Villagers flee, fight or skirt it; those it reaches run
+burning. The miracles that start fires have their own pages: <a href="../miracles/fireball.html">../miracles/fireball.md</a>,
+<a href="../miracles/lightning.html">../miracles/lightning.md</a>, <a href="../miracles/storm.html">../miracles/storm.md</a>,
+<a href="../miracles/blast.html">../miracles/blast.md</a>; putting it out with water is in
+<a href="../miracles/water.html">../miracles/water.md</a>.</p>
+<p>openblack: <code>src/ECS/Fire/FireEffect.cpp</code> (the fire list, spread, groups), <code>src/ECS/Fire/FireSound.cpp</code> (sound),
+<code>src/Fire/FireModel.cpp</code> (temperature, heat, damage, charring), <code>src/ECS/Fire/FireGraphic.cpp</code> (flames, steam, smoke),
+<code>src/ECS/Systems/Implementations/VillagerFire.cpp</code> (villagers), tests in <code>test/test_fire.cpp</code> and
+<code>test/test_fire_model.cpp</code>.</p>
+<p><strong>Progress: 62/77 done, 10 partial — 87%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../physics.html">Physics: thrown objects, collisions, damage and rocks that split</a>.</p>
+<h2 id="heat-and-burning">Heat and burning</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every object hotter than the air carries a fire record with its temperature; the air is about 24.7 degrees everywhere</td>
+<td>done</td>
+<td><code>fire::Create</code> (<code>src/ECS/Fire/FireEffect.cpp</code>) and the model's <code>fire::k_AmbientTemperature</code> of 24.7 (<code>src/Fire/FireModel.h</code>)</td>
+</tr>
+<tr>
+<td>Each kind of object has a burning point (at least 40), a heat capacity and a burn defence from the game's tables</td>
+<td>done</td>
+<td><code>FireEffect::CombustionThreshold</code> and <code>Capacity</code> over the model's <code>fire::CombustionTemperature</code> and <code>fire::Capacity</code> (<code>src/Fire/FireModel.cpp</code>: at least 40, at least 1), the info rows read by <code>src/ECS/Fire/FireObjectTraits.cpp</code>; test <code>FireModel.NothingCatchesBelowFortyDegreesAndHoldsAtLeastOneUnitOfHeat</code></td>
+</tr>
+<tr>
+<td>Typical materials: villagers catch at 120, animals 140, trees and bushes 110, dead trees 100, huts 150, civic buildings 160–200, wonders 250, creatures 200, fences 300</td>
+<td>done</td>
+<td>Data-driven: info.dat through <code>src/ECS/Fire/FireObjectTraits.cpp</code></td>
+</tr>
+<tr>
+<td>Rocks, stones, toys, flowers and bonfires have no burn defence: they glow and spread heat but are never hurt</td>
+<td>done</td>
+<td>Data-driven (their burn defence is 0, so they heat but take no harm); see <a href="../nature/rocks_splitting_and_heat.html">../nature/rocks_splitting_and_heat.md</a></td>
+</tr>
+<tr>
+<td>Features (pyramids, pillars) burn only at 2000 with a huge capacity, so they are fireproof in practice</td>
+<td>done</td>
+<td>Data-driven</td>
+</tr>
+<tr>
+<td>At or above its burning point an object burns; it heats itself by a tenth of its heat over twice its burning point each turn, up to twice its burning point</td>
+<td>done</td>
+<td><code>fire::Step</code> (<code>src/Fire/FireModel.cpp</code>: T += 0.1 T / 2 Tc up to 2 Tc), run by the fire's turn in <code>src/ECS/Fire/FireEffect.cpp</code>; test <code>FireModel.ABurningThingHeatsItselfSlowlyAndHurts</code></td>
+</tr>
+<tr>
+<td>A burning object loses life each turn by how far it is above its burning point, times its burn defence (a villager at full heat dies in about 20 turns; a tree lasts about 1000)</td>
+<td>done</td>
+<td><code>fire::BurnDamage</code> from <code>fire::Step</code> (<code>src/Fire/FireModel.cpp</code>), applied by <code>fire::traits::ReduceLifeDueToBurning</code> from <code>src/ECS/Fire/FireEffect.cpp</code> (creatures excepted, see below); test <code>FireModel.BurningAtTwiceItsCombustionHurtsByItsDefence</code></td>
+</tr>
+<tr>
+<td>Above three times its burning point it is "very hot" and bursts into extra flames</td>
+<td>done</td>
+<td><code>fire::Step</code> sets the very-hot flag above 3 Tc (<code>src/Fire/FireModel.cpp</code>, <code>FireEffect::k_VeryHot</code>); extra flames in <code>src/ECS/Fire/FireGraphic.cpp</code></td>
+</tr>
+<tr>
+<td>A fire's strength (size of flames, reach, sound) grows from 0.8 of the burning point to twice it, and shrinks as the object's life runs out</td>
+<td>done</td>
+<td><code>fire::FireFraction</code> (limited by twice the life), <code>FireRadius</code> and <code>FlameHeight</code> (<code>src/Fire/FireModel.cpp</code>), behind <code>FireEffect</code>'s methods of the same names; test <code>FireModel.TheFireIsFiercestAtTwiceItsCombustionAndWeakAsItsObjectBurnsAway</code></td>
+</tr>
+<tr>
+<td>An object not burning cools by its surface over its capacity, faster the hotter it is</td>
+<td>done</td>
+<td><code>fire::Step</code> and <code>fire::CoolingArea</code> (<code>src/Fire/FireModel.cpp</code>: the 4 H r area, the water and rain multipliers); test <code>FireModel.SomethingNotBurningCoolsBySurfaceOverCapacityFasterInTheWetAndRain</code></td>
+</tr>
+<tr>
+<td>The fire record is dropped once the object is back within 0.1 degrees of the air and has no charring left</td>
+<td>done</td>
+<td><code>fire::Step</code> reports it gone (<code>src/Fire/FireModel.cpp</code>: within 0.1 degrees of the air with no charring left) and <code>src/ECS/Fire/FireEffect.cpp</code> drops the record; test <code>FireModel.ItCharsAsItsLifeRunsLowAndGoesOnceColdAndClean</code></td>
+</tr>
+<tr>
+<td>Below 0.6 life a burning object chars; when the fire is out the charring slowly fades back to what its life allows</td>
+<td>done</td>
+<td><code>fire::Step</code> (<code>src/Fire/FireModel.cpp</code>: +0.04 a turn up to its cap, -0.02 a turn once out); test <code>FireModel.ItCharsAsItsLifeRunsLowAndGoesOnceColdAndClean</code></td>
+</tr>
+<tr>
+<td>A burn from a miracle or a villager's beating pulls the temperature towards the air's plus the burn</td>
+<td>done</td>
+<td><code>fire::ApplyEffectToFireEffectIfNecessary</code> (<code>src/ECS/Fire/FireEffect.cpp</code>) over the model's <code>fire::ApplyBurn</code> (<code>src/Fire/FireModel.cpp</code>), called by <code>EffectValues.cpp</code> and <code>VillagerFire.cpp</code>; test <code>FireModel.ABurnPullsTheTemperatureTowardsTheAirsPlusTheBurn</code></td>
+</tr>
+<tr>
+<td>Scripts can set an object on fire, set its temperature, ask if it is on fire or a fire is near, and stop it being hurt or set alight</td>
+<td>done</td>
+<td><code>src/Magic/Script/CHLFire.cpp</code> (SET_ON_FIRE, SET_TEMPERATURE, IS_ON_FIRE, IS_FIRE_NEAR, SET_HURT_BY_FIRE, SET_SET_ON_FIRE)</td>
+</tr>
+<tr>
+<td>A fire set by a script, or by an object's own owner, is credited to that object's owner</td>
+<td>done</td>
+<td><code>fire::SetTemperature</code> and <code>fire::SetOnFire</code> credit the object's own player</td>
+</tr>
+<tr>
+<td>Fires are processed once a turn, newest first, after the living things and before the scripts and miracles</td>
+<td>done</td>
+<td><code>fire::ProcessList</code> from <code>src/Magic/MagicLoop.cpp</code>; fires made while the list runs wait for the next turn</td>
+</tr>
+</tbody>
+</table>
+<h2 id="catching-and-spreading">Catching and spreading</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A burning object heats every object in the cells within its reach (its fire radius plus 10 m), searched outward in a spiral</td>
+<td>done</td>
+<td>The spread in <code>src/ECS/Fire/FireEffect.cpp</code> (spiral of cells within the fire radius plus 10 m)</td>
+</tr>
+<tr>
+<td>It reaches a target only when their distance is less than the target's own size plus the fire's radius (up to 1.25 × the object's size)</td>
+<td>done</td>
+<td><code>HeatTransfer</code> in <code>src/ECS/Fire/FireEffect.cpp</code> (the table distance)</td>
+</tr>
+<tr>
+<td>Tall fires and tall targets also need to overlap in height</td>
+<td>done</td>
+<td><code>HeatTransfer</code> (only when either is 3 m or more above the land)</td>
+</tr>
+<tr>
+<td>The heat passed is ten times the temperature difference, at most half the burning object's stored heat</td>
+<td>done</td>
+<td>The model's <code>fire::HeatTransfer</code> (<code>src/Fire/FireModel.cpp</code>: ten a degree, at most half the source's heat), from <code>HeatTransfer</code> in <code>src/ECS/Fire/FireEffect.cpp</code>; test <code>FireModel.AFireHeatsItsNeighbourByTheDifferenceUpToHalfItsHeat</code></td>
+</tr>
+<tr>
+<td>A fire not yet burning only passes heat to things that catch at or below its temperature, and loses what it gives</td>
+<td>done</td>
+<td>The model's <code>fire::HeatTransfer</code> (<code>src/Fire/FireModel.cpp</code>: a source not on fire loses what it gives); test <code>FireModel.AFireHeatsItsNeighbourByTheDifferenceUpToHalfItsHeat</code></td>
+</tr>
+<tr>
+<td>A fire never heats the thing that heated it</td>
+<td>done</td>
+<td><code>HeatTransfer</code> (<code>FireEffect::source</code>)</td>
+</tr>
+<tr>
+<td>The wind does not steer fire: the game works the wind out and throws it away</td>
+<td>done</td>
+<td>No wind in the spread (<code>src/ECS/Fire/FireEffect.cpp</code>)</td>
+</tr>
+<tr>
+<td>Fires that touch join one blaze; the blaze's head owns the list of villagers fighting it, and hands over to another hot member when it cools</td>
+<td>done</td>
+<td>The fire groups (root, next, the root's firemen list, the hand-over) in <code>src/ECS/Fire/FireEffect.cpp</code></td>
+</tr>
+<tr>
+<td>A dead tree's reach is 0.35 of its height; everything else uses its width</td>
+<td>done</td>
+<td><code>fire::traits::DefaultFireRadius</code>, <code>FireCentre</code> (<code>src/ECS/Fire/FireObjectTraits.cpp</code>)</td>
+</tr>
+<tr>
+<td>Fields burn their food instead of their life, even when scripts said they are not hurt by fire</td>
+<td>done</td>
+<td><code>fire::traits::ReduceLifeDueToBurning</code> (a field's food goes before the not-hurt test)</td>
+</tr>
+<tr>
+<td>Trees catch from neighbouring trees, so whole forests burn</td>
+<td>done</td>
+<td>The spread in <code>src/ECS/Fire/FireEffect.cpp</code></td>
+</tr>
+<tr>
+<td>Huts catch from burning villagers and trees beside them, and villagers from burning huts</td>
+<td>done</td>
+<td>The spread; a villager reached starts burning (<code>villager_fire::SetupOnFire</code>)</td>
+</tr>
+<tr>
+<td>Fires start from the fireball, lightning (miracle and storm), the blast's heat and scripts</td>
+<td>done</td>
+<td><code>src/Magic/Objects/MagicFireBall.cpp</code>, <code>src/Particles/Rules/Lightning.cpp</code>, <code>Storm.cpp</code>, <code>Explosion.cpp</code>, <code>src/Magic/Script/CHLFire.cpp</code></td>
+</tr>
+<tr>
+<td>A thing held in the hand over a fire catches from the fires in its cell</td>
+<td>done</td>
+<td><code>fire::CheckToSeeIfObjectIsNearOnFireObject</code> from <code>HandTurn.cpp</code>, only inside the holder's influence. See <a href="../hand/holding.html">../hand/holding.md</a></td>
+</tr>
+<tr>
+<td>Picking up a burning object takes it out of its blaze; villagers flee a burning object carried in the hand (reach 30, running 20–50 m)</td>
+<td>partial</td>
+<td><code>fire::StartedMoving</code> from <code>HandHolding.cpp</code> takes it out of its group and gives it the burning-object-in-hand reaction, but no villager reacts to that reaction</td>
+</tr>
+<tr>
+<td>A burning object flying through the air keeps burning and heats villagers fighting fires</td>
+<td>done</td>
+<td><code>fire::StartedMoving</code> when it starts physics (<code>src/ECS/Physics/PhysicsObjects.cpp</code>); flying things are off the map for fire</td>
+</tr>
+<tr>
+<td>When a rock splits, both halves keep its fire</td>
+<td>done</td>
+<td><code>Rocks::SplitInTwo</code> calls <code>fire::CopyFire</code> (<code>src/ECS/Rocks.cpp</code>); see <a href="../nature/rocks_splitting_and_heat.html">../nature/rocks_splitting_and_heat.md</a></td>
+</tr>
+<tr>
+<td>A bonfire burns for ever and never hurts</td>
+<td>done</td>
+<td><code>BonfireArchetype</code> (<code>src/ECS/Archetypes/BonfireArchetype.cpp</code>): a rock with an endless bonfire spot visual and no fire</td>
+</tr>
+<tr>
+<td>Villagers hidden in a building, at home, held or dying never catch</td>
+<td>partial</td>
+<td>Hidden and held villagers are out of the map cells, so the spread does not find them; there is no own test for dying villagers</td>
+</tr>
+</tbody>
+</table>
+<h2 id="putting-fires-out">Putting fires out</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>In water (a water or shore cell, under 2 m up) a fire cools fifty times faster, so burning villagers and things that reach the sea go out</td>
+<td>done</td>
+<td><code>fire::Step</code> (<code>src/Fire/FireModel.cpp</code>: fifty times in the water); the water or shore cell under 2 m is tested in <code>src/ECS/Fire/FireEffect.cpp</code>; test <code>FireModel.SomethingNotBurningCoolsBySurfaceOverCapacityFasterInTheWetAndRain</code></td>
+</tr>
+<tr>
+<td>Rain or snow cools fires faster (up to 2.27 times in the heaviest rain)</td>
+<td>done</td>
+<td><code>fire::Step</code> (<code>src/Fire/FireModel.cpp</code>: the rain cooling multiplier times the rain or snow there, read out of the water in <code>src/ECS/Fire/FireEffect.cpp</code>)</td>
+</tr>
+<tr>
+<td>Rain putting out a fire makes villagers stop to watch the storm, once</td>
+<td>done</td>
+<td><code>src/ECS/Fire/FireEffect.cpp</code> (when <code>fire::Step</code> reports the rain cooled it) and <code>src/Magic/Spells/SpellStormAndTornado.cpp</code> (the storm's watch reaction, once)</td>
+</tr>
+<tr>
+<td>The water miracle's drops cool what they hit by 4000 degrees each</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellWater.cpp</code>. See <a href="../miracles/water.html">../miracles/water.md</a></td>
+</tr>
+<tr>
+<td>A burning villager does not look for water; it runs about at random until its fire dies</td>
+<td>done</td>
+<td><code>villager_fire::OnFire</code> (<code>src/ECS/Systems/Implementations/VillagerFire.cpp</code>)</td>
+</tr>
+<tr>
+<td>A fire is out when it drops below its burning point; the object then smokes for 30 turns where it stands</td>
+<td>done</td>
+<td>The smoke bursts of 30 turns in <code>src/ECS/Fire/FireGraphic.cpp</code></td>
+</tr>
+<tr>
+<td>A fire still hotter than 75 degrees that is being cooled gives off steam with a hiss, once per cooling</td>
+<td>partial</td>
+<td>The steam (cooling and above 75) is in <code>src/ECS/Fire/FireGraphic.cpp</code>; no hiss sound in our tree, and our wiki does not describe one</td>
+</tr>
+</tbody>
+</table>
+<h2 id="villagers-and-fire">Villagers and fire</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fire hotter than 100 (or burning) makes villagers within 35 m react to it, at high priority; the reaction is removed when it cools</td>
+<td>done</td>
+<td>The fire's reaction in <code>src/ECS/Fire/FireEffect.cpp</code>, <code>villager_fire::ReactToFirePriority</code></td>
+</tr>
+<tr>
+<td>A reacting villager first looks at the fire, and runs 10 m away if it is close or within the fire's safe distance</td>
+<td>done</td>
+<td><code>villager_fire::ReactToFire</code></td>
+</tr>
+<tr>
+<td>Villagers of the fire's own town decide whether to fight it, by how big the blaze is, how many already fight it, its importance and how far they are from home</td>
+<td>partial</td>
+<td><code>villager_fire::ReactToFire</code> has the score, but its inputs are approximated and the decision is marked unverified in the code</td>
+</tr>
+<tr>
+<td>Villagers on their way to worship don't join in</td>
+<td>done</td>
+<td><code>villager_fire::ReactToFire</code> tests <code>WorshipVillager::onWay</code>, set by <code>VillagerWorship.cpp</code></td>
+</tr>
+<tr>
+<td>Fire fighters beat the flames from 2 m, cooling it by 8 degrees a blow, and are immune to its heat</td>
+<td>done</td>
+<td><code>villager_fire::PutOutFireByBeating</code>; firemen are immune in <code>HeatTransfer</code></td>
+</tr>
+<tr>
+<td>Villagers never fetch water to fight a fire; those states exist but are never chosen</td>
+<td>done</td>
+<td><code>villager_fire::PutOutFireWithWater</code> gives up at once</td>
+</tr>
+<tr>
+<td>Villagers that won't fight go round the fire on the side they lean to</td>
+<td>done</td>
+<td><code>villager_fire::MoveAroundFire</code>; no unit test in our tree</td>
+</tr>
+<tr>
+<td>A villager the heat reaches runs: a burning one 4–10 m in random directions while it burns, then goes back to what it was doing</td>
+<td>done</td>
+<td><code>villager_fire::SetupOnFire</code>, <code>OnFire</code></td>
+</tr>
+<tr>
+<td>A burning villager dies when its life runs out, credited to whoever made the fire</td>
+<td>done</td>
+<td><code>fire::traits::DestroyedByEffect</code> to <code>villager::DestroyedByEffect</code> with the fire's player</td>
+</tr>
+<tr>
+<td>A villager leaving a fire reaction always ends up in a sensible state</td>
+<td>done</td>
+<td><code>villager_reactions::ReactionValidate</code> and <code>villager_fire::ShutDownReaction</code></td>
+</tr>
+<tr>
+<td>The town counts injured villagers as fire hurts them</td>
+<td>todo</td>
+<td>No count of injured villagers in our tree</td>
+</tr>
+<tr>
+<td>Animals react to fire and flee it</td>
+<td>todo</td>
+<td>Animals do not take the fire reaction yet (<a href="../../animals.html">animals.md</a>)</td>
+</tr>
+<tr>
+<td>Burning animals die (fall and lie) rather than vanish</td>
+<td>done</td>
+<td><code>fire::traits::DestroyedByEffect</code> to <code>animal_ai::DestroyedByEffect</code> (dying)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-creature-and-fire">The creature and fire</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A creature can catch fire; it burns very slowly (it takes about 500 turns of full heat to lose all its life) and faints rather than dies</td>
+<td>partial</td>
+<td>A creature gets a fire record, but <code>fire::traits::ReduceLifeDueToBurning</code> gives it no harm (not ported)</td>
+</tr>
+<tr>
+<td>A creature that catches gets burn marks on its skin, not flames</td>
+<td>todo</td>
+<td>No burn marks and no flames on a creature (<code>src/ECS/Fire/FireEffect.cpp</code> TODO). Our wiki differs: the original gives a burning creature three flames at random points of its box (<a href="../../magic.html#fire-srcecsfire">magic.md</a>)</td>
+</tr>
+<tr>
+<td>A creature reacts to fires near it, can put fires out, set things on fire, and stop itself burning (with the water miracle if it knows it)</td>
+<td>todo</td>
+<td>Only its mind's beliefs see fire (<code>CreatureMindLearning.cpp</code>); see <a href="../creature/index.html">../creature/</a></td>
+</tr>
+<tr>
+<td>A creature's warmth comes from the climate only: fires don't warm it</td>
+<td>done</td>
+<td><code>CreaturePhysiologySystem.cpp</code> reads the weather's temperature; see <a href="../creature/desires.html">../creature/desires.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="buildings-trees-and-fields-burning">Buildings, trees and fields burning</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A burning building empties: its people come out</td>
+<td>done</td>
+<td><code>abodes::ReduceLife</code> (<code>src/ECS/Abodes.cpp</code>): every inhabitant reacts as to a tap, the building stops working</td>
+</tr>
+<tr>
+<td>A building burnt to nothing flickers out as a ghost and goes; buildings a script holds stay as a building site</td>
+<td>partial</td>
+<td><code>abodes::ReduceLife</code> makes the building site; <code>fire::traits::DestroyedByEffect</code> does nothing for an abode yet (no ghost). See <a href="../building/index.html">../building/</a></td>
+</tr>
+<tr>
+<td>A burning tree darkens, its leaves thin as it heats, and below 0.2 life it narrows (but keeps its height) until it is gone</td>
+<td>partial</td>
+<td>Darkening (<code>graphic::TreeDrawColour</code>) and narrowing below 0.2 life (<code>RenderingSystem.cpp</code>) are done; the thinning of the leaves is not ported</td>
+</tr>
+<tr>
+<td>A tree burnt away is simply removed: there is no burnt-tree stump left</td>
+<td>done</td>
+<td><code>fire::traits::DestroyedByEffect</code> deletes it</td>
+</tr>
+<tr>
+<td>A burnt field loses its crop and its fire</td>
+<td>done</td>
+<td><code>fire::traits::DestroyedByEffect</code> (crops, growth and food to 0, the fire deleted)</td>
+</tr>
+<tr>
+<td>A burning field never lights the land around it</td>
+<td>done</td>
+<td><code>graphic::Create</code> gives the glow only to multi-cell fixed objects over 2 m. Our wiki differs: every abode is such an object, a field included, so a large burning field does light the land (<a href="../../magic.html#fire-srcecsfire">magic.md</a>)</td>
+</tr>
+<tr>
+<td>Things that catch lose the reactions they gave (a pot's food, a dead tree's wood) and get them back when the fire ends</td>
+<td>partial</td>
+<td><code>fire::traits::StartOnFire</code> and <code>EndOnFire</code> (<code>FireObjectTraits.cpp</code>): dead trees and magic trees get theirs back; a pot does not (TODO)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="look-and-sound">Look and sound</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Flames: 2 on trees, 7 on things 3 m or bigger, else 2; more grow in as the fire strengthens; each lives 4.3 s, fading in over 1 s</td>
+<td>done</td>
+<td><code>src/ECS/Fire/FireGraphic.cpp</code> (most flames, 4.3 s life, 1 s fade-in)</td>
+</tr>
+<tr>
+<td>Flames sit at random points on the model (on trees in the lower half; on moving things on their bones)</td>
+<td>partial</td>
+<td>A random triangle of the mesh, trees in the lower half (<code>LocalRandomFlamePosition</code>); moving things' posed bones and the damaged building model are not used</td>
+</tr>
+<tr>
+<td>Flame size: 0.2 of the height on trees, 0.3 on the creature and the temple, 0.5 on everything else</td>
+<td>partial</td>
+<td>Trees 0.2 and the rest 0.5 (<code>src/ECS/Fire/FireGraphic.cpp</code>); the 0.3 of the larger objects is not ported</td>
+</tr>
+<tr>
+<td>A fire long out of sight catches up its flames when seen again</td>
+<td>done</td>
+<td>Our tree updates every fire every frame, drawn or not, so there is nothing to catch up</td>
+</tr>
+<tr>
+<td>Burning buildings and objects darken as they char and glow red-orange with heat</td>
+<td>done</td>
+<td><code>graphic::CharringGrey</code>, <code>CharringGlow</code> (the glow's noise is approximated); test <code>FireGraphic.CharringGreyMatchesTheExe</code></td>
+</tr>
+<tr>
+<td>Big burning objects light the land around them with a flickering glow</td>
+<td>done</td>
+<td><code>src/ECS/Fire/FireGraphic.cpp</code> (the fire light map on multi-cell fixed objects over 2 m)</td>
+</tr>
+<tr>
+<td>Smoke and steam puffs drift with the smoothed wind and rise</td>
+<td>done</td>
+<td><code>src/ECS/Fire/FireGraphic.cpp</code></td>
+</tr>
+<tr>
+<td>Only one fire crackle loop plays, on the burning fire nearest the camera on the ground; a farther fire never takes it over</td>
+<td>done</td>
+<td><code>src/ECS/Fire/FireSound.cpp</code> plays the two nearest fires. Our wiki differs: two fires nearest the camera, with a fraction above 0.1, make sound (<a href="../../magic.html#fire-srcecsfire">magic.md</a>)</td>
+</tr>
+<tr>
+<td>The crackle stops when its fire weakens below a tenth</td>
+<td>done</td>
+<td><code>sound::Consider</code> (<code>src/ECS/Fire/FireSound.cpp</code>)</td>
+</tr>
+<tr>
+<td>There is no catching, going-out or collapse sound</td>
+<td>done</td>
+<td>None in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="saving">Saving</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fires (temperature, charring, blaze, fighters) are saved and loaded with the game</td>
+<td>todo</td>
+<td>openblack has no saved games</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

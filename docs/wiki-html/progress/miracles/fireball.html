@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fireball — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="here" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#fireball">Fireball</a><ul>
+<li><a href="#casting-and-the-throw">Casting and the throw</a></li>
+<li><a href="#flight-and-end">Flight and end</a></li>
+<li><a href="#setting-things-alight">Setting things alight</a></li>
+<li><a href="#point-events-reactions-and-learning">Point events, reactions and learning</a></li>
+<li><a href="#catching-and-absorbing">Catching and absorbing</a></li>
+<li><a href="#look">Look</a></li>
+<li><a href="#sound">Sound</a></li>
+<li><a href="#saving">Saving</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="fireball">Fireball</h1>
+<p>The player takes a fire seed and throws it: a burning ball (three with the first power-up, eight with the second) flies,
+bounces and rolls over the land, setting alight whatever it passes. Enemy balls can be caught, and a held fire seed can
+swallow one. How fire then spreads, burns and goes out is physics: See ../physics/fire.md.</p>
+<p>Given by silver scrolls: the first and second levels by <a href="../story/silver_scrolls/the_idol.html">The Idol</a>, the second and third
+by <a href="../story/silver_scrolls/stanley_the_wolf.html">Stanley The Wolf</a>. Given by gold scroll: the first level by
+<a href="../story/gold_scrolls/khazars_fireball_challenge.html">Khazar's Fireball Challenge</a>.</p>
+<p><strong>Progress: 33/47 done, 8 partial — 79%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../miracles.html">Miracles one by one</a>.</p>
+<h2 id="casting-and-the-throw">Casting and the throw</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The held fire seed shows flames on the hand, stepped every drawn frame</td>
+<td>done</td>
+<td><code>src/Magic/Hand/HandMagicFX.cpp</code> (the power-up level's in-hand effect, stepped every frame)</td>
+</tr>
+<tr>
+<td>A fire seed on a dispenser shows its holder effect</td>
+<td>done</td>
+<td><code>src/Worship/SpellSeedGraphic.cpp</code> (the seed's holder effect); see <a href="dispensers_and_seeds.html">dispensers_and_seeds.md</a></td>
+</tr>
+<tr>
+<td>Letting go throws: the ball leaves the hand along the hand's swing, its speed from the swing through the game's throw-speed table</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Fireball.cpp</code> (CreateWithInitialDirection: the hand's direction pitched up, its speed through the throw table); the hand's throw data from <code>src/ECS/Systems/Implementations/HandSpellSeed.cpp</code></td>
+</tr>
+<tr>
+<td>The first power-up throws 3 balls and the second 8, scattered in a ring with some random speed</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Fireball.cpp</code> (the effect files' atom counts and scatter ring)</td>
+</tr>
+<tr>
+<td>It costs 3500, 7000 or 10000 to cast, with nothing per turn or per event; the miracle lasts 20 s</td>
+<td>done</td>
+<td><code>src/Magic/Core/Chants.cpp</code>, <code>src/Magic/MagicTables.cpp</code> (info.dat costs and timers). See <a href="prayer_cost.html">prayer_cost.md</a></td>
+</tr>
+<tr>
+<td>A spinning hand puts side spin on the ball, which curls and fades over 1.5 s</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Fireball.cpp</code> (UR_SideSpin; the curl from the hand's spin in <code>HandSpellSeed.cpp</code>)</td>
+</tr>
+<tr>
+<td>The ball is drawn starting from the hand and eases onto its true path</td>
+<td>todo</td>
+<td>Not ported: the ball appears at the gesture point (the hand draw offset is a note in CreateWithInitialDirection, <code>src/Particles/Rules/Fireball.cpp</code>)</td>
+</tr>
+<tr>
+<td>Scripts and computer players lob the ball from a point to a target, with no swing</td>
+<td>done</td>
+<td><code>src/Magic/Script/CHLSpells.cpp</code> (SPELL_AT_POS) and the non-human ballistic arc in <code>src/Particles/Rules/Fireball.cpp</code>; there are no computer players to use it</td>
+</tr>
+<tr>
+<td>A creature casts fireballs at what it wants to burn</td>
+<td>todo</td>
+<td>Creatures cast no world miracles in our tree (<code>src/Creature</code> has no miracle plan). See <a href="creature_spells.html">creature_spells.md</a></td>
+</tr>
+<tr>
+<td>A creature catches an enemy fireball and throws it back</td>
+<td>todo</td>
+<td>No such creature plan, and catching a ball is not wired even for the hand</td>
+</tr>
+</tbody>
+</table>
+<h2 id="flight-and-end">Flight and end</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The ball flies under gravity, bounces off the land and rolls down slopes</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Fireball.cpp</code> (UpdateRuleGravityWithFloor: gravity, land bounce, ground drag)</td>
+</tr>
+<tr>
+<td>A ball almost still on a slope is nudged so it keeps sliding the game's way</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Fireball.cpp</code> (the fixed fallback direction for a ball almost still on the land)</td>
+</tr>
+<tr>
+<td>A ball bounces off a physical shield it isn't let through</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Fireball.cpp</code> (CheckShieldDeflections), <code>src/Particles/Rules/Shield.cpp</code> (DoAnyShieldDeflections). See <a href="physical_shield.html">physical_shield.md</a></td>
+</tr>
+<tr>
+<td>The ball ends when it stops rolling, falls into water, or cools below 400 degrees</td>
+<td>done</td>
+<td><code>src/Magic/Objects/MagicFireBall.cpp</code> (deleted below the deletion temperature or with its atom), <code>src/Particles/Rules/Fireball.cpp</code> (EventConditionAtomCloseWater)</td>
+</tr>
+<tr>
+<td>An ended ball fades out over 1 s and is gone about 4 s later</td>
+<td>done</td>
+<td>The effect files' fade and death rules, <code>src/Particles/PSys.cpp</code></td>
+</tr>
+<tr>
+<td>Rain cools a ball and makes it steam</td>
+<td>done</td>
+<td><code>src/ECS/Fire/FireEffect.cpp</code> (rain cooling), <code>src/Particles/Rules/Fireball.cpp</code> (EventConditionFireBallSteam); test <code>FireGraphic.FireballSteamsInsteadOfFlames</code> (<code>test/test_fire.cpp</code>)</td>
+</tr>
+<tr>
+<td>The water miracle puts a ball out</td>
+<td>partial</td>
+<td><code>src/Magic/Spells/SpellWater.cpp</code> cools fires through the map cells, but the ball never enters them (<code>src/ECS/MapCells.cpp</code>), so a water drop does not reach it. Our wiki differs: the ball is not in the map cells, so the water's area effect cannot reach it <span class="state approx">inferred</span> (<a href="../../miracles.html#fireball-magic_type-1-3-seed-2-fire">page</a>)</td>
+</tr>
+<tr>
+<td>The ball is not a physics object: it can't be tugged, knocks nothing over, and creatures can't pick it up, throw, stomp or fight it</td>
+<td>done</td>
+<td><code>src/ECS/Components/MagicFireBall.h</code>, <code>src/Magic/Objects/MagicFireBall.cpp</code> (the ball only follows its atom and carries its fire)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="setting-things-alight">Setting things alight</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each ball is a burning thing as hot as the miracle is strong (6000 degrees at full strength)</td>
+<td>done</td>
+<td><code>src/Magic/Objects/MagicFireBall.cpp</code> (fireball::Create: the effect's strength times the initial temperature)</td>
+</tr>
+<tr>
+<td>The ball's ability to hold heat follows the miracle's live strength</td>
+<td>done</td>
+<td><code>src/ECS/Fire/FireObjectTraits.cpp</code> (HeatCapacity times <code>fireball::Strength</code>)</td>
+</tr>
+<tr>
+<td>Trees, buildings, fields and people the ball passes catch fire</td>
+<td>done</td>
+<td><code>src/ECS/Fire/FireEffect.cpp</code> (the heat model spreading from the ball's fire)</td>
+</tr>
+<tr>
+<td>Villagers who fight fires take the ball's heat like any other fire's</td>
+<td>done</td>
+<td><code>src/ECS/Systems/Implementations/VillagerFire.cpp</code></td>
+</tr>
+<tr>
+<td>Villagers set alight run burning and die; those reacting always return to a sensible state</td>
+<td>done</td>
+<td><code>src/ECS/Systems/Implementations/VillagerFire.cpp</code>, <code>src/ECS/Fire/FireEffect.cpp</code> (burnt down, then destroyed by the effect)</td>
+</tr>
+<tr>
+<td>A villager the fire kills counts against the caster</td>
+<td>done</td>
+<td><code>src/ECS/Fire/FireEffect.cpp</code> to <code>FireObjectTraits.cpp</code> DestroyedByEffect with the fire's player (<code>villager::DestroyedByEffect</code>)</td>
+</tr>
+<tr>
+<td>An animal the fire kills falls dead and lies there</td>
+<td>done</td>
+<td><code>src/ECS/Fire/FireObjectTraits.cpp</code> to <code>animal_ai::DestroyedByEffect</code> (the dying state, the corpse, then a smoke puff, <code>src/ECS/AnimalAI.cpp</code>)</td>
+</tr>
+<tr>
+<td>A town notices its people hurt by fire</td>
+<td>todo</td>
+<td>The town's count of injured villagers is not ported, and the town's aggressor from burning is a TODO in <code>src/ECS/Fire/FireObjectTraits.cpp</code>. See ../town/</td>
+</tr>
+<tr>
+<td>A villager on the way to worship is spared the town's fire alarm</td>
+<td>done</td>
+<td><code>src/ECS/Systems/Implementations/VillagerFire.cpp</code> (a villager on its way to worship is not called to the fire; the flag is set by <code>VillagerWorship.cpp</code>). See ../worship/</td>
+</tr>
+<tr>
+<td>A ball in rain or after setting something alight sizzles</td>
+<td>done</td>
+<td><code>src/ECS/Fire/FireGraphic.cpp</code> (the steam burst and its sizzle sample)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="point-events-reactions-and-learning">Point events, reactions and learning</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every step the ball moves the miracle's position and sends a point event there</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Fireball.cpp</code> (EventAlways), <code>src/Magic/Core/SpellEvent.cpp</code></td>
+</tr>
+<tr>
+<td>The point event carries the ball's last drawn movement</td>
+<td>partial</td>
+<td><code>src/Particles/Rules/Fireball.cpp</code> sends the step's move (velocity times the step, inferred), not the drawn movement</td>
+</tr>
+<tr>
+<td>People nearby react to the miracle once, the first time it has an effect</td>
+<td>done</td>
+<td><code>src/Magic/Core/SpellEvent.cpp</code> (the reaction on the first event), <code>src/ECS/Effects/Reactions.cpp</code></td>
+</tr>
+<tr>
+<td>The player's creature may copy the fireball where it lands near a town</td>
+<td>todo</td>
+<td>The per-event creature mimic is a TODO in <code>src/Magic/Core/SpellEvent.cpp</code>; only the water miracle calls <code>src/ECS/CreatureMimic.cpp</code></td>
+</tr>
+<tr>
+<td>A creature learns the fireball by watching; it must know the plain one before the power-ups</td>
+<td>partial</td>
+<td>The rules are in <code>src/Creature/CreatureWatching.cpp</code> (<code>test/creature/test_creature_learning.cpp</code>), but a cast never tells the creature: <code>SeeMiracle</code> is only called from the debug creature spawner. See ../creature/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="catching-and-absorbing">Catching and absorbing</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hand can catch an enemy's ball by tapping or grabbing it while it is still visible, and holds it as a seed</td>
+<td>partial</td>
+<td><code>fireball::Catch</code> in <code>src/Magic/Objects/MagicFireBall.cpp</code> (a ready, charged fire seed in the hand), but nothing in the hand calls it: dormant. Only one human player, as openblack has no others</td>
+</tr>
+<tr>
+<td>A player can't catch his own ball</td>
+<td>partial</td>
+<td><code>fireball::ValidForPlaceInHand</code> refuses the owner's ball; dormant with <code>fireball::Catch</code></td>
+</tr>
+<tr>
+<td>Pressing with a ready fire seed over a ball takes it in: the seed stays in the hand, a twentieth stronger</td>
+<td>partial</td>
+<td><code>fireball::DeleteAndPutIntoSpellSeed</code> (the seed's power times one plus the catch factor), not called by the hand: dormant</td>
+</tr>
+</tbody>
+</table>
+<h2 id="look">Look</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The ball is a flaming sprite with a trail of ten sprites, including a head sprite on the ball</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Fireball.cpp</code> (UR_Trail, head and trail groups)</td>
+</tr>
+<tr>
+<td>The trail follows the drawn ball, not its true path</td>
+<td>partial</td>
+<td>UR_Trail in <code>src/Particles/Rules/Fireball.cpp</code> follows the ball's positions; without the hand draw offset the drawn and true paths are the same</td>
+</tr>
+<tr>
+<td>Each ball leaves flames and smoke on the land (fewer with the second power-up) and lights the land below, fainter the higher it flies</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Fireball.cpp</code> (AR_FadeAlphaWithHeightAboveLandscape) and the effect files</td>
+</tr>
+<tr>
+<td>A ball hitting water makes a ring; there is no steam cloud</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Fireball.cpp</code> (impact ripple), <code>src/Particles/PSysWaterRings.cpp</code></td>
+</tr>
+<tr>
+<td>Every new effect steps twice on its first turn, so it starts as early as in the game</td>
+<td>partial</td>
+<td>Not found in our tree: a spell's effect is stepped once a turn by its spell (<code>src/Magic/Core/Spell.cpp</code>); our wiki does not describe a double first step</td>
+</tr>
+</tbody>
+</table>
+<h2 id="sound">Sound</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each ball plays a throw whoosh, small, medium or large by its speed</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Fireball.cpp</code> (the create sound, sized from the speed over 200), <code>src/Audio/Services/SpellSounds.cpp</code></td>
+</tr>
+<tr>
+<td>The plain ball's whoosh fades when it ends, the power-ups' stop at once</td>
+<td>done</td>
+<td><code>src/Audio/Services/SpellSounds.cpp</code> (soft release or stop, by the sound's flags)</td>
+</tr>
+<tr>
+<td>Hitting the land plays a hit sound by surface and impact speed; hitting water plays its own splash</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Fireball.cpp</code> (impact sound sized by the impact speed), <code>src/Audio/Services/SpellSounds.cpp</code></td>
+</tr>
+<tr>
+<td>A ball flying past within 40 m of the camera plays a fly-by once, only while the ball exists</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Fireball.cpp</code> (FlyBySound: within 40 m of the camera and faster than 20)</td>
+</tr>
+<tr>
+<td>Burning things crackle, the nearest fire holding the loop</td>
+<td>done</td>
+<td><code>src/ECS/Fire/FireSound.cpp</code>. See ../physics/fire.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="saving">Saving</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Balls in flight and their fires are kept in a saved game</td>
+<td>todo</td>
+<td>openblack has no save games</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

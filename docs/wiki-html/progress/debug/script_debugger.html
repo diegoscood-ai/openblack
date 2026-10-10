@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Script debugger — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="here" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#script-debugger">Script debugger</a><ul>
+<li><a href="#browsing">Browsing</a></li>
+<li><a href="#reading-code">Reading code</a></li>
+<li><a href="#debugging">Debugging</a></li>
+<li><a href="#log">Log</a></li>
+<li><a href="#land-scripts">Land scripts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="script-debugger">Script debugger</h1>
+<p>The debug bar's Scripts window and the editor's Log tab: a reader and debugger for the game's compiled challenge
+scripts, as they run in openblack's virtual machine. The scripts and their functions are in ../story/ and the virtual
+machine in ../engine/.</p>
+<p><strong>Progress: 18/21 done, 1 partial — 88%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../openblack-internals.html">openblack internals</a>.</p>
+<h2 id="browsing">Browsing</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lists the loaded program's scripts by kind, searched, with how many tasks run each</td>
+<td>done</td>
+<td><code>src/Editor/Panels/ScriptsPanel.cpp</code>, <code>src/Editor/Scripts/ScriptModel.cpp</code>; tests <code>EditorScripts.*</code></td>
+</tr>
+<tr>
+<td>Opens another compiled program, or goes back to the game's own</td>
+<td>todo</td>
+<td>the panel shows the game's own program only (<code>src/Editor/Panels/ScriptsPanel.cpp</code>)</td>
+</tr>
+<tr>
+<td>A script's details, and starting it as the game starts scripts</td>
+<td>done</td>
+<td>"Script" side tab, "Start a task"</td>
+</tr>
+</tbody>
+</table>
+<h2 id="reading-code">Reading code</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The code coloured, every name filled in</td>
+<td>done</td>
+<td><code>ScriptModel</code> (the "Disassembly" tab)</td>
+</tr>
+<tr>
+<td>Clicking a jump or a call follows it, with Back and Next</td>
+<td>done</td>
+<td><code>ScriptsPanel.cpp</code> (Back and "Next")</td>
+</tr>
+<tr>
+<td>A search in the code</td>
+<td>done</td>
+<td><code>ScriptsPanel.cpp</code></td>
+</tr>
+<tr>
+<td>The source beside the code, decompiled into the scripts' own language</td>
+<td>done</td>
+<td>the "Source" tab, <code>src/Editor/Scripts/Decompiler.cpp</code> with <code>components/lhvmdecompiler</code></td>
+</tr>
+<tr>
+<td>Editing the source and compiling it into the running program, other scripts keeping their places</td>
+<td>done</td>
+<td>"Compile" (<code>src/Editor/Scripts/Decompiler.cpp</code>, <code>components/lhvmcompiler</code>)</td>
+</tr>
+<tr>
+<td>The original source files of the scripts, when they are there</td>
+<td>partial</td>
+<td>statements can be put on their recorded source lines (<code>lhvmtool --source-lines</code>); the panel shows decompiled source</td>
+</tr>
+</tbody>
+</table>
+<h2 id="debugging">Debugging</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Breakpoints set in the margin</td>
+<td>done</td>
+<td>the margin's breakpoints (<code>ScriptsPanel.cpp</code>); test <code>DebuggerTest.BreakpointsHoldTasksBeforeTheirInstruction</code></td>
+</tr>
+<tr>
+<td>The running tasks with their stacks, variables and what they wait for</td>
+<td>done</td>
+<td>the tasks list (<code>ScriptsPanel.cpp</code>)</td>
+</tr>
+<tr>
+<td>Holding, stepping and continuing a task, or all of them; stopping a task or a script's tasks</td>
+<td>done</td>
+<td>"Hold", "Step", "Continue", "Hold all", "Continue all", "Stop", "Stop its tasks"; test <code>DebuggerTest.SteppingRunsOneInstructionAtATime</code></td>
+</tr>
+<tr>
+<td>The code view following the picked task's next instruction</td>
+<td>done</td>
+<td>"Follow task"</td>
+</tr>
+<tr>
+<td>Global variables changed in place</td>
+<td>done</td>
+<td>"Globals"</td>
+</tr>
+<tr>
+<td>The native functions the scripts call, and which openblack has written</td>
+<td>done</td>
+<td>"Natives" (with what openblack has written)</td>
+</tr>
+<tr>
+<td>The program's data</td>
+<td>done</td>
+<td>"Data"</td>
+</tr>
+<tr>
+<td>Exception handlers of a task</td>
+<td>done</td>
+<td>"Handlers"</td>
+</tr>
+</tbody>
+</table>
+<h2 id="log">Log</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The scripts' output and errors from when the editor starts, kept in a ring</td>
+<td>done</td>
+<td><code>src/Editor/Panels/LogPanel.cpp</code>, <code>src/Editor/Scripts/LogRing.h</code></td>
+</tr>
+<tr>
+<td>Levels to show, a search, and following the newest lines</td>
+<td>done</td>
+<td><code>src/Editor/Panels/LogPanel.cpp</code></td>
+</tr>
+<tr>
+<td>The number of errors in the tab's title</td>
+<td>done</td>
+<td><code>src/Editor/Panels/LogPanel.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="land-scripts">Land scripts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's own setup script (its features and map commands) shown and stepped</td>
+<td>todo</td>
+<td>land scripts run once on load; only the console can run their commands (<code>src/Debug/Console.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

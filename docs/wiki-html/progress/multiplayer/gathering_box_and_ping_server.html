@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The gathering box and the ping server — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="here" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-gathering-box-and-the-ping-server">The gathering box and the ping server</a><ul>
+<li><a href="#what-the-game-sends-and-the-server-answers">What the game sends and the server answers</a></li>
+<li><a href="#staff-in-the-game">Staff in the game</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-gathering-box-and-the-ping-server">The gathering box and the ping server</h1>
+<p>While a game world runs, the game keeps in touch with Lionhead's "ping server" (<code>bwping.bwgame.com</code>, UDP port 2611):
+it says it is playing, asks which of its friends are online, and takes messages for its gathering box, the in-game box
+of players, friends and others. Lionhead's staff used it to speak to players under ids the game draws in yellow.</p>
+<p><strong>Codebase: bwgame-service</strong> (<code>C:\projects\bwgame-service</code>), the stand-in for the game's online servers, not openblack.
+Every "done" below is done there; paths in the notes are relative to that repository. The full protocol is in its
+<code>docs/research/bwping.md</code>. What the gathering box itself does in the game is openblack's, listed as n/a here.</p>
+<p><strong>Progress: 0/0 done, 0 partial — 0%</strong></p>
+<h2 id="what-the-game-sends-and-the-server-answers">What the game sends and the server answers</h2>
+<p>Checked against the original game's code.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every 20 seconds of play the game pings the server with its player's id; it expects no answer</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>; there: <code>bwgame/bwping.py</code>, <code>tests/test_bwping.py</code>); our tree has no online code</td>
+</tr>
+<tr>
+<td>It sends the ids of its player's friends (at most 25); the server answers with those who are online and where</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>; there: <code>BW_PING_FRIENDS</code>); our tree has no online code</td>
+</tr>
+<tr>
+<td>A friend listed online keeps the online mark for 7.5 minutes</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>Chat between players in the gathering box goes to the address the game holds for that player</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>The host of an internet game reports its teams and the map's conditions every 20 seconds and when the game is decided</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>The game takes these messages from anyone, in single packets with no handshake</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="staff-in-the-game">Staff in the game</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Players with ids 9999999 to 10000014 are drawn in yellow in the gathering box</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>A message from id 9999999, the admin, opens every player's gathering box</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>A staff member's chat line shows as "name: text" in the gathering box, and in the in-game chat and its log</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>A message starting with a secret word opens a Yes/No question, or a box to type a line into; the answer goes back to the sender</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>What a player types to a staff entry in the gathering box reaches the server</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>Lionhead's announcements: a text shown as up to 15 yellow names in the "Others" list</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>Who is playing right now</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>The gathering box's lists, friends list and chat window themselves</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>); no gathering box, friends list or chat window in our tree</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

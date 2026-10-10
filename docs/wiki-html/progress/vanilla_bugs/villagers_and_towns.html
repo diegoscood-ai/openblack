@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vanilla bugs: villagers and towns — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="here" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#vanilla-bugs-villagers-and-towns">Vanilla bugs: villagers and towns</a><ul>
+<li><a href="#wrong-outcomes">Wrong outcomes</a></li>
+<li><a href="#missing-or-wrong-feedback">Missing or wrong feedback</a></li>
+<li><a href="#harmless">Harmless</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="vanilla-bugs-villagers-and-towns">Vanilla bugs: villagers and towns</h1>
+<p>Bugs in the original game's villager and town code and data: daily work, carried tools and their sounds, and the town
+football pitch.</p>
+<p><strong>Bugs: 8 (soft-locks and lost progress: 0)</strong></p>
+<h2 id="wrong-outcomes">Wrong outcomes</h2>
+<table>
+<thead>
+<tr>
+<th>Bug</th>
+<th>What the player sees</th>
+<th>Evidence</th>
+<th>Found in</th>
+<th>openblack</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The football score tally and the creature's "my side scored" test credit the side the villagers mourn for</td>
+<td>The tally (seen only in the debug text) and the creature's reaction go to the wrong team, while the celebrations follow the villagers</td>
+<td>Read from the pitch code</td>
+<td><a href="../town/football.html">football.md</a></td>
+<td>undecided (not in this tree yet: no football matches; the progress file says to reproduce it as-is)</td>
+</tr>
+<tr>
+<td>The belief a town gains when a match ends reads a match count that nothing in the football code sets</td>
+<td>Undetermined: the belief reward may be fixed at its minimum</td>
+<td>Read from the pitch code</td>
+<td><a href="../town/football.html">football.md</a></td>
+<td>undecided (not in this tree yet: no football matches)</td>
+</tr>
+<tr>
+<td>With football switched off, a pitch placed by a script never runs a match, but relaxing villagers can still go to it and wait</td>
+<td>Villagers standing at an idle pitch (undetermined what ends their wait)</td>
+<td>The town only updates its pitch while football is on; nothing stops villagers joining</td>
+<td><a href="../town/football.html">football.md</a></td>
+<td>differs: no match is run, but relaxing villagers do not go to the pitch either (the relaxation pick counts no pitch)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="missing-or-wrong-feedback">Missing or wrong feedback</h2>
+<table>
+<thead>
+<tr>
+<th>Bug</th>
+<th>What the player sees</th>
+<th>Evidence</th>
+<th>Found in</th>
+<th>openblack</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Both the hammering clip and the sledgehammer clip carry the sledgehammer sound</td>
+<td>Hammering sounds like a sledgehammer; the separate hammer sound is never used by a villager</td>
+<td>The clip sound events in <code>Data/SmallSounds.SAS</code></td>
+<td><a href="../villager/tools_and_carried_items.html">tools_and_carried_items.md</a></td>
+<td>reproduced (the clips' sound events, <code>src/Audio/Services/AnimationSounds.cpp</code>)</td>
+</tr>
+<tr>
+<td>The digging sounds belong to two farmer clips that the farming states never play</td>
+<td>Sowing and digging up crops are silent</td>
+<td>Clip sound events against the farming states' clips</td>
+<td><a href="../villager/tools_and_carried_items.html">tools_and_carried_items.md</a></td>
+<td>reproduced (the farming states play the silent clips)</td>
+</tr>
+<tr>
+<td>When the football leaves the pitch, the game compares the two sides' first-listed players and sends the one further from the ball to fetch it (may be intended)</td>
+<td>The player furthest away walks the long way to the ball while everyone else stands paused</td>
+<td>Read from the pitch code</td>
+<td><a href="../town/football.html">football.md</a></td>
+<td>undecided (not in this tree yet: no football matches)</td>
+</tr>
+<tr>
+<td>A football spectator who leaves the match keeps their place in the crowd's wave until they are gone</td>
+<td>A gap where the leaving spectator's turn in the wave comes round</td>
+<td>Read from the pitch code</td>
+<td><a href="../town/football.html">football.md</a></td>
+<td>undecided (not in this tree yet: no football matches)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="harmless">Harmless</h2>
+<table>
+<thead>
+<tr>
+<th>Bug</th>
+<th>What the player sees</th>
+<th>Evidence</th>
+<th>Found in</th>
+<th>openblack</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No tree record gives fruit-tree logs</td>
+<td>nothing visible: the fruit branch is never seen in a villager's hand</td>
+<td>The tree records in <code>info.dat</code></td>
+<td><a href="../villager/tools_and_carried_items.html">tools_and_carried_items.md</a></td>
+<td>reproduced (no tree record gives them)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

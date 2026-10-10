@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bink video playback — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="here" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#bink-video-playback">Bink video playback</a><ul>
+<li><a href="#how-to-play-them-in-openblack-the-plan">How to play them in openblack (the plan)</a></li>
+<li><a href="#the-files">The files</a></li>
+<li><a href="#container-and-decoding">Container and decoding</a></li>
+<li><a href="#the-full-screen-video-intro-and-falling-spell">The full-screen video (intro and falling spell)</a></li>
+<li><a href="#skipping">Skipping</a></li>
+<li><a href="#the-falling-spell-fallbik">The falling spell (fall.bik)</a></li>
+<li><a href="#start-up-and-loading-screen">Start-up and loading screen</a></li>
+<li><a href="#audio-during-videos">Audio during videos</a></li>
+<li><a href="#tests-to-carry">Tests to carry</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="bink-video-playback">Bink video playback</h1>
+<p>How Black &amp; White plays its five Bink videos, and how openblack can play them. The research is done: Diego's
+<code>docs/bw1-notes/video.md</code>, checked bit for bit against the game's own Bink 1.0w player. His newest branch,
+<code>diegoscood/AI-Decompiled</code> (fetched 2026-10-07, one commit rebuilding his fork on upstream openblack), has a complete
+player in <code>src/Video/</code> with <strong>his own Bink 1 decoder, identical to the game's on every one of the 5,353 frames of the
+five videos</strong>; FFmpeg is gone from it. The earlier <code>bw-clean</code> branch used a trimmed FFmpeg instead. openblack now has
+its own decoder and player in <code>src/Video/</code> (no FFmpeg), and <code>SET_AVI_SEQUENCE</code> plays the intro and the falling-spell
+film (<code>src/CHLApi.cpp</code>); there is still no start-up sequence or loading screen. What each video is for is in
+<a href="bink_videos.html">bink_videos.md</a>.</p>
+<p><strong>Progress: 45/54 done, 3 partial — 86%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../video.html">Bink videos (.bik)</a>.</p>
+<h2 id="how-to-play-them-in-openblack-the-plan">How to play them in openblack (the plan)</h2>
+<ol>
+<li><strong>The container</strong> — a component, as <code>components/&lt;name&gt;</code> like the other file formats (the parsers-as-components
+   rule): reads the 44-byte header, the frame index (keyframe bit, offsets) and one packet per frame. Diego's
+   <code>BikFile</code> (checked on all five files) is the starting point; it moves out of <code>src/</code> into its own component with tests.</li>
+<li><strong>The decoder</strong> — take Diego's own Bink 1 decoder from <code>AI-Decompiled</code> (<code>BinkDecoder</code> with its bit reader, Huffman
+   trees, the nine per-plane bundles and the ten block types, <code>src/Video/Bink*</code>), behind a decoder interface with a
+   black-frame fallback for tests. It matches the original on all 5,353 frames, in order and by seeking, with no
+   dependency to build; its constant tables follow FFmpeg's decoder (LGPL-2.1-or-later, credited, used under GPL-3).
+   What makes it exact: plane order Y, V, U; pixel stores wrap modulo 256 with no clamping; the inverse DCT wraps at
+   32 bits and rounds rows with (x + 127) &gt;&gt; 8; a motion vector is only checked against the plane's block area; the
+   first frame is its own reference. His build option <code>OPENBLACK_USE_BINK</code> (on by default) and the debug menu's "Game
+   films" switch let films be turned off. The FFmpeg route (the <code>bw-clean</code> branch) is the fallback if the decoder is
+   not taken.</li>
+<li><strong>The colours</strong> — the original converts YUV 4:2:0 to RGB with its own integer tables (chroma not interpolated, one
+   value per 2×2 block, one constant differing from textbook BT.601). Do it in a bgfx shader that samples the three
+   planes as R8 textures and reproduces those tables exactly (no CPU conversion, three small uploads a frame), with a
+   test against golden frames taken from the original player. The 16-bit (555/565) copy the original makes does not
+   need reproducing beyond what it does to the picture (it truncates each channel to 5 or 6 bits; decide whether to keep
+   that look).</li>
+<li><strong>The player</strong> — a system (<code>VideoSystemInterface</code> in <code>Locator</code>, as Diego's <code>AI-Decompiled</code> now has it): opens a video, keeps time by the real clock (frame
+   i at i ÷ fps), pauses the game and turns the cinema bars on while it covers the screen, fades, handles ESC, and tells
+   the audio and the renderer what it is doing. Pure rules (fade alpha, schedule, letterbox rectangle, frames due) as
+   free functions with unit tests.</li>
+<li><strong>The renderer</strong> — one screen-space quad in the overlay pass, between the cinema bars and the script fade, with the
+   world not drawn while the video is opaque.</li>
+<li><strong>Wiring</strong> — <code>SET_AVI_SEQUENCE</code> (1 = intro, 2 = falling spell), the start-up logos, the first-run pre-intro, and the
+   loading screen's tips.</li>
+</ol>
+<h2 id="the-files">The files</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>All five are Bink 1 (revision i) with no audio track; every sound comes from the game's own audio</td>
+<td>done</td>
+<td><code>src/Video/BikFile.cpp</code> reads all five; the sounds come from the game's audio (<code>src/Video/FallingSpellVideo.cpp</code>); test <code>BikFile.GameFiles</code> (logo 768x512 15 fps 2 frames; pre_intro 768x512 25 fps 2515 frames; INTRO 640x360 24 fps 1601 frames; tips 768x512 15 fps 35 frames; fall 640x360 24 fps 1200 frames)</td>
+</tr>
+<tr>
+<td>INTRO, pre_intro and fall have a single keyframe (frame 0), so they only play from the start; logo and tips are all keyframes, so any frame can be shown</td>
+<td>done</td>
+<td><code>BikFile</code> key frame flags; <code>BinkDecoder</code> goes back to the last key frame; tests <code>BinkDecoder.GoesBackToTheKeyFrame</code>, <code>BinkDecoder.LogoAndTipsMatchTheOriginalInAnyOrder</code></td>
+</tr>
+<tr>
+<td>Videos are looked for on the CD first when the game runs from the CD</td>
+<td>n/a</td>
+<td>openblack reads the install folder</td>
+</tr>
+</tbody>
+</table>
+<h2 id="container-and-decoding">Container and decoding</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Read the header, frame index and per-frame packets, rejecting a malformed file</td>
+<td>done</td>
+<td><code>src/Video/BikFile.cpp</code>; tests <code>BikFile.ParsesTheLayout</code>, <code>BikFile.RejectsBadFiles</code></td>
+</tr>
+<tr>
+<td>Decode Bink 1 revision i: planes Y, V, U on 32-bit boundaries, nine Huffman-coded bundles per plane read before each block row, ten block types (skip, scaled, motion, run, residue, intra DCT, fill, inter DCT, pattern, raw)</td>
+<td>done</td>
+<td>our own decoder: <code>src/Video/BinkDecoder.cpp</code>, <code>BinkBitReader.h</code>, <code>BinkHuffman.cpp</code>, <code>BinkBundles.cpp</code>, <code>BinkBlocks.cpp</code>; tests <code>BinkBitReader.*</code>, <code>BinkHuffman.*</code>, <code>BinkBundles.*</code>, <code>BinkBlocks.*</code>, <code>BinkDecoder.*</code></td>
+</tr>
+<tr>
+<td>Integer behaviour exactly as the original: stores wrap modulo 256, the inverse DCT wraps at 32 bits and rounds (x + 127) &gt;&gt; 8, motion vectors checked only against the block area, the first frame is its own reference</td>
+<td>done</td>
+<td><code>src/Video/BinkBlocks.cpp</code>, <code>BinkDecoder.cpp</code>; tests <code>BinkBlocks.PutAndAddWrapAround</code>, <code>BinkDecoder.IntroMatchesTheOriginal</code>, <code>FallMatchesTheOriginal</code>, <code>PreIntroMatchesTheOriginal</code> (CRCs of the original's frames in <code>test/BinkGolden.h</code>)</td>
+</tr>
+<tr>
+<td>Films can be switched off (build option and a debug switch), skipping them as if absent</td>
+<td>done</td>
+<td>the <code>OPENBLACK_USE_BINK</code> build option (on by default) and the "Game films" switch of the debug Video window; test <code>VideoFilms.TheGameHooksFollowTheSwitch</code></td>
+</tr>
+<tr>
+<td>A debug window plays any of the five films with play, pause, step and restart</td>
+<td>done</td>
+<td><code>src/Debug/VideoViewer.cpp</code>, <code>src/Debug/VideoPlayback.h</code>; tests <code>VideoPlayback.*</code></td>
+</tr>
+<tr>
+<td>The integer frame rate is the header's fraction rounded down (a failed open counts as 1 fps, 0 frames)</td>
+<td>done</td>
+<td><code>BikFile::Fps</code>, <code>VideoPlayer::Play</code>; tests <code>BikFile.FpsIsTruncated</code>, <code>VideoPlayerTest.MissingFileEndsOnTheNextFrame</code></td>
+</tr>
+<tr>
+<td>Decode frames in order; showing an arbitrary frame decodes from the nearest keyframe before it</td>
+<td>done</td>
+<td><code>BinkDecoder::DecodeNext</code>; test <code>BinkDecoder.GoesBackToTheKeyFrame</code></td>
+</tr>
+<tr>
+<td>A frame that fails to decode keeps the previous picture</td>
+<td>done</td>
+<td><code>src/Video/VideoPlayer.cpp</code>; tests <code>VideoPlayerTest.AFailedFrameKeepsThePicture</code>, <code>BinkDecoder.ADamagedFrameKeepsTheReference</code></td>
+</tr>
+<tr>
+<td>Frames are never skipped when running late: each due frame is decoded</td>
+<td>done</td>
+<td><code>VideoPlayer::Process</code> decodes every frame due by the wall clock; test <code>VideoPlayerTest.ACatchUpShowsTheLastFrameDecoded</code></td>
+</tr>
+<tr>
+<td>YUV to RGB with the original player's exact integer tables (no chroma interpolation)</td>
+<td>done</td>
+<td><code>src/Video/BinkYuv.h</code>; tests <code>BinkYuv.Tables</code>, <code>BinkYuv.NearestChroma</code></td>
+</tr>
+<tr>
+<td>The picture goes through a 16-bit (555, or 565 on cards without 555) surface before it is drawn</td>
+<td>done</td>
+<td>the 555 or 565 copy kept, as the original shows it (<code>src/Graphics/Rgb16.h</code>); test <code>VideoPlayerTest.FrameGoesThrough16Bits</code></td>
+</tr>
+<tr>
+<td>Builds without the decoder still run every video's timing, pause and skip, showing black</td>
+<td>done</td>
+<td><code>NullVideoDecoder</code> in <code>src/Video/VideoDecoder.h</code> (black, with the same pause, fade and skip); test <code>VideoPlayerTest.NullDecoderIsBlack</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-full-screen-video-intro-and-falling-spell">The full-screen video (intro and falling spell)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Starting a video clears any tip picture, replaces a video already playing, and forgets the music that is playing</td>
+<td>partial</td>
+<td>a new film replaces the old (test <code>VideoPlayerTest.ANewFilmReplacesTheOld</code>); no loading screen, so no tip picture to clear; forgetting the music playing is not ported</td>
+</tr>
+<tr>
+<td>The game pauses while the video plays (remembering whether it was already paused)</td>
+<td>done</td>
+<td><code>VideoPlayer::Play</code> through the game clock hooks; tests <code>VideoPlayerTest.PlayKeepsThePauseAndTheWideScreen</code>, <code>PlayWhilePausedAndWide</code></td>
+</tr>
+<tr>
+<td>The cinema bars come on fully in the first frame and go away over 2 s of game time when the video ends</td>
+<td>done</td>
+<td><code>ScreenFade</code> bars snapped on at the start (<code>src/3D/ScreenFade.cpp</code>); test <code>VideoPlayerMaths.BarsFullAtOnceDuringTheFilm</code></td>
+</tr>
+<tr>
+<td>A player exists even if the file fails to open; it then ends on the next frame</td>
+<td>done</td>
+<td>test <code>VideoPlayerTest.MissingFileEndsOnTheNextFrame</code></td>
+</tr>
+<tr>
+<td>By default the video plays to its last frame and fades out over its last 5 seconds</td>
+<td>done</td>
+<td>test <code>VideoPlayerTest.FadeAndEnd</code></td>
+</tr>
+<tr>
+<td>The intro (sequence 1) fades from 58 s to 60 s and ends at 60 s: its last 160 frames are never seen</td>
+<td>done</td>
+<td><code>VideoPlayer::ScheduleIntro</code>; test <code>VideoPlayerTest.IntroSchedule</code></td>
+</tr>
+<tr>
+<td>Frames are paced by the real clock, at most one decoded per 16 ms tick</td>
+<td>done</td>
+<td>every frame due by the real clock is decoded each game frame, the last one shown (<code>VideoPlayer::Process</code>); test <code>VideoPlayerTest.FramesFollowTheWallClock</code></td>
+</tr>
+<tr>
+<td>While opaque, the 3D world is not drawn; script fades and the cinema bars and text still are</td>
+<td>done</td>
+<td><code>Renderer::DrawScene</code> draws only the video and the screen overlays while <code>video::Get().CoversScreen()</code> (<code>src/Graphics/Renderer.cpp</code>)</td>
+</tr>
+<tr>
+<td>During the fade the game runs again (the earlier pause state returns) and the world is drawn under the video</td>
+<td>done</td>
+<td><code>src/Video/VideoPlayer.cpp</code>, <code>Renderer::DrawScene</code>; test <code>VideoPlayerTest.FadeAndEnd</code></td>
+</tr>
+<tr>
+<td>Fade alpha falls linearly from 1 to 0 across the fade frames</td>
+<td>done</td>
+<td><code>video::FadeAlpha</code>; test <code>VideoPlayerMaths.FadeAlpha</code></td>
+</tr>
+<tr>
+<td>The picture fills the screen between the 16:9 bars, scaled to fit; on screens wider than 16:9 the bars go negative and the picture overflows top and bottom</td>
+<td>done</td>
+<td><code>video::FullScreenRect</code> (bars not clamped, as the original); test <code>VideoPlayerMaths.FullScreenRect</code></td>
+</tr>
+<tr>
+<td>Drawn as a screen quad, half a texel in from each edge, no wrapping, no depth test or write, alpha blended</td>
+<td>done</td>
+<td><code>Renderer::DrawVideoOverlay</code> in the screen overlay pass (<code>src/Graphics/Renderer.cpp</code>)</td>
+</tr>
+<tr>
+<td>While the video is opaque and no new frame is ready, the original waits up to 0.5 s for one</td>
+<td>done</td>
+<td>the last picture stays while no new frame is ready; it does not block as the original's wait does (deliberate)</td>
+</tr>
+<tr>
+<td>When it ends: the game's pause state and the bars are restored on the next frame</td>
+<td>done</td>
+<td>test <code>VideoPlayerTest.FadeAndEnd</code></td>
+</tr>
+<tr>
+<td>A video that replaces another keeps the second one's pause and bars state (the game stays paused afterwards)</td>
+<td>done</td>
+<td>test <code>VideoPlayerTest.ANewFilmReplacesTheOld</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="skipping">Skipping</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ESC skips: if already fading, the video ends at once; otherwise it fades out over 48 frames (2 s at 24 fps) and the game resumes</td>
+<td>done</td>
+<td><code>VideoPlayer::EscapeKey</code>, <code>Skip</code> (ESC routed from <code>src/Game.cpp</code>); tests <code>VideoPlayerTest.SkipFadesOver48Frames</code>, <code>SkipNearTheEnd</code></td>
+</tr>
+<tr>
+<td>ESC with Shift or Ctrl held does nothing</td>
+<td>done</td>
+<td>test <code>VideoPlayerTest.EscapeKey</code></td>
+</tr>
+<tr>
+<td>Skipping releases the script's music</td>
+<td>done</td>
+<td><code>VideoPlayer::EscapeKey</code> calls the script music stop hook (<code>GameMusic::ScriptStopMusic</code>)</td>
+</tr>
+<tr>
+<td>The first video of a new profile can't be skipped</td>
+<td>partial</td>
+<td>the no-skip flag exists and is cleared at the end (test <code>VideoPlayerTest.NoSkipClearedByTheEnd</code>), but nothing sets it: there are no profiles (<code>../interface/profiles.md</code>)</td>
+</tr>
+<tr>
+<td>Skipping the falling spell ends the spell, which then fades its video normally</td>
+<td>done</td>
+<td>tests <code>VideoPlayerTest.SkipTheFallingSpellsFilm</code>, <code>FallingSpellVideoTest.EscapeSkips</code></td>
+</tr>
+<tr>
+<td>One skip per key press (key repeats ignored)</td>
+<td>done</td>
+<td>SDL key repeats are ignored (<code>src/Game.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-falling-spell-fallbik">The falling spell (fall.bik)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Plays only when the player has a creature; script sequence 2 starts it and turning it off ends it</td>
+<td>done</td>
+<td><code>FallingSpellVideo::KickOff</code> from SET_AVI_SEQUENCE sequence 2 (<code>src/CHLApi.cpp</code>); tests <code>FallingSpellVideoTest.NoCreatureNoFilm</code>, <code>StopAviSequence</code></td>
+</tr>
+<tr>
+<td>The video has no fade of its own; it fades when the spell ends</td>
+<td>done</td>
+<td>test <code>FallingSpellVideoTest.TheFilmNeverFadesByItself</code></td>
+</tr>
+<tr>
+<td>Drawn at about 31% strength over the scene, which hides the land</td>
+<td>done</td>
+<td><code>FallingSpellVideo::HidesWorld</code>, <code>src/Graphics/RendererFallingSpell.cpp</code></td>
+</tr>
+<tr>
+<td>The player's creature falls in front of the video with its glows, sparks and a light burst, the camera following its path with a 45° field of view</td>
+<td>partial</td>
+<td>the sparks and light burst are drawn (<code>src/Magic/Objects/FallingSpell.cpp</code>, <code>src/Graphics/RendererFallingSpell.cpp</code>); the camera along the path with its 45 degree field of view is computed (tests <code>FallingSpell.CameraFollowsTheFilm</code>, <code>CameraAppliedEveryUpdateAndGivenBackAtClose</code>) but its hook is not connected in the game; the falling creature is not ported</td>
+</tr>
+<tr>
+<td>Sounds timed to the video: rumble at 17.45 s, laser explosion at 19.45 s, chant at 31.65 s, citadel explosion and volcano at 13.45 s, heal chakra at 37.75 s</td>
+<td>done</td>
+<td><code>src/Video/FallingSpellVideo.cpp</code>; test <code>FallingSpellVideoTest.StatesAndSounds</code></td>
+</tr>
+<tr>
+<td>At 43.9 s the screen fades to white over 1 s, all music fades out, then the white fades back</td>
+<td>done</td>
+<td>test <code>FallingSpellVideoTest.TheWhiteFadeEndsIt</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="start-up-and-loading-screen">Start-up and loading screen</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The logo video's two still pictures show at every start-up, with a fade, before the audio starts</td>
+<td>todo</td>
+<td>no start-up sequence (no front end)</td>
+</tr>
+<tr>
+<td>The pre-intro plays when there is no profile yet, in its own loop with no bars, the trailer music playing, cursor hidden</td>
+<td>todo</td>
+<td>no profiles and no front end</td>
+</tr>
+<tr>
+<td>The pre-intro stops at its end or on a key press, and the music is cut</td>
+<td>todo</td>
+<td>the pre-intro is not played</td>
+</tr>
+<tr>
+<td>The loading screen shows one of 35 tip pictures from tips.bik</td>
+<td>todo</td>
+<td>no loading screen</td>
+</tr>
+</tbody>
+</table>
+<h2 id="audio-during-videos">Audio during videos</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Logo: silent</td>
+<td>todo</td>
+<td>the logo is not played</td>
+</tr>
+<tr>
+<td>Pre-intro: the trailer music at full volume, cut off sharply when it ends</td>
+<td>todo</td>
+<td>the pre-intro and its trailer music are not played</td>
+</tr>
+<tr>
+<td>Intro: ambience stops while paused; the music already playing carries on</td>
+<td>done</td>
+<td>the ambience mix is skipped while <code>video::IsPlaying</code> and the music carries on (<code>src/Audio/Game/AudioSystem.cpp</code>)</td>
+</tr>
+<tr>
+<td>Falling spell: as the intro, plus its timed sounds and the music fade at 43.9 s</td>
+<td>done</td>
+<td><code>src/Video/FallingSpellVideo.cpp</code> (the 11 timed sounds, <code>audio::MusicStop(1)</code> at 43.9 s); test <code>FallingSpellVideoTest.StatesAndSounds</code></td>
+</tr>
+<tr>
+<td>The audio knows a video is playing (from any thread)</td>
+<td>done</td>
+<td><code>video::IsPlaying</code> is atomic (<code>src/Video/VideoPlayer.cpp</code>), read through <code>GameQueries::videoPlaying</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="tests-to-carry">Tests to carry</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Container parsing on synthetic and the game's files</td>
+<td>done</td>
+<td><code>test/video/test_bik_file.cpp</code></td>
+</tr>
+<tr>
+<td>Decoding and colours against golden frames</td>
+<td>done</td>
+<td><code>test/video/test_bink_decoder.cpp</code>, <code>test_bink_yuv.cpp</code>, <code>test_bink_blocks.cpp</code>, <code>test_bink_bitstream.cpp</code></td>
+</tr>
+<tr>
+<td>Player timing, fade, schedule, skip and pause rules</td>
+<td>done</td>
+<td><code>test/video/test_video_player.cpp</code></td>
+</tr>
+<tr>
+<td>Falling spell timeline</td>
+<td>done</td>
+<td><code>test/video/test_falling_spell_video.cpp</code>, <code>test_falling_spell.cpp</code></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

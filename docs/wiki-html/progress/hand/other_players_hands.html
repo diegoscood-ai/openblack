@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Other players&#x27; hands — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="here" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#other-players-hands">Other players' hands</a><ul>
+<li><a href="#each-players-hand">Each player's hand</a></li>
+<li><a href="#the-rival-gods-hands">The rival gods' hands</a></li>
+<li><a href="#network-play">Network play</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="other-players-hands">Other players' hands</h1>
+<p>Every god in a game has a hand of its own: the rival gods of the story and of skirmishes move theirs about the land to
+pick things up, throw, cast and work their creatures, and in network games each player sees the others' hands. The rules
+of network play are in <a href="../multiplayer/index.html">../multiplayer/</a>.</p>
+<p><strong>Progress: 0/28 done, 12 partial — 21%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../hand-and-interface.html">The hand and the interface</a>.</p>
+<h2 id="each-players-hand">Each player's hand</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every player has a hand of their own, with what it holds, where it is, its speed, and the camera it looks from</td>
+<td>partial</td>
+<td>One <code>HandSystem</code> for the local player (its hand entities, held object, spring velocity, synced hand and camera in the turn state, <code>HandTurn.cpp</code>); other players have no hand</td>
+</tr>
+<tr>
+<td>A hand holds one thing (or one handful) at a time; a full hand takes nothing more</td>
+<td>partial</td>
+<td>Done for the local hand (<code>HandSystem::ApplyPlaceInHand</code> refuses a full hand); no other hands</td>
+</tr>
+<tr>
+<td>Each player's hand remembers the last thing it picked up and the last it dropped, forgetting them when they are destroyed</td>
+<td>partial</td>
+<td>The local hand's <code>_lastReleased</code> is cleared when it is destroyed (<code>HandTurn.cpp</code>); no other hands</td>
+</tr>
+<tr>
+<td>Things a hand holds that are destroyed leave it at the next turn</td>
+<td>partial</td>
+<td><code>HandSystem::ValidateHands</code> (<code>HandTurn.cpp</code>) drops a held object that is no longer interactable at the turn; local hand only</td>
+</tr>
+<tr>
+<td>Each hand has its own leash</td>
+<td>partial</td>
+<td><code>LeashSystem</code> keeps each leash's player; only the local hand works one</td>
+</tr>
+<tr>
+<td>A hand's interaction locked onto something carries on each turn only while that thing says so and the hand stays inside its player's influence</td>
+<td>partial</td>
+<td>The locked select lasts while the object is available, has influence at the hand's point and its interact step says so (<code>HandTurn.cpp</code>); local hand only</td>
+</tr>
+<tr>
+<td>A hand's place is reported as a point on the map, which miracles and scripts use</td>
+<td>partial</td>
+<td><code>HandSystem::GetPlayerHandPositions</code> and the synced hand of the turn state (<code>HandTurn.cpp</code>); local hand only</td>
+</tr>
+<tr>
+<td>Only the local player's hand plays the guidance heartbeat and changes the local interface</td>
+<td>partial</td>
+<td>The guidance heartbeat plays for the local player (<code>src/Audio/Services/Guidance.cpp</code>); there are no other hands to tell apart</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-rival-gods-hands">The rival gods' hands</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A computer god's hand is drawn moving over the land</td>
+<td>todo</td>
+<td>No computer god's hand in our tree</td>
+</tr>
+<tr>
+<td>It moves to a place, to an object or to its creature's head, and can hold over an object</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>It moves inside its own influence, keeping its height over the land as it goes</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>It picks up villagers, rocks, trees, food and wood, and drops them on a town, a worship site, a building site or a store</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>It throws things at a place, at another god's town or creature</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>It gives things to its creature</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>It strokes and slaps its creature, and puts its leash on things</td>
+<td>todo</td>
+<td>Not in our tree; see <a href="creature_contact.html">creature_contact.md</a></td>
+</tr>
+<tr>
+<td>It raises and lowers village totems</td>
+<td>todo</td>
+<td>Not in our tree; see <a href="totem.html">totem.md</a></td>
+</tr>
+<tr>
+<td>It draws gestures and casts miracles from icons or gestures</td>
+<td>todo</td>
+<td>Not in our tree; see <a href="../miracles/index.html">../miracles/</a></td>
+</tr>
+<tr>
+<td>It combines scaffolds and makes disciples</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>It takes food and wood out of stores to use</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>How long each of these takes is estimated before it is started</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>Another god's fireball can be caught by the player's hand</td>
+<td>todo</td>
+<td>No magic fireball in our tree</td>
+</tr>
+<tr>
+<td>Another god's creature can be held and stroked or slapped by the player's hand</td>
+<td>todo</td>
+<td>Our hand holds only the player's own creature (<code>creature_hand::IsFriendlyTo</code>); our tree has no alliances. Our wiki differs: the original holds only its own or an allied player's creature, not any god's (<a href="../../hand-and-interface.html#the-hand-on-a-creature">page</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="network-play">Network play</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>What a hand does is sent to the other players as messages and applied at the start of the next turn on every machine</td>
+<td>partial</td>
+<td>The hand's actions go through the packet queue and are applied at the next turn's start (<code>src/Input/GamePackets.cpp</code>, <code>HandTurn.cpp</code>; test <code>test_game_packets</code>), on the one machine only</td>
+</tr>
+<tr>
+<td>The hand's and camera's movements are sent to the other players, no more often than needed</td>
+<td>partial</td>
+<td>The hand and camera sync packets with their countdown are sent to the local queue (<code>HandTurn.cpp</code>); no network</td>
+</tr>
+<tr>
+<td>Other players' hands are drawn where their messages put them</td>
+<td>todo</td>
+<td>No other players' hands in our tree</td>
+</tr>
+<tr>
+<td>Locking onto an object is started and ended by message, so all machines agree</td>
+<td>partial</td>
+<td>The start and end locked select packets (<code>HandSystem::SendStartLockedSelect</code>, <code>SendEndLockedSelect</code>) on the one machine</td>
+</tr>
+<tr>
+<td>A hand's gesture is sent as its recognised result, not as its mouse movements</td>
+<td>todo</td>
+<td>No network in our tree; see <a href="../gesture/index.html">../gesture/</a></td>
+</tr>
+<tr>
+<td>The hand's held miracle sends messages every turn while it needs them</td>
+<td>partial</td>
+<td><code>HandSystem::HandCastNeedsContinualPackets</code> keeps the sync packets every turn while a hand cast needs them (<code>HandTurn.cpp</code>); no network</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

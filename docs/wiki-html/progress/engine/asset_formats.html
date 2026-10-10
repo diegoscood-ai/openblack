@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Asset formats — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="here" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#asset-formats">Asset formats</a><ul>
+<li><a href="#world-and-lands">World and lands</a></li>
+<li><a href="#models-and-animation">Models and animation</a></li>
+<li><a href="#images-and-fonts">Images and fonts</a></li>
+<li><a href="#effects">Effects</a></li>
+<li><a href="#sound-and-video">Sound and video</a></li>
+<li><a href="#scripts-text-and-minds">Scripts, text and minds</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="asset-formats">Asset formats</h1>
+<p>Every kind of file Black &amp; White reads from its install, and whether openblack reads it and uses what is in it. A
+format only counts as done when the game's use of it works too; reading the file alone is partial.</p>
+<p><strong>Progress: 30/41 done, 2 partial — 76%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../tooling.html">Tools and formats</a>.</p>
+<h2 id="world-and-lands">World and lands</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Landscapes (<code>.lnd</code>): heights, blocks, countries and their materials, noise and bump maps</td>
+<td>done</td>
+<td><code>components/lnd</code>, <code>LevelLoader</code> (<code>src/Resources/Loaders.cpp</code>); drawing and use: see ../terrain/</td>
+</tr>
+<tr>
+<td>Footpath files (<code>.fot</code>) that come with each land</td>
+<td>done</td>
+<td><code>src/Serializer/FotFile.cpp</code>, used by <code>src/ECS/Footpaths.cpp</code>; walking them: see ../villager/</td>
+</tr>
+<tr>
+<td>Land scripts (<code>Land1.txt</code> …) that build a land's towns, villagers, forests and features</td>
+<td>partial</td>
+<td><code>src/LHScriptX</code> (<code>FeatureScriptCommands.cpp</code>, <code>VillagerCommands.cpp</code>); about 36 of the 106 commands are empty or log "not implemented", see script_vm.md</td>
+</tr>
+<tr>
+<td>Map scripts that set up the game (player count, date, time, language, which land and scripts to load)</td>
+<td>todo</td>
+<td><code>src/LHScriptX/MapScriptCommands.cpp</code> throws for every command and is never run</td>
+</tr>
+<tr>
+<td>Camera exclusion zone files (<code>Data/Zones/*.exc</code>)</td>
+<td>done</td>
+<td>read by SET_CAMERA_ZONE (<code>player_camera::SetCameraZone</code>, <code>src/Camera/PlayerCameraScript.cpp</code>); keeping the camera out: see ../camera/</td>
+</tr>
+<tr>
+<td>Multiplayer and online maps (<code>Online Maps/*.map</code>, <code>.thm</code>)</td>
+<td>todo</td>
+<td>see ../multiplayer/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="models-and-animation">Models and animation</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The mesh pack (<code>AllMeshes.g3d</code>) with all object meshes and their textures</td>
+<td>done</td>
+<td><code>components/pack</code>, <code>L3DLoader</code> (<code>src/Resources/Loaders.cpp</code>)</td>
+</tr>
+<tr>
+<td>Loose meshes (<code>.l3d</code>): creatures, the hand, temple rooms, misc objects, sun and moon</td>
+<td>done</td>
+<td><code>components/l3d</code>, <code>L3DLoader</code></td>
+</tr>
+<tr>
+<td>Zipped meshes and files (<code>.zzz</code>) in the temple and spell folders</td>
+<td>done</td>
+<td><code>src/Common/Zip.cpp</code>, <code>src/Resources/Loaders.cpp</code></td>
+</tr>
+<tr>
+<td>The animation pack (<code>AllAnims.anm</code>) and loose animations (<code>.anm</code>)</td>
+<td>done</td>
+<td><code>components/anm</code>, <code>L3DAnimLoader</code>; how each is played: see ../creature/, ../villager/, ../animal/</td>
+</tr>
+<tr>
+<td>Creature body files (<code>.cbn</code>) and their morph between good/evil and fat/thin</td>
+<td>done</td>
+<td><code>components/morph</code>, the body blend in <code>src/3D/CreatureBody.cpp</code>; see ../creature/ for appearance</td>
+</tr>
+<tr>
+<td>Creature animation spec (<code>ctrspec27.txt</code>) naming the mind's animations</td>
+<td>done</td>
+<td><code>CreatureRigLoader</code> reads <code>ctrspec27.txt</code> (<code>src/Resources/Loaders.cpp</code>)</td>
+</tr>
+<tr>
+<td>The hand's animation bank (<code>hh.hbn</code>) and its spec (<code>hndspec5.txt</code>)</td>
+<td>done</td>
+<td><code>src/ECS/Systems/Implementations/HandSystem.cpp</code>, <code>src/3D/HandAnimator.cpp</code></td>
+</tr>
+<tr>
+<td>The mesh and sound-action name headers (<code>AllMeshes.h</code>, <code>SoundAction.h</code>) the particle files refer to</td>
+<td>done</td>
+<td><code>EnumHeaderLoader</code> (<code>psys::EnumNames</code>, <code>src/Resources/Loaders.cpp</code>)</td>
+</tr>
+<tr>
+<td>Recorded hand demonstrations (<code>Data/HandDemo/*.hnd</code>) played by the tutorial</td>
+<td>done</td>
+<td><code>src/Input/HandDemo.cpp</code> (PLAY_HAND_DEMO); see ../story/tutorial.md</td>
+</tr>
+<tr>
+<td>Dance and letter shape files (<code>.DAN</code>, <code>Scripts/Dance/*.dat</code>)</td>
+<td>todo</td>
+<td>the dance files are not read (the real dances are not ported)</td>
+</tr>
+<tr>
+<td>The falling-spell camera file (<code>.cm2</code>)</td>
+<td>done</td>
+<td><code>falling_spell::CameraPath::Parse</code> (<code>src/Magic/Objects/FallingSpell.cpp</code>); test <code>FallingSpell.RealFallCm2</code>; its camera is not applied yet, see ../video/bink_videos.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="images-and-fonts">Images and fonts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Raw textures (<code>.raw</code>, with a separate alpha file)</td>
+<td>done</td>
+<td><code>components/rawimage</code>, <code>Texture2DLoader</code></td>
+</tr>
+<tr>
+<td>16-bit images (<code>.16b</code>) used by the temple outside and sky</td>
+<td>done</td>
+<td><code>src/Common/Bitmap16B.cpp</code>, used by <code>TempleExteriorSystem.cpp</code></td>
+</tr>
+<tr>
+<td>Sky images in 555 colour (<code>.555</code>)</td>
+<td>done</td>
+<td><code>src/3D/Implementations/Sky.cpp</code>; see ../sky/</td>
+</tr>
+<tr>
+<td>Player symbols and tattoo palette (<code>PlayersSymbols.raw</code>, <code>tattoocols.raw</code>)</td>
+<td>done</td>
+<td><code>CreatureSkinArtLoader</code>, the player symbols in <code>src/Game.cpp</code></td>
+</tr>
+<tr>
+<td>Creature portrait sets (<code>.cps</code>) and the colour lookup and contrast tables (<code>.clut</code>, <code>.cnv</code>)</td>
+<td>todo</td>
+<td>not read; the computer players' symbols use the symbol sheet instead (<code>src/Particles/TownBelief.cpp</code>)</td>
+</tr>
+<tr>
+<td>Light glows (<code>.glw</code>) placed in the temple and lands</td>
+<td>partial</td>
+<td><code>LightLoader</code>, <code>src/3D/Light.cpp</code>; every <code>.glw</code> is loaded (<code>src/Game.cpp</code>) but only the temple places its glows; see ../rendering/</td>
+</tr>
+<tr>
+<td>The game font (<code>.fnt</code> with its metrics <code>.met</code>)</td>
+<td>done</td>
+<td><code>src/Graphics/GameFont.cpp</code> (<code>GameFontLoader</code>); test <code>test/test_game_font_loader.cpp</code></td>
+</tr>
+<tr>
+<td>The other fonts (<code>.fff</code>, <code>.srf</code>, <code>Font0-*.bmp</code>, <code>HelpFont.bmp</code>)</td>
+<td>todo</td>
+<td>not read (unconfirmed which screens use them)</td>
+</tr>
+<tr>
+<td>Help sprites (<code>Data/HelpSprite</code>)</td>
+<td>done</td>
+<td>the advisors' <code>.hd</code> files read by <code>help::LoadHelpDudeFile</code> (<code>src/Help/SpiritsRuntime.cpp</code>); test <code>test/test_help_dude_file.cpp</code>; see ../interface/</td>
+</tr>
+<tr>
+<td>Save pictures and screenshots kept in the profile (<code>.raw</code>)</td>
+<td>todo</td>
+<td>see saving_and_loading.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="effects">Effects</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Particle effect files (<code>Data/Spells/ZSpellFiles</code>)</td>
+<td>done</td>
+<td><code>src/Particles/PSysFile.cpp</code>, <code>PSysFileLoader</code>; test <code>test/test_psys_file_loader.cpp</code>; effects themselves: see ../rendering/</td>
+</tr>
+<tr>
+<td>Gesture templates (<code>Gestures.jty</code>)</td>
+<td>done</td>
+<td><code>GestureTemplatesLoader</code> (<code>src/Resources/Loaders.cpp</code>); test <code>test/test_gestures.cpp</code>; recognition: see ../gesture/</td>
+</tr>
+<tr>
+<td>Camera paths (<code>.cam</code>): temple rooms, symbols, fly-bys</td>
+<td>done</td>
+<td><code>components/cam</code>, <code>CameraPathLoader</code>, <code>src/3D/CameraPath.cpp</code>; playing them: see ../camera/</td>
+</tr>
+<tr>
+<td>Force-feedback mouse effects (<code>Data/Immersion/*.ifr</code>)</td>
+<td>n/a</td>
+<td>hardware no longer made</td>
+</tr>
+</tbody>
+</table>
+<h2 id="sound-and-video">Sound and video</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sound banks (<code>.sad</code>) with their sample tables</td>
+<td>done</td>
+<td><code>src/Audio/Game/Banks.cpp</code>, <code>SoundLoader</code>; behaviour: see ../audio/</td>
+</tr>
+<tr>
+<td>Music stored in banks as MPEG audio</td>
+<td>done</td>
+<td><code>src/Audio/Engine/MusicBank.cpp</code> with our own MPEG decoder (<code>src/Audio/Codec/MpegAudio.cpp</code>); see ../audio/</td>
+</tr>
+<tr>
+<td>Loose wave files (<code>.wav</code>)</td>
+<td>n/a</td>
+<td>our wave decoder reads them (<code>src/Audio/Codec/WaveFile.cpp</code>), but the game has none to read. Our wiki differs: the original plays no loose wave files, every sound is in a bank (<a href="../../audio.html#sas-and-animation-tables">audio</a>)</td>
+</tr>
+<tr>
+<td>The small sounds bank (<code>SmallSounds.SAS</code>)</td>
+<td>done</td>
+<td><code>src/Audio/Services/AnimationSounds.cpp</code> (the clips' sound events); see ../audio/</td>
+</tr>
+<tr>
+<td>Films (<code>.bik</code>): intro, the falling spell and others</td>
+<td>done</td>
+<td><code>src/Video/BikFile.cpp</code>, our own Bink decoder (<code>src/Video/BinkDecoder.cpp</code>); see ../video/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="scripts-text-and-minds">Scripts, text and minds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The compiled challenge script (<code>challenge.chl</code>)</td>
+<td>done</td>
+<td>loaded into the script VM by <code>src/Game.cpp</code>; running it: see script_vm.md</td>
+</tr>
+<tr>
+<td>The game's text in UTF-16 info scripts (<code>InfoScript2.txt</code> and its patch and multiplayer versions)</td>
+<td>done</td>
+<td><code>src/Common/HelpText.cpp</code>, <code>src/Gui/TextDatabase.cpp</code></td>
+</tr>
+<tr>
+<td>The info table file (<code>info.dat</code>)</td>
+<td>done</td>
+<td><code>src/Parsers/InfoFile.cpp</code>; see info_tables.md</td>
+</tr>
+<tr>
+<td>Creature mind files (no extension in <code>Scripts/CreatureMind</code>, <code>.erc</code> for creatures saved between lands)</td>
+<td>done</td>
+<td><code>components/creaturemind</code>, <code>CreatureMindLoader</code>, the <code>.erc</code> read by <code>--creature-file</code> (<code>src/Game.cpp</code>, <code>src/Creature/CreatureMindModel.cpp</code>); see saving_and_loading.md</td>
+</tr>
+<tr>
+<td>Profile files: help statistics (<code>helpstats.dat</code>), the player's creature (<code>creature.lhp</code>)</td>
+<td>todo</td>
+<td>see options_and_settings.md</td>
+</tr>
+<tr>
+<td>Weather and country tables (<code>weatherinfo.lhw</code>, <code>country.lhw</code>)</td>
+<td>todo</td>
+<td>not read; openblack takes its climates from <code>info.dat</code> (unconfirmed whether the game reads these at all)</td>
+</tr>
+<tr>
+<td>Speech files (<code>Data/Language/blackhal.*</code>)</td>
+<td>todo</td>
+<td>not read (unconfirmed what they drive)</td>
+</tr>
+<tr>
+<td>The script library and language plug-ins (<code>Plug Ins/*.dll</code>)</td>
+<td>n/a</td>
+<td>openblack builds the script VM in</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

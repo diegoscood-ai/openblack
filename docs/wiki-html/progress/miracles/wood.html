@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wood miracle — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="here" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#wood-miracle">Wood miracle</a><ul>
+<li><a href="#casting-and-paying">Casting and paying</a></li>
+<li><a href="#the-hand-and-the-logs">The hand and the logs</a></li>
+<li><a href="#where-the-wood-goes">Where the wood goes</a></li>
+<li><a href="#what-it-does-to-people">What it does to people</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="wood-miracle">Wood miracle</h1>
+<p>Held at the side of the hand like the horn, the wood miracle pours logs for four seconds; they land as wood piles or
+go into a storage pit, a workshop or a building site. There is no extreme version. Wood used for building is in
+<a href="../resources/index.html">../resources/</a>.</p>
+<p><strong>Progress: 17/23 done, 4 partial — 83%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../miracles.html">Miracles one by one</a>.</p>
+<h2 id="casting-and-paying">Casting and paying</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The wood is held at the side of the hand and pours while the right button is held</td>
+<td>done</td>
+<td>The seed's in-hand cast (<code>src/ECS/Systems/Implementations/HandSpellSeed.cpp</code>, <code>src/Magic/Hand/HandCasting.cpp</code>)</td>
+</tr>
+<tr>
+<td>A pour lasts 4 s (the player's timer)</td>
+<td>done</td>
+<td>The player's timer from the WOOD row (<code>src/Magic/MagicTables.cpp</code>), aged in <code>src/Magic/Core/Spell.cpp</code></td>
+</tr>
+<tr>
+<td>It holds a finite pool that is never refilled</td>
+<td>done</td>
+<td>A seed without a worship icon lives off its first charge (<code>src/Magic/Core/Chants.cpp</code>)</td>
+</tr>
+<tr>
+<td>Each drop pays 3 per unit: the first brings 500 wood, each later one 20</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellResource.cpp</code> (ResourceEvent); tests <code>FoodWood.resourceEventCosts</code>, <code>FoodWood.realInfoDat</code></td>
+</tr>
+<tr>
+<td>Wood lands only on dry land; the amount is multiplied by the tribal power</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellResource.cpp</code> (dry land only; amount times the tribal power)</td>
+</tr>
+<tr>
+<td>Pressing again needs enough prayer for a first drop</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellResource.cpp</code> (HasEnoughChantsForResourceRecast)</td>
+</tr>
+<tr>
+<td>There is no extreme version</td>
+<td>n/a</td>
+<td>the game has none</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-hand-and-the-logs">The hand and the logs</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hand rises and tips over 4 s exactly as for food, rolling about the line to the camera</td>
+<td>done</td>
+<td><code>src/ECS/Systems/Implementations/HandGrain.cpp</code>, <code>HandPlacement.cpp</code> (the same raise as food); test <code>FoodWood.grainRaiseLoopsOverTotalTime</code></td>
+</tr>
+<tr>
+<td>Stopping eases the hand back over one game turn</td>
+<td>done</td>
+<td><code>src/ECS/Systems/Implementations/HandGrain.cpp</code> (blended from the last turn's by the turn fraction)</td>
+</tr>
+<tr>
+<td>Logs fall from the hand tumbling about the axis across their movement</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Sprinkle.cpp</code> (the tumble appearance rule), logs drawn by <code>src/Particles/Creators/Mesh.cpp</code></td>
+</tr>
+<tr>
+<td>The pouring sound loops and fades out softly when let go</td>
+<td>done</td>
+<td>The particle sound rules (<code>src/Particles/Rules/Sound.cpp</code>, <code>src/Audio/Services/SpellSounds</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="where-the-wood-goes">Where the wood goes</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A landing log looks outwards in a spiral of nine cells for something to take it</td>
+<td>done</td>
+<td><code>src/ECS/PotResource.cpp</code> (AddResourceToPos)</td>
+</tr>
+<tr>
+<td>A storage pit takes it into its wood piles in order</td>
+<td>done</td>
+<td><code>src/ECS/PotResource.cpp</code>, <code>src/ECS/StoragePitStore.cpp</code></td>
+</tr>
+<tr>
+<td>A workshop, building site or scaffold takes it</td>
+<td>partial</td>
+<td>Building sites and workshops keep their wood in a wood pile (<code>src/ECS/Town/BuildingSites.cpp</code>), which takes a log like any pile; they are not stores of their own in <code>src/ECS/PotResource.cpp</code>, and a pit under construction does not pass its wood on</td>
+</tr>
+<tr>
+<td>Existing wood piles take it, never beyond full</td>
+<td>done</td>
+<td><code>src/ECS/PotResource.cpp</code> (the first pile that qualifies)</td>
+</tr>
+<tr>
+<td>Where nothing takes it a new wood pile appears and rises out of the ground over a second</td>
+<td>done</td>
+<td><code>src/Magic/Objects/MagicWood.cpp</code>, <code>src/ECS/Archetypes/PotArchetype.cpp</code> (the one-second rise)</td>
+</tr>
+<tr>
+<td>A wood pile grows evenly with what it holds, never past full size</td>
+<td>done</td>
+<td><code>src/ECS/ObjectMetrics.cpp</code> (the wood pile's proportion raised)</td>
+</tr>
+<tr>
+<td>A wood pile never rises above the ground and follows the land</td>
+<td>partial</td>
+<td>Set on the land when made (<code>src/ECS/Archetypes/PotArchetype.cpp</code>); not re-checked in the game</td>
+</tr>
+<tr>
+<td>Thuds play as wood lands, small under 200 and big above, heard only within their range</td>
+<td>done</td>
+<td><code>src/ECS/PotResource.cpp</code> (PileSoundSample); test <code>FoodWood.pileHelpers</code></td>
+</tr>
+<tr>
+<td>The local player hears the advisor remark on the drop</td>
+<td>done</td>
+<td><code>src/ECS/PotResource.cpp</code> calls <code>audio::guidance::PlayResourceDropRemark</code> (<code>src/Audio/Services/Guidance.cpp</code>), for a new pile</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-it-does-to-people">What it does to people</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Villagers nearby react to a new wood pile, impressed by how much their town wants wood</td>
+<td>todo</td>
+<td>The log's look-at-nice-miracle reaction has no villager handler, and a miracle's new pile starts no wood reaction (<code>src/ECS/PotResource.cpp</code>)</td>
+</tr>
+<tr>
+<td>Villagers fetch the wood for building</td>
+<td>partial</td>
+<td>Villagers fetch wood for building sites (<code>src/ECS/Systems/Implementations/VillagerBuildingSites.cpp</code>) and pick up wood they react to (<code>VillagerResourceReactions.cpp</code>), but a miracle's pile starts no wood reaction</td>
+</tr>
+<tr>
+<td>The creature can learn from the player putting wood in a storage pit or by a building site</td>
+<td>partial</td>
+<td>The storage-pit deed is worked out (<code>src/ECS/StoragePitStore.cpp</code>) but the put-down's deed is not passed on (<code>src/ECS/PotResource.cpp</code>); no building-site deed for a cast</td>
+</tr>
+<tr>
+<td>Wood piles are saved with the game</td>
+<td>todo</td>
+<td>No game save system</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

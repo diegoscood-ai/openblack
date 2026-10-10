@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Idle behaviour — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="here" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#idle-behaviour">Idle behaviour</a><ul>
+<li><a href="#the-idle-agenda">The idle agenda</a></li>
+<li><a href="#showing-the-player-how-it-feels">Showing the player how it feels</a></li>
+<li><a href="#looking-about">Looking about</a></li>
+<li><a href="#exploring-and-wandering">Exploring and wandering</a></li>
+<li><a href="#little-things-it-does">Little things it does</a></li>
+<li><a href="#music">Music</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="idle-behaviour">Idle behaviour</h1>
+<p>What a creature does with itself when nothing presses: it idles, sits, hangs about, looks around at whatever catches its
+eye, explores the land, shows the player how it feels, and is moved by the music.</p>
+<p><strong>Progress: 23/68 done, 15 partial — 45%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../creature.html">The creature: groundwork, random streams and what is unknown</a>.</p>
+<h2 id="the-idle-agenda">The idle agenda</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>With nothing better to do, the creature works through an idle agenda of small steps, chosen once a turn</td>
+<td>done</td>
+<td><code>src/Creature/CreatureIdleMind</code> (<code>Think</code>), run once a turn by <code>CreatureMindSystem::ProcessTurn</code></td>
+</tr>
+<tr>
+<td>Being idle is waiting a second or two, then a tired yawn, twice over</td>
+<td>done</td>
+<td>test <code>CreatureIdleMind.BeingIdleIsWaitingThenYawningTwice</code></td>
+</tr>
+<tr>
+<td>Sometimes it sits down for ten seconds or so, then gets up</td>
+<td>partial</td>
+<td>sitting works (test <code>CreatureIdleMind.SometimesItSitsForAWhile</code>), but which idle activity is picked is a stand-in random choice (<code>k_ActivityLots</code>), not the game's weighing by the desire to rest and what it has learnt</td>
+</tr>
+<tr>
+<td>Hanging around: it walks somewhere near and sits there</td>
+<td>partial</td>
+<td>test <code>CreatureIdleMind.HangingAroundWalksSomewhereNearbyThenSits</code>; the game hangs around its home, here anywhere 20 to 40 away</td>
+</tr>
+<tr>
+<td>Each idle step pulls a face as it starts and again every few seconds</td>
+<td>done</td>
+<td><code>k_FaceRepeatSeconds</code>; test <code>CreatureIdleMind.IdleStepsPullAFaceAsTheyStartAndEveryFewSeconds</code></td>
+</tr>
+<tr>
+<td>Its faces vary as it goes on, never the same few</td>
+<td>done</td>
+<td>test <code>CreatureIdleMind.EachFacePulledMovesTheVarietyOn</code></td>
+</tr>
+<tr>
+<td>Abandoned while sitting, it gets up</td>
+<td>done</td>
+<td>test <code>CreatureIdleMind.AnAbandonedSitEnds</code></td>
+</tr>
+<tr>
+<td>With a need and the means at hand, it sees to the need before idling</td>
+<td>done</td>
+<td>tests <code>CreatureNeedsMind.ANeedComesBeforeIdling</code>, <code>TheStrongestNeedWithTheMeansAtHandIsSeenTo</code>; see <a href="physiology.html">physiology</a></td>
+</tr>
+<tr>
+<td>Curious, playful or angry with something near, it examines it, throws it about or hurls it at a home or tree</td>
+<td>partial</td>
+<td><code>creature_mind::k_ActOnDesire</code> (0.3) is a stand-in for the planner's weighing; tests <code>CreatureIdleMind.ACuriousCreatureLooksSomethingOver</code>, <code>ThrowingAboutAimsFromWhereItStands</code></td>
+</tr>
+<tr>
+<td>Holding something it has no use for, it puts it down</td>
+<td>done</td>
+<td><code>Activity::PutDown</code>, <code>creature_mind::PutDownHeld</code> in <code>src/Creature/CreatureIdleMind.cpp</code></td>
+</tr>
+<tr>
+<td>Its idle mind stops while it is led on the leash, fights, is knocked out or paused</td>
+<td>done</td>
+<td><code>CreatureMindSystem::ProcessTurn</code>; the whole creature loop also stands still in the citadel (<code>creature_loop::FrozenInCitadel</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="showing-the-player-how-it-feels">Showing the player how it feels</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>At most once a minute it shows its strongest desire with that desire's own animation</td>
+<td>partial</td>
+<td>test <code>CreatureIdleMind.ItShowsItsStrongestDesireOnceAMinute</code>; the strength needed to show it is a stand-in (0.2) for the game's planner choosing to show its state</td>
+</tr>
+<tr>
+<td>Each desire it can show has its own animation (hungry, tired, needing a poo, angry …)</td>
+<td>done</td>
+<td><code>creature_desires::EmoteFor</code>; test <code>CreatureDesires.EachShowableDesireHasItsEmote</code></td>
+</tr>
+<tr>
+<td>Within ten seconds of a stroke or slap it shows its pleasure or sorrow at it first</td>
+<td>done</td>
+<td>test <code>CreatureIdleMind.AStrokeOrASlapIsShownFirst</code></td>
+</tr>
+<tr>
+<td>It plays its last shown desire again on request</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It waves at the player, points at the camera, howls at the player, is pathetic to get attention</td>
+<td>partial</td>
+<td>these emotes exist as plan actions facing the camera (<code>WaveAtPlayer</code>, <code>PointAtCamera</code>, <code>HowlAtPlayer</code>, <code>BePatheticToPlayer</code> in <code>CreaturePlanActions.cpp</code>); the attention sources are stand-ins (see <a href="desires.html">desires</a>)</td>
+</tr>
+<tr>
+<td>It watches the player while the player has its attention</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It looks at the camera in wide screen during cut scenes</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A sound tells its mood when it shows it</td>
+<td>todo</td>
+<td>see <a href="../audio/index.html">../audio/</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="looking-about">Looking about</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Looking about, its head turns to the most interesting thing it can see, the nearer the better</td>
+<td>done</td>
+<td><code>src/Creature/CreatureLook</code>, from <code>CreatureMindSystem::ProcessTurn</code>; test <code>CreatureLook.TheNearerAndTheMoreInterestingWins</code></td>
+</tr>
+<tr>
+<td>Things interest it by kind: doves most, then temples, creatures, animals, villagers, homes, trees, and fixed things least</td>
+<td>done</td>
+<td><code>creature_look::InterestOf</code>; test <code>CreatureLook.DovesAndTheCitadelCatchTheEyeMostAndFixedThingsLeast</code></td>
+</tr>
+<tr>
+<td>Bigger creatures see further</td>
+<td>done</td>
+<td>test <code>CreatureLook.BiggerCreaturesSeeFurther</code></td>
+</tr>
+<tr>
+<td>It only sees what is in front of it</td>
+<td>done</td>
+<td>test <code>CreatureLook.CreaturesSeeAheadOfThemAndWhateverIsOnTopOfThem</code></td>
+</tr>
+<tr>
+<td>The longer it watches one thing, the less else catches its eye; after twenty seconds nothing does</td>
+<td>done</td>
+<td><code>creature_look::k_BoredSeconds</code>; tests <code>CreatureLook.WhatIsWatchedIsWatchedALittleLongerEachTurn</code>, <code>BoredomLetsSomethingLessInterestingTakeOver</code></td>
+</tr>
+<tr>
+<td>What goes out of sight is dropped</td>
+<td>done</td>
+<td>test <code>CreatureLook.WhatGoesOutOfSightIsDropped</code></td>
+</tr>
+<tr>
+<td>With nothing to see it looks ahead</td>
+<td>done</td>
+<td>test <code>CreatureLook.WithNothingToLookAtItLooksAhead</code></td>
+</tr>
+<tr>
+<td>It also considers mountains and the sea as things to look at</td>
+<td>todo</td>
+<td>only objects are candidates (<code>GatherCandidates</code> in <code>CreatureMindSystem.cpp</code>)</td>
+</tr>
+<tr>
+<td>It looks at the mountains</td>
+<td>partial</td>
+<td>plan action <code>LookAtMountains</code> plays as a generic look about (<code>Build::LookAbout</code>), not at the land's high ground</td>
+</tr>
+<tr>
+<td>It looks out to sea</td>
+<td>partial</td>
+<td><code>LookOutToSea</code>: generic look about, not towards the sea</td>
+</tr>
+<tr>
+<td>It looks at the sun, only while the sun is up</td>
+<td>partial</td>
+<td><code>LookAtSun</code>: generic look about; doesn't check the sun is visible</td>
+</tr>
+<tr>
+<td>It looks at the moon, only while the moon is up</td>
+<td>partial</td>
+<td><code>LookAtMoon</code>: generic look about; doesn't check the moon is visible</td>
+</tr>
+<tr>
+<td>It looks at its temple</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It looks down a cliff</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It looks at something without going up to it, or stares for ever</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It follows things flying through the air with its eyes</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It looks at the player's hand, and at the camera</td>
+<td>partial</td>
+<td><code>LookAtHand</code> and <code>PointAtCamera</code> emotes exist; its head doesn't track the hand</td>
+</tr>
+<tr>
+<td>It looks at its feet, down, frightened, stoned, or just woken</td>
+<td>partial</td>
+<td>the eyes have wide, closed, calm, stoned and ahead modes (<code>creature_eyes::Mode</code>; see <a href="face_eyes_hair.html">face, eyes and hair</a>); looking at its feet or down are missing</td>
+</tr>
+<tr>
+<td>It sees important things far away and turns to them</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It tells the player something interesting is happening off screen</td>
+<td>todo</td>
+<td>see <a href="lessons_and_help.html">lessons and help</a></td>
+</tr>
+<tr>
+<td>It keeps a single shared list of what it might look at, built once a turn</td>
+<td>done</td>
+<td><code>GatherCandidates</code> in <code>CreatureMindSystem.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="exploring-and-wandering">Exploring and wandering</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land is split into regions; the creature remembers which it has visited and how long it stayed</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Each region's highest point and kind (coast, hill, town) are worked out once a land is loaded</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Wandering, it goes to the nearest region it doesn't know</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It explores the coast</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It explores the towns</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It goes to the top of a hill and looks about</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It goes to a hill and sits</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It walks along a ridge</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It sits down on the beach</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It explores and casts teleport to get about</td>
+<td>todo</td>
+<td>the creature casts no miracle; see <a href="creature_casting.html">creature casting</a></td>
+</tr>
+<tr>
+<td>It hangs around at home, and goes home</td>
+<td>todo</td>
+<td>see <a href="home_and_pen.html">home and pen</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="little-things-it-does">Little things it does</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scratches when itchy</td>
+<td>done</td>
+<td><code>Scratch</code> plan action (<code>CreaturePlanActions.cpp</code>)</td>
+</tr>
+<tr>
+<td>Shivers when cold, shows it is hot</td>
+<td>done</td>
+<td><code>Shiver</code>, <code>ShowHotness</code> plan actions</td>
+</tr>
+<tr>
+<td>Sneezes</td>
+<td>done</td>
+<td><code>Sneeze</code> plan action</td>
+</tr>
+<tr>
+<td>Pulls silly faces</td>
+<td>done</td>
+<td><code>PullSillyFaces</code> plan action</td>
+</tr>
+<tr>
+<td>Waves at the player and at things</td>
+<td>partial</td>
+<td><code>WaveAtPlayer</code> and <code>WaveAtFriend</code> exist; waving at things doesn't</td>
+</tr>
+<tr>
+<td>Practises throwing</td>
+<td>partial</td>
+<td>throwing things about exists (<code>ThrowAround</code>); practising throws as the game's separate action doesn't</td>
+</tr>
+<tr>
+<td>Practises dancing</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Looks at its reflection in the water</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Watches the telly</td>
+<td>todo</td>
+<td>(unconfirmed what this action shows in the game)</td>
+</tr>
+<tr>
+<td>Farts</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Behaves strangely</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Stands frightened on the spot, or is sad</td>
+<td>done</td>
+<td><code>BeFrightenedOnTheSpot</code>, <code>BeSad</code> plan actions</td>
+</tr>
+<tr>
+<td>Shows off an impressive pose (not too often)</td>
+<td>partial</td>
+<td><code>ShowImpressiveAnimation</code>; the game's rule against repeating it too soon is missing</td>
+</tr>
+<tr>
+<td>Rests, scratches and waves only if it hasn't lately</td>
+<td>partial</td>
+<td>the planner's novelty favours actions not done lately (<code>src/Creature/CreaturePlanner</code>); the game's explicit "not recently" checks are missing</td>
+</tr>
+</tbody>
+</table>
+<h2 id="music">Music</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nice music cheers it, nasty music sours it, frightening music scares it</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It dances to music</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Its feelings choose the music that plays</td>
+<td>todo</td>
+<td>see <a href="../audio/index.html">../audio/</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

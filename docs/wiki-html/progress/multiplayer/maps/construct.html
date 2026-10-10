@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Construct — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="here" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#construct">Construct</a><ul>
+<li><a href="#choosing-and-starting-it">Choosing and starting it</a></li>
+<li><a href="#the-land">The land</a></li>
+<li><a href="#what-you-start-with">What you start with</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="construct">Construct</h1>
+<p>openblack's own test land, not one of the game's: a flat plain with one Norse house, your temple and a weeping stone,
+used by openblack's automatic screenshot checks. Copied into the game's playground folder, the game's skirmish box
+would list it as "construct" like any other script there.</p>
+<p><strong>Players:</strong> 1 · <strong>Landscape:</strong> <code>Data/Landscape/construct.lnd</code> · <strong>Script:</strong> <code>Scripts/Playgrounds/construct.txt</code> · <strong>Mode:</strong> skirmish (test land)</p>
+<p><strong>Progress: 7/9 done, 2 partial — 89%</strong></p>
+<p>What the script builds is in <a href="../../scripts/playground_scripts.html#construct-loading">playground_scripts.md</a> (its
+"Construct" sections). The land and script were added to openblack's test data in 2021 and now live in the
+openblack-assets repository; the continuous-integration workflow (<code>.github/workflows/ci-vcpkg.yml</code>) starts openblack
+on it and shows its screenshot beside one taken in the original game.</p>
+<h2 id="choosing-and-starting-it">Choosing and starting it</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The game's skirmish box would list it by its file name, "construct"</td>
+<td>partial</td>
+<td>the debug menu lists it by its start message title, "Construct", with "Testing landscape" as a tooltip (<code>src/Level.cpp</code>); no skirmish box</td>
+</tr>
+<tr>
+<td>It can be started straight from the command line for the screenshot check</td>
+<td>done</td>
+<td><code>-s Playgrounds/construct.txt</code> in the CI workflow (<code>.github/workflows/ci-vcpkg.yml</code>)</td>
+</tr>
+<tr>
+<td>The camera starts on the temple (the CI moves it to a fixed point for its screenshot)</td>
+<td>done</td>
+<td><code>START_CAMERA_POS</code> (<code>FeatureScriptCommands::StartCameraPos</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-land">The land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A plain about 1,750 by 1,600 paces, flat at one low height everywhere, all of one ground type</td>
+<td>done</td>
+<td><code>Game::LoadLandscape</code></td>
+</tr>
+<tr>
+<td>Towns project 0.6 of their normal influence and you thirty times yours, so the whole plain is yours to act on</td>
+<td>done</td>
+<td><code>SET_TOWN_INFLUENCE_MULTIPLIER</code> and <code>SET_PLAYER_INFLUENCE_MULTIPLIER</code>, read by <code>src/ECS/Influence</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-you-start-with">What you start with</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Your temple and a Norse worship site on the same spot</td>
+<td>done</td>
+<td>the temple (<code>CitadelArchetype</code>) and the site (<code>CREATE_WORSHIP_SITE</code>, <code>magic::script::CreateWorshipSite</code>)</td>
+</tr>
+<tr>
+<td>A Norse town of one house, which holds 850,000 wood, with a forester and a housewife</td>
+<td>done</td>
+<td><code>TownArchetype</code>, <code>AbodeArchetype</code>, <code>VillagerArchetype</code></td>
+</tr>
+<tr>
+<td>The town believes in you and offers food, wood, a stronger heal, a stronger water and the strongest fire</td>
+<td>partial</td>
+<td>belief is set and the town holds its miracles (<code>magic::script::CreateNewTownSpell</code>); not checked here that they reach the worship site's icons (<a href="../../miracles/dispensers_and_seeds.html">../../miracles/dispensers_and_seeds.md</a>)</td>
+</tr>
+<tr>
+<td>A weeping stone and its reward stone</td>
+<td>done</td>
+<td><code>MobileStaticArchetype</code></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

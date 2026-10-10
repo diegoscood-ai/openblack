@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Fish Puzzle — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-fish-puzzle">The Fish Puzzle</a><ul>
+<li><a href="#how-it-appears">How it appears</a></li>
+<li><a href="#the-introduction">The introduction</a></li>
+<li><a href="#playing">Playing</a></li>
+<li><a href="#success">Success</a></li>
+<li><a href="#the-reward-swapping-to-the-turtle">The reward: swapping to the turtle</a></li>
+<li><a href="#aftermath-sound-and-music">Aftermath, sound and music</a></li>
+<li><a href="#quirks-and-unused-parts">Quirks and unused parts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-fish-puzzle">The Fish Puzzle</h1>
+<p>A silver scroll on the fourth land. A boy turtle farmer on the shore wants to be a fisherman like his father; the player
+herds a shoal of fish into his net by tapping the water, and he gives the player his favourite turtle, a creature to
+swap for.</p>
+<p><strong>Land:</strong> 4 · <strong>Giver:</strong> a boy turtle farmer on a shore some way from the Japanese village, his home · <strong>Script:</strong> FishPuzzle · <strong>Reward:</strong> a turtle (tortoise) creature to swap for, offered for as long as the land lasts · <strong>Repeatable:</strong> no (the swap itself can be made back and forth)</p>
+<p>The land as a whole is in <a href="../land_4.html">../land_4.md</a>, the fish-herding game itself (the engine's puzzle) in
+<a href="../minigames.html#fish-herding-land-4">../minigames.md</a>, the script program in
+<a href="../../scripts/challenge_scripts.html">../../scripts/challenge_scripts.md</a>.</p>
+<p>Sources: the land's challenge script source (checked against the PC game's compiled <code>challenge.chl</code>), the game's text
+table (<code>Scripts/InfoScript2.txt</code>) and the executable. openblack is judged on this tree: of the 59 script functions the
+quest and the swap script it starts call, 6 only log "not implemented" in <code>src/CHLApi.cpp</code>, a script cannot make a
+creature (<code>CreateScriptObject</code> makes villagers, animals and puzzle games, but no creatures), and Land 4's control script
+never runs (the land-loading command does nothing), so the boy never exists and every row below is todo unless the notes
+say otherwise.</p>
+<p><strong>Progress: 0/43 done, 6 partial — 7%</strong></p>
+<h2 id="how-it-appears">How it appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's control script starts the quest in the background right after the land's opening, with no other condition</td>
+<td>todo</td>
+<td><code>LandControl4</code> never runs: <code>LOAD_MAP</code> is empty (<a href="../../../map-loading.html#pending">map-loading</a>); see <a href="../../scripts/land4_script.html">../../scripts/land4_script.md</a></td>
+</tr>
+<tr>
+<td>A Japanese farmer is made a few paces from his spot on the shore and walks to it; he is made a boy by setting his age to 11</td>
+<td>todo</td>
+<td><code>Create</code> makes villagers, <code>MoveGameThing</code> and the age property work for villagers; the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A flock of five tortoises is made beside him (gathering within 5, roaming up to 10)</td>
+<td>todo</td>
+<td><code>FlockCreate</code> and <code>ChangeInnerOuterProperties</code> work, <code>PopulateContainer</code> is a stub</td>
+</tr>
+<tr>
+<td>A silver scroll appears on the shore next to him</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> works (<code>src/ECS/ScriptHighlight.cpp</code>); the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>While the scroll is unclicked, whenever the camera is within 100 of it and it is on screen, the good advisor steps out every 30 seconds or more, points at it and says "Look. Something for you to do here."</td>
+<td>todo</td>
+<td>the shared notify script's natives work; the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>If the boy dies before the scroll is clicked, the quest ends quietly: the scroll goes and nothing is said</td>
+<td>todo</td>
+<td>the health property (<code>GetProperty</code>) is not ported</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-introduction">The introduction</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Clicking the scroll starts a cinematic (letterbox); the camera glides over three to four seconds to look down on the boy, who faces it</td>
+<td>partial</td>
+<td>the letterbox, the camera glides and <code>SetFocus</code> on villagers work (<code>SetWidescreen</code>, <code>MoveCameraPosition</code>, <code>MoveCameraFocus</code>); the scene never runs</td>
+</tr>
+<tr>
+<td>Boy: "I want to be a fisherman like my dad, instead of a turtle farmer."</td>
+<td>todo</td>
+<td><code>RunText</code>, <code>TextRead</code> work; the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The fish puzzle is made out in the bay</td>
+<td>partial</td>
+<td><code>CreateWithAngleAndScale</code> makes puzzle game 14 and its bait, net and two shoals (<code>src/ECS/PuzzleGames.cpp</code>, <code>src/ECS/FishPuzzle.cpp</code>; hook <code>OPENBLACK_TEST_FISH_PUZZLE</code>), faithful per our wiki (<a href="../../../water.html#fish-puzzle">water</a>); the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Boy: "My dad said I'd never be any good. Maybe he's right."</td>
+<td>todo</td>
+<td><code>RunText</code> works; the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The camera cuts to look down on the puzzle</td>
+<td>partial</td>
+<td><code>SetCameraPosition</code>, <code>SetCameraFocus</code> work; the scene never runs</td>
+</tr>
+<tr>
+<td>Boy: "When you tap the water, the fish will swim away from your hand."</td>
+<td>todo</td>
+<td><code>RunText</code> works; the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Boy: "When they are all in the net, I'll be able to catch them and make my old man proud."</td>
+<td>todo</td>
+<td><code>RunText</code> works; the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The dialogue box is closed and the scroll is entered in the challenge log as "The Fish Puzzle", not yet done, with the good advisor's reminder "Try to help this person catch all the fish, by scaring them into the net."; the cinematic ends</td>
+<td>todo</td>
+<td><code>GameCloseDialogue</code> works, <code>Snapshot</code> is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="playing">Playing</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The player taps the water to herd the fish away from the hand and into the boy's net; there is no time limit and no limit on tries</td>
+<td>partial</td>
+<td>the herding works: the hand's splash scares the shoals and 30 fish in the net for 0.5 s close it (<code>ecs::UpdateFishShoals</code>, <code>src/ECS/FishShoals.cpp</code>; <a href="../../../water.html#the-net-the-bait-and-the-shoals">water</a>); reached only through the test hook, as Land 4 never loads</td>
+</tr>
+<tr>
+<td>The quest waits until the puzzle reports it has been played to the end</td>
+<td>partial</td>
+<td><code>Played</code> on puzzle 14 answers once the net has closed (<code>IsPuzzleGamePlayed</code>, <code>src/ECS/PuzzleGames.cpp</code>), which settles "played" for this puzzle (<a href="../../../water.html#the-script-side-puzzlegame-14-and-played">water</a>); the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>If the boy dies while the puzzle is being played, the good advisor says once: "Oh no. You've killed the fisherman. I despair." The puzzle goes on</td>
+<td>todo</td>
+<td>the health property is not ported</td>
+</tr>
+</tbody>
+</table>
+<h2 id="success">Success</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>When the puzzle is done the scroll is marked done in the challenge log (success 1, alignment unchanged) whether or not the boy is alive</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>If the boy lives: a cinematic with the reward sting; the camera glides to the boy, who faces it</td>
+<td>todo</td>
+<td><code>PlaySoundEffect</code> and the camera natives work; the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Boy: "Yahoo! I caught the lot. My father will be so impressed."</td>
+<td>todo</td>
+<td><code>RunText</code> works; the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A turtle (tortoise) creature is made beside him, made to stand idle and face the camera</td>
+<td>todo</td>
+<td><code>Create</code> makes no creatures; <code>CreatureDoAction</code> is a stub</td>
+</tr>
+<tr>
+<td>Boy: "Here. Have my favourite turtle as thanks for all your help." as he and the camera turn to the turtle</td>
+<td>todo</td>
+<td>no turtle</td>
+</tr>
+<tr>
+<td>A second later he walks off home to the Japanese village at speed 0.6; the cinematic ends</td>
+<td>todo</td>
+<td><code>MoveGameThing</code> and the speed property work for villagers; the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Evil advisor, pointing at the boy: "Hey, Boss. If anyone's a good fishermen around here it's you!"</td>
+<td>todo</td>
+<td><code>SpiritEject</code>, <code>SpiritPointPos</code>, <code>RunText</code> work; the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Good advisor: "Well, yes, but he's happy and that's what counts."</td>
+<td>todo</td>
+<td>the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Good advisor: "We don't need recognition for our fishing abilities, do we?"</td>
+<td>todo</td>
+<td>the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The silver scroll goes</td>
+<td>todo</td>
+<td><code>ObjectDelete</code> works; the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>If the boy is killed on his walk home (before he is within 20 of the village), the evil advisor says once: "Heh. From fisherman hero to corpse in one easy move. Neat, Boss."</td>
+<td>todo</td>
+<td>the health property is not ported</td>
+</tr>
+<tr>
+<td>If the boy was already dead when the puzzle ended, the scroll goes and the evil advisor says: "Oh boy. You caught them all. Sweet.", "Let's go see the fisherm... Oh. We killed him. I forgot. Heh." and "Still, we rock at fishing. Any fish-gods out there better watch out!"; there is no turtle</td>
+<td>todo</td>
+<td>the health property is not ported</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-reward-swapping-to-the-turtle">The reward: swapping to the turtle</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The turtle waits with a silver scroll above its head, cannot be picked up, and keeps turning to look at the camera</td>
+<td>todo</td>
+<td>no turtle; the shared swap script, see <a href="creature_swaps.html">creature_swaps.md</a>; <code>CreatureDoAction</code> is a stub</td>
+</tr>
+<tr>
+<td>When the camera is within 100 of it and it is on screen, the evil advisor points at it every 60 seconds: "Swap your Creature with this one if you want."</td>
+<td>todo</td>
+<td>no turtle</td>
+</tr>
+<tr>
+<td>Clicking the scroll or the turtle with the player's creature more than 50 away: "You'll need to bring our Creature, Boss."</td>
+<td>todo</td>
+<td>no turtle</td>
+</tr>
+<tr>
+<td>With the creature close, it is taken off its leash and walked over to the turtle (up to 5 seconds), and the two look each other over</td>
+<td>partial</td>
+<td>taking the leash off works (<code>DetachObjectLeash</code>); the walk (<code>CreatureDoAction</code>) is a stub and there is no turtle</td>
+</tr>
+<tr>
+<td>Every 30 seconds the good advisor asks: "Are you sure you want a new Creature? Click the Action Button on the Creature you want to swap to if you are. Click your own Creature to cancel."; clicking the turtle confirms, clicking the player's own creature or waiting 110 seconds cancels</td>
+<td>todo</td>
+<td><code>CreateTimer</code>, <code>SetTimerTime</code>, <code>GetTimerTimeRemaining</code>, <code>ClearClickedObject</code> work; no turtle</td>
+</tr>
+<tr>
+<td>Confirming: a cinematic with a two-creature camera; sparkles on both, the creatures point at each other, the swap is made with its sound, and three seconds after both animations end it closes</td>
+<td>todo</td>
+<td><code>StartDualCamera</code> works, <code>SwapCreature</code> is a stub; how the swap carries the mind over: see <a href="../challenges_and_rewards.html">../challenges_and_rewards.md</a></td>
+</tr>
+<tr>
+<td>Evil advisor: "Great, Boss. If you want your old Creature back, just return here later."</td>
+<td>todo</td>
+<td><code>SwapCreature</code> stub</td>
+</tr>
+<tr>
+<td>The old creature now waits in the turtle's place to be swapped back, and so on for ever: the offer never ends</td>
+<td>todo</td>
+<td>the swap script's timer is made but never checked</td>
+</tr>
+</tbody>
+</table>
+<h2 id="aftermath-sound-and-music">Aftermath, sound and music</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The boy's five tortoises stay on the shore</td>
+<td>todo</td>
+<td><code>PopulateContainer</code> stub (no tortoises)</td>
+</tr>
+<tr>
+<td>No music is started; the only sound is the reward sting on success</td>
+<td>todo</td>
+<td>the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The quest never changes alignment; the alignment changes the source once had for killing the boy are commented out</td>
+<td>todo</td>
+<td>the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="quirks-and-unused-parts">Quirks and unused parts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The source notes that two of the boy's instruction lines were meant to be spoken by another voice; in the text table both are the boy's own lines, so they play as the boy</td>
+<td>todo</td>
+<td>the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The scroll is marked done before the game checks whether the boy lived, so killing him still completes the scroll</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> stub</td>
+</tr>
+<tr>
+<td>The script only waits for the boy to reach home; it never removes the puzzle</td>
+<td>todo</td>
+<td>undetermined whether the puzzle removes itself once played (ours keeps it: <code>ProcessPuzzleGame</code> stops once played)</td>
+</tr>
+<tr>
+<td>A developer test script for the creature's creed also starts this quest; it is a developer test, not reached in the shipped game</td>
+<td>n/a</td>
+<td>developer test only</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wind — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="here" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#wind">Wind</a><ul>
+<li><a href="#the-wind">The wind</a></li>
+<li><a href="#what-the-wind-moves">What the wind moves</a></li>
+<li><a href="#hearing-the-wind">Hearing the wind</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="wind">Wind</h1>
+<p>Each climate has a wind, and storms add their own. The wind blows smoke and steam, carries storms across the island,
+is heard at the camera, and moves things scripts mark as caught by it.</p>
+<p><strong>Progress: 9/15 done, 3 partial — 70%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../day-night-weather.html">Day, night and weather in the original</a>.</p>
+<h2 id="the-wind">The wind</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A climate's wind lies between its season's extremes by how close it is to rain</td>
+<td>done</td>
+<td>The wind step in <code>src/ECS/Weather/Climate.cpp</code></td>
+</tr>
+<tr>
+<td>Storms add their wind within their radius</td>
+<td>done</td>
+<td><code>storms::CalcAtmos</code> (<code>src/ECS/Weather/Storms.cpp</code>)</td>
+</tr>
+<tr>
+<td>The wind at a point is part of the weather grid, and blended at the camera</td>
+<td>done</td>
+<td><code>climate::ComputeWeather</code>, the smooth sampling of <code>src/ECS/Weather/Atmos.cpp</code>; <code>weather::GetWindAt</code> (<code>WeatherQueries.cpp</code>)</td>
+</tr>
+<tr>
+<td>Storms drift with the wind</td>
+<td>done</td>
+<td><code>climate::ProcessAll</code></td>
+</tr>
+<tr>
+<td>The ambient wind of the world is always calm in play</td>
+<td>done</td>
+<td>The ambient weather is all 0 (<code>src/ECS/Weather/Atmos.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-the-wind-moves">What the wind moves</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Smoke and steam from fires drift with the wind</td>
+<td>done</td>
+<td><code>src/ECS/Fire/FireGraphic.cpp</code> (the wind at the fire)</td>
+</tr>
+<tr>
+<td>Particles of spells and effects drift with the wind</td>
+<td>done</td>
+<td>The particle rules that read the weather's wind (<code>src/Particles/Rules/Storm.cpp</code>, <code>Fireball.cpp</code>)</td>
+</tr>
+<tr>
+<td>Chimney smoke drifts, and swirls in the hand's wake</td>
+<td>partial</td>
+<td><code>src/ECS/ChimneySmoke.cpp</code> reads the hand's wind; whether it also takes the weather's wind is not confirmed</td>
+</tr>
+<tr>
+<td>Trees and ripe crops sway</td>
+<td>partial</td>
+<td><code>ecs::WindSway</code> (<code>src/ECS/Fields.cpp</code>: 16 phases at random speeds); whether the game sways them by the wind's strength is not confirmed</td>
+</tr>
+<tr>
+<td>Clouds drift along their track</td>
+<td>done</td>
+<td>see ../sky/clouds.md</td>
+</tr>
+<tr>
+<td>Scripts mark an object as blown by the wind</td>
+<td>todo</td>
+<td>SET_AFFECTED_BY_WIND is a stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>Scripts ask whether a wind miracle is at a point</td>
+<td>todo</td>
+<td>IS_WIND_MAGIC_AT_POS is a stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>Gusts of wind push particles in some effects</td>
+<td>partial</td>
+<td>The gusty-wind rule is in <code>src/Particles/PSys.cpp</code>, with a stand-in noise; see ../rendering/</td>
+</tr>
+<tr>
+<td>Scripts set and read a player's resistance to wind</td>
+<td>todo</td>
+<td>SET_PLAYER_WIND_RESISTANCE and GET_PLAYER_WIND_RESISTANCE are stubs in <code>src/CHLApi.cpp</code>; see ../miracles/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="hearing-the-wind">Hearing the wind</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Wind is heard at the camera, louder the stronger it blows above a threshold</td>
+<td>done</td>
+<td>The wind volume in <code>src/Audio/Services/SoundMap.cpp</code></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

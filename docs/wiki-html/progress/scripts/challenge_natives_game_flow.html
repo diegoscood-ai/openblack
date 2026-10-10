@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Challenge natives: game flow, time and scripts — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="here" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#challenge-natives-game-flow-time-and-scripts">Challenge natives: game flow, time and scripts</a><ul>
+<li><a href="#used-by-the-shipped-scripts">Used by the shipped scripts</a></li>
+<li><a href="#not-used-by-the-shipped-scripts">Not used by the shipped scripts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="challenge-natives-game-flow-time-and-scripts">Challenge natives: game flow, time and scripts</h1>
+<p>The challenge scripts' functions for running the story: timers, the time of day, random numbers, stopping scripts, loading the next land, game speed, the temple, the real clock, keys and profile choices. The game has 464 of these functions in all; the language statement each comes from is shown in italics, and "called" counts are calls in the shipped <code>challenge.chl</code>. How the virtual machine runs them is in <a href="../engine/script_vm.html">../engine/script_vm.md</a>; what each challenge is about is in <a href="../story/index.html">../story/</a>.</p>
+<p><strong>Progress: 33/62 done, 10 partial — 61%</strong></p>
+<h2 id="used-by-the-shipped-scripts">Used by the shipped scripts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gives the distance between two positions: <em>get distance from ‹p0› to ‹p1›</em> (called 712 times in 200 scripts)</td>
+<td>done</td>
+<td><code>GetDistance</code> in <code>src/CHLApi.cpp</code>: distance over x and z only through <code>gutils::GetDistance</code>, nought under half a metre</td>
+</tr>
+<tr>
+<td>Gives a random number between two numbers, from the game's own random numbers: <em>number from ‹min› to ‹max›</em> (called 162 times in 51 scripts)</td>
+<td>done</td>
+<td><code>Random</code> in <code>src/CHLApi.cpp</code>: the game's synced random float (<code>game_random::GameFloatRand</code>) over max minus min plus one, truncated; <code>test/test_game_random.cpp</code></td>
+</tr>
+<tr>
+<td>Gives the time the game has been running: <em>time</em> (called 51 times in 20 scripts)</td>
+<td>done</td>
+<td><code>DllGettime</code> calls <code>LHVM::PushElaspedTime</code>: the VM's tick count times 0.1, as the script library does</td>
+</tr>
+<tr>
+<td>Gives a random whole number between two numbers: <em>constant from ‹min› to ‹max›</em> (called 40 times in 22 scripts)</td>
+<td>done</td>
+<td><code>RandomUlong</code> in <code>src/CHLApi.cpp</code>: the game's synced <code>game_random::GameRand</code> over max minus min plus one, plus min</td>
+</tr>
+<tr>
+<td>Changes how fast the game runs: <em>set game speed to ‹speed›</em> (called 6 times in 3 scripts)</td>
+<td>done</td>
+<td><code>SetGamespeed</code>: <code>help::script_control::SetGameSpeed</code> (<code>src/Help/ScriptControl.cpp</code>) sets the clock's speed only for the task that holds the game speed</td>
+</tr>
+<tr>
+<td>Sets the hour of the day: <em>set game time ‹time›</em> (called 31 times in 13 scripts)</td>
+<td>done</td>
+<td><code>SetGameTime</code>: <code>Game::SetTime</code> forces the day-night clock</td>
+</tr>
+<tr>
+<td>Gives the hour of the day: <em>get game time</em> (called 27 times in 8 scripts)</td>
+<td>done</td>
+<td><code>GetGameTime</code>: <code>DayNightClock::GetScriptTime</code></td>
+</tr>
+<tr>
+<td>Puts the game at cinema speed for a cut scene (part of the cinema block): <em>begin cinema (game speed part)</em> (called 328 times in 181 scripts)</td>
+<td>done</td>
+<td><code>StartGameSpeed</code>: <code>help::script_control::StartGameSpeed</code> (<code>src/Help/ScriptControl.cpp</code>): the task takes the game speed when nobody holds it. Our wiki differs: the original only takes control of the game speed here and does not change it; the speed changes through set game speed (<a href="../../intro.html#flow">intro</a>)</td>
+</tr>
+<tr>
+<td>Puts the game back to its normal speed after a cut scene: <em>end cinema (game speed part)</em> (called 450 times in 238 scripts)</td>
+<td>done</td>
+<td><code>EndGameSpeed</code>: <code>help::script_control::EndGameSpeed</code> gives the speed back to normal for the holding task (or nobody); a stopped task also gives it back (<code>OnTaskStopped</code>)</td>
+</tr>
+<tr>
+<td>Gives a position at a distance and angle from one place towards another: <em>get target from ‹from› to ‹to› distance ‹distance› angle ‹angle›</em> (called 10 times in 7 scripts)</td>
+<td>todo</td>
+<td><code>GetTargetRelativePos</code> in <code>src/CHLApi.cpp</code> logs "not implemented" and pushes a zero position</td>
+</tr>
+<tr>
+<td>Sets a timer's time: <em>set ‹timer› time to ‹time› seconds</em> (called 161 times in 68 scripts)</td>
+<td>done</td>
+<td><code>SetTimerTime</code>: <code>ecs::script_timer::SetTime</code> (<code>src/ECS/ScriptTimer.cpp</code>) restarts the timer from this turn; a spell dispenser takes it as its period</td>
+</tr>
+<tr>
+<td>Creates a timer running for a number of seconds: <em>create timer for ‹timeout› seconds</em> (called 137 times in 84 scripts)</td>
+<td>done</td>
+<td><code>CreateTimer</code>: <code>ecs::script_timer::Create</code> makes a timer thing held by the script (<code>ecs::script_held::AddScriptThing</code>)</td>
+</tr>
+<tr>
+<td>Gives the time a timer has left: <em>get ‹timer› time remaining</em> (called 154 times in 79 scripts)</td>
+<td>done</td>
+<td><code>GetTimerTimeRemaining</code>: <code>ecs::script_timer::Remaining</code>, nought once out or for a thing that is not a timer; <code>test/test_timers_events.cpp</code></td>
+</tr>
+<tr>
+<td>Gives the time since a timer was set: <em>get ‹timer› time since set</em> (called 6 times in 6 scripts)</td>
+<td>done</td>
+<td><code>GetTimerTimeSinceSet</code>: <code>ecs::script_timer::SinceSet</code>, the largest float for a missing or wrong thing</td>
+</tr>
+<tr>
+<td>Loads the next land (its land script) for the story: <em>load map ‹path›</em> (called 4 times in 1 script)</td>
+<td>todo</td>
+<td><code>LoadMap</code> in <code>src/CHLApi.cpp</code> is empty: Land 1 never goes on to Land 2 (a port is designed but parked, see <a href="../../map-loading.html#pending">map-loading</a>)</td>
+</tr>
+<tr>
+<td>Stops every script except those from the named source files: <em>stop all scripts excluding files ‹source filenames›</em> (called 6 times in 2 scripts)</td>
+<td>partial</td>
+<td><code>StopAllScriptsInFilesExcluding</code> stops by source file through <code>LHVM::StopScripts</code>; the list is split on spaces only and compared with case, where the original also splits on commas and tabs and ignores case (<a href="../../map-loading.html#pending">map-loading</a>)</td>
+</tr>
+<tr>
+<td>Stops a script by name: <em>stop script ‹script name›</em> (called 69 times in 31 scripts)</td>
+<td>partial</td>
+<td><code>StopScript</code> stops by name through <code>LHVM::StopScripts</code>, comparing the whole text with each script's name, with case; the splitting of the original is not checked here</td>
+</tr>
+<tr>
+<td>Stops every script from the named source files: <em>stop scripts in files ‹source filenames›</em> (called once in 1 script)</td>
+<td>partial</td>
+<td><code>StopScriptsInFiles</code> stops by source file through <code>LHVM::StopScripts</code>; split on spaces only and compared with case (the original also splits on commas and tabs and ignores case)</td>
+</tr>
+<tr>
+<td>Runs one of the developers' functions by number: <em>run ‹func› developer function</em> (called 23 times in 15 scripts)</td>
+<td>partial</td>
+<td><code>DevFunction</code> in <code>src/CHLApi.cpp</code>: functions 2 and 3 (rope and other leashes known) through <code>ecs::player_creature::DevFunction</code> (<code>src/ECS/PlayerCreature.cpp</code>); the others log "not implemented"; the creature itself is still dormant in game</td>
+</tr>
+<tr>
+<td>Whether the player's mouse has a wheel: <em>player has mouse wheel</em> (called once in 1 script)</td>
+<td>todo</td>
+<td><code>HasMouseWheel</code> logs "not implemented" and pushes false</td>
+</tr>
+<tr>
+<td>Gives how many times a kind of event has happened: <em>get ‹type› total event</em> (called 23 times in 7 scripts)</td>
+<td>done</td>
+<td><code>GetTotalEvents</code>: <code>help_profile::TotalEvents</code> (<code>src/Help/HelpProfile.cpp</code>), the help accumulators fed by the camera and hand</td>
+</tr>
+<tr>
+<td>Stops or starts the day going by: <em>enable/disable game time</em> (called 36 times in 13 scripts)</td>
+<td>done</td>
+<td><code>GameTimeOnOff</code>: <code>DayNightClock::SetRunning</code></td>
+</tr>
+<tr>
+<td>Moves the time of day to an hour over a time: <em>move game time ‹hour of the day› time ‹duration›</em> (called 5 times in 5 scripts)</td>
+<td>done</td>
+<td><code>MoveGameTime</code>: <code>DayNightClock::MoveScriptTime</code></td>
+</tr>
+<tr>
+<td>Stops the scripts of the named files except those named: <em>stop scripts in files ‹source filenames› excluding ‹script names›</em> (called once in 1 script)</td>
+<td>partial</td>
+<td><code>StopScriptsInFilesExcluding</code> stops by file and name through <code>LHVM::StopScripts</code>; lists split on spaces only and compared with case</td>
+</tr>
+<tr>
+<td>Whether the player is inside the temple: <em>inside temple</em> (called 3 times in 1 script)</td>
+<td>done</td>
+<td><code>InsideTemple</code>: <code>game_clock::IsInsideCitadel</code></td>
+</tr>
+<tr>
+<td>Lets the player into the temple or not: <em>enable/disable temple</em> (called 2 times in 2 scripts)</td>
+<td>done</td>
+<td><code>SetInterfaceCitadel</code>: <code>worship::citadel::SetInterfaceCitadel</code>, read by the temple entrance's tap check (<code>src/Worship/Citadel.cpp</code>)</td>
+</tr>
+<tr>
+<td>Runs a line of land script: <em>run map script line ‹command›</em> (called 2 times in 2 scripts)</td>
+<td>todo</td>
+<td><code>MapScriptFunction</code> in <code>src/CHLApi.cpp</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Whether a key is held down: <em>key ‹key› down</em> (called 13 times in 8 scripts)</td>
+<td>todo</td>
+<td><code>KeyDown</code> logs "not implemented" and pushes false</td>
+</tr>
+<tr>
+<td>Starts an immersion (force feedback) effect: <em>start immersion ‹effect›</em> (called once in 1 script)</td>
+<td>todo</td>
+<td><code>StartImmersion</code> logs "not implemented" (no force feedback)</td>
+</tr>
+<tr>
+<td>Gives the position of a player's temple: <em>player ‹player› temple position</em> (called 2 times in 2 scripts)</td>
+<td>todo</td>
+<td><code>GetTemplePosition</code> logs "not implemented" and pushes a zero position</td>
+</tr>
+<tr>
+<td>Gives a miracle's icon in the temple: <em>get spell icon ‹spell› in ‹temple›</em> (called once in 1 script)</td>
+<td>done</td>
+<td><code>GetSpellIconInTemple</code>: <code>magic::script::GetSpellIconInTemple</code> (<code>src/Magic/Script/CHLWorship.cpp</code>)</td>
+</tr>
+<tr>
+<td>Gives the position of a player's temple entrance: <em>player ‹player› temple entrance position radius ‹radius› height ‹height›</em> (called 2 times in 1 script)</td>
+<td>todo</td>
+<td><code>GetTempleEntrancePosition</code> logs "not implemented" and pushes a zero position</td>
+</tr>
+<tr>
+<td>Whether the player chose to skip the tutorial: <em>can skip tutorial</em> (called once in 1 script)</td>
+<td>done</td>
+<td><code>CanSkipTutorial</code>: the map script globals' skip flags, set from the start-up requester's answer in <code>src/Game.cpp</code></td>
+</tr>
+<tr>
+<td>Whether the player chose to skip the creature's training: <em>can skip creature training</em> (called once in 1 script)</td>
+<td>done</td>
+<td><code>CanSkipCreatureTraining</code>: the same skip flags</td>
+</tr>
+<tr>
+<td>Whether the player is keeping their old creature: <em>is keeping old creature</em> (called once in 1 script)</td>
+<td>done</td>
+<td><code>IsKeepingOldCreature</code>: the same skip flags</td>
+</tr>
+<tr>
+<td>Whether the current profile has a creature: <em>current profile has creature</em> (called once in 1 script)</td>
+<td>done</td>
+<td><code>CurrentProfileHasCreature</code>: <code>ecs::player_creature::ProfileHasCreature</code>, whether the profile's mind file is in <code>Scripts/CreatureMind</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="not-used-by-the-shipped-scripts">Not used by the shipped scripts</h2>
+<p>The game has these but no shipped script calls them; mods and fan-made challenges can.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Starts the countdown clock shown on screen: <em>start the countdown clock (no statement used)</em> (not called by the shipped scripts)</td>
+<td>partial</td>
+<td><code>StartCountdownTimer</code>: <code>ecs::script_countdown::Start</code> (<code>src/ECS/ScriptTimer.cpp</code>), counted each turn in <code>src/Game.cpp</code>; the clock is never drawn on screen</td>
+</tr>
+<tr>
+<td>Removes the countdown clock: <em>remove the countdown clock (no statement used)</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>RemoveCountdownTimer</code>: <code>ecs::script_countdown::Remove</code></td>
+</tr>
+<tr>
+<td>Gives the time left on the countdown clock: <em>time left on the countdown clock (no statement used)</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>GetCountdownTimer</code>: <code>ecs::script_countdown::RemainingSeconds</code>, whole seconds</td>
+</tr>
+<tr>
+<td>Whether the countdown clock exists: <em>countdown clock exists (no statement used)</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>CountdownTimerExists</code>: <code>ecs::script_countdown::Exists</code></td>
+</tr>
+<tr>
+<td>Hides the countdown clock: <em>hide the countdown clock (no statement used)</em> (not called by the shipped scripts)</td>
+<td>partial</td>
+<td><code>HideCountdownTimer</code>: <code>ecs::script_countdown::SetShown(false)</code>; nothing draws the clock yet</td>
+</tr>
+<tr>
+<td>Gives how full the moon is: <em>get moon percentage</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>GetMoonPercentage</code> logs "not implemented" and pushes nought</td>
+</tr>
+<tr>
+<td>Keeps an object from being deleted while a script holds it: <em>keeping an object (emitted by the compiler, not written)</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>AddReference</code>: <code>ecs::script_held::IncrementReference</code> (<code>src/ECS/ScriptHeld.cpp</code>): the thing takes a slot in the scripts' table at its first reference, is in a script, and is controlled if a script made it or already controlled it</td>
+</tr>
+<tr>
+<td>Lets go of an object the script was keeping: <em>letting an object go (emitted by the compiler, not written)</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>RemoveReference</code>: <code>ecs::script_held::DecrementReference</code>, the count never goes below nought; unreferenced slots are released each turn (<code>ecs::script_held::Process</code>)</td>
+</tr>
+<tr>
+<td>Gives the real time on the player's computer clock: <em>get real time</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>GetRealTime</code> logs "not implemented" and pushes nought</td>
+</tr>
+<tr>
+<td>Gives the real day of the week: <em>get real day</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>GetRealDay115</code> logs "not implemented" and pushes nought</td>
+</tr>
+<tr>
+<td>Gives the real day of the month: <em>get real day</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>GetRealDay116</code> logs "not implemented" and pushes nought</td>
+</tr>
+<tr>
+<td>Gives the real month: <em>get real month</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>GetRealMonth</code> logs "not implemented" and pushes nought</td>
+</tr>
+<tr>
+<td>Gives the real year: <em>get real year</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>GetRealYear</code> logs "not implemented" and pushes nought</td>
+</tr>
+<tr>
+<td>Shows the countdown clock again: <em>show the countdown clock (no statement used)</em> (not called by the shipped scripts)</td>
+<td>partial</td>
+<td><code>RevealCountdownTimer</code>: <code>ecs::script_countdown::SetShown(true)</code>; nothing draws the clock yet</td>
+</tr>
+<tr>
+<td>Stops every script except those named: <em>stop all scripts excluding ‹script names›</em> (not called by the shipped scripts)</td>
+<td>partial</td>
+<td><code>StopAllScriptsExcluding</code> stops by name through <code>LHVM::StopScripts</code>; split on spaces only and compared with case</td>
+</tr>
+<tr>
+<td>Gives the number of buttons on the player's mouse: <em>number of mouse buttons</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>NumMouseButtons</code> logs "not implemented" and pushes nought</td>
+</tr>
+<tr>
+<td>Gives how often a kind of event happens a second: <em>get ‹type› event per seconds</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>GetEventsPerSecond</code>: <code>help_profile::EventsPerSecond</code> (<code>src/Help/HelpProfile.cpp</code>)</td>
+</tr>
+<tr>
+<td>Gives the time since a kind of event last happened: <em>get time since ‹type› event</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>GetTimeSince</code>: <code>help_profile::TimeSince</code></td>
+</tr>
+<tr>
+<td>Turns the intro building sequence on or off (unconfirmed): <em>enable/disable intro building</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>SetIntroBuilding</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Takes the player into the temple or back out: <em>enter/exit temple</em> (not called by the shipped scripts)</td>
+<td>partial</td>
+<td><code>EnterExitCitadel</code>: <code>TempleInterior::Activate</code> or <code>Deactivate</code>; the original's walk in and out is not ported</td>
+</tr>
+<tr>
+<td>Gives the square root of a number: <em>square root ‹value›</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>SquareRoot</code>: square root, nought for nought or less</td>
+</tr>
+<tr>
+<td>Sets the length of a day and how much of it is night and dawn and dusk: <em>set game time properties duration ‹duration› percentage night ‹percentage night› percentage dawn dusk ‹percentage change›</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>SetGameTimeProperties</code>: <code>DayNightClock::SetCycle</code></td>
+</tr>
+<tr>
+<td>Puts the day's length back to normal: <em>reset game time properties</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>ResetGameTimeProperties</code>: the clock's default cycle</td>
+</tr>
+<tr>
+<td>Stops an immersion effect: <em>stop immersion ‹effect›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>StopImmersion</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Stops all immersion effects: <em>stop all immersion</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>StopAllImmersion</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Saves the game in a slot: <em>save game in slot ‹slot›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>SaveGameInSlot</code> logs "not implemented" (no save rooms)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

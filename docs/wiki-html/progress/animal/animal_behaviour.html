@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Animal behaviour — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="here" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#animal-behaviour">Animal behaviour</a><ul>
+<li><a href="#needs">Needs</a></li>
+<li><a href="#moving">Moving</a></li>
+<li><a href="#reactions">Reactions</a></li>
+<li><a href="#hand-physics-and-scripts">Hand, physics and scripts</a></li>
+<li><a href="#death">Death</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="animal-behaviour">Animal behaviour</h1>
+<p>What all animals share: their needs, how they move and react, how they are drawn, and how they die.</p>
+<p><strong>Progress: 23/28 done, 2 partial — 86%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../animals.html">Animals: AI, states and clips</a>, <a href="../../animation.html">Skeletal animation (villagers and animals)</a>.</p>
+<h2 id="needs">Needs</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Animals get hungry, thirsty and tired, and need to breed, each at its kind's rate</td>
+<td>done</td>
+<td>the needs counters (hunger, sleep, breeding) up to their info.dat maximum, in the states that have the needs flag (<code>src/ECS/AnimalAI.cpp</code>). Our wiki differs: the needs are hunger, sleep and breeding; there is no thirst (<a href="../../animals.html#herbivores-sheep-tortoise-cow-horse-pig">animals</a>)</td>
+</tr>
+<tr>
+<td>Each need is met by looking for food, water, a place to sleep or a mate in the cells around</td>
+<td>done</td>
+<td>the grazing spot found in a spiral in front of it, the flock's sleep cell, a birth in the flock (<code>src/ECS/AnimalAI.cpp</code>). Our wiki differs: no animal looks for water or a mate; it sleeps at its flock's sleep cell and gives birth when the flock is short (<a href="../../animals.html#herbivores-sheep-tortoise-cow-horse-pig">animals</a>)</td>
+</tr>
+<tr>
+<td>Animals eat what their kind eats: meat, plants, grass or any</td>
+<td>done</td>
+<td>the grazers graze, the predators hunt and eat animals (<code>src/ECS/AnimalPredators.cpp</code>), and a food pile draws only the hungry ones whose food kinds take it (<code>src/ECS/AnimalFlee.cpp</code>)</td>
+</tr>
+<tr>
+<td>A starving animal dies</td>
+<td>todo</td>
+<td>no animal dies of hunger in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="moving">Moving</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>An animal turns by at most its kind's turn angle, harder close to its goal, and steps its speed</td>
+<td>done</td>
+<td>the turn by at most the kind's turn angle, harder inside its turning circle (<code>src/ECS/AnimalAI.cpp</code>)</td>
+</tr>
+<tr>
+<td>It goes only where it can reach without circling</td>
+<td>done</td>
+<td>the turning circle rule, so it does not keep circling its goal (<code>src/ECS/AnimalAI.cpp</code>)</td>
+</tr>
+<tr>
+<td>Its clip plays by the ground it covers while moving, else by the clock</td>
+<td>done</td>
+<td>the clip per state and species, the walk by the ground covered (<code>src/ECS/AnimalAnimations.cpp</code>)</td>
+</tr>
+<tr>
+<td>It is drawn between its last two turns</td>
+<td>done</td>
+<td>the smooth drawing between turns (<code>src/ECS/MobileDrawing.cpp</code>)</td>
+</tr>
+<tr>
+<td>It looks round as it goes, within its view angle</td>
+<td>done</td>
+<td>the grazing search in front, within half its view angle each side (<code>src/ECS/AnimalAI.cpp</code>)</td>
+</tr>
+<tr>
+<td>It walks round obstacles and buildings</td>
+<td>done</td>
+<td>the detour round objects (<code>src/ECS/AnimalWallHug.cpp</code>); <code>test/mobile_wall_hug/test_mobile_wall_hug.cpp</code>; see <code>../physics/</code></td>
+</tr>
+<tr>
+<td>Ground animals keep their feet on the land and cast a ground blob shadow</td>
+<td>done</td>
+<td>on the land, with their blob shadows (<code>src/Graphics/GroundBlobs.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="reactions">Reactions</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Animals flee from fire, falling trees, flying objects and fights</td>
+<td>partial</td>
+<td>the predators flee what the hand throws (<code>animal_ai::SpreadFlyingObjectReaction</code>); the fire reaction is not ported. Our wiki differs: only predators react to flying objects, no code makes the falling-tree reaction and no animal reacts to fights (<a href="../../animals.html#reactions">animals</a>)</td>
+</tr>
+<tr>
+<td>Animals look at miracles and flee the frightening ones</td>
+<td>todo</td>
+<td>the spell and look reactions are not ported for animals (<code>src/ECS/AnimalFlee.cpp</code>)</td>
+</tr>
+<tr>
+<td>Animals look at and go to food and wood the hand or a miracle put down</td>
+<td>done</td>
+<td>the hungry grazers go to a food pot the hand puts down and eat 50 of it (<code>animal_ai::SetupPotReaction</code>, <code>src/ECS/AnimalFlee.cpp</code>). Our wiki differs: the magic food piles of the hand and the miracles draw no animal, and no animal reacts to wood (<a href="../../animals.html#reactions">animals</a>)</td>
+</tr>
+<tr>
+<td>Animals react to being picked up and dropped by the hand</td>
+<td>done</td>
+<td><code>IN_HAND</code> with its clip, then the flight and the landing (<code>src/ECS/AnimalAI.cpp</code>, <code>src/ECS/LivingPhysics.cpp</code>)</td>
+</tr>
+<tr>
+<td>Animals react to the creature's gifts and to the creature itself</td>
+<td>todo</td>
+<td>the creature reaction is not ported for animals</td>
+</tr>
+<tr>
+<td>Animals react to a shield, a teleport and a magic tree</td>
+<td>n/a</td>
+<td>Our wiki differs: no animal reacts to a shield, a teleport or a magic tree (<a href="../../animals.html#reactions">animals</a>)</td>
+</tr>
+<tr>
+<td>Animals look at a death and at someone fainting</td>
+<td>n/a</td>
+<td>Our wiki differs: no animal reacts to a death or a fainting (<a href="../../animals.html#reactions">animals</a>)</td>
+</tr>
+<tr>
+<td>Animals chase a ball (unconfirmed)</td>
+<td>n/a</td>
+<td>Our wiki differs: no animal reacts to a ball (<a href="../../animals.html#reactions">animals</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="hand-physics-and-scripts">Hand, physics and scripts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hand picks up the animals the table allows; held, they play their in-hand clip</td>
+<td>done</td>
+<td>by the species' <code>playerCanPickUp</code>, leaving its flock, with the in-hand clip (<code>src/ECS/AnimalAI.cpp</code>, <code>src/ECS/AnimalAnimations.cpp</code>); see ../hand/picking_up.md</td>
+</tr>
+<tr>
+<td>Thrown animals fly, land and play their landed clip, hurt by a hard landing</td>
+<td>done</td>
+<td><code>FLYING</code>, the landing pose, heading and clip, hurt by a hard landing (<code>src/ECS/LivingPhysics.cpp</code>, <code>src/ECS/AnimalAI.cpp</code>); see ../physics/thrown_living.md</td>
+</tr>
+<tr>
+<td>Animals drown in deep water</td>
+<td>done</td>
+<td>an animal in the sea sinks and is deleted (<code>src/ECS/LivingPhysics.cpp</code>)</td>
+</tr>
+<tr>
+<td>Hurting or helping an animal moves the player's alignment (kind or nasty)</td>
+<td>done</td>
+<td>a miracle's effect on an animal moves its caster's alignment (<code>alignment::Update</code>, <code>src/ECS/Effects/Alignment.cpp</code>)</td>
+</tr>
+<tr>
+<td>Scripts take control of an animal, play its clips and let it go</td>
+<td>done</td>
+<td>the script states, MOVE_GAME_THING and the release (<code>src/ECS/AnimalScript.cpp</code>, <code>src/ECS/ScriptHeld.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="death">Death</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>An animal with no life left falls dying, playing its kind's dying clip once, then lies in its dead clip</td>
+<td>done</td>
+<td><code>animal_ai::DestroyedByEffect</code> and the dying and dead clips (<code>src/ECS/AnimalAI.cpp</code>, <code>src/ECS/AnimalAnimations.cpp</code>)</td>
+</tr>
+<tr>
+<td>A dead animal lies 600 turns and one more, then goes</td>
+<td>done</td>
+<td>the shared corpse counter (<code>living::DeadTick</code>), 600 turns</td>
+</tr>
+<tr>
+<td>Killed again, its body only lies its full time afresh</td>
+<td>done</td>
+<td><code>animal_ai::DestroyedByEffect</code> restarts the corpse's time</td>
+</tr>
+<tr>
+<td>It goes in a puff of grey smoke</td>
+<td>done</td>
+<td>the carcass's smoke (<code>src/ECS/DisappearSmoke.cpp</code>, from <code>src/ECS/AnimalAI.cpp</code>)</td>
+</tr>
+<tr>
+<td>Miracles hurt and heal animals as other living things</td>
+<td>done</td>
+<td><code>effects::ApplyEffect</code> hurts and heals them through <code>ecs::life</code> (<code>src/ECS/Effects/EffectValues.cpp</code>)</td>
+</tr>
+<tr>
+<td>Fire burns animals to death</td>
+<td>done</td>
+<td>the fire's damage and <code>fire::traits::DestroyedByEffect</code> to dying (<code>src/ECS/Fire/FireObjectTraits.cpp</code>); see ../physics/fire.md</td>
+</tr>
+<tr>
+<td>A dead animal is food for hunters and the creature (unconfirmed)</td>
+<td>partial</td>
+<td>predators pounce on and eat the animals and villagers they bring down (<code>src/ECS/AnimalPredators.cpp</code>); the creature's eating of carcasses: see ../creature/</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Creature physiology — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="here" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#creature-physiology">Creature physiology</a><ul>
+<li><a href="#life-and-damage">Life and damage</a></li>
+<li><a href="#energy-hunger-and-fat">Energy, hunger and fat</a></li>
+<li><a href="#tiredness-and-sleep">Tiredness and sleep</a></li>
+<li><a href="#thirst-poo-and-sickness">Thirst, poo and sickness</a></li>
+<li><a href="#warmth-and-weather">Warmth and weather</a></li>
+<li><a href="#strength">Strength</a></li>
+<li><a href="#ageing-fainting-and-the-rest">Ageing, fainting and the rest</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="creature-physiology">Creature physiology</h1>
+<p>A creature's body lives through time: it gets hungry, tired, thirsty, hot or cold, needs to poo, grows stronger from
+work and fatter from overeating, is healed by sleep and faints when exhausted, starved or out of life. Each species has
+its own rates, from the game's creature tables.</p>
+<p><strong>Progress: 36/53 done, 8 partial — 75%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../creature.html">The creature: groundwork, random streams and what is unknown</a>.</p>
+<h2 id="life-and-damage">Life and damage</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A creature has a life from 0 to 1, shown on the status panel as damage</td>
+<td>partial</td>
+<td><code>creature_physiology::Needs::life</code> (<code>src/Creature/CreaturePhysiology.h</code>); the status panel's damage bar (<code>src/Creature/CreatureStatusPanel</code>) is only used by tests, nothing draws it</td>
+</tr>
+<tr>
+<td>Miracles, fire and thrown things take life away</td>
+<td>todo</td>
+<td>a burning creature takes no harm (<code>src/ECS/Fire/FireObjectTraits.cpp</code>) and a miracle's damage leaves a creature's life alone (<code>src/ECS/Effects/EffectValues.cpp</code>); see <a href="../physics/index.html">../physics</a></td>
+</tr>
+<tr>
+<td>A creature with no life left is knocked out, not killed</td>
+<td>done</td>
+<td>out of life it faints (<code>creature_physiology::ShouldFaint</code>), and <code>CreatureMindSystem</code> knocks it out through <code>CreatureFightSystem::KnockOut</code></td>
+</tr>
+<tr>
+<td>The heal miracle gives life back, and scripts can make a creature unable to die (a killing miracle restores it instead)</td>
+<td>todo</td>
+<td>no heal for creatures and no "can die" switch: <code>DEV_FUNCTION</code> 8 and 9 are not ported (<code>ECS/PlayerCreature.cpp</code>, test <code>PlayerCreatureNativesTest.OtherDevFunctionsAreNotPorted</code>); see <a href="../story/losing_and_game_over.html">../story/losing_and_game_over.md</a></td>
+</tr>
+<tr>
+<td>Sleeping and resting heal it by the species' rate</td>
+<td>done</td>
+<td><code>creature_physiology::SleepTurn</code>, run by <code>CreaturePhysiologySystem</code>; test <code>CreaturePhysiology.SleepHealsAndRestsThenWakes</code></td>
+</tr>
+<tr>
+<td>Fights take a quarter of the fight health lost off the real life</td>
+<td>done</td>
+<td><code>creature_fight::k_LifeLostShare</code> (<code>src/Creature/CreatureFight.h</code>), applied by <code>CreatureFightSystem</code>; see <a href="fighting.html">fighting.md</a></td>
+</tr>
+<tr>
+<td>Low life feeds the wish to rest and get better, and fear and anger from being damaged</td>
+<td>partial</td>
+<td>the body drives the restoring-health source (<code>creature_physiology</code> <code>SourceValue</code>); fear and anger from damage are not driven; see <a href="desires.html">desires.md</a></td>
+</tr>
+<tr>
+<td>A creature only dies for good when a script says so</td>
+<td>partial</td>
+<td><code>CreatureFightSystem::KillPermanently</code> exists, but only the debug spawner calls it; no script native reaches it</td>
+</tr>
+</tbody>
+</table>
+<h2 id="energy-hunger-and-fat">Energy, hunger and fat</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Energy runs down over time at the species' rate; hunger is energy missing</td>
+<td>done</td>
+<td><code>creature_physiology</code> <code>TickTurn</code>, <code>Hunger</code>; test <code>CreaturePhysiology.EnergyRunsDownSlowerForBigOrSleepingCreatures</code></td>
+</tr>
+<tr>
+<td>Bigger creatures use energy more slowly, down to half as fast at size 2, and much more slowly sleeping at home or resting to get better (by the action it carries out)</td>
+<td>done</td>
+<td><code>k_EnergySizeFactor</code>, <code>k_RestingEnergyDivisor</code>, <code>creature_physiology::SlowsEnergy</code>, the action taken from the mind at the body's turn (<code>CreatureMindSystemInterface::CurrentActionOf</code>); tests <code>CreaturePhysiology.EnergyRunsDownSlowerForBigOrSleepingCreatures</code>, <code>CreaturePhysiology.WhichActionsCountAsAsleep</code>, <code>CreaturePhysiologySystemTest.ItGoesByTheActionItsMindCarriesOutAtItsOwnTurn</code></td>
+</tr>
+<tr>
+<td>Below half energy it burns fat, getting thinner</td>
+<td>done</td>
+<td>test <code>CreaturePhysiology.HungryCreaturesBurnFat</code></td>
+</tr>
+<tr>
+<td>Eating fills it by the food's value, up to its size; a big meal pushes energy past full</td>
+<td>done</td>
+<td><code>creature_physiology::Eat</code>, called through <code>CreaturePhysiologySystem::Eat</code> when <code>CreatureObjectActionSystem</code> eats; test <code>CreaturePhysiology.EatingFillsItUpFattensAndBuildsPoo</code></td>
+</tr>
+<tr>
+<td>Overeating makes it fatter by the species' factor</td>
+<td>done</td>
+<td>test <code>CreaturePhysiology.EatingFillsItUpFattensAndBuildsPoo</code></td>
+</tr>
+<tr>
+<td>Fatness shows on the body slowly, a step each turn</td>
+<td>done</td>
+<td>see <a href="appearance.html">appearance.md</a></td>
+</tr>
+<tr>
+<td>Each meal is counted</td>
+<td>done</td>
+<td><code>Needs::meals</code></td>
+</tr>
+<tr>
+<td>What it eats changes it: villagers eaten make it more evil (unconfirmed how), poisoned food makes it sick and holds back its hunger for a while</td>
+<td>todo</td>
+<td>see <a href="feeding_and_thrown_things.html">feeding_and_thrown_things.md</a></td>
+</tr>
+<tr>
+<td>Starving, it faints</td>
+<td>done</td>
+<td><code>creature_physiology::ShouldFaint</code>; test <code>CreaturePhysiology.FaintingOnlyForGrownUpOwnedCreatures</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="tiredness-and-sleep">Tiredness and sleep</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Moving tires it at the species' rate; young creatures up to four times faster, less as they age</td>
+<td>done</td>
+<td>test <code>CreaturePhysiology.MovingTiresYoungAndHungryCreaturesFaster</code></td>
+</tr>
+<tr>
+<td>Walking with too little energy tires it faster still</td>
+<td>done</td>
+<td>test <code>CreaturePhysiology.MovingTiresYoungAndHungryCreaturesFaster</code></td>
+</tr>
+<tr>
+<td>Actions cost energy and tiredness by the table, less for bigger creatures</td>
+<td>done</td>
+<td><code>creature_physiology::ApplyActionCost</code>, through <code>CreaturePhysiologySystem</code>; test <code>CreaturePhysiology.ActionsCostEnergyAndBuildStrength</code></td>
+</tr>
+<tr>
+<td>Casting miracles costs energy and tires it</td>
+<td>todo</td>
+<td>the creature casts no miracle; see <a href="creature_casting.html">creature_casting.md</a></td>
+</tr>
+<tr>
+<td>Exhausted, it moves only slowly</td>
+<td>done</td>
+<td>test <code>CreatureLocomotion.ExhaustedCreaturesGoSlowly</code></td>
+</tr>
+<tr>
+<td>Asleep it rests at the species' rate; it never wakes in the first few turns, wakes fully rested in the day or nearly rested after sleeping long enough for its size and the day's length</td>
+<td>done</td>
+<td><code>creature_physiology::SleepTurn</code>, <code>LongEnoughAsleep</code> (the day from <code>DayNightClock::GetDuration</code>); tests <code>CreaturePhysiology.SleepHealsAndRestsThenWakes</code>, <code>CreaturePhysiologySystemTest.HowLongItSleepsFollowsTheDaysLengthOnTheClock</code></td>
+</tr>
+<tr>
+<td>Sitting rests it a fifth as much as sleep</td>
+<td>done</td>
+<td><code>creature_physiology::SitTurn</code>, through <code>CreaturePhysiologySystem::Sit</code>, which the mind calls once a turn while the body plays the sit loop (<code>CreatureNeeds::sitting</code>); tests <code>CreaturePhysiology.SittingRestsAFifthAsMuchAsSleep</code>, <code>CreaturePhysiologySystemTest.SittingRestsItAFifthAsMuchAsSleep</code></td>
+</tr>
+<tr>
+<td>Night makes it sleepy</td>
+<td>partial</td>
+<td>the body drives the night tiredness source from the sky's clock (<code>SourceValue</code>); see <a href="desires.html">desires.md</a></td>
+</tr>
+<tr>
+<td>Fully exhausted, it faints</td>
+<td>done</td>
+<td><code>creature_physiology::ShouldFaint</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="thirst-poo-and-sickness">Thirst, poo and sickness</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Thirst builds up over the species' time to dehydrate, once grown enough, the turns cut to whole numbers</td>
+<td>done</td>
+<td>tests <code>CreaturePhysiology.ThirstBuildsUpOnceGrownEnough</code>, <code>TheTurnsToDehydrateAreCutToWholeNumbers</code></td>
+</tr>
+<tr>
+<td>Drinking quenches it fully and cools it to 0, putting out a fire on it</td>
+<td>done</td>
+<td><code>creature_physiology::Drink</code> and the fire system's <code>SetTemperature</code>, from the mind's <code>DrinkFromTheSea</code> (<code>CreatureMindSystem</code>); test <code>CreaturePhysiologySystemTest.DrinkingQuenchesItAndCoolsItToZero</code></td>
+</tr>
+<tr>
+<td>Eating builds up poo by the energy gained</td>
+<td>done</td>
+<td><code>creature_physiology::Eat</code>; test <code>CreaturePhysiology.EatingFillsItUpFattensAndBuildsPoo</code></td>
+</tr>
+<tr>
+<td>Having a poo empties it and leaves a lump on the ground behind it, sized by the creature</td>
+<td>partial</td>
+<td><code>CreaturePhysiologySystem::Poo</code> makes a lump of poo behind it, sized by the creature; the game throws the lump back along the ground, here it is set down there</td>
+</tr>
+<tr>
+<td>Being sick throws drops from its mouth that lie on the land a while and fade</td>
+<td>done</td>
+<td><code>CreaturePhysiologySystem::Puke</code></td>
+</tr>
+<tr>
+<td>Illness, from the ill spell or bad food, makes it want to be sick</td>
+<td>partial</td>
+<td>the ill spell drives the illness desire (<code>creature_spells</code>, <code>src/Creature/CreatureSpells.cpp</code>; see <a href="../miracles/index.html">../miracles</a>); illness from food is todo</td>
+</tr>
+<tr>
+<td>Itchiness makes it want to scratch; only the itchy spell makes it itch</td>
+<td>done</td>
+<td><code>Needs::itchiness</code> and the itchy spell in <code>src/Creature/CreatureSpells.cpp</code></td>
+</tr>
+<tr>
+<td>The creature can get high, which makes its eyes stoned and its desires odd; eating magic mushrooms and toadstools causes it</td>
+<td>todo</td>
+<td>see <a href="feeding_and_thrown_things.html">feeding_and_thrown_things.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="warmth-and-weather">Warmth and weather</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Warmth follows how far the temperature where it stands is from what its species likes, through the game's sigmoid</td>
+<td>done</td>
+<td>test <code>CreaturePhysiology.WarmthFollowsTheSigmoidOfTheTemperature</code>; the temperature from <code>weather::GetTemperatureAt</code> (<code>CreaturePhysiologySystem.cpp</code>)</td>
+</tr>
+<tr>
+<td>Too cold it wants to get warmer and shivers; too hot it wants to get colder and shows it</td>
+<td>partial</td>
+<td>the sources are driven; <code>Shiver</code> and <code>ShowHotness</code> are plan actions (<code>src/Creature/CreaturePlanActions.cpp</code>), see <a href="object_actions.html">object_actions.md</a></td>
+</tr>
+<tr>
+<td>Fire on or near it warms it, and water cools it (unconfirmed)</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="strength">Strength</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Carrying heavy things while moving makes it stronger</td>
+<td>done</td>
+<td>test <code>CreaturePhysiology.CarryingMakesItStronger</code></td>
+</tr>
+<tr>
+<td>Actions add strength by the table</td>
+<td>done</td>
+<td>test <code>CreaturePhysiology.ActionsCostEnergyAndBuildStrength</code></td>
+</tr>
+<tr>
+<td>Strength fades over time at the species' rate (unconfirmed)</td>
+<td>partial</td>
+<td><code>Species::strengthDecay</code> is read from the species' row and applied (<code>src/Creature/CreaturePhysiology.cpp</code>); whether as the game does is unconfirmed</td>
+</tr>
+<tr>
+<td>Strength shows on the body as weak or strong</td>
+<td>done</td>
+<td>see <a href="appearance.html">appearance.md</a></td>
+</tr>
+<tr>
+<td>Strength sets how heavy a thing it can pick up</td>
+<td>todo</td>
+<td>see <a href="object_actions.html">object_actions.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="ageing-fainting-and-the-rest">Ageing, fainting and the rest</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It ages a tick per species' length of game time, counted in whole turns a second</td>
+<td>done</td>
+<td>tests <code>CreaturePhysiology.ItAgesOncePerTickOfGameTime</code>, <code>CreaturePhysiology.ItsAgeTickCountsWholeTurnsASecond</code></td>
+</tr>
+<tr>
+<td>A new creature starts with its species' energy and warmth</td>
+<td>done</td>
+<td><code>creature_physiology::Start</code>; test <code>CreaturePhysiology.ANewBodyStartsFromItsSpecies</code></td>
+</tr>
+<tr>
+<td>Before the first stages of growing up the body only counts its turns, which count towards its age</td>
+<td>done</td>
+<td>tests <code>CreaturePhysiology.OnlyItsTurnsAreCountedBeforeTheBodyStage</code>, <code>CreaturePhysiology.TurnsBeforeTheBodyStageCountTowardsItsAge</code></td>
+</tr>
+<tr>
+<td>Only creatures owned by a player and grown far enough faint, never one a script controls or the computer's</td>
+<td>done</td>
+<td><code>creature_physiology::ShouldFaint</code> with <code>FaintGates</code>; tests <code>CreaturePhysiology.FaintingOnlyForGrownUpOwnedCreatures</code>, <code>CreaturePhysiologySystemTest.OnlyACreatureNoScriptControlsAndNoComputerPlaysFaints</code>; nothing sets the computer's player type yet</td>
+</tr>
+<tr>
+<td>Fainted, it lies still, is carried to its pen and comes round no longer quite exhausted, starved or parched</td>
+<td>done</td>
+<td><code>CreaturePhysiologySystem::WakeFromFaint</code>; <code>CreatureFightSystem</code> carries a knocked-out creature home; see <a href="home_and_pen.html">home_and_pen.md</a></td>
+</tr>
+<tr>
+<td>How far a creature sees depends on its size</td>
+<td>done</td>
+<td><code>src/Creature/CreatureLook</code> range, used by <code>CreatureMindSystem</code>; see <a href="idle_behaviour.html">idle_behaviour.md</a></td>
+</tr>
+<tr>
+<td>The body drives the desire sources: hunger, tiredness, thirst, poo, warmth, itch, health</td>
+<td>done</td>
+<td><code>SourceValue</code>; tests <code>CreaturePhysiology.TheBodyDrivesItsDesireSources</code>, <code>LeftAloneItsBodyDrivesItsHungerThirstAndPoo</code></td>
+</tr>
+<tr>
+<td>Each species has its own rates from the game's tables</td>
+<td>done</td>
+<td><code>CreaturePhysiologySystem</code> reads the species' row of the creature tables (<code>src/InfoConstants.h</code>)</td>
+</tr>
+<tr>
+<td>Scripts can read and set the body's values (warmth, fatness, energy, itchiness, poo, exhaustion, thirst, fight health)</td>
+<td>todo</td>
+<td><code>GET_PROPERTY</code> and <code>SET_PROPERTY</code> have no creature properties (<code>src/CHLApi.cpp</code>)</td>
+</tr>
+<tr>
+<td>The body is saved with the game</td>
+<td>todo</td>
+<td>no saved games; see <a href="../engine/index.html">../engine</a></td>
+</tr>
+<tr>
+<td>The debug spawner shows and sets every value</td>
+<td>done</td>
+<td><code>src/Debug/CreatureSpawnerBody.cpp</code> (openblack only)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Debug windows — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="here" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#debug-windows">Debug windows</a><ul>
+<li><a href="#menu-bar">Menu bar</a></li>
+<li><a href="#windows">Windows</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="debug-windows">Debug windows</h1>
+<p>openblack's own debug interface: the menu bar along the top of the screen and the windows it opens, for looking inside
+the game while it runs. None of this is in the original game; it is tracked because it is part of openblack's progress.
+The creature tools, the testbed, the editor and the diagnostics have their own files.</p>
+<p><strong>Progress: 22/31 done, 8 partial — 84%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../openblack-internals.html">openblack internals</a>.</p>
+<h2 id="menu-bar">Menu bar</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The debug interface is drawn with Dear ImGui over the game, in its own render view</td>
+<td>done</td>
+<td><code>src/Debug/Gui.cpp</code></td>
+</tr>
+<tr>
+<td>Load a story land, a playground land or the creature testbed from the menu, with each land's description</td>
+<td>partial</td>
+<td>"Load Island" with "Story Islands" and "Playground Islands" (<code>src/Debug/Gui.cpp</code>); no creature testbed in our tree</td>
+</tr>
+<tr>
+<td>Set the time of day and the player's alignment, and read the sky's and camera's alignment</td>
+<td>partial</td>
+<td>"World" menu: time of day, visual time, sky type, a sky alignment slider and the detail level (<code>src/Debug/Gui.cpp</code>); a player's alignment is set in the Temple window (<code>src/Debug/Temple.cpp</code>); the camera's alignment is not shown</td>
+</tr>
+<tr>
+<td>Open the editor (F2) and each debug window</td>
+<td>done</td>
+<td>"Debug" menu: "Editor" (F2) and "Windows"</td>
+</tr>
+<tr>
+<td>Show villagers' names, details and states over them, with a debug view</td>
+<td>done</td>
+<td>"Villager Names" menu (<code>config.showVillagerNames</code>, <code>debugVillagerStates</code>, <code>debugVillagerNames</code>)</td>
+</tr>
+<tr>
+<td>Turn the sky, water, land, objects and sprites on and off; wireframe, bounding boxes, footpaths and streams; an overlay of the game's detail settings</td>
+<td>done</td>
+<td>"View" menu, with the game detail overlay</td>
+</tr>
+<tr>
+<td>Switch the hand between right and left handed</td>
+<td>todo</td>
+<td>no hand menu in our debug bar</td>
+</tr>
+<tr>
+<td>Change and reset the field of view</td>
+<td>done</td>
+<td>"Field of View" menu</td>
+</tr>
+<tr>
+<td>Slow down or speed up the game, by presets or a multiplier</td>
+<td>done</td>
+<td>"Game Speed" menu (presets and a multiplier)</td>
+</tr>
+<tr>
+<td>Take a screenshot to a file</td>
+<td>done</td>
+<td>"Capture" menu</td>
+</tr>
+<tr>
+<td>Quit, and the frame rate shown on the bar</td>
+<td>done</td>
+<td>"Quit" and the frame rate on the bar (<code>src/Debug/Gui.cpp</code>)</td>
+</tr>
+<tr>
+<td>The system cursor stays hidden; the game's hand or pointer shows over the debug windows</td>
+<td>done</td>
+<td>the system cursor is hidden (<code>src/Windowing/Sdl2WindowingSystem.cpp</code>); the game's hand or pointer shows (<code>src/Gui/GameInterface.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="windows">Windows</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Profiler: the frame's CPU and GPU stages, with the draw toggles</td>
+<td>done</td>
+<td><code>src/Debug/Profiler.cpp</code></td>
+</tr>
+<tr>
+<td>Mesh pack viewer: every mesh with its bounding box, skeleton and animations, and spawning it</td>
+<td>done</td>
+<td><code>src/Debug/MeshViewer.cpp</code></td>
+</tr>
+<tr>
+<td>Texture viewer: every texture of the packs</td>
+<td>done</td>
+<td><code>src/Debug/TextureViewer.cpp</code></td>
+</tr>
+<tr>
+<td>Console: the log, and land script commands typed in with completion and history; what is under the mouse</td>
+<td>done</td>
+<td><code>src/Debug/Console.cpp</code> (completion and history)</td>
+</tr>
+<tr>
+<td>Land: block and country counts, the small bump strength, and dumping the land's textures and height map</td>
+<td>done</td>
+<td><code>src/Debug/LandIsland.cpp</code></td>
+</tr>
+<tr>
+<td>Path finding: send a picked villager somewhere by teleport, straight walk or footpath</td>
+<td>done</td>
+<td><code>src/Debug/PathFinding.cpp</code></td>
+</tr>
+<tr>
+<td>Audio: every sound and music pack to play, the emitters, the voice banks, and the ambient loops, one-shots, climates and storms</td>
+<td>done</td>
+<td>the Audio Player (<code>src/Debug/Audio.cpp</code>: Sound, Music and Channels tabs, the game sound and music switches), Audio banks (<code>src/Debug/AudioBanks.cpp</code>); the ambience's climates and storms in the Weather window</td>
+</tr>
+<tr>
+<td>Temple: go to each room of the temple</td>
+<td>done</td>
+<td><code>src/Debug/Temple.cpp</code></td>
+</tr>
+<tr>
+<td>Camera: run the game's camera paths</td>
+<td>done</td>
+<td><code>src/Debug/Camera.cpp</code></td>
+</tr>
+<tr>
+<td>Weather: force rain, snow and storms over the island from presets or by hand</td>
+<td>done</td>
+<td><code>src/Debug/Weather.cpp</code> (presets, "Made to measure", "Storms")</td>
+</tr>
+<tr>
+<td>Magic: running miracles, any miracle cast or powered up, prayer power, dispensers and bubbles, creatures' spells, particles</td>
+<td>done</td>
+<td><code>src/Debug/Magic.cpp</code> ("Miracle", "All miracles", "Particles"), <code>src/Debug/Miracles.cpp</code>, <code>MiraclesCaster.cpp</code>, <code>src/Debug/Vortices.cpp</code></td>
+</tr>
+<tr>
+<td>Gestures: the path drawn, its best template and score, drawing or sending gestures</td>
+<td>partial</td>
+<td><code>src/Debug/Gestures.cpp</code>: the path over the screen, what is looked for, the templates that match now and the last one recognised, and "Draw it" plays a template's stroke through the recogniser; no score is shown</td>
+</tr>
+<tr>
+<td>Key bindings: every action, its binding and whether it is built yet; rebinding and pressing actions</td>
+<td>partial</td>
+<td><code>src/Debug/KeyBindingsWindow.cpp</code> lists every action with its key and mouse binding, whether it is held, and bindings two actions share; it does not rebind or press actions, nor say whether one is built (the action map can be rebound in memory, <code>src/Input/GameActionMap.cpp</code>)</td>
+</tr>
+<tr>
+<td>A music window showing the land's music, its tracks and what plays next</td>
+<td>done</td>
+<td>the Music window (<code>src/Debug/Music.cpp</code>): the main volume, the six channels, a player for any music type and the game music's state</td>
+</tr>
+<tr>
+<td>A window of a land's game state hash, to check two runs stay the same</td>
+<td>partial</td>
+<td>the per-turn state hash is written to a file with <code>OPENBLACK_STATE_HASH</code> (<code>src/Debug/StateHash.cpp</code>); no window shows it</td>
+</tr>
+<tr>
+<td>A fixed clock for running the game turn by turn at a set rate</td>
+<td>done</td>
+<td><code>OPENBLACK_FIXED_FRAME_MS</code> (<code>src/Debug/FixedClock.cpp</code>)</td>
+</tr>
+<tr>
+<td>Memory use by system</td>
+<td>partial</td>
+<td>the process and graphics memory are logged with <code>OPENBLACK_PROFILE</code> (<code>src/Debug/MemoryStats.cpp</code>); not by system and not in a window</td>
+</tr>
+<tr>
+<td>A window for the help system, the advisors and their messages</td>
+<td>partial</td>
+<td>the Consciences window (<code>src/Debug/Consciences.cpp</code>): the good and evil advisors' state, clips, voices and the help's message sets; no window for the rest of the help system</td>
+</tr>
+<tr>
+<td>A window for the land scripts' challenges, their state and their scrolls</td>
+<td>partial</td>
+<td>the Scripts window (<code>src/Debug/Scripts.cpp</code>, the editor's script panel) shows the running tasks (<a href="script_debugger.html">script_debugger.md</a>), not challenges as such</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

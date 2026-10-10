@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Info tables — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="here" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#info-tables">Info tables</a><ul>
+<li><a href="#loading">Loading</a></li>
+<li><a href="#magic">Magic</a></li>
+<li><a href="#creatures">Creatures</a></li>
+<li><a href="#people-and-towns">People and towns</a></li>
+<li><a href="#nature-and-objects">Nature and objects</a></li>
+<li><a href="#help-sound-and-play">Help, sound and play</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="info-tables">Info tables</h1>
+<p>Almost every number behind Black &amp; White's objects, from a tree's wood to a miracle's cost or a creature's desires,
+comes from one file of tables, <code>Scripts/info.dat</code>, loaded once when the game starts. The scripts' constant names come
+from the same tables. A table is counted done here only when openblack reads it and its systems use it; how well each
+system follows it is in that system's own domain.</p>
+<p><strong>Progress: 7/36 done, 24 partial — 53%</strong></p>
+<h2 id="loading">Loading</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The tables are read once at start from the info file and shared by the whole game</td>
+<td>done</td>
+<td><code>src/Parsers/InfoFile.cpp</code>, <code>Locator::infoConstants</code>, <code>Game::Initialize</code></td>
+</tr>
+<tr>
+<td>Each table's layout matches the game's, field by field</td>
+<td>partial</td>
+<td><code>src/InfoConstants.h</code>; many fields are still unnamed</td>
+</tr>
+<tr>
+<td>Things are looked up in the tables by their type names, ignoring case; an unknown name is logged and skipped</td>
+<td>done</td>
+<td>the info tables' lookups by name, case-insensitive (<code>src/InfoConstants.cpp</code>), as CREATE_ABODE and CREATE_FEATURE use them</td>
+</tr>
+<tr>
+<td>The script language's constant names for objects and types come from the tables</td>
+<td>done</td>
+<td><code>components/lhvmlang</code> (<code>ChlConstants.cpp</code>); test <code>ChlLanguage.ConstantsFromInfoTables</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="magic">Magic</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each miracle's general table (cost, timers, gestures, cast type, power-ups, hold)</td>
+<td>done</td>
+<td><code>src/Magic</code>; tests <code>test/test_magic_tables.cpp</code>, <code>test/test_spell_chants.cpp</code>; see ../miracles/</td>
+</tr>
+<tr>
+<td>Each miracle family's own table (heal, teleport, forest, food, storm and tornado, shields, wood, water, flocks, creature spells)</td>
+<td>partial</td>
+<td>read; used miracle by miracle, see ../miracles/</td>
+</tr>
+<tr>
+<td>Magic effects and spell seeds (the orbs in the hand and the one-shot ones)</td>
+<td>done</td>
+<td>test <code>test/test_magic_tables.cpp</code>; see ../miracles/</td>
+</tr>
+<tr>
+<td>Spot visuals and effects</td>
+<td>partial</td>
+<td>the spot visuals' table is used by <code>psys::manager::CreateSpotVisual</code> (<code>src/Particles/PSysManager.cpp</code>); see ../rendering/</td>
+</tr>
+<tr>
+<td>Map shields and spell icons</td>
+<td>partial</td>
+<td>the spell icons' table is used by <code>src/Worship/WorshipSpellIcon.cpp</code> and <code>TownCentreSpellIcon.cpp</code>, the map shields' by <code>src/ECS/Physics/PhysicsObjects.cpp</code> only</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creatures">Creatures</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each species' table and the differences between species</td>
+<td>partial</td>
+<td>the species tables are used widely; the per-species differences table is unused; see ../creature/</td>
+</tr>
+<tr>
+<td>Creature actions and the desire tables (desires, sources, dependencies, attributes, starting values)</td>
+<td>partial</td>
+<td>used by the creature's mind (<code>src/Creature</code>); see ../creature/desires.md</td>
+</tr>
+<tr>
+<td>Development phases and their lengths</td>
+<td>partial</td>
+<td>the phases are used by <code>CreatureMindSystem</code>; the durations table is unused; see ../creature/</td>
+</tr>
+<tr>
+<td>Actions the creature copies from the player</td>
+<td>partial</td>
+<td>read by <code>src/Creature/CreatureMindTables.cpp</code>; see ../creature/</td>
+</tr>
+<tr>
+<td>Creature pens</td>
+<td>todo</td>
+<td>read, not used</td>
+</tr>
+</tbody>
+</table>
+<h2 id="people-and-towns">People and towns</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Abodes, town centres and storage pits</td>
+<td>partial</td>
+<td>used for building and placing them (<code>src/ECS/Abodes.cpp</code>, <code>src/ECS/Archetypes</code>); see ../building/</td>
+</tr>
+<tr>
+<td>Villagers, their tribes and their state table (animations and flags per state)</td>
+<td>partial</td>
+<td>the villagers' and tribes' tables and the state table are used (<code>src/ECS/VillagerAnimations.cpp</code>, <code>VillagerSpeed.cpp</code>, <code>MobileDrawing.cpp</code>); see ../villager/</td>
+</tr>
+<tr>
+<td>Special villagers</td>
+<td>todo</td>
+<td>read, not used</td>
+</tr>
+<tr>
+<td>Jobs</td>
+<td>todo</td>
+<td>read, not used; see ../villager/</td>
+</tr>
+<tr>
+<td>The town, its desires and belief</td>
+<td>partial</td>
+<td><code>src/ECS/Town</code> (desires, belief); see ../town/</td>
+</tr>
+<tr>
+<td>Worship sites, prayer sites and icons, worship site upgrades</td>
+<td>partial</td>
+<td>worship sites used (<code>src/Worship/WorshipSite.cpp</code>); prayer sites, icons and upgrades not; see ../worship/</td>
+</tr>
+<tr>
+<td>Alignment, influence, the player and reactions</td>
+<td>partial</td>
+<td>used (<code>src/ECS/Effects/Alignment.cpp</code>, <code>src/ECS/Influence</code>, <code>src/ECS/Effects/Reactions.cpp</code>); see ../worship/</td>
+</tr>
+<tr>
+<td>Dances</td>
+<td>todo</td>
+<td>read, not used</td>
+</tr>
+<tr>
+<td>Totem statues</td>
+<td>partial</td>
+<td>read by <code>src/ECS/Archetypes/AbodeArchetype.cpp</code> when the totem is made; the totem's own behaviour: see ../worship/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="nature-and-objects">Nature and objects</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Trees, big forests and flowers</td>
+<td>partial</td>
+<td>trees and big forests used (<code>src/ECS/Trees.cpp</code>, <code>BigForestArchetype.cpp</code>); the flowers' table is not; see ../nature/</td>
+</tr>
+<tr>
+<td>Features, animated statics, mobile objects and mobile statics</td>
+<td>partial</td>
+<td>used to create and draw them (<code>src/ECS/Archetypes</code>, <code>src/CHLApi.cpp</code>); see ../nature/ and ../physics/</td>
+</tr>
+<tr>
+<td>Pots of food and wood</td>
+<td>partial</td>
+<td>used widely (<code>src/ECS/PotResource.cpp</code>, <code>ObjectDelivery.cpp</code>); see ../resources/</td>
+</tr>
+<tr>
+<td>Fields, field types and fish farms</td>
+<td>partial</td>
+<td>fields (<code>src/ECS/Fields.cpp</code>) and fish farms (<code>src/ECS/FishFarms.cpp</code>) used; see ../resources/</td>
+</tr>
+<tr>
+<td>Animals and their state table</td>
+<td>partial</td>
+<td>the animals' table and their state table used (<code>src/ECS/AnimalAI.cpp</code>, <code>AnimalFlee.cpp</code>); see ../animal/</td>
+</tr>
+<tr>
+<td>Furniture, scaffolds and single-cell fixed objects</td>
+<td>partial</td>
+<td>the scaffolds' table used (<code>src/ECS/Scaffolds.cpp</code>); furniture and single-cell fixed objects read, not used</td>
+</tr>
+<tr>
+<td>Terrain materials (what each ground type does to objects and sounds)</td>
+<td>partial</td>
+<td>used for the surface sounds (<code>src/ECS/SeaCells.cpp</code>), the forest miracle and the storm; see ../terrain/</td>
+</tr>
+<tr>
+<td>Weather climates</td>
+<td>done</td>
+<td><code>src/ECS/Weather/Climate.cpp</code>; see ../weather/</td>
+</tr>
+<tr>
+<td>Speed thresholds</td>
+<td>partial</td>
+<td>used to pick the walking clips (<code>src/ECS/VillagerAnimations.cpp</code>, <code>AnimalAnimations.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="help-sound-and-play">Help, sound and play</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The help system, help spirits and help sprite guidance</td>
+<td>partial</td>
+<td>the help system's table and the help sprite guidance used (<code>src/Help/HelpSystem.cpp</code>, <code>src/Game.cpp</code>); the help spirits' table is not; see ../interface/</td>
+</tr>
+<tr>
+<td>The sound table</td>
+<td>done</td>
+<td>used by the audio (<code>src/Audio/Services/SoundMap.cpp</code>, the town trigger distances in <code>src/Game.cpp</code>); see ../audio/</td>
+</tr>
+<tr>
+<td>Arrows, script highlights and showing a town's needs</td>
+<td>partial</td>
+<td>script highlights (<code>src/ECS/ScriptHighlight.cpp</code>) and the town's needs (<code>src/ECS/ShowNeeds.cpp</code>) used; the arrows' table is not</td>
+</tr>
+<tr>
+<td>The ball, football and playtime tables for the creature's games</td>
+<td>todo</td>
+<td>read, not used; see ../creature/</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

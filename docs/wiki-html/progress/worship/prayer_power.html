@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prayer power — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="here" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#prayer-power">Prayer power</a><ul>
+<li><a href="#making-it">Making it</a></li>
+<li><a href="#spending-it">Spending it</a></li>
+<li><a href="#sacrifice">Sacrifice</a></li>
+<li><a href="#cheats">Cheats</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="prayer-power">Prayer power</h1>
+<p>The magic the worshippers make. Each worship site stores it in a battery that its dancers fill, and the miracles draw on
+it to be summoned, kept going and powered up.</p>
+<p><strong>Progress: 12/22 done, 5 partial — 66%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../magic.html">Magic: the core of the miracles</a>.</p>
+<h2 id="making-it">Making it</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each dancer chants a set amount a turn, from its tribe's worship site table</td>
+<td>done</td>
+<td><code>worship::site::Capacity</code> (<code>src/Worship/WorshipSite.cpp</code>): dancers times the tribe's chants per villager; test <code>WorshipTest.CapacityAndBattery</code></td>
+</tr>
+<tr>
+<td>The player's tribal power multiplies what is chanted; all sites use the same multiplier</td>
+<td>partial</td>
+<td>the capacity multiplies by the player's tribal power (<code>players::MagicOf(player).tribalPower</code>, the same entry for every site), but nothing works the tribal powers out: they stay 1</td>
+</tr>
+<tr>
+<td>The battery's size is its tribe's base plus a share for each dancer</td>
+<td>done</td>
+<td><code>site::MaxBattery</code>: the tribe's battery plus a share per dancer; test <code>WorshipTest.CapacityAndBattery</code></td>
+</tr>
+<tr>
+<td>An idle site fills its battery up to its size</td>
+<td>done</td>
+<td>the end of the site's turn refills it with the boost (<code>site::ProcessSpellIcons</code>, <code>src/Worship/WorshipSite.cpp</code>, through the rule <code>magic::EndWorshipTurn</code>, <code>src/Magic/WorshipBattery.cpp</code>); tests <code>WorshipTest.EndOfTurnDanceIntensityAndBattery</code>, <code>WorshipBattery.idleSiteFillsItsBattery</code></td>
+</tr>
+<tr>
+<td>The dance speeds up as more is drawn and slows as the battery fills</td>
+<td>partial</td>
+<td>the intensity is worked out each turn (<code>magic::EndWorshipTurn</code>, <code>src/Magic/WorshipBattery.cpp</code>, then <code>site::SetDanceIntensity</code>; test <code>WorshipBattery.drawingSpeedsTheDanceAndDrainsTheBattery</code>), but nothing plays the dance faster (<code>danceSpeed</code> is not read) and the dancers stand</td>
+</tr>
+<tr>
+<td>Demand beyond what the dancers can give is strain, which stops the icons charging</td>
+<td>done</td>
+<td><code>site::ProcessSpellIcons</code>: with strain above 0 the icons get nothing; test <code>WorshipTest.StrainIsDemandOverCapacity</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="spending-it">Spending it</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Summoning a miracle from an icon charges its cost to create from the site</td>
+<td>done</td>
+<td><code>icon::StartCharge</code> and the share each turn (<code>src/Worship/WorshipSpellIcon.cpp</code>), charged to the site (<code>site::UseChants</code>)</td>
+</tr>
+<tr>
+<td>A running miracle draws its upkeep each turn, topping itself up to its safety level</td>
+<td>done</td>
+<td>a spell whose creator is an icon is kept going by its site (<code>creator::MaintainSpell</code>, <code>src/Magic/Core/SpellCreator.cpp</code>, to <code>icon::MaintainSpell</code>)</td>
+</tr>
+<tr>
+<td>The icons charge between uses, sharing evenly what the site can give</td>
+<td>done</td>
+<td><code>site::ProcessSpellIcons</code>: the lesser of available and needed, split between the charging icons</td>
+</tr>
+<tr>
+<td>A reserve is kept for miracles already cast while any icon's seed is out</td>
+<td>done</td>
+<td><code>site::AvailableForIcons</code>; the reserve is the info.dat integer read as a float, so about 0, as the original; test <code>WorshipTest.ReserveForMaintainingIsTheInfoDatBug</code></td>
+</tr>
+<tr>
+<td>A seed dropped or shaken off gives back what it holds to its site</td>
+<td>done</td>
+<td><code>worship::ReturnSeedToItsSite</code> and <code>ApplySeedToObject</code> (<code>src/Worship/Worship.cpp</code>): the seed's chants back into the battery</td>
+</tr>
+<tr>
+<td>Powering a miracle up costs more; any surplus goes back to the site</td>
+<td>done</td>
+<td><code>seed::SetPowerUp</code> (<code>src/Magic/Core/SpellSeed.cpp</code>): a charge above the level's cost goes back to the site</td>
+</tr>
+<tr>
+<td>Scripts' miracles (the neutral player's) cost nothing</td>
+<td>done</td>
+<td>the neutral player gives what is asked (<code>creator::MaintainSpell</code>, <code>src/Magic/Core/SpellCreator.cpp</code>)</td>
+</tr>
+<tr>
+<td>The prayer power the player has is shown (in the temple and on the icons)</td>
+<td>partial</td>
+<td>the charge ring over a charging icon (<code>icon::UpdateChargingVisual</code>, <code>src/Worship/WorshipSpellIcon.cpp</code>); nothing shows it in the temple; see <code>../interface/</code></td>
+</tr>
+<tr>
+<td>The player's statistics count the prayer power used</td>
+<td>done</td>
+<td><code>site::UseChants</code> adds to the player's <code>chantsUsed</code>, written by the statistics (<code>src/Game/GameStats.cpp</code>); <a href="../interface/statistics_counted.html">../interface/statistics_counted.md</a></td>
+</tr>
+<tr>
+<td>Prayer power can pay for influence away from the citadel (unconfirmed how it's used in the story)</td>
+<td>todo</td>
+<td>the virtual influence is not ported (<code>SET_VIRTUAL_INFLUENCE</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="sacrifice">Sacrifice</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A living thing dropped on the site's altar is sacrificed for prayer power</td>
+<td>todo</td>
+<td>a worship totem does not take a held villager or animal yet (<code>src/ECS/HeldApply.cpp</code>, <code>src/ECS/Systems/Implementations/HandApplyToObject.cpp</code>); Land 2's sacrifice quest: <a href="../story/silver_scrolls/the_sacrifice.html">the_sacrifice.md</a></td>
+</tr>
+<tr>
+<td>What a sacrifice gives is its kind's sacrifice value, from half to all of it by how much life it has left (unconfirmed that the scale is its life)</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Sacrifice is an evil deed and moves the player's alignment</td>
+<td>todo</td>
+<td>see <a href="alignment.html">alignment</a></td>
+</tr>
+<tr>
+<td>Scripts can read a player's sacrifice total</td>
+<td>todo</td>
+<td><code>GET_SACRIFICE_TOTAL</code> is a stub in <code>src/CHLApi.cpp</code>; used by <a href="../story/silver_scrolls/the_sacrifice.html">The Sacrifice</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="cheats">Cheats</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Infinite prayer power</td>
+<td>partial</td>
+<td>each site's infinite flag (<code>WorshipSite::infiniteChants</code>, read by <code>site::Available</code>), set from the debug Miracles window (<code>src/Debug/Miracles.cpp</code>); test <code>WorshipTest.InfiniteChantsCheat</code></td>
+</tr>
+<tr>
+<td>Free upkeep for running miracles</td>
+<td>partial</td>
+<td>each site's free maintenance flag (<code>site::MaintainSpell</code>), set from the debug Miracles window</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

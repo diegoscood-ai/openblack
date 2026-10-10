@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Decision making — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="here" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#decision-making">Decision making</a><ul>
+<li><a href="#planning">Planning</a></li>
+<li><a href="#agendas-and-steps">Agendas and steps</a></li>
+<li><a href="#when-things-go-wrong">When things go wrong</a></li>
+<li><a href="#control-by-scripts-and-the-computer-gods">Control by scripts and the computer gods</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="decision-making">Decision making</h1>
+<p>How a creature decides what to do next: it plans for its desires, picks the thing to act on and the action to take,
+turns the action into an agenda of small steps, carries them out, and copes when they fail. Scripts and the computer
+gods can also take control of a creature.</p>
+<p><strong>Progress: 18/63 done, 21 partial — 45%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../creature.html">The creature: groundwork, random streams and what is unknown</a>.</p>
+<h2 id="planning">Planning</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each desire gets a plan: a thing to act on (the goal) and an action to take</td>
+<td>done</td>
+<td><code>creature_planner::PlanDesire</code> (<code>src/Creature/CreaturePlanner.h</code>) from <code>CreatureMindSystem::PlanCreature</code> (<code>CreatureMindLearning.cpp</code>); test <code>CreaturePlanner.PlansTheMostUsefulGoal</code></td>
+</tr>
+<tr>
+<td>A couple of desires are planned again each turn, going round the ones that can be planned</td>
+<td>done</td>
+<td><code>creature_planner::NextGoals</code> (two a turn) in <code>CreatureMindSystem::PlanTurn</code>; test <code>CreaturePlanner.GoesRoundTheEligibleDesires</code></td>
+</tr>
+<tr>
+<td>The goal is the thing the creature has learnt is most useful for the desire, the nearer the better, up to 200 away</td>
+<td>done</td>
+<td><code>creature_planner::DistancePriority</code>, <code>k_MaxGoalDistance</code> in <code>mind_detail::Gather</code>, the trees through <code>Usefulness</code> in <code>CreatureMindLearning.cpp</code>; test <code>CreaturePlanner.DistancePriority</code></td>
+</tr>
+<tr>
+<td>Something it already holds is preferred as a goal</td>
+<td>done</td>
+<td><code>creature_planner::k_HeldPriority</code> (1.6), <code>held</code> set in <code>PlanCreature</code></td>
+</tr>
+<tr>
+<td>A thing it knows nothing about is worth a little</td>
+<td>done</td>
+<td><code>creature_planner::k_DefaultUsefulness</code> (0.1)</td>
+</tr>
+<tr>
+<td>Among the actions that satisfy the desire, its opinion of each decides</td>
+<td>done</td>
+<td><code>creature_planner::ActionPriority</code>; test <code>CreaturePlanner.OpinionBreaksTies</code></td>
+</tr>
+<tr>
+<td>An action not done for a long time gets a little extra novelty</td>
+<td>done</td>
+<td><code>creature_planner::Novelty</code>, <code>k_NoveltyTurns</code>; test <code>CreaturePlanner.ActionPriorityAndNovelty</code></td>
+</tr>
+<tr>
+<td>A plan's priority is the desire's strength times how useful the goal, action and things used are</td>
+<td>done</td>
+<td><code>creature_planner::Priority</code>; test <code>CreaturePlanner.PriorityAndSwitching</code></td>
+</tr>
+<tr>
+<td>The creature changes what it does only for a plan more than twice as pressing</td>
+<td>done</td>
+<td><code>creature_planner::ShouldSwitch</code>; test <code>CreaturePlanner.ChoosesOnlyWhatIsPressingEnough</code></td>
+</tr>
+<tr>
+<td>A plan must reach a minimum priority to be taken up at all</td>
+<td>partial</td>
+<td><code>k_MinPlanPriority</code> (15) in <code>CreatureMindLearning.cpp</code>, a stand-in for the idle activities the game weighs through its planner (unconfirmed)</td>
+</tr>
+<tr>
+<td>Actions are weighed by the kind of thing they are done to, so each has a goal it can be done to</td>
+<td>done</td>
+<td>groups by <code>creature_plan_actions::Target</code> in <code>CreatureMindSystem::PlanCreature</code></td>
+</tr>
+<tr>
+<td>Actions it can't do now (no water near, no target, can't afford a miracle) are left out</td>
+<td>partial</td>
+<td><code>creature_plan_actions::Possible</code> (no water near, no hurl target); creatures cast no miracles in our tree, so there is no miracle cost check</td>
+</tr>
+<tr>
+<td>Only actions the creature knows can be chosen</td>
+<td>partial</td>
+<td>every action with an executor can be chosen; there is no per-creature known-action list, and creatures cast no miracles in our tree (see <a href="creature_casting.html">creature casting</a>)</td>
+</tr>
+<tr>
+<td>The planner can carry out the game's whole range of actions</td>
+<td>partial</td>
+<td>about 45 of the game's actions have an executor (<code>src/Creature/CreaturePlanActions.cpp</code>); miracles, town work, building, dancing, friends, games and stealing have none; see <a href="object_actions.html">object actions</a> and <a href="town_actions.html">town actions</a></td>
+</tr>
+<tr>
+<td>Something shown to it on the leash is the only goal it plans for</td>
+<td>done</td>
+<td><code>mind.leash.actOn</code> in <code>CreatureMindSystem::PlanCreature</code>; see <a href="leash.html">leash</a></td>
+</tr>
+<tr>
+<td>When free, the creature plans every desire at once before falling back on idling</td>
+<td>done</td>
+<td><code>PlanCreature(entity, mind, true)</code> in <code>CreatureMindSystem::ProcessTurn</code></td>
+</tr>
+<tr>
+<td>The idle choices (sitting, hanging around, being idle) are weighed through the planner as the game does</td>
+<td>partial</td>
+<td>a stand-in random choice (<code>creature_mind::k_ActivityLots</code> in <code>src/Creature/CreatureIdleMind.cpp</code>); see <a href="idle_behaviour.html">idle behaviour</a></td>
+</tr>
+<tr>
+<td>Needs (hunger, thirst, sleep, poo) are weighed against everything else through the planner</td>
+<td>partial</td>
+<td>a stand-in: a need over 0.3 is seen to first (<code>creature_mind::k_ActOnNeed</code>)</td>
+</tr>
+<tr>
+<td>What it chose for itself runs to its end unless it was only idling</td>
+<td>partial</td>
+<td><code>Interruptible</code> in <code>CreatureMindLearning.cpp</code> (unconfirmed)</td>
+</tr>
+<tr>
+<td>The plan it takes up is remembered, with what it acted on, for the player's feedback to be credited to</td>
+<td>done</td>
+<td><code>creature_learning::Remember</code> in <code>CreatureMindSystem::Adopt</code>; see <a href="learning_from_feedback.html">learning</a></td>
+</tr>
+<tr>
+<td>How far it can see limits what it plans for</td>
+<td>partial</td>
+<td>goals are gathered within <code>creature_planner::k_MaxGoalDistance</code> of it (<code>mind_detail::Gather</code>); the vision range by size (<code>creature_look::LookRange</code>) is only used for looking</td>
+</tr>
+</tbody>
+</table>
+<h2 id="agendas-and-steps">Agendas and steps</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>An action becomes an agenda of small steps (go near, turn to face, play an action, wait, let go …)</td>
+<td>done</td>
+<td><code>creature_mind::Step</code> (<code>src/Creature/CreatureIdleMind.h</code>), <code>creature_plan_actions::Agenda</code>; test <code>CreaturePlanActions.BuildsAgendas</code></td>
+</tr>
+<tr>
+<td>The game has well over a hundred kinds of step; all of them are available</td>
+<td>partial</td>
+<td>going, following, fleeing, turning, picking up, putting down, holding, eating, throwing, destroying, sleeping, sitting and emotes exist (<code>creature_mind::Step</code>, <code>ObjectOrder</code>); casting, dancing, building, repairing, kissing, talking, fishing, fire, totems, disciples, mind swaps and teleports do not</td>
+</tr>
+<tr>
+<td>Going near a thing, keeping clear of it by both their sizes</td>
+<td>partial</td>
+<td>walking up to a thing to within a distance (<code>CreatureLocomotionSystem::MoveToObject</code>); the clearance by both their sizes is not in our tree</td>
+</tr>
+<tr>
+<td>Getting away from a thing to a clear area</td>
+<td>partial</td>
+<td>fleeing from a point to a valid spot (<code>CreatureLocomotionSystem::FleeFrom</code>, <code>land_avoid::NearestValid</code>); no search for a clear area</td>
+</tr>
+<tr>
+<td>Turning to face a thing, the camera or the hand</td>
+<td>partial</td>
+<td>facing a point and the camera (<code>Movement::Kind::TurnToFace</code>, <code>Build::FaceCameraEmote</code>); facing the hand and another player's camera do not exist</td>
+</tr>
+<tr>
+<td>Steps start only when the body is free</td>
+<td>done</td>
+<td>test <code>CreatureIdleMind.NothingStartsWhileTheBodyIsBusy</code></td>
+</tr>
+<tr>
+<td>A step with a time limit, such as following, ends when its time is up</td>
+<td>done</td>
+<td>test <code>CreatureIdleMind.AFollowStepStopsWhenItsTimeIsUp</code></td>
+</tr>
+<tr>
+<td>An action finishes successfully and satisfies its desire, or unsuccessfully and doesn't</td>
+<td>partial</td>
+<td>carried out to its end, the desire is satisfied (<code>Satisfied</code> in <code>CreatureMindSystem::FollowAgenda</code>); a failed agenda is given up (<code>gaveUp</code>); the game's separate unsuccessful ending (with a lesson and help) is missing</td>
+</tr>
+<tr>
+<td>Being slapped stops what it is doing</td>
+<td>done</td>
+<td><code>CreatureMindSystem::ReceiveFeedback</code> cancels the hands, stops it and clears the agenda</td>
+</tr>
+<tr>
+<td>Stopping what it does lets go of a miracle it holds and ends its animation</td>
+<td>partial</td>
+<td><code>CreatureMindSystem::Replan</code> ends its animation and movement; creatures hold no miracles in our tree</td>
+</tr>
+<tr>
+<td>Waiting for another creature to be free, or for a thing to come within reach</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Repeating its last action</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="when-things-go-wrong">When things go wrong</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It can't find a route to its goal</td>
+<td>partial</td>
+<td>the locomotion refuses (<code>MoveResult::InvalidDestination</code> in <code>CreatureLocomotionSystem</code>) and the agenda is given up; the explanation shown to the player is missing (see <a href="lessons_and_help.html">lessons and help</a>)</td>
+</tr>
+<tr>
+<td>Its route is blocked</td>
+<td>partial</td>
+<td>routes plan round things through the route planner (<code>RouteFollower</code> in <code>CreatureLocomotionSystem</code>); no reaction to a blocked route</td>
+</tr>
+<tr>
+<td>Its goal is out of reach (cut off land)</td>
+<td>partial</td>
+<td>an invalid destination is refused (<code>IsValid</code> in <code>CreatureLocomotionSystem::StartMove</code>); no explanation</td>
+</tr>
+<tr>
+<td>The opponent refused to fight</td>
+<td>todo</td>
+<td>see <a href="fighting.html">fighting</a></td>
+</tr>
+<tr>
+<td>The other creature refused to play</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The other creature refused to be friends</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The leash stopped it</td>
+<td>partial</td>
+<td>the leash stops it (<code>mind.leash.obeying</code>; see <a href="leash.html">leash</a>); no explanation</td>
+</tr>
+<tr>
+<td>It lost sight of what it was tracking</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Stuck in one place for a while, it gives up and holds back that desire</td>
+<td>todo</td>
+<td>not in our tree</td>
+</tr>
+<tr>
+<td>Trapped in an enclosed space, it gets itself out</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Something in the way, it finds an action to clear it (knocking it down, moving it)</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It responds to emergencies first: being on fire, fainting, being in danger</td>
+<td>partial</td>
+<td>fainting when exhausted, starved or out of life works (<code>CreatureMindSystem::ProcessTurn</code>); putting out fire on itself and fleeing danger first do not</td>
+</tr>
+<tr>
+<td>It weighs how dangerous a thing is and whether anything scary is near it, its home or where it is going</td>
+<td>partial</td>
+<td>running from a thing or the player exists (<code>Build::RunFromObject</code>, <code>Build::RunFromPlayer</code> in <code>CreaturePlanActions.cpp</code>); danger is not weighed, and there is no frightening-thing target</td>
+</tr>
+<tr>
+<td>Lacking skill, it sometimes messes an action up (a throw, a miracle, fishing, a dance, making fire, impressing, a totem)</td>
+<td>todo</td>
+<td>nothing fails for lack of skill; creatures cast no miracles in our tree</td>
+</tr>
+<tr>
+<td>It answers requests from other creatures (to fight, to play, to be friends, to learn)</td>
+<td>todo</td>
+<td>see <a href="friends_and_other_creatures.html">friends</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="control-by-scripts-and-the-computer-gods">Control by scripts and the computer gods</h2>
+<p>The script language is the story domain's: see <a href="../story/index.html">../story/</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A script makes a creature do an action, to a thing or at a place</td>
+<td>todo</td>
+<td>CREATURE_DO_ACTION is a <code>NotImplemented</code> stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>A script moves a creature to a place</td>
+<td>todo</td>
+<td>MOVE_GAME_THING on a creature is <code>NotImplemented</code> in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>A script plays one of a creature's animations, once or held</td>
+<td>todo</td>
+<td>the script state and animation natives skip creatures (<code>NotImplemented</code> in <code>src/CHLApi.cpp</code>)</td>
+</tr>
+<tr>
+<td>A script sets the priority of what the creature is doing</td>
+<td>todo</td>
+<td>CREATURE_SET_AGENDA_PRIORITY is a <code>NotImplemented</code> stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>A script forces a creature to finish what it is doing</td>
+<td>todo</td>
+<td>CREATURE_FORCE_FINISH is a <code>NotImplemented</code> stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>A creature under a script's control does nothing of its own until released</td>
+<td>todo</td>
+<td>SET_FOCUS and the walks skip creatures in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>A script teaches a creature everything, or a single action</td>
+<td>todo</td>
+<td>CREATURE_LEARN_EVERYTHING, CREATURE_LEARN_EVERYTHING_EXCLUDING and CREATURE_SET_KNOWS_ACTION are <code>NotImplemented</code> stubs in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>A script asks how often a creature did an action, and resets the count</td>
+<td>todo</td>
+<td>the two NUM_TIMES natives are <code>NotImplemented</code> stubs in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>A script asks whether a thing is in a creature's hand</td>
+<td>todo</td>
+<td>IN_CREATURE_HAND is a <code>NotImplemented</code> stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>A script creates a creature next to another</td>
+<td>todo</td>
+<td>CREATURE_CREATE_RELATIVE_TO_CREATURE is a <code>NotImplemented</code> stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>A script gives a creature to another player, or swaps creatures</td>
+<td>todo</td>
+<td>CREATURE_SET_PLAYER and SWAP_CREATURE are <code>NotImplemented</code> stubs in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>A script calls the player's creature to a place</td>
+<td>done</td>
+<td>CALL_PLAYER_CREATURE (<code>CallPlayerCreature</code> in <code>src/CHLApi.cpp</code>) hands the script the creature the player leads, through the leash service. Our wiki differs: the native only finds the player's creature for the script, it does not call it to a place (<a href="../../creature.html#the-players-creature">creature.md</a>)</td>
+</tr>
+<tr>
+<td>A script puts a creature in its mind's development stage</td>
+<td>partial</td>
+<td>SET_CREATURE_DEV_STAGE (<code>src/CHLApi.cpp</code>, <code>player_creature::SetDevelopmentStage</code>) sets the stage; the desires follow at the mind's next turn, the original's at once; see <a href="development_phases.html">development phases</a></td>
+</tr>
+<tr>
+<td>The computer gods command their creatures to do things and teach them</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The computer gods' creatures have their knowledge balanced for the difficulty</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Multiplayer locked selection of a creature across the network</td>
+<td>n/a</td>
+<td>network play is not supported; see <a href="../multiplayer/index.html">../multiplayer/</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

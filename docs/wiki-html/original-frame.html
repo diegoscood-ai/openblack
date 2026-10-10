@@ -1,0 +1,1396 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The original B&amp;W frame (runblack.exe W120, D3D7, LH3D) — Black &amp; White notes</title>
+<link rel="stylesheet" href="wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — how the original behaves</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Start here</h2>
+<a class="" href="README.html">Black &amp; White 1 notes for openblack</a>
+<h2>Engine</h2>
+<a class="" href="openblack-internals.html">openblack internals</a>
+<a class="" href="engine-loop.html">The engine loop: game turns and frames (original and openblack)</a>
+<a class="" href="engine-math.html">Coordinates, terrain, object size, game clock, matrices and Zoomer</a>
+<a class="" href="tooling.html">Tools and formats</a>
+<a class="" href="parity.html">Graphics engine parity: original versus openblack</a>
+<a class="here" href="original-frame.html">The original B&amp;W frame (runblack.exe W120, D3D7, LH3D)</a>
+<h2>World</h2>
+<a class="" href="map-loading.html">Map loading and script functions</a>
+<a class="" href="land-script-save.html">Writing land-script lines: SaveObject and WriteCommand</a>
+<a class="" href="water.html">Water in the game</a>
+<a class="" href="trees.html">Trees and forests</a>
+<a class="" href="buildings.html">Buildings, building sites and towns (the building side)</a>
+<a class="" href="objects-and-resources.html">Objects and resources</a>
+<a class="" href="physics.html">Physics: thrown objects, collisions, damage and rocks that split</a>
+<h2>Life</h2>
+<a class="" href="villagers.html">Villagers: data, state machine and speed</a>
+<a class="" href="animals.html">Animals: AI, states and clips</a>
+<h2>Magic and weather</h2>
+<a class="" href="magic.html">Magic: the core of the miracles</a>
+<a class="" href="miracles.html">Miracles one by one</a>
+<a class="" href="particles.html">Particles (PSys)</a>
+<a class="" href="day-night-weather.html">Day, night and weather in the original</a>
+<a class="" href="vortex.html">Vortexes and the tornado: objects swallowed, carried and flung</a>
+<h2>Hand and interface</h2>
+<a class="" href="hand-and-interface.html">The hand and the interface</a>
+<a class="" href="intro.html">The Land 1 intro and the tutorial&#x27;s script side</a>
+<a class="" href="script-camera.html">Script camera (GCamera and CameraModeScript)</a>
+<a class="" href="camera-tracks.html">Camera tracks (`Data\camera.edt`) and `WALK_PATH`</a>
+<h2>Presentation</h2>
+<a class="" href="rendering.html">World rendering: original versus openblack</a>
+<a class="" href="rendering-objects.html">Model rendering: original versus openblack</a>
+<a class="" href="animation.html">Skeletal animation (villagers and animals)</a>
+<a class="" href="audio.html">Audio: the engine, the banks, the music, the voices and the script</a>
+<a class="" href="video.html">Bink videos (.bik)</a>
+<h2>Data</h2>
+<a class="" href="mods.html">Modified data packs</a>
+<h2>Other</h2>
+<a class="" href="creature.html">The creature: groundwork, random streams and what is unknown</a>
+<h2>Progress</h2>
+<a class="" href="progress/INDEX.html">What our tree does, row by row</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-original-bw-frame-runblackexe-w120-d3d7-lh3d">The original B&amp;W frame (runblack.exe W120, D3D7, LH3D)</a><ul>
+<li><a href="#1-frame-loop">1. Frame loop</a></li>
+<li><a href="#2-draw-stages-in-order">2. Draw stages in order</a><ul>
+<li><a href="#other-cases-temple-video-and-2d">Other cases: temple, video and 2D</a></li>
+</ul>
+</li>
+<li><a href="#3-render-modes">3. Render modes</a></li>
+<li><a href="#4-global-state">4. Global state</a></li>
+<li><a href="#5-comparison-with-openblack">5. Comparison with openblack</a></li>
+<li><a href="#6-the-object-draw-list-stage-4m">6. The object draw list (stage 4m)</a><ul>
+<li><a href="#reference-executable">Reference executable</a></li>
+<li><a href="#where-it-runs-in-a-frame">Where it runs in a frame</a></li>
+<li><a href="#stage-a-the-visible-blocks-fn_007ff610">Stage A: the visible blocks (fn_007FF610)</a><ul>
+<li><a href="#the-blocks-level-of-detail">The block's level of detail</a></li>
+<li><a href="#the-detail-index">The detail index</a></li>
+<li><a href="#what-the-level-of-detail-changes-in-the-list">What the level of detail changes in the list</a></li>
+<li><a href="#a-land-load">A land load</a></li>
+</ul>
+</li>
+<li><a href="#stage-b-rebuilding-the-list-0x5e5d320x5e5ed2">Stage B: rebuilding the list (0x5E5D32..0x5E5ED2)</a></li>
+<li><a href="#stage-c-the-draw-passes-0x5e5eda0x5e6135">Stage C: the draw passes (0x5E5EDA..0x5E6135)</a></li>
+<li><a href="#stage-d-what-sets-g_b_last_on_screen-inside-draw">Stage D: what sets g_b_last_on_screen inside Draw</a></li>
+<li><a href="#the-script-highlight-in-the-list">The script highlight in the list</a></li>
+<li><a href="#every-writer-of-rebuildcount-0xbf358c">Every writer of RebuildCount [0xBF358C]</a></li>
+</ul>
+</li>
+<li><a href="#pending">Pending</a><ul>
+<li><a href="#the-object-draw-list-still-undetermined-in-the-original">The object draw list: still undetermined in the original</a></li>
+<li><a href="#the-object-draw-list-what-openblack-needs">The object draw list: what openblack needs</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-original-bw-frame-runblackexe-w120-d3d7-lh3d">The original B&amp;W frame (runblack.exe W120, D3D7, LH3D)</h1>
+<p>Map of a game frame of the original, with addresses: how the frame is launched, the draw order of each
+stage, the 19 render modes (D3D states per L3D material type) and the global state (projection, haze,
+clearing, levels of detail). The status of each stage in openblack is in <a href="parity.html">parity.md</a> and the details of what has been
+done in <a href="rendering.html">rendering.md</a> (the world) and <a href="rendering-objects.html">rendering-objects.md</a> (the models).</p>
+<p>Progress: <a href="progress/rendering/render_pipeline.html">Render pipeline</a> (what our tree does of it, row by row).</p>
+<p>Everything is <strong>faithful</strong> (read in the executable) except what is marked <strong><span class="state approx">inferred</span></strong>.</p>
+<ul>
+<li><a href="#1-frame-loop">1. Frame loop</a></li>
+<li><a href="#2-draw-stages-in-order">2. Draw stages in order</a></li>
+<li><a href="#other-cases-temple-video-and-2d">Other cases: temple, video and 2D</a></li>
+<li><a href="#3-render-modes">3. Render modes</a></li>
+<li><a href="#4-global-state">4. Global state</a></li>
+<li><a href="#5-comparison-with-openblack">5. Comparison with openblack</a></li>
+<li><a href="#6-the-object-draw-list-stage-4m">6. The object draw list (stage 4m)</a></li>
+<li><a href="#pending">Pending</a></li>
+</ul>
+<h2 id="1-frame-loop">1. Frame loop</h2>
+<p><code>GGame::Loop</code> 0x54CF20 (decomp <code>src/Black/Game.cpp</code>), on each iteration:</p>
+<ul>
+<li>ProcessGraphicsEngine 0x54D850 → [mouse, camera-&gt;Update (sets the FOV and the dynamic near plane),
+  GInterface::PreDrawProcess 0x5CE9E0 (hand collision, disciple icon), <strong>Process3dEngine 0x54DA80</strong>,
+  BMan/debug camera editor, GInterface::PostDrawProcess (only updates leash and collision, does not draw),
+  HelpSystem::PostDrawProcess (flag)] → ScriptedScreenShot → <strong>GGame::FlipScreen 0x54D800 → LHScreen::Flip
+  0x7DE090</strong> (timing text, software LHMouse::Draw, LHFlip 0x7DE580 and then the frame <em>clear</em>
+  fn_0082EE70, see <a href="#4-global-state">4. Global state</a>).</li>
+<li>Process3dEngine: LH3DRender::StartFrame 0x82F0E0 → video (Bink) → switch field_0x205a28 (0 = world,
+  1 = citadel/temple, 2 = falling-spell video) → fade / help / influence → <strong>LH3DRender::FinishFrame
+  0x82F460</strong> (Z-sort flush + callbacks + EndScene) → debug 2D (CreatureMentalEditor, leash info,
+  DisplayHowImpressed, CPU players, countdown text) → LH3DAtmos::Render2D (debug weather map
+  with Lock, <strong><span class="state approx">inferred</span></strong>).</li>
+<li>StartFrame: fninit/FPU control, delta time (g_delta_time 0xC38134, smoothed fps 0xEC7FC0),
+  <strong>BeginScene</strong> (vt+0x14), g_frame++, g_started_frame=1, <strong>zsorter reset fn_0083F3B0</strong>, fn_00813770,
+  fn_0085BF00, SetLight/SetProjMatrix only with hardware T&amp;L (never: start_system forces [0xC386E4]=1),
+  fn_00821270.</li>
+</ul>
+<h2 id="2-draw-stages-in-order">2. Draw stages in order</h2>
+<p>Case 0 = world.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Stage</th>
+<th>Function</th>
+<th>What it does / states</th>
+<th>Order / culling</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>landscape.PreDraw</td>
+<td>GLandscape::PreDraw 0x5E3F60 → LH3DIsland::PreDraw 0x7FF2D0 → fn_00877210</td>
+<td>list of visible blocks (32×32 blocks of 160), fog class per block +0x940</td>
+<td>frustum and near-plane culling with each block's box; list [0xFA92D8] (next +0x9B8) sorted by distance +0x9BC <strong>front to back</strong> (<a href="#stage-a-the-visible-blocks-fn_007ff610">stage A</a>)</td>
+</tr>
+<tr>
+<td>2</td>
+<td>shadow textures</td>
+<td>TemporaryShadow::UpdateAll 0x825190 (and fn_00874850 per SuperVillager)</td>
+<td>silhouettes rasterised by the CPU into per-object shadow textures (fn_008801D0, <strong><span class="state approx">inferred</span></strong>), list 0xFAA7E0</td>
+<td>—</td>
+</tr>
+<tr>
+<td>3</td>
+<td>preparation</td>
+<td>LH3DCreature::PrepareForDrawing 0x4ED320 per creature, CHand::PrepareForDrawing 0x46C550, PSysLightMaps::AddDrawing 0x6CA6E0, LH3DLandscape::TextureUpdateThread 0x871F00 (block textures: footprints and decals fn_008721A0/fn_00872FA0), LH3DAtmos::Update3D</td>
+<td>does not draw</td>
+<td>—</td>
+</tr>
+<tr>
+<td>4</td>
+<td>GLandscape::Draw 0x5E42E0</td>
+<td>(detail in 4a–4o)</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>4a</td>
+<td>preparation</td>
+<td>3D cursor (Get3DPointFromScreen), fn_00802550, Windmill::PreDraw, Tree::PreDraw (swaying in the wind), fn_008296D0 (8 s fade timer, mode 0xF), fn_005E5830 (hand position; hand night light fn_00823460/fn_0086D360; clouds fn_005E25C0 with the Clouds key)</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>4b</td>
+<td><strong>sky</strong></td>
+<td>GLandAlignement::DrawSky 0x5E2160 (not in wireframe) → fn_0086A330 → light table fn_00869850 + fog parameters, fn_0086B7F0 (sky_{good,ntrl,evil}_{day,dusk,night}.555 → 3 textures, mode 2) → fn_0086B010</td>
+<td><strong>moon</strong> moon.l3d + additive glow quad 500 (AdditiveMaterial mode 13), and a copy mirrored in Y (reflection, <strong><span class="state approx">inferred</span></strong>); <strong>dome</strong> sky.l3d with ZFUNC ALWAYS, 2 passes (texture of the base alignment with α255, then the 2nd alignment with global alpha ftol(X·255) or ftol((X−1)·255), X the sky alignment 0 good..2 evil), towards the haze colour with the overcast, darkened on the good side, towards white with lightning; <strong>sun</strong> sun.l3d fn_0086C140, colour 0x957C63, visible from 6 to 18 h, ÷(1+8·clouds). <strong>No stars.</strong></td>
+<td>the sky covers the whole screen (the colour buffer is not cleared)</td>
+</tr>
+<tr>
+<td>4c</td>
+<td><strong>reflected land</strong> (LandRef key)</td>
+<td>fn_007FF4F0, ZWRITEENABLE off around it (0x5E48B3–0x5E4900)</td>
+<td>heights ×−1, light table ×0.5, small bump forced off; land only, no models</td>
+<td>mirrored block list</td>
+</tr>
+<tr>
+<td>4d</td>
+<td>reflections in the sea</td>
+<td>PetitNavire::PreDraw 0x5DFF20 (ships); hand DrawUnderWater vt+0x118 with specular 0x65A0A0A0 through the <strong>alternative mode table 0xC387C8</strong>; object in the creature's hand; fn_00646FE0 (physics objects), fn_00775120 (sharks, cut by the water plane, 0x5E4B26), fn_00824B90 (FishFarm fish and the fish puzzle nets), fn_005DFCE0 (footprint UV2, <strong><span class="state approx">inferred</span></strong>)</td>
+<td>before the sea. The hand, what it holds, the physics objects and the ships are <strong>reflections</strong>: <code>DrawUnderWater</code> draws them mirrored in y = 0 and clipped to what is above the water (see <a href="rendering-objects.html#object-reflections-and-hand-shadow-on-objects">rendering-objects.md</a>; it had previously been assumed they were their parts under the water); the FishFarm fish are sprites under the water</td>
+<td></td>
+</tr>
+<tr>
+<td>4e</td>
+<td>SuperVillagers</td>
+<td>list 0xEB9A08: Draw vt+0x610 + shadow fn_00874850; swimming villagers generate water rings</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>4f</td>
+<td>hand night glow</td>
+<td>fn_005E3F70: additive quad on the ground of ±60, ZFUNC ALWAYS</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>4g</td>
+<td><strong>sea</strong></td>
+<td>fn_00879930 (skipped if [0xECA664] or in wireframe): sky.raw/skya.raw mode 5, rows of 2 px, ZFUNC ALWAYS, no Z write, colour = light table[255], alpha 255→80 between 7000 and 14000, period P = 2000−1800·WaterTiling</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>4h</td>
+<td>vortex</td>
+<td>fn_005FF310 → fn_005FFBB0 (LandscapeVortex, <strong><span class="state approx">inferred</span></strong>)</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>4i</td>
+<td><strong>land</strong></td>
+<td>fn_007FF610: per visible block front to back, transition blocks fn_00877D20, block fn_00874AA0 / SSE fn_007A1800 (blocks in mode 14, per-vertex light table, software haze, 2nd small bump pass in mode 14), then <strong>projected dynamic shadows</strong> per block fn_00878350 (shadow material mode 6)</td>
+<td>front to back</td>
+<td></td>
+</tr>
+<tr>
+<td>4j</td>
+<td>debug</td>
+<td>fn_0081F820: field-of-view triangles of the scripts</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>4k</td>
+<td>citadel heart</td>
+<td>fn_00467360 → CitadelHeart::DrawNow 0x4670D0</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>4l</td>
+<td>water rings</td>
+<td>fn_005E5100 over 1024×0x38 at 0xEAB7C8 (GWater circle sprite, direct LH3DSprite::Draw)</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>4m</td>
+<td><strong>models</strong></td>
+<td>fn_005E5CD0: object draw list (≤3000, GLandscape::DrawObjects 0xD1D28C) of the visible blocks (dist &lt; VanishObjectDist 100000) + global list; it is rebuilt according to DrawListRebuildCount / more than 10 turns since the last rebuild / a block's land visibility change; with the camera still only the last objects on screen are redrawn (<a href="#6-the-object-draw-list-stage-4m">6. The object draw list</a>). Draw of an object (e.g. MobileObject::Draw 0x518150): light fn_00801C90 (<a href="rendering-objects.html#model-lighting">rendering-objects.md</a>), fog fn_007FEB30, Game3DObject::AddForDrawing 0x63B5D0 → LH3DObject::AddDrawing fn_00815A70: frustum CheckRegionOnScreen 0x868C80, <strong>LOD</strong> by distance (23.3f/66.7f/86.7f → LOD 1/2/4, fade 86.7f–173.3f, culled beyond that if IsDisappear; distant humans → impostor sprite; <strong>inactive in this executable</strong>: the LevelOfDetail loads are disabled, always LOD 1, see <a href="rendering-objects.html#villager-blobs-object-reflections-and-lod">rendering-objects.md</a>), IsGlowing → glow sprite, <strong>NeedSorting (mesh with alpha, flag 0x200) → Z-sorter; otherwise immediate Draw</strong></td>
+<td>opaque: block order, unsorted; with alpha: Z-sorter</td>
+<td></td>
+</tr>
+<tr>
+<td>4m′</td>
+<td>the creature, in the list</td>
+<td>Creature::Draw 0x517910 → LH3DCreature::AddForDrawing 0x48E1C0 → DrawNow 0x48E260</td>
+<td>body (fn_00813340: at once; the Z-sorter only with the mesh flag 0x200 or global alpha, which no creature has), the shadows over it, its hair, then its eyes at once (<a href="creature.html#drawing-in-the-frame">creature.md</a>)</td>
+<td>at once, in the list's order</td>
+</tr>
+<tr>
+<td>4n</td>
+<td>rest of 5E5CD0</td>
+<td>SuperVillagers list 0xEB9A10 (OverrideMaterial with forced alpha-ref 0xA), game list vt+0x610, markers, Reward sprites, PetitNavire::PostDraw, hand_intro, sprite emitters fn_008274A0/fn_00823570/fn_00827B90/fn_00828E50</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>4o</td>
+<td>end</td>
+<td>storage pit / LandFeature::DrawWorm</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>5</td>
+<td>creature fight sparkles</td>
+<td>LH3DCreature::DrawFightSparkles 0x48DD70</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>6</td>
+<td>leashes</td>
+<td>GInterface::DrawAllLeashes 0x5D9310 (fn_008491B0; leash material mode 15)</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>7</td>
+<td>physics objects</td>
+<td>PhysicsObject::DrawAll 0x646DE0 (AddForDrawing, DrawOutOfMap)</td>
+<td>like the models</td>
+<td></td>
+</tr>
+<tr>
+<td>8</td>
+<td>hand</td>
+<td>CHand::UpdateHeldObject; <strong>CHand::AddDrawing 0x46D100 → Z-sorter</strong> (light ×1.5); objects in other players' hands with DrawInHand</td>
+<td>Z-sorter</td>
+<td></td>
+</tr>
+<tr>
+<td>9</td>
+<td>interface</td>
+<td>GInterface::Draw 0x518640 → fn_005FAF80 (magic hand), state vt+0x500 (gesture trail, etc.; gestures in mode 13)</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>10</td>
+<td>liquid particles</td>
+<td>DrawLiquidParticles 0x845C50 → Z-sorter</td>
+<td>Z-sorter</td>
+<td></td>
+</tr>
+<tr>
+<td>11</td>
+<td>debug overlay</td>
+<td>GGame::Draw 0x5533B0 (only if g_game-&gt;field_0x14 &amp; 0x4000: alignment and belief bars)</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>12</td>
+<td>miscellaneous</td>
+<td>CreatureLessonChooser::UpdateDraw, EditorIconBase::DrawMouseOver</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>13</td>
+<td>particles</td>
+<td>PSysGlobal::DrawLoop 0x68F5E0 (PSys managers → PSysManager::AddDrawing 0x6797D0 → Z-sorter), FireFly::DrawAll, Spell::DrawSpells 0x7203F0, GParticleContainer::DrawParticleContainers, GPlayer::DrawPlayers (player sparkles, blobs.raw mode 13), TownCentre::DrawAll (DrawPSys)</td>
+<td>Z-sorter</td>
+<td></td>
+</tr>
+<tr>
+<td>14</td>
+<td>counters</td>
+<td>ValueSpinner::Update/AddDrawing (not during the help cinematic)</td>
+<td>Z-sorter (<strong><span class="state approx">inferred</span></strong>)</td>
+<td></td>
+</tr>
+<tr>
+<td>15</td>
+<td>debug</td>
+<td>LH3DStorm::DebugDrawAll, LH3DAtmos::DrawWindField</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>16</td>
+<td><strong>weather</strong></td>
+<td>LH3DAtmos::Render3D 0x836250: per storm (list 0xFA92D8…, storms at dist &lt; 560) and per 80×80 tile, intensity from GetWeather at the 4 corners; if &gt;5: rain fn_008341B0 → Z-sorter callback 0x833F80 (streaks, AtmosMaterial mode 6 atmos.raw, splashes g_water_drop_cb, amount according to the RainSplash key); snow fn_00834290 → callback 0x834120 (snow.raw mode 9). Not lightning: LightSheet::DoTheDrawing 0x83E8C0 (mode 13) is LH3D's general sheet, queued in the Z-sorter (callback 0x4246E0) by its owners, the recognised gesture (step 13, fn_00688320), the arena's GLightSheet::Draw, the spell icon and the worship totem, and called directly for the camera force field (step 17, 0x54E198); see <a href="magic.html#the-light-sheet-lh3d-lightsheet-as-read-from-the-exe">magic.md</a>. Rain colour = (light table base/2 &amp; 0x7f7f7f)+0x7f7f7f.</td>
+<td>Z-sorter by the tile's distance²</td>
+<td></td>
+</tr>
+<tr>
+<td>17</td>
+<td>camera force field</td>
+<td>ForceField of CameraModeNew3 (only with the flag)</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>18</td>
+<td>villager names</td>
+<td>VillagerName::AddDrawing → Z-sorter</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>19</td>
+<td>fade</td>
+<td>GScript::ProcessFade 0x6EB9D0 or Temple::UpdateFade 0x794280 → sets the screen fade colour [0xFA51D8] (drawn in FinishFrame)</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>20</td>
+<td>3D help</td>
+<td>HelpSystem::Draw3D 0x5C59A0 (help character, arrows)</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>21</td>
+<td>ClearLight 0x5E57B0</td>
+<td>removes the hand light (fn_00822F90/fn_00823780/fn_0086D460)</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>22</td>
+<td>power spins</td>
+<td>PowerSpinRunner → Z-sorter (PowerSpin::Draw)</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>23</td>
+<td>influence ring</td>
+<td>InfluenceCircle::Draw 0x826C90 (in the world only if the camera is more than 100 high: alpha 0→120 between 100 and 200; mode 6, no culling, wrap, UV offset 0.0001/−0.0002 per ms), Draw3DWorldTriangle <strong>immediate</strong></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>24</td>
+<td><strong>FinishFrame 0x82F460</strong></td>
+<td>(a) <strong>Z-sorter flush fn_0082F280</strong> back to front (key = dist² to the camera, max. 2048 entries); (b) "before" callbacks (ascending priority, 0xEC8130): FallingSpell (0x526480), HelpDude 0x5C2E30 (100), CameraModeNew3 0x4562E0 (1000); (c) fn_0086BB60 the sun's glare (verified, 0x82F4C9: <a href="day-night-weather.html#the-sun-and-its-glare">day-night-weather.md</a>); (d) <strong>Z-reset quad</strong>: full-screen quad FVF 0x1C4, z=1, rhw=0, colour 0, material [0xEDD494] mode 1, ZFUNC ALWAYS → Z=1 over the whole screen; (e) cinema bars if [0xEB9950] (2D rectangles queued fn_0081E590, height fn_0081E8B0); (f) "after" callbacks: HelpDude 0x5C2E10 (100), <strong>flush of the 2D rectangle queue 0x81E7D0→fn_0081E3C0 (10000; mode 1, ZFUNC ALWAYS, no Z write)</strong>, HelpText 0x5CD020 (20000: help text boxes), LHVideoPlayer::thedraw 0x844E30 (0x8000), start_system 0x6424E0 (0xA0000); (g) fn_00836200 debug weather; (h) <strong>screen fade fn_0086FEE0</strong>: full-screen quad of colour [0xFA51D8], mode 1, ZFUNC ALWAYS, if alpha≠0; then the bar rectangles and the fade reset; (i) EndScene (vt+0x18)</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h3 id="other-cases-temple-video-and-2d">Other cases: temple, video and 2D</h3>
+<ul>
+<li>Case 1 (citadel/temple): Update3D, LH3DSky::g_b_we_are_inside_citadel=1, TemporaryShadow::UpdateAll, DrawSky
+  (no sun, hence no glare at the end of the frame), Temple::Draw 0x794370 (its own lights with fn_0081E1F0 SetLight,
+  rooms; Citadel* detail keys), Temple::Update, liquid particles. Details in
+  <a href="rendering.html#the-temple-interior">rendering.md</a>.</li>
+<li>Case 2: FallingSpell video + liquid particles.</li>
+<li>Video: LHVideoPlayer::DrawToScreen (16:9 bars, alpha fade; FallingSpell 80).</li>
+<li>HUD and 2D: B&amp;W has no classic HUD; the 2D consists of the help text boxes (callback), tooltips and text with
+  GatheringText (fonts in mode 6), queued rectangles, fade, bars and the software cursor in Flip
+  (<strong><span class="state approx">inferred</span></strong>: the cursor is usually the 3D hand).</li>
+</ul>
+<h2 id="3-render-modes">3. Render modes</h2>
+<p>Table 0xC38728, 19 entries {fn, flag}; the L3D material type is the mode index.</p>
+<p>Common to all: colour = TEXTURE×DIFFUSE; ALPHAFUNC GREATEREQUAL set only once (0x82CBA6); ALPHAREF = mat+4 (or the
+forced one [0xECA65C] if [0xECA658]); bit 0 of byte +5 of the material → cull NONE, otherwise CCW; bit 2 or g_b_need_tilling →
+WRAP, otherwise CLAMP; mode cache [0xC38718] (reset to 0x14 every frame). No mode touches fog, specular,
+lighting or stage 1.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>fn</th>
+<th>States</th>
+<th>L3D type / uses</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>82D470</td>
+<td>untextured, opaque, writes Z</td>
+<td>Smooth</td>
+</tr>
+<tr>
+<td>1</td>
+<td>82D5C0</td>
+<td>untextured, SA/ISA, writes Z, stage 0 untouched</td>
+<td>SmoothAlpha; 2D rectangles, fade, Z-reset quad</td>
+</tr>
+<tr>
+<td>2</td>
+<td>82D820</td>
+<td>textured, opaque, α=tex</td>
+<td>Textured; sky domes</td>
+</tr>
+<tr>
+<td>3</td>
+<td>82D920</td>
+<td>SA/ISA, α=tex×diff, writes Z</td>
+<td>TexturedAlpha</td>
+</tr>
+<tr>
+<td>4</td>
+<td>82DC20</td>
+<td>SA/ISA, α=tex, writes Z</td>
+<td>AlphaTextured (buildings, hand; the wrist fades out with the alpha)</td>
+</tr>
+<tr>
+<td>5</td>
+<td>82DD90</td>
+<td>SA/ISA, α=tex×diff, writes Z</td>
+<td>AlphaTexturedAlpha; sea</td>
+</tr>
+<tr>
+<td>6</td>
+<td>82DF10</td>
+<td>like 5, no Z write</td>
+<td>…AlphaNz; fonts, influence, human_shadow, dynamic shadows, atmos rain, video</td>
+</tr>
+<tr>
+<td>7</td>
+<td>82D6F0</td>
+<td>untextured, SA/ISA, no Z write</td>
+<td>SmoothAlphaNz</td>
+</tr>
+<tr>
+<td>8</td>
+<td>82DAA0</td>
+<td>like 6</td>
+<td>TexturedAlphaNz</td>
+</tr>
+<tr>
+<td>9</td>
+<td>82E080</td>
+<td>SA/ISA <strong>+ alpha test</strong>, α=tex, writes Z</td>
+<td>TexturedChroma (trees 0x96), snow</td>
+</tr>
+<tr>
+<td>10</td>
+<td>82E830</td>
+<td>additive SA/ONE + alpha test, α=tex×diff, writes Z</td>
+<td>…AdditiveChroma</td>
+</tr>
+<tr>
+<td>11</td>
+<td>82E9C0</td>
+<td>like 10, no Z write</td>
+<td>…AdditiveChromaNz</td>
+</tr>
+<tr>
+<td>12</td>
+<td>82EB50</td>
+<td>additive SA/ONE, writes Z</td>
+<td>…Additive</td>
+</tr>
+<tr>
+<td>13</td>
+<td>82ECD0</td>
+<td>additive SA/ONE, no Z write</td>
+<td>…AdditiveNz: gestures, lightning, moon glow, sparkles, fire, smoke</td>
+</tr>
+<tr>
+<td>14</td>
+<td>82DD90</td>
+<td>= 5 (flag 0)</td>
+<td>land blocks, small bump</td>
+</tr>
+<tr>
+<td>15</td>
+<td>82E470</td>
+<td>SA/ISA + alpha test, α=tex×diff, writes Z</td>
+<td>TexturedChromaAlpha; leash</td>
+</tr>
+<tr>
+<td>16</td>
+<td>82E6A0</td>
+<td>like 15, no Z write</td>
+<td>text cache</td>
+</tr>
+<tr>
+<td>17</td>
+<td>82D820</td>
+<td>= 2</td>
+<td>—</td>
+</tr>
+<tr>
+<td>18</td>
+<td>82E2A0</td>
+<td>Z only (ZERO/ONE) + alpha test</td>
+<td>ChromaJustZ; vortex, fizz</td>
+</tr>
+</tbody>
+</table>
+<p>Alternative table 0xC387C8 (object fade / DrawWithGlobalAlpha, hand reflection with DrawUnderWater):
+0, 1 → D5C0; 2, 3, 17 → D920; 4, 5 → DD90; 9 → E470 (ref scaled by the object's alpha); the rest the same. Flags word:
+nobody reads it (<a href="rendering-objects.html#render-modes-and-materials-render_modes">rendering-objects.md</a>).</p>
+<h2 id="4-global-state">4. Global state</h2>
+<ul>
+<li><strong>Projection.</strong> No hardware T&amp;L: CPU transformation to XYZRHW. Horizontal FOV [0xEA1DD0], default 70°
+  (1.22173), aspect width/height [0xE839EC]; sz = 1−near/z, rhw = near/z, <strong>no far plane</strong>. Near plane
+  [0xE839E0] dynamic according to the camera's height above the ground: (h·0.05)·3.2 + 0.3 in float steps, 0.3 at or
+  below the ground, 3.5 above 20 (0.1 with <code>SET_GRAPHICS_CLIPPING</code>, 0.2 in the citadel with fov 90°; see
+  <a href="rendering.html#camera">rendering.md</a>).</li>
+<li><strong>Fog.</strong> No D3D fog. Software haze (Fog key [0xC37204]): start and end according to the sky type
+  (noon/midnight 400→900, dusk 100→800; storm →15/350), colour = light table base/3; per vertex
+  it darkens the diffuse towards "dark" and adds the fog RGB to the specular (<strong><span class="state approx">inferred</span></strong>); land per block +0x940,
+  objects fn_007FEB30.</li>
+<li><strong>Clearing.</strong> In Flip, after presenting, only every ~2000 ms (2 frames) in game: black 0xFF000000, z=1. The Z
+  is reset every frame with the FinishFrame quad; the colour buffer depends on the sky.</li>
+<li><strong>Gamma and filtering.</strong> No gamma. LightBoost (only in custom detail) changes the light table divisor.
+  Bilinear filtering, no mips, no AA, dithering enabled (<a href="rendering.html">rendering.md</a>).</li>
+<li><strong>Level of detail.</strong> fn_00823AD0 from start_system 0x643026; level = detailidx from the registry (&lt;5), otherwise <strong>4</strong>;
+  5 = custom (fn_008237B0 reads each key), never reached at start-up (see
+  <a href="#the-detail-index">The detail index</a>). Table 0x9A3704 (L0..L6):</li>
+<li>Live: LevelOfDetail (dead), UseSmallBump 1 in all, Clouds/CloudShadows 0001111, WaterTiling
+    0/.2/.4/.6/<strong>.8</strong>/.5/1 (level 4 → sea period <strong>560</strong>; 200 only in L6), LandRef 0001111, CitadelReflections
+    0000111, CitadelLightmaps 0111111, CitadelGlows/People 0011111, CitadelVolumeLight 0001111, RainSplash
+    0,0,3,5,8,8,8, LightBoost 0, Fog 0001111.</li>
+<li>Only at startup: Weather 0001111, Light 0011111 (object dynamic light flag 0x20), ShadowsOnObjects 0001111
+    (flag 0x40), UseHighTexture 0000111 (land textures of 256 versus 128 px), UseMultiLayerOnLandscape
+    inverted (1 only in L0), FixeLand.</li>
+<li>HardwareTnL/MaxObjectDistance are read but ignored. The land detail distances 0xE9C508 depend
+    on the number of textures in VRAM. VanishObjectDist 100000 (script).</li>
+</ul>
+<h2 id="5-comparison-with-openblack">5. Comparison with openblack</h2>
+<p>The up-to-date parity table is <a href="parity.html">parity.md</a>. The list that was here (2026-09-29) has been removed because a good
+part of it was no longer true: it listed as absent in openblack the sun and the moon, the clouds, the object reflections in the sea,
+the haze, the dynamic shadows, the particles, the fade and the bars and the water rings, and as different the
+FOV, the order of transparents and sprites, the LOD and the TexturedChroma alpha test; today all of that is done (identical
+or approximate to the original) according to parity.md.</p>
+<p>The only harmless difference remains the same: openblack clears the colour to 0x274659 (the original does not clear it; it is not visible).
+What is missing according to parity.md: the drawn snow and the raindrops on the ground; leashes and gestures; the Bink
+decoder; the creature (reflections and shadows).</p>
+<p>Original data that was only in that list:</p>
+<ul>
+<li>TexturedChroma = alpha test ≥0x96 <strong>and</strong> SA/ISA blending.</li>
+<li>The dynamic shadows fall on the land and, with ShadowsOnObjects, on the objects.</li>
+<li>Footprints and decals baked into the block textures.</li>
+<li>Clouds and cloud shadows from detail level 3.</li>
+</ul>
+<p>openblack runs a logic-side copy of the object draw list of stage 4m (<a href="#6-the-object-draw-list-stage-4m">6. The object draw list</a>),
+with the script highlight's glints as its only consumer. Its rebuilds come from all three of the original's triggers:
+the rebuild requests, the turn rule and the land flag. What else depends on it in the original is stepped by openblack
+without it, every frame: the highlight's pose, the vortex's over-land effects and the seed graphic's holder (see
+<a href="#pending">Pending</a>).</p>
+<h2 id="6-the-object-draw-list-stage-4m">6. The object draw list (stage 4m)</h2>
+<p>fn_005E5CD0 decides, each drawn frame, which objects have their Draw (vt +0x610) called. In four steps: the land pass
+finds and sorts the visible blocks (A); on some frames the list is rebuilt from those blocks (B); a pass calls Draw on
+every listed object, or only on those that were on screen at the last full pass (C); and each Draw tells the list
+whether its object was on screen (D). Anything an object does inside its Draw (a particle step, a light map) therefore
+happens only on the frames the list reaches it.</p>
+<h3 id="reference-executable">Reference executable</h3>
+<ul>
+<li>This section reads the copy that runs: <code>Black and White Complete Collection\runblack.exe</code>, sha1
+  <code>1e73ba9a96c3d6316e9f8f41a8947a25790d2698</code>. That copy is the one reproduced, and the one the checks measure.</li>
+<li>bw1-decomp's W120 build (<code>orig/BW1W120/runblack-decrypted.exe</code>, sha1 <code>bccccbd3a08fe9a5d6cf59cd114e916401abfb51</code> in
+  its <code>config/BW1W120/build.sha1</code>) only guides the reading. Where the two differ, the running copy wins.</li>
+<li>Known differences: the running copy has nop runs where code was removed. They are in fn_00804E60
+  (<code>0x804E60..0x804E68</code>, <code>0x804E72..0x804E7A</code>), in start_system (<code>0x642FF8..0x643003</code>, <code>0x643009..0x64301E</code>), at
+  <code>0x823810</code> in fn_008237B0 and at <code>0x823B43</code> in fn_00823AD0 (6 bytes each, where an <code>fstp</code> of the LevelOfDetail value
+  × 0.0001 would fit). What the bw1-decomp build has at those places was not compared.</li>
+</ul>
+<h3 id="where-it-runs-in-a-frame">Where it runs in a frame</h3>
+<ul>
+<li><code>GGame::Loop</code> calls ProcessGraphicsEngine at <code>0x54D3BE</code>. The call is skipped while the window is minimized
+  (<code>0x54D3B8</code>).</li>
+<li>ProcessGraphicsEngine runs, in this order:
+  1. <code>GCamera::Update</code> (<code>0x54D879</code>). It writes the near clip <code>[0xE839E0]</code> (at <code>0x4424B4</code>), <code>tn [0xC3812C]</code> (at
+     <code>0x4424D6</code>), and the camera <code>g_camera [0xEA1DB8]</code> and its focus <code>[0xEA1DC4]</code> through <code>UpdateCamera</code> (<code>0x442622</code>).
+  2. <code>PreDrawProcess</code> (<code>0x54D887</code>).
+  3. <code>Process3dEngine</code>, which calls <code>GLandscape::Draw</code> (<code>0x54DEDE</code>). That calls the land pass fn_007FF610
+     (<code>0x5E4E96</code>), then the object list fn_005E5CD0 (<code>0x5E4EDD</code>).</li>
+<li>Each link of that chain has exactly one caller, and GLandscape::Draw has a single <code>ret</code>, at its end. The only call to
+  fn_007FF610 that can run is <code>0x5E4E96</code>: the other two (<code>0x822774</code> and <code>0x822992</code>) are in unnamed code with no
+  references, which the symbol table wrongly gives to fn_00822560.</li>
+<li>The game turns run before ProcessGraphicsEngine. PhysicsObject::GameTurnUpdate runs only from ProcessTurn
+  <code>0x54E67E</code>; its call in Process3dEngine (<code>0x54DAB0</code>) is dead, because the byte <code>[0xD46A74]</code> is static 0 and never
+  written.</li>
+<li>The world, and so the list, is skipped:</li>
+<li>when the mode <code>g_game+0x205A28</code> is not 0. Mode 1 is the temple (Temple::Draw), mode 2 the falling-spell film
+    (FallingSpell::Draw). The mode is set to 0 at <code>0x54FCA4</code>, <code>0x553B1F</code> and <code>0x553A1C</code>, to 1 at <code>0x554004</code> and to 2 at
+    <code>0x5539D5</code>;</li>
+<li>while a fullscreen film is up: a film exists, its alpha <code>[g_game+0x250194]</code> is exactly 1.0f and FallingSpellVideo
+    <code>[0xCD3B10]</code> is 0 (<code>0x54DD56..0x54DD7D</code>). During the film's fade-out (<code>0x54DB27..0x54DB7F</code>) the world does run;</li>
+<li>in the intro, logo and loading loops, which have their own StartFrame loops (<code>0x642820</code>, <code>0x642A4A</code>, DoLogo,
+    RenderLoadingFrame) and never reach GLandscape::Draw.</li>
+<li>RenderLoopEnabled <code>[0xBEC280]</code> gates the world draw, but it is static 1 and never written.</li>
+<li>Pause does not stop the list. Paused, the turn does not move, so only the rebuild count and the land flag can force a
+  rebuild. Inside fn_005E5CD0, pause only skips the influence ring's crossing (<code>0x5E61A6</code>).</li>
+</ul>
+<h3 id="stage-a-the-visible-blocks-fn_007ff610">Stage A: the visible blocks (fn_007FF610)</h3>
+<pre><code>[0xEA9EA0] = &amp;g_world_to_clipping (0xEA9E40)
+LH3DIsland::PreDraw()                 // once per frame: does nothing if [0xE9CD74] != 0, sets it at 0x7FF4E2;
+                                      // fn_007FF610 clears it at 0x7FF7AD
+  for n in 1 .. [0xE9CD70]-1:         // g_ptr_blocks[0xE9C564 + 4n]; slot 0 is never used
+    fn_00877210(block n)              // called at 0x7FF32A
+      box: x = +0x90C+80, z = +0x910+80, half extents 80; H = int(+0x924) * [0xC3720C] (0.67)
+           LandRef [0xE9CD8C] != 0: y from -H to +H;  otherwise y from 0 to H
+      for each of the 8 corners: (cx, cy, d) = corner through g_world_to_clipping (rows 0xEA9E40/4C/58, t 0xEA9E64)
+           near  : !(d &gt;= [0xE839E0])                 // fcom/test ah,1: a NaN depth sets near (0x8773E4..0x8773F1)
+           right : cx &gt; d,  else left  : -d &gt; cx
+           top   : cy &gt; d,  else bottom: -d &gt; cy       // no far plane
+      if any of the 5 masks == 0xFF: +0x920 &amp;= ~5; +0x930 = 0; +0x934 = 4; return     // 0x877CDD, old +0x9BC kept
+      +0x920 |= 5;  +0x91C = (all masks 0) ? 0 : 1
+      +0x9BC = sqrt((oz*oz + oy*oy) + ox*ox), o = centre - cam  // 0x877C8A..0x877CCD, not squared
+               centre (x+80, LandRef ? 0 : H/2, z+80), cam = g_camera 0xEA1DB8
+  [0xFA92D8] = 0
+  for n in 1 .. count-1 with +0x920 &amp; 1: insertion sort ascending by +0x9BC (next = +0x9B8)
+    // walk while cur.+0x9BC &lt; new.+0x9BC or the compare is unordered (test ah,1), insert before the first cur
+    // that is &gt;=, so on equal distances the later block goes before the earlier one, a NaN new distance walks
+    // to the end, and a NaN already in the list is walked past     (0x7FF45F..0x7FF4DD)
+[0xC37208] = 0                                        // 0x7FF62B
+for each block b in [0xFA92D8]:                       // 0x7FF639..0x7FF791
+  if b.+0x934 in {1, 3}: copy b to 0xE9B6E0; fn_00877D20(copy, +0x934 == 1); t = copy   else t = b
+  bit0 = fn_00874AA0(t) != 0
+  b.+0x920 bit0 = bit0 (the copy too)
+  if bit0 != b.+0x920 bit1: b.+0x920 bit1 = bit0; [0xC37208] = 1          // 0x7FF759..0x7FF783
+</code></pre>
+<p>fn_00874AA0 returns 1 exactly when the block keeps at least one front-facing land triangle after clipping. It clears
+the list size at <code>0x875314</code>, sets the result to 0 at <code>0x875350</code> and to 1 at <code>0x87539B</code> only for a non-empty list, and
+returns it at <code>0x875C49</code>.</p>
+<ul>
+<li>The vertices are a grid with a step of <code>1 &lt;&lt; +0x930</code> cells (<code>0x874AC9</code>), <code>16/step + 1</code> per side (17, 9 or 5),
+  stored compactly (index <code>row*n + col</code>) with the altitude of record <code>(R*step, C*step)</code>; <code>g_NumClipVerts</code> is
+  <code>(16/step + 1)^2</code> (<code>0x875326</code>). The level of detail is <a href="#the-blocks-level-of-detail">below</a>:</li>
+<li>height <code>y = alt &gt; 3 ? alt * [0xC3720C] : 0</code> (the compares with 3 are at <code>0x874B98</code> and <code>0x875065</code>);</li>
+<li>screen <code>sx = (x/d + 1) * [0xE839F0]</code>, clamped to <code>[0, [0xC2AB00]]</code>, and <code>sy = [0xE839F4] - (y/d) * [0xE839F4]</code>,
+    clamped to <code>[0, [0xC2AB04]]</code>. <code>[0xE839F0]</code> and <code>[0xE839F4]</code> are half the viewport's width and height:
+    UpdateViewPort <code>0x819030</code> multiplies the width <code>0xE839E4</code> and the height <code>0xE839E8</code> by 0.5 and stores them at
+    <code>0x81905E</code> and <code>0x819070</code>.</li>
+<li>Outcodes are computed only when <code>+0x91C != 0</code>, that is, when the block is partly outside (<code>0x874E04..0x874E72</code>): 0x20
+  near, 0x10 or 8 for x outside ±d, 4 or 2 for y outside ±d.</li>
+<li>A triangle counts when all of these hold:</li>
+<li>its cell is not skipped: a cell with cell word <code>+6 &amp; 0x200</code> is skipped, but only when <code>+0x934 == 0</code> (<code>0x876A8A</code>,
+    <code>0x875DD8</code>); the path at <code>0x876CEF</code> has no such test. The cell read is the one the walk's pointer reaches, which
+    does not follow the level of detail (<a href="#the-blocks-level-of-detail">the cell-flag pointer</a>);</li>
+<li>the diagonal comes from cell word <code>+6 &amp; 0x80</code>, and the seam fans (<code>+0x93C</code>, <code>+0x930</code>) are included;</li>
+<li>either its three outcodes are 0, or <code>(c0 &amp; c1 &amp; c2) == 0</code> and a piece survives fn_0081A760's clip against the near,
+    left, right, top and bottom planes. Clipped vertices come from fn_0081DD90 and are projected and clamped the same
+    way (<code>0x81E0EB..0x81E158</code>);</li>
+<li><code>A = (P1.x-P0.x)*(P2.y-P0.y) - (P1.y-P0.y)*(P2.x-P0.x) &gt; 0</code>, strictly (0 and NaN fail), on the clamped screen points
+    in emit order (<code>0x81A99C..0x81AA7C</code>). g_NoBackfaceCull is forced to 0 (<code>0x876A3D</code>, <code>0x875D8E</code>), and <code>[0xFA92DC]</code>
+    is 0 in this pass.</li>
+<li>The frustum-culled blocks are not in the list. fn_00877210 clears their bits 0 and 2 but keeps bit 1, so they never
+  set <code>[0xC37208]</code>.</li>
+<li>LH3DIsland::Release also sets <code>[0xC37208] = 1</code> (<code>0x804816</code>).</li>
+<li><code>[0xEA9EB4]</code> picks the code path:</li>
+<li>its one writer is fn_007AC9E0 (<code>0x7AC9ED</code>), called once from LH3DRender::Open <code>0x82B52C</code>; it copies IsPentium4;</li>
+<li>IsPentium4 is set when the CPUID base family is 0xF with SSE2 and OS FXSR (<code>0x8A2610</code>, <code>0x7ACA00</code>), with no vendor
+    test;</li>
+<li>set (Pentium 4, AMD K8 to Zen), the SSE path fn_007A1800 runs, and CheckCPU also turns on flush-to-zero
+    (<code>0x7ACA83..0x7ACA95</code>). It builds the same tests (<code>0x7A2D02..0x7A2D23</code>, then fn_007A98B0, fn_007AA8F0 and
+    fn_007A3A50, <code>0x7AAB14..0x7AABAD</code>) and returns 0 for an empty list (<code>0x7A2D28</code>), 1 otherwise (<code>0x7A2D45</code>);</li>
+<li>not set (Intel family 6, so every Core and later), the x87 path runs.</li>
+<li><code>[0xC3720C]</code> is 0.67 in every read that matters here. Its only writers are two <code>fstp</code> in the reflected land pass
+  fn_007FF4F0 (called from GLandscape::Draw <code>0x5E48DD</code>, active only with LandRef), which negates it at <code>0x7FF52F</code>,
+  after its own PreDraw (<code>0x7FF510</code>), and restores it exactly at <code>0x7FF5F3</code>. That pass calls fn_00874AA0 for every
+  listed block and discards the result: it writes no <code>+0x920</code> bit and no <code>[0xC37208]</code>. With LandRef on, the frame's
+  PreDraw therefore runs inside that pass and the main pass's PreDraw does nothing; the camera is the same for both, so
+  the block list is the same.</li>
+</ul>
+<h4 id="the-blocks-level-of-detail">The block's level of detail</h4>
+<p>What follows is the x87 path. The SSE path (fn_007A1800, fn_007ACCE0, fn_007ACD00; it reads the seam table at
+<code>0x7AA499</code> and <code>0x7AB12C</code>) was not read for it.</p>
+<p><strong>The lines.</strong> Four lines across the land, structs of 0x28 bytes: <code>+0x00</code> n, a horizontal unit direction along the
+line (n.y is 0); <code>+0x0C</code> p, a point on it; <code>+0x18</code> valid (nothing in the cull or the morph reads it); <code>+0x1C</code> dist;
+<code>+0x20</code> W, the band's full width (the morph's ramp); <code>+0x24</code> T, its half width (the cull's test; T = W/2 in every set).</p>
+<table>
+<thead>
+<tr>
+<th>Line</th>
+<th>Built by</th>
+<th>Static init (pointer table <code>0x9C7D24..0x9C7D38</code>)</th>
+<th>LH3DIsland::Create, detail index 4 only</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>L0 <code>0xE9C4B8</code></td>
+<td>fn_007FF0E0 (y_ref 0)</td>
+<td>600, W 50, T 25 (fn_007FE930)</td>
+<td>2500, W 550, T 275 (<code>0x803E25..0x803E7B</code>)</td>
+</tr>
+<tr>
+<td>L1 <code>0xE9C4E0</code></td>
+<td>fn_007FF0E0 (y_ref 0)</td>
+<td>300, W 50, T 25 (fn_007FE8B0)</td>
+<td>1600, W 550, T 275 (<code>0x803DC5..0x803E1B</code>)</td>
+</tr>
+<tr>
+<td>L2 <code>0xE9C508</code></td>
+<td>fn_007FEE60 (y_ref = min(cam.y, 110.55))</td>
+<td>300, W 40, T 20 (fn_007FE830)</td>
+<td>400/70/35 (<code>0x803C2B</code>), then by the live LH3DVRAMTex count <code>[0xF05200]</code>: &gt; 600 gives 800/170/85, &gt; 500 700/170/85, &gt; 400 600/170/85</td>
+</tr>
+<tr>
+<td>L3 <code>0xE9C530</code></td>
+<td>fn_007FEE60 (y_ref as L2)</td>
+<td>50, W 40, T 20 (fn_007FE7B0)</td>
+<td>never changed</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Create's two tests are <code>[0xC381EC] == 4</code> (<code>0x803C25</code>) and fn_00804E60, which in the running copy also returns
+  <code>[0xC381EC] == 4</code> (<code>0x804E69</code>). Nothing else writes dist, W or T. <code>[0xF05200]</code> counts live LH3DVRAMTex textures (+1
+  at <code>0x85DF00</code>, −1 at <code>0x85DB41</code>, reset at <code>0x85D825</code>); it only affects L2.</li>
+<li>Once per frame, in LH3DIsland::PreDraw (<code>0x7FF2E1..0x7FF30E</code>, before any cull), each line is rebuilt from the camera:</li>
+</ul>
+<pre><code>f   = [0xEA1DD4..0xEA1DDC]      // unit view direction, written by UpdateWorldToCamera 0x819773..0x819782 when its
+                                // bool is set (UpdateCamera passes 1 at 0x819A41, CameraModeNew3 passes 0 at 0x459A66);
+                                // f = normalize(focus - eye), with dx replaced by +-1e-4 (its sign) first when
+                                // |dx| &lt; 1e-4 and |dz| &lt; 1e-4 (0x8196B9..0x8196F8)
+P   = g_camera + dist * f       // per component
+d   = -(P.z*f.z + P.y*f.y + P.x*f.x)
+n   = (f.z, 0, -f.x)            // cross((0,1,0), f), fn_006A3E20
+m   = -y_ref                    // y_ref = 0 (fn_007FF0E0); (110.55 &lt; cam.y || NaN) ? 110.55 : cam.y (fn_007FEE60,
+                                // 110.55 = 0.67f * 165f, 0x7FEE63..0x7FEE90)
+sx = n.x^2, sy = 0, sz = n.z^2
+if (sz &gt; sy &amp;&amp; sz &gt; sx &amp;&amp; sz &gt; 0.0001)  p = (d - m*f.y, m*f.x, 0) * (1/n.z)     // strict compares
+elif (sx &gt; 0.0001)                      p = (0, -m*f.z, m*f.y - d) * (1/n.x)    // (the sy branch is unreachable)
+else { valid = 0; return }              // n stays (f.z, 0, -f.x) unnormalised, p keeps last frame's value
+// the scale by 1/n.z or 1/n.x is done once, by fn_007FF0C0
+n *= 1/sqrt(sz + sy + sx); valid = 1
+</code></pre>
+<p>The cull and the morph then use, for a point (x, z), <code>v = (x - p.x) * n.z - (z - p.z) * n.x</code> in exactly this order:
+  the signed horizontal distance to the line, positive on the camera's side.</p>
+<p><strong>The choice</strong> (fn_00877210 after the frustum masks, <code>0x87751B..0x877C84</code>). The block's 4 ground corners (x, z),
+(x, z+160), (x+160, z), (x+160, z+160), with x = <code>+0x90C</code> and z = <code>+0x910</code> (the 160 added before p is subtracted), are
+each <em>near</em> (v &gt; T), <em>far</em> (v &lt; −T, and a NaN v) or <em>in the band</em>:</p>
+<pre><code>L1:  any band            -&gt; +0x934 = 1, +0x930 = 0     // 0x877A6A
+     any near and any far -&gt; +0x934 = 1, +0x930 = 0     // 0x877A84
+     all near             -&gt; +0x934 = 0, +0x930 = 0     // 0x877A92
+     all far              -&gt; +0x934 = 2, +0x930 = 1     // 0x877AA0
+if +0x934 == 2, L0:
+     any band             -&gt; +0x934 = 3, +0x930 = 1     // 0x877C5A
+     all far              -&gt; +0x934 = 4, +0x930 = 2     // 0x877C7A
+     all near             -&gt; +0x934 = 2, +0x930 = 1     // 0x877C6C
+     near and far         -&gt; +0x934 = 3, +0x930 = 1     // 0x877C5A
+</code></pre>
+<ul>
+<li><code>+0x934</code>: 0 full detail; 1 full detail morphing towards step 2 (straddles L1); 2 step 2; 3 step 2 morphing towards
+  step 4 (straddles L0); 4 step 4, also the value a frustum-culled block is given. <code>+0x930</code> is the matching step shift.</li>
+<li>L2 and L3 set only <code>+0x938</code> and <code>+0x928</code>, and the fog band sets <code>+0x940</code>. With the detail and bump lines they change
+  colours, UVs and passes only: fn_00874AA0's result does not depend on them (it is fixed at <code>0x87539B</code>).</li>
+</ul>
+<p><strong>The seams</strong> (fn_00878210, from PreDraw <code>0x7FF33C..0x7FF359</code>). It runs for every block after all of the frame's
+culls, so it sees this frame's <code>+0x930</code> of every neighbour; culled blocks have <code>+0x930 = 0</code> and never cause a seam.</p>
+<pre><code>+0x93C = 0;  nb(i, j) = block g_index_block[i*32 + j] if 0 &lt;= i, j &lt;= 31 and that index is not 0
+nb(bx-1, bz).+0x930 &gt; +0x930: |= 1      // bx = +0x914, bz = +0x918, signed compares
+nb(bx, bz-1).+0x930 &gt; +0x930: |= 2
+nb(bx, bz+1).+0x930 &gt; +0x930: |= 4
+nb(bx+1, bz).+0x930 &gt; +0x930: |= 8
+</code></pre>
+<ul>
+<li>The seam table (<code>0xE9A130</code>, 24 bytes per entry: has_fans, skipRow0, skipRowLast, skipCol0, skipColLast) is built
+  once by fn_00803890 (<code>0x803983..0x803A15</code>, guarded by <code>[0xC37BF8]</code>). 1 → {1,1,0,0,0}, 2 → {1,0,0,1,0}, 3 →
+  {1,1,0,1,0}, 4 → {1,0,0,0,1}, 5 → {1,1,0,0,1}, 8 → {1,0,1,0,0}, 10 → {1,0,1,1,0}, 12 → {1,0,1,0,1}. Every other
+  value (0, 6, 7, 9, 11, 13, 14, 15) is all zero: no edge is skipped and no fan is added, so two opposite coarser
+  sides are left as they are.</li>
+<li>The quad walk (fn_00876910 <code>0x876936..0x876A26</code>, fn_00875C60 <code>0x875C86..0x875D77</code>): at steps 0 and 1 the rows run
+  from skipRow0 to <code>16/step - skipRowLast</code> and the columns likewise; at step 2 all 5×5 vertices, with no seam handling
+  (<code>0x876964</code>). The first quad is <code>v00 = (skipRow0 ? n : 0) + (skipCol0 ? 1 : 0)</code>, and at a row end each index moves by
+  2 if a column is skipped, otherwise 1. A quad with the cell's split bit 0x80 emits (v01, v11, v10) and (v01, v10,
+  v00), otherwise (v00, v01, v11) and (v00, v11, v10).</li>
+<li>The fans (<code>0x876F26..0x877200</code>, outside <code>0x876562..0x8768FA</code>) run only when has_fans is set, at steps 0 and 1. Bit 1
+  is tested before bit 8 and, within either, bit 4 before bit 2. Step 0 tables: 1+4 <code>0xC37584</code>, 1+2 <code>0xC37470</code>, 1
+  <code>0xC37230</code>, 8+4 <code>0xC377AC</code>, 8+2 <code>0xC37698</code>, 8 <code>0xC372C0</code>, 4 <code>0xC373E0</code>, 2 <code>0xC37350</code> (pairs 46 triangles, single
+  sides 24). Step 1, in the same order: <code>0xC37A64</code>, <code>0xC379E0</code>, <code>0xC378C0</code>, <code>0xC37B6C</code>, <code>0xC37AE8</code>, <code>0xC37908</code>,
+  <code>0xC37998</code>, <code>0xC37950</code> (22 and 12). The step 1 tables are stored with 17-wide indices and converted once, in place,
+  to 9-wide ones, <code>v = (9*(v/17) + v%17) / 2</code> (<code>0x803A1D..0x803BCC</code>). Each triangle is emitted in table order if
+  <code>A &gt; 0</code> (<code>0x877159..0x8771E8</code>), or clipped first on the outside path.</li>
+</ul>
+<p><strong>The cell-flag pointer.</strong> The walk's cell pointer does not follow the level of detail or the seams: it starts at
+record 0 and moves one record per quad and one more per row (<code>0x876C8E</code>/<code>0x876CB1</code>, <code>0x876EEC</code>/<code>0x876F0F</code>,
+<code>0x876141</code>/<code>0x87616F</code>). At step 0 with no seam, quad (r, c) reads record (r, c). At step 1 it reads record <code>9r + c</code> of
+the 17-wide array, at step 2 record <code>5r + c</code>; with a skipped first row the flags are one row behind, and with a skipped
+column they drift by one record per row. The flags read this way are the split bit 0x80 and, at <code>+0x934 == 0</code> only,
+the open-sea bit 0x200.</p>
+<p><strong>The open-sea bit.</strong> Cell word <code>+6</code> is <code>properties | flags &lt;&lt; 8</code>, so 0x200 is bit 1 of the LND flags byte, the open-sea
+cell of <a href="rendering.html#coast">rendering.md</a>. A quad is skipped for it only when <code>+0x934 == 0</code>, and only for the record the
+pointer reaches.</p>
+<p><strong>The morph</strong> (fn_00877D20, fastcall: ecx = the copy at <code>0xE9B6E0</code>, edx = <code>+0x934 == 1</code>). Stage A copies the whole
+block first (<code>rep movsd</code> of 0x276 dwords, <code>0x7FF64B</code>). Only the copy's altitude bytes change: record i at
+<code>block + 8*i</code>, altitude at +4, i = row*17 + col, the row along x (<code>+0x90C</code>) and the column along z (<code>+0x910</code>), 10 units
+per cell.</p>
+<pre><code>edx ? (L = L1, s = 2, h = 1) : (L = L0, s = 4, h = 2)          // 0x877D2B..0x877DD0
+K = 256 / L.W;  half = L.W * 0.5
+blend(r, c, a, b):
+    v = (X(r) - L.p.x) * L.n.z - (Z(c) - L.p.z) * L.n.x       // X(r) = +0x90C + 10r, Z(c) = +0x910 + 10c
+    if (v &gt;= half) return                                      // on the near side of the band; ordered, NaN goes on
+    mid = (alt[a] + alt[b]) &gt;&gt; 1
+    if (-half &gt;= v) alt[r,c] = mid                             // beyond the band; ordered, NaN goes on
+    else { t = fistp((half - v) * K); alt[r,c] = ((256 - t)*alt[r,c] + t*mid) &gt;&gt; 8 }   // unsigned, byte store
+rows 0, s, .., 16;  cols h, h+s, ..:   blend(r, c, (r, c-h), (r, c+h))          // 0x877DD3..0x877F42
+rows h, h+s, ..;    cols h, h+s, ..:   blend(r, c, (r-h, c-h), (r+h, c+h))      // 0x877F48..0x8780AF
+rows h, h+s, ..;    cols 0, s, .., 16: blend(r, c, (r-h, c), (r+h, c))          // 0x8780B5..0x878203
+</code></pre>
+<ul>
+<li>X and Z are float accumulators: they start from <code>+0x90C - p.x</code> (or with 10h added first) and add <code>10*s</code> per step, in
+  that order.</li>
+<li>a and b always lie on the coarser grid, which no pass writes, so the passes are independent. The centre vertex always
+  uses the (−,−)/(+,+) diagonal, whatever the split bit. A NaN v takes the partial branch with fistp's
+  integer-indefinite result.</li>
+</ul>
+<h4 id="the-detail-index">The detail index</h4>
+<ul>
+<li>The running detail index is <code>[0xC381EC]</code> (static 3). Its only writer is fn_00823AD0 at <code>0x823B32</code>, called once from
+  start_system (<code>0x643026</code>), so it is set at start-up and never changes while the game runs.</li>
+<li>start_system (<code>0x642FCB..0x643004</code>) reads the DWORD <code>detailidx</code> from <code>HKEY_CURRENT_USER\Software\Lionhead Studios
+  Ltd\Black &amp; White\BWSetup</code> (key <code>0x9CAFF8</code>, value <code>0xBE8D68</code>, LHLogR RegistryRetrieveULong, import <code>0x8A9344</code>; the
+  root <code>[0x1001DEE0]</code> is HKCU). Missing gives <strong>4</strong>; any value of 5 or more (unsigned, <code>jae</code> at <code>0x642FF2</code>) also gives 4.
+  No ini, profile or command-line option is read.</li>
+<li>fn_00823AD0 then sets, from tables indexed by d (0..4): the fog flag <code>[0xC37204]</code> (0x9A3854: 0,0,0,1,1),
+  UseSmallBump <code>[0xC37210]</code> (1 in all), LandRef <code>[0xE9CD8C]</code> (0,0,0,1,1) and <code>[0xE9CD90]</code> (ends 1,0,0,0,0; it seeds
+  <code>+0x92C</code>, texturing only). Index 5, the custom set (fn_008237B0), is never reached from start-up.</li>
+<li>At d 0..3 the lines keep their static values (L0/L1 600/300, ±25); at d 4 they are 2500/1600, ±275.</li>
+<li>The Options box (ReadRegistrySettings <code>0x51482A..0x514875</code>, saved by <code>0x5148B0</code>) writes <code>detailidx</code> back to the
+  registry but does not call fn_00823AD0: a change applies at the next start. <code>maxdetailidx</code> (default 5,
+  <code>[0xC381E8]</code>) only limits the dialog.</li>
+<li>The test machine's registry has no <code>detailidx</code> (nor <code>maxdetailidx</code>), so the original runs there with <strong>d = 4</strong>. This
+  holds until someone saves the Options box with another level.</li>
+<li>openblack: <code>EngineConfig::detailLevel</code> (src/EngineConfig.h, default 4), from <code>--detail-level</code> (src/main.cpp, default
+  4, 0..6). Its 5 (custom) and 6 (top) have no counterpart in this executable, which never runs above 4.</li>
+</ul>
+<h4 id="what-the-level-of-detail-changes-in-the-list">What the level of detail changes in the list</h4>
+<p>For one rebuild, the list's membership and order do not depend on the level of detail (<code>+0x930</code>, <code>+0x934</code>, <code>+0x93C</code>,
+<code>+0x940</code>):</p>
+<ul>
+<li>The block list <code>[0xFA92D8]</code> is linked in PreDraw from bit 0 of <code>+0x920</code>, which only the cull's frustum test writes,
+  every frame, before any level-of-detail code (<code>0x8774E8</code>, <code>0x877CEB</code>). fn_00878210 writes only <code>+0x93C</code>.</li>
+<li>The sort key and the vanish break use <code>+0x9BC</code>, made from the box centre only (<code>0x877C8A..0x877CCD</code>).</li>
+<li>The land pass and its callees never write <code>+0x9B8</code>, <code>+0x9BC</code> or <code>[0xFA92D8]</code>. A block whose bit 0 the land pass
+  clears stays linked.</li>
+<li>Stage B's walk reads per block only <code>+0x9BC</code>, <code>+0x914</code>, <code>+0x918</code> and <code>+0x9B8</code>, not <code>+0x920</code>. So it walks every
+  frustum-accepted block, including those whose land triangles were all clipped or back-facing.</li>
+</ul>
+<p>The level of detail reaches the list only through the rebuild trigger <code>[0xC37208]</code>: fn_00874AA0's result depends on
+<code>+0x930</code>, <code>+0x934</code> and <code>+0x93C</code>, so a block can flip visible or invisible because of its level, and decide which frame
+rebuilds. <code>+0x940</code> does not reach that result.</p>
+<h4 id="a-land-load">A land load</h4>
+<p>Every land load frees the land's blocks and makes them again from the land file, so each block's state starts afresh:</p>
+<ul>
+<li><strong>The paths.</strong> LOAD_MAP (GScript::LoadMap <code>0x6FB320</code>) and the first land (GGame::Init, then
+  ResetAndStartPlaygroundGame <code>0x5559A7</code>) both reach StartPlaygroundGame <code>0x552F40</code>. It runs ClearMap,
+  LH3DLandscape::Release and LH3DIsland::Release (<code>0x552F59</code>), then LoadMapFeatures <code>0x7180B0</code>, whose feature
+  dispatcher <code>0x715180</code> has the only call to GLandscape::Open (<code>0x716FE7</code>; its case number was not resolved). A saved
+  game's load (LoadAllGame) runs ClearMap and then GLandscape::Open (<code>0x558AC9</code>). The vortex reaches neither: the next
+  land comes through the script's LOAD_MAP.</li>
+<li><strong>GLandscape::Open <code>0x5E52E0</code></strong> has no "same land" test: it always runs both Releases, then LH3DIsland::Create
+  (<code>0x5E533B</code>), which hands a <code>.lnd</code> file to fn_008015D0 (<code>0x803E98</code>).</li>
+<li><strong>LH3DIsland::Release <code>0x804790</code></strong> frees every block (its texture and material, then LH3DMem::Free at <code>0x878767</code>),
+  zeroes <code>g_ptr_blocks</code> and <code>g_index_block</code>, sets the block count <code>[0xE9CD70]</code> to 0, and sets <code>[0xC37208] = 1</code>
+  (<code>0x804816</code>).</li>
+<li><strong>The <code>.lnd</code> load.</strong> Each block 1..count−1 is allocated again (0x9D8 bytes, zeroed) and copied whole from the file
+  (<code>0x80169B</code>). Then <code>+0x91C..+0x943</code> are zeroed (from <code>0x8016A4</code>): the partly-outside flag <code>+0x91C</code>, all of <code>+0x920</code>
+  (bit 1, the last land-clip result, included), <code>+0x930</code>, <code>+0x934</code>, <code>+0x93C</code> and <code>+0x940</code>. <code>+0x9D4</code> is zeroed too, and
+  fn_007FEA60 sets <code>+0x924</code> to the block's highest altitude (<code>0x7FEA93</code>). The other path (an LH_FILE, not a <code>.lnd</code>)
+  zeroes the whole block.</li>
+<li><strong>Not cleared:</strong> <code>+0x9B8</code> (next) and <code>+0x9BC</code> (the distance) keep the file's bytes. Nothing reads them first: PreDraw
+  culls every block (<code>0x7FF32A</code>), the cull writes <code>+0x9BC</code> for every block it keeps, then PreDraw empties <code>[0xFA92D8]</code>
+  (<code>0x7FF468</code>) and links the visible blocks again, writing <code>+0x9B8</code>. Only listed blocks are read after that.</li>
+<li><strong>What a land load keeps:</strong> the last rebuild's turn <code>[0xD2019C]</code> (its only writer is <code>0x5E5D90</code>), and <code>[0xFA92D8]</code>,
+  which points at the freed blocks until the next PreDraw.</li>
+<li><strong><code>[0xC37208]</code>.</strong> Release's 1 is never seen: fn_007FF610 sets the flag to 0 at its start (<code>0x7FF62B</code>), and
+  GLandscape::Draw always calls it (<code>0x5E4E96</code>) before the rebuild check (<code>0x5E4EDD</code>); nothing in Draw jumps over that
+  call. The check fn_005E5CD0 only reads the flag (<code>0x5E5D5E</code>). Since bit 1 is 0 after a load, the first drawn frame
+  sets the flag for every listed block that keeps a triangle; that rebuild is forced anyway by ClearMap's RebuildCount
+  of 1.</li>
+</ul>
+<h3 id="stage-b-rebuilding-the-list-0x5e5d320x5e5ed2">Stage B: rebuilding the list (<code>0x5E5D32..0x5E5ED2</code>)</h3>
+<pre><code>rebuild = RebuildCount[0xBF358C] != 0
+       || turn[g_game+0x205A40] &gt; [0xD2019C] + 10      // unsigned ja: with no other trigger, every 11 turns
+       || [0xC37208] != 0
+if (rebuild) {
+  [0xBF3590] = 1                                       // 0x5E5D6C
+  if (RebuildCount) RebuildCount--                     // 0x5E5D78: a 2 gives two rebuilds in a row
+  [0xD2019C] = turn                                    // 0x5E5D8E; static 0, only written here
+  for i &lt; DrawObjectCount: if (DrawObjects[i]) DrawObjects[i]-&gt;+0x24 &amp;= 0xFEFF       // 0x5E5D9A..0x5E5DB9
+  DrawObjectCount[0xD20198] = 0
+  for (b = [0xFA92D8]; b; b = b-&gt;+0x9B8) {
+    if (!(b-&gt;+0x9BC &lt; VanishObjectDist[0xC37200])) break          // a break, not a skip; NaN does not break
+    gb = GameBlock table[0xD189D8 + 4*((b-&gt;+0x914 &lt;&lt; 5) + b-&gt;+0x918)]
+    if (gb) for k in 0 .. gb.count-1: TryAdd(gb.arr[k])           // count +0, array +8
+    for k in 0 .. [0xD199E0]-1: TryAdd(Global[0xD199E8][k])       // inside the block loop
+  }
+}
+TryAdd(o):
+  skip if count == 0xBB7 (2999)                // a skip, not a break: later objects are dropped
+  skip if o-&gt;+0x24 &amp; 0x100                     // already listed
+  skip if o-&gt;+0xA &amp; 1                          // unavailable
+  skip if o-&gt;+0x40 &amp;&amp; o-&gt;+0x40-&gt;GetDontDraw()  // vt+0x74 on the Game3DObject
+  DrawObjects[0xD1D28C + 4*count] = o; o-&gt;+0x24 |= 0x100; count++
+</code></pre>
+<ul>
+<li>The turn <code>g_game+0x205A40</code> goes up only in StartTurn <code>0x54E507</code>, and only when not paused (<code>+0x14 &amp; 4</code>,
+  <code>0x54E4FD</code>).</li>
+<li>VanishObjectDist is static 100000.0f. Its only writer is SetVanishObjectDist <code>0x87FD44</code>, from the
+  SET_VANISH_OBJECT_DIST script command, which passes float(int)². No shipped file was found with that command's name
+  (packed files would hide it). At 100000 the vanish test never cuts anything: the land's diagonal is about 7241.</li>
+<li>Because of the 0x100 bit, the global list is in effect added once, right after the first block that passes, and not
+  at all when no block passes. So the list is: the blocks nearest first, each block's array in order, and the global
+  list after the first block.</li>
+<li>The skip at vt +0x74 is GetDontDraw: <code>+0x40</code> is the Game3DObject (bw1-decomp Object.h:69, LH3DObject.h:99). The
+  disassembler's GetFootpathLink label for that slot is wrong.</li>
+<li><strong>Which block an object is in.</strong> GameBlock::Insert <code>0x5DDCE0</code> uses <code>table[((cellX&gt;&gt;4)&lt;&lt;5) + (cellZ&gt;&gt;4)]</code>:</li>
+<li>an index outside 0..31, or a null slot, sends the object to the global block <code>0xD199E0</code>;</li>
+<li>slots exist only where <code>g_index_block</code> and <code>g_ptr_blocks</code> have a land block (fn_005DDC00, <code>0x5DDC3D..0x5DDC66</code>);</li>
+<li>off-map objects are in no list at all: ToMap <code>0x603430</code> returns null, and Object::InsertMapObject skips them
+    (<code>0x636750</code>);</li>
+<li>the callers are <code>0x52DEC9</code> and <code>0x52DF09</code> (Fixed) and <code>0x6368C0</code> (Object), once for every cell the object is filed
+    in. Removes come only from Object::RemoveMapObjectFromCell <code>0x636A24</code>.</li>
+<li><strong>The order inside a block.</strong></li>
+<li>Insert <code>0x5DDDC0</code> appends <code>arr[count++] = obj</code> and sets <code>+0xC = obj</code> (<code>0x5DDE45..0x5DDE4F</code>). It first sets
+    <code>+0x10 = 0</code>, then returns at once if <code>obj == +0xC</code>, the last object inserted (<code>0x5DDDC8</code>); there is no other
+    duplicate check. A full array grows by 0x14 and keeps its order (<code>0x5DDDD4..0x5DDE41</code>).</li>
+<li>Remove fn_005DDE60 swaps the last entry into the hole. It first sets <code>+0xC = 0</code>, then returns at once if
+    <code>obj == +0x10</code>, the last object removed. With count 1 it clears <code>arr[0]</code> without checking which object it is
+    (<code>0x5DDE73..0x5DDE85</code>). Otherwise it searches from index 0 and, if the match is not last, does
+    <code>arr[idx] = arr[count-1]</code> (<code>0x5DDEB1..0x5DDEB7</code>). It always does <code>count--</code> (<code>0x5DDEBA</code>), even when nothing matched.</li>
+<li>A moving object is swap-removed and appended again at every cell change.</li>
+<li>Nothing sorts the arrays. GLandscape::Open creates the table (<code>0x5E5531</code>), ClearMap's GameBlock::Clean zeroes the
+    counts (<code>0x552F1D</code>) and GLandscape::Close frees it (<code>0x5E52CB</code>).</li>
+<li><strong>The other writers of bit 0x100 and of the list:</strong></li>
+<li>the Object constructors set the whole word to 0 (<code>0x63648B</code>, <code>0x636577</code>); CreaturePhysical's constructor writes a
+    constructor argument there (<code>0x4EF451</code>);</li>
+<li>GameThingWithPos::Load clears the bit (<code>0x57052F</code>);</li>
+<li>in GGame::ProcessKey, LH key 1 in single player with TutorialState <code>[0xD019A4] != 0</code> clears the bit on every
+    non-null entry and sets the count to 0 (<code>0x63F07E..0x63F0BD</code>);</li>
+<li>Reward::Process, when <code>+0x8C</code> is set, appends itself to DrawObjects with the same tests and sets 0x100
+    (<code>0x6E68FD..0x6E6947</code>);</li>
+<li>two writers leave the bit set: ClearMap zeroes the entries and the count but not the flags (<code>0x552E9A..0x552EA3</code>),
+    and EndTurn nulls DrawObjects[i] and DrawObjectActive[i] for unavailable entries (<code>0x54E9F9..0x54EA18</code>). An object
+    nulled this way keeps 0x100; the next rebuild skips null entries, so it is not listed again until a reload or the
+    tutorial key, or never.</li>
+</ul>
+<h3 id="stage-c-the-draw-passes-0x5e5eda0x5e6135">Stage C: the draw passes (<code>0x5E5EDA..0x5E6135</code>)</h3>
+<pre><code>[0xEC81BC] = count                                     // statistics only
+full = [0xBF3590] != 0                                 // a rebuild this frame: P and F are NOT updated
+if (!full) {
+  // P [0xD1A350] and F [0xD1A340] are statics, zeroed on first use (guard 0xD1A35C)
+  if (|g_camera[0xEA1DB8] - P|^2 &gt; [0xBF3594] (1.0) || |focus[0xEA1DC4] - F|^2 &gt; 1.0) {   // test ah,0x41
+    P = g_camera; F = focus; full = true               // &lt;= 1 or NaN counts as still; drift adds up against P/F
+  }
+}
+if (full) {
+  [0xBF3590] = 0                                       // 0x5E605B
+  for i in 0 .. count-1:
+    o = DrawObjects[i]
+    if (!o) { Active[i] = 0; continue }                // Active = DrawObjectActive 0xD1A3AC
+    g_b_last_on_screen[0xEA1AF0] = 1                   // 0x5E6077
+    if (o-&gt;+0xA &amp; 1) { DrawObjects[i] = 0; Active[i] = 0; continue }
+    o-&gt;Draw()                                          // vt+0x610
+    Active[i] = g_b_last_on_screen ? 1
+              : (o-&gt;+0x40 &amp;&amp; (o-&gt;+0x40-&gt;IsHuman() [vt+0xB0] || o-&gt;+0x40-&gt;IsComplex() [vt+0x1A8])) ? 1 : 0
+} else {
+  [0xEC81BC] = 0
+  for i: if (Active[i]) {
+    o = DrawObjects[i]
+    if (!o || (o-&gt;+0xA &amp; 1)) { DrawObjects[i] = 0; Active[i] = 0 } else o-&gt;Draw()
+    [0xEC81BC]++
+  }                                                    // the flag is not reset and Active is not recomputed
+}
+</code></pre>
+<ul>
+<li>In the full pass a null entry is tested before the flag is set: the flag is set to 1 only for a non-null entry
+  (<code>0x5E606E</code>, then <code>0x5E6077</code>).</li>
+<li>The slots vt +0xB0 and vt +0x1A8 are on the Game3DObject <code>+0x40</code>, so they are IsHuman and IsComplex
+  (LH3DObject.h:174-176); the disassembler labels them CastAbode and GetImpressiveType.</li>
+<li>Who answers 1: no LH3DObject vtable overrides IsHuman (<code>fn_007F9980</code>, <code>(Flags1[+4] &gt;&gt; 19) &amp; 3</code>, in all nine
+  vtables); its only writer is SetHuman (<code>fn_007F9990</code>, vt +0xB4), called on a game object's +0x40 only from
+  Villager::CallVirtualFunctionsForCreation (<code>0x74FD3C</code>), so <strong>IsHuman is 1 for the villagers and the special
+  villagers</strong> (not PieceVillager or PuzzleVillager, which take Animal's). Only the COMPLEX vtable (<code>0x9A3068</code>) overrides
+  IsComplex (<code>fn_0080B9F0</code>, returns 1); the default <code>Object::Get3DType</code> (<code>0x6364F0</code>) never returns COMPLEX, and the
+  game objects with a COMPLEX +0x40 are <strong>the Creature</strong> (<code>0x474B24..0x474B42</code>, from Morphable::MorphInit
+  <code>0x617315</code>) and <strong>the HelpSpirits</strong> (HelpSpirit::Create <code>0x5C4B30</code>, the object fn_005C0F30 builds at <code>0x5C0FD5</code>).
+  Every other object's Active is its on-screen flag. openblack: <code>components::Villager</code> answers IsHuman and
+  <code>components::Creature</code> IsComplex (src/ECS/DrawList/RegistryObjects.cpp); the advisor spirits are drawn by the help
+  system and are not registry entities, so they never reach the list.</li>
+<li>g_camera and the focus are written by UpdateCamera at <code>0x819A1C..0x819A4D</code>, from GCamera::Update <code>0x442622</code>, before
+  PreDrawProcess and the draw. In world mode outside playback, their values come from these steps, in order:
+  1. the interpolated position and focus: the zoomers at <code>+0x118</code> and <code>+0x88</code>, after Zoomer::Update;
+  2. a NaN coordinate is replaced by the last good value (<code>0xC59B48</code> for the eye, <code>0xC59B38</code> for the focus);
+  3. if the eye and the focus are closer than √0.001, the eye moves by (−1, +1);
+  4. the floor step: an eye less than 1 above the ground raises eye.y and focus.y by the same amount (skipped for
+     CameraModeFree and when <code>+0x78</code> is set);
+  5. the debug override <code>[0xEA9EC8]</code>, which is 0 in play;
+  6. the shake fn_008210C0.</li>
+</ul>
+<p>CameraModeNew3::Update changes g_camera and puts it back (<code>0x45D3D4..0x45D489</code>).</p>
+<h3 id="stage-d-what-sets-g_b_last_on_screen-inside-draw">Stage D: what sets g_b_last_on_screen inside Draw</h3>
+<p>The usual chain is SingleMapFixed::Draw <code>0x518100</code>, then <code>Game3DObject::AddForDrawing</code> <code>0x63B5D0</code> (at <code>0x518140</code>, or
+through fn_00518050 at <code>0x518079</code> when <code>+0x44</code> is set), which calls vt +0x100 at <code>0x63B628</code>:</p>
+<ul>
+<li>vt +0x100 is fn_00815A70 in the STATIC (<code>0x9A2974</code>), MORPHABLE (<code>0x9A2E34</code>), ANIMATED (<code>0x9A32A0</code>) and CITADEL
+  (<code>0x9A2BFC</code>) vtables, and in LH3DMeshedObject (<code>0x9A2748</code>). LH3DObject::Create <code>0x80B4D0</code> builds them (jump table
+  <code>0x80B844</code>).</li>
+<li>COMPLEX (<code>0x9A3068</code>) uses fn_00813340, which calls the same test.</li>
+</ul>
+<p>fn_00815A70:</p>
+<pre><code>if (GetDontDraw() [vt+0x74]) { g_b_last_on_screen = 1; return }                   // 0x815A8E
+mesh = GetMesh() [vt+0xF8]
+LH3DBoundingBox::CheckRegionOnScreen(&amp;mesh-&gt;BoundingBox, obj)                      // 0x868C80
+  // [0xEA9EB4] != 0: fn_007ACC60 -&gt; fn_007AC640 (SSE); else the x87 body 0x868CA2..0x868FBC. Same logic.
+  r  = box[+0x1C] * obj.scale[+0x44]
+  W  = c.x*R0 + c.y*R1 + c.z*R2 + T     // c = box+4 (local); rows +0x14/+0x20/+0x2C carry the scale; T = +0x38
+  (cx, cy, cz) = W through g_world_to_clipping 0xEA9E40 (translation +0x24); g_last_distance[0xEA1AF4] = cz
+  flag = 0                                                                         // 0x868CB2 / 0x7AC665
+  if (cz + r &lt; near[0xE839E0]) return                                              // 0x868D90 / 0x7AC785; no far plane
+  if (|T - g_camera|^2 &lt; r^2) { SetNeedClipping(1); flag = 1; return }             // around the ORIGIN T, not W
+  sx = (cx/cz + 1) * W/2;  sy = (1 - cy/cz) * H/2                                   // W, H = [0xE839E4], [0xE839E8]
+  rr = r*W / (2*cz*tan(fov/2))                                                     // tn [0xC3812C] = tan(fov/2)*near
+  if (sx+rr &lt; 0 || sx-rr &gt; W || sy+rr &lt; 0 || sy-rr &gt; H) return                     // edges count as on screen
+  flag = 1; [0xC37EA0] = r                                                         // 0x868F09 / 0x7AC938
+// then the LOD and distance cull:
+L = min((importance + 1) * r * [0xC3813C], 100000)    // [0xC3813C] = detail, clamped to 0..1 (0x5E7919)
+// cz against 23.3L, 66.7L, 86.7L and 173.3L picks LOD 1, 2 or 4 (3 is never set); alpha fades between 86.7L and 173.3L
+if (cz &gt;= 173.33*L &amp;&amp; IsDisappear [+4 bit 3, vt+0x9C] &amp;&amp; !IsHuman) flag = 0      // 0x815EED
+</code></pre>
+<ul>
+<li>The SSE form computes 1/cz with an approximate reciprocal and one refinement step; the x87 form divides. In the
+  camera-inside compare, a NaN takes the inside path in SSE and the frustum path in x87.</li>
+<li>The constants at <code>0xFC0710</code>, <code>0xFC0714</code> and <code>0xFC0718</code> are 0.0, 0.5 and 1.0, static, with no writer.</li>
+</ul>
+<p>The near clip <code>[0xE839E0]</code>:</p>
+<ul>
+<li>It is 0 in the image; RenderInitialization <code>0x818F99</code> sets it to 3.5.</li>
+<li>In play, GCamera::Update stores LandFeature::GetNearClipping <code>0x5E2F30</code> at every update (<code>0x4424B4</code>), in every mode:</li>
+<li>0.1 while <code>[0xD1A2F8] != 0</code>. Only SET_GRAPHICS_CLIPPING sets that flag (<code>0x708C77</code>), and
+    CleanGameForScriptReboot clears it (<code>0x6EBBEF</code>);</li>
+<li>otherwise, with <code>h = g_camera.y - GetAltitude(ftol(x*65536*0.1), ftol(z*65536*0.1))</code>: 0.3 if h ≤ 0 or NaN, 3.5 if
+    h &gt; 20, otherwise <code>(h*0.05)*3.2 + 0.3</code> as a float.</li>
+<li>GetNearClipping reads g_camera before this update's UpdateCamera (<code>0x442622</code>), so frame N's near clip uses frame
+    N−1's drawn eye, shake included. A turn-side UpdateCamera call in between changes that eye: playback (<code>0x5DB120</code>)
+    and the power-up icon camera's restore (<code>0x68B7DA</code>).</li>
+<li>The other writers: CameraModePath::SetUpNearClipping <code>0x460F24</code> sets 0.1, but its only constructor call is turn-side
+  (<code>0x6C8792</code>), so <code>0x4424B4</code> overwrites it before the draw; CameraModePath::Cleanup <code>0x460F69</code> restores the saved
+  value; InnerCamera::PreDraw <code>0x79693C</code> sets 0.2 (temple); RunAlexFX <code>0x5F8FE1</code> sets 0.1 (start logo).</li>
+</ul>
+<p>The game's own Draw overrides also write the flag: ChessPion (<code>0x422863</code>, <code>0x422A62</code>), TownCentre (<code>0x5164F5</code>,
+<code>0x5164FF</code>), OneOffSpellSeed (<code>0x518E75</code>, <code>0x51908B</code>), WorshipTotem (<code>0x5193BB</code>, <code>0x780EEC</code>), DrawSpellGraphic
+(<code>0x51A7C4</code>, <code>0x51A7DF</code>, <code>0x51A7FA</code>), fn_0051BAF0 (<code>0x51BB3E</code>), LandscapeVortex (<code>0x5FFDFD</code>, <code>0x5FFF70</code>), ScriptHighlight
+(<code>0x70A29E</code>, <code>0x70A2B0</code>), TotemStatue (<code>0x738E98</code>) and fn_0074B3A0 (<code>0x74B5E8</code>).</p>
+<h3 id="the-script-highlight-in-the-list">The script highlight in the list</h3>
+<ul>
+<li>Vtable <code>0x94228C</code> (constructor fn_007098A0, <code>0x7098CB</code>). Slot +0x610 is ScriptHighlight::Draw <code>0x709C60</code>, slot
+  +0x658 its CallVirtualFunctionsForCreation <code>0x709AA0</code>.</li>
+<li>Creation: Create <code>0x709A40</code> calls CallVirtualFunctionsForCreation, which calls SingleMapFixed's <code>0x52E880</code>, then
+  Object's <code>0x636BE0</code> (which skips the insert if <code>Flags &amp; 4</code> or <code>+0xA &amp; 0x11</code>, <code>0x636CA5..0x636CB2</code>), then
+  InsertMapObject (<code>0x52E620</code>, <code>0x52E530</code>, <code>0x636740</code>; Flags |= 1), then InsertMapObjectToCell (<code>0x52F440</code>,
+  <code>0x52DEA0</code>), which calls GameBlock::Insert at <code>0x52DEC9</code>.</li>
+<li>So the highlight is appended to the block <code>(cellX&gt;&gt;4)*32 + (cellZ&gt;&gt;4)</code>, or to the global list when that block has no
+  land, before its sprite, 3D object and glint effect are made (<code>0x709C0E</code>). Its flags start at 0 and it has no
+  RebuildCount writer, so it is listed only at the next rebuild.</li>
+<li>A highlight that is not a DidYouKnow one calls <code>+0x40-&gt;SetDisappear(0)</code> at creation (<code>0x709ACE</code>), so the distance
+  cull can never clear its flag.</li>
+<li>Draw:</li>
+</ul>
+<pre><code>if (+0x5C || !(g_game+0x250090-&gt;+0x80 || IsDidYouKnow()) || !+0x40) return   // 0x709C8B/0x709CAE/0x709CB9 -&gt; 0x70A44C
+                                                                              // the flag keeps the list's 1: Active = 1
+SingleMapFixed::Draw()                     // the on-screen test of +0x40, as in stage D
+saved = g_b_last_on_screen                 // 0x709FD4..0x709FDA
+edi = 1 if the +0x60/+0x68 branch ran (0x70A10A) or the +0x74 branch with +0x28 == 0xD966C0 ran (0x70A28D)
+glint step                                 // 0x70A126
+g_b_last_on_screen = saved || edi          // 0x70A292..0x70A2B0
+</code></pre>
+<ul>
+<li>For a listed highlight's main object (+0x40), outside the early exits:</li>
+</ul>
+<pre><code>saved = DontDraw ? 1 :
+        (cz + r &gt;= near)
+     &amp;&amp; (|T - cam|^2 &lt; r^2  ||  the disc (sx, sy, rr) overlaps [0,W]x[0,H], edges included)
+     &amp;&amp; !(cz &gt;= 173.33*L &amp;&amp; IsDisappear &amp;&amp; !IsHuman)
+</code></pre>
+<ul>
+<li>Its glints step once in every frame in which the highlight is listed and either the pass is full, or Active[i] was 1
+  at the last full pass. Active[i] is <code>saved || edi</code>, or 1 after an early exit. The glint step itself is in
+  <a href="particles.html#the-glints-on-a-target-er_glintsontarget">particles.md</a>.</li>
+</ul>
+<h3 id="every-writer-of-rebuildcount-0xbf358c">Every writer of RebuildCount <code>[0xBF358C]</code></h3>
+<p>RebuildCount is static 1. It has 20 references, 2 of them in fn_005E5CD0.</p>
+<table>
+<thead>
+<tr>
+<th>Writer</th>
+<th>Address</th>
+<th>Value</th>
+<th>Condition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CHand::ThrowObject</td>
+<td><code>0x46DE25</code></td>
+<td>2</td>
+<td>The hand holds an object (<code>hand+0x4904 != 0</code>)</td>
+</tr>
+<tr>
+<td>GGame::ClearMap</td>
+<td><code>0x552E2A</code>, <code>0x552EA9</code></td>
+<td>1</td>
+<td>Always</td>
+</tr>
+<tr>
+<td>HandStateTug::Update</td>
+<td><code>0x5B84AE</code></td>
+<td>1</td>
+<td>The held object passes IsTree, the force and pull checks pass, and it also casts to Living. <strong><span class="state approx">inferred</span></strong> unreachable: only Tree and MagicTree override IsTree, but the RTTI was not dumped</td>
+</tr>
+<tr>
+<td>GLandscape::Draw</td>
+<td><code>0x5E4B89</code></td>
+<td>1</td>
+<td>The SuperVillager list <code>[0xEB9A08]</code> is not empty but the widescreen condition fails; all of them are released, so this fires on the first world frame after a script's widescreen ends</td>
+</tr>
+<tr>
+<td>PhysicsObject::GameTurnUpdate</td>
+<td><code>0x645F27</code></td>
+<td>1</td>
+<td>The step result is 2 (came to rest, or forced sunk at <code>0x645A3E</code>), then EndPhysics</td>
+</tr>
+<tr>
+<td>PhysicsObject::GameTurnUpdate</td>
+<td><code>0x645FE4</code></td>
+<td>1</td>
+<td>The result is 3, CanBecomeAPhysicsObject, <code>!(obj+0x25 &amp; 0x10)</code> and <code>InitialisePhysics().+4 == 1</code></td>
+</tr>
+<tr>
+<td>Reward::Create</td>
+<td><code>0x6E597D</code></td>
+<td>1</td>
+<td>The 4th argument is not 0 (the reward goes into the map at once)</td>
+</tr>
+<tr>
+<td>SpellFlockFlying::Process, SpellFlockGround::Process</td>
+<td><code>0x723F6F</code>, <code>0x724637</code></td>
+<td>1</td>
+<td>Each animal spawned (<code>0x723ED8</code>, <code>0x72458D</code>)</td>
+</tr>
+<tr>
+<td>GScript::SetCameraPos, SetCameraFocus, SetCameraToFaceObject</td>
+<td><code>0x6EC98D</code>, <code>0x6ECA83</code>, <code>0x6ED5EC</code></td>
+<td>1</td>
+<td>The current camera mode casts to CameraModeScript</td>
+</tr>
+<tr>
+<td>GScript::RestoreCameraDetails, SetCameraPosFocLens</td>
+<td><code>0x6EE3B0</code>, <code>0x6EE49C</code></td>
+<td>1</td>
+<td>Always</td>
+</tr>
+<tr>
+<td>GScript::SetHighGraphicsDetail</td>
+<td><code>0x708DF3</code> (on), <code>0x708E0C</code> (off)</td>
+<td>1</td>
+<td>Any thing found. "On" also sets the object's DontDraw and creates the SuperVillager (fn_00825F20, <code>0x708DD8</code>). "Off" calls <code>+0x40-&gt;vt+0x70(0)</code>, SetDontDraw(0) (<code>0x708E09</code>), right before its write, and releases it</td>
+</tr>
+<tr>
+<td>Camera-control release (unnamed, from <code>0x6ECD70</code>)</td>
+<td><code>0x6ECEC4</code></td>
+<td>1</td>
+<td>Always, once reached. Called from EndCameraControl <code>0x6ECF2C</code> when <code>GScript+0xA8</code> equals the task argument, and from <code>0x6ECF20</code> through GScript::Load</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>The write at <code>0x6ECEC4</code> is not in StartCameraControl, which returns at <code>0x6ECD6F</code>; the symbol table's size for
+  StartCameraControl (0x250) is wrong.</li>
+<li>The widescreen condition is that help_system (<code>g_game+0x25005C</code>) has both <code>+0x45E8</code> and <code>+0x45EC</code> set. Only
+  HelpSystem::SetWideScreen writes those fields, and only GScript::SetWideScreen (<code>0x6F7C5A</code>) passes a task into
+  <code>+0x45EC</code>.</li>
+<li>MOVE_CAMERA_POS_FOC_LENS is not a writer. Its native GScript::MoveCameraPosFocLens <code>0x6EE4B0</code> (table entry
+  <code>[0xC17D08]</code>, set at <code>0x705600</code>, 8 arguments) pops its arguments, makes its two error checks and, only in the script
+  camera mode, calls MoveCameraPosition <code>0x4616F0</code>, MoveCameraFocus <code>0x461430</code> and SetCameraFov <code>0x443680</code>; none of the
+  20 references to <code>0xBF358C</code> is in it or in those three. SET_CAMERA_POS_FOC_LENS, the entry before it, is.</li>
+</ul>
+<h2 id="pending">Pending<span class="state pending">pending</span></h2>
+<ul>
+<li>Stage 4d: <code>fn_005DFCE0</code> (footprint UV2) and stage 4h (<code>fn_005FF310</code> → <code>fn_005FFBB0</code>, LandscapeVortex) are
+  <strong><span class="state approx">inferred</span></strong>.</li>
+</ul>
+<h3 id="the-object-draw-list-still-undetermined-in-the-original">The object draw list: still undetermined in the original</h3>
+<ul>
+<li>The x87 precision under D3D7: the device's FPU flags were not traced. In single precision the x87 path matches the
+  SSE one; in double precision a back-face area A near 0 can differ, and the SSE path's approximate reciprocal can move
+  an on-screen edge case. The level of detail depends on it too: the morph's fistp uses the current rounding mode, and
+  every v-against-T compare depends on the precision.</li>
+<li>The level of detail on the SSE path (fn_007A1800, fn_007ACCE0, fn_007ACD00) was not read; everything in
+  <a href="#the-blocks-level-of-detail">The block's level of detail</a> is the x87 path. fn_007A98B0 and fn_007A3A50 were checked
+  for structure only, not instruction by instruction.</li>
+<li>Bit 2 of <code>+0x920</code> (set with bit 0 by <code>|= 5</code>, cleared on reject): its readers were not looked for.</li>
+<li>The straight-down camera: when |f.x| and |f.z| are both ≤ 0.01, the lines keep the previous frame's p and an
+  unnormalised n. Whether the camera can get there in play was not checked.</li>
+<li>Whether, in real play, a level change alone flips fn_00874AA0's result for some block (so that the level decides a
+  rebuild frame) is not settled statically; it needs the per-block geometry.</li>
+<li>fn_0086BD00's <code>cmp [0xC381EC], 3</code> (<code>0x86BE3B</code>): what it gates was not read. Nor how the Options box's 7 detail labels
+  (0xDC9..0xDCF) read.</li>
+<li>Not read, because they do not touch the land flag: fn_00869850 (the fog start and end each frame), the uses of
+  <code>+0x92C</code>, <code>+0x938</code> and <code>+0x928</code> after <code>0x87539B</code>, and L2's exact value at Create (it depends on the VRAM count).</li>
+<li>Who writes g_world_to_clipping <code>0xEA9E40</code> each frame: an address scan finds only the <code>[0xEA9EA0] = 0xEA9E40</code> stores
+  (for example <code>0x46A689</code>, <code>0x519979</code>, <code>0x5F9754</code>), not the matrix stores, which go through a register. That the matrix
+  is built from this frame's g_camera before <code>0x5E4E96</code> is likely, not shown.</li>
+<li>Camera-mode switches during the draw: whether CameraModePath::Restart or Cleanup (vt +0x10, vt +0x18, GCamera's
+  stack code <code>0x441C5C..0x441DEB</code>, SwitchToViewMode's 10 callers) run inside PreDrawProcess or Process3dEngine before
+  <code>0x54DEDE</code>, and whether another UpdateCamera caller sits inside Process3dEngine. Only the direct callers were listed;
+  the power-up chain leads back to GInterface::Process, on the turn side.</li>
+<li>Whether a start-menu sub-loop inside GGame::Loop (<code>0x54CF20..0x54D1F6</code>) bypasses ProcessGraphicsEngine was not
+  traced.</li>
+<li><code>box+0x1C</code>: whether it is half or the full diagonal. It is used unchanged as the radius; the mesh loader was not
+  read.</li>
+<li>Whether a DidYouKnow highlight starts with IsDisappear set: it skips SetDisappear(0), and the creation defaults were
+  not read.</li>
+<li>The rest of fn_00813340 (the COMPLEX type's path after the on-screen test) was not read; it is not one of the flag
+  writers.</li>
+<li>The physics step's return codes (fn_007FE260 <code>0x7FE824..0x7FEB49</code>) were not decoded beyond 2 (came to rest or sunk)
+  and 3 (knocked).</li>
+<li>HandStateTug's write at <code>0x5B84AE</code>: that it cannot be reached is inferred, not proven (the RTTI was not dumped).</li>
+<li>SuperVillager: which slot vt +0x184 is on its 3D object (probably the current animation's name), and whether
+  fn_00825E70 in SuperVillager::Release clears DontDraw.</li>
+<li>Bit 0x100 of <code>+0x24</code>: the scan read only symbols that have a size, and only the operand forms <code>[reg+0x24]</code> and
+  <code>[reg+0x25]</code> (not esp, not a scaled index). A write through a pointer with a register mask, or a memset or memcpy
+  over the whole object, would be missed. LH key 1 is not identified.</li>
+<li>The map's cell dimensions <code>[g_game+0x59C8]</code> and <code>[+0x59C4]</code>, and so whether a cell ≥ 512 can exist, were not read;
+  nor whether an InsertMapObjectToCell override without a symbol bypasses GameBlock::Insert.</li>
+<li>SET_VANISH_OBJECT_DIST: that no shipped script calls it is not proven, since packed files were not searched.</li>
+<li>How each object type turns its position into the cell it is filed in was not read (openblack's map cells are the
+  existing port).</li>
+<li>Land 1's first rebuild after a highlight is created depends on all the triggers above and has not been computed.</li>
+<li>The land edits: openblack's <code>SetCellAltitude</code> (called from src/ECS/Archetypes/CitadelArchetype.cpp and
+  src/ECS/Vortex.cpp) writes the new altitudes into the block records at once, and the land clip reads them on the
+  next drawn frame. Whether the original's edits reach the records that fn_00874AA0 reads at once, or later, was not
+  checked.</li>
+<li>A screen or device reopen: fn_00822560, one of LHScreen::Open's callers, also calls LH3DIsland::Create (<code>0x822746</code>,
+  <code>0x82298D</code>) and then fn_007FF610, so it may remake the blocks outside a land load. It was not followed.</li>
+<li>Between LH3DIsland::Release and the next PreDraw <code>[0xFA92D8]</code> still points at the freed blocks; whether anything reads
+  it during the loading frames was not checked.</li>
+<li>Whether a gold scroll ever lacks its render particle (the creation's <code>+0xA &amp; 1</code> test skips it with the glints) was
+  not read beyond Create.</li>
+<li>IsHuman after a load: whether a villager's +0x40 is ever replaced by a fresh 3D object without passing through
+  Villager::CallVirtualFunctionsForCreation again (for example Villager::ResolveLoad) was not read. SetHuman is the only
+  writer of the bit, so such an object would answer 0 until it runs again; openblack answers 1 for every villager.</li>
+<li>Whether the Creature's and the HelpSpirits' objects are actually filed in the block arrays and so reach the list
+  (DrawObjects) was not checked; the HelpDudeControl <code>+0x10</code> array being the HelpDude objects is inferred from the
+  matching <code>+0x20</code> field, its layout was not read.</li>
+</ul>
+<h3 id="the-object-draw-list-what-openblack-needs">The object draw list: what openblack needs</h3>
+<p>openblack runs the list on the logic side: the pure stages in <code>src/ECS/DrawList/</code>, the state in the service
+<code>DrawListSystem</code> (<code>Locator::drawListSystem</code>), run by <code>UpdateObjectDrawList</code> in src/Game.cpp once per drawn frame,
+after the hand demo has set the camera. It is not run inside the temple, under the falling-spell film or behind a full
+screen film, and it runs while the game is paused. The script highlights have a Draw of their own; every other
+object's Draw is its mesh's on-screen test (<code>draw_list::DrawOnScreen</code>, src/ECS/DrawList/ObjectDraw.cpp: the box's
+centre through the object's model, half the box's diagonal times the largest scale, and true with no mesh), which
+sets its Active for the still passes. The objects each pass drew are kept (<code>DrawListSystem::DrawnThisFrame</code>). Each
+frame <code>draw_gate::FillFrame</code> (src/ECS/DrawList/DrawGate.cpp) turns them into the objects the list leaves out: in the
+map, not DontDraw, and not drawn by the pass (<code>graphics::ObjectListFrame</code>, carried to the renderer in the frame's
+snapshot). <code>Renderer::PreDraw</code> makes a mask of their instance rows, which the draw does not apply yet.</p>
+<ul>
+<li><strong>Stage A.</strong> The cull, the distance and the sort over <code>LandIslandInterface::GetBlocks()</code> in the land's order. The
+  camera is <code>draw_list::MakeDrawCamera</code> (src/ECS/DrawList/FrameInputs.cpp): <code>affine::FrameMatrices</code> from the drawn eye
+  and focus, the horizontal field of view and the aspect; half the viewport; the clamp (W − 1, H − 1). The near clip is
+  <code>NearClipFor</code> of the previous frame's drawn eye over the land read at the hand's quantised point, 0.1 while
+  SET_GRAPHICS_CLIPPING is on. The GPU's own near plane is not changed: it still follows the current eye and the
+  continuous height.</li>
+<li><strong>The level of detail and the land flag.</strong> Before the cull the two lines are rebuilt from the drawn eye and the view
+  direction, which is the third column of the frame's world-to-camera matrix, as <code>[0xEA1DD4..0xEA1DDC]</code> is
+  (<code>DrawCamera::viewDirection</code>). The cull gives each visible block its level against them, then the seam pass
+  (<code>MarkSeams</code>) looks up each block's neighbours by its place on the block grid. The land pass then runs
+  <code>KeepsFrontTriangle</code> for each visible block, nearest first, on the block's cell records as the land holds them that
+  frame. <code>TakeLandClipResult</code> writes the result into bits 0 and 1, and a change of bit 1 raises the land flag that
+  <code>RebuildDue</code> reads. A block without its cells keeps its bits, and so does one the land clip gives no answer for. In
+  the game the second case cannot happen: the cull gives only steps 0 to 2, the seam pass only bits 0 to 15, and the
+  frame always has its clamp.</li>
+<li><strong>A land load.</strong> At the map clear the list is emptied and the blocks start again from their state at the load
+  (<code>InitialBlockState</code>, <a href="#a-land-load">A land load</a>): no visibility bit, not partly outside, every level-of-detail field
+  0, the distance the file's. The last rebuild's turn is kept, and the map clear's RebuildCount of 1 gives the first
+  rebuild. At that first frame the lines are placed as LH3DIsland::Create places them (<code>LodLinesAtLandCreation</code>). The
+  detail index is <code>DetailIndexOf(EngineConfig::detailLevel)</code>: openblack's levels 5 and 6 are taken as 4, because the
+  original's start-up turns a stored index of 5 or more into 4.</li>
+<li><strong>Stage B.</strong> The block arrays live beside the map cells (<code>MapCellsSystem</code>, <code>draw_list::GameBlocks</code>), written at the
+  map cells' insert and remove points. The listed mark is the component <code>DrawListed</code> on the entity: it goes when the
+  entity is destroyed, so an index made again (a new entt version) is not taken as listed. DontDraw is
+  <code>components::DontDraw</code>, which SET_HIGH_GRAPHICS_DETAIL writes. An object is available while its entity exists. The
+  RebuildCount writers publish <code>events::DrawListRebuildRequested</code>.</li>
+<li><strong>Stage C.</strong> The full and the still passes; a destroyed entity's entry is nulled when a pass meets it, which stands for
+  EndTurn's nulling.</li>
+<li><strong>Stage D and the highlight's Draw</strong> (<code>script_highlight::Draw</code>). The three early exits return 1 and step nothing.
+  Otherwise the mesh's on-screen test (<code>draw_list::OnScreen</code>) with <code>field_of_view::ObjectOnScreen</code>'s centre and radius,
+  then the glints' step (<a href="particles.html#the-glints-on-a-target-er_glintsontarget">particles.md</a>). The flag is the test's
+  result, or 1 when the glow branch (an active scroll that is not a did-you-know) or the render particle branch (row
+  3) runs. The gold scroll's render particle itself is not ported, but the original makes it at creation for every
+  highlight (<a href="intro.html">intro.md</a>), so ours takes that branch for every gold scroll.</li>
+<li><strong>Still to do in openblack:</strong></li>
+<li>the highlight's pose (its spin, the did-you-know's facing, the distance scale, the Transform) is still set every
+    frame by <code>script_highlight::UpdateFrame</code>; the original sets it inside Draw only. Gating it waits for the renderer to
+    draw only what the list draws: on its own it would show a stale pose where the original draws nothing;</li>
+<li>the seed graphic's holder effect (with its glints) is stepped every frame by the orb and the icons, not from the
+    list;</li>
+<li>the vortex's over-land effects are still stepped every frame
+    (<a href="vortex.html#the-z-sorted-part-landscapevortexdraw-0x5ffdc0-from-the-object-draw-list">vortex.md</a>);</li>
+<li>the renderer still draws the objects the list does not list;</li>
+<li>the block's highest altitude is the land file's <code>highestAltitude</code>; the original recomputes <code>+0x924</code> at the load
+    (fn_007FEA60), and the two were not compared;</li>
+<li>the writers that are not hooked: the tug, Reward::Create and Process, the tutorial key, GScript::Load's release and
+    the task-stop camera release.</li>
+<li><strong>The turn at a land load (a separate fix to check).</strong> The original sets the turn to 0 in GGame::ClearMap
+  (GData::Reset <code>0x510750</code> through ResetState <code>0x5557A9</code>, from <code>0x552E62</code>), before the map script
+  (GSetup::LoadMapFeatures) and Town::AsssignTownFeature run. openblack's <code>Game::LoadMap</code> calls <code>game_clock::SetTurn(0)</code>
+  (src/Game.cpp:2869) after <code>script.Load</code> (:2820) and <code>AssignTownFeatures</code> (:2832), so on a second or later land the
+  previous land's turn is still in place while the map script runs. The value at the end is the same; whether anything
+  reads the turn in between was not checked. The last-rebuild turn <code>[0xD2019C]</code> is never reset (its one write is
+  <code>0x5E5D90</code>): ClearMap's RebuildCount = 1 forces the first rebuild instead.</li>
+</ul>
+</main>
+<script src="search.js"></script>
+<script src="wiki.js"></script>
+</body>
+</html>

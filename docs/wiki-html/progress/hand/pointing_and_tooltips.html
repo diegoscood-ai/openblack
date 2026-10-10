@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pointing and tooltips — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="here" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#pointing-and-tooltips">Pointing and tooltips</a><ul>
+<li><a href="#how-the-hand-picks-its-tooltip">How the hand picks its tooltip</a></li>
+<li><a href="#over-things-in-the-world">Over things in the world</a></li>
+<li><a href="#numbers-over-things">Numbers over things</a></li>
+<li><a href="#the-leash">The leash</a></li>
+<li><a href="#moving-the-camera">Moving the camera</a></li>
+<li><a href="#miracles">Miracles</a></li>
+<li><a href="#elsewhere">Elsewhere</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="pointing-and-tooltips">Pointing and tooltips</h1>
+<p>What the hand tells the player about what it is over: the word, mouse button and arrows it shows by the cursor ("Pick Up",
+"Throw", "Rotate" …) and the numbers it shows over buildings, towns and the creature. How tooltips fade, their levels and
+their look belong to <a href="../interface/index.html">../interface/</a>; this file covers which tooltip the hand shows where.</p>
+<p><strong>Progress: 17/49 done, 4 partial — 39%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../hand-and-interface.html">The hand and the interface</a>.</p>
+<h2 id="how-the-hand-picks-its-tooltip">How the hand picks its tooltip</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each turn the hand submits the tooltip for what it is over or holding, with the mouse button and arrows that do it</td>
+<td>done</td>
+<td><code>HandSystem::SubmitToolTips</code> (<code>HandToolTips.cpp</code>), called once a turn by <code>help::tooltips::ProcessTurn</code> (<code>src/Help/ToolTips.cpp</code>), with the hand state from <code>HandSystem::InterfaceHandState</code>; the button picture and arrows are drawn by <code>Renderer::DrawInputPrompts</code></td>
+</tr>
+<tr>
+<td>A tooltip of a number fills the number into its text, rounded to a whole</td>
+<td>done</td>
+<td><code>help::tooltips</code> builds the text with <code>helptext::Format</code> (the texts' %3.0f), the forced amount and the "/places" suffix</td>
+</tr>
+<tr>
+<td>A tooltip with no button to show is shown as words only</td>
+<td>done</td>
+<td>An action of -1 gives row 3: no picture (<code>help::tooltips::ProcessTurn</code>)</td>
+</tr>
+<tr>
+<td>A shown tooltip lingers for its display time after the hand moves off, if its info says so</td>
+<td>done</td>
+<td><code>help::tooltips::ProcessTurn</code>: a text nobody submits stays its afterFocus turns; no unit test</td>
+</tr>
+<tr>
+<td>The hand over a debug window shows no tooltip</td>
+<td>todo</td>
+<td>Not found in our tree (openblack's own debug windows)</td>
+</tr>
+<tr>
+<td>No tooltips while a script's cinematic has the interface or the menu is open</td>
+<td>done</td>
+<td><code>help::tooltips::ProcessTurn</code> deletes it while a script holds the widescreen; <code>help::tooltips::Frame</code> while paused outside the temple</td>
+</tr>
+<tr>
+<td>Showing a tooltip triggers the help system's matching help event</td>
+<td>todo</td>
+<td>Not in <code>help::tooltips</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="over-things-in-the-world">Over things in the world</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Over the player's own creature, awake: "Interact"</td>
+<td>done</td>
+<td>States 18 and 19 give "Interact" (<code>SubmitToolTips</code>, <code>creature_hand::ShowsInteractTip</code>)</td>
+</tr>
+<tr>
+<td>Over something it can take: "Pick Up" or "Grab"</td>
+<td>done</td>
+<td>State 9: "Pick Up" (<code>SubmitToolTips</code>)</td>
+</tr>
+<tr>
+<td>Over something flying: "Catch"</td>
+<td>done</td>
+<td>State 9: "Catch" for a flying object (<code>PhysicsObjects::IsFlying</code>)</td>
+</tr>
+<tr>
+<td>Holding something: "Throw", "Drop"</td>
+<td>done</td>
+<td>State 24: "Drop", then "Throw" (<code>SubmitToolTips</code>)</td>
+</tr>
+<tr>
+<td>Holding something over the creature: "Give"</td>
+<td>todo</td>
+<td>The "Give" text is not ported</td>
+</tr>
+<tr>
+<td>Holding resources over a worship site or workshop: "Supply"; a villager over a worship site: "Sacrifice"</td>
+<td>partial</td>
+<td>A held object valid to apply to the target gives the apply text (a store, a workshop or a worship site, <code>HandSystem::HeldValidToApplyTo</code>); the sacrifice text is not ported</td>
+</tr>
+<tr>
+<td>Holding a tree: "Plant"; wood over a building site: "Build"; a scaffold over another: "Combine Scaffolds"</td>
+<td>partial</td>
+<td>A tree gives "Plant"; the building site's and the scaffolds' texts are not ported</td>
+</tr>
+<tr>
+<td>Over things that can be tapped: "Tap", "Tap To Break", "Tap To Open", "Activate"</td>
+<td>partial</td>
+<td>"Tap" and a rock's "Tap to Break" (states 9 and 18); the other objects' own tap texts are pending</td>
+</tr>
+<tr>
+<td>Over the player's temple entrance: "Enter Temple"</td>
+<td>done</td>
+<td>State 18: "Enter Temple" over my built temple's entrance (<code>worship::citadel::EntranceToolTipFor</code>)</td>
+</tr>
+<tr>
+<td>Over a signpost: "Signpost"; over a scroll: "Scroll"</td>
+<td>todo</td>
+<td>The script highlight's texts are not ported (<code>SubmitToolTips</code>, state 18)</td>
+</tr>
+<tr>
+<td>In a creature fight: "Fight", "Attack", "Block", "Stop"</td>
+<td>todo</td>
+<td>No creature fight in our tree; see <a href="../creature/index.html">../creature/</a></td>
+</tr>
+<tr>
+<td>Over a building, its name (Abode, Village Store, Crèche, Workshop, Wonder, Graveyard, Village Centre, Football Pitch, Field, Totem, Miracle Dispenser)</td>
+<td>todo</td>
+<td>The building and site texts of state 18 are not ported</td>
+</tr>
+</tbody>
+</table>
+<h2 id="numbers-over-things">Numbers over things</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Over a village store: "Stored - Food: … Wood: …"</td>
+<td>done</td>
+<td>State 18: the "Stored" text over a storage pit, its food then its wood (<code>ecs::StoragePitStore::GetResource</code>)</td>
+</tr>
+<tr>
+<td>Over a store or pot: "Food Amount: …" or "Wood Amount: …"</td>
+<td>done</td>
+<td>State 13: the food or wood amount text over a pile, with its amount</td>
+</tr>
+<tr>
+<td>Over a pile or other amount: "Amount: …"</td>
+<td>done</td>
+<td>The amount in the hand, forced every turn of the scooping and once at its end (<code>HandSystem::Update</code>)</td>
+</tr>
+<tr>
+<td>Over a village centre: "Population: …" followed by its total in all</td>
+<td>done</td>
+<td>State 18 over a town centre: the population text with the adults and children, then "/" and the places</td>
+</tr>
+<tr>
+<td>Over a village centre: "People Worshipping: …%"</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>Over a worship site: "Prayer Energy: …"</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>Over the temple: "Temple Health: …%", its health times 100</td>
+<td>todo</td>
+<td>The temple heart's health text is not ported</td>
+</tr>
+<tr>
+<td>Over a scaffold: "Scaffold Value …"</td>
+<td>todo</td>
+<td>No scaffolds in our tree</td>
+</tr>
+<tr>
+<td>Over a building site: "Wood Required: …", or "Building Completed: …%" once no wood is needed</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>Over the workshop making something: "Production Completed: …%", the part made of the current scaffold</td>
+<td>todo</td>
+<td>The built workshop's production text is pending (<code>SubmitToolTips</code>)</td>
+</tr>
+<tr>
+<td>Over a town's desire flag: "Need: …%", the town's raw desire capped at 100%</td>
+<td>todo</td>
+<td>The town desire flag's "Need" text is not ported</td>
+</tr>
+<tr>
+<td>Over a town: its desires as percentages (food, wood, play, protection, mercy, expansion, civic building, worship supply, children, building, rain, sun, repair, workshop supply, wonder, relaxation, sleep, rest)</td>
+<td>todo</td>
+<td>The needs visuals' texts are not ported</td>
+</tr>
+<tr>
+<td>Over a town not yet won: "Belief Left", the belief still to win times 1000, or "Belief Needed" when it is below nothing</td>
+<td>done</td>
+<td>State 18 over a town centre: "Belief Left" with (belief in me minus the most in another) x 1000, or "Believers Needed" below 0 (<code>ecs::town_belief</code>)</td>
+</tr>
+<tr>
+<td>Over a town: "Got … Belief"</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>Over a worship icon charging: the miracle's name and its charge as a percentage, its name alone when uncharged</td>
+<td>todo</td>
+<td>A spell icon's own text is pending</td>
+</tr>
+<tr>
+<td>Over some things: their food and rest desires as percentages</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-leash">The leash</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>With the leash on the hand and nothing under it: "Focus Creature"</td>
+<td>todo</td>
+<td>No leash tooltips (hand-and-interface.md: not ported)</td>
+</tr>
+<tr>
+<td>With the leash on the hand over the thing it is tied to: "Detach Leash"</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>With the leash on the hand over something else it can be tied to: "Attach Leash", once the creature has grown out of its first stages</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>Over a leash post: "Leash" and the leash's kind (Aggression, Compassion, Learning)</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="moving-the-camera">Moving the camera</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Over the land: "Move"</td>
+<td>done</td>
+<td><code>HandSystem::SubmitLandToolTips</code>: "Move" with the left button and the four arrows</td>
+</tr>
+<tr>
+<td>At the edges of the screen: "Rotate", "Pitch" or "Tilt/Rotate", by the hint the hand gives</td>
+<td>todo</td>
+<td>The camera's tricons are not ported</td>
+</tr>
+<tr>
+<td>"Zoom In", "Zoom Out", "Zoom" while zooming</td>
+<td>todo</td>
+<td>"Zoom Out" is not ported</td>
+</tr>
+<tr>
+<td>"Zoom In (…)" naming the place a key zooms to</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>"Double-click" where double clicking would fly there</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="miracles">Miracles</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Holding a miracle, its name, and "Increase" or "Extreme" for its power-ups</td>
+<td>todo</td>
+<td>State 5 (Has Magic) submits only the land texts out of the influence; the seed's texts are pending</td>
+</tr>
+<tr>
+<td>Holding a miracle that needs a gesture: "Cast", "Cast Circle", "Gesture"</td>
+<td>todo</td>
+<td>"Cast" and its second casting text are pending (<code>SubmitToolTips</code>, state 5)</td>
+</tr>
+<tr>
+<td>"Repeat Previous Miracle."</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="elsewhere">Elsewhere</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>In the temple, the tooltips of its rooms, doors, scrolls and creature</td>
+<td>done</td>
+<td><code>src/3D/TempleToolTips.cpp</code> (<code>UpdateTempleToolTip</code>, from <code>TempleInterior</code>); test <code>TempleToggles.SayWhatTheyShowWhenHovered</code> (<code>test/temple/test_temple_toggles.cpp</code>); see <a href="../temple/index.html">../temple/</a></td>
+</tr>
+<tr>
+<td>Over the player's creature, or holding it, the creature's status panel shows its needs and the hand's reward</td>
+<td>partial</td>
+<td><code>src/Creature/CreatureStatusPanel.cpp</code> and test <code>test/creature/test_creature_status_panel.cpp</code> exist, but nothing in the game uses the panel yet</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

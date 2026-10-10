@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The moon — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="here" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-moon">The moon</a><ul>
+<li><a href="#where-it-stands">Where it stands</a></li>
+<li><a href="#showing-and-fading">Showing and fading</a></li>
+<li><a href="#its-shape-and-facing">Its shape and facing</a></li>
+<li><a href="#its-face-and-phase">Its face and phase</a></li>
+<li><a href="#colour">Colour</a></li>
+<li><a href="#the-glow">The glow</a></li>
+<li><a href="#draw-order-depth-and-the-sea">Draw order, depth and the sea</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-moon">The moon</h1>
+<p>The moon is a small half sphere that keeps its place beside the camera, 4000 units along plus x (east). It swings up
+and down on an ellipse with the script hour and is turned to face the camera. Its face is lit by the real moon's phase,
+taken from the computer's date, and it is tinted the palette's moon colour for the alignment. A soft glow from the
+atmosphere texture is added round it, and a mirrored copy is drawn for the sea.</p>
+<p><strong>Progress: 34/37 done, 1 partial — 93%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../day-night-weather.html">Day, night and weather in the original</a>, <a href="../../rendering.html">World rendering: original versus openblack</a>.</p>
+<h2 id="where-it-stands">Where it stands</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It is placed relative to the camera, not the world, so it never gets nearer as the camera moves</td>
+<td>done</td>
+<td><code>Renderer::DrawMoon</code> (<code>src/Graphics/Renderer.cpp</code>: the camera's origin plus the offset)</td>
+</tr>
+<tr>
+<td>The offset is (4000, 1100 × cos(a) − 150, 800 × sin(a)), with a = script hour × π/12</td>
+<td>done</td>
+<td><code>moon::Place</code> (<code>src/Graphics/Moon.cpp</code>); test <code>Moon.ShowsAroundMidnight</code> (<code>test/graphics/test_moon.cpp</code>)</td>
+</tr>
+<tr>
+<td>So it is highest (950 up) at midnight and lowest (1250 down) at noon, swinging north and south by 800 as it goes</td>
+<td>done</td>
+<td><code>moon::Place</code></td>
+</tr>
+<tr>
+<td>It follows the script hour, not the visual hour</td>
+<td>done</td>
+<td><code>Renderer::DrawMoon</code> takes the sky's time, the script time</td>
+</tr>
+<tr>
+<td>The offset is worked out when the weather is updated each frame</td>
+<td>done</td>
+<td>Worked out every frame in <code>Renderer::DrawMoon</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="showing-and-fading">Showing and fading</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Its strength is floor(0.5 × height − 110), capped at 200</td>
+<td>done</td>
+<td><code>moon::Place</code>; test <code>Moon.ShowsAroundMidnight</code></td>
+</tr>
+<tr>
+<td>It is drawn only while that is above 0: height over 220, about 19:20 to 04:40 script time</td>
+<td>done</td>
+<td><code>moon::Place</code> returns nothing below</td>
+</tr>
+<tr>
+<td>It is at its full 200 from height 620 up, about 21:00 to 03:00</td>
+<td>done</td>
+<td><code>moon::Place</code></td>
+</tr>
+<tr>
+<td>With the fog option on and an overcast, its strength is divided by (8 × overcast + 1), truncated</td>
+<td>todo</td>
+<td><code>Renderer::DrawMoon</code> does not dim the moon by the overcast</td>
+</tr>
+<tr>
+<td>When the moon is down, neither it nor its glow is drawn</td>
+<td>done</td>
+<td><code>Renderer::DrawMoon</code> returns early</td>
+</tr>
+</tbody>
+</table>
+<h2 id="its-shape-and-facing">Its shape and facing</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The mesh is the weather folder's moon model, a half sphere about 100 units in radius</td>
+<td>done</td>
+<td>The sky's moon mesh (<code>SkyInterface</code>, <code>src/3D/Implementations/Sky.cpp</code>)</td>
+</tr>
+<tr>
+<td>Its axes are built square to the line from the camera and kept upright, then scaled by 4</td>
+<td>done</td>
+<td><code>moon::Basis</code>; tests <code>Moon.FacesTheCamera</code>, <code>Moon.FacesTheEyeInTheView</code></td>
+</tr>
+<tr>
+<td>The mesh leans back by 7.5 degrees (0.1309 radians)</td>
+<td>done</td>
+<td><code>moon::Model</code> (<code>k_Tilt</code>)</td>
+</tr>
+<tr>
+<td>It is turned about its upright axis by the phase plus half a turn</td>
+<td>done</td>
+<td><code>moon::Model</code></td>
+</tr>
+<tr>
+<td>It is drawn at 0.65 of the basis, so about 270 units in radius at about 4100 units away</td>
+<td>done</td>
+<td><code>moon::Model</code> (<code>k_MeshScale</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="its-face-and-phase">Its face and phase</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The phase comes from the computer's clock, in whole days since 1 January 1970</td>
+<td>done</td>
+<td><code>moon::Phase</code>; test <code>Moon.PhaseFollowsTheRealMoon</code></td>
+</tr>
+<tr>
+<td>Days are counted from 10962 days after 1970 (6 January 2000, a new moon)</td>
+<td>done</td>
+<td><code>moon::Phase</code></td>
+</tr>
+<tr>
+<td>Moon months are days × 0.0338631801 (one every 29.53 days); the phase is (1 − the fraction of a month) × 2π</td>
+<td>done</td>
+<td><code>moon::Phase</code></td>
+</tr>
+<tr>
+<td>The game reads the clock at most once every 2 seconds and keeps the phase between reads</td>
+<td>done</td>
+<td>Our tree reads it every frame, which gives the same phase</td>
+</tr>
+<tr>
+<td>The face's texture coordinates are projected from the mesh's points turned by the phase: u = (x·cos p − z·sin p) × 0.0025 + 0.25, v = y × 0.0025 + 0.25</td>
+<td>done</td>
+<td><code>assets/shaders/vs_celestial.sc</code> (the phase's cosine and sine)</td>
+</tr>
+<tr>
+<td>So the face shows the top-left quarter of weather.raw, and the lit part swings across it with the phase</td>
+<td>done</td>
+<td><code>raw/weather</code> in <code>Renderer::DrawMoon</code></td>
+</tr>
+<tr>
+<td>The disc's outline comes from weathera.raw, the alpha texture</td>
+<td>done</td>
+<td><code>raw/weathera</code> and <code>assets/shaders/fs_celestial.sc</code></td>
+</tr>
+<tr>
+<td>There is no separate earthshine: the dark side is whatever the texture shows</td>
+<td>done</td>
+<td>Nothing else is drawn for it</td>
+</tr>
+<tr>
+<td>Scripts ask how full the moon is: 1 − phase / π below π, (phase − π) / π from π, so 0 halfway through the moon month and 1 at either end</td>
+<td>todo</td>
+<td>GET_MOON_PERCENTAGE is a stub that returns 0 in <code>src/CHLApi.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="colour">Colour</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It is tinted the light palette's moon colour for the alignment the sky shows</td>
+<td>done</td>
+<td><code>LandLightTable::GetMoonColour</code>; see lighting.md</td>
+</tr>
+<tr>
+<td>The tint's alpha is the moon's strength</td>
+<td>done</td>
+<td><code>Renderer::DrawMoon</code></td>
+</tr>
+<tr>
+<td>The moon's colour doesn't change through the night, only its strength</td>
+<td>done</td>
+<td><code>Renderer::DrawMoon</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-glow">The glow</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A square glow is drawn first, centred on the moon, 500 units each way along the moon's axes (so 4000 units across once scaled by 4)</td>
+<td>done</td>
+<td><code>moon::MakeGlow</code>; test <code>Moon.GlowIsASquareAboutTheMoon</code></td>
+</tr>
+<tr>
+<td>It shows the part of the atmosphere texture from 0.25 to 0.49375 both ways, with its alpha texture</td>
+<td>done</td>
+<td><code>moon::MakeGlow</code> (<code>raw/ATMOS</code>, <code>raw/ATMOSA</code>)</td>
+</tr>
+<tr>
+<td>Its colour is the moon colour with red a sixth, green a fifth and blue a quarter, at the moon's strength</td>
+<td>done</td>
+<td><code>moon::GlowColour</code></td>
+</tr>
+<tr>
+<td>It is added to the sky</td>
+<td>done</td>
+<td><code>Renderer::DrawMoon</code> (additive)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="draw-order-depth-and-the-sea">Draw order, depth and the sea</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It is drawn in the sky after the dome and the sun, before the land and everything else</td>
+<td>done</td>
+<td>The sky stage of the main and reflection passes (<code>src/Graphics/Renderer.cpp</code>)</td>
+</tr>
+<tr>
+<td>The land drawn later covers it</td>
+<td>done</td>
+<td>The moon writes no depth and the land is drawn after it</td>
+</tr>
+<tr>
+<td>A second moon is drawn for the sea's sky: the same moon with its height below the camera flipped and its lean reversed, seen through the sea</td>
+<td>done</td>
+<td><code>Renderer::DrawMoon</code> in the reflection pass: the glow from the mirrored view and the mesh mirrored, as our wiki describes (<a href="../../rendering.html#sky-sun-moon-and-clouds-original">rendering.md</a>)</td>
+</tr>
+<tr>
+<td>Moonlight: at night the land and models take the palette's moon colour</td>
+<td>done</td>
+<td><code>src/3D/LandLightTable.cpp</code>; see lighting.md</td>
+</tr>
+<tr>
+<td>The creature can choose to look at the moon, only at night</td>
+<td>partial</td>
+<td>The plan action exists (<code>src/Creature/CreaturePlanActions.cpp</code>, LookAtMoon as a look-about); the night check is not confirmed; see ../creature/</td>
+</tr>
+<tr>
+<td>Near a full moon, at night, the game's guidance shows a help sprite about the moon now and then</td>
+<td>done</td>
+<td><code>guidance::RemarkOnMoonPhase</code> (<code>src/Audio/Services/Guidance.cpp</code>: at visual night near the full moon, then a long wait)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

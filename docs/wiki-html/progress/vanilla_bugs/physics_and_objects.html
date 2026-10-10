@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vanilla bugs: physics and objects — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="here" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#vanilla-bugs-physics-and-objects">Vanilla bugs: physics and objects</a><ul>
+<li><a href="#missing-or-wrong-feedback">Missing or wrong feedback</a></li>
+<li><a href="#harmless">Harmless</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="vanilla-bugs-physics-and-objects">Vanilla bugs: physics and objects</h1>
+<p>Bugs in the original game's physics engine and its handling of objects: bodies, collisions, breaking buildings, the
+hand's grip and reward chests. Most come from the physics research (read from the executable), which is ported on the
+physics branch; picking and land queries are in <a href="engine.html">engine.md</a>.</p>
+<p><strong>Bugs: 7 (soft-locks and lost progress: 0)</strong></p>
+<h2 id="missing-or-wrong-feedback">Missing or wrong feedback</h2>
+<table>
+<thead>
+<tr>
+<th>Bug</th>
+<th>What the player sees</th>
+<th>Evidence</th>
+<th>Found in</th>
+<th>openblack</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A body's moment of inertia has one cross term computed from the wrong pair of axes (x and z where it should be y and z)</td>
+<td>Lopsided objects tumble slightly differently from the physics they were meant to have</td>
+<td>The tensor set-up writes the x-z product into the y-z entry</td>
+<td><a href="../physics/object_dynamics.html">object_dynamics.md</a></td>
+<td>reproduced (<code>PhysicsBody::ComputeMomentOfInertia</code>)</td>
+</tr>
+<tr>
+<td>A reward chest's landing shake is centred on the world origin instead of the chest</td>
+<td>The thump only shakes a camera within 200 m of the map's corner, so the player normally feels no shake</td>
+<td>The reward's landing creates its camera shake at (0, 0, 0); read from the executable (the progress rows still say a small shake happens)</td>
+<td><a href="../story/rewards.html">rewards.md</a>, <a href="../physics/explosions.html">explosions.md</a></td>
+<td>undecided (not in this tree yet: no reward chests, <code>CREATE_REWARD</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="harmless">Harmless</h2>
+<table>
+<thead>
+<tr>
+<th>Bug</th>
+<th>What the player sees</th>
+<th>Evidence</th>
+<th>Found in</th>
+<th>openblack</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The "thrown at a building" reaction only runs when the building's resting physics entry is flagged as coming from the hand, which a building's entry never is</td>
+<td>nothing visible: the branch that would let the creature learn from the throw is dead in practice</td>
+<td>The resting entries are always made with a plain flag; read from the executable</td>
+<td><a href="../building/damage_and_repair.html">damage_and_repair.md</a></td>
+<td>reproduced (<code>creature_mimic::ShouldMimicBuildingHit</code> tests the building's body, which nothing marks)</td>
+</tr>
+<tr>
+<td>When a flying building piece merges back into its parent, the function returns an uninitialised value as "the object that stays"</td>
+<td>nothing visible found</td>
+<td>Read from the executable</td>
+<td><a href="../building/damage_and_repair.html">damage_and_repair.md</a></td>
+<td>differs: the merge returns no object (<code>Buildings::FragmentEndPhysics</code>)</td>
+</tr>
+<tr>
+<td>When a building breaks into more than 64 groups, a triangle left unlabelled reads the anchor table one place before its start</td>
+<td>Undefined; in practice the triangle is removed</td>
+<td>Read from the executable</td>
+<td><a href="../building/damage_and_repair.html">damage_and_repair.md</a></td>
+<td>reproduced (the unlabelled triangle is removed, <code>FragMesh::SplitUnconnectedGroups</code>, without reading outside the table)</td>
+</tr>
+<tr>
+<td>A tree body's ring set-up has cases for an inner and an outer ring that its loop never reaches</td>
+<td>nothing visible</td>
+<td>The loop runs over the middle three rings only</td>
+<td><a href="../physics/object_dynamics.html">object_dynamics.md</a></td>
+<td>reproduced (the tree body has the same three rings, <code>SetUpTreeBody</code>)</td>
+</tr>
+<tr>
+<td>The hand's strength is meant to scale with a hand value that is only ever written as 0</td>
+<td>nothing visible: the hand always pulls with the same force</td>
+<td>The only writer sets it to 0 at start-up; read from the executable</td>
+<td><a href="../hand/hand_physics.html">hand_physics.md</a></td>
+<td>reproduced (this tree has no hand strength either, so the pull never changes; the tug itself is approximate, <code>HandTrees.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Feeding and thrown things — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="here" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#feeding-and-thrown-things">Feeding and thrown things</a><ul>
+<li><a href="#giving-from-the-hand">Giving from the hand</a></li>
+<li><a href="#what-it-does-with-what-it-is-given">What it does with what it is given</a></li>
+<li><a href="#what-it-can-eat">What it can eat</a></li>
+<li><a href="#force-feeding-and-lessons">Force-feeding and lessons</a></li>
+<li><a href="#food-near-it">Food near it</a></li>
+<li><a href="#catching-things-thrown-at-it">Catching things thrown at it</a></li>
+<li><a href="#being-hit">Being hit</a></li>
+<li><a href="#people-given-or-thrown">People given or thrown</a></li>
+<li><a href="#other-gods">Other gods</a></li>
+<li><a href="#the-tutorial-and-the-advisors">The tutorial and the advisors</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="feeding-and-thrown-things">Feeding and thrown things</h1>
+<p>The player feeds the creature by handing it things from the hand, by putting food where it will find it, and by
+stroking it while it holds food; it decides for itself what to do with what it is given, is sick on what it can't eat
+and gets high on mushrooms. Things thrown at it are caught out of the air when it can reach them in time, or strike it.</p>
+<p>How the creature eats what it finds by itself is in <a href="object_actions.html">object_actions.md</a>, what eating does to its body
+in <a href="physiology.html">physiology.md</a>, the blow of a thrown thing in <a href="../physics/impact_damage.html">../physics/impact_damage.md</a>,
+and thrown people in the air in <a href="../physics/thrown_living.html">../physics/thrown_living.md</a>. The hand's side of giving
+(turning the held thing, drawing the hand to the creature) is in <a href="../hand/holding.html">../hand/holding.md</a>.</p>
+<p><strong>Progress: 6/71 done, 11 partial — 16%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../creature.html">The creature: groundwork, random streams and what is unknown</a>.</p>
+<h2 id="giving-from-the-hand">Giving from the hand</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Holding something over a creature that would take it, the hand offers it and turns it to face the creature</td>
+<td>todo</td>
+<td>see <a href="../hand/holding.html">../hand/holding.md</a> "Giving to the creature"; nothing in our tree hands things to a creature</td>
+</tr>
+<tr>
+<td>Only the creature's own player, or a player allied to it, can give it things; another god's creature won't take anything from the hand</td>
+<td>todo</td>
+<td>nothing gives to creatures</td>
+</tr>
+<tr>
+<td>A spell seed is never given; nor can anything be given to a creature under a script's control, or in one state the game excludes (not identified)</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Something the creature couldn't pick up isn't given, and the creature's help explains why</td>
+<td>todo</td>
+<td>the help message's wording was not traced</td>
+</tr>
+<tr>
+<td>Letting go over such a creature hands the thing over instead of dropping it (the advisors: "put your hand in front of him and then hold the Action Button")</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Given something, the creature at once drops what it was doing, turns to the hand looking curious, and reaches to take the thing from it</td>
+<td>todo</td>
+<td>the reach exists (<code>CreatureObjectActionSystem</code> pick-up, <a href="object_actions.html">object_actions.md</a>), but nothing starts it from the hand</td>
+</tr>
+<tr>
+<td>Moving the hand away more than 15 times the creature's size calls the giving off, and the creature stops reaching</td>
+<td>todo</td>
+<td>see <a href="../hand/holding.html">../hand/holding.md</a></td>
+</tr>
+<tr>
+<td>Every machine in a networked game sees the creature take it</td>
+<td>todo</td>
+<td>no network play; see <a href="../multiplayer/index.html">../multiplayer/</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-it-does-with-what-it-is-given">What it does with what it is given</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>If it was already set on doing something that wants a thing of this kind (going off to eat, say), it carries that on with the thing given</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A one-off miracle given to a creature grown far enough is cast, aggressively or kindly</td>
+<td>todo</td>
+<td>the creature casts no miracle; see <a href="creature_casting.html">creature_casting.md</a></td>
+</tr>
+<tr>
+<td>Otherwise it weighs four desires, each by how good it has learnt acting on that kind of thing is for it: curiosity looks it over, hunger eats it, wanting to play with the player throws it; compassion (stroking it) is never chosen this way</td>
+<td>todo</td>
+<td>the eat, look-over and throw actions exist (<code>CreatureObjectActionSystem</code>) but nothing chooses among them for a given thing</td>
+</tr>
+<tr>
+<td>Hunger only counts for a thing of a kind it hasn't learnt it can't eat</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>If no desire is at least a tenth strong, the first time it is given a kind of thing it looks it over; after that it does with it what it would when led to it on the leash</td>
+<td>todo</td>
+<td>see <a href="leash.html">leash.md</a></td>
+</tr>
+<tr>
+<td>Being given something is not by itself a lesson; it learns from the player's stroke or slap afterwards</td>
+<td>todo</td>
+<td>nothing gives; the hand's row "things taken from the hand teach it the player wanted it to have them" is unconfirmed</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-it-can-eat">What it can eat</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It may try to eat anything it can pick up, other than toys, spell seeds and other creatures; stores, fields and fish farms it eats from where they stand</td>
+<td>partial</td>
+<td>it only tries things with a food value (<code>CreatureObjectActionSystem::FoodValueOf</code>, <code>NearestFood</code> in <code>CreatureMindSystem.cpp</code>); a storage pit's pile, fields and fish farms eaten in place are todo (<a href="object_actions.html">object_actions.md</a>)</td>
+</tr>
+<tr>
+<td>A thing's food value is its kind's value from the game's tables, but only for kinds marked as meat or plant food; a pot or pile is worth the food in it</td>
+<td>partial</td>
+<td><code>CreatureObjectActionSystem::FoodValueOf</code> takes the villager, animal, mobile object or pot table's value (a pot by the food in it) without the food kind, so special villagers, tortoises and crops count as food; test <code>CreatureAnimalFoodTest.TheScansFindAnimalsToEat</code></td>
+</tr>
+<tr>
+<td>The tables: a villager 250, a cow or horse 1200, a sheep 800, a lion or tiger 900, a wolf 700, a pig 290, birds 40 to 50, magic food 16, a mushroom 99, a magic mushroom 50, a toadstool 150; rocks, trees, poo, crops, Egyptian pots and wood are worth nothing</td>
+<td>partial</td>
+<td>the values come from the game's tables (<code>InfoConstants</code>, read by <code>FoodValueOf</code>); the food kinds aren't used, see above</td>
+</tr>
+<tr>
+<td>Special villagers (trainer, priests, monks, breeders, footballers, marauders and others) and tortoises are no food</td>
+<td>todo</td>
+<td><code>FoodValueOf</code> counts them by their table value</td>
+</tr>
+<tr>
+<td>Anything worth less than 5 it can't stomach: it is sick, its wish to eat is held back for a while, and it never tries that kind of thing again</td>
+<td>todo</td>
+<td>it never picks such things up to eat (test <code>CreatureNeedsMind.FoodItCantPickUpIsGivenUpUneaten</code> covers only what it can't lift)</td>
+</tr>
+<tr>
+<td>Poisoned food (people, animals or piles a script poisoned) makes it sick and holds back its wish to eat, but it may try that kind again</td>
+<td>todo</td>
+<td><code>SET_POISONED</code> and the poison queries are stubs in <code>src/CHLApi.cpp</code>; a toadstool counts as poisoned food too, see <a href="../resources/poison_and_mushrooms.html">../resources/poison_and_mushrooms.md</a></td>
+</tr>
+<tr>
+<td>Some things the game marks as not to be eaten are spat out and dropped, and it is sick</td>
+<td>todo</td>
+<td>which marks these are was not fully identified</td>
+</tr>
+<tr>
+<td>Magic mushrooms and toadstools are eaten and make it high for a while, the cause of its stoned look; how many it has eaten is kept</td>
+<td>todo</td>
+<td>see <a href="physiology.html">physiology.md</a> "can get high"; the temple scroll has the count's label only (<code>src/3D/TempleScrolls.cpp</code>)</td>
+</tr>
+<tr>
+<td>Eating lowers its hunger by the food's value over a measure of its body (at most 0.8) times its species' factor, never below nothing nor above full</td>
+<td>partial</td>
+<td>hunger is lowered by the eating action's table multiplier (<code>Satisfied</code> in <code>CreatureMindLearning.cpp</code>); the body measure the game uses was not identified</td>
+</tr>
+<tr>
+<td>Eating fills it, fattens it and builds up poo</td>
+<td>done</td>
+<td><code>creature_physiology::Eat</code> from <code>CreaturePhysiologySystem</code>; tests <code>CreaturePhysiology.EatingFillsItUpFattensAndBuildsPoo</code>, <code>CreaturePhysiologySystemTest.EatingAndFinishingAnAction</code>; see <a href="physiology.html">physiology.md</a></td>
+</tr>
+<tr>
+<td>How many of each kind of thing, and of villagers, animals and mushrooms, it has eaten is counted</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A person eaten dies, the death put down to the creature's player, and their town is frightened</td>
+<td>partial</td>
+<td>killed with the cause "eaten by a creature" (<code>Consume</code> in <code>CreatureObjectActionSystem.cpp</code>, <code>ecs::life::Kill</code>), which takes it out of home and town, and its town is frightened; the death is not put down to the player; test <code>CreatureObjectActionSystemTest.AVillagerEatenDiesAsAnyDeathGoes</code></td>
+</tr>
+<tr>
+<td>Eating people is evil (the advisors say so)</td>
+<td>todo</td>
+<td>nothing moves a creature's alignment from what it eats; see <a href="physiology.html">physiology.md</a></td>
+</tr>
+<tr>
+<td>The creature of one kind of player (likely the computer gods; not identified) never eats its own player's people, unless a script controls it</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="force-feeding-and-lessons">Force-feeding and lessons</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Stroking the creature while it holds something makes it eat it ("Stroking the Creature while he's holding an object will make him eat that object")</td>
+<td>partial</td>
+<td><code>LearnFromFeedback</code> in <code>CreatureMindLearning.cpp</code>: stroked while holding food, from the second stage, with the action table's eat-when-stroked mark, hunger is made dominant and the food is learnt as good; how the game ties it to the table was not traced</td>
+</tr>
+<tr>
+<td>A stroke or slap soon after eating teaches it to eat that sort of thing more or less</td>
+<td>done</td>
+<td>credit goes to recent actions (<code>CreatureMindLearning.cpp</code>); see <a href="learning_from_feedback.html">learning_from_feedback.md</a></td>
+</tr>
+<tr>
+<td>It says what it learnt ("From now on, your Creature will eat that sort of thing more"; mushrooms have their own lines)</td>
+<td>todo</td>
+<td>see <a href="lessons_and_help.html">lessons_and_help.md</a></td>
+</tr>
+<tr>
+<td>Its desire panel lines: hungry from low energy, from watching people eat, from sadness, going to eat something odd, going to eat the weird mushrooms</td>
+<td>todo</td>
+<td>see <a href="creature_mode.html">creature_mode.md</a> and <a href="lessons_and_help.html">lessons_and_help.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="food-near-it">Food near it</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A pot or pile of food raises its kind's reaction when it is made, put down by the hand, lands or stops burning</td>
+<td>partial</td>
+<td>the pot reaction is raised when the hand puts a pot down, when a store or site makes a pile and by the land script (<code>animal_ai::SetupPotReaction</code>, from <code>HandHolding.cpp</code>, <code>HandResources.cpp</code>, <code>TownStores.cpp</code>, <code>BuildingSites.cpp</code>); not on landing or burning out</td>
+</tr>
+<tr>
+<td>A creature that can see the food takes the reaction up (not the creature of the kind of player above)</td>
+<td>todo</td>
+<td>no creature system reads reactions</td>
+</tr>
+<tr>
+<td>Reacting to food, it only comes to know of it, so that its mind may choose to eat it; it doesn't go straight to it</td>
+<td>todo</td>
+<td>the creature finds food anywhere within reach without seeing it (<code>NearestFood</code> in <code>CreatureMindSystem.cpp</code>)</td>
+</tr>
+<tr>
+<td>Food it has found it picks up, looks over and eats, or eats where it lies</td>
+<td>done</td>
+<td>plan actions <code>EatAfterExamining</code>, <code>EatAlive</code>, <code>EatFromFoodPile</code>, carried out by <code>CreatureObjectActionSystem</code>; tests <code>CreatureNeedsMind.ItPicksFoodUpAndEatsIt</code>, <code>CreatureIdleMind.EatingIsPickingUpExaminingAndEating</code>; see <a href="object_actions.html">object_actions.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="catching-things-thrown-at-it">Catching things thrown at it</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every thing that starts to fly, thrown or knocked, is offered to every creature to catch</td>
+<td>todo</td>
+<td>the physics runs its catch check, but the creature's part (<code>SetCreatureCatchHook</code>) is never set, so nothing is caught; see <a href="../physics/throwing_and_landing.html">../physics/throwing_and_landing.md</a></td>
+</tr>
+<tr>
+<td>A creature tries only when not fighting or set on a fight, not under a script's control, not already catching, and free to react</td>
+<td>todo</td>
+<td>no catching (above)</td>
+</tr>
+<tr>
+<td>The thing must weigh less than eight tenths of the creature and be able to be picked up</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It never catches what it threw itself; a throw by a god not allied to its player it catches only three times in a hundred</td>
+<td>todo</td>
+<td>no catching (above)</td>
+</tr>
+<tr>
+<td>It must be moving across the land at 1 m/s or more and come closest within 5 seconds, late enough for the catch to be started, and pass within the catch's reach</td>
+<td>todo</td>
+<td>no catching (above)</td>
+</tr>
+<tr>
+<td>Catching, it drops what it was doing, stops, smiles and goes to catch it</td>
+<td>todo</td>
+<td>no catching (above)</td>
+</tr>
+<tr>
+<td>It catches with a blend of four catching animations, high or low and left or right, by the thing's height and side, the other hand mirrored</td>
+<td>todo</td>
+<td>no catching (above)</td>
+</tr>
+<tr>
+<td>At the catch's moment, if the thing is still within reach, it is taken out of the air into the creature's hand; otherwise it is missed and flies on</td>
+<td>todo</td>
+<td>no catching (above)</td>
+</tr>
+<tr>
+<td>A person caught goes into the held state, an animal plays its held animation</td>
+<td>todo</td>
+<td>see <a href="../physics/thrown_living.html">../physics/thrown_living.md</a></td>
+</tr>
+<tr>
+<td>Food caught isn't eaten as part of the catch; what it does with the thing afterwards is its next ordinary choice</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The "catch a fireball and throw it back" action is listed but always fails, so creatures never do it</td>
+<td>done</td>
+<td>the game never does it; openblack neither</td>
+</tr>
+<tr>
+<td>Creatures watch things flying through the air</td>
+<td>todo</td>
+<td>see <a href="reactions.html">reactions.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="being-hit">Being hit</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A thing that strikes it and isn't caught hurts it by the blow's crush; toys don't hurt it</td>
+<td>todo</td>
+<td>thrown things collide with a creature's body (<code>creature_physics</code> in <code>src/ECS/CreaturePhysics.cpp</code>), but its damage is not ported: a creature takes no harm (<code>src/ECS/Effects/EffectValues.cpp</code>); see <a href="../physics/impact_damage.html">../physics/impact_damage.md</a></td>
+</tr>
+<tr>
+<td>A blow sways its upper or lower body</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The player's own creature, while a script controls it, isn't hurt by blows at all</td>
+<td>todo</td>
+<td>no creature is hurt by blows (above)</td>
+</tr>
+<tr>
+<td>Struck during a fight, it neither reels nor loses fight health or life</td>
+<td>todo</td>
+<td>blows do nothing to a creature (above), in or out of a fight</td>
+</tr>
+<tr>
+<td>Outside a fight the blow can cut or scar its skin where it struck</td>
+<td>todo</td>
+<td>only fights add wounds (<code>CreatureFightSystem</code>); see <a href="marks.html">marks.md</a></td>
+</tr>
+<tr>
+<td>Its fear and its anger from being damaged rise by the harm</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>When the blow is put down to its own player, it thinks less of its player by the harm</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It doesn't turn on the thrower: no plan or reaction is aimed at whoever threw</td>
+<td>done</td>
+<td>no plan or reaction is aimed at the thrower</td>
+</tr>
+<tr>
+<td>The collision sounds as for any blow, by the two materials</td>
+<td>partial</td>
+<td>the creature has a physics body (<code>creature_physics::RegisterPhysicsHandlers</code>), so collisions take the generic impact path; the creature's material was not checked; see <a href="../physics/impact_damage.html">../physics/impact_damage.md</a></td>
+</tr>
+<tr>
+<td>Its creature learns "damage by throwing at" from the player's throws</td>
+<td>partial</td>
+<td>the deed is reported for a thrown thing that damages a building (<code>src/ECS/Physics/Buildings.cpp</code>, <code>ecs::creature_mimic</code>); not for throws at other things; see <a href="../physics/impact_damage.html">../physics/impact_damage.md</a></td>
+</tr>
+<tr>
+<td>The life lost shows on the status panel, and at no life it faints</td>
+<td>partial</td>
+<td>nothing takes its life (above); with no life left it faints (<code>physiology::ShouldFaint</code>); see <a href="physiology.html">physiology.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="people-given-or-thrown">People given or thrown</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A villager given from the hand is taken like anything else and looked over, eaten or thrown by its desires</td>
+<td>todo</td>
+<td>giving is missing (above)</td>
+</tr>
+<tr>
+<td>A villager thrown at it is caught if it can be, and then held; otherwise it strikes the creature and is hurt by its own landing</td>
+<td>partial</td>
+<td>the landing is the thrown villager's own (<a href="../physics/thrown_living.html">../physics/thrown_living.md</a>); catching and the blow to the creature are missing</td>
+</tr>
+<tr>
+<td>Holding a person frightens their town</td>
+<td>done</td>
+<td><code>creature_object_actions::AttitudeTo</code> in <code>CreatureObjectActionSystem</code>; test <code>CreatureObjectActions.TheTownFearsThrowingAndEatingVillagers</code>; see <a href="object_actions.html">object_actions.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="other-gods">Other gods</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Another god can't feed your creature unless allied</td>
+<td>todo</td>
+<td>see "Giving from the hand"</td>
+</tr>
+<tr>
+<td>Another god's throws at your creature are caught only three times in a hundred</td>
+<td>todo</td>
+<td>no catching (above)</td>
+</tr>
+<tr>
+<td>Another god's blows hurt, frighten and anger it but don't change its feeling for its own player</td>
+<td>todo</td>
+<td>blows do nothing to a creature, and there are no other gods' hands</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-tutorial-and-the-advisors">The tutorial and the advisors</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The first land's lesson on eating: the creature is starved, the trainer says "Your Creature is getting hungry", "find him something to eat", "some things are better for him than others"</td>
+<td>todo</td>
+<td>see <a href="../story/land_1.html">../story/land_1.md</a> "The creature's learning"; every step: <a href="../story/gold_scrolls/the_creatures_learning.html#lesson-2-learning-to-eat">../story/gold_scrolls/the_creatures_learning.md</a></td>
+</tr>
+<tr>
+<td>While the player looks for food, the advisors comment on what the hand is near: pork (evil), corn from the fields (good), beef (evil, "meat-eaters are more aggressive"), people (evil; children deeply evil), grain from the village store (good)</td>
+<td>todo</td>
+<td>same script</td>
+</tr>
+<tr>
+<td>Once the hand holds something near the creature: "Give him food by putting your hand in front of him and then holding the Action Button"</td>
+<td>todo</td>
+<td>same script</td>
+</tr>
+<tr>
+<td>The lesson waits until it has eaten once (alive, after looking over, from the hand or from a magic food pile), keeping it wanting nothing but food; then "He seemed to like that", "Try feeding him some more"</td>
+<td>todo</td>
+<td>same script; see <a href="development_phases.html">development_phases.md</a></td>
+</tr>
+<tr>
+<td>Reminders and help: low energy ("give him something to eat"), "Your Creature is going to eat this", the stage's criteria</td>
+<td>todo</td>
+<td>see <a href="lessons_and_help.html">lessons_and_help.md</a></td>
+</tr>
+<tr>
+<td>The ogre on the first land can be fed instead of fought, which makes him drowsy</td>
+<td>todo</td>
+<td>see <a href="../story/land_1.html">../story/land_1.md</a> "The Ogre"</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

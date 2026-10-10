@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Workshop — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-workshop">The Workshop</a><ul>
+<li><a href="#how-it-appears">How it appears</a></li>
+<li><a href="#the-introduction">The introduction</a></li>
+<li><a href="#supplying-the-wood">Supplying the wood</a></li>
+<li><a href="#the-scaffold-is-made">The scaffold is made</a></li>
+<li><a href="#placing-the-scaffold">Placing the scaffold</a></li>
+<li><a href="#housing-the-homeless">Housing the homeless</a></li>
+<li><a href="#the-engineers-reward">The engineer's reward</a></li>
+<li><a href="#aftermath">Aftermath</a></li>
+<li><a href="#failing-and-the-story">Failing and the story</a></li>
+<li><a href="#advisors-and-music">Advisors and music</a></li>
+<li><a href="#creature">Creature</a></li>
+<li><a href="#script-quirks">Script quirks</a></li>
+<li><a href="#unused-or-cut-parts">Unused or cut parts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-workshop">The Workshop</h1>
+<p>A gold scroll on the second land: once the workshop Khazar planned in the player's village is built, an engineer
+"sent by Khazar" appears there, explains scaffolds and asks for wood; the player feeds the workshop until it makes a
+scaffold, places it to plan a house, and builds homes until the village's homeless are housed. The engineer then joins
+the village and gives the player the Forest miracle. The land as a whole is in <a href="../land_2.html">../land_2.md</a>, the
+land's script in <a href="../../scripts/land2_script.html">../../scripts/land2_script.md</a>, the script program in
+<a href="../../scripts/challenge_scripts.html">../../scripts/challenge_scripts.md</a>.</p>
+<p><strong>Land:</strong> 2 · <strong>Giver:</strong> an engineer sent by Khazar, at the workshop in the player's home village · <strong>Script:</strong> TheWorkshop · <strong>Reward:</strong> the Forest miracle for the home village (and the engineer joins the village) · <strong>Repeatable:</strong> no</p>
+<p>Sources: the quest's script source (<code>TheWorkshop.txt</code>), the shared scroll notifier (<code>ChallengeNotify.txt</code>), the standard
+reminder and the info sign scripts, the land's control script (<code>LandControl2.txt</code>) and the lesson that plans the
+workshop (<code>LearnWorshipping.txt</code>), checked against the compiled scripts in the shipped <code>challenge.chl</code>; the game's
+English text table (<code>InfoScript2.txt</code>). openblack's state is judged on this tree: of the 58 script functions the quest
+and the scripts it runs need, 10 still only log "not implemented" in <code>src/CHLApi.cpp</code> (among them resources in a
+building, the town's adult counts, the held object, a special effect and the challenge log). openblack never runs Land
+2's control script at all (see <a href="../../scripts/land2_script.html">../../scripts/land2_script.md</a>), so the quest never
+appears; every row is todo unless the notes say otherwise.</p>
+<p><strong>Progress: 0/62 done, 1 partial — 1%</strong></p>
+<h2 id="how-it-appears">How it appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>At the end of Khazar's worship lesson (<a href="worship_site.html">worship_site.md</a>) his hand carries a workshop scaffold (size 3) to a plot in the player's home village, planning the workshop</td>
+<td>todo</td>
+<td>the scaffold (<code>CREATE</code>, <code>SetScaffoldProperties</code>) is real, but Khazar's hand carrying it (<code>ForceComputerPlayerAction</code>) is a stub; see <a href="../../building/workshop_and_scaffolds.html">../../building/workshop_and_scaffolds.md</a></td>
+</tr>
+<tr>
+<td>The control script (checking every 9 seconds) starts the quest's watcher once the worship lesson is done, and only once</td>
+<td>todo</td>
+<td>never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The watcher looks for a building within 10 of the workshop's spot; while there is none it looks again at once (radius 5) with no pause; once there is one it checks every 5 seconds whether it is fully built and the player's</td>
+<td>todo</td>
+<td><code>CallNear</code> and the built percentage (property 22) are real; the owner read (property 21) is not handled by <code>GetProperty</code>; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>When the workshop is finished and the player's, the quest proper starts and the watcher ends; it also ends, without the quest, if Khazar is gone</td>
+<td>todo</td>
+<td>plain script; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>A gold scroll appears in front of the workshop</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> is real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>While the camera is within 100 of the scroll and it is on screen, the evil advisor steps out, points at it and says " Hey! What is this guy doing?", at most once every 30 seconds and only when no film is playing</td>
+<td>todo</td>
+<td>the notifier calls real natives (<code>SpiritEject</code>, <code>SpiritPointPos</code>, <code>RunText</code>); never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The engineer is made at the workshop and walks out to stand in front of it, before the scroll is even clicked</td>
+<td>todo</td>
+<td><code>CREATE</code> makes villagers and <code>MoveGameThing</code> moves them; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The quest waits until the scroll (or its spot) is clicked; the scroll is then switched on</td>
+<td>todo</td>
+<td><code>GameThingClicked</code> is real and <code>SetActive</code> handles highlights; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-introduction">The introduction</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A widescreen film with generic quest music; the engineer is drawn in high detail; the camera moves in close and waits for him to reach his spot, then 2 seconds</td>
+<td>todo</td>
+<td><code>SetWidescreen</code>, <code>StartMusic</code>, <code>SetHighGraphicsDetail</code> and the camera are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>He turns to the camera and beckons as the camera eases in to a close-up over 12 seconds</td>
+<td>todo</td>
+<td><code>SetFocus</code> and <code>OverrideStateAnimation</code> on villagers are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Engineer: "Khazar sent me. I can help you build your settlement up." while he gossips, then idles</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The dialogue closes and the log entry "The Workshop" is recorded at 0, with the good advisor's reminder "The man in the workshop wants some wood."</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>Engineer: "People are sleeping outdoors as they don't have enough buildings to live in." while he looks around for something, then gossips twice</td>
+<td>todo</td>
+<td><code>RunText</code> and villager animations are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Engineer: "This is the Workshop. I make Scaffolding here." then "It allows you to decide where new buildings should be constructed."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Engineer: "If you can supply me with enough wood, I can build a Scaffold so that you can plan more houses." (the player may act while it is read), with an overworked gesture</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>He goes back into the workshop, the camera returns to where it was before the film, his detail drops and the music stops</td>
+<td>todo</td>
+<td><code>StopMusic</code>, <code>SetHighGraphicsDetail</code> and the camera are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="supplying-the-wood">Supplying the wood</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>After the film, all wood already in the workshop is taken away and any scaffold already beside it (within 10) fades away, so the player starts from nothing</td>
+<td>todo</td>
+<td><code>GetResource</code> and <code>RemoveResource</code> are stubs; <code>ObjectDelete</code> is real</td>
+</tr>
+<tr>
+<td>The engineer comes out to a spot in front of the workshop, can't be picked up or moved, and idles there</td>
+<td>todo</td>
+<td>the flags and the villager moves are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Each second the workshop's wood is checked; whenever it has gone up he cheers</td>
+<td>todo</td>
+<td>the workshop's wood read <code>GetResource</code> is a stub (our workshops: <code>src/ECS/Town/Workshops</code>)</td>
+</tr>
+<tr>
+<td>The step ends when the workshop's wood has fallen by 800 or more within one second, which is the workshop using its wood up to make a scaffold</td>
+<td>todo</td>
+<td>the wood read is a stub, so the step never ends</td>
+</tr>
+<tr>
+<td>There is no time limit and no reminder other than the log entry's</td>
+<td>todo</td>
+<td>the same script; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-scaffold-is-made">The scaffold is made</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A widescreen film: the engineer, in high detail, saws wood as the camera closes in on him</td>
+<td>todo</td>
+<td>real villager, camera and detail natives; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Engineer: "Give me a little time and I'll turn the wood into Scaffolds." (one line), facing the camera with a gossip</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The log entry is recorded at 0.1 with the good advisor's reminder "We're just waiting for the man to create a Scaffold."</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>The camera returns to where it was and the film ends</td>
+<td>todo</td>
+<td>real camera natives; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The quest checks every 0.3 seconds for a scaffold within 10 of the workshop; when one appears the engineer goes back inside</td>
+<td>todo</td>
+<td><code>CallNear</code> is real; our tree has workshops and scaffolds (<code>src/ECS/Town/Workshops</code>, <code>src/ECS/Scaffolds.cpp</code>); never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>It then waits until the camera is within 50 of the workshop and the workshop is on screen; the engineer is removed</td>
+<td>todo</td>
+<td><code>ObjectDelete</code> and the camera reads are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Good advisor: "It looks like your Scaffolding is ready." then "We just need to move it to an area where we want it built.", stepping out, then points at the scaffold: "We need to place a Scaffold down on the ground." (the player may act meanwhile)</td>
+<td>todo</td>
+<td><code>SpiritPointGameThing</code> and <code>RunText</code> are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The log entry is updated to 0.2 with that last line as its reminder</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="placing-the-scaffold">Placing the scaffold</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The quest waits, checking without pause, until the player is holding a scaffold (any scaffold) or the new scaffold is more than 5 from where it was made</td>
+<td>todo</td>
+<td><code>GetObjectHeld</code> and <code>IsOfType</code> are stubs</td>
+</tr>
+<tr>
+<td>Good advisor (one line): "When you're happy with its location and angle, click the Action Button."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The quest waits until the thing that was in the hand is no longer held</td>
+<td>todo</td>
+<td>the held object read is a stub</td>
+</tr>
+<tr>
+<td>Both advisors step out: good "Oh, this is such a worthwhile cause, planning homes to be built for the homeless." · evil "There is another way to solve this homeless problem." · good "Oh yes?" · evil "Yeah. Kill 'em."</td>
+<td>todo</td>
+<td><code>SpiritEject</code> and <code>RunText</code> are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>A bronze info sign about the workshop appears beside it (dropping wood, the flag showing the wood needed, the smoking chimney, the horn, room for three scaffolds, combining up to seven)</td>
+<td>todo</td>
+<td>the info sign script and <code>CreateHighlight</code> are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The log entry is updated to 0.3 with the good advisor's reminder "There are still homeless people in the Village. You need to build more houses."</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="housing-the-homeless">Housing the homeless</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The home town's room for adults is noted at this moment</td>
+<td>todo</td>
+<td><code>ObjectAdultCapacity</code> is a stub</td>
+</tr>
+<tr>
+<td>Every 4 seconds the town's adults (counted as at most 40) are compared with its room for adults, giving a homeless share</td>
+<td>todo</td>
+<td><code>IdAdultSize</code> is a stub; see <a href="../../town/growth_and_housing.html">../../town/growth_and_housing.md</a></td>
+</tr>
+<tr>
+<td>The step ends when fewer than 40% are homeless, or the town has no adults, or its room for adults has grown by 10 or more since it was noted</td>
+<td>todo</td>
+<td>the counts are stubs</td>
+</tr>
+<tr>
+<td>Wiping out the homeless (as the evil advisor suggests) also ends it, because the homeless share falls</td>
+<td>todo</td>
+<td>the counts are stubs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-engineers-reward">The engineer's reward</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A second gold scroll appears at the workshop; the evil advisor nags it: "Hey the man, he wanna talk to us more!"</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> and the notifier are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The quest waits for it to be clicked</td>
+<td>todo</td>
+<td><code>GameThingClicked</code> is real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>A widescreen film: the engineer is made again at the workshop, in high detail, and walks out in front; the camera closes in</td>
+<td>todo</td>
+<td>real villager, camera and detail natives; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Engineer: "Your Village now truly has more room for people. Building more will encourage growth." with an impressed gesture · "This is a Village I want to be part of." · "In my own Village I held the knowledge of the forest Miracle. Follow me!" pointing at the worship site's miracle</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Epic music starts; he runs to the worship site at 0.6 speed; after 6 seconds he is put part of the way up the hill and walks on</td>
+<td>todo</td>
+<td><code>StartMusic</code>, <code>SetPosition</code> and villager moves are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>At the worship site he faces the miracle icon and plays a summoning animation; a magic beam joins the miracle icon to him</td>
+<td>todo</td>
+<td><code>SpecialEffectObject</code> is real, but the beam <code>AddSpotVisualTargetObject</code> is a stub</td>
+</tr>
+<tr>
+<td>The Forest miracle is given to the home town, so it can be charged at its worship site and village centre (the command is given twice, six seconds apart)</td>
+<td>todo</td>
+<td><code>SetMagicInObject</code> is real (<code>src/Magic/Script/CHLWorship.cpp</code>); see <a href="../../miracles/forest.html">../../miracles/forest.md</a>; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The log entry "The Workshop" is recorded at 1 (complete), still with the reminder about homeless people</td>
+<td>todo</td>
+<td>the log entry is a stub</td>
+</tr>
+<tr>
+<td>Engineer: "Constant worship is needed to maintain it, but the wood it provides is a blessing to the people."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The beam goes, the engineer joins the home town, the camera pulls back over the temple and the music stops</td>
+<td>todo</td>
+<td><code>StopMusic</code> and the camera are real, but joining the town needs the town (<code>GetTownWithId</code> is a stub)</td>
+</tr>
+<tr>
+<td>He walks back to the workshop, the scroll goes, and after 30 seconds he is let go to live as an ordinary villager</td>
+<td>todo</td>
+<td>villager moves, <code>ObjectDelete</code> and <code>ReleaseFromScript</code> are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="aftermath">Aftermath</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The workshop, the planned houses and the Forest miracle stay; the engineer stays in the village</td>
+<td>todo</td>
+<td>the same script; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Nothing else in the story waits on this quest: Impress Village is timed from the worship lesson, not from here</td>
+<td>todo</td>
+<td>the same script; see <a href="impress_village.html">impress_village.md</a>; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="failing-and-the-story">Failing and the story</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>There is no failure and no time limit; each step waits for ever</td>
+<td>todo</td>
+<td>the same script; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>If Khazar is killed before the workshop is built, the quest never starts; once started it carries on without him</td>
+<td>todo</td>
+<td>Khazar's death needs computer-player natives (stubs)</td>
+</tr>
+<tr>
+<td>If the workshop is never built (or is destroyed before being finished), the quest never starts; nothing else depends on it, so there is no soft-lock</td>
+<td>todo</td>
+<td>the same script; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="advisors-and-music">Advisors and music</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The scrolls are nagged by the evil advisor; every log reminder is the good advisor's</td>
+<td>partial</td>
+<td>the notifier and reminder call real natives; the log entries are stubs</td>
+</tr>
+<tr>
+<td>Music: generic quest music for the introduction, the epic theme for the reward</td>
+<td>todo</td>
+<td><code>StartMusic</code> is real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creature">Creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature has no part; it may carry wood to the workshop like the player, since the quest only watches the workshop's wood</td>
+<td>todo</td>
+<td>follows from the wood read, a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-quirks">Script quirks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The watcher's search for a missing workshop and the wait for the scaffold to be picked up loop without any pause</td>
+<td>todo</td>
+<td>the same script; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The wood step watches for wood being used up (a fall of 800 in a second), not for wood being given; feeding the workshop slowly still works because the drop comes when the scaffold is made</td>
+<td>todo</td>
+<td>the wood read is a stub</td>
+</tr>
+<tr>
+<td>The Forest miracle is enabled twice</td>
+<td>todo</td>
+<td><code>SetMagicInObject</code> is real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The town's adults are capped at 40 when working out the homeless share, so a town of 40 or more adults only needs room for more than 24 of them, however big it is</td>
+<td>todo</td>
+<td>the counts are stubs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="unused-or-cut-parts">Unused or cut parts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A second info sign on combining scaffolds into buildings (one to seven scaffolds) is commented out; its text is still in the text table</td>
+<td>n/a</td>
+<td>never in the shipped game</td>
+</tr>
+<tr>
+<td>Earlier places for the 0 and 0.1 log entries, after the films, are commented out</td>
+<td>n/a</td>
+<td>never in the shipped game</td>
+</tr>
+<tr>
+<td>A comment "need a highlight to say about the homeless" marks where the second scroll was added</td>
+<td>n/a</td>
+<td>a source comment only</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

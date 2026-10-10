@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Heavenly Fire — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-heavenly-fire">The Heavenly Fire</a><ul>
+<li><a href="#how-it-starts">How it starts</a></li>
+<li><a href="#the-meteors">The meteors</a></li>
+<li><a href="#the-opening">The opening</a></li>
+<li><a href="#the-five-volleys">The five volleys</a></li>
+<li><a href="#the-verdict">The verdict</a></li>
+<li><a href="#the-reward">The reward</a></li>
+<li><a href="#aftermath">Aftermath</a></li>
+<li><a href="#music-and-sounds">Music and sounds</a></li>
+<li><a href="#creature">Creature</a></li>
+<li><a href="#script-quirks">Script quirks</a></li>
+<li><a href="#cut-and-unused-parts">Cut and unused parts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-heavenly-fire">The Heavenly Fire</h1>
+<p>A Land 5 challenge: some minutes after the player first wins Nemesis's Greek village, burning meteors are fired at it
+from a point high in the sky about 400 away, in an opening shot, a warning shot and five volleys of five. The player
+protects the village (catching meteors in the hand is allowed and praised); at the end the advisors judge how many
+people died and how badly the village was hurt, and a well-protected village earns a miracle seed from the sky.</p>
+<p><strong>Land:</strong> 5 · <strong>Giver:</strong> none: it starts on its own, announced by the evil advisor (no scroll is put up) · <strong>Script:</strong> FireOnHigh · <strong>Reward:</strong> a chest from the sky holding an Itchy creature miracle seed, only if the village lost at most 22% of its building and villager health; alignment +1, 0 or -1 · <strong>Repeatable:</strong> no</p>
+<p>Sources: the challenge script (the original source text, which matches the PC game's compiled <code>challenge.chl</code>), the
+land's control script that starts it, the shared reward script, the game's text table and the executable. The land as a
+whole is in <a href="../land_5.html">../land_5.md</a>, the land's script program in
+<a href="../../scripts/land5_script.html">../../scripts/land5_script.md</a> and the script list in
+<a href="../../scripts/challenge_scripts.html">../../scripts/challenge_scripts.md</a>. openblack's state is judged on this tree:
+openblack never runs Land 5's control script (the land-loading native does nothing and the story always begins with Land
+1's control script), so this challenge never starts. Of the 51 script functions it and the scripts it runs need, 42 work
+in <code>src/CHLApi.cpp</code>, among them making a rock, setting it on fire and its temperature, casting a spell at a place, the
+dialogue, the advisors and the camera moves; the other 9, among them throwing an object at a target, the town's health
+total, the challenge record and the reward chest, only log "not implemented". Every row is todo unless the notes say
+otherwise.</p>
+<p><strong>Progress: 0/57 done, 4 partial — 4%</strong></p>
+<h2 id="how-it-starts">How it starts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The challenge is started by the land's control script, only the first time the player wins the Greek village (Nemesis's village round the Greek Wonder, the land's town 4)</td>
+<td>todo</td>
+<td><code>LandControl5</code> never runs: <code>LOAD_MAP</code> is empty (<a href="../../../map-loading.html#pending">map-loading</a>); see <a href="../../scripts/land5_script.html">../../scripts/land5_script.md</a></td>
+</tr>
+<tr>
+<td>That first capture plays the land's own story scene first (a Greek farmer, the Wonder blown up by an explosion, the creature curse recorded, a tornado that carries the farmer off, the Nemesis theme); the meteors are started as that scene fades back in</td>
+<td>todo</td>
+<td>the scene belongs to the land's story, see <a href="../land_5.html">../land_5.md</a></td>
+</tr>
+<tr>
+<td>Losing the village to Nemesis and winning it back never starts it again (it is started once, on the first capture only)</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>No scroll is put up: the scroll over a villager's hut and the advisor's "Your attention is required here." call are written in the script but switched off, so the player is never asked to accept it</td>
+<td>todo</td>
+<td>the hut is still looked up but never used; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>It waits 300 seconds (five minutes) after the capture before anything happens (the source notes "Should be 300")</td>
+<td>todo</td>
+<td>the wait is a script sleep (the VM's own); the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Then it waits until the camera is within 150 of the village centre with the centre on screen, the hand holds nothing, and the opening meteor's spot (about 120 from the centre) is not on screen</td>
+<td>todo</td>
+<td><code>PosFieldOfView</code> works, <code>GetObjectHeld</code> is a stub</td>
+</tr>
+<tr>
+<td>The village it watches is whatever town is within 150 of the village centre at that moment; its villager count is taken now</td>
+<td>todo</td>
+<td><code>CallNear</code> and <code>IdSize</code> work; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The challenge runs to its end once begun: nothing in it reacts to Nemesis taking the village back, and it has no time limit or failure</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Everything stops when Nemesis loses his last village (the land then stops every script but its own)</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-meteors">The meteors</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A meteor is a rock set on fire at a temperature of 2000 and not blown by the wind</td>
+<td>partial</td>
+<td>our tree makes the rock (<code>CreateScriptObject</code>), sets it on fire (<code>SetOnFire</code>) and sets its temperature (<code>SetTemperature</code>); <code>SetAffectedByWind</code> is a stub; the challenge never runs; see <a href="../../nature/rocks_splitting_and_heat.html">../../nature/rocks_splitting_and_heat.md</a></td>
+</tr>
+<tr>
+<td>Volley meteors are made at half size, at a launch point 250 high about 400 from the village, and thrown to land on their target spot in 4 seconds</td>
+<td>todo</td>
+<td><code>SetTarget</code> (throwing at a place) is a stub</td>
+</tr>
+<tr>
+<td>While a meteor flies (and is not in the hand) it trails a bonfire flame effect, remade every frame at eight times normal size, so it leaves a long burning plume</td>
+<td>todo</td>
+<td><code>SpecialEffectPosition</code> works and the flying property is read; the in-hand property is not ported; never thrown (<code>SetTarget</code> stub)</td>
+</tr>
+<tr>
+<td>Each launch plays the lava-bomb trail sound at the village's tower, not at the meteor</td>
+<td>todo</td>
+<td><code>PlaySoundEffect</code> works; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>At least 4 seconds after it stops flying, and once it is out of the hand and lying still, the meteor blows up: a small level-1 fireball (radius 1, 2 seconds) at a random point up to 2 sideways and 2 above it, the temple-explosion sound, and the rock is deleted with an explosion</td>
+<td>partial</td>
+<td><code>SpellAtPos</code>, <code>PlaySoundEffect</code>, <code>ObjectDelete</code> and rock creation work; the wait reads the in-hand property, not ported; the challenge never runs</td>
+</tr>
+<tr>
+<td>A meteor caught in the hand doesn't burst while held; it bursts wherever it comes to rest after being thrown or dropped</td>
+<td>todo</td>
+<td>the in-hand property is not ported</td>
+</tr>
+<tr>
+<td>If a volley meteor is in the hand 6 seconds after its launch, the good advisor comes out once: "Oh I say. Well caught." (only once in the whole game)</td>
+<td>todo</td>
+<td><code>GetObjectHeld</code> is a stub</td>
+</tr>
+<tr>
+<td>The damage done comes from the burning rocks themselves (fire, impact) and their fireballs; the script hurts nothing directly</td>
+<td>partial</td>
+<td>burning objects and fireballs exist outside the script (<code>src/ECS/Fire</code>, <code>SpellAtPos</code>); not checked that a burning rock sets a building alight; the challenge never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-opening">The opening</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A burning meteor appears on the ground about 120 from the village centre (made at the spot itself, not thrown), with the lava-bomb trail sound</td>
+<td>todo</td>
+<td>rock creation, <code>SetOnFire</code> and <code>PlaySoundEffect</code> work; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A film starts: the camera shakes round the meteor (radius 500, amplitude 1, 1.5 seconds) with the low temple-explosion rumble</td>
+<td>todo</td>
+<td><code>ShakeCamera</code> and <code>PlaySoundEffect</code> work; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The evil advisor comes out pointing at it while the camera turns to it over 1 second: "Hey. Fire! Over there!" and goes home</td>
+<td>todo</td>
+<td><code>SpiritEject</code>, <code>SpiritPointPos</code>, <code>MoveCameraFocus</code>, <code>RunText</code> work; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The camera moves to look at it from close by (15 up, 15 and 35 off) over 3 seconds; the challenge is then recorded as started, titled "The Heavenly Fire", with the reminder "We need to protect the Village! Nemesis is attacking!" from the good advisor</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>Both advisors come out; good: "It's a meteor. Thank goodness it missed the Village."; then 2 seconds pass</td>
+<td>todo</td>
+<td><code>SpiritEject</code> and <code>RunText</code> work; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A warning shot (a full-size meteor) is thrown from the launch point at the near edge of the village (about 70 from the centre)</td>
+<td>todo</td>
+<td><code>SetTarget</code> is a stub</td>
+</tr>
+<tr>
+<td>The evil advisor sits low on the right of the screen and the good advisor half-way down on the left; evil: "Heads up! There's more incoming!" while the camera turns to the launch point over 2 seconds and then follows the meteor down</td>
+<td>todo</td>
+<td><code>ClingSpirit</code>, <code>SetFocusFollow</code> work; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>After 2 seconds, good: "They're heading towards the Village! " and "We've got to protect the people!"; both go home</td>
+<td>todo</td>
+<td><code>RunText</code> works; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>After 2 more seconds the camera looks down below the launch point (2.5 seconds) and moves to a view over the village from about 95 away (3 seconds), and the film ends</td>
+<td>todo</td>
+<td>the camera moves work; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The village's total building and villager health is taken as the starting figure, then 1 second passes</td>
+<td>todo</td>
+<td><code>GetTownAndVillagerHealthTotal</code> is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-five-volleys">The five volleys</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>First volley: the evil advisor points at the launch point: "Yay, more! These are cool. See if you can catch some, Boss." Five meteors follow at five spots across the village, the last at the tower in the centre</td>
+<td>todo</td>
+<td><code>SetTarget</code> stub</td>
+</tr>
+<tr>
+<td>In the first volley each meteor after the first waits for the one before to land (6 seconds and until it stops flying or is caught) and then 8 more seconds, so they come about 14 seconds or more apart</td>
+<td>todo</td>
+<td><code>SetTarget</code> stub</td>
+</tr>
+<tr>
+<td>After it, good: "They've stopped. Let's clean the place up."; then 20 seconds pass</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Before each later volley the script waits until the camera is within 200 of the tower; looking away holds the next volley back (the source itself says "not sure about this")</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Second volley: evil, pointing: "A second volley is on the way. Right over the Village Centre."; five meteors 8 seconds apart (round the centre to the storage pit); then 20 seconds</td>
+<td>todo</td>
+<td><code>SetTarget</code> stub</td>
+</tr>
+<tr>
+<td>Third volley: evil: "Another salvo! Heads down!"; five meteors 6 seconds apart round the large building beside the centre (the fourth and fifth each wait for the one before to land); then 15 seconds</td>
+<td>todo</td>
+<td><code>SetTarget</code> stub</td>
+</tr>
+<tr>
+<td>Fourth volley: evil: "Incoming! This is madness. Although it looks totally superb."; five meteors 5 seconds apart round the crèche; then 10 seconds</td>
+<td>todo</td>
+<td><code>SetTarget</code> stub</td>
+</tr>
+<tr>
+<td>Fifth volley: evil: "Hey, there's some left. The attack seems to be ending, though."; five meteors 1 second apart round the village centre and the Wonder; then 8 seconds</td>
+<td>todo</td>
+<td><code>SetTarget</code> stub</td>
+</tr>
+<tr>
+<td>Good advisor: "Phew.  It's really over this time." In all 27 meteors fall: the opening one, the warning shot and 25 in the volleys</td>
+<td>todo</td>
+<td><code>SetTarget</code> stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-verdict">The verdict</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>After 4 seconds the villagers are counted again; the loss is the start count minus the new count (births during the attack make up for deaths)</td>
+<td>todo</td>
+<td><code>IdSize</code> works; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>No villagers lost (and more than one still living): good: "You kept the Village safe! Wonderful! "</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Fewer than 8 lost: good: "Well, most people survived, but there were casualties."</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>8 or more lost: the evil advisor: "Hey. It's been carnage. Way to go, Boss!" (the source comment gives it to the good advisor)</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>If the village has one villager or none left, nothing is said about the people</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The damage share is (starting health minus final health) divided by the starting health; the source notes about 0.39 for a village left completely unhelped</td>
+<td>todo</td>
+<td><code>GetTownAndVillagerHealthTotal</code> is a stub</td>
+</tr>
+<tr>
+<td>22% or less: good: "You protected the buildings, Leader. Super." in a short film that turns the camera to a spot about 25 from the centre (2 seconds) and moves it 20 up and 20 off (4 seconds); alignment +1 and the reward</td>
+<td>todo</td>
+<td>needs the health total (stub)</td>
+</tr>
+<tr>
+<td>More than 22% up to 30%: good: "A few buildings got damaged, I'm afraid."; alignment 0, no reward</td>
+<td>todo</td>
+<td>needs the health total (stub)</td>
+</tr>
+<tr>
+<td>More than 30%: evil: "Whew. The Village took a serious pounding there, Boss."; alignment -1, no reward</td>
+<td>todo</td>
+<td>needs the health total (stub)</td>
+</tr>
+<tr>
+<td>The challenge is then recorded as finished (success 1) with that alignment, whatever happened</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-reward">The reward</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A reward chest falls from the sky at that spot by the village centre, holding the Itchy creature miracle seed (cast on a creature to make it itchy)</td>
+<td>todo</td>
+<td><code>CreateReward</code> is a stub; see <a href="../rewards.html">../rewards.md</a></td>
+</tr>
+<tr>
+<td>No reward film: the chest is dropped without the camera following it (the good verdict's own short film is the only camera move)</td>
+<td>todo</td>
+<td><code>CreateReward</code> stub</td>
+</tr>
+<tr>
+<td>If it is the first chest of the game the advisors explain it ("click the Action Button on it to open it"); otherwise, when opened, the reward's own help line is spoken if the dialogue is free</td>
+<td>todo</td>
+<td>no reward chests; by Land 5 it is never the first chest in a normal game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="aftermath">Aftermath</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Whatever burnt or was smashed stays so; the script repairs nothing and the challenge never comes back</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A meteor caught and kept in the hand only bursts once let go and lying still, even after the challenge is over</td>
+<td>todo</td>
+<td>the in-hand property is not ported</td>
+</tr>
+</tbody>
+</table>
+<h2 id="music-and-sounds">Music and sounds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The challenge plays no music of its own (the capture scene before it stops the Nemesis theme)</td>
+<td>n/a</td>
+<td>nothing to do</td>
+</tr>
+<tr>
+<td>Sounds: the low temple-explosion rumble with the opening shake, the lava-bomb trail at the tower for every launch, the temple-explosion bang at every burst</td>
+<td>partial</td>
+<td><code>PlaySoundEffect</code> works and the sounds are in our audio tables; the scripts never reach them</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creature">Creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature takes no part in the script: it is never called, moved or checked, though it can catch or put out fires on its own if it has learnt to</td>
+<td>todo</td>
+<td>see ../../creature/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-quirks">Script quirks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The opening meteor's fire and temperature are set again a few seconds into the film, by when its burst script may already have deleted it; nothing visible comes of it</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The warning shot isn't watched for a catch, so catching it is never praised</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The villager verdict is measured on the town's net head count, so babies born during the attack hide deaths</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The volley lines in the source are marked "TEST", and the fifth volley borrows the line written as the new first one ("there's some left"), which is why it says the attack is ending</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="cut-and-unused-parts">Cut and unused parts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A scroll over a villager's hut, pointed out by the good advisor with "Your attention is required here.", was planned and switched off</td>
+<td>n/a</td>
+<td>never in the game</td>
+</tr>
+<tr>
+<td>The challenge's lines 6 and 8 to 11 are missing from the text table: the old volley announcements were cut and replaced by the five new Land 5 lines</td>
+<td>n/a</td>
+<td>never in the game</td>
+</tr>
+<tr>
+<td>The tower and storage pit are looked up but never used, nor is the villager's hut</td>
+<td>n/a</td>
+<td>never in the game</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Land loading and the map — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="here" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#land-loading-and-the-map">Land loading and the map</a><ul>
+<li><a href="#opening-a-land">Opening a land</a></li>
+<li><a href="#map-positions">Map positions</a></li>
+<li><a href="#islands">Islands</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="land-loading-and-the-map">Land loading and the map</h1>
+<p>Each land is a landscape file of up to 255 blocks of 16 by 16 cells laid on a 32 by 32 block map, opened by the land's
+script, with a fixed-point grid of map positions that everything in the game stands on.</p>
+<p><strong>Progress: 15/23 done, 6 partial — 78%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../map-loading.html">Map loading and script functions</a>.</p>
+<h2 id="opening-a-land">Opening a land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's script names the landscape file to open, and the land is built from it</td>
+<td>done</td>
+<td>LOAD_LANDSCAPE (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>), <code>Game::LoadLandscape</code> (<code>src/Game.cpp</code>)</td>
+</tr>
+<tr>
+<td>A landscape file holds the blocks, which block of the map each one fills, the countries, the material textures, the noise and bump maps</td>
+<td>done</td>
+<td><code>components/lnd</code> (<code>LNDFile</code>), <code>src/3D/Implementations/LandIsland.cpp</code></td>
+</tr>
+<tr>
+<td>Map cells hold an altitude, a colour, a luminosity, a country, water, coast and open-water bits, and an ambient sound type</td>
+<td>done</td>
+<td><code>components/lnd/include/LNDFile.h</code> (<code>LNDCell</code>)</td>
+</tr>
+<tr>
+<td>Map squares with no block are open sea</td>
+<td>done</td>
+<td><code>LandIslandInterface::HasBlockAt</code> and the sea cells (<code>src/ECS/SeaCells.cpp</code>)</td>
+</tr>
+<tr>
+<td>The five story lands and the playground lands all open</td>
+<td>done</td>
+<td><code>Game::LoadMap</code> (<code>src/Game.cpp</code>)</td>
+</tr>
+<tr>
+<td>Opening a new land clears the old land's weather, rings, footprints, snow and clouds</td>
+<td>partial</td>
+<td><code>Game::LoadMap</code> clears the weather (<code>magic::OnLoadMap</code>), the particles, the ground marks, the night lights and the clouds' layout; our tree has no lying snow to clear</td>
+</tr>
+<tr>
+<td>Blocks are built once into one shared vertex buffer and a physics shape</td>
+<td>done</td>
+<td><code>src/3D/LandBlock.cpp</code> (the shape is for the Bullet ray casts)</td>
+</tr>
+<tr>
+<td>Far blocks get a coarser mesh and lower-resolution texture, and blocks off screen are skipped</td>
+<td>partial</td>
+<td>Every block is drawn at full detail with no culling (<code>src/3D/LandBlock.cpp</code>)</td>
+</tr>
+<tr>
+<td>Block textures are painted in the background while the game plays</td>
+<td>partial</td>
+<td>All are painted as the land opens (<code>src/3D/BlockTexture.cpp</code>): the same picture, a different timing</td>
+</tr>
+<tr>
+<td>The land can be saved back to a landscape file (the game's own editor)</td>
+<td>todo</td>
+<td>No landscape writer in our tree; see ../debug/</td>
+</tr>
+<tr>
+<td>Multiplayer and online lands are downloaded and opened like local ones</td>
+<td>todo</td>
+<td>See ../multiplayer/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="map-positions">Map positions</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Positions are 16.16 fixed point, a 10 m cell per whole unit, with an altitude above the ground</td>
+<td>done</td>
+<td><code>src/3D/MapCoords.h</code>; tests <code>MapCoords.*</code> (<code>test/test_map_coords.cpp</code>)</td>
+</tr>
+<tr>
+<td>Metres convert to map positions and back with the game's single-precision rounding, losing a unit on some round trips</td>
+<td>done</td>
+<td><code>map_coords::ToFixed</code>, <code>ToMetres</code>; tests <code>MapCoords.ToFixedTruncatesTheFloatProduct</code>, <code>ToMetresRoundsOnce</code></td>
+</tr>
+<tr>
+<td>The map is 512 by 512 cells; positions off it are out of bounds</td>
+<td>done</td>
+<td><code>map_coords::InBounds</code>; test <code>MapCoords.CellsAndInBounds</code></td>
+</tr>
+<tr>
+<td>Searches walk a square spiral of cells out from the centre</td>
+<td>done</td>
+<td><code>map_coords::Spiral</code>; tests <code>MapCoords.SpiralSequence</code>, <code>SpiralIncrementAndSizes</code></td>
+</tr>
+<tr>
+<td>Each map cell keeps the objects standing in it, buildings first, so searches find things near a point</td>
+<td>done</td>
+<td><code>src/ECS/MapCells.cpp</code>; tests <code>MapCells.FixedListHeadForFixedTailForObjects</code> and the rest of <code>test/test_map_cells.cpp</code></td>
+</tr>
+<tr>
+<td>Buildings mark the cells their outline covers</td>
+<td>done</td>
+<td><code>src/ECS/MapCells.cpp</code>; test <code>MapCells.MultiCellObjectInEveryCellOfItsShape</code></td>
+</tr>
+<tr>
+<td>A point on the screen is turned into a point on the land (for the hand and the camera)</td>
+<td>partial</td>
+<td>The mouse ray is a Bullet ray cast against the land blocks (<code>DynamicsSystem::RayCastClosestHit</code> from <code>src/Camera/Camera.cpp</code>); the game's land line test is ported (<code>LandIslandInterface::RayCast</code>) but not used for it</td>
+</tr>
+<tr>
+<td>Region questions: does an area hold coast, water, land, hill, forest, field, town or citadel, and where exactly</td>
+<td>partial</td>
+<td>Water, coast, stream and drinking-water searches (<code>src/ECS/WaterQueries.cpp</code>) and dry land (<code>pot_resource::IsDryLand</code>); hill, field and town region searches are todo</td>
+</tr>
+<tr>
+<td>Land is told apart as dry land, coast and water by its cell bits</td>
+<td>done</td>
+<td><code>components/lnd</code> cell properties, <code>src/ECS/SeaCells.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="islands">Islands</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A land may hold several separate islands on the one map, with sea between them</td>
+<td>done</td>
+<td>Blocks are laid where the file puts them (<code>src/3D/Implementations/LandIsland.cpp</code>)</td>
+</tr>
+<tr>
+<td>The sea stretches out to the horizon all round the map</td>
+<td>done</td>
+<td><code>src/3D/Implementations/Ocean.cpp</code>, <code>src/Graphics/SeaRows.cpp</code>; see ../ocean/sea_surface.md</td>
+</tr>
+<tr>
+<td>The camera and hand cannot leave the map's bounds</td>
+<td>partial</td>
+<td>See ../camera/ for the camera limits</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

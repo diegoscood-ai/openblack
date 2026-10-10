@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Villager death — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="here" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#villager-death">Villager death</a><ul>
+<li><a href="#life-and-harm">Life and harm</a></li>
+<li><a href="#ways-to-die">Ways to die</a></li>
+<li><a href="#dying-and-after">Dying and after</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="villager-death">Villager death</h1>
+<p>Villagers die of old age, starvation, fire, drowning, falls, predators, miracles and the creature. They fall, lie dead
+for a while (as a skeleton when burnt), their soul rises, those nearby mourn them and the town buries them in its
+graveyard if it has one.</p>
+<p><strong>Progress: 24/28 done, 3 partial — 91%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../villagers.html">Villagers: data, state machine and speed</a>.</p>
+<h2 id="life-and-harm">Life and harm</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Villagers have life, lowered by harm, and die when it runs out</td>
+<td>done</td>
+<td>the villager's life (<code>Villager::life</code>, <code>src/ECS/Life.cpp</code>) and <code>villager::VillagerDead</code> (<code>src/ECS/Villager/VillagerDeath.cpp</code>); <code>test/test_villager_death.cpp</code></td>
+</tr>
+<tr>
+<td>Harm to a villager is an attack on its town by whoever did it</td>
+<td>partial</td>
+<td>a destructive effect records the town's aggressor (<code>town_emergency::UpdateAggressor</code>); the per-player aggression is not ported; see ../town/emergencies_and_aggression.md</td>
+</tr>
+<tr>
+<td>Wounded villagers walk slower, badly wounded ones crawl</td>
+<td>done</td>
+<td>the wounded speeds and the crawl (<code>src/ECS/VillagerSpeed.cpp</code>)</td>
+</tr>
+<tr>
+<td>Hurt villagers sleep longer to recover</td>
+<td>done</td>
+<td>the sleep at home by the life (<code>src/ECS/Villager/VillagerHome.cpp</code>)</td>
+</tr>
+<tr>
+<td>Life slowly comes back</td>
+<td>done</td>
+<td>resting at home gives life back by the info's rate (<code>src/ECS/Villager/VillagerHome.cpp</code>)</td>
+</tr>
+<tr>
+<td>Chanting at the worship site costs worshippers life, killing some</td>
+<td>done</td>
+<td>the chant's damage and its deaths (<code>src/ECS/Systems/Implementations/VillagerWorship.cpp</code>, reason Chant); See ../worship/</td>
+</tr>
+<tr>
+<td>The heal miracle gives life back</td>
+<td>done</td>
+<td>the heal through <code>life::IncreaseLife</code> (<code>src/ECS/Effects/EffectValues.cpp</code>); See ../miracles/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="ways-to-die">Ways to die</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Burnt to death by fire</td>
+<td>done</td>
+<td><code>src/ECS/Systems/Implementations/VillagerFire.cpp</code> (<code>ON_FIRE</code>) and the fire's damage (<code>src/ECS/Fire</code>)</td>
+</tr>
+<tr>
+<td>Killed by a miracle or effect that destroys things</td>
+<td>done</td>
+<td><code>villager::DestroyedByEffect</code> from <code>effects::ApplyEffect</code> (<code>src/ECS/Effects/EffectValues.cpp</code>)</td>
+</tr>
+<tr>
+<td>Brought down and eaten by a predator</td>
+<td>done</td>
+<td>the predators' kill (<code>src/ECS/AnimalPredators.cpp</code>, reason Animal) and <code>BEING_EATEN</code>; see ../animal/wild_animals.md</td>
+</tr>
+<tr>
+<td>Eaten, crushed or thrown by the creature</td>
+<td>partial</td>
+<td>eaten: killed with the creature's cause (<code>CreatureObjectActionSystem.cpp</code>); crushed and thrown through the physics; See ../creature/</td>
+</tr>
+<tr>
+<td>Drowned when dropped or thrown into the sea</td>
+<td>done</td>
+<td><code>DROWNING</code> and the drown death credited to the dropper (<code>src/ECS/VillagerDrowning.cpp</code>, reason PlayerInteractionDrown)</td>
+</tr>
+<tr>
+<td>Killed by a fall from a throw</td>
+<td>done</td>
+<td>a hard landing kills with the thrower's player and reason PlayerInteraction (<code>src/ECS/LivingPhysics.cpp</code>)</td>
+</tr>
+<tr>
+<td>Dies of old age</td>
+<td>done</td>
+<td>old age (<code>src/ECS/Villager/VillagerAge.cpp</code>, reason OldAge); <code>test/test_villager_age.cpp</code></td>
+</tr>
+<tr>
+<td>Dies of hunger</td>
+<td>done</td>
+<td>starving (<code>src/ECS/Villager/VillagerFood.cpp</code>, reason Starving)</td>
+</tr>
+<tr>
+<td>Sacrificed at the altar</td>
+<td>todo</td>
+<td>no sacrifice yet (the reason exists); See ../worship/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="dying-and-after">Dying and after</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The villager falls dying, then lies dead for a fixed time and goes</td>
+<td>done</td>
+<td><code>SET_DYING</code>, <code>DYING</code> and <code>DEAD</code> with their clips and the corpse's time (<code>src/ECS/Villager/VillagerDeath.cpp</code>)</td>
+</tr>
+<tr>
+<td>A burnt villager leaves a skeleton once its flesh is gone</td>
+<td>done</td>
+<td>the skeleton after a fire death (<code>src/ECS/Villager/VillagerDeath.cpp</code>, <code>villager_fire</code>)</td>
+</tr>
+<tr>
+<td>The body stays shorter when the town has a graveyard</td>
+<td>done</td>
+<td>120 turns with a functional graveyard, 600 without (<code>DyingTime</code>, <code>src/ECS/Villager/VillagerDeath.cpp</code>)</td>
+</tr>
+<tr>
+<td>A dying villager drops its wood as a log (unless the creature eats it); its food is lost</td>
+<td>done</td>
+<td><code>CreateDroppedResource</code>, <code>DropWood</code> and <code>DropFood</code> in <code>VillagerDead</code> (<code>src/ECS/Villager/VillagerDeath.cpp</code>); See <a href="tools_and_carried_items.html">tools_and_carried_items.md</a></td>
+</tr>
+<tr>
+<td>The villager's soul rises to heaven or hell, fading out</td>
+<td>done</td>
+<td>the soul with its heaven or hell clip, fading in its last 500 ms (<code>src/ECS/Villager/VillagerSoul.cpp</code>)</td>
+</tr>
+<tr>
+<td>A death message or help sprite shows for a death the player caused</td>
+<td>done</td>
+<td>the help sprites by reason and the town's size (<code>events::VillagerDeathHelp</code>, <code>src/ECS/Villager/VillagerDeath.cpp</code>)</td>
+</tr>
+<tr>
+<td>The owner's alignment moves for a death they caused</td>
+<td>done</td>
+<td><code>alignment::UpdateForDeath</code> from <code>VillagerDead</code> by the death's reason (<code>src/ECS/Effects/Alignment.cpp</code>); See ../worship/</td>
+</tr>
+<tr>
+<td>The town counts its deaths and its people</td>
+<td>done</td>
+<td>the town's death counters (<code>components::TownDeaths</code>) and the people counted each town turn (<code>town_stats::Compute</code>)</td>
+</tr>
+<tr>
+<td>Its abode and town forget the dead villager</td>
+<td>done</td>
+<td><code>DeleteDependants</code>: out of the abode, the town or the vagrants (<code>src/ECS/Villager/VillagerDeath.cpp</code>)</td>
+</tr>
+<tr>
+<td>Nearby villagers point at, go to, look at and mourn the dead</td>
+<td>done</td>
+<td><code>REACT_TO_DEATH</code> and the states 205 to 208 (<code>src/ECS/Villager/VillagerMourning.cpp</code>); <code>test/test_villager_death.cpp</code></td>
+</tr>
+<tr>
+<td>A dead mother's children are orphaned and mourn</td>
+<td>done</td>
+<td><code>FindChildrenAndOrphanThem</code> and the orphans' mourning (<code>src/ECS/Villager/VillagerMourning.cpp</code>)</td>
+</tr>
+<tr>
+<td>The dead are buried in the graveyard, which grows a grave for each</td>
+<td>partial</td>
+<td>each death adds to the graveyard's count (<code>graveyard::AddDead</code>); what the graves stage draws is pending; See ../building/civic_buildings.md</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

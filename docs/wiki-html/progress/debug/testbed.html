@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Testbed — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="here" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#testbed">Testbed</a><ul>
+<li><a href="#the-testbed-land">The testbed land</a></li>
+<li><a href="#scenarios-as-data">Scenarios as data</a></li>
+<li><a href="#running-them">Running them</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="testbed">Testbed</h1>
+<p>The creature testbed: a flat land with a lake, made by openblack rather than loaded from the game, and the scenario
+runner that sets it up and plays a scripted timeline on it, from the debug window, the editor or the command line. What
+the scenarios cover is in <a href="testbed_scenarios.html">testbed_scenarios.md</a>; how to write and run one is in
+<a href="../../refactor/SCENARIOS.html">SCENARIOS.md</a>.</p>
+<p><strong>Progress: 18/28 done, 7 partial — 77%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../openblack-internals.html">openblack internals</a>.</p>
+<h2 id="the-testbed-land">The testbed land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A flat land with a lake, loaded from the menu or <code>--testbed</code> instead of a story land</td>
+<td>done</td>
+<td><code>src/3D/FlatLand.cpp</code>, <code>Game::LoadTestbed</code> (<code>src/Game.cpp</code>), "Creature Testbed" in the debug bar's menu (<code>src/Debug/Gui.cpp</code>); tests <code>FlatLand.*</code>, <code>LandData.*</code></td>
+</tr>
+<tr>
+<td>No land script runs on it, so its clock and weather stay as set</td>
+<td>done</td>
+<td><code>Game::LoadTestbed</code> stops every script task, and the game's start skips the story's scripts and the start-up question on the testbed (<code>src/Game.cpp</code>)</td>
+</tr>
+<tr>
+<td>The player has a ring of influence and plenty of prayer power on it</td>
+<td>partial</td>
+<td>a ring of influence over the middle of the map (<code>Game::LoadTestbed</code>); no extra prayer power</td>
+</tr>
+<tr>
+<td>A grid of every miracle's dispenser laid out in front of the camera, kept or cleared per scenario</td>
+<td>partial</td>
+<td>the layout and the rule for keeping it are pure data (<code>src/Debug/TestbedDispenserGrid.cpp</code>, <code>KeepsDispenserGrid</code>; tests <code>TestbedDispenserGrid.*</code>), but nothing lays the grid out yet</td>
+</tr>
+<tr>
+<td>Emptying the testbed of everything put on it</td>
+<td>done</td>
+<td>the window's "Empty testbed" loads it afresh (<code>src/Debug/TestbedScenarios.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="scenarios-as-data">Scenarios as data</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each scenario is plain data: a name, a description, the facet it shows and an id</td>
+<td>done</td>
+<td><code>src/Debug/TestbedScenarioRegistry.*</code> and the facet files <code>src/Debug/TestbedScenario*.cpp</code>, about 200 scenarios; tests <code>TestbedScenarios.*</code></td>
+</tr>
+<tr>
+<td>The weather, the hour and whether the clock runs, the body's game speed, fainting and fights by themselves</td>
+<td>done</td>
+<td><code>Runner::SetUpEnvironment</code>, the island's weather by <code>Runner::SetIslandWeather</code> (<code>src/Debug/TestbedScenarioRunner.cpp</code>)</td>
+</tr>
+<tr>
+<td>The player's alignment and prayer power as it starts</td>
+<td>partial</td>
+<td>the alignment is set; a scenario's prayer power logs "not in this tree yet"</td>
+</tr>
+<tr>
+<td>Where the camera starts: the testbed's view, an overview of everything, behind or in front of one creature, or a placed shot</td>
+<td>done</td>
+<td><code>Runner::Frame</code> (<code>src/Debug/TestbedScenarioRunner.cpp</code>); tests <code>TestbedScenarios.OverviewSeesTheWholeBox</code>, <code>FollowAndHeadShotsScaleWithTheCreature</code></td>
+</tr>
+<tr>
+<td>The creatures with their species, body, age, needs, desires, wounds, mind file and leash</td>
+<td>done</td>
+<td><code>Runner::PlaceCreatures</code>; a "chosen:" mind file is always the game's file of that name, as no file picked in the spawner is kept</td>
+</tr>
+<tr>
+<td>The objects, trees, features, villagers, food and wood, buildings and fields of a town, and animals about them</td>
+<td>partial</td>
+<td><code>Runner::PlaceObjects</code>; villagers' walks, worship walks and teleport stones log "not in this tree yet"</td>
+</tr>
+<tr>
+<td>Crowds of hundreds to thousands, laid out the same way every run</td>
+<td>done</td>
+<td><code>src/Debug/TestbedCrowd.cpp</code>, spawned a batch a frame by the runner; tests <code>TestbedScenarios.BenchmarksMeasureCrowdsOfEachSize</code>, <code>CrowdsAreChecked</code></td>
+</tr>
+<tr>
+<td>A timeline of commands at set seconds: moving, acting, needs, the hand, the leash, fights, learning, the camera keys, Creature Mode and the cave, seeds, gestures, miracles, key presses, the pointer</td>
+<td>partial</td>
+<td><code>testbed_scenarios::Advance</code> (pure; tests <code>TestbedScenarios.Timeline*</code>) and the runner. These log "not in this tree yet": the seeds held, summoned or caught, gestures, shaking a leash off, the hand stroking or slapping a creature, Creature Mode's double click and held camera keys, and the scenario data's miracle casts and dispensers</td>
+</tr>
+<tr>
+<td>The pointer moved and pressed by the scenario in place of the mouse, through the game's own input</td>
+<td>partial</td>
+<td><code>src/Debug/TestbedPointer.cpp</code> (tests <code>TestbedPointer.*</code>), with no hook of its own: it moves the game's fixed cursor and writes the buttons the hand reads, so the buttons reach the hand only. The wheel and the camera's drags go as mouse events, which are dropped when the real input is ignored or the mouse is fixed</td>
+</tr>
+<tr>
+<td>Fixtures: a dispenser, a storm, the creature free, leashed or penned, a village, a fire, trees, a pile and a seed in the hand, each in a line or two</td>
+<td>done</td>
+<td><code>src/Debug/TestbedFixtures.*</code>, checked by <code>Problems()</code> without the game and set out through the game's own archetypes and systems; tests <code>TestbedFixtures.*</code>. A dispenser needs a village fixture for its town</td>
+</tr>
+<tr>
+<td>A recorded hand demo replayed on the testbed, with fixtures at the points its presses meet the land</td>
+<td>done</td>
+<td><code>src/Debug/TestbedDemoPoints.cpp</code> (pure; tests <code>TestbedDemoPoints.*</code>, <code>HandDemoRecords.*</code>), the plane lowered under a demo recorded with a low camera; the game's playback unchanged</td>
+</tr>
+<tr>
+<td>A scenario that writes into the game's folder runs only on a copy of the game's data</td>
+<td>done</td>
+<td><code>writesGameData</code>, checked against the marker <code>openblack_game_data_copy.txt</code> by <code>Runner::PlaceFixtures</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="running-them">Running them</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A list of scenarios by facet, searched, with Run, Restart and Stop</td>
+<td>partial</td>
+<td><code>src/Debug/TestbedScenarios.cpp</code>, <code>TestbedScenariosModel.cpp</code> (tests <code>TestbedScenariosModel.*</code>): picked by facet, with no search</td>
+</tr>
+<tr>
+<td>Overview and testbed camera views, following one of the creatures, and letting go of the camera</td>
+<td>done</td>
+<td>the window's Camera section (<code>src/Debug/TestbedScenarios.cpp</code>)</td>
+</tr>
+<tr>
+<td>A readout of each creature's needs and what it is doing as the scenario runs</td>
+<td>done</td>
+<td>the window's "Its creatures" table, and the run's log</td>
+</tr>
+<tr>
+<td>Setting one fixture out from the window</td>
+<td>done</td>
+<td>the window's Fixtures section (<code>TestbedScenarios::DrawFixtures</code>)</td>
+</tr>
+<tr>
+<td>The scenarios as a tab of the editor</td>
+<td>done</td>
+<td><code>src/Editor/ScenariosTab.h</code>, <code>src/Editor/EditorWindow.cpp</code>; test <code>EditorScenariosTab.*</code></td>
+</tr>
+<tr>
+<td>Saving a run's results to a file</td>
+<td>done</td>
+<td>"Save results" with <code>--benchmark-out</code> only (<code>Runner::SaveResults</code>)</td>
+</tr>
+<tr>
+<td><code>--scenario ID</code> starts the game on the testbed running a scenario</td>
+<td>done</td>
+<td><code>src/main.cpp</code>, <code>src/Debug/TestbedOptions.cpp</code> (tests <code>TestbedOptions.*</code>); an unknown id logs the ids and quits</td>
+</tr>
+<tr>
+<td>Benchmarks: a crowd warmed up for some frames, then measured, its results written as JSON and CSV, and the game quits</td>
+<td>done</td>
+<td><code>--benchmark-warmup</code>, <code>--benchmark-frames</code>, <code>--benchmark-out</code> (<code>src/main.cpp</code>), the runner over <code>src/Debug/BenchmarkRecorder.cpp</code> (tests <code>BenchmarkRecorder.*</code>)</td>
+</tr>
+<tr>
+<td>A scenario checks its own outcome and reports pass or fail</td>
+<td>todo</td>
+<td>checks live in the unit tests, and runs are compared with a reference run</td>
+</tr>
+<tr>
+<td>Scenarios on the story lands rather than the flat testbed</td>
+<td>todo</td>
+<td>the testbed only</td>
+</tr>
+<tr>
+<td>Scenarios recorded from play rather than written by hand</td>
+<td>todo</td>
+<td>written by hand; the game's own hand demos can be replayed on them</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

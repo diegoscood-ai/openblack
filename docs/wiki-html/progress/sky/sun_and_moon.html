@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sun and moon — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="here" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#sun-and-moon">Sun and moon</a><ul>
+<li><a href="#day-and-night-between-them">Day and night between them</a></li>
+<li><a href="#in-the-temple-paused-and-in-cut-scenes">In the temple, paused and in cut scenes</a></li>
+<li><a href="#options-and-openblack-only-places">Options and openblack-only places</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="sun-and-moon">Sun and moon</h1>
+<p>How the sun and the moon share the sky. The detail is in <a href="sun.html">sun.md</a> and <a href="moon.html">moon.md</a>. This page covers what
+they have in common: the hours that switch between them, and how they behave in the temple, while paused, in cut scenes
+and with the detail options.</p>
+<p><strong>Progress: 8/12 done, 1 partial — 71%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../day-night-weather.html">Day, night and weather in the original</a>, <a href="../../rendering.html">World rendering: original versus openblack</a>.</p>
+<h2 id="day-and-night-between-them">Day and night between them</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Both follow the script hour, which the clock stretches so dusk and dawn fall at fixed hours</td>
+<td>done</td>
+<td><code>DayNightClock::GetScriptTime</code> (<code>src/3D/DayNightClock.cpp</code>); see day_night_cycle.md</td>
+</tr>
+<tr>
+<td>The sun shows from 3 to 21 and the moon from about 19:20 to 04:40, so both are up at dusk and dawn</td>
+<td>done</td>
+<td><code>sun::Place</code>, <code>moon::Place</code></td>
+</tr>
+<tr>
+<td>Jumping or moving the clock by script moves them at once</td>
+<td>done</td>
+<td>SET_GAME_TIME and MOVE_GAME_TIME in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>The sky's dome, the land's light and the haze change with the hour on their own; the sun and moon light nothing themselves</td>
+<td>done</td>
+<td>see sky_dome.md and lighting.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="in-the-temple-paused-and-in-cut-scenes">In the temple, paused and in cut scenes</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Inside the temple the sky is drawn without the sun and without its glare; the moon is still drawn</td>
+<td>partial</td>
+<td><code>src/Graphics/RendererTemple.cpp</code> draws the dome with no sun and no glare, but no moon either</td>
+</tr>
+<tr>
+<td>While the game is paused the clock stops, so neither moves, and the glare holds</td>
+<td>done</td>
+<td>No game turn while paused; <code>sun::EaseGlare</code> holds with 0 ms</td>
+</tr>
+<tr>
+<td>The moon's phase follows the real date even while paused</td>
+<td>done</td>
+<td><code>moon::Phase</code></td>
+</tr>
+<tr>
+<td>The moon stays beside the camera wherever it moves, cut scenes included</td>
+<td>done</td>
+<td><code>Renderer::DrawMoon</code></td>
+</tr>
+<tr>
+<td>Cut scenes don't change how they are drawn</td>
+<td>done</td>
+<td>No cut-scene switch in <code>Renderer::DrawSun</code> or <code>DrawMoon</code></td>
+</tr>
+<tr>
+<td>The script switch that hides the sun is cleared when the game restarts its scripts</td>
+<td>todo</td>
+<td>SET_SUN_DRAW is a stub; see sun.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="options-and-openblack-only-places">Options and openblack-only places</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The fog option decides whether an overcast dims the sun, its glare and the moon</td>
+<td>todo</td>
+<td>Nothing dims the sun, its glare or the moon by the overcast in our tree (see sun.md, moon.md)</td>
+</tr>
+<tr>
+<td>At detail levels 3, 4 and 6 the glare can also be hidden by models, through the depth buffer</td>
+<td>todo</td>
+<td>see sun.md</td>
+</tr>
+<tr>
+<td>On openblack's flat test land the sun and moon behave as on any land</td>
+<td>n/a</td>
+<td>openblack-only, and our tree has no flat test land; see ../debug/</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Physical shield — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="here" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#physical-shield">Physical shield</a><ul>
+<li><a href="#casting-and-upkeep">Casting and upkeep</a></li>
+<li><a href="#the-dome">The dome</a></li>
+<li><a href="#physics">Physics</a></li>
+<li><a href="#reactions">Reactions</a></li>
+<li><a href="#effects-fx">Effects (FX)</a></li>
+<li><a href="#audio">Audio</a></li>
+<li><a href="#saving">Saving</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="physical-shield">Physical shield</h1>
+<p>A solid dome the player draws with a circle gesture. It rises out of the land, spins down and bobs, and stops thrown
+rocks and other physical objects; each blow drains the caster's prayer power. Miracles pass through it.</p>
+<p>Given by gold scroll: <a href="../story/gold_scrolls/khazars_shield_challenge.html">Khazar's Shield Challenge</a>.</p>
+<p><strong>Progress: 23/28 done, 2 partial — 86%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../miracles.html">Miracles one by one</a>.</p>
+<h2 id="casting-and-upkeep">Casting and upkeep</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cast at the centre of a drawn circle, sized by it, held to the side in the hand</td>
+<td>done</td>
+<td><code>src/Magic/Gestures/PowerUpSystem.cpp</code> (the circle), <code>src/ECS/Systems/Implementations/HandSpellSeed.cpp</code> (HAND_GESTURE cast on release), hold pose from the seed's row; see <a href="casting_and_globes.html">casting_and_globes.md</a></td>
+</tr>
+<tr>
+<td>Size kept between 5 and 1000 m; upkeep grows with the square of the size</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellShield.cpp</code> (<code>ClampShieldRadius</code>, <code>ShieldCostToMaintain</code>); <code>test/test_shield.cpp</code> (radiusClamp, upkeepGrowsWithTheSquareOfTheRadius)</td>
+</tr>
+<tr>
+<td>Other gods lose their influence inside it; their creatures walk round it</td>
+<td>done</td>
+<td><code>SpellShield.cpp</code> (an anti-influence ring per other player, <code>src/ECS/Influence/InfluenceRings.cpp</code>); creatures: <code>map_shield::CreatureMustAvoid</code> asked by <code>src/ECS/RoutePlanWorld.cpp</code></td>
+</tr>
+<tr>
+<td>Creatures never cast it</td>
+<td>done</td>
+<td>correctly absent: no creature casts shields in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-dome">The dome</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sized by the circle and sunk into the land</td>
+<td>done</td>
+<td><code>src/Magic/Objects/MapShield.cpp</code> (<code>Create</code>, <code>ProcessPhysical</code>: scale 0.017 r, height from the shield row); <code>test/test_shield.cpp</code> (realInfoDat)</td>
+</tr>
+<tr>
+<td>Hidden for half a second, then grows over 1.5 s, spins down from the hand's spin over 6 s and bobs</td>
+<td>done</td>
+<td><code>MapShield.cpp</code> (<code>CurvesAt</code>, <code>ProcessPhysical</code>); <code>test/test_shield.cpp</code> (physicalShieldCurves)</td>
+</tr>
+<tr>
+<td>A dying dome fades over 1.5 s and is gone at 2.25 s</td>
+<td>done</td>
+<td><code>MapShield.cpp</code> (<code>SetDying</code>, die time 1.5 s, deleted at 2.25 s); <code>test/test_shield.cpp</code> (physicalShieldCurves)</td>
+</tr>
+<tr>
+<td>Drawn by its strength, never fainter than a floor</td>
+<td>done</td>
+<td><code>MapShield.cpp</code> (<code>DrawPhysical</code>: alpha max(40, strength x 255), not drawn before 0.5 s)</td>
+</tr>
+<tr>
+<td>The solid shell mesh, its outer layer drawn additive</td>
+<td>done</td>
+<td><code>MapShield.cpp</code> (<code>ReplaceMaterialType(5, 13)</code> and <code>(4, 13)</code> on mesh 554), <code>src/Graphics/Renderer.cpp</code>; <code>test/test_shield.cpp</code> (physicalShieldMaterialTypes)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="physics">Physics</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Its solid shape is a cone under the dome</td>
+<td>done</td>
+<td><code>map_shield::IsPointDefinitelyWithinShieldVolume</code> (<code>MapShield.cpp</code>); the physics body is the mesh's physics sub-mesh (<code>src/ECS/Physics/PhysicsObjects.cpp</code>)</td>
+</tr>
+<tr>
+<td>A thing crosses its hull only moving against a face</td>
+<td>done</td>
+<td>the ported rigid-body contact against the shield's collision mesh (<code>src/ECS/Physics/PhysicsObjects.cpp</code>)</td>
+</tr>
+<tr>
+<td>Thrown objects bounce off with the game's spring response</td>
+<td>done</td>
+<td><code>src/ECS/Physics/PhysicsObjects.cpp</code> (springs of physics constants row 10, weight from the shield row); a very fast rock may pass the shell, not proven to differ from the original</td>
+</tr>
+<tr>
+<td>The hull follows the dome's size as it grows</td>
+<td>done</td>
+<td><code>map_shield::CollisionScale</code> used by <code>PhysicsObjects.cpp</code>: the collision scale jumps behind the drawn one (more than 0.3 apart), as the original</td>
+</tr>
+<tr>
+<td>A blow by a rock costs the dome by the rock's speed and mass</td>
+<td>done</td>
+<td><code>map_shield::ReactToPhysicsImpact</code> (<code>MapShield.cpp</code>): pays speed x mass x chantCostPerImpactMomentum x 0.0001, forced</td>
+</tr>
+<tr>
+<td>A blow counts a small good deed at the point and marks the thrower as the town's attacker</td>
+<td>done</td>
+<td><code>map_shield::ReactToPhysicsImpact</code>: a spell event at the hitter's point, and the town's aggressor and turn recorded (the per-player aggression slots are not ported)</td>
+</tr>
+<tr>
+<td>Fireballs and other particle miracles pass through it</td>
+<td>done</td>
+<td>correctly absent: the physical shield makes no deflection sphere (<code>src/Particles/Rules/Shield.cpp</code>)</td>
+</tr>
+<tr>
+<td>The hand can't pick up or feel the dome</td>
+<td>partial</td>
+<td>the hand does not feel a shield's mesh (<code>src/ECS/Systems/Implementations/HandPlacement.cpp</code>); <code>HandSystem::ValidForPlaceInHand</code> does not exclude shields, so whether one could be grabbed is not settled</td>
+</tr>
+</tbody>
+</table>
+<h2 id="reactions">Reactions</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The caster's villagers shelter under it as under the spiritual shield</td>
+<td>done</td>
+<td>the same reaction 13 as the spiritual shield (<code>SpellShield.cpp</code>, <code>src/ECS/Systems/Implementations/VillagerShield.cpp</code>)</td>
+</tr>
+<tr>
+<td>A blow gives a "struck" reaction; emptying it gives a "destroyed" one</td>
+<td>partial</td>
+<td><code>spell_shield::UpdateStruckReaction</code> / <code>SetUpDestroyedReaction</code> create reactions 35 and 36, but no villager or creature takes them up</td>
+</tr>
+<tr>
+<td>Over the attacker's own town it impresses nothing</td>
+<td>todo</td>
+<td>no impressiveness or miracle belief in our tree (<code>src/ECS/Systems/Implementations/VillagerReactions.cpp</code> leaves the town belief out)</td>
+</tr>
+<tr>
+<td>The caster's creature is impressed and learns the spiritual shield from it</td>
+<td>todo</td>
+<td>creatures take no miracle reactions in our tree (no creature reaction handler in <code>src/ECS/Effects/Reactions.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="effects-fx">Effects (FX)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Glowing points ride the dome, trailing player-coloured sparkles</td>
+<td>done</td>
+<td>SF_PhysicalShieldFX made by <code>MapShield.cpp</code> and stepped each turn; atoms at the object (<code>src/Particles/PSys.cpp</code>), drawn in the player's colour</td>
+</tr>
+<tr>
+<td>The sparkles grow with the dome's size and fade down over 6 s</td>
+<td>done</td>
+<td>data-driven (SF_PhysicalShieldFX, magnitude = radius)</td>
+</tr>
+<tr>
+<td>The effect fades with the dome</td>
+<td>done</td>
+<td><code>MapShield.cpp</code> (<code>DrawPhysical</code>: the effect's alpha is the shield's, cut while dying as the original)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="audio">Audio</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A sound when it is made</td>
+<td>done</td>
+<td>data-driven particle sound (<code>src/Particles/Rules/Sound.cpp</code>, <code>src/Audio/Services/SpellSounds.cpp</code>)</td>
+</tr>
+<tr>
+<td>A looping hum, let go to ring out when the dome is deleted</td>
+<td>done</td>
+<td><code>src/Audio/Services/SpellSounds.cpp</code> (release of the loop when its atom dies)</td>
+</tr>
+<tr>
+<td>A collision sound when things hit it</td>
+<td>done</td>
+<td><code>src/ECS/Physics/CollisionSounds.cpp</code> (<code>TypeOf</code>: the shield row's collide sound)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="saving">Saving</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The dome is kept in a saved game</td>
+<td>todo</td>
+<td>openblack has no game saving</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

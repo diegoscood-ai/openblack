@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spiritual shield — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="here" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#spiritual-shield">Spiritual shield</a><ul>
+<li><a href="#casting-and-upkeep">Casting and upkeep</a></li>
+<li><a href="#what-it-blocks">What it blocks</a></li>
+<li><a href="#villagers-and-creatures-reactions">Villagers' and creatures' reactions</a></li>
+<li><a href="#effects-fx">Effects (FX)</a></li>
+<li><a href="#audio">Audio</a></li>
+<li><a href="#creatures-and-saving">Creatures and saving</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="spiritual-shield">Spiritual shield</h1>
+<p>A sphere the player draws with a circle gesture. It stops other miracles (fireballs, lightning, blasts, flocks) at its
+surface, keeps other gods' influence out, and the caster's villagers shelter under it. It drains the caster's prayer
+power for as long as it stands and breaks when an attack empties it.</p>
+<p><strong>Progress: 30/37 done, 1 partial — 82%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../miracles.html">Miracles one by one</a>.</p>
+<h2 id="casting-and-upkeep">Casting and upkeep</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cast at the centre of a drawn circle, sized by it</td>
+<td>done</td>
+<td><code>src/Magic/Gestures/PowerUpSystem.cpp</code> (the circle sets point and size), <code>src/ECS/Systems/Implementations/HandSpellSeed.cpp</code>; see <a href="../gesture/index.html">../gesture/</a></td>
+</tr>
+<tr>
+<td>Size kept between 5 and 1000 m</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellShield.cpp</code> (<code>ClampShieldRadius</code>: from above, then from below); <code>test/test_shield.cpp</code> (radiusClamp)</td>
+</tr>
+<tr>
+<td>Cast only on land within the caster's influence</td>
+<td>done</td>
+<td><code>src/Magic/CastRules.cpp</code> (the row's cast rule)</td>
+</tr>
+<tr>
+<td>Upkeep each turn grows with the square of the size and is eased by tribal power</td>
+<td>done</td>
+<td><code>SpellShield.cpp</code> (<code>ShieldCostToMaintain</code>), <code>src/Magic/Core/Chants.cpp</code> (divided by tribal power); <code>test/test_shield.cpp</code> (upkeepGrowsWithTheSquareOfTheRadius)</td>
+</tr>
+<tr>
+<td>A player's shield stands while their prayer power pays for it, then fails</td>
+<td>done</td>
+<td><code>src/Magic/Core/Chants.cpp</code> (the creator pays: a worship site's icon, else the seed's own chants); see <a href="prayer_cost.html">prayer_cost.md</a></td>
+</tr>
+<tr>
+<td>On close-down the shield goes at once with its rings and reactions</td>
+<td>done</td>
+<td><code>SpellShield.cpp</code> (<code>ShieldCloseDown</code>, <code>ToBeDeleted</code>: the objects set dying, the anti rings and reactions removed); the invisible shield object goes at once (<code>src/Magic/Objects/MapShield.cpp</code> <code>SetDying</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-it-blocks">What it blocks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The blocking sphere is a little bigger than the circle and full size from the first turn; its centre never moves</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Shield.cpp</code> (the defensive sphere, magnitude x 1.11062, made once at the effect's origin); <code>test/test_shield.cpp</code> (sphereHelpers, defensiveSphereRegistryAndDeflection)</td>
+</tr>
+<tr>
+<td>Fireballs bounce off it like a mirror</td>
+<td>done</td>
+<td><code>psys::shields::DoAnyShieldDeflections</code> (<code>src/Particles/Rules/Shield.cpp</code>) called from <code>src/Particles/Rules/Fireball.cpp</code>; see <a href="fireball.html">fireball.md</a></td>
+</tr>
+<tr>
+<td>Lightning forks stop at its surface</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Lightning.cpp</code> (a fork split inside a sphere stops at the intersection); see <a href="lightning.html">lightning.md</a></td>
+</tr>
+<tr>
+<td>A blast centred inside it is cancelled</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Explosion.cpp</code>; see <a href="blast.html">blast.md</a></td>
+</tr>
+<tr>
+<td>A flock member flying in dies</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellFlock.cpp</code>; see <a href="flocks.html">flocks.md</a></td>
+</tr>
+<tr>
+<td>Each blocked attack drains the shield by the attacker's own cost; when it runs dry the attack gets through and the shield breaks</td>
+<td>done</td>
+<td><code>src/Magic/Core/SpellEvent.cpp</code> (spell hits spell: the shield pays strength x costPerShieldCollide, struck or destroyed reaction)</td>
+</tr>
+<tr>
+<td>An area effect that only meets a shield costs the attacker but doesn't drain the shield (as the game does)</td>
+<td>done</td>
+<td><code>src/Magic/Core/SpellEvent.cpp</code> (the shield check sends the event to the attacker itself)</td>
+</tr>
+<tr>
+<td>Other gods' hands have no influence inside it, so they can't cast there</td>
+<td>done</td>
+<td><code>SpellShield.cpp</code> (an anti-influence ring per other player, <code>src/ECS/Influence/InfluenceRings.cpp</code>)</td>
+</tr>
+<tr>
+<td>Other players' creatures walk round it</td>
+<td>done</td>
+<td><code>map_shield::CreatureMustAvoid</code> (<code>src/Magic/Objects/MapShield.cpp</code>) asked by the creature's route planner (<code>src/ECS/RoutePlanWorld.cpp</code>); <code>test/test_shield.cpp</code> (villagerReactionPriorityAndCreatureMustAvoid)</td>
+</tr>
+<tr>
+<td>Someone inside ignores reactions to things outside it</td>
+<td>done</td>
+<td><code>src/ECS/Effects/Reactions.cpp</code> (<code>map_shield::IsReactionBlockedByShield</code> for every living class); switching reactions is ported (<code>src/ECS/Systems/Implementations/VillagerReactions.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="villagers-and-creatures-reactions">Villagers' and creatures' reactions</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The caster's villagers near the shield (its size plus 30 m) and their town within 500 m take notice</td>
+<td>done</td>
+<td><code>SpellShield.cpp</code> (reaction 13, radius r + 30; nearest town under 500 m), <code>src/ECS/Systems/Implementations/VillagerShield.cpp</code></td>
+</tr>
+<tr>
+<td>They shelter only when their town was attacked lately</td>
+<td>done</td>
+<td><code>VillagerShield.cpp</code> (<code>ReactToMagicShieldPriority</code>: the town's protection desire from <code>src/ECS/Town/TownDesire.cpp</code> and the town's aggressor turn); <code>test/test_shield.cpp</code></td>
+</tr>
+<tr>
+<td>Reaction length and the wait before reacting again follow the table, whatever the distance</td>
+<td>done</td>
+<td><code>VillagerShield.cpp</code> (<code>MayReactAgain</code>, the reaction records)</td>
+</tr>
+<tr>
+<td>Sheltering villagers walk well inside on their own side and face outward</td>
+<td>done</td>
+<td><code>villager_shield::SetupReactToMagicShield</code> (<code>VillagerShield.cpp</code>)</td>
+</tr>
+<tr>
+<td>Sheltering villagers point, look at the hand or stand</td>
+<td>done</td>
+<td><code>villager_shield::AmazedByMagicShieldReaction</code> and <code>UpdateAmazedClip</code> (<code>VillagerShield.cpp</code>) play the amazed clips, pointing then talking and pointing</td>
+</tr>
+<tr>
+<td>A struck shield gives a "struck" reaction</td>
+<td>partial</td>
+<td><code>spell_shield::UpdateStruckReaction</code> (<code>SpellShield.cpp</code>) creates and refreshes reaction 35, but no villager takes it up</td>
+</tr>
+<tr>
+<td>When it breaks, villagers run from where it stood</td>
+<td>todo</td>
+<td><code>spell_shield::SetUpDestroyedReaction</code> creates reaction 36, but no villager takes it up</td>
+</tr>
+<tr>
+<td>A broken shield impresses four times as much; a shield over the attacker's own town impresses nothing</td>
+<td>todo</td>
+<td>no impressiveness or miracle belief in our tree</td>
+</tr>
+<tr>
+<td>The caster's creature is impressed by it as a nice miracle and can learn it</td>
+<td>todo</td>
+<td>creatures take no miracle reactions in our tree (no creature reaction handler in <code>src/ECS/Effects/Reactions.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="effects-fx">Effects (FX)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fifteen player-coloured patches orbit the sphere, cut off at the ground</td>
+<td>done</td>
+<td>SF_DefenseSphere through <code>src/Particles/PSys.cpp</code> (sphere surface tracer) and <code>src/Particles/Creators/Mesh.cpp</code> (player colour, cut by the ground plane)</td>
+</tr>
+<tr>
+<td>The sphere grows from a tenth to full size over 2 s and keeps the spin of the casting hand</td>
+<td>done</td>
+<td>data-driven, with the initial spin from the cast's curl (<code>src/Particles/PSys.cpp</code>)</td>
+</tr>
+<tr>
+<td>Patches fade in over about 8.5 s and fade with the shield's strength, never below a floor</td>
+<td>done</td>
+<td><code>src/Particles/PSys.cpp</code> (vapour end effect: alpha = age x 30; collection alpha = strength x 255, 40 to 255)</td>
+</tr>
+<tr>
+<td>A hit raises up to four crackling spark arcs that wiggle and fade over 3 s</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Shield.cpp</code> (shield spark rule)</td>
+</tr>
+<tr>
+<td>On close-down it shrinks over 2 s and is gone at 2.2 s</td>
+<td>done</td>
+<td>data-driven (SF_DefenseSphere)</td>
+</tr>
+<tr>
+<td>Orbiting patches round the miracle held in the hand</td>
+<td>done</td>
+<td>the seed's in-hand effect (<code>src/Magic/Hand/HandMagicFX.cpp</code>); the patches turned outwards to form one spinning ball (<code>src/Particles/PSys.cpp</code>, orient to surface)</td>
+</tr>
+<tr>
+<td>Effect on a holder of the miracle</td>
+<td>todo</td>
+<td>nothing in our tree creates a seed's on-holder effect (SF_DefenseSphereOnHolder is only listed in <code>src/Particles/ParticleTypes.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="audio">Audio</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A looping hum, one of three sizes by the shield's size</td>
+<td>done</td>
+<td>data-driven particle sound (<code>src/Particles/Rules/Sound.cpp</code>, <code>spell_sounds::SizeFromRadius</code> in <code>src/Audio/Services/SpellSounds.cpp</code>)</td>
+</tr>
+<tr>
+<td>The hum stops at once when the shield goes</td>
+<td>done</td>
+<td><code>src/Audio/Services/SpellSounds.cpp</code> (stop or soft release by the sound's flag when its atom dies)</td>
+</tr>
+<tr>
+<td>Each hit plays a spark sound</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Shield.cpp</code> (SoundSpark of each spark atom)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creatures-and-saving">Creatures and saving</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A creature can cast the spiritual shield (it's its defensive miracle in fights)</td>
+<td>todo</td>
+<td>creatures do not cast player miracles in our tree</td>
+</tr>
+<tr>
+<td>Shields and their reactions are kept in a saved game</td>
+<td>todo</td>
+<td>openblack has no game saving</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

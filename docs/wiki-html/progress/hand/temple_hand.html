@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Temple hand — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="here" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#temple-hand">Temple hand</a><ul>
+<li><a href="#placement">Placement</a></li>
+<li><a href="#facing">Facing</a></li>
+<li><a href="#animation">Animation</a></li>
+<li><a href="#around-it">Around it</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="temple-hand">Temple hand</h1>
+<p>Inside the player's temple the hand has a state of its own: it hangs on the line of sight through the cursor just short
+of the room's walls and floor, turns to face them, and plays its idle animation. The temple's rooms, tooltips and what
+the hand does in them are in <a href="../temple/index.html">../temple/</a>.</p>
+<p><strong>Progress: 8/17 done, 4 partial — 59%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../hand-and-interface.html">The hand and the interface</a>.</p>
+<h2 id="placement">Placement</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hand goes into its temple state whenever the player is inside the temple</td>
+<td>partial</td>
+<td><code>HandSystem::RequiredHandState</code> gives the CITADEL state inside the temple (<code>game_clock::IsInsideCitadel</code>), but the hand is still placed by the world's rules (<code>HandSystem::ResolveCursorPoint</code> and <code>Place</code>), with the room meshes picked as objects; the original's own temple state is not ported (rendering.md, Pending)</td>
+</tr>
+<tr>
+<td>Entering, it starts from where it was and eases from there</td>
+<td>partial</td>
+<td>The world's hand distance zoomer carries on from where the hand was; no temple-specific easing</td>
+</tr>
+<tr>
+<td>It hangs on the line of sight through the cursor, 3.25 units short of where the line meets the room</td>
+<td>todo</td>
+<td>No temple gap: the hand goes to the room mesh's hit point as over any object</td>
+</tr>
+<tr>
+<td>It is never nearer than 1 unit before the limits are applied</td>
+<td>todo</td>
+<td>Only the world's clamp of the camera distance to 2 and the hand's reach</td>
+</tr>
+<tr>
+<td>Its distance from the camera is kept between 4 and 300</td>
+<td>todo</td>
+<td>Only the world's clamp (2 to the reach)</td>
+</tr>
+<tr>
+<td>It eases away from the camera over 0.4 seconds and towards it over 0.2</td>
+<td>todo</td>
+<td>The world's 0.1 s / 0.28 s zoomer is used</td>
+</tr>
+<tr>
+<td>It is scaled by its distance from the camera as outside</td>
+<td>done</td>
+<td><code>HandSystem::Place</code> scales the hand by its camera distance, inside as outside</td>
+</tr>
+</tbody>
+</table>
+<h2 id="facing">Facing</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Its up turns over 0.4 seconds to the face of the room the cursor is on</td>
+<td>partial</td>
+<td>The world's up zoomers (0.4 s) over the land normal or the picked face; not a temple rule of its own</td>
+</tr>
+<tr>
+<td>It faces along the line of sight through the cursor</td>
+<td>done</td>
+<td><code>HandSystem::HandMatrixRotation</code>: the heading from the camera to cursor ray, as outside</td>
+</tr>
+</tbody>
+</table>
+<h2 id="animation">Animation</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It plays its idle wiggle all the time, looping by the frame's time</td>
+<td>partial</td>
+<td>The normal state's clip rule picks the clip (Cwiggle, or Cstroke over a room mesh picked as an object), not a constant wiggle</td>
+</tr>
+<tr>
+<td>It leans with the trailing cursor, clamped to 80 pixels, unless the lean is tiny</td>
+<td>done</td>
+<td>The same lean layers as outside (<code>HandSystem::Update</code>, <code>src/3D/HandAnimator.cpp</code>)</td>
+</tr>
+<tr>
+<td>Entering the temple blends the hand from its last pose</td>
+<td>done</td>
+<td>The change to the CITADEL state starts the 0.13 s state blend (<code>HandSystem::Update</code>, <code>HandCrossFade</code> in <code>src/3D/HandCrossFade.h</code>), with the real frame time inside</td>
+</tr>
+</tbody>
+</table>
+<h2 id="around-it">Around it</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No camera edge hints are offered in the temple</td>
+<td>done</td>
+<td>The temple's own camera model (<code>src/Camera/TempleCameraModel.cpp</code>); see <a href="../camera/temple_camera.html">../camera/temple_camera.md</a></td>
+</tr>
+<tr>
+<td>The hand's glow never lies on water in the temple</td>
+<td>done</td>
+<td><code>Renderer::DrawPass</code> draws the temple instead of the world, so <code>DrawHandWaterGlow</code> never runs inside; test <code>HandWaterGlow.NeverShowsInsideTheTemple</code> (<code>test/graphics/test_hand_water_glow.cpp</code>)</td>
+</tr>
+<tr>
+<td>The miracles don't hear the hand in the temple</td>
+<td>todo</td>
+<td>No temple test in <code>hand_casting::Update</code> or <code>gestures::ProcessPowerUpSystem</code> (<code>src/Magic</code>)</td>
+</tr>
+<tr>
+<td>The temple places the hand's tooltips itself</td>
+<td>done</td>
+<td><code>TempleInterior</code> puts the tooltip where the cursor meets the room (<code>SetHandOnScreen</code>), read by <code>Game::LogicFrame</code></td>
+</tr>
+<tr>
+<td>Clicking doors, scrolls, the creature cave and the map is handled by the temple</td>
+<td>done</td>
+<td><code>TempleInterior::HoldControl</code>, <code>TempleCameraModel</code> (doors, scrolls, cave, map); see <a href="../temple/index.html">../temple/</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Food — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="here" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#food">Food</a><ul>
+<li><a href="#where-food-comes-from">Where food comes from</a></li>
+<li><a href="#eating">Eating</a></li>
+<li><a href="#a-towns-food">A town's food</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="food">Food</h1>
+<p>What the villagers live on. Food comes from fields, fish farms, livestock and the food miracle, is kept in each town's
+store, and is eaten by villagers, worshippers and the creature. The player can give food by hand.</p>
+<p><strong>Progress: 13/20 done, 5 partial — 78%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../objects-and-resources.html">Objects and resources</a>.</p>
+<h2 id="where-food-comes-from">Where food comes from</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fields' crops grow over the turns, faster on good land and by the weather, until ripe</td>
+<td>done</td>
+<td><code>fields::GrowthStep</code> in <code>src/ECS/Fields.cpp</code> (the land's alignment and the rain); test <code>test/test_fields.cpp</code></td>
+</tr>
+<tr>
+<td>Farmers sow fields, several times before the crop grows</td>
+<td>done</td>
+<td><code>FindBestField</code>, <code>FARMER_PLANTS_CROP</code> (<code>src/ECS/Villager/VillagerFarmer.cpp</code>); test <code>test/test_villager_farming.cpp</code>; see <code>../villager/</code></td>
+</tr>
+<tr>
+<td>Farmers harvest a ripe field and carry the crop to the store</td>
+<td>done</td>
+<td><code>FARMER_DIGS_UP_CROP</code> and the harvest carried home (<code>src/ECS/Villager/VillagerFarmer.cpp</code>)</td>
+</tr>
+<tr>
+<td>A field's food runs out as it is harvested, and it is sown again</td>
+<td>done</td>
+<td>the field's food and activity, sow then harvest (<code>fields::GetFieldActivity</code>, <code>src/ECS/Fields.cpp</code>)</td>
+</tr>
+<tr>
+<td>The water miracle and rain speed a field's growth</td>
+<td>done</td>
+<td>rain in <code>fields::GrowthStep</code>, the water miracle through <code>ApplyWaterSpellToField</code> (<code>src/Magic/Spells/SpellWater.cpp</code>)</td>
+</tr>
+<tr>
+<td>Fishermen fish at the town's fish farms and bring fish to the store</td>
+<td>done</td>
+<td><code>src/ECS/Villager/VillagerFisherman.cpp</code>, <code>src/ECS/FishFarms.cpp</code>; see <a href="../animal/fish.html">fish</a></td>
+</tr>
+<tr>
+<td>Shepherds take livestock to be slaughtered for food</td>
+<td>todo</td>
+<td>the shepherd's states are not ported; see <a href="../animal/livestock.html">livestock</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="eating">Eating</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Villagers get hungry and fetch food from the store to eat</td>
+<td>done</td>
+<td><code>ChangeStateToFindFoodToEat</code> (<code>src/ECS/Villager/VillagerFood.cpp</code>); test <code>test/test_villager_food.cpp</code>; see <code>../villager/</code></td>
+</tr>
+<tr>
+<td>Villagers with no food starve and die</td>
+<td>done</td>
+<td>starving in <code>src/ECS/Villager/VillagerFood.cpp</code> (death reason Starving)</td>
+</tr>
+<tr>
+<td>Worshippers eat at the worship site</td>
+<td>todo</td>
+<td><code>CheckAllowedToRestAtWorshipSite</code> never lets them (<code>src/ECS/Systems/Implementations/VillagerWorship.cpp</code>); see <code>../worship/worship_sites.md</code></td>
+</tr>
+<tr>
+<td>The creature eats from the store, the fields and the fish farms, taking the town's food</td>
+<td>partial</td>
+<td>it only eats things with a food value (<code>CreatureObjectActionSystem::FoodValueOf</code>); see <code>../creature/</code></td>
+</tr>
+<tr>
+<td>Food from a powered-up food miracle makes those who eat it faster for a while</td>
+<td>partial</td>
+<td>the pile sparkles and the speed rule exists (<code>src/ECS/VillagerSpeed.cpp</code>), but eating never sets it</td>
+</tr>
+<tr>
+<td>Poisoned food poisons those who eat it; the heal miracle cures them</td>
+<td>done</td>
+<td>poisoned food harms the villagers who eat it (<code>src/ECS/Villager/VillagerFood.cpp</code>, <code>src/ECS/Components/Poisoned.h</code>) and the heal miracle cures it (<code>src/Magic/Core/SpellEvent.cpp</code>); see <a href="poison_and_mushrooms.html">poison and mushrooms</a>; Land 2's poisoned village store: <a href="../story/silver_scrolls/the_plague.html">the_plague.md</a></td>
+</tr>
+<tr>
+<td>How much food each thing is worth (fish, grain, a handful from a field, animals)</td>
+<td>partial</td>
+<td>the info tables' amounts are used where the jobs and fields are ported (<code>src/ECS/Fields.cpp</code>, <code>VillagerFisherman.cpp</code>, <code>CreatureObjectActionSystem::FoodValueOf</code>); not audited as a whole</td>
+</tr>
+</tbody>
+</table>
+<h2 id="a-towns-food">A town's food</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land script gives each store its starting food</td>
+<td>done</td>
+<td><code>AbodeArchetype</code> (CREATE_ABODE's food amount)</td>
+</tr>
+<tr>
+<td>The store's food shows as one pile that rises with what it holds</td>
+<td>done</td>
+<td>see <a href="stores_and_piles.html">stores and piles</a></td>
+</tr>
+<tr>
+<td>A town short of food raises its food desire flag</td>
+<td>done</td>
+<td>the town's food desire reads its stores (<code>src/ECS/Town/TownDesire.cpp</code>); see <code>../town/</code></td>
+</tr>
+<tr>
+<td>Giving food to a town that wants it impresses the town</td>
+<td>done</td>
+<td><code>DoResourceAdding</code> (<code>src/ECS/ObjectResources.cpp</code>) adds belief through <code>town_stores::AddToBelief</code> by how much the desire drops</td>
+</tr>
+<tr>
+<td>Food poured on a store teaches the creature to feed the town</td>
+<td>partial</td>
+<td>the deed is worked out (<code>StoragePitStore::DoCreatureMimicAfterAddingResource</code>, <code>src/ECS/StoragePitStore.cpp</code>) but not passed on to the creature</td>
+</tr>
+<tr>
+<td>Scripts read, add and take a town's food</td>
+<td>partial</td>
+<td>ADD_RESOURCE works (<code>src/CHLApi.cpp</code>); GET_RESOURCE and REMOVE_RESOURCE are stubs</td>
+</tr>
+</tbody>
+</table>
+<p>The food miracle is in <code>../miracles/food.md</code>.</p>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

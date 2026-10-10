@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Desires — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="here" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#desires">Desires</a><ul>
+<li><a href="#how-desires-work">How desires work</a></li>
+<li><a href="#the-desires-and-what-drives-them">The desires and what drives them</a></li>
+<li><a href="#scripts-and-desires">Scripts and desires</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="desires">Desires</h1>
+<p>A creature is driven by about forty desires (hunger, anger, compassion, the wish to play, to sleep, to be friends …).
+Each desire grows from its sources (low energy, darkness, the player's strokes, its own innate character …) once they
+pass their thresholds, fades otherwise, and the strongest desires decide what the creature does and what it shows the
+player.</p>
+<p><strong>Progress: 22/71 done, 29 partial — 51%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../creature.html">The creature: groundwork, random streams and what is unknown</a>.</p>
+<h2 id="how-desires-work">How desires work</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every desire has its own value, maximum, decay and weight, set per species from the game's creature tables</td>
+<td>done</td>
+<td><code>creature_desires::Create</code> (<code>src/Creature/CreatureDesires.h</code>), <code>SetupFor</code> in <code>CreatureMindSystem.cpp</code>; test <code>CreatureDesires.CreatedFromTheSetup</code></td>
+</tr>
+<tr>
+<td>A desire grows from up to eight sources, each with a value and a threshold</td>
+<td>done</td>
+<td><code>creature_desires::Source</code>, <code>k_MaxSources</code> (<code>src/Creature/CreatureDesires.h</code>)</td>
+</tr>
+<tr>
+<td>How hard a source drives its desire follows the game's sigmoid of how far its value is past its threshold (a table of 41 steps)</td>
+<td>done</td>
+<td><code>creature_desires::Sigmoid</code> (the game's 41 floats, <code>gutils::SigmoidThreshold</code>); test <code>CreatureDesires.TheSigmoidSteps</code></td>
+</tr>
+<tr>
+<td>A desire grows by its sources' drive over its species' growing time, never past its maximum</td>
+<td>done</td>
+<td><code>creature_desires::UpdateDesires</code> in <code>CreatureMindSystem::ProcessTurn</code>; test <code>CreatureDesires.ADesireGrowsByItsDriveOverItsIncreaseTime</code></td>
+</tr>
+<tr>
+<td>A desire nothing drives fades by its decay each turn</td>
+<td>done</td>
+<td><code>creature_desires::UpdateDesires</code>; test <code>CreatureDesires.ADesireWithoutDriveFades</code></td>
+</tr>
+<tr>
+<td>Each creature's decay is picked at random within its species' range when it is made</td>
+<td>done</td>
+<td><code>creature_desires::Create</code> with a synchronised <code>GameFloatRange</code> draw per desire in desire order; test <code>CreatureDesires.EachDesireDrawsItsDecayOnceInDesireOrder</code>. Our wiki differs: the range is the desire's own, the same for every species, and whether the drawn number is a decay or a starting value is still open (<a href="../../creature.html#the-creature-tables-in-infodat">creature.md</a>)</td>
+</tr>
+<tr>
+<td>Sources that follow the creature's state are read again every turn; the rest fade by their own multiplier</td>
+<td>done</td>
+<td><code>creature_desires::UpdateSources</code> with <code>ReadSource</code> in <code>CreatureMindSystem::ProcessTurn</code>; test <code>CreatureDesires.SourcesReadTheirStateThenFade</code></td>
+</tr>
+<tr>
+<td>Events push sources up or down (a stroke, a slap, a nasty miracle, a fizzled miracle)</td>
+<td>partial</td>
+<td><code>creature_desires::ChangeSource</code> from <code>CreatureMindSystem::LearnFromFeedback</code>: only the stroke, slap and copying pushes exist; nasty miracles, fizzles, the player's deeds, villagers and deserving objects push nothing; test <code>CreatureDesires.FeedbackPushesEverySourceOfAType</code></td>
+</tr>
+<tr>
+<td>A desire can be held back for a while, during which it only fades</td>
+<td>done</td>
+<td><code>creature_desires::Suppress</code>; test <code>CreatureDesires.ASuppressedDesireOnlyFades</code></td>
+</tr>
+<tr>
+<td>Having drunk it doesn't want water for a while; having had a poo, it doesn't want another for longer</td>
+<td>done</td>
+<td><code>TakeEffect</code> in <code>CreatureMindSystem.cpp</code> (<code>k_WaterSuppressSeconds</code> 20, <code>k_PooSuppressSeconds</code> 60; unconfirmed against the game's times)</td>
+</tr>
+<tr>
+<td>Deciding on a desire holds back the desires opposed to it</td>
+<td>done</td>
+<td><code>creature_learning::SuppressOpposed</code> in <code>CreatureMindSystem::Adopt</code>; test <code>CreatureLearning.DecidingSuppressesOpposedDesires</code></td>
+</tr>
+<tr>
+<td>Doing an action multiplies the desire it serves down by the action table's factor</td>
+<td>done</td>
+<td><code>Satisfied</code> in <code>CreatureMindSystem.cpp</code>, from the game's action table</td>
+</tr>
+<tr>
+<td>A desire's weight (how much it matters) and its sources' thresholds change with the player's lessons</td>
+<td>done</td>
+<td><code>creature_learning::LearnDesireLesson</code> in <code>CreatureMindSystem::LearnFromFeedback</code>; see <a href="learning_from_feedback.html">learning</a></td>
+</tr>
+<tr>
+<td>Lessons about one desire spread to the desires that depend on it</td>
+<td>done</td>
+<td><code>creature_learning::Spread</code>; test <code>CreatureLearning.SpreadsLessonsByDependency</code></td>
+</tr>
+<tr>
+<td>The sum of all active desires is kept and feeds the wish to show how it feels</td>
+<td>done</td>
+<td><code>Desires::sum</code>, <code>ReadSource</code> (<code>k_ManifestState</code>) in <code>CreatureMindSystem.cpp</code></td>
+</tr>
+<tr>
+<td>Only desires the creature's stage of growing up has brought are active</td>
+<td>done</td>
+<td><code>creature_desires::ActivateForPhase</code> in <code>CreatureMindSystem::ProcessTurn</code>; test <code>CreatureDesires.GrowingUpBringsAndTakesDesires</code>; see <a href="development_phases.html">development phases</a></td>
+</tr>
+<tr>
+<td>The dominant desire is the strongest active one</td>
+<td>done</td>
+<td><code>creature_desires::StrongestShowable</code>, the dominant desire attribute in <code>mind_detail::BeliefOf</code>; test <code>CreatureDesires.TheStrongestShowableDesire</code></td>
+</tr>
+<tr>
+<td>The game finds the dominant desire that can be helped, and the one that can be shown, separately</td>
+<td>partial</td>
+<td>only the strongest showable one exists, above a stand-in minimum of 0.2 (<code>creature_mind::k_MinDesireShown</code>)</td>
+</tr>
+<tr>
+<td>The strongest physical desire (hunger, thirst, tiredness, poo) is found for emergencies</td>
+<td>partial</td>
+<td>the idle mind sees to the strongest need above a stand-in threshold of 0.3 (<code>creature_mind::k_ActOnNeed</code>) rather than the game's rule; test <code>CreatureNeedsMind.TheStrongestNeedWithTheMeansAtHandIsSeenTo</code></td>
+</tr>
+<tr>
+<td>A desire can be made fully dominant, its source changed, as the mood spells and lessons do</td>
+<td>done</td>
+<td><code>creature_learning::MakeFullyDominant</code> (lessons, copying); the mood spells set their desire to its maximum (<code>creature_spells::Apply</code>); tests <code>CreatureLearning.DominanceAndActions</code>, <code>CreatureSpells.TheMoodSpellsMakeTheirDesireDominant</code></td>
+</tr>
+<tr>
+<td>A desire can be made least dominant (below the weakest of the others), as a slap for it does</td>
+<td>done</td>
+<td><code>creature_learning::MakeLeastDominant</code> in <code>CreatureMindSystem::LearnFromFeedback</code></td>
+</tr>
+<tr>
+<td>The mood and need spells make one desire dominant and hold the others down while they last</td>
+<td>partial</td>
+<td><code>creature_spells::Apply</code> (through <code>spell_creature::ProcessTurn</code>) turns the desire on at its maximum, and at the end makes it the least; the other desires are not held down; test <code>CreatureSpells.TheMoodSpellsMakeTheirDesireDominant</code>; see <a href="../miracles/index.html">creature spells</a></td>
+</tr>
+<tr>
+<td>Leashes force a desire (anger on the aggression leash, compassion on the compassion leash, obedience when led)</td>
+<td>partial</td>
+<td>the leash makes its desire dominant for 36000 s as it is put on and every turn (<code>creature_spell_mind::SetCheatDominant</code> from <code>LeashSystem</code>), the mind counts it down each turn (<code>StepCheat</code> in <code>CreatureMindSystem::ProcessTurn</code>); obedience when led is the leash's own; see <a href="leash.html">leash</a></td>
+</tr>
+<tr>
+<td>Each source has the species' starting value and threshold: innate niceness, aggression, lethargy, friendliness and communicativeness are a species' character</td>
+<td>done</td>
+<td><code>SetupFor</code> reads the per-species source tables</td>
+</tr>
+<tr>
+<td>A creature's desires and sources are saved in and restored from its mind file</td>
+<td>partial</td>
+<td>read back from the file (<code>creature_mind_model::FromFile</code> in <code>CreatureMindSystem::TakeUpFile</code>); <code>SaveMind</code> writes them but nothing in the game saves the mind; see <a href="saves_and_files.html">saves and files</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-desires-and-what-drives-them">The desires and what drives them</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>To impress: grows from watching the player impress and from seeing things that deserve it; shown by impressive poses, throws and miracles</td>
+<td>partial</td>
+<td>the desire and its actions (<code>ShowImpressiveAnimation</code>, <code>ThrowToImpress</code> in <code>CreaturePlanActions.cpp</code>) exist; neither source is fed</td>
+</tr>
+<tr>
+<td>Compassion: from watching the player be kind, from seeing those who deserve it, from being content, and from innate niceness</td>
+<td>partial</td>
+<td>a stroke before it can learn pushes the watching source, innate niceness is set; seeing the deserving and contentment are not fed; acted on by stroking (<code>Stroke</code>); creatures cast no heals</td>
+</tr>
+<tr>
+<td>Anger: from watching the player be cruel, from those who deserve it, from being dissatisfied, from being hurt, from sadness, and innate aggression</td>
+<td>partial</td>
+<td>slaps push "from being hurt", sadness is read, innate aggression set; real damage, dissatisfaction and watching don't push it; acted on by hurling, stomping and kicking; no lightning</td>
+</tr>
+<tr>
+<td>To play: from watching the player play and from watching villagers play</td>
+<td>partial</td>
+<td>strokes push the first; villagers playing feed nothing; acted on by throwing things about, kicking balls and silly faces</td>
+</tr>
+<tr>
+<td>Hunger: from low energy, from watching villagers eat, and from sadness</td>
+<td>partial</td>
+<td>low energy is read each turn (<code>creature_physiology::SourceValue</code>); sadness and watching villagers eat are not fed</td>
+</tr>
+<tr>
+<td>Fear: from darkness, from being hurt, and from seeing frightening miracles</td>
+<td>partial</td>
+<td>darkness reads night as fully on or off (<code>IsNight</code>), slaps push it; real damage and miracles don't; acted on by running away and being frightened on the spot</td>
+</tr>
+<tr>
+<td>Curiosity</td>
+<td>partial</td>
+<td>the desire and its actions (examining by picking up, looking and following) exist; nothing feeds its source beyond its starting value</td>
+</tr>
+<tr>
+<td>To poo, from the poo built up by eating</td>
+<td>done</td>
+<td><code>creature_physiology::SourceValue</code>; test <code>CreatureNeedsMind.APooTakesFourSecondsAndDropsAsItEnds</code></td>
+</tr>
+<tr>
+<td>Tiredness: from exhaustion, laziness, night time, sadness, and innate lethargy</td>
+<td>partial</td>
+<td>exhaustion, night and sadness read; laziness not fed</td>
+</tr>
+<tr>
+<td>To idle about with the player</td>
+<td>partial</td>
+<td>the desire exists; its source isn't fed and its actions (following the hand, going to the middle of the screen) are missing</td>
+</tr>
+<tr>
+<td>Wanderlust</td>
+<td>todo</td>
+<td>no exploring actions (coast, towns, hills); see <a href="idle_behaviour.html">idle behaviour</a></td>
+</tr>
+<tr>
+<td>To be sick</td>
+<td>partial</td>
+<td>the action exists (<code>Puke</code>); nothing makes it want to be sick</td>
+</tr>
+<tr>
+<td>To build its home</td>
+<td>todo</td>
+<td>see <a href="home_and_pen.html">home and pen</a></td>
+</tr>
+<tr>
+<td>To bring things home</td>
+<td>todo</td>
+<td>see <a href="home_and_pen.html">home and pen</a></td>
+</tr>
+<tr>
+<td>Thirst, from dehydration</td>
+<td>done</td>
+<td><code>creature_physiology::SourceValue</code>; test <code>CreatureNeedsMind.ItDrinksAtTheWatersEdge</code></td>
+</tr>
+<tr>
+<td>To restore its health, from lost life</td>
+<td>partial</td>
+<td>the source reads life; resting to get better and healing itself aren't actions (sleep heals)</td>
+</tr>
+<tr>
+<td>To be friends, and innate friendliness</td>
+<td>partial</td>
+<td>the sources exist; only smiling and waving at a friend are acted on (<code>SmileAtFriend</code>, <code>WaveAtFriend</code>); see <a href="friends_and_other_creatures.html">friends</a></td>
+</tr>
+<tr>
+<td>To get the player's attention, from loneliness and from lack of interaction</td>
+<td>partial</td>
+<td>read from seconds alone, fully after one and two minutes (<code>ReadSource</code>), measures not confirmed; acted on by being pathetic, howling and pointing at the camera</td>
+</tr>
+<tr>
+<td>To show how it feels, and innate communicativeness</td>
+<td>partial</td>
+<td>read from the sum of desires, fully at 3 (unconfirmed); the communicate-state action plays</td>
+</tr>
+<tr>
+<td>To get warmer, and to get colder</td>
+<td>partial</td>
+<td>read from warmth (<code>creature_physiology::SourceValue</code>); shown by shivering and showing it's hot; starting fires and warming or cooling spells are missing</td>
+</tr>
+<tr>
+<td>To scratch, from itchiness</td>
+<td>done</td>
+<td>read from itchiness (<code>creature_physiology::SourceValue</code>); the <code>Scratch</code> action plays</td>
+</tr>
+<tr>
+<td>To run away from the player</td>
+<td>partial</td>
+<td>read from a poor attitude to the player (unconfirmed); the run-away action works; forgiven when stroked for it (<code>CreatureMindSystem::LearnFromFeedback</code>)</td>
+</tr>
+<tr>
+<td>To rest</td>
+<td>partial</td>
+<td>the desire exists; resting on the spot and going home to recover are missing</td>
+</tr>
+<tr>
+<td>To obey the player</td>
+<td>partial</td>
+<td>forced by the leash; see <a href="leash.html">leash</a></td>
+</tr>
+<tr>
+<td>Illness</td>
+<td>partial</td>
+<td>the ill spell turns it on (<code>creature_spells::EffectOf</code>); sneezing plays; curing illness is missing</td>
+</tr>
+<tr>
+<td>To obey another creature</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Sadness</td>
+<td>partial</td>
+<td>strokes hold it back (<code>Suppress</code> in <code>LearnFromFeedback</code>); the <code>BeSad</code> action plays; nothing in the world pushes it (fizzles, lost fights, lost friends)</td>
+</tr>
+<tr>
+<td>To go home</td>
+<td>todo</td>
+<td>see <a href="home_and_pen.html">home and pen</a></td>
+</tr>
+<tr>
+<td>To tell the player what it thinks of him</td>
+<td>todo</td>
+<td>showing how nice it thinks the player is, being cross with the player</td>
+</tr>
+<tr>
+<td>To play with the player</td>
+<td>todo</td>
+<td>the throwing game with the player and being silly with the player</td>
+</tr>
+<tr>
+<td>To tell another creature what it thinks of him</td>
+<td>todo</td>
+<td>see <a href="friends_and_other_creatures.html">friends</a></td>
+</tr>
+<tr>
+<td>To teach a friend</td>
+<td>todo</td>
+<td>see <a href="friends_and_other_creatures.html">friends</a></td>
+</tr>
+<tr>
+<td>To follow what the player seems to want</td>
+<td>partial</td>
+<td>a stroke while copying pushes it (<code>k_FollowPlayerSource</code>); see <a href="learning_by_observation.html">learning by watching</a></td>
+</tr>
+<tr>
+<td>To get high</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>To hang around at home</td>
+<td>partial</td>
+<td>hanging around (<code>HangAroundAtHome</code>) walks somewhere nearby rather than near its home</td>
+</tr>
+<tr>
+<td>Mental illness</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>To miss a friend</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>To look around</td>
+<td>partial</td>
+<td>looking about plays, and looking at the mountains, the sea, the sun and the moon (<code>CreaturePlanActions.cpp</code>); see <a href="idle_behaviour.html">idle behaviour</a></td>
+</tr>
+<tr>
+<td>To steal</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="scripts-and-desires">Scripts and desires</h2>
+<p>The script language itself is the story domain's: see <a href="../story/index.html">../story/</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A script can set a desire's value</td>
+<td>todo</td>
+<td>CREATURE_SET_DESIRE_VALUE is a <code>NotImplemented</code> stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>A script can turn a desire on or off</td>
+<td>todo</td>
+<td>both CREATURE_SET_DESIRE_ACTIVATED natives are <code>NotImplemented</code> stubs in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>A script can set a desire's maximum</td>
+<td>todo</td>
+<td>CREATURE_SET_DESIRE_MAXIMUM is a <code>NotImplemented</code> stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>A script can turn off every desire</td>
+<td>todo</td>
+<td>CREATURE_TURN_OFF_ALL_DESIRES is a <code>NotImplemented</code> stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>A script can make one desire the creature's only one, and turn that off again</td>
+<td>todo</td>
+<td>SET_CREATURE_ONLY_DESIRE and SET_CREATURE_ONLY_DESIRE_OFF are <code>NotImplemented</code> stubs in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>A script can ask whether a creature's desire is a given one</td>
+<td>todo</td>
+<td>CREATURE_DESIRE_IS is a <code>NotImplemented</code> stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>A script can turn a desire on and make it as strong as it gets</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

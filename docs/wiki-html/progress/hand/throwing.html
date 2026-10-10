@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Throwing and letting go — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="here" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#throwing-and-letting-go">Throwing and letting go</a><ul>
+<li><a href="#putting-down-or-throwing">Putting down or throwing</a></li>
+<li><a href="#where-it-lands">Where it lands</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="throwing-and-letting-go">Throwing and letting go</h1>
+<p>What happens when the Action button is let go with something in the hand: a gentle put-down where the hand is, a throw
+with the hand's speed, or the handful poured out onto the ground. Where the thing lands then matters: a store, a
+building site, a worship site, the creature, or a job for a villager.</p>
+<p>openblack: <code>HandSystem::Release</code> (<code>HandHolding.cpp</code>) lets go into the game's physics through
+<code>physics::from_hand::Throw</code> (<code>src/ECS/Physics/FromHand.cpp</code>); slow handfuls pour
+(<code>HandSystem::PutDownHandPot</code>) and a held thing can be given straight to a store or pile under the hand
+(<code>ecs::held_apply</code>). The other targets (sacrifice, building sites, disciples) are not ported. Tests:
+<code>test/test_hand_apply.cpp</code>, <code>test/test_release_prediction.cpp</code>.</p>
+<p>The first land teaches throwing with a silver scroll, <a href="../story/silver_scrolls/throwing_stones.html">Throwing Stones</a>.</p>
+<p><strong>Progress: 20/30 done, 0 partial — 67%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../hand-and-interface.html">The hand and the interface</a>.</p>
+<h2 id="putting-down-or-throwing">Putting down or throwing</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The thing leaves the hand where it is drawn in the hand, turned as the hand held it and at its held size, only lifted out of the ground</td>
+<td>done</td>
+<td><code>HandSystem::ThrowObjectFromHand</code> (<code>HandHolding.cpp</code>) builds the matrix from the synced hand pose (or the drawn pose), its scale kept; <code>physics::from_hand::InitialisePhysicsFromHand</code> (<code>src/ECS/Physics/FromHand.cpp</code>) only raises it out of the ground when thrown</td>
+</tr>
+<tr>
+<td>It takes the hand's spring velocity at the moment of letting go, and no spin; 180 ms later it gets a one-turn twist</td>
+<td>done</td>
+<td>The spring's velocity (<code>HandSystem::SendRelease</code>); 180 ms after, the release impulse packet (<code>HandSystem::UpdateReleaseImpulse</code>, <code>HandTurn.cpp</code>) gives the twist (<code>physics::from_hand::ApplyReleaseSpin</code>)</td>
+</tr>
+<tr>
+<td>Let go moving across the land at no more than 2 units a second, it is put down: lowered onto the ground along the slope and lifted clear of anything it overlaps</td>
+<td>done</td>
+<td><code>from_hand::IsThrown</code> (horizontal speed squared above 4); a put-down goes through <code>AdjustToGroundLevel</code> and <code>RaiseUntilNotIntersecting</code></td>
+</tr>
+<tr>
+<td>Faster than that it is thrown and flies</td>
+<td>done</td>
+<td><code>from_hand::InitialisePhysicsFromHand</code>; see <a href="../physics/throwing_and_landing.html">../physics/throwing_and_landing.md</a></td>
+</tr>
+<tr>
+<td>There is no separate "set down on another thing" rule: a put-down raised onto something stays in the physics and settles there</td>
+<td>done</td>
+<td><code>InitialisePhysicsFromHand</code>: a raised put-down is not landed and stays in physics</td>
+</tr>
+<tr>
+<td>A tree put down upright (tilted under 0.2 radians) stays where it is put; tilted further it falls</td>
+<td>done</td>
+<td><code>InitialisePhysicsFromHand</code>: a tree tilted more than 0.2 rad (or not to be replanted) stays in physics; trees.md</td>
+</tr>
+<tr>
+<td>A person or animal put down on a slope steeper than about 45 degrees falls instead of standing</td>
+<td>done</td>
+<td><code>InitialisePhysicsFromHand</code>: a villager, animal or fence lands only where the land normal's y is at least 0.7</td>
+</tr>
+<tr>
+<td>A thing put down over the sea (or anywhere not dry land) falls in rather than standing</td>
+<td>done</td>
+<td><code>InitialisePhysicsFromHand</code>: only on dry land or a cell above altitude 1</td>
+</tr>
+<tr>
+<td>A handful of food or wood let go at a speed squared of at most 5 is poured out where the hand is, adding to stores and piles within 3×3 cells or making a pile, lost in water, and the handful is gone</td>
+<td>done</td>
+<td><code>from_hand::Throw</code> (speed squared at most 5) then <code>HandSystem::PutDownHandPot</code> (<code>HandResources.cpp</code>): the 3 x 3 cells' stores and pots, else a pile; lost off the map</td>
+</tr>
+<tr>
+<td>Faster than that, the handful is thrown as a pot</td>
+<td>done</td>
+<td><code>from_hand::Throw</code> throws it as a pot otherwise</td>
+</tr>
+<tr>
+<td>A thrown villager drops what it was carrying, which flies on as its own thing</td>
+<td>done</td>
+<td><code>InitialisePhysicsFromHand</code> calls <code>ecs::villager::CreateDroppedResource</code> when a villager does not land</td>
+</tr>
+<tr>
+<td>Anything thrown or dropped that doesn't land is offered to creatures nearby to catch</td>
+<td>todo</td>
+<td><code>PhysicsObjects::CheckAllCreaturesForCatching</code> only calls a hook nobody sets (<code>SetCreatureCatchHook</code>)</td>
+</tr>
+<tr>
+<td>Anything thrown or dropped that doesn't land sends a flying-object reaction out; any animal nearer than twice its speed runs from it</td>
+<td>done</td>
+<td><code>animal_ai::SpreadFlyingObjectReaction</code> from <code>InitialisePhysicsFromHand</code> when it does not land</td>
+</tr>
+<tr>
+<td>The first throw of the player's triggers a help message</td>
+<td>done</td>
+<td><code>HandSystem::ThrowObjectFromHand</code> triggers <code>help_profile::Trigger</code> with Throw</td>
+</tr>
+<tr>
+<td>A put-down toy can teach the creature to play with it</td>
+<td>todo</td>
+<td>A TODO in <code>InitialisePhysicsFromHand</code></td>
+</tr>
+<tr>
+<td>A put-down thing can teach the creature to copy what the player did with it</td>
+<td>todo</td>
+<td>A TODO in <code>InitialisePhysicsFromHand</code></td>
+</tr>
+<tr>
+<td>The game remembers the last thing the hand dropped</td>
+<td>done</td>
+<td><code>HandSystem::RenderHandRelease</code> sets <code>_lastReleased</code>, read by the release impulse</td>
+</tr>
+<tr>
+<td>When the hand lets go, its pose eases back to the empty hand's over 0.13 seconds</td>
+<td>done</td>
+<td>The change back to the NORMAL state starts the 0.13 s state blend (<code>HandCrossFade</code>, <code>src/3D/HandCrossFade.h</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="where-it-lands">Where it lands</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Food or wood let go onto a store adds to it</td>
+<td>done</td>
+<td>A store takes a held object on the press (<code>HandSystem::ApplyHeldToObject</code>, <code>ecs::held_apply</code>) or when a thrown body hits it (<code>HandPhysics.cpp</code>); stores are storage pits, workshops and worship sites (<code>ecs::resource_stores</code>); tests <code>HeldApplyTest.*</code>, <code>HeldClassApply.*</code> (<code>test/test_hand_apply.cpp</code>). A release itself gives nothing, as the original</td>
+</tr>
+<tr>
+<td>Wood let go on a building site or scaffold builds with it</td>
+<td>todo</td>
+<td>The release's building-site branch is pending (hand-and-interface.md)</td>
+</tr>
+<tr>
+<td>A scaffold let go on another scaffold combines them</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>A tree put down is replanted, joining a forest nearby or starting one</td>
+<td>done</td>
+<td><code>HandSystem::Replant</code> from the tree's end of physics (<code>HandPhysics.cpp</code>, <code>HandTrees.cpp</code>), with the forest search; trees.md</td>
+</tr>
+<tr>
+<td>A villager let go on a built worship site's altar is sacrificed, for (0.5 × life + 0.5) of its sacrifice value (1.25 times for a child); animals and trees too, by their life</td>
+<td>todo</td>
+<td>The sacrifice is not ported (hand-and-interface.md, Pending)</td>
+</tr>
+<tr>
+<td>Food let go at a worship site, and wood at a workshop, supplies it</td>
+<td>done</td>
+<td>Worship sites and workshops are stores of <code>ecs::resource_stores</code> (<code>worship::site::DeleteObjectAndTakeResource</code>, <code>workshops::</code>)</td>
+</tr>
+<tr>
+<td>A villager put down near a job (chosen while held from the objects within 3×3 cells, by a 6 m falloff times each object's pull) becomes a disciple doing it: farmer, forester, fisherman, builder, breeder (with a villager of the other sex), trader, missionary, worshipper, craftsman, or moving house</td>
+<td>todo</td>
+<td>No disciple from the hand (TODOs in <code>src/ECS/LivingPhysics.cpp</code>); disciples exist only from scripts (SET_DISCIPLE)</td>
+</tr>
+<tr>
+<td>Making a disciple plays the advisor's line for that kind of disciple</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>A villager put down beside another house of its player moves in; near its own home nothing special happens</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>Thrown people impress or frighten the villages that watch them fly (the flying-object reaction, reach 25, weighed by each watcher's distance), which also sways the player's alignment</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>What lands from a throw hurts what it hits and is hurt by its fall</td>
+<td>done</td>
+<td>The impact rules of <code>src/ECS/Physics/PhysicsObjects.cpp</code> and <code>src/ECS/LivingPhysics.cpp</code> (<code>HurtByImpact</code>); see <a href="../physics/impact_damage.html">../physics/impact_damage.md</a></td>
+</tr>
+<tr>
+<td>Every throw from the hand is credited to the player, whatever its size</td>
+<td>done</td>
+<td>The physics object keeps <code>byPlayer</code> for a throw from the hand (<code>PhysicsObjects::AddObjectFromHand</code>)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

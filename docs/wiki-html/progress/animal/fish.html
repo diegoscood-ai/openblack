@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fish and fish farms — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="here" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+
+<h1 id="fish-and-fish-farms">Fish and fish farms</h1>
+<p>The fish in the sea: fish farms, the patches of sea a town's fishermen work, and the fish they bring home. Boats and the
+sea itself are in <code>../ocean/</code>.</p>
+<p><strong>Progress: 9/13 done, 1 partial — 73%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../animals.html">Animals: AI, states and clips</a>, <a href="../../animation.html">Skeletal animation (villagers and animals)</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land scripts place fish farms for towns</td>
+<td>done</td>
+<td>CREATE_FISH_FARM and CREATE_TOWN_FISH_FARM (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>, <code>src/ECS/Archetypes/FishFarmArchetype.cpp</code>)</td>
+</tr>
+<tr>
+<td>A fish farm belongs to its town and its player</td>
+<td>done</td>
+<td>the farm's town and its owner (<code>fish_farms::TownOf</code>, <code>PlayerOf</code>, <code>src/ECS/FishFarms.cpp</code>)</td>
+</tr>
+<tr>
+<td>A fish farm's food grows again every so many turns, up to full</td>
+<td>done</td>
+<td>every 16th turn each farm gets 1 food back, up to 1400 (<code>ecs::ProcessFishFarmsTurn</code>, <code>src/ECS/FishShoals.cpp</code>)</td>
+</tr>
+<tr>
+<td>Fishermen go to a farm, up to its number of fishermen, and fish</td>
+<td>done</td>
+<td>the fishermen's list and spots, and the fishing states (<code>src/ECS/FishFarms.cpp</code>, <code>src/ECS/Villager/VillagerFisherman.cpp</code>); see <code>../villager/</code></td>
+</tr>
+<tr>
+<td>A fisherman brings his catch to the store as food</td>
+<td>done</td>
+<td>the catch carried to the drop-off (<code>src/ECS/Villager/VillagerFisherman.cpp</code>, <code>src/ECS/Villager/VillagerResources.cpp</code>); see <code>../resources/food.md</code></td>
+</tr>
+<tr>
+<td>A town's desire to fish follows how full its farms are</td>
+<td>partial</td>
+<td>a farm's score follows its fishermen, not its fish (<code>fish_farms::Score</code>, <code>src/ECS/FishFarms.cpp</code>); see <code>../town/</code></td>
+</tr>
+<tr>
+<td>Fish farms show where fish are (the shoal and its nets)</td>
+<td>done</td>
+<td>the shoal of each farm (<code>src/ECS/FishShoals.cpp</code>); the nets are the fish puzzle's (<code>src/ECS/FishPuzzle.cpp</code>)</td>
+</tr>
+<tr>
+<td>Fish rush and splash about the sea (unconfirmed)</td>
+<td>done</td>
+<td>the shoals flee a splash: the hand in the sea or an object falling in (<code>ecs::SplashWater</code>, <code>src/ECS/FishShoals.cpp</code>)</td>
+</tr>
+<tr>
+<td>The creature fishes, eating fish or bringing them to the town</td>
+<td>todo</td>
+<td>see <code>../creature/</code></td>
+</tr>
+<tr>
+<td>The hand can take fish (a fish in the hand) and give it as food</td>
+<td>done</td>
+<td>the hand scoops fish from a farm with fish and gives them as food (<code>src/ECS/Systems/Implementations/HandFish.cpp</code>, <code>src/ECS/HeldApply.cpp</code>); see ../hand/multi_pickup.md</td>
+</tr>
+<tr>
+<td>Fish can be put by the worship site to feed the worshippers</td>
+<td>done</td>
+<td>a handful of food given to the worship site goes into its store (<code>worship::site::DeleteObjectAndTakeResource</code>, <code>src/Worship/WorshipSite.cpp</code>); see <code>../worship/worship_sites.md</code></td>
+</tr>
+<tr>
+<td>Stoning a fish farm or burning it damages it (unconfirmed)</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A fish farm is drawn and repaired as the town's (unconfirmed)</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

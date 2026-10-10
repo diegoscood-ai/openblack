@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Online services and PC extras — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="here" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#online-services-and-pc-extras">Online services and PC extras</a><ul>
+<li><a href="#connecting">Connecting</a></li>
+<li><a href="#the-creatures-web-page">The creature's web page</a></li>
+<li><a href="#uploading-the-creature">Uploading the creature</a></li>
+<li><a href="#creatures-in-online-games">Creatures in online games</a></li>
+<li><a href="#maps-from-the-internet">Maps from the internet</a></li>
+<li><a href="#the-gamespy-lobby">The GameSpy lobby</a></li>
+<li><a href="#force-feedback-mouse">Force-feedback mouse</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="online-services-and-pc-extras">Online services and PC extras</h1>
+<p>The game's links to the internet and to the player's PC outside the game world itself: the online account, the creature's
+web page and the creature upload, maps fetched from the internet, the GameSpy lobby, and the force-feedback mouse. Lionhead's
+servers are long gone, so the online parts are <strong>n/a</strong> in openblack, but are described here as the game did them. Network
+play itself is owned by <a href="../multiplayer/network_play.html">../multiplayer/network_play.md</a>; the short summary of these extras
+is <a href="../multiplayer/online_services.html">../multiplayer/online_services.md</a>. The real weather and the contact names have their
+own files: <a href="real_weather.html">real_weather.md</a> and <a href="villager_names_from_contacts.html">villager_names_from_contacts.md</a>.</p>
+<p><strong>Progress: 0/26 done, 2 partial — 4%</strong></p>
+<h2 id="connecting">Connecting</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>At start-up the game checks whether the computer is online, trying newer Internet Explorer's network check, then Internet Explorer 4's connected state, then the dial-up connections list</td>
+<td>todo</td>
+<td>our tree makes no such check (no online code)</td>
+</tr>
+<tr>
+<td>Each online step is logged, prefixed "[INET]", to <code>inetlog.txt</code> in the game folder</td>
+<td>n/a</td>
+<td>a log of the original's online steps</td>
+</tr>
+<tr>
+<td>A command-line switch forces the game to think it is connected (unconfirmed)</td>
+<td>n/a</td>
+<td>a switch named FORCEINETCONN is in the game; its effect was not traced (unconfirmed)</td>
+</tr>
+<tr>
+<td>The online features need an account registered at the game's web site, <code>http://www.bwgame.com/register/</code></td>
+<td>n/a</td>
+<td>the site is gone</td>
+</tr>
+<tr>
+<td>The game logs in at <code>login.bwgame.com</code> with the account's name and password</td>
+<td>n/a</td>
+<td>see ../multiplayer/network_play.md</td>
+</tr>
+<tr>
+<td>The account's login name and password are kept in the online player profile, the password encrypted</td>
+<td>n/a</td>
+<td></td>
+</tr>
+<tr>
+<td>The installer offers to register online</td>
+<td>n/a</td>
+<td>from the readme</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-creatures-web-page">The creature's web page</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each time the creature's mind and body are saved, the game also writes a web page about the creature</td>
+<td>todo</td>
+<td>our tree writes no creature web page; when the creature's mind is saved is owned by ../creature/saves_and_files.md</td>
+</tr>
+<tr>
+<td>The page goes in the player's profile folder, in an <code>html</code> folder made if missing, named after the creature: <code>&lt;creature name&gt;.html</code></td>
+<td>todo</td>
+<td>no creature web page in our tree; e.g. <code>Profiles/A/&lt;profile&gt;/html/aaa.html</code> in the game data</td>
+</tr>
+<tr>
+<td>The page is made from the template <code>Scripts/creature_html.tmpl</code>, line by line, each <code>[$key$]</code> replaced by the creature's value for that key</td>
+<td>todo</td>
+<td>the template <code>Scripts/creature_html.tmpl</code> is not read by our tree</td>
+</tr>
+<tr>
+<td>The page is titled "Creature Cave" and shows the creature's name, age, alignment, strength, health, energy, villagers killed and battles won</td>
+<td>todo</td>
+<td>no creature web page in our tree</td>
+</tr>
+<tr>
+<td>It shows up to five pictures of the creature, <code>creatureshot_0.jpg</code> to <code>creatureshot_4.jpg</code> from the profile folder, faded to 40% until the mouse is over one, each opening larger in a pop-up</td>
+<td>todo</td>
+<td>no creature web page in our tree</td>
+</tr>
+<tr>
+<td>Its frames, scrolls, banner, logo and good and evil pictures come from <code>Scripts/html</code></td>
+<td>todo</td>
+<td>no creature web page in our tree</td>
+</tr>
+<tr>
+<td>The game also offers keys the shipped template does not use: fatness, exhaustion, dehydration, itchiness, amount of poo, animals killed, creatures killed, battles fought, poos, mushrooms eaten, how nice the player has been and how much attention the player has given</td>
+<td>todo</td>
+<td>no creature web page in our tree; a modder's template could show them</td>
+</tr>
+<tr>
+<td>It offers each of the creature's 40 desires, a caption for each of the five pictures, 24 further values and one more chosen from 16 (unconfirmed which)</td>
+<td>todo</td>
+<td>no creature web page in our tree (unconfirmed what the 24 and the 16 are)</td>
+</tr>
+<tr>
+<td>The pictures are taken by scripts that snapshot the creature</td>
+<td>todo</td>
+<td><code>UPDATE_SNAPSHOT_PICTURE</code> is a stub in <code>src/CHLApi.cpp</code>; which scripts take the pictures is not confirmed (unconfirmed)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="uploading-the-creature">Uploading the creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>At the same time the creature is packed into one file, <code>creature.lhp</code>, in the profile folder</td>
+<td>todo</td>
+<td>our tree reads creature mind files (<code>components/creaturemind</code>, <code>resources::CreatureMindLoader</code>) but does not write <code>creature.lhp</code></td>
+</tr>
+<tr>
+<td>The file holds a creature block with every value the web page offers, and a pictures block with the JPEG pictures</td>
+<td>todo</td>
+<td>no <code>creature.lhp</code> in our tree</td>
+</tr>
+<tr>
+<td>Its header carries a random number from a generator seeded with the clock</td>
+<td>todo</td>
+<td>no <code>creature.lhp</code> in our tree</td>
+</tr>
+<tr>
+<td>The account's login name is written into it with every character other than letters, digits and "-" changed to "_"</td>
+<td>todo</td>
+<td>no <code>creature.lhp</code> and no online account in our tree</td>
+</tr>
+<tr>
+<td>A separate program, the Creature Upload Utility (<code>CreatureUpload.exe</code>), sends the file to Lionhead's server</td>
+<td>n/a</td>
+<td>the server is gone</td>
+</tr>
+<tr>
+<td>The utility asks for the profile, user name and password, checks the account ("Validating user account, may take a while…"), then sends</td>
+<td>n/a</td>
+<td>its text is in <code>creatureupload.cfg</code></td>
+</tr>
+<tr>
+<td>When sent, it says the creature can be seen at <code>http://www.bwcreatures.com/&lt;name&gt;</code></td>
+<td>n/a</td>
+<td>the site is gone</td>
+</tr>
+<tr>
+<td>Its errors: could not connect, could not send or get data, could not open the creature file, timed out, user not validated, user not found, wrong password, no profile ("You need to register online"), no password entered</td>
+<td>n/a</td>
+<td>from <code>creatureupload.cfg</code></td>
+</tr>
+<tr>
+<td>Sending a creature to a friend by e-mail</td>
+<td>n/a</td>
+<td>no such feature was found in the game (unconfirmed for the upload utility)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creatures-in-online-games">Creatures in online games</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A creature's mind is packed for sending when an online game starts</td>
+<td>n/a</td>
+<td>see ../multiplayer/network_play.md</td>
+</tr>
+<tr>
+<td>In a clan game (from patch 1.2), the clan's creature is downloaded from the game's servers at the start and uploaded at the end, instead of the team leader's</td>
+<td>n/a</td>
+<td>from the patch 1.2 readme; see ../multiplayer/multiplayer_rules.md</td>
+</tr>
+<tr>
+<td>If the upload at the end fails, the end-of-game box says so, and the creature is uploaded next time</td>
+<td>n/a</td>
+<td></td>
+</tr>
+<tr>
+<td>Creatures keep what they learn online</td>
+<td>todo</td>
+<td>no online games in our tree; see ../multiplayer/multiplayer_rules.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="maps-from-the-internet">Maps from the internet</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Multiplayer maps live in the <code>Online Maps</code> folder, each a <code>.map</code> file with a <code>.thm</code> thumbnail</td>
+<td>todo</td>
+<td>our tree does not read the <code>Online Maps</code> folder; see ../terrain/land_loading.md and ../multiplayer/skirmish.md</td>
+</tr>
+<tr>
+<td>The local list, <code>localmaps.txt</code>, gives each map's title, file and number of players: "Bombardment - 2 players", "King of the hill - 3 players" and "The four corners of Eden - 4 players"</td>
+<td>todo</td>
+<td>our tree does not read <code>localmaps.txt</code></td>
+</tr>
+<tr>
+<td>A global list of maps, <code>GlobalList.txt</code>, is fetched from the game's servers</td>
+<td>n/a</td>
+<td>the servers are gone</td>
+</tr>
+<tr>
+<td>Maps and their thumbnails missing on the player's PC are downloaded into <code>Online Maps</code> and <code>Online Maps/Thumbs</code></td>
+<td>n/a</td>
+<td>from the game's storage server (<code>storage.bwgame.com</code> or <code>www.bwgame.com</code>, unconfirmed which for which)</td>
+</tr>
+<tr>
+<td>If a map cannot be downloaded, the player is told</td>
+<td>n/a</td>
+<td></td>
+</tr>
+<tr>
+<td>Each map's winning conditions, with default, least and most values and the steps for the left and right mouse buttons, come from <code>ConditionTemplate.txt</code></td>
+<td>todo</td>
+<td>our tree does not read <code>ConditionTemplate.txt</code>; see ../multiplayer/multiplayer_rules.md</td>
+</tr>
+<tr>
+<td>Newly made maps keep their thumbnails in <code>Online Maps/Creation</code></td>
+<td>n/a</td>
+<td>the map-making side is not part of the game's player features (unconfirmed)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-gamespy-lobby">The GameSpy lobby</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Internet games are found in a GameSpy lobby, through GameSpy's master server</td>
+<td>n/a</td>
+<td>GameSpy closed in 2014; see ../multiplayer/network_play.md</td>
+</tr>
+<tr>
+<td>The player's GameSpy registration is read from GameSpy's own settings on the PC</td>
+<td>n/a</td>
+<td></td>
+</tr>
+<tr>
+<td>The lobby has a main room and game channels: create or join a room, list the players in it, see players join and leave</td>
+<td>n/a</td>
+<td></td>
+</tr>
+<tr>
+<td>The host can ban a player from the channel, lock it, and allow invitations</td>
+<td>n/a</td>
+<td></td>
+</tr>
+<tr>
+<td>The game's own lobby and message servers, and a ping server, were also used</td>
+<td>n/a</td>
+<td>the ping server's side is done in bwgame-service: see <a href="../multiplayer/gathering_box_and_ping_server.html">../multiplayer/gathering_box_and_ping_server.md</a></td>
+</tr>
+<tr>
+<td>Internet games earn ranking points for players and clans, shown on the web site</td>
+<td>n/a</td>
+<td>see ../multiplayer/multiplayer_rules.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="force-feedback-mouse">Force-feedback mouse</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The game supports Immersion's force-feedback ("TouchSense") mice through Immersion's library, <code>IFC22.dll</code></td>
+<td>todo</td>
+<td>our tree has no force feedback; a gamepad rumble or haptics could stand in</td>
+</tr>
+<tr>
+<td>The effects are loaded from <code>Data/Immersion/FullFeedback.ifr</code>, or <code>Data/Immersion/Tactile.ifr</code> for plain vibrating mice (unconfirmed which mouse uses which)</td>
+<td>todo</td>
+<td>our tree does not read the <code>.ifr</code> files (unconfirmed which mouse uses which)</td>
+</tr>
+<tr>
+<td>A dialog sets the strength: Minimum, Normal or Maximum</td>
+<td>todo</td>
+<td>no such dialog in our tree</td>
+</tr>
+<tr>
+<td>There are 49 effects: fur, slap, hit, gesture success, grip, uproot, the hand hitting the influence edge, leash pull, gesture trail, spell crackle, heartbeat, sprinkling food, wood and water, burning, a miracle's pop, heavy, the trademark, the mushroom challenge, three fireball strengths, lightning bolt, something moving in the hand, casting, shield, flocks flying and on the ground, creature spells, a hit that is not allowed, a moving fish, a command obeyed, the Hanoi puzzle, planting, and the hand passing over a miracle, the land, straw, smooth things, wood, canvas, a challenge scroll, a story scroll, foliage, the creed, the singing stones, a vortex, the temple, a teleport and special crops</td>
+<td>partial</td>
+<td>our tree lists them (<code>ImmersionEffectType</code>, <code>src/Enums.h</code>) and objects' info carries their in-hand effect (<code>src/InfoConstants.h</code>), but nothing plays them</td>
+</tr>
+<tr>
+<td>Each turn the hand picks one effect: what it holds if anything, else what it is over; when that changes, the old effect stops and the new one starts</td>
+<td>todo</td>
+<td>nothing picks an effect in our tree</td>
+</tr>
+<tr>
+<td>Clicking the game's menus gives a click effect</td>
+<td>todo</td>
+<td>no force feedback in our tree</td>
+</tr>
+<tr>
+<td>Putting a tattoo on the creature or taking it off gives a pulse</td>
+<td>todo</td>
+<td>no force feedback in our tree; see ../creature/creature_tattoos.md</td>
+</tr>
+<tr>
+<td>Scripts can start and stop effects, stop them all, and ask whether a force-feedback mouse is present</td>
+<td>partial</td>
+<td><code>START_IMMERSION</code>, <code>STOP_IMMERSION</code> and <code>STOP_ALL_IMMERSION</code> are stubs in <code>src/CHLApi.cpp</code>; <code>IMMERSION_EXISTS</code> always answers no, which is the game's answer without such a mouse</td>
+</tr>
+<tr>
+<td>A debug line shows the current effect's name</td>
+<td>n/a</td>
+<td>a developer display</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

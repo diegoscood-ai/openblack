@@ -10,86 +10,65 @@
 #define LOCATOR_IMPLEMENTATIONS
 #include "MapProduction.h"
 
-#include <glm/gtx/component_wise.hpp>
-#include <glm/gtx/norm.hpp>
-#include <glm/gtx/vec_swizzle.hpp>
 #include <glm/vec3.hpp>
 
-#include "ECS/Components/Fixed.h"
-#include "ECS/Components/Mobile.h"
-#include "ECS/Components/Transform.h"
-#include "ECS/Registry.h"
+#include "ECS/Systems/PathfindingSystemInterface.h"
 #include "Locator.h"
+#include "MapCells.h"
 
 using namespace openblack::ecs;
-using namespace openblack::ecs::components;
 
-const std::unordered_set<entt::entity>& MapProduction::GetFixedInGridCell(const CellId& cellId) const
+std::span<const entt::entity> MapProduction::GetFixedInGridCell(const CellId& cellId) const
 {
-	return _fixedGrid.at(cellId.x + cellId.y * k_GridSize.x);
-}
-
-const std::unordered_set<entt::entity>& MapProduction::GetFixedInGridCell(const glm::vec3& pos) const
-{
-	const auto cellId = GetGridCell(pos);
-	return GetFixedInGridCell(cellId);
-}
-
-const std::unordered_set<entt::entity>& MapProduction::GetMobileInGridCell(const CellId& cellId) const
-{
-	return _mobileGrid.at(cellId.x + cellId.y * k_GridSize.x);
-}
-
-const std::unordered_set<entt::entity>& MapProduction::GetMobileInGridCell(const glm::vec3& pos) const
-{
-	const auto cellId = GetGridCell(pos);
-	return GetMobileInGridCell(cellId);
-}
-
-void MapProduction::Rebuild()
-{
-	Clear();
-	Build();
-}
-
-void MapProduction::Clear()
-{
-	for (auto& g : _fixedGrid)
-	{
-		g.clear();
-	}
-	for (auto& g : _mobileGrid)
-	{
-		g.clear();
-	}
-}
-
-void MapProduction::Build()
-{
-	auto& registry = Locator::entitiesRegistry::value();
-	registry.Each<const Fixed, const Transform>([this](entt::entity entity, const Fixed& fixed, const Transform& transform) {
-		// TODO(bwrsandman): This is only in the case of a square bb underling the bounding circle (x/z) <= 1.4
-		const float radius = fixed.boundingRadius * glm::compMax(transform.scale) + 1.0f;
-		const auto min = GetGridCell(fixed.boundingCenter - radius);
-		const auto max = GetGridCell(fixed.boundingCenter + radius);
-
-		for (uint16_t x = min.x; x < max.x + 1; ++x)
-		{
-			for (uint16_t y = min.y; y < max.y + 1; ++y)
-			{
-				const auto cellId = MapProduction::CellId(x, y);
-				if (glm::distance2(GetCellCenter(cellId), fixed.boundingCenter) < radius * radius)
-				{
-					auto& cell = _fixedGrid.at(cellId.x + cellId.y * k_GridSize.x);
-					cell.insert(entity);
-				}
-			}
-		}
+	_fixedView.clear();
+	map_cells::ForEachFixed(glm::ivec2(cellId), [this](entt::entity entity) {
+		_fixedView.push_back(entity);
+		return true;
 	});
-	registry.Each<const Mobile, const Transform>(
-	    [this](entt::entity entity, [[maybe_unused]] const Mobile& mobile, const Transform& transform) {
-		    const auto cellId = GetGridCell(transform.position);
-		    auto& cell = _mobileGrid.at(cellId.x + cellId.y * k_GridSize.x);
-		    cell.insert(entity);
-	    });
+	return _fixedView;
+}
+
+std::span<const entt::entity> MapProduction::GetFixedInGridCell(const glm::vec3& pos) const
+{
+	return GetFixedInGridCell(GetGridCell(pos));
+}
+
+std::span<const entt::entity> MapProduction::GetMobileInGridCell(const CellId& cellId) const
+{
+	_mobileView = map_cells::MobileInCell(glm::ivec2(cellId));
+	return _mobileView;
+}
+
+std::span<const entt::entity> MapProduction::GetMobileInGridCell(const glm::vec3& pos) const
+{
+	return GetMobileInGridCell(GetGridCell(pos));
+}
+
+std::vector<entt::entity> MapProduction::GetAllInCell(glm::ivec2 cell) const
+{
+	return map_cells::ObjectsInCell(cell);
+}
+
+void MapProduction::Sync()
+{
+	// the walkers' obstacles first, then the cell lists, as one rebuild of the map
+	if (Locator::pathfindingSystem::has_value())
+	{
+		Locator::pathfindingSystem::value().FileObstacles();
+	}
+	// the ordered cell lists take in what the owners without hooks did since the last sync
+	map_cells::Sync();
+}
+
+void MapProduction::Refile(entt::entity entity)
+{
+	// out of its cells and in again at the front, or in for the first time
+	if (map_cells::IsObjectInMap(entity))
+	{
+		map_cells::OnAnglesOrScaleChanged(entity);
+	}
+	else
+	{
+		map_cells::InsertMapObject(entity);
+	}
 }

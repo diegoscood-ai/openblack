@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clicking and activating — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="here" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#clicking-and-activating">Clicking and activating</a><ul>
+<li><a href="#tapping-in-general">Tapping in general</a></li>
+<li><a href="#houses">Houses</a></li>
+<li><a href="#rocks">Rocks</a></li>
+<li><a href="#scaffolds">Scaffolds</a></li>
+<li><a href="#reward-chests">Reward chests</a></li>
+<li><a href="#challenge-markers">Challenge markers</a></li>
+<li><a href="#miracles-and-the-creature">Miracles and the creature</a></li>
+<li><a href="#the-temple">The temple</a></li>
+<li><a href="#holding-the-button-down">Holding the button down</a></li>
+<li><a href="#force-feedback-mouse">Force-feedback mouse</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="clicking-and-activating">Clicking and activating</h1>
+<p>What the Action button does when the hand isn't picking something up: tapping things (knocking on houses, splitting
+rocks, breaking scaffolds, opening reward chests, starting challenges), activating them (the temple's entrance, miracle
+bubbles and icons, leash posts), double clicks, locked selection, and the force-feedback mouse the game supported.</p>
+<p><strong>Progress: 26/44 done, 6 partial — 66%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../hand-and-interface.html">The hand and the interface</a>.</p>
+<h2 id="tapping-in-general">Tapping in general</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A quick press and release of the Action button over a thing taps it rather than taking hold</td>
+<td>done</td>
+<td><code>HandSystem::Update</code> (the grab state): a release within 225 ms sends <code>HandSystem::SendTap</code>; tappable classes are registered in <code>ecs::hand_tap</code> (rocks, abodes, scaffolds, spell icons, one-shot orbs, "Did you know?" signs, the temple's entrance); test <code>test_hand_press_chain</code></td>
+</tr>
+<tr>
+<td>Each kind of thing says whether it can be tapped at all; a thing that can't is left alone</td>
+<td>done</td>
+<td><code>ecs::hand_tap</code> (<code>src/ECS/Systems/HandTap.h</code>): each owner registers its classes, an unregistered class is not tappable; <code>hand_tap::SendsTap</code> also checks the influence and the cannot-be-picked-up flag</td>
+</tr>
+<tr>
+<td>Village centres, dead trees and bonfires can't be tapped</td>
+<td>done</td>
+<td>Dead trees and bonfires register no tap handler. A town centre is an abode in our tree and passes the abode's tap test, but its tap does nothing (no inhabitants, no knock)</td>
+</tr>
+<tr>
+<td>Taps are applied at the next game turn, from the place the hand reported, so every player sees the same</td>
+<td>done</td>
+<td><code>HandSystem::SendTap</code> pushes a tap packet (<code>game_packets</code>), applied at the next turn's start (<code>HandTurn.cpp</code> <code>ApplyTap</code>), which checks validity again. No multiplayer</td>
+</tr>
+</tbody>
+</table>
+<h2 id="houses">Houses</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Any house can be tapped</td>
+<td>done</td>
+<td><code>abodes::InterfaceValidToTap</code> is always true for an abode (<code>src/ECS/Abodes.cpp</code>), tapped through the press's tap-only branch (<code>hand_press::Branch::TapOnly</code>)</td>
+</tr>
+<tr>
+<td>Tapping a house knocks on it: everyone inside comes out to see who knocked</td>
+<td>done</td>
+<td><code>abodes::InterfaceTap</code> calls <code>villager::SetStateWhenTappedOnAbode</code> for each inhabitant at home: they walk out (<code>src/ECS/Villager/VillagerEmergency.cpp</code>)</td>
+</tr>
+<tr>
+<td>The knock counts the people living there, for the town's figures</td>
+<td>todo</td>
+<td>Not ported: <code>abodes::InterfaceTap</code> says "(not ported) remembering the town and counting the knock"</td>
+</tr>
+<tr>
+<td>On a finished house, the player's own hand plays its tap-house animation where it is</td>
+<td>done</td>
+<td><code>abodes::InterfaceTap</code>: for living quarters tapped by the local player, <code>HandSystem::StartFixedPosAnimation("Ctap_house", ...)</code> (the play-anim state)</td>
+</tr>
+<tr>
+<td>On a finished house, one of nine knocking sounds plays at the hand, in turn</td>
+<td>done</td>
+<td><code>abodes::InterfaceTap</code>: living-quarters abodes only, InGame sample 110 plus <code>audio::Counter::KnockRoof</code> (0..8 in turn), 3D at the hand's point</td>
+</tr>
+</tbody>
+</table>
+<h2 id="rocks">Rocks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A rock can be tapped only when it is taller than 0.7 m (a rock too wide for the hand to lift, over 3.6, is tapped at once on a press; a liftable one by a short press), inside the player's influence</td>
+<td>done</td>
+<td><code>Rocks::ValidToTap</code> (height &gt; 0.7), <code>Rocks::ValidForPlaceInHand</code> (2D radius &lt;= 3.6); a rock that can't be lifted is tapped at once (<code>HandSystem::Update</code>, Hovered branch), a liftable one by a short press; the hand must be in the influence (<code>SendTap</code>)</td>
+</tr>
+<tr>
+<td>Tapping a rock splits it in two</td>
+<td>done</td>
+<td><code>Rocks::Tap</code> then <code>Rocks::SplitInTwo</code> (<code>src/ECS/Rocks.cpp</code>): two halves of 0.7935 scale, the fire copied to both</td>
+</tr>
+<tr>
+<td>Splitting a rock plays one of four cracking sounds at the hand, in turn</td>
+<td>done</td>
+<td><code>Rocks::Tap</code>: InGame sample 130 plus <code>audio::Counter::RockTap</code> (0..3 in turn), 3D at the hand's point</td>
+</tr>
+<tr>
+<td>The player's creature is shown the deed and leans towards copying it (a mild empathy of one half)</td>
+<td>todo</td>
+<td>TODO in <code>Rocks::Tap</code>: the creature's empathy waits for creature desires</td>
+</tr>
+</tbody>
+</table>
+<h2 id="scaffolds">Scaffolds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A scaffold worth more than one, not in use and not tied to a building, can be tapped ("Tap To Break")</td>
+<td>done</td>
+<td><code>scaffolds::ValidToTap</code> (value &gt; 1, not flying, no site or still adjustable, any abode) registered by <code>scaffolds::RegisterTapHandler</code> (<code>src/ECS/Scaffolds.cpp</code>); its tooltip text is not checked here</td>
+</tr>
+<tr>
+<td>Tapping it breaks it back into single scaffolds, clearing an old building site it stood for</td>
+<td>done</td>
+<td><code>scaffolds::Tap</code>: <code>RemoveOldBuildingSite</code> when it has a site, then <code>scaffolds::Split</code> (a new one of value 1, into the workshop's free slot)</td>
+</tr>
+<tr>
+<td>Breaking a scaffold plays one of four sounds at the hand, in turn</td>
+<td>done</td>
+<td><code>scaffolds::Tap</code>: InGame sample 151 plus <code>audio::Counter::ScaffoldTap</code> (0..3 in turn), at the hand's point</td>
+</tr>
+</tbody>
+</table>
+<h2 id="reward-chests">Reward chests</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tapping a closed reward chest opens it ("Tap To Open") with its opening sounds; an open one only plays the tap sound</td>
+<td>todo</td>
+<td>No reward chests: <code>CREATE_REWARD</code> and <code>CREATE_REWARD_IN_TOWN</code> are stubs in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>A chest of food or wood spills a pile of it where it stood</td>
+<td>todo</td>
+<td>Not ported</td>
+</tr>
+<tr>
+<td>A chest can give a scaffold for a town's building</td>
+<td>todo</td>
+<td>Not ported</td>
+</tr>
+<tr>
+<td>A chest can give a random one-shot miracle, picked from the good list when the player is good, the evil list when evil, and either at random when neutral, among those allowed on the land</td>
+<td>todo</td>
+<td>Not ported</td>
+</tr>
+<tr>
+<td>A chest can teach a miracle: the player or the town gains it, shown by a gesture drawn on the land or a miracle sign over the town</td>
+<td>todo</td>
+<td>Not ported</td>
+</tr>
+<tr>
+<td>A chest can give belief to a town, with a spot of light</td>
+<td>todo</td>
+<td>Not ported</td>
+</tr>
+</tbody>
+</table>
+<h2 id="challenge-markers">Challenge markers</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tapping a challenge's marker (the silver and gold scrolls, signposts) starts its challenge, stopping any help being given</td>
+<td>todo</td>
+<td><code>ecs::script_highlight::InterfaceTap</code> (<code>src/ECS/ScriptHighlight.cpp</code>) marks it activated, but starting the challenge script and stopping the help scripts are "(pending)"</td>
+</tr>
+<tr>
+<td>A "did you know" marker plays a chime and shows its text instead</td>
+<td>done</td>
+<td><code>ecs::script_highlight::InterfaceTap</code>: its InGame chime for the local player and <code>HelpSystem::SetBubbleProperties</code> (the "Did you know?" bubble; a second tap on the same sign closes it); tapped in or out of the influence</td>
+</tr>
+<tr>
+<td>Tapping one tells the help system, which can explain challenges the first times</td>
+<td>done</td>
+<td><code>ecs::script_highlight::InterfaceTap</code> raises the Reminder or ScriptActivate help event (<code>help_profile::Trigger</code>), and the first "Did you know?" ever starts the FirstDYKExplained script</td>
+</tr>
+<tr>
+<td>A marker tapped is remembered as activated</td>
+<td>done</td>
+<td><code>script_highlight::SetActivated</code> in <code>InterfaceTap</code> for any marker with a script id</td>
+</tr>
+</tbody>
+</table>
+<h2 id="miracles-and-the-creature">Miracles and the creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tapping a one-shot miracle bubble or a dispenser's bubble puts its miracle in the hand</td>
+<td>done</td>
+<td><code>worship::InterfaceTap</code> -&gt; <code>magic::one_off::InterfaceTap</code> for a <code>OneOffSpellSeed</code> (one-shot orbs and the dispensers' orbs, <code>src/Worship/SpellDispenser.cpp</code>); registered in <code>HandSystem::RegisterTapHandlers</code></td>
+</tr>
+<tr>
+<td>Tapping a worship site's miracle icon takes its miracle into the hand once charged</td>
+<td>done</td>
+<td><code>worship::icon::InterfaceTap</code> (<code>src/Worship/WorshipSpellIcon.cpp</code>) with its tap sound; registered in <code>HandSystem::RegisterTapHandlers</code></td>
+</tr>
+<tr>
+<td>Tapping another player's fireball catches it</td>
+<td>partial</td>
+<td><code>magic::fireball::Catch</code> (<code>src/Magic/Objects/MagicFireBall.cpp</code>) turns another player's fireball into a seed in the hand, but nothing calls it: the hand never targets a fireball (dormant)</td>
+</tr>
+<tr>
+<td>Tapping a leash post, or the player's creature, puts the leash on or takes it off</td>
+<td>partial</td>
+<td>The player's own creature: a short click that lets it go sends the leash toggle (<code>CreatureHandPackets.cpp</code>, <code>LeashSystem::PressKey</code>); the leash key works too. No leash posts in our tree</td>
+</tr>
+<tr>
+<td>Tapping in a creature fight aims the player's creature's blows</td>
+<td>partial</td>
+<td><code>CreatureFightSystem::Press</code> exists but nothing in the hand or input calls it (dormant)</td>
+</tr>
+<tr>
+<td>Tapping a land puzzle's totem plays its sound and resets its choice</td>
+<td>todo</td>
+<td>Not ported (the puzzle totem's tap)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-temple">The temple</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tapping the player's own temple's entrance takes them inside</td>
+<td>done</td>
+<td><code>worship::citadel::EntranceTap</code> (<code>src/Worship/Citadel.cpp</code>), registered by <code>CitadelArchetype::RegisterTapHandlers</code>, tapped through the press's tap-only branch</td>
+</tr>
+<tr>
+<td>The entrance only works once the land's script allows the temple</td>
+<td>done</td>
+<td><code>worship::citadel::EntranceValidToTap</code>: only while the script's SET_INTERFACE_CITADEL value is not 0</td>
+</tr>
+</tbody>
+</table>
+<h2 id="holding-the-button-down">Holding the button down</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Holding the Action button over the player's creature takes hold of it to stroke or slap it</td>
+<td>done</td>
+<td><code>hand_press::Branch::Creature</code> -&gt; <code>SendStartLockedSelect</code>, <code>HandSystem::UpdateCreatureLock</code>; see <a href="creature_contact.html">creature_contact.md</a></td>
+</tr>
+<tr>
+<td>Holding the Action button on a field, fish farm, pile, totem or creature locks onto it, and the hand works it until let go</td>
+<td>partial</td>
+<td>Locked selects for fields, piles, fish farms and the creature (<code>SendStartLockedSelect</code>, <code>HandTurn.cpp</code> <code>ProcessInInteractPile</code> / <code>Field</code> / <code>Fish</code>); not the totems (see <a href="totem.html">totem.md</a>)</td>
+</tr>
+<tr>
+<td>Locked onto a thing, the hand stays on it while the player's influence holds</td>
+<td>done</td>
+<td><code>HandTurn.cpp</code>: the locked select lasts while the object is available, its influence &gt; 0 at the hand and its process says so, else it ends</td>
+</tr>
+<tr>
+<td>A double click on the land flies the camera there</td>
+<td>done</td>
+<td><code>DefaultWorldCameraModel</code> (<code>UnbindableActionMap::DOUBLE_CLICK</code>, with the double-click feature bit); see <a href="../camera/index.html">../camera/</a></td>
+</tr>
+<tr>
+<td>A double click on a creature in Creature Mode locks onto it</td>
+<td>done</td>
+<td><code>CreatureModeSystem</code> (<code>src/ECS/Systems/Implementations/CreatureModeSystem.cpp</code>): a double click on a creature locks onto it</td>
+</tr>
+<tr>
+<td>A double click is a second press within half a second, within a small box of the first</td>
+<td>partial</td>
+<td>Our double click is SDL's (<code>event.button.clicks == 2</code> in <code>GameActionMap::ProcessEvent</code>): the system's double-click time and distance, not the game's own half second and box</td>
+</tr>
+<tr>
+<td>Pressing the Action button where nothing takes it (the sky, out of reach) does nothing</td>
+<td>done</td>
+<td><code>hand_press::Branch::None</code> (<code>src/ECS/HandPressChain.h</code>): no branch, nothing happens</td>
+</tr>
+</tbody>
+</table>
+<h2 id="force-feedback-mouse">Force-feedback mouse</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>With a force-feedback mouse, what the hand holds or is over is felt by its own texture (bonfires, dead trees, fragments, people, puzzle pieces, miracles)</td>
+<td>todo</td>
+<td>Not ported</td>
+</tr>
+<tr>
+<td>Scripts start and stop force-feedback effects</td>
+<td>todo</td>
+<td><code>START_IMMERSION</code>, <code>STOP_IMMERSION</code>, <code>STOP_ALL_IMMERSION</code> are stubs in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>Scripts ask whether a force-feedback mouse is present</td>
+<td>partial</td>
+<td><code>IMMERSION_EXISTS</code> always pushes false (<code>src/CHLApi.cpp</code>), right for a player without one</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

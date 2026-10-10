@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Creature tattoos — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="here" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#creature-tattoos">Creature tattoos</a><ul>
+<li><a href="#opening-the-editor">Opening the editor</a></li>
+<li><a href="#the-editor-screen">The editor screen</a></li>
+<li><a href="#putting-tattoos-on-and-taking-them-off">Putting tattoos on and taking them off</a></li>
+<li><a href="#where-the-designs-come-from">Where the designs come from</a></li>
+<li><a href="#how-tattoos-are-drawn">How tattoos are drawn</a></li>
+<li><a href="#keeping-tattoos">Keeping tattoos</a></li>
+<li><a href="#scripts">Scripts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="creature-tattoos">Creature tattoos</h1>
+<p>The player can tattoo their creature with up to eight symbols, one on each of up to eight places on its body, each in a
+colour of their choosing. Tattoos are put on and taken off in a tattoo editor, reached by clicking the creature in the
+temple's Creature Cave (or from the player's profile in the main menu), and are painted into the creature's skin, where
+they stay as it grows, changes shape and turns evil or good.</p>
+<p><strong>Progress: 24/56 done, 13 partial — 54%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../creature.html">The creature: groundwork, random streams and what is unknown</a>.</p>
+<h2 id="opening-the-editor">Opening the editor</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>In the Creature Cave, clicking the creature zooms the room's camera onto it and opens the tattoo editor over it</td>
+<td>partial</td>
+<td>the tattoos are a page of the ImGui cave screen (<code>src/Gui/CreatureCaveScreen.cpp</code>, <code>CreatureCaveSystem</code>), shown only on a land without a temple; in the temple's creature room clicking the creature is still a TODO (<code>src/Camera/TempleCameraModel.cpp</code>)</td>
+</tr>
+<tr>
+<td>The hand's tooltip over the creature in the cave says it can be tattooed</td>
+<td>done</td>
+<td><code>src/3D/TempleToolTips.cpp</code> (the tattoo tooltip for the creature target)</td>
+</tr>
+<tr>
+<td>Zooming back out of the creature, or leaving the room, closes the editor</td>
+<td>partial</td>
+<td>the cave screen closes with F5 or Escape and when the temple leaves the creature room (<code>CreatureCaveSystem::Update</code>); there is no zoom onto the creature yet</td>
+</tr>
+<tr>
+<td>The main menu's player page has an "Edit Tattoo" button that opens the same editor on a stand-in creature, before any game is started</td>
+<td>todo</td>
+<td>the button is drawn (<code>src/Gui/GameMenu.cpp</code>, <code>Action::EditTattoo</code>) but nothing handles its action</td>
+</tr>
+<tr>
+<td>The editor is always about the local player's own creature, whatever creature the camera follows</td>
+<td>done</td>
+<td><code>CreatureCaveSystem::GetCreature</code> (the player's creature through Creature Mode and the leash service)</td>
+</tr>
+<tr>
+<td>With no creature yet there is nothing to tattoo</td>
+<td>done</td>
+<td>the cave screen says the player has no creature (test <code>CreatureCaveSystemTest.WithoutACreatureThereIsNothingToTell</code>); the menu's stand-in creature is todo (row above)</td>
+</tr>
+<tr>
+<td>In a network game the editor is not offered from the cave while the game says the creature is locked (unconfirmed exactly when)</td>
+<td>todo</td>
+<td>no network play; see <a href="../multiplayer/index.html">../multiplayer</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-editor-screen">The editor screen</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A line of help text at the top tells the player to drag the symbols onto or off the creature</td>
+<td>done</td>
+<td><code>CreatureCaveScreen.cpp</code> uses the game's text for it</td>
+</tr>
+<tr>
+<td>The sixteen symbols are shown as pictures in two columns of eight, one either side of the creature</td>
+<td>todo</td>
+<td>the page picks a design with a numbered slider instead</td>
+</tr>
+<tr>
+<td>The creature is shown large in the middle, in 3D, as it really looks, with its current tattoos</td>
+<td>todo</td>
+<td>no close-up view of the creature; the temple's creature room draws no creature yet</td>
+</tr>
+<tr>
+<td>Dragging on the creature turns it round and tilts the view up and down; let go, it keeps turning and slows to a stop</td>
+<td>todo</td>
+<td>nothing in our tree (exact speeds and the tilt limits unconfirmed)</td>
+</tr>
+<tr>
+<td>Left alone, the shown creature plays one of three idle actions every 20 to 40 seconds, up to ten times; a click stops it and starts the wait again</td>
+<td>todo</td>
+<td>nothing in our tree</td>
+</tr>
+<tr>
+<td>Two colour pickers: a palette of 32 by 128 colours, and a brightness bar</td>
+<td>partial</td>
+<td>the palette (<code>Data/tattoocols.raw</code>, loaded with the skin art in <code>Game.cpp</code>) and the brightness rule are in <code>creature_tattoo::PaletteColour</code> (test <code>CreatureTattoo.PaletteColoursBrightenAndDarken</code>), used only by the debug spawner; the cave page has a free colour picker</td>
+</tr>
+<tr>
+<td>Brightness above the middle draws the palette colour towards white, below it towards black</td>
+<td>partial</td>
+<td><code>creature_tattoo::PaletteColour</code>; test <code>CreatureTattoo.PaletteColoursBrightenAndDarken</code>; only the debug spawner uses it</td>
+</tr>
+<tr>
+<td>The chosen colour tints all sixteen symbol pictures so the player sees it before placing</td>
+<td>todo</td>
+<td>nothing in our tree</td>
+</tr>
+<tr>
+<td>A symbol dragged over the creature highlights the nearest place under the cursor: only places facing the camera count, and only within about 64 pixels of the cursor</td>
+<td>todo</td>
+<td>places are picked from a list of radio buttons</td>
+</tr>
+<tr>
+<td>Each place has a name: back, head, chest, bottom, left arm, right arm, left hand, right hand</td>
+<td>done</td>
+<td><code>creature_cave::k_SiteNames</code>, shown from the game's texts</td>
+</tr>
+<tr>
+<td>Enter accepts and Escape cancels, as the dialog's two buttons do</td>
+<td>partial</td>
+<td>Escape (and F5) close the screen; there are no accept or cancel buttons</td>
+</tr>
+<tr>
+<td>Edits show on the creature at once; cancelling does not undo them (they were already made)</td>
+<td>done</td>
+<td><code>CreatureCaveSystem::ApplyTattoo</code> repaints the skin straight away through <code>CreatureSkinSystem::SetTattoo</code>; test <code>CreatureCaveSystemTest.TattoosGoThroughTheTattooService</code></td>
+</tr>
+<tr>
+<td>In a network game, cancelling after changing the tattoos warns with a message box instead of closing</td>
+<td>todo</td>
+<td>no network play</td>
+</tr>
+<tr>
+<td>A sound plays as a tattoo is put on, and another as one is lifted off</td>
+<td>todo</td>
+<td>nothing in our tree</td>
+</tr>
+<tr>
+<td>A force-feedback mouse gives a pulse as a tattoo is put on or lifted off</td>
+<td>todo</td>
+<td>openblack has no force feedback</td>
+</tr>
+</tbody>
+</table>
+<h2 id="putting-tattoos-on-and-taking-them-off">Putting tattoos on and taking them off</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dropping a symbol on a highlighted place tattoos it there in the chosen colour</td>
+<td>partial</td>
+<td>the rule is in <code>creature_cave::Apply</code> (test <code>CreatureCave.TattoosGoOnAndComeOff</code>), applied with a button rather than by dragging</td>
+</tr>
+<tr>
+<td>A creature wears at most one tattoo on each place and at most eight in all</td>
+<td>done</td>
+<td><code>creature_tattoo::Slots</code></td>
+</tr>
+<tr>
+<td>Dropping the same symbol on a place that already has it only changes its colour</td>
+<td>done</td>
+<td><code>creature_tattoo::SlotFor</code>; test <code>CreatureTattoo.DesignsGoInTheSlotAsTheEditorPutsThem</code></td>
+</tr>
+<tr>
+<td>Otherwise the symbol takes the first empty slot, or failing that replaces whatever is on that place</td>
+<td>done</td>
+<td><code>creature_tattoo::SlotFor</code>; same test</td>
+</tr>
+<tr>
+<td>Clicking a tattoo on the body lifts it off, emptying its place, so it can be dragged to another place or off the creature</td>
+<td>partial</td>
+<td>a "Remove" button empties the chosen place (<code>creature_cave::Remove</code>, test <code>CreatureCave.TattoosGoOnAndComeOff</code>); there is no lifting and dragging</td>
+</tr>
+<tr>
+<td>Lifting a tattoo off sets the colour pickers to its colour</td>
+<td>todo</td>
+<td>nothing in our tree</td>
+</tr>
+<tr>
+<td>Dropping a lifted tattoo away from the creature leaves it off</td>
+<td>partial</td>
+<td>removal works through the button only</td>
+</tr>
+<tr>
+<td>Only places the species has can be tattooed</td>
+<td>partial</td>
+<td>the species' places are loaded (<code>Loaders.cpp</code>) and painting skips disabled ones (<code>CreatureSkin.cpp</code>), but the cave page still offers all eight</td>
+</tr>
+</tbody>
+</table>
+<h2 id="where-the-designs-come-from">Where the designs come from</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>There are sixteen designs: the game's player symbols, laid out four by four in 64-texel cells of the symbol sheet</td>
+<td>done</td>
+<td><code>creature_tattoo::DesignFromAtlas</code>; test <code>CreatureTattoo.DesignsComeFromTheBlueOfTheirCells</code></td>
+</tr>
+<tr>
+<td>A design is a mask of sixteen levels from fully skin to fully tattoo</td>
+<td>done</td>
+<td><code>creature_tattoo::Mask</code>, top four bits of the sheet</td>
+</tr>
+<tr>
+<td>Each design is kept at five sizes, 64 down to 4 texels across, each averaging squares of four of the one before</td>
+<td>done</td>
+<td><code>DesignFromAtlas</code>; test <code>CreatureTattoo.SmallerMasksAverageSquaresOfFourRoundingDown</code></td>
+</tr>
+<tr>
+<td>The player's chosen symbol (picked on the player page) is written into that player's cell of the player symbol sheet when tattoos are rebuilt</td>
+<td>partial</td>
+<td>nothing rebuilds the sheet; <code>CreatureSkinArtLoader</code> reads <code>Data/Textures/PlayersSymbols.raw</code> as the game last wrote it and fills blank cells from <code>OriginalChooseSymbol.raw</code> (<code>Game.cpp</code>, <code>Loaders.cpp</code>). Whether the game's tattoos are cut from the original sheet or the rebuilt one is unconfirmed</td>
+</tr>
+<tr>
+<td>A player can use an image of their own as their symbol, kept in their profile</td>
+<td>todo</td>
+<td>nothing in our tree (unconfirmed whether it also becomes a tattoo design)</td>
+</tr>
+<tr>
+<td>On low detail settings the designs are kept at half size, 32 texels across</td>
+<td>todo</td>
+<td>openblack always uses 64</td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-tattoos-are-drawn">How tattoos are drawn</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tattoos are painted into the creature's skin textures, not drawn on top of the model</td>
+<td>done</td>
+<td><code>creature_skin::Compose</code> in <code>CreatureSkinSystem</code></td>
+</tr>
+<tr>
+<td>Each place is a point on one of the species' base skins, with a size, a number of quarter turns and a flip</td>
+<td>done</td>
+<td><code>creature_tattoo::Site</code>, loaded per species (<code>Loaders.cpp</code>, <code>CreatureRig::tattooSites</code>); test <code>MorphCreatureBlock.Version21HasActionPointsEyesTattooSitesAndBank</code></td>
+</tr>
+<tr>
+<td>The mask used depends on the tattoo's size: the largest for a quarter of the skin's width or more, smaller ones for smaller tattoos</td>
+<td>done</td>
+<td><code>creature_tattoo::MaskLevel</code>; test <code>CreatureTattoo.MaskSizeFollowsTheTattoosSize</code></td>
+</tr>
+<tr>
+<td>The mask is turned and flipped as the place says</td>
+<td>done</td>
+<td><code>creature_tattoo::Oriented</code>; test <code>CreatureTattoo.MasksTurnAndFlip</code></td>
+</tr>
+<tr>
+<td>The tattoo spans its size of the largest mask and is centred on the place</td>
+<td>done</td>
+<td><code>creature_tattoo::Paint</code>; test <code>CreatureTattoo.TattoosSpanTheirSizeOfTheLargestMask</code></td>
+</tr>
+<tr>
+<td>Each skin texel moves towards the tattoo's colour by the mask's level, a 4-bit channel at a time</td>
+<td>done</td>
+<td><code>creature_tattoo::PaintTexel</code>; test <code>CreatureTattoo.TexelsMoveTowardsTheColourIn15ths</code></td>
+</tr>
+<tr>
+<td>A tattoo that would run over the edge of the skin is not painted</td>
+<td>done</td>
+<td>test <code>CreatureTattoo.TattoosOverAnEdgeArentPainted</code></td>
+</tr>
+<tr>
+<td>Tattoos are painted after the skin is blended towards evil or good, and wounds and blood are painted over them</td>
+<td>done</td>
+<td><code>creature_skin::Compose</code>; test <code>CreatureMarks.SkinsArePaintedTattoosThenWoundsThenBlood</code>; see <a href="marks.html">marks.md</a> and <a href="appearance.html">appearance.md</a></td>
+</tr>
+<tr>
+<td>Being in the skin, tattoos stay put as the creature's body morphs fatter, thinner, evil or good, and grow with it</td>
+<td>done</td>
+<td>the morphs move the mesh, not the texture</td>
+</tr>
+<tr>
+<td>The skin is repainted only when the tattoos, the alignment or the marks change</td>
+<td>done</td>
+<td>the revision counters in <code>CreatureSkinSystem</code></td>
+</tr>
+<tr>
+<td>The local player's creature always shows the local player's current tattoo set, including the editor's unsaved preview</td>
+<td>partial</td>
+<td>openblack paints each creature from its own slots, which is the same in a single-player game</td>
+</tr>
+<tr>
+<td>Other players' creatures show their owners' tattoos, sent over the network in a compact form</td>
+<td>todo</td>
+<td>no network play; see <a href="../multiplayer/index.html">../multiplayer</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="keeping-tattoos">Keeping tattoos</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tattoos stay on the creature through the game and from land to land</td>
+<td>todo</td>
+<td>no carrying of the creature between lands; <code>LOAD_MY_CREATURE</code> (<code>ECS/PlayerCreature.cpp</code>) takes the file's species, size, alignment and strength but not its tattoos; see <a href="saves_and_files.html">saves_and_files.md</a></td>
+</tr>
+<tr>
+<td>Tattoos are saved and loaded with a saved game</td>
+<td>todo</td>
+<td>no saved games yet; see <a href="../engine/index.html">../engine</a></td>
+</tr>
+<tr>
+<td>A saved creature file keeps the tattoos as eight words: design, place and colour each</td>
+<td>done</td>
+<td><code>creature_tattoo::FromWord</code> and <code>ToWord</code>, <code>CreatureMindFileBody.cpp</code>; test <code>CreatureMindFileBody.TattooWordsRoundTrip</code></td>
+</tr>
+<tr>
+<td>A saved creature file can also carry a block of tattoo image data</td>
+<td>partial</td>
+<td>kept and written back unchanged (<code>CreatureMindModel.cpp</code>), never drawn</td>
+</tr>
+<tr>
+<td>Older creature files without tattoos give an untattooed creature</td>
+<td>done</td>
+<td><code>CreatureMindFileBody.cpp</code> leaves them out; test <code>CreatureMindFileBody.OlderFilesLeaveTheRestToTheSpecies</code></td>
+</tr>
+<tr>
+<td>A creature made from a saved creature file wears its tattoos</td>
+<td>partial</td>
+<td>only the debug spawner's saved-creature list puts them on (<code>CreatureSpawnerMindFiles.cpp</code>, <code>CreatureSpawner.cpp</code>); <code>LOAD_MY_CREATURE</code> does not</td>
+</tr>
+<tr>
+<td>Swapping to another creature from a silver scroll keeps or drops the tattoos (unconfirmed which)</td>
+<td>todo</td>
+<td>no creature swapping yet; see <a href="species_choice.html">species_choice.md</a></td>
+</tr>
+<tr>
+<td>Uploading a creature to the online creature database sends its tattoos with it</td>
+<td>todo</td>
+<td>no online service; see <a href="saves_and_files.html">saves_and_files.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="scripts">Scripts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No challenge script of the five lands reads or changes tattoos</td>
+<td>n/a</td>
+<td>nothing to do</td>
+</tr>
+<tr>
+<td>Creature Isle's tattoo types (the Brotherhood, the super gods, fighters) for its scripts</td>
+<td>n/a</td>
+<td>Creature Isle; the values are listed in <code>src/ScriptHeaders/ScriptEnums.h</code> only</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Firestorm — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="here" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#firestorm">Firestorm</a><ul>
+<li><a href="#where-it-comes-from">Where it comes from</a></li>
+<li><a href="#choosing-and-starting-it">Choosing and starting it</a></li>
+<li><a href="#the-land">The land</a></li>
+<li><a href="#the-three-starts">The three starts</a></li>
+<li><a href="#the-other-two-gods">The other two gods</a></li>
+<li><a href="#the-ring-of-shrines-and-the-middle">The ring of shrines and the middle</a></li>
+<li><a href="#nature-and-features">Nature and features</a></li>
+<li><a href="#winning-and-losing">Winning and losing</a></li>
+<li><a href="#online">Online</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="firestorm">Firestorm</h1>
+<p>A hot, dry three-god land thick with fire miracles: each god starts with a large town, eighteen shrine-like empty
+villages each hold one miracle dispenser in a ring round a rich Norse wonder town, and over two hundred one-shot
+miracles, a fifth of them fire, lie on the ground. It is a copy of one of Lionhead's later online maps, which were only
+ever offered from the online servers; its script sets up no computer gods.</p>
+<p><strong>Players:</strong> 3 · <strong>Landscape:</strong> <code>Data/Landscape/mpm_3p_2.lnd</code> · <strong>Script:</strong> <code>Scripts/Playgrounds/Firestorm.txt</code> · <strong>Mode:</strong> both</p>
+<p><strong>Progress: 20/31 done, 6 partial — 74%</strong></p>
+<p>What the script builds, object by object, is in
+<a href="../../scripts/playground_scripts.html#firestorm-loading">playground_scripts.md</a> (its "Firestorm" sections); this file
+covers the land as a player meets it. How skirmish is set up is in <a href="../skirmish.html">../skirmish.md</a>; the computer gods
+are in <a href="../../rival_gods/skirmish_opponents.html">../../rival_gods/skirmish_opponents.md</a>.</p>
+<h2 id="where-it-comes-from">Where it comes from</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The script is the developers' three-player online map with only its landscape path and some villagers' ages changed; the game's own online condition list still names that map (<code>mpm_3p_2</code>)</td>
+<td>n/a</td>
+<td>history of the file; the original download is lost (see bwgame-service's notes on lost maps)</td>
+</tr>
+<tr>
+<td>Neither the script nor its landscape is among the files the game installs; the skirmish box shows any script placed in its folder</td>
+<td>n/a</td>
+<td>how it reached this install is not part of the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="choosing-and-starting-it">Choosing and starting it</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The skirmish box lists it by its file name, "Firestorm", and it has no start message</td>
+<td>partial</td>
+<td>the debug menu's "Playground Islands" lists it by its start message title, or by its file name when it has none (<code>src/Level.cpp</code>, <code>src/Debug/Gui.cpp</code>); no skirmish box</td>
+</tr>
+<tr>
+<td>Starting it clears the current land, resets the scripts and loads this script and its landscape</td>
+<td>partial</td>
+<td><code>Game::LoadMap</code> loads it from the debug menu; see the next row</td>
+</tr>
+<tr>
+<td>No story script runs on a skirmish land</td>
+<td>todo</td>
+<td>our tree starts the story's control script (<code>LandControlAll</code>) on the start land whatever it is, and leaves the story's scripts running when a land is opened from the debug menu</td>
+</tr>
+<tr>
+<td>The camera starts at the script's start point, which lies off the land's edge over the sea rather than at your temple</td>
+<td>done</td>
+<td><code>START_CAMERA_POS</code> (<code>FeatureScriptCommands::StartCameraPos</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-land">The land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A low land about 1,450 by 1,600 paces: a third of it at sea level, the rest low ground and a central upland, crossed by four streams</td>
+<td>done</td>
+<td><code>Game::LoadLandscape</code>; the streams from <code>CREATE_STREAM</code> and <code>CREATE_STREAM_POINT</code></td>
+</tr>
+<tr>
+<td>One hot climate over the whole land: about 25 degrees, with a long dry spell set and a steady wind</td>
+<td>done</td>
+<td><code>CREATE_WEATHER_CLIMATE</code> and its rain, temperature and wind (<code>magic::map_script</code>, <code>src/Magic/Script/MapScriptWeather.cpp</code>); see ../../weather/</td>
+</tr>
+<tr>
+<td>A day of 1,700 seconds with short nights (8.3%) and dawns and dusks (7%)</td>
+<td>done</td>
+<td><code>SET_NIGHTTIME</code> (<code>DayNightClock::SetCycleFromLand</code>)</td>
+</tr>
+<tr>
+<td>Five patches of mist</td>
+<td>done</td>
+<td><code>MistArchetype</code> (<code>CREATE_MIST</code>)</td>
+</tr>
+<tr>
+<td>79 standing features: Egyptian needles, Aztec statues and limestone pillars</td>
+<td>done</td>
+<td><code>FeatureArchetype</code> (<code>CREATE_NEW_FEATURE</code>)</td>
+</tr>
+<tr>
+<td>The music follows the nearest town's tribe: Celtic, Aztec and Japanese at the three homes, Norse in the middle</td>
+<td>done</td>
+<td><code>src/Audio/GameMusic.cpp</code>; see ../../audio/music.md</td>
+</tr>
+<tr>
+<td>Towns project almost no influence (0.01 of normal) and gods 0.8 of theirs, so each god can act only around its temple and must win towns by belief</td>
+<td>done</td>
+<td><code>SET_TOWN_INFLUENCE_MULTIPLIER</code> and <code>SET_PLAYER_INFLUENCE_MULTIPLIER</code>, kept in the map script globals and read by <code>src/ECS/Influence</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-three-starts">The three starts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>You (player one) have a temple and a big Celtic town of 18 houses, a storehouse, four fields and about 45 villagers</td>
+<td>done</td>
+<td>towns, buildings and villagers as in <a href="../../scripts/playground_scripts.html">playground_scripts.md</a></td>
+</tr>
+<tr>
+<td>Player two has much the same with an Aztec town beside its temple, player three with a Japanese town</td>
+<td>done</td>
+<td>as above</td>
+</tr>
+<tr>
+<td>Each home store starts with 10,000 food and 10,000 wood</td>
+<td>done</td>
+<td><code>AbodeArchetype</code> keeps the amounts</td>
+</tr>
+<tr>
+<td>Each home town believes in its god at 2 and offers fire, the strongest fire, shield, physical shield, water, creature invisibility and creature itchiness</td>
+<td>partial</td>
+<td>belief set (<code>ecs::town_belief::SetBeliefInPlayer</code>) and the town holds its miracles (<code>magic::script::CreateNewTownSpell</code>); how far they reach its god's worship site icons is in <a href="../../miracles/dispensers_and_seeds.html">../../miracles/dispensers_and_seeds.md</a></td>
+</tr>
+<tr>
+<td>Each home town has its own five dispensers: a stronger fire, two fires, heal and shield</td>
+<td>done</td>
+<td><code>CREATE_SPELL_DISPENSER</code> (<code>magic::script::CreateSpellDispenser</code>)</td>
+</tr>
+<tr>
+<td>Each home town has a gathering point for worshippers</td>
+<td>done</td>
+<td><code>SET_TOWN_CONGREGATION_POS</code>: the town's congregation position, read by <code>src/ECS/Town/TownQueries.cpp</code></td>
+</tr>
+<tr>
+<td>About 75 one-shot miracles lie round each home: fire, stronger fire, heal, shield, storm, lightning, teleport and creature miracles</td>
+<td>done</td>
+<td><code>CREATE_ONE_SHOT_SPELL_PU</code> (<code>magic::script::CreateOneShotSpellPu</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-other-two-gods">The other two gods</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The script switches on no computer gods and makes no creatures, so in a skirmish players two and three keep their temples and towns but nobody plays them</td>
+<td>partial</td>
+<td>as in the game as far as found: the temples and towns are made and nothing plays them; whether the game's temple command itself makes them computer gods is not determined</td>
+</tr>
+<tr>
+<td>In a network game, a temple nobody joins gets a fully grown creature of a random kind</td>
+<td>todo</td>
+<td>our tree has no network play; see ../../rival_gods/skirmish_opponents.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-ring-of-shrines-and-the-middle">The ring of shrines and the middle</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Eighteen empty Celtic villages, with no houses or people, form a ring round the middle; each half-believes in nobody, has a gathering point and holds one dispenser (heal, creature bigness, weakness, anger, invisibility, compassion, strength, storm, lightning, teleport or fire)</td>
+<td>done</td>
+<td>the villages are made as towns with their belief, gathering points (<code>SET_TOWN_CONGREGATION_POS</code>) and dispensers (<code>CREATE_SPELL_DISPENSER</code> (<code>magic::script::CreateSpellDispenser</code>))</td>
+</tr>
+<tr>
+<td>The Norse town in the middle has a wonder, ten houses, about 26 people and 20,000 food and 20,000 wood, believes in nobody at a quarter, and offers heal, a stronger heal, shield, physical shield, water, creature freeze and creature strength</td>
+<td>partial</td>
+<td>built with its stores and belief; the towns hold their miracles (<code>magic::script::CreateNewTownSpell</code>), but a town changing hands does not yet pass them on to the winner's worship site (<a href="../../miracles/dispensers_and_seeds.html">../../miracles/dispensers_and_seeds.md</a>)</td>
+</tr>
+<tr>
+<td>18 pots of magic wood and 28 drinking places for animals</td>
+<td>partial</td>
+<td>the pots are made; each drinking place is kept as a <code>DrinkWaypoint</code> (<code>CREATE_DRINK_WAYPOINT</code>), but nothing reads it yet</td>
+</tr>
+</tbody>
+</table>
+<h2 id="nature-and-features">Nature and features</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>304 trees (oaks, pines, palms, birches, olives, cedars, bushes) and nine big forests</td>
+<td>done</td>
+<td><code>TreeArchetype</code>, <code>BigForestArchetype</code></td>
+</tr>
+<tr>
+<td>The trees belong to ten forests that foresters fell and replant</td>
+<td>done</td>
+<td><code>CREATE_FOREST</code> (<code>ecs::CreateForest</code>): the forest the trees after it belong to</td>
+</tr>
+<tr>
+<td>70 animals in 12 flocks: cows and horses only</td>
+<td>done</td>
+<td><code>CREATE_NEW_ANIMAL</code> (<code>AnimalArchetype</code>) and <code>CREATE_FLOCK</code>; how they behave is the animals' domain</td>
+</tr>
+<tr>
+<td>16 fields</td>
+<td>done</td>
+<td><code>FieldArchetype</code></td>
+</tr>
+<tr>
+<td>149 rocks and boulders, three cuddly toys, magic mushrooms and toadstools to pick up, 32 lanterns and a street light</td>
+<td>done</td>
+<td><code>MobileStaticArchetype</code>, <code>StreetLanternArchetype</code>, <code>MobileObjectArchetype</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="winning-and-losing">Winning and losing</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>With no computer gods playing, a skirmish here has no opponent to beat; the skirmish's own rule decides when it ends</td>
+<td>todo</td>
+<td>not determined what ends a skirmish, and our tree ends none; see ../skirmish.md</td>
+</tr>
+<tr>
+<td>Online its winning conditions offered no building goals (houses, wonders, new towns and converts were switched off by default, with a note that a bug was still to be fixed), at most 50 villagers born, 11,000 to 30,000 food or wood, 2,100 to 20,000 belief and at most 2 towns taken</td>
+<td>todo</td>
+<td>the game's condition list; our tree has no winning conditions; see ../multiplayer_rules.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="online">Online</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Online this map was downloaded from the servers like the three shipped ones</td>
+<td>n/a</td>
+<td>the servers and this map's online file are gone; bwgame-service could offer the copy</td>
+</tr>
+<tr>
+<td>Online every temple belongs to a person, and the camera always starts on your own temple</td>
+<td>todo</td>
+<td>our tree has no network play; see ../network_play.md</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

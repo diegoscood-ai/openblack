@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Villagers in the hand and under script — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="here" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#villagers-in-the-hand-and-under-script">Villagers in the hand and under script</a><ul>
+<li><a href="#in-the-hand-and-thrown">In the hand and thrown</a></li>
+<li><a href="#under-script">Under script</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="villagers-in-the-hand-and-under-script">Villagers in the hand and under script</h1>
+<p>The player can pick villagers up, carry, drop and throw them, and the challenge scripts can take villagers over to walk
+them, play animations and gather crowds. These rows cover the villager's side; the hand and physics own the rest.</p>
+<p><strong>Progress: 8/16 done, 6 partial — 69%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../villagers.html">Villagers: data, state machine and speed</a>.</p>
+<h2 id="in-the-hand-and-thrown">In the hand and thrown</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A villager can be picked up by the hand, and stops what it was doing</td>
+<td>partial</td>
+<td><code>ecs::living::InterfaceSetInMagicHand</code> (<code>src/ECS/LivingPhysics.cpp</code>) marks it held and sets <code>IN_HAND</code>; its previous state is not stored at the pick-up (see ../hand/picking_up.md)</td>
+</tr>
+<tr>
+<td>A held villager struggles, and the villagers around react</td>
+<td>partial</td>
+<td><code>IN_HAND</code>'s clip and the scream (<code>HandSystem::GenericPickupSounds</code>); the alarm of those around is a TODO in <code>InterfaceSetInMagicHand</code></td>
+</tr>
+<tr>
+<td>A villager put down carefully stands and goes back to deciding (or becomes a disciple)</td>
+<td>partial</td>
+<td>a gentle drop stands it up through <code>LANDED</code> and it decides again (<code>src/ECS/LivingPhysics.cpp</code>, <code>villager::Landed</code>); no disciple is made; See disciples.md</td>
+</tr>
+<tr>
+<td>A thrown villager flies, lands, and gets up or dies from the fall</td>
+<td>done</td>
+<td><code>FLYING</code>, the landing pose and clip, then it decides or dies of the fall (<code>src/ECS/LivingPhysics.cpp</code>); see ../physics/thrown_living.md</td>
+</tr>
+<tr>
+<td>A villager dropped in the sea drowns</td>
+<td>done</td>
+<td><code>DROWNING</code> in a water cell (<code>src/ECS/VillagerDrowning.cpp</code>)</td>
+</tr>
+<tr>
+<td>Picking up and throwing villagers moves the player's alignment</td>
+<td>partial</td>
+<td>a villager the hand throws or drowns to death moves its owner by that reason (<code>alignment::UpdateForDeath</code>); picking up and throwing alone move nothing; See ../worship/</td>
+</tr>
+<tr>
+<td>A villager can be picked up by the creature and controlled by it</td>
+<td>partial</td>
+<td>the creature can pick up and hold villagers (<code>CreatureObjectActionSystem::CanPickUp</code>); <code>CONTROLLED_BY_CREATURE</code> is a TODO row; See ../creature/</td>
+</tr>
+<tr>
+<td>A villager carried off by a tornado</td>
+<td>done</td>
+<td>the tornado carries villagers and lets them go to die where they land (<code>src/Particles/Rules/Storm.cpp</code>); See ../miracles/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="under-script">Under script</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A script moves a villager to a place and waits until it arrives</td>
+<td>done</td>
+<td>MOVE_GAME_THING's walk (<code>src/ECS/Villager/VillagerScript.cpp</code>, <code>src/CHLApi.cpp</code>); <code>test/test_script_villager_commands.cpp</code></td>
+</tr>
+<tr>
+<td>A script plays an animation on a villager and waits for it to finish</td>
+<td>done</td>
+<td><code>SCRIPT_PLAY_ANIM</code> and <code>WAIT_FOR_ANIMATION</code>, PLAYED (<code>src/ECS/Villager/VillagerScript.cpp</code>)</td>
+</tr>
+<tr>
+<td>A script makes a villager wander round a point</td>
+<td>todo</td>
+<td><code>SCRIPT_WANDER_AROUND_POSITION</code> is a TODO row of the state table</td>
+</tr>
+<tr>
+<td>A script makes a villager walk along a path</td>
+<td>done</td>
+<td>WALK_PATH along a camera track (<code>src/CHLApi.cpp</code>); <code>SCRIPT_GO_AND_MOVE_ALONG_PATH</code> is a TODO row</td>
+</tr>
+<tr>
+<td>A script puts villagers in a crowd</td>
+<td>partial</td>
+<td>the script flocks and containers are ported (<code>src/ECS/ScriptContainers.cpp</code>, <code>src/ECS/Villager/VillagerFlock.cpp</code>; <code>test/test_script_flocks.cpp</code>); <code>SCRIPT_IN_CROWD</code> is a TODO row</td>
+</tr>
+<tr>
+<td>A script releases a villager, which goes back to its own life</td>
+<td>done</td>
+<td>RELEASE_FROM_SCRIPT (<code>villager::ReleaseFromScript</code>, <code>src/ECS/Villager/VillagerScript.cpp</code>); <code>test/test_release_from_script.cpp</code></td>
+</tr>
+<tr>
+<td>Script-made dances (the dance editor's dances)</td>
+<td>todo</td>
+<td>DANCE_CREATE is a stub (<code>src/CHLApi.cpp</code>)</td>
+</tr>
+<tr>
+<td>Script asks whether a villager is drowning, at home, a child and the like</td>
+<td>done</td>
+<td>GET_PROPERTY's living properties (drowning, age and the rest, <code>src/CHLApi.cpp</code>); <code>test/test_script_living_props.cpp</code>; See ../story/</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

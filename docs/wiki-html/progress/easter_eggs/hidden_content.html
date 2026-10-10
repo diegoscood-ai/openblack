@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hidden content — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="here" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#hidden-content">Hidden content</a><ul>
+<li><a href="#the-hidden-phone-box-land-1">The hidden phone box (Land 1)</a></li>
+<li><a href="#secret-creatures">Secret creatures</a></li>
+<li><a href="#scenery-placed-by-the-program">Scenery placed by the program</a></li>
+<li><a href="#the-land-2-singing-stones-hidden-tunes">The Land 2 singing stones' hidden tunes</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="hidden-content">Hidden content</h1>
+<p>Things that are really in the shipped game but that most players never find: the hidden phone box, the secret
+creatures, scenery placed by the program rather than by the land, and the hidden tunes of the singing stones. The
+challenges as such are owned by <a href="../story/index.html">../story/</a>; the puzzles' rules by
+<a href="../story/minigames.html">../story/minigames.md</a>. Date-based surprises (special days, footprints on special dates, the
+night voices, real weather) are in <a href="../pc_integration/index.html">../pc_integration/</a>, and the named villagers taken from the
+Lionhead staff list or the address book are in <a href="../villager/special_villagers.html">../villager/special_villagers.md</a> and
+<a href="../pc_integration/villager_names_from_contacts.html">../pc_integration/villager_names_from_contacts.md</a>.</p>
+<p><strong>Progress: 3/29 done, 1 partial — 12%</strong></p>
+<h2 id="the-hidden-phone-box-land-1">The hidden phone box (Land 1)</h2>
+<p>A "hidden holy script" compiled into the shipped challenges. In the script source it sits after more than a hundred
+blank lines under the comment "The section below IS needed otherwise the game will not work."</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>How to find it: on Land 1, in a single-player game, take hold of your creature's leash and, while holding it, draw the square-wave gesture (a line of square steps up and down)</td>
+<td>todo</td>
+<td>no leash gesture picker in our tree, so the square wave is never looked for; see <a href="../gesture/leash_gestures.html">../gesture/leash_gestures.md</a></td>
+</tr>
+<tr>
+<td>It works once: if the phone box is already there, the line "Already done" is shown instead</td>
+<td>todo</td>
+<td>the hidden script never starts in our tree (no leash gesture picker), and it calls <code>SET_OPEN_CLOSE</code> and <code>SET_AFFECTED_BY_WIND</code>, which log "not implemented"; see <a href="../scripts/challenge_scripts.html">../scripts/challenge_scripts.md</a></td>
+</tr>
+<tr>
+<td>A phone box appears on the shore at about (3130, 1639); it cannot be picked up, moved or destroyed, and it rings</td>
+<td>todo</td>
+<td>the hidden script never starts in our tree (no leash gesture picker), and it calls <code>SET_OPEN_CLOSE</code> and <code>SET_AFFECTED_BY_WIND</code>, which log "not implemented"; see <a href="../scripts/challenge_scripts.html">../scripts/challenge_scripts.md</a></td>
+</tr>
+<tr>
+<td>Both advisors appear and say: "Hey Boss! Pick up the phone!", "You've found a hidden holy script!", "Are you expecting a call?", "Are you going to answer that?"</td>
+<td>todo</td>
+<td>the hidden script never starts in our tree (no leash gesture picker), and it calls <code>SET_OPEN_CLOSE</code> and <code>SET_AFFECTED_BY_WIND</code>, which log "not implemented"; see <a href="../scripts/challenge_scripts.html">../scripts/challenge_scripts.md</a></td>
+</tr>
+<tr>
+<td>Twenty seconds later, if it is still not clicked, a recorded call plays once: the phone is picked up, two recorded messages, it is put down, and fifteen seconds after that one more message</td>
+<td>todo</td>
+<td>the hidden script never starts in our tree (no leash gesture picker), and it calls <code>SET_OPEN_CLOSE</code> and <code>SET_AFFECTED_BY_WIND</code>, which log "not implemented"; see <a href="../scripts/challenge_scripts.html">../scripts/challenge_scripts.md</a></td>
+</tr>
+<tr>
+<td>Clicking the phone box: a small storm gathers over it (rain, full cloud, for 60 s), the camera flies to a set view, and the advisors say "You've found a hidden holy script!", "One of the Lionhead people." and "Let the prophet speak. But listen well - he talks quietly."</td>
+<td>todo</td>
+<td>the hidden script never starts in our tree (no leash gesture picker), and it calls <code>SET_OPEN_CLOSE</code> and <code>SET_AFFECTED_BY_WIND</code>, which log "not implemented"; see <a href="../scripts/challenge_scripts.html">../scripts/challenge_scripts.md</a></td>
+</tr>
+<tr>
+<td>The box then opens like a chest, plays one of ten recorded messages picked at random, and closes; the camera goes back</td>
+<td>todo</td>
+<td>the hidden script never starts in our tree (no leash gesture picker), and it calls <code>SET_OPEN_CLOSE</code> and <code>SET_AFFECTED_BY_WIND</code>, which log "not implemented"; see <a href="../scripts/challenge_scripts.html">../scripts/challenge_scripts.md</a></td>
+</tr>
+<tr>
+<td>It must be clicked at least three times in all: each further click has the good advisor say "It's for you." or "Are you expecting a call?" and plays the next message in turn, wrapping round after the tenth</td>
+<td>todo</td>
+<td>the hidden script never starts in our tree (no leash gesture picker), and it calls <code>SET_OPEN_CLOSE</code> and <code>SET_AFFECTED_BY_WIND</code>, which log "not implemented"; see <a href="../scripts/challenge_scripts.html">../scripts/challenge_scripts.md</a></td>
+</tr>
+<tr>
+<td>On the click after that, with another storm, a recorded message plays (the script's comment: "Three and a half years...") and the box sinks into the ground with dust, a rumble and a shaking camera</td>
+<td>todo</td>
+<td>the hidden script never starts in our tree (no leash gesture picker), and it calls <code>SET_OPEN_CLOSE</code> and <code>SET_AFFECTED_BY_WIND</code>, which log "not implemented"; see <a href="../scripts/challenge_scripts.html">../scripts/challenge_scripts.md</a></td>
+</tr>
+<tr>
+<td>Five phone boxes then rise side by side at about (3125 to 3135, 1644), one for each land, the first ringing</td>
+<td>todo</td>
+<td>the hidden script never starts in our tree (no leash gesture picker), and it calls <code>SET_OPEN_CLOSE</code> and <code>SET_AFFECTED_BY_WIND</code>, which log "not implemented"; see <a href="../scripts/challenge_scripts.html">../scripts/challenge_scripts.md</a></td>
+</tr>
+<tr>
+<td>Clicking the first land's box plays another of the ten messages</td>
+<td>todo</td>
+<td>the hidden script never starts in our tree (no leash gesture picker), and it calls <code>SET_OPEN_CLOSE</code> and <code>SET_AFFECTED_BY_WIND</code>, which log "not implemented"; see <a href="../scripts/challenge_scripts.html">../scripts/challenge_scripts.md</a></td>
+</tr>
+<tr>
+<td>Clicking the box of land 2, 3, 4 or 5 plays one of three recorded messages, lowers the other boxes, opens the chosen one and fades to black; the shipped game then only says "Sorry, the boss got the cheat removed"</td>
+<td>todo</td>
+<td>the hidden script never starts in our tree (no leash gesture picker), and it calls <code>SET_OPEN_CLOSE</code> and <code>SET_AFFECTED_BY_WIND</code>, which log "not implemented"; see <a href="../scripts/challenge_scripts.html">../scripts/challenge_scripts.md</a></td>
+</tr>
+<tr>
+<td>Four of the twenty-odd phone box recordings are never played (numbers 3, 12, 13 and 14 of the set)</td>
+<td>n/a</td>
+<td>they ship in the script sound bank; see <a href="unused_content.html">unused_content.md</a></td>
+</tr>
+</tbody>
+</table>
+<p>See also <a href="../story/land_1.html">../story/land_1.md</a> and <a href="../audio/voices_and_speech.html">../audio/voices_and_speech.md</a>,
+which list the phone box as one row each.</p>
+<h2 id="secret-creatures">Secret creatures</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature breeder (on lands 1, 2, 4 and 5) can offer five extra creatures, the leopard, horse, mandrill, gorilla and rhino, each only if it is unlocked</td>
+<td>partial</td>
+<td><code>IS_CREATURE_AVAILABLE</code> is a stub that always answers no (<code>src/CHLApi.cpp</code>), which matches a game without the unlock, but the unlock itself is missing; the breeder is in <a href="../story/land_1.html">../story/land_1.md</a></td>
+</tr>
+<tr>
+<td>The unlock is a code kept in two values of the game's setup registry key (<code>Software\Lionhead Studios Ltd\Black &amp; White\BWSetup</code>), named "TimerValue" and "TimerCheckSum" as if they were timer settings</td>
+<td>todo</td>
+<td>our tree reads no unlock code</td>
+</tr>
+<tr>
+<td>At start-up the code is checked against a number worked out from Windows' own product ID, so a code only works on the computer it was made for; if it does not match, no creature is unlocked</td>
+<td>todo</td>
+<td>our tree reads no unlock code</td>
+</tr>
+<tr>
+<td>The code holds one switch per creature, so any mix of the five can be unlocked</td>
+<td>todo</td>
+<td>our tree reads no unlock code</td>
+</tr>
+</tbody>
+</table>
+<h2 id="scenery-placed-by-the-program">Scenery placed by the program</h2>
+<p>These three are not objects of the land: the program places them by land number, as loose 3D models with no shadow, so
+they cannot be picked up or harmed. Our wiki describes them in detail
+(<a href="../../water.html#fixed-scenery-per-land-land-3-waterfall-land-4-ark-and-dinosaur">water.md</a>).</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Land 4 has a dinosaur skeleton lying on high ground at (2690, 2590), pressed into the landscape</td>
+<td>done</td>
+<td><code>ecs::designed_scenery</code> (<code>src/ECS/DesignedScenery.cpp</code>), updated each frame from <code>Game.cpp</code>: the dinosaur on Land 4, pressed into the landscape</td>
+</tr>
+<tr>
+<td>Land 4 has an ark at (3538, 2129), with the sound of running water</td>
+<td>done</td>
+<td><code>ecs::designed_scenery</code> (<code>src/ECS/DesignedScenery.cpp</code>), updated each frame from <code>Game.cpp</code>: the ark on Land 4, with the running-water sound on a sound tag</td>
+</tr>
+<tr>
+<td>Land 3 has a waterfall at (3059, 3145) whose water scrolls down, with a ring of spray every 0.7 s and the sound of running water</td>
+<td>done</td>
+<td><code>ecs::designed_scenery</code> (<code>src/ECS/DesignedScenery.cpp</code>), updated each frame from <code>Game.cpp</code>: the waterfall on Land 3, its scrolling water (<code>frame_anim::WaterfallScroll</code>), a ring every 0.7 s and the running-water sound</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-land-2-singing-stones-hidden-tunes">The Land 2 singing stones' hidden tunes</h2>
+<p>The stones' challenge says only that playing their melodies wakes the ancients. The rules are in
+<a href="../story/minigames.html">../story/minigames.md</a>; the tunes themselves are these.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The stones remember the last 14 taps and listen for three well-known tunes: "Twinkle Twinkle Little Star", Chopin's Funeral March and "White Christmas"</td>
+<td>todo</td>
+<td>the Land 2 quest never starts: the story never reaches Land 2 (<code>LOAD_MAP</code> is empty), and the taps would need <code>GET_OBJECT_CLICKED</code>, a stub; see <a href="../story/silver_scrolls/the_singing_stones_land_2.html">../story/silver_scrolls/the_singing_stones_land_2.md</a></td>
+</tr>
+<tr>
+<td>"Twinkle Twinkle Little Star" is the stones 1, 1, 8, 8, 9, 9, 8, 6, 6, 5, 5, 3, 3, 1 (counting the nine stones round the circle in the order they are placed)</td>
+<td>todo</td>
+<td>the Land 2 quest never starts: the story never reaches Land 2 (<code>LOAD_MAP</code> is empty), and the taps would need <code>GET_OBJECT_CLICKED</code>, a stub; see <a href="../story/silver_scrolls/the_singing_stones_land_2.html">../story/silver_scrolls/the_singing_stones_land_2.md</a></td>
+</tr>
+<tr>
+<td>The Funeral March and "White Christmas" are recognised by the steps between notes, not by fixed stones, so they can start on any stone</td>
+<td>todo</td>
+<td>the Land 2 quest never starts: the story never reaches Land 2 (<code>LOAD_MAP</code> is empty), and the taps would need <code>GET_OBJECT_CLICKED</code>, a stub; see <a href="../story/silver_scrolls/the_singing_stones_land_2.html">../story/silver_scrolls/the_singing_stones_land_2.md</a></td>
+</tr>
+<tr>
+<td>Twinkle Twinkle: night falls (the clock moves to 23:00), ten bats circle, a mist rises over the stones, and its own music plays</td>
+<td>todo</td>
+<td>the Land 2 quest never starts: the story never reaches Land 2 (<code>LOAD_MAP</code> is empty), and the taps would need <code>GET_OBJECT_CLICKED</code>, a stub; see <a href="../story/silver_scrolls/the_singing_stones_land_2.html">../story/silver_scrolls/the_singing_stones_land_2.md</a></td>
+</tr>
+<tr>
+<td>Funeral March: to funeral music the stones' keeper walks into the ring and says "Behold, the dead will rise again when placed within the ring."; for five minutes any dead villager or animal laid within 10 m of the centre comes back (villagers as skeletons of their old age, joining the nearby town)</td>
+<td>todo</td>
+<td>the Land 2 quest never starts: the story never reaches Land 2 (<code>LOAD_MAP</code> is empty), and the taps would need <code>GET_OBJECT_CLICKED</code>, a stub; see <a href="../story/silver_scrolls/the_singing_stones_land_2.html">../story/silver_scrolls/the_singing_stones_land_2.md</a></td>
+</tr>
+<tr>
+<td>White Christmas: snow falls over the circle for five minutes, to its own Christmas music</td>
+<td>todo</td>
+<td>the Land 2 quest never starts: the story never reaches Land 2 (<code>LOAD_MAP</code> is empty), and the taps would need <code>GET_OBJECT_CLICKED</code>, a stub; see <a href="../story/silver_scrolls/the_singing_stones_land_2.html">../story/silver_scrolls/the_singing_stones_land_2.md</a></td>
+</tr>
+<tr>
+<td>Every night (game time after 22:00 or before 5:20) the singing stones fade into tombstones, and turn back into stones by day (not while the dead are rising)</td>
+<td>todo</td>
+<td>the Land 2 quest never starts: the story never reaches Land 2 (<code>LOAD_MAP</code> is empty), and the taps would need <code>GET_OBJECT_CLICKED</code>, a stub; see <a href="../story/silver_scrolls/the_singing_stones_land_2.html">../story/silver_scrolls/the_singing_stones_land_2.md</a></td>
+</tr>
+<tr>
+<td>Killing the stones' keeper makes the evil advisor say "Ah... Now that's what I call music."</td>
+<td>todo</td>
+<td>the Land 2 quest never starts: the story never reaches Land 2 (<code>LOAD_MAP</code> is empty), and the taps would need <code>GET_OBJECT_CLICKED</code>, a stub; see <a href="../story/silver_scrolls/the_singing_stones_land_2.html">../story/silver_scrolls/the_singing_stones_land_2.md</a></td>
+</tr>
+<tr>
+<td>Two pipers wander the land as hints, whistling Twinkle Twinkle and the Funeral March, stopping now and then to sit down for a few minutes</td>
+<td>todo</td>
+<td>the Land 2 quest never starts: the story never reaches Land 2 (<code>LOAD_MAP</code> is empty), and the taps would need <code>GET_OBJECT_CLICKED</code>, a stub; see <a href="../story/silver_scrolls/the_singing_stones_land_2.html">../story/silver_scrolls/the_singing_stones_land_2.md</a></td>
+</tr>
+<tr>
+<td>Each tune counts a third towards the challenge, once</td>
+<td>todo</td>
+<td>the Land 2 quest never starts: the story never reaches Land 2 (<code>LOAD_MAP</code> is empty), and the taps would need <code>GET_OBJECT_CLICKED</code>, a stub; see <a href="../story/silver_scrolls/the_singing_stones_land_2.html">../story/silver_scrolls/the_singing_stones_land_2.md</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

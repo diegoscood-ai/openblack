@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Creature spells — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="here" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#creature-spells">Creature spells</a><ul>
+<li><a href="#casting-a-creature-spell">Casting a creature spell</a></li>
+<li><a href="#how-a-spell-takes-hold">How a spell takes hold</a></li>
+<li><a href="#the-sixteen-spells">The sixteen spells</a></li>
+<li><a href="#look-and-sound">Look and sound</a></li>
+<li><a href="#creatures-learning-miracles">Creatures learning miracles</a></li>
+<li><a href="#creatures-casting-miracles">Creatures casting miracles</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="creature-spells">Creature spells</h1>
+<p>Sixteen miracles that only work on a creature (freeze, small, big, weak, strong, fat, thin, invisible, compassion,
+angry, hungry, frightened, tired, ill, thirsty, itchy). Each eases the creature into a changed state, holds it for a
+time and eases it back. This file also covers creatures learning miracles by watching and casting miracles themselves.
+The creature's own body, mind and leash are in <a href="../creature/index.html">../creature/</a>.</p>
+<p><strong>Progress: 17/72 done, 23 partial — 40%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../miracles.html">Miracles one by one</a>.</p>
+<h2 id="casting-a-creature-spell">Casting a creature spell</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A creature spell can only be cast on a creature (any creature: own, rival or wild), never at a point</td>
+<td>partial</td>
+<td>Never at a point (<code>cast_rules::CanCastAt</code>, <code>src/Magic/CastRules.cpp</code>); on a creature only from a script (<code>SPELL_AT_THING</code> to <code>spell_creature::Receive</code>, <code>src/Magic/Spells/SpellCreature.cpp</code>), as the hand's object check refuses the creature class (TODO)</td>
+</tr>
+<tr>
+<td>It is refused when more than five spells already wait on that creature</td>
+<td>todo</td>
+<td>The waiting list has no limit (<code>creature_spells::Receive</code>, <code>src/Creature/CreatureSpells.cpp</code>)</td>
+</tr>
+<tr>
+<td>It lasts 25 seconds times the power of its tribes (a different tribe or pair per spell)</td>
+<td>done</td>
+<td><code>spell_creature::Receive</code>: the miracle's time times the caster's tribal power, <code>src/Magic/Spells/SpellCreature.cpp</code></td>
+</tr>
+<tr>
+<td>The miracle stays open until the creature lets the spell go, then closes</td>
+<td>done</td>
+<td><code>spell_creature::Receive</code> lifts the miracle's time limit; <code>ProcessTurn</code> closes it when the spell ends, <code>src/Magic/Spells/SpellCreature.cpp</code>; <code>test/creature/test_spell_creature.cpp</code> <code>ACreatureTakesTheMiracleOnForItsTimeAndTheMiracleNoLongerRunsOut</code></td>
+</tr>
+<tr>
+<td>The player's hand pours a stream of magic onto the creature for four seconds</td>
+<td>todo</td>
+<td>The hand can't cast creature spells yet</td>
+</tr>
+<tr>
+<td>Creature spells reach the player from worship-site icons in some towns</td>
+<td>partial</td>
+<td>Icons and the reverse-spiral selection handle the creature seeds like any other (<code>src/Worship/WorshipSpellIcon.cpp</code>, <code>src/Magic/Gestures/PowerUpSystem.cpp</code>), but a creature seed in the hand can't be cast</td>
+</tr>
+<tr>
+<td>Some come as one-off rewards from fireflies on Lands 2, 4 and 5 (freeze, small, big, weak, strong, invisible, compassion, angry, itchy; about 1% each); fat, thin and the five need spells are never in a firefly table</td>
+<td>partial</td>
+<td>The firefly reward is wired (<code>src/Worship/FireFlyReward.cpp</code>, <code>FIRE_FLY_SPELL_REWARD_PROB</code>). Our wiki differs: only Land1.txt sets firefly reward probabilities (HEAL and six player miracles), no creature spell (<a href="../../magic.html#dispensers-and-fireflies-worshipspelldispensercpp-worshipfireflyrewardcpp">magic.md</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-a-spell-takes-hold">How a spell takes hold</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A spell waits two seconds, eases in over its start time, holds, then eases out over its finish time</td>
+<td>done</td>
+<td><code>creature_spells::Receive</code> and <code>Step</code> (<code>k_StartDelaySeconds</code>, <code>src/Creature/CreatureSpells.cpp</code>): it waits two seconds of whole turns, also when it was waiting for another of its kind, then eases in, holds and eases out; <code>test/creature/test_creature_spells.cpp</code> <code>ASpellEasesInHoldsForItsTimeAndEasesOut</code>, <code>TimesAreWholeTurns</code>; <code>test/creature/test_spell_creature.cpp</code> <code>ATurnOfAFreezeStopsTheCreaturePausesItsMindAndSoundsFromTheCreatureBank</code></td>
+</tr>
+<tr>
+<td>Start and finish times differ per spell (freeze 2 s, size and strength 4 s, invisible 5 s, compassion 3 s, others 1 s)</td>
+<td>done</td>
+<td>Read from the creature miracle rows in <code>spell_creature::ProcessTurn</code>, <code>src/Magic/Spells/SpellCreature.cpp</code>; <code>test/creature/test_creature_spells.cpp</code> <code>TimesAreWholeTurns</code></td>
+</tr>
+<tr>
+<td>Casting the same spell again adds its time and takes over from the older miracle</td>
+<td>done</td>
+<td><code>creature_spells::Receive</code>, <code>src/Creature/CreatureSpells.cpp</code>; <code>test/creature/test_creature_spells.cpp</code> <code>CastingTheSameSpellAgainAddsItsTimeAndTakesTheNewMiracle</code>; <code>test/creature/test_spell_creature.cpp</code> <code>CastAgainItIsExtendedAndTheFirstMiracleIsClosedDown</code></td>
+</tr>
+<tr>
+<td>The same spell cast while it is wearing off waits and starts again afterwards</td>
+<td>done</td>
+<td><code>creature_spells::Receive</code> queues it while finishing, <code>src/Creature/CreatureSpells.cpp</code></td>
+</tr>
+<tr>
+<td>An opposing spell of the same kind cuts the first short and waits for it</td>
+<td>done</td>
+<td><code>test/creature/test_creature_spells.cpp</code> <code>TheOpposingSpellCutsTheFirstShortAndWaitsForIt</code></td>
+</tr>
+<tr>
+<td>Spells of different kinds run together</td>
+<td>done</td>
+<td><code>test/creature/test_creature_spells.cpp</code> <code>SpellsOfDifferentKindsRunTogether</code></td>
+</tr>
+<tr>
+<td>A spell whose miracle disappears ends early</td>
+<td>todo</td>
+<td>A closed miracle is only unlinked from the creature's spell (<code>CreatureCloseDown</code>, <code>src/Magic/Spells/SpellCreature.cpp</code>); the spell runs on</td>
+</tr>
+<tr>
+<td>A creature that faints brings every spell to its end</td>
+<td>todo</td>
+<td>Nothing ends the spells on a faint</td>
+</tr>
+<tr>
+<td>With reversion turned off by a script, a spell stops where it is and never puts the creature back</td>
+<td>done</td>
+<td><code>CREATURE_SPELL_REVERSION</code> (<code>src/CHLApi.cpp</code>) sets <code>creature_spells::Spells::reversion</code> through <code>spell_creature::SetReversion</code> (<code>src/Magic/Spells/SpellCreature.cpp</code>); without it a spell that has held its time goes straight to off, the creature kept as the spell made it, and its miracle is let go (<code>creature_spells::Step</code>, <code>src/Creature/CreatureSpells.cpp</code>); tests <code>CreatureSpells.WithoutReversionASpellStopsWhereItIs</code>, <code>CreatureSpells.WithoutReversionASpellThatStopsLeavesTheOneWaitingForItWaiting</code>. No Land 1 or Land 2 script calls it</td>
+</tr>
+<tr>
+<td>The creature's mind is told when a spell starts and when it ends (for the advisor's help)</td>
+<td>todo</td>
+<td>No spell-started or finished events reach the creature mind</td>
+</tr>
+<tr>
+<td>A creature with spells on it is saved as it was before them (size, strength, alignment)</td>
+<td>todo</td>
+<td>The before values are kept in the spell slots only; neither the mind file nor a game save writes them</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-sixteen-spells">The sixteen spells</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Freeze: the creature gives up what it was doing, stops, and its mind stops planning and learning</td>
+<td>done</td>
+<td>The start stops its locomotion and pauses its mind (<code>creature_spells::Apply</code>, <code>src/Creature/CreatureSpells.cpp</code>); <code>test/creature/test_spell_creature.cpp</code> <code>FreezeStopsTheCreatureAndPausesItsMindUntilItThaws</code></td>
+</tr>
+<tr>
+<td>Freeze: its animation slows to a statue as it freezes and speeds up as it thaws</td>
+<td>done</td>
+<td><code>playbackScale</code> eased by the freeze, used by <code>src/ECS/Systems/Implementations/CreatureAnimationSystem.cpp</code></td>
+</tr>
+<tr>
+<td>Freeze: an icy environment-mapped sheen is added over it by how frozen it is</td>
+<td>todo</td>
+<td><code>creature_spells::FrozenTint</code> is worked out (<code>test/creature/test_creature_spells.cpp</code> <code>TheFrozenLookTintsTowardsIcyBlue</code>) but the frozen look is not drawn</td>
+</tr>
+<tr>
+<td>Small: shrinks the creature to its smallest size (less in a fight, by the size it began the fight with)</td>
+<td>partial</td>
+<td><code>creature_spells::SizeTarget</code> to the creature's smallest size, 0.2 or what a script set with <code>CREATURE_MIN_SIZE</code> (<code>ecs::components::CreatureSizeLimits</code>; <code>test/creature/test_creature_spells.cpp</code> <code>TheBodySpellsTargets</code>, <code>test/creature/test_spell_creature.cpp</code> <code>TheSizeSpellsTakeItToItsOwnSmallestAndLargest</code>), never making it bigger; nothing for a creature in an activity with another (wiki Pending)</td>
+</tr>
+<tr>
+<td>Big: grows the creature to its largest size (more in a fight), never shrinking it</td>
+<td>partial</td>
+<td><code>creature_spells::SizeTarget</code> to the creature's largest size, 2.4 or what a script set with <code>CREATURE_MAX_SIZE</code> (<code>test/creature/test_spell_creature.cpp</code> <code>BigTakesTheCreatureToTheLargestAScriptGaveIt</code>), never shrinking it; nothing for a creature in an activity with another (wiki Pending)</td>
+</tr>
+<tr>
+<td>Small and Big put the creature back to its size from before, losing growth made meanwhile</td>
+<td>done</td>
+<td>The finish puts the size from before back, <code>src/Creature/CreatureSpells.cpp</code>; <code>test/creature/test_spell_creature.cpp</code> <code>SizeStartsEasesHoldsAndIsPutBack</code></td>
+</tr>
+<tr>
+<td>Weak takes strength down to a tenth; Strong raises it to full; both put it back</td>
+<td>done</td>
+<td><code>k_WeakStrength</code>, <code>k_StrongStrength</code> targets and the value put back, <code>src/Creature/CreatureSpells.cpp</code></td>
+</tr>
+<tr>
+<td>Fat and Thin move how fat the creature wants to be up or down, then back</td>
+<td>partial</td>
+<td>They ease the creature's fatness itself to fixed targets and back (<code>src/Creature/CreatureSpells.cpp</code>), not how fat it wants to be</td>
+</tr>
+<tr>
+<td>Invisible: the creature dissolves through static up to three quarters of the way</td>
+<td>partial</td>
+<td>The fizz is eased to three quarters (<code>src/Creature/CreatureSpells.cpp</code>; <code>test/creature/test_spell_creature.cpp</code> <code>InvisibleFizzesOutAndBack</code>) but not drawn</td>
+</tr>
+<tr>
+<td>Invisible: villagers neither worship nor flee an invisible creature</td>
+<td>todo</td>
+<td>The invisible flag is set; nothing reads it</td>
+</tr>
+<tr>
+<td>A creature frozen or fizzed a fifth of the way or more casts no shadow</td>
+<td>todo</td>
+<td>Nothing reads the freeze or fizz for shadows</td>
+</tr>
+<tr>
+<td>Compassion and Angry: the creature gives up its action and wants only to be kind (and make friends) or angry, everything else held down</td>
+<td>partial</td>
+<td>The mood desire is made the top one and held there (<code>src/Creature/CreatureSpells.cpp</code>; <code>test/creature/test_spell_creature.cpp</code> <code>AMoodSpellsDesireIsWantedMostThenLeast</code>); the other desires are not held down and the action is not dropped</td>
+</tr>
+<tr>
+<td>Compassion and Angry swing the creature's alignment fully good or evil, then back</td>
+<td>done</td>
+<td><code>k_NiceAlignment</code>, <code>k_NastyAlignment</code> targets and the value put back, <code>src/Creature/CreatureSpells.cpp</code></td>
+</tr>
+<tr>
+<td>Compassion and Angry switch a leashed creature to the compassion or aggression leash</td>
+<td>todo</td>
+<td>Nothing changes the leash type</td>
+</tr>
+<tr>
+<td>As they wear off the mood is wanted least, and the hold on the other desires is released (kept on a player's creature led on a mood leash)</td>
+<td>partial</td>
+<td>The finish makes the desire the least wanted (<code>src/Creature/CreatureSpells.cpp</code>); there is no hold on the other desires to release</td>
+</tr>
+<tr>
+<td>Hungry, Frightened, Tired, Ill and Thirsty make that need the only one wanted, without changing the body</td>
+<td>partial</td>
+<td>The need is made the top desire each turn, the body unchanged (<code>src/Creature/CreatureSpells.cpp</code>; <code>test/creature/test_creature_spells.cpp</code> <code>TheMoodSpellsMakeTheirDesireDominant</code>); the others are not held down</td>
+</tr>
+<tr>
+<td>The need spells' hold on the other desires lasts its own time after they wear off</td>
+<td>todo</td>
+<td>No hold on the other desires</td>
+</tr>
+<tr>
+<td>Itchy: the creature gives up its action and wants only to scratch, again each turn</td>
+<td>partial</td>
+<td>The scratch desire is set to its top each turn (<code>src/Creature/CreatureSpells.cpp</code>); the action is not dropped</td>
+</tr>
+<tr>
+<td>Itchy: the leash comes off each turn while it lasts</td>
+<td>done</td>
+<td>The leash stops working while it holds (<code>LeashSystem::SetWorks</code>); <code>test/creature/test_spell_creature.cpp</code> <code>ItchyKeepsTheLeashFromWorkingWhileItHolds</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="look-and-sound">Look and sound</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Three wisps fly from the hand to the creature and wind round its body, trailing light</td>
+<td>partial</td>
+<td>The miracle's effect file is started at the creature with it as target (the base spell cast, <code>src/Magic/Spells/SpellCreature.cpp</code>); its creature-specific particle rules are not identified in our tree</td>
+</tr>
+<tr>
+<td>The wisps fade with an invisible creature and fade out after the spell ends</td>
+<td>todo</td>
+<td>Nothing ties the effect to the fizz</td>
+</tr>
+<tr>
+<td>Compassion sends hearts rising off the creature's body</td>
+<td>partial</td>
+<td>Only as far as the effect file plays through the PSys; not checked</td>
+</tr>
+<tr>
+<td>Itchy brings a flock of flies that waits at the hand, then circles the creature's head</td>
+<td>partial</td>
+<td>The particle flocking rule is ported (<code>src/Particles/Rules/Flock.cpp</code>, used by the itch files); the head target is not checked</td>
+</tr>
+<tr>
+<td>An itchy spell held in the hand has flies circling the hand</td>
+<td>partial</td>
+<td>The seed's in-hand effect follows the hand (<code>src/Magic/Hand/HandMagicFX.cpp</code>, <code>src/Particles/Rules/HandFollow.cpp</code>); not checked for this seed</td>
+</tr>
+<tr>
+<td>Holder effects: glints on a frozen-creature phial, hearts and flies on their holders</td>
+<td>partial</td>
+<td>Each seed's holder effect plays round its globe or icon (<code>src/Worship/SpellSeedGraphic.cpp</code>); not checked for the phials</td>
+</tr>
+<tr>
+<td>A whispering loop plays on the creature while the effect lasts and softly stops at the end</td>
+<td>partial</td>
+<td>Only as far as the effect file's sound rules run (<code>src/Particles/Rules/Sound.cpp</code>); not checked</td>
+</tr>
+<tr>
+<td>A cast sound plays once for a player's cast, none for a script's or another creature's</td>
+<td>todo</td>
+<td>No player cast of a creature spell yet</td>
+</tr>
+<tr>
+<td>Each spell's own sound plays as it takes hold (freeze, shrink, grow, invisible, compassion, itchy); fat, thin and the needs are silent</td>
+<td>done</td>
+<td>The sound actions 0x76..0x7E from the creature bank on the spell's start (<code>src/Creature/CreatureSpells.cpp</code>, <code>src/Magic/Spells/SpellCreature.cpp</code>); <code>test/creature/test_spell_creature.cpp</code> <code>ATurnOfAFreezeStopsTheCreaturePausesItsMindAndSoundsFromTheCreatureBank</code></td>
+</tr>
+<tr>
+<td>The itch sound stops when out of hearing range</td>
+<td>todo</td>
+<td>Not modelled</td>
+</tr>
+<tr>
+<td>There is no special animation for receiving a spell</td>
+<td>done</td>
+<td>Nothing plays, as in the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creatures-learning-miracles">Creatures learning miracles</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A creature learns a miracle by seeing it cast enough times; the number depends on the miracle and the species</td>
+<td>partial</td>
+<td>Times by miracle and species: the logic is in <code>src/Creature/CreatureWatching.cpp</code> (<code>creature_watching::SeeMiracle</code>), but nothing in the game calls <code>CreatureMindSystem::SeeMiracle</code> (only the debug creature spawner)</td>
+</tr>
+<tr>
+<td>Sightings count only when more than five seconds apart, and every sighting resets that gap</td>
+<td>partial</td>
+<td>Five seconds apart (<code>k_MiracleSightingTurns</code>), but a sighting too soon does not reset the gap; the logic is in <code>src/Creature/CreatureWatching.cpp</code> (<code>creature_watching::SeeMiracle</code>), but nothing in the game calls <code>CreatureMindSystem::SeeMiracle</code> (only the debug creature spawner)</td>
+</tr>
+<tr>
+<td>Watching on the learning leash counts extra</td>
+<td>partial</td>
+<td>The leash's sighting weight; the logic is in <code>src/Creature/CreatureWatching.cpp</code> (<code>creature_watching::SeeMiracle</code>), but nothing in the game calls <code>CreatureMindSystem::SeeMiracle</code> (only the debug creature spawner)</td>
+</tr>
+<tr>
+<td>A power-up can't be learnt before its miracle; thirsty and itchy need the creature to know building</td>
+<td>todo</td>
+<td><code>creature_watching::SeeMiracle</code> has no such rule</td>
+</tr>
+<tr>
+<td>A young creature sees but learns nothing</td>
+<td>partial</td>
+<td>The development phase gate; the logic is in <code>src/Creature/CreatureWatching.cpp</code> (<code>creature_watching::SeeMiracle</code>), but nothing in the game calls <code>CreatureMindSystem::SeeMiracle</code> (only the debug creature spawner)</td>
+</tr>
+<tr>
+<td>The second lightning power-up is never learnt from watching</td>
+<td>todo</td>
+<td>No such rule</td>
+</tr>
+<tr>
+<td>One creature learning from a seed's miracle stops any creature learning from that seed again</td>
+<td>todo</td>
+<td>No seed is marked as learnt from</td>
+</tr>
+<tr>
+<td>The creature shows a thought when it has nearly learnt or has just learnt a miracle</td>
+<td>partial</td>
+<td>A "learnt the miracle" thought is kept in the mind model (<code>creature_mind_model::Think</code>); the logic is in <code>src/Creature/CreatureWatching.cpp</code> (<code>creature_watching::SeeMiracle</code>), but nothing in the game calls <code>CreatureMindSystem::SeeMiracle</code> (only the debug creature spawner); nothing shows it</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creatures-casting-miracles">Creatures casting miracles</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A creature may try a miracle once it has seen it half the times needed, and fizzles until nearly learnt</td>
+<td>todo</td>
+<td>Creatures cast no miracles in our tree</td>
+</tr>
+<tr>
+<td>A fizzled try embarrasses the creature and sometimes saddens it</td>
+<td>todo</td>
+<td>Creatures cast no miracles</td>
+</tr>
+<tr>
+<td>It walks near the target, backs off by its height, turns to face it, makes the gesture and casts</td>
+<td>todo</td>
+<td>Creatures cast no miracles</td>
+</tr>
+<tr>
+<td>One time in five it shows how it feels first</td>
+<td>todo</td>
+<td>Creatures cast no miracles</td>
+</tr>
+<tr>
+<td>Casting costs the creature energy and tires it; too tired, it can't cast</td>
+<td>todo</td>
+<td>Creatures cast no miracles</td>
+</tr>
+<tr>
+<td>A cast it can't make makes it frustrated (one desire fully dominant)</td>
+<td>todo</td>
+<td>Creatures cast no miracles</td>
+</tr>
+<tr>
+<td>In a fight a cast costs fight stamina, and a shortfall quietly does nothing</td>
+<td>todo</td>
+<td>Creatures cast no miracles</td>
+</tr>
+<tr>
+<td>The miracle's size follows the target's size; a fire miracle's follows the caster's height</td>
+<td>todo</td>
+<td>Creatures cast no miracles</td>
+</tr>
+<tr>
+<td>A creature's earlier held miracle is let go when it casts again</td>
+<td>todo</td>
+<td>Creatures cast no miracles</td>
+</tr>
+<tr>
+<td>Food, wood and water are cast from above with two beams from its hands</td>
+<td>todo</td>
+<td>Creatures cast no miracles</td>
+</tr>
+<tr>
+<td>A creature's cast gives up when it swings too far away from its target</td>
+<td>todo</td>
+<td>Creatures cast no miracles</td>
+</tr>
+<tr>
+<td>In a fight, at the end of its cast pose it casts an attack spell at its opponent or a defence spell on itself</td>
+<td>partial</td>
+<td>The fight's cast order plays the cast pose and records the spell (<code>src/ECS/Systems/Implementations/CreatureFightSystem.cpp</code>), but no miracle is cast</td>
+</tr>
+<tr>
+<td>Glints show on the miracle in the creature's hands</td>
+<td>todo</td>
+<td>Creatures cast no miracles</td>
+</tr>
+<tr>
+<td>On its way to the target the creature keeps its current pace rather than walking</td>
+<td>todo</td>
+<td>Creatures cast no miracles</td>
+</tr>
+<tr>
+<td>A personal speed factor for each creature affects its casting walk</td>
+<td>todo</td>
+<td>Creatures cast no miracles</td>
+</tr>
+<tr>
+<td>Creatures cast power-up miracles with their power-up gestures</td>
+<td>todo</td>
+<td>Creatures cast no miracles</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

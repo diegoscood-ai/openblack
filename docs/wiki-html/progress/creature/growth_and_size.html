@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Growth and size — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="here" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#growth-and-size">Growth and size</a><ul>
+<li><a href="#growing">Growing</a></li>
+<li><a href="#size-limits-and-how-it-is-shown">Size limits and how it is shown</a></li>
+<li><a href="#what-size-changes">What size changes</a></li>
+<li><a href="#miracles-and-scripts">Miracles and scripts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="growth-and-size">Growth and size</h1>
+<p>A creature starts small and grows over the game, fast while young and then ever more slowly, up to twice its grown
+size. Miracles can make it bigger or smaller for a while. Its size changes how far it sees, how fast it moves, how
+much it eats and how hard it hits.</p>
+<p><strong>Progress: 27/36 done, 2 partial — 78%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../creature.html">The creature: groundwork, random streams and what is unknown</a>.</p>
+<h2 id="growing">Growing</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A new creature starts at its species' starting size</td>
+<td>done</td>
+<td><code>CreatureArchetype::StartScale</code> (<code>src/ECS/Archetypes/CreatureArchetype.cpp</code>) from the creature table</td>
+</tr>
+<tr>
+<td>It grows fast while young, at full speed until a share of its growing-up time, then falls to its slowest</td>
+<td>done</td>
+<td><code>creature_physiology::Growth</code>, run by <code>CreaturePhysiologySystem</code>; test <code>YoungCreaturesGrowFastThenSlowly</code></td>
+</tr>
+<tr>
+<td>It grows more with energy to spare</td>
+<td>done</td>
+<td><code>creature_physiology::Growth</code></td>
+</tr>
+<tr>
+<td>It grows three times as fast asleep</td>
+<td>done</td>
+<td><code>creature_physiology::k_SleepGrowthFactor</code></td>
+</tr>
+<tr>
+<td>It grows standing still or moving (the original's moving test is patched out)</td>
+<td>done</td>
+<td><code>creature_physiology::TickTurn</code>; test <code>ItGrowsStandingStillOrMovingAndUpToFullSize</code></td>
+</tr>
+<tr>
+<td>It grows by itself up to size 2 and no further</td>
+<td>done</td>
+<td><code>creature_physiology::k_MaxGrownSize</code>; same test</td>
+</tr>
+<tr>
+<td>It only grows from the third stage of growing up</td>
+<td>done</td>
+<td><code>creature_physiology::k_GrowingPhase</code></td>
+</tr>
+<tr>
+<td>A creature made bigger than 2 by other means is put back to 2 by its next turn's growth</td>
+<td>done</td>
+<td><code>creature_physiology::Grow</code>; tests <code>ItGrowsStandingStillOrMovingAndUpToFullSize</code>, <code>AGrowthStepKeepsTheSizeWithinNoneAndFullSize</code></td>
+</tr>
+<tr>
+<td>The game's growth runs on game turns, so a faster game makes it grow faster</td>
+<td>done</td>
+<td><code>CreaturePhysiologySystem</code> runs once a game turn (<code>ecs::creature_loop::ProcessTurn</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="size-limits-and-how-it-is-shown">Size limits and how it is shown</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Size 1 stands about 15 units tall whatever the species' mesh</td>
+<td>done</td>
+<td><code>creature_morph</code> <code>k_HeightAtSizeOne</code>; test <code>ACreatureOfSizeOneIsFifteenUnitsTall</code></td>
+</tr>
+<tr>
+<td>The drawn size is kept between a smallest and a largest</td>
+<td>done</td>
+<td><code>creature_morph::ClampScale</code>; test <code>SizeIsKeptBetweenItsLimits</code></td>
+</tr>
+<tr>
+<td>The mesh is scaled by the creature's size and the species' own scale</td>
+<td>done</td>
+<td><code>creature_morph</code> scale, <code>CreatureArchetype::DrawnScale</code></td>
+</tr>
+<tr>
+<td>Near its player's citadel the creature is shrunk down so that it fits (unconfirmed by how much)</td>
+<td>done</td>
+<td><code>ecs::player_creature::ShrinkInPens</code> (<code>src/ECS/PlayerCreature.cpp</code>, each creature turn): 0.22 within 14 m of its pen home between the pen's walls, back to its size at 16 m; drawn only (<code>components::CreatureDrawPose::scale</code>); test <code>CreatureDrawnBody.InItsPenTheEyesShrinkWithTheBody</code>. Our wiki has the numbers (<a href="../../creature.html#the-players-creature">page</a>)</td>
+</tr>
+<tr>
+<td>Inside the temple's creature room it is shown at the room's size</td>
+<td>todo</td>
+<td>the Creature Cave draws no creature yet; see <a href="creature_cave.html">creature_cave.md</a>. Our wiki differs: the Cave's copy of the creature takes its real size, not one of the room's (<a href="../../creature.html#the-players-creature">page</a>)</td>
+</tr>
+<tr>
+<td>The creature's size is a value in the Creature Cave's attributes scroll</td>
+<td>todo</td>
+<td>the cave's snapshot and the attributes scroll have no size (<code>creature_cave::Snapshot</code>, <code>src/Creature/CreatureCave.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-size-changes">What size changes</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Bigger creatures walk and run faster</td>
+<td>done</td>
+<td><code>creature_locomotion</code>; test <code>SpeedsGrowWithSize</code></td>
+</tr>
+<tr>
+<td>Bigger creatures play their animations more slowly</td>
+<td>done</td>
+<td>test <code>BiggerCreaturesPlayMoreSlowly</code></td>
+</tr>
+<tr>
+<td>Bigger creatures see further</td>
+<td>done</td>
+<td><code>creature_look::LookRange</code></td>
+</tr>
+<tr>
+<td>Bigger creatures use energy more slowly and fill up on less</td>
+<td>done</td>
+<td>see <a href="physiology.html">physiology.md</a></td>
+</tr>
+<tr>
+<td>Bigger creatures tire less from actions</td>
+<td>done</td>
+<td><code>creature_physiology::ApplyActionCost</code> in <code>CreaturePhysiologySystem</code></td>
+</tr>
+<tr>
+<td>Bigger creatures hit harder in fights, and make bigger arenas</td>
+<td>done</td>
+<td>see <a href="fighting.html">fighting.md</a></td>
+</tr>
+<tr>
+<td>Bigger creatures lie out cold longer when knocked out</td>
+<td>done</td>
+<td>the knock-out time grows with size (<code>src/Creature/CreatureFight.cpp</code>)</td>
+</tr>
+<tr>
+<td>The leash held in the hand is longer for bigger creatures</td>
+<td>done</td>
+<td>see <a href="leash.html">leash.md</a></td>
+</tr>
+<tr>
+<td>Small creatures have bigger eyes for their size</td>
+<td>done</td>
+<td>test <code>SmallCreaturesHaveBiggerEyesForTheirSize</code></td>
+</tr>
+<tr>
+<td>Hair grows with size but heads shrink</td>
+<td>done</td>
+<td>test <code>ScaleGrowsWithSizeButHeadsShrink</code></td>
+</tr>
+<tr>
+<td>Footprints are bigger for bigger creatures</td>
+<td>done</td>
+<td><code>creature_footprints</code> print size by the creature's size; see <a href="locomotion.html">locomotion.md</a></td>
+</tr>
+<tr>
+<td>Sounds are picked by size: heavier footsteps for bigger creatures</td>
+<td>done</td>
+<td><code>creature_audio</code> size key; test <code>SizeKey</code>; see <a href="animation.html">animation.md</a></td>
+</tr>
+<tr>
+<td>Bigger creatures walk through small trees</td>
+<td>todo</td>
+<td>no rule lets a creature walk through small trees in our tree</td>
+</tr>
+<tr>
+<td>Bigger creatures can carry heavier things (unconfirmed)</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Bigger creatures are more impressive to villagers</td>
+<td>todo</td>
+<td>see <a href="town_actions.html">town_actions.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="miracles-and-scripts">Miracles and scripts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The big and small creature spells ease the creature to a bigger or smaller size for a while, then back</td>
+<td>done</td>
+<td><code>creature_spells::SizeTarget</code>, to the creature's largest or smallest size (<code>ecs::components::CreatureSizeLimits</code>, else 2.4 and 0.2), run by <code>src/Magic/Spells/SpellCreature.cpp</code>; see <a href="../miracles/index.html">../miracles</a></td>
+</tr>
+<tr>
+<td>Those spells take it to its own smallest or largest size (0.2 and 2.4 unless a script sets them), leaving a creature already past it as it is</td>
+<td>done</td>
+<td><code>creature_spells::SizeTarget</code> and <code>SizeLimits</code> (<code>src/Creature/CreatureSpells.cpp</code>), the creature's own in <code>ecs::components::CreatureSizeLimits</code>; <code>test/creature/test_creature_spells.cpp</code> <code>TheBodySpellsTargets</code></td>
+</tr>
+<tr>
+<td>Scripts can scale a creature automatically to a size, or stop doing so</td>
+<td>todo</td>
+<td><code>CREATURE_AUTOSCALE</code> is a stub</td>
+</tr>
+<tr>
+<td>Scripts can read a creature's grown-up size</td>
+<td>todo</td>
+<td><code>ID_ADULT_SIZE</code> is a stub</td>
+</tr>
+<tr>
+<td>Scripts can set the size when a creature is made</td>
+<td>partial</td>
+<td>creatures loaded by <code>LOAD_MY_CREATURE</code> keep their file's size (<code>src/ECS/PlayerCreature.cpp</code>, <code>CreatureMindFileBody</code>); script creation of creatures is in <a href="saves_and_files.html">saves_and_files.md</a></td>
+</tr>
+<tr>
+<td>Size is kept in a saved creature file and in saved games</td>
+<td>partial</td>
+<td>creature files keep it (test <code>CreatureMindFileBody.TakesTheBodyAFileKeeps</code>); saved games are todo</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

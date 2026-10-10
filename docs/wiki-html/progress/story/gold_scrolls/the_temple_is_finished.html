@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Temple Is Finished (the first gold scroll) — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-temple-is-finished-the-first-gold-scroll">The Temple Is Finished (the first gold scroll)</a><ul>
+<li><a href="#where-it-sits-in-the-story">Where it sits in the story</a></li>
+<li><a href="#the-temple-flight">The temple flight</a></li>
+<li><a href="#going-in">Going in</a></li>
+<li><a href="#inside-the-temple">Inside the temple</a></li>
+<li><a href="#coming-out-the-gold-scroll-shown">Coming out: the gold scroll shown</a></li>
+<li><a href="#aftermath-failure-and-story-order">Aftermath, failure and story order</a></li>
+<li><a href="#unused-material">Unused material</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-temple-is-finished-the-first-gold-scroll">The Temple Is Finished (the first gold scroll)</h1>
+<p>The story step between the opening's walk to the village and Choose Your Creature: once the villagers finish the
+temple, the advisors show the player its entrance, make them go in and come out again, then fly the camera to the
+creatures' gates and show what a gold story scroll looks like. It has no title of its own in the game's text table and
+no scroll the player can click: the gold scroll it shows is a stand-in, removed when the scene ends, at exactly the
+place where <a href="choose_your_creature.html">Choose Your Creature</a>'s real scroll appears next.</p>
+<p><strong>Land:</strong> 1 · <strong>Giver:</strong> the two advisors, at the new temple · <strong>Script:</strong> CitadelGuide · <strong>Reward:</strong> none (it
+opens the way to the gold scrolls) · <strong>Repeatable:</strong> no</p>
+<p>Sources: the land's control script and the scene's script (the original source text, which matches the shipped
+<code>challenge.chl</code>), the game's text table and the executable. openblack is judged on this tree: the land's control script
+reaches this scene, but the game is checked only up to the intro's hand-over
+(<a href="../../scripts/land1_script.html">../../scripts/land1_script.md</a>), and none of the 41 commands it needs only logs "not
+implemented" in <code>src/CHLApi.cpp</code>.</p>
+<p><strong>Progress: 3/34 done, 30 partial — 53%</strong></p>
+<h2 id="where-it-sits-in-the-story">Where it sits in the story</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's control script runs the scene straight after the opening walk ("follow us", <a href="../tutorial.html">../tutorial.md</a>), which ends only when the villagers have finished the temple</td>
+<td>partial</td>
+<td><code>LandControl1</code> runs <code>CitadelGuide</code> after <code>FollowUs</code>; the intro is checked in game up to the hand-over, the rest of <code>FollowUs</code> (the walk and the citadel) is not. See <a href="../../scripts/land1_script.html">../../scripts/land1_script.md</a></td>
+</tr>
+<tr>
+<td>A new game that skips to choosing the creature never plays it: the temple is built at once at its spot and marked finished instead</td>
+<td>done</td>
+<td><code>LandControl1</code>'s skip branch: <code>BuildBuilding</code>, <code>CallNear</code> and <code>SetProperty</code> (built percentage) are real, and the test runs (fourth SkipBox answer) start with the temple built. See <a href="../../../map-loading.html#skipping-the-tutorial-skipbox-and-can_skip_tutorial">../../../bw1-notes/map-loading.md</a></td>
+</tr>
+<tr>
+<td>Before the scene, two did-you-know scrolls are placed: one by the village on zooming, rotating and double clicking, one by the temple door on the Space bar's safe camera position</td>
+<td>partial</td>
+<td>the shared <code>DidYouKnow</code> script calls only real natives (<code>CreateHighlight</code> is real, <code>src/ECS/ScriptHighlight</code>); not checked in game past the intro's hand-over</td>
+</tr>
+<tr>
+<td>The control script waits for the whole scene (including the visit inside the temple) before it places the fish-farm did-you-know, starts Throwing Stones and The Lost Flock, and runs Choose Your Creature</td>
+<td>partial</td>
+<td>plain script order in <code>LandControl1</code>; not checked in game past the intro's hand-over. See <a href="../silver_scrolls/throwing_stones.html">../silver_scrolls/throwing_stones.md</a>, <a href="../silver_scrolls/the_lost_flock.html">../silver_scrolls/the_lost_flock.md</a>, <a href="choose_your_creature.html">choose_your_creature.md</a></td>
+</tr>
+<tr>
+<td>The scene is logged nowhere: no challenge record, no reminder, nothing in the scroll log</td>
+<td>partial</td>
+<td>the same script runs, so nothing is logged either; not checked in game past the intro's hand-over</td>
+</tr>
+<tr>
+<td>The scene is a "temple" kind of script: while the player is inside the temple, only temple scripts may take the camera, so this scene can still run its own camera there</td>
+<td>partial</td>
+<td>inside the temple only the temple scripts run (<code>Game::ProcessTempleTurn</code>) and only they get the camera (<code>src/Help/ScriptControl.cpp</code>); not checked in game past the intro's hand-over</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-temple-flight">The temple flight</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A cinema (widescreen bars, the player's control taken) begins with the first epic theme</td>
+<td>partial</td>
+<td><code>SetWidescreen</code>, <code>StartCameraControl</code>, <code>StartMusic</code> are real (<code>src/CHLApi.cpp</code>); not checked in game past the intro's hand-over</td>
+</tr>
+<tr>
+<td>The camera flies to the temple over 6 seconds, then sinks slowly down its face over 23 seconds</td>
+<td>partial</td>
+<td><code>MoveCameraPosition</code>, <code>MoveCameraFocus</code>, <code>HasCameraArrived</code> are real (<code>src/Camera/ScriptCamera</code>); not checked in game past the intro's hand-over</td>
+</tr>
+<tr>
+<td>Both advisors step out; the good advisor: "At last. The people have finished our Temple."</td>
+<td>partial</td>
+<td><code>SpiritEject</code> and <code>RunText</code> are real (advisors and texts in <code>src/Help</code>); not checked in game past the intro's hand-over</td>
+</tr>
+<tr>
+<td>A second line, "It's beautiful and it will be extremely useful later.", is in the text table but commented out of the scene</td>
+<td>n/a</td>
+<td>cut line</td>
+</tr>
+<tr>
+<td>The camera moves to the entrance over 4 seconds; 2 seconds in, the evil advisor: "This is the entrance. Click the Action Button on it to take you inside." (with the action button's picture)</td>
+<td>partial</td>
+<td>real camera, advisor and text natives; not checked in game past the intro's hand-over</td>
+</tr>
+<tr>
+<td>The evil advisor stops pointing and the cinema ends when the camera arrives</td>
+<td>partial</td>
+<td><code>StopPointing</code> and the camera release are real; not checked in game past the intro's hand-over</td>
+</tr>
+</tbody>
+</table>
+<h2 id="going-in">Going in</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The temple is let in for the first time ("enable temple"); until now it could not be entered</td>
+<td>partial</td>
+<td><code>SetInterfaceCitadel</code> is real: the entrance can be tapped only while its value is not 0 (<code>src/Worship/Citadel.cpp</code> <code>EntranceValidToTap</code>); not checked in game past the intro's hand-over</td>
+</tr>
+<tr>
+<td>Every 20 seconds until the player goes in, the evil advisor steps out and repeats "This is the entrance. Click the Action Button on it to take you inside."</td>
+<td>partial</td>
+<td><code>CreateTimer</code> and the timer reads are real (<code>src/ECS/ScriptTimer</code>); not checked in game past the intro's hand-over</td>
+</tr>
+<tr>
+<td>Whenever the camera strays more than 100 from the door, or the door is out of view, the camera is pulled back to the entrance over 3 seconds and the good advisor says "No, click on the door." — so the player cannot wander off until they go in</td>
+<td>partial</td>
+<td><code>InsideTemple</code>, the near and in-view questions and the camera moves are real; not checked in game past the intro's hand-over</td>
+</tr>
+<tr>
+<td>Going in through the door itself works as in the game</td>
+<td>done</td>
+<td>the temple entrance is tapped to go in (<code>src/Worship/Citadel.cpp</code>, <code>src/3D/Implementations/TempleInterior.cpp</code>); tests in <code>test/temple/</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="inside-the-temple">Inside the temple</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>5 seconds after the player goes in, a timer starts: after a minute inside, then every 30 seconds, the good advisor says "Press the Escape key to leave the Temple."</td>
+<td>partial</td>
+<td><code>InsideTemple</code> (<code>game_clock::IsInsideCitadel</code>) and the timers are real; not checked in game past the intro's hand-over</td>
+</tr>
+<tr>
+<td>If the player leaves within those first 5 seconds the reminder never runs (quirk)</td>
+<td>partial</td>
+<td>the same script runs, so the same quirk; not checked in game past the intro's hand-over</td>
+</tr>
+<tr>
+<td>Escape leaves the temple as in the game</td>
+<td>done</td>
+<td>Escape inside the temple goes back to its main room and out (<code>Game.cpp</code>, <code>TempleInterior::Escape</code>)</td>
+</tr>
+<tr>
+<td>The scene waits until the player is outside and no other dialogue is running</td>
+<td>partial</td>
+<td><code>IsDialogueReady</code> and <code>InsideTemple</code> are real; not checked in game past the intro's hand-over</td>
+</tr>
+</tbody>
+</table>
+<h2 id="coming-out-the-gold-scroll-shown">Coming out: the gold scroll shown</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A second cinema begins with the neutral theme; the camera jumps to the entrance and pulls back over 3 seconds, then climbs the temple over 8</td>
+<td>partial</td>
+<td><code>SetCameraPosition</code>, <code>SetCameraFocus</code>, <code>StartMusic</code> and the camera moves are real; not checked in game past the intro's hand-over</td>
+</tr>
+<tr>
+<td>The camera turns to look at the village (5 seconds), then over it (7 seconds)</td>
+<td>partial</td>
+<td>real camera natives; not checked in game past the intro's hand-over</td>
+</tr>
+<tr>
+<td>The good advisor appears: "Now we have a Temple, let's explore. I'm dying to know what these Signposts are." and, 2 seconds in, points at a signpost in the village</td>
+<td>partial</td>
+<td><code>SpiritAppear</code> and <code>SpiritPointGameThing</code> are real; not checked in game past the intro's hand-over</td>
+</tr>
+<tr>
+<td>Scrolls are made drawable ("enable highlight draw") and a gold scroll is made 14 above the creatures' gates — the same spot and height as Choose Your Creature's scroll</td>
+<td>partial</td>
+<td><code>SetDrawHighlight</code>, <code>CreateHighlight</code> and <code>HighlightProperties</code> are real; not checked in game past the intro's hand-over</td>
+</tr>
+<tr>
+<td>The camera drifts into the village (8 seconds); the evil advisor appears: "No, there's so much we gotta do. I say we hunt out the Gold Story Scrolls."</td>
+<td>partial</td>
+<td>real camera, advisor and text natives; not checked in game past the intro's hand-over</td>
+</tr>
+<tr>
+<td>The camera turns to the scroll (8 seconds); evil advisor: "We'll need these if we're gonna progress through this world."</td>
+<td>partial</td>
+<td>real camera and text natives; not checked in game past the intro's hand-over</td>
+</tr>
+<tr>
+<td>The camera pans slowly up the scroll (14 seconds); evil advisor: "A Gold Story Scroll looks like this.", pointing at it</td>
+<td>partial</td>
+<td>real camera, advisor and text natives; not checked in game past the intro's hand-over</td>
+</tr>
+<tr>
+<td>The good advisor steps out, points at the scroll: "Clicking on Gold Story Scrolls with the Action Button will lead you through your Quest in Eden."</td>
+<td>partial</td>
+<td>real advisor and text natives; not checked in game past the intro's hand-over</td>
+</tr>
+<tr>
+<td>The camera pulls back to a view ready for exploring (6 seconds); the evil advisor steps out and the good one stops pointing: "You can activate the Scroll or you can explore. It's up to you, Leader."</td>
+<td>partial</td>
+<td>real camera, advisor and text natives; not checked in game past the intro's hand-over</td>
+</tr>
+<tr>
+<td>Both advisors go home, the music stops and the cinema ends when the camera arrives</td>
+<td>partial</td>
+<td><code>SpiritHome</code>, <code>StopMusic</code> and the camera release are real; not checked in game past the intro's hand-over</td>
+</tr>
+<tr>
+<td>The stand-in scroll is deleted; it can never be clicked</td>
+<td>partial</td>
+<td><code>ObjectDelete</code> deletes a highlight (mode 0); not checked in game past the intro's hand-over</td>
+</tr>
+</tbody>
+</table>
+<h2 id="aftermath-failure-and-story-order">Aftermath, failure and story order</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nothing stays changed in the world except that the temple can now be entered</td>
+<td>partial</td>
+<td>the same script runs; not checked in game past the intro's hand-over</td>
+</tr>
+<tr>
+<td>The scene cannot fail; the only wait the player controls is going into the temple and out again, which the advisors and the camera pull keep pushing them to do (no soft lock while the temple stands)</td>
+<td>partial</td>
+<td>the same script runs; not checked in game past the intro's hand-over</td>
+</tr>
+<tr>
+<td>Next in the story: Choose Your Creature's scroll appears where the stand-in was</td>
+<td>todo</td>
+<td>Choose Your Creature then waits for ever at the creature gates (<code>ObjectInfoBits</code> is a stub); see <a href="choose_your_creature.html">choose_your_creature.md</a></td>
+</tr>
+<tr>
+<td>Music: the first epic theme for the flight, the neutral theme for the way out</td>
+<td>partial</td>
+<td><code>StartMusic</code> plays these tracks (<code>src/Audio/Services/GameMusic</code>); not checked in game past the intro's hand-over</td>
+</tr>
+<tr>
+<td>No creature is involved (it hasn't been chosen yet)</td>
+<td>n/a</td>
+<td>no creature is involved</td>
+</tr>
+</tbody>
+</table>
+<h2 id="unused-material">Unused material</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Commented-out camera moves straight onto the gold scroll and back to the temple</td>
+<td>n/a</td>
+<td>cut from the scene</td>
+</tr>
+<tr>
+<td>An older draft of the temple's opening (rotating the camera, carrying wood and food to the builders, the kinds of scroll)</td>
+<td>n/a</td>
+<td>not in the shipped program: <a href="../silver_scrolls/see_the_citadel.html">../silver_scrolls/see_the_citadel.md</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

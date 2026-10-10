@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Challenge natives: sound and music — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="here" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#challenge-natives-sound-and-music">Challenge natives: sound and music</a><ul>
+<li><a href="#used-by-the-shipped-scripts">Used by the shipped scripts</a></li>
+<li><a href="#not-used-by-the-shipped-scripts">Not used by the shipped scripts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="challenge-natives-sound-and-music">Challenge natives: sound and music</h1>
+<p>The challenge scripts' functions for music, sound effects, spoken sounds and sound tags on objects. The game has 464 of these functions in all; the language statement each comes from is shown in italics, and "called" counts are calls in the shipped <code>challenge.chl</code>. How the virtual machine runs them is in <a href="../engine/script_vm.html">../engine/script_vm.md</a>; what each challenge is about is in <a href="../story/index.html">../story/</a>.</p>
+<p><strong>Progress: 26/26 done, 0 partial — 100%</strong></p>
+<h2 id="used-by-the-shipped-scripts">Used by the shipped scripts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Plays a sound effect from one of the sound banks, at a position or on an object: <em>start sound ‹sound› [‹soundbank›] ‹position› ‹with position›</em> (called 186 times in 54 scripts)</td>
+<td>done</td>
+<td><code>PlaySoundEffect</code> in <code>src/CHLApi.cpp</code>: <code>audio::script_sound::PlaySoundEffect</code> (<code>src/Audio/Services/ScriptSound.cpp</code>), at the position or not</td>
+</tr>
+<tr>
+<td>Starts a piece of music: <em>start music ‹music›</em> (called 123 times in 84 scripts)</td>
+<td>done</td>
+<td><code>StartMusic</code>: <code>GameMusic::ScriptStartMusic</code> (<code>src/Audio/Services/GameMusic.cpp</code>)</td>
+</tr>
+<tr>
+<td>Stops the script's music: <em>stop music</em> (called 108 times in 77 scripts)</td>
+<td>done</td>
+<td><code>StopMusic</code>: <code>GameMusic::ScriptStopMusic</code></td>
+</tr>
+<tr>
+<td>Fixes a piece of music to an object so it is heard near it: <em>attach music ‹music› to ‹target›</em> (called 22 times in 13 scripts)</td>
+<td>done</td>
+<td><code>AttachMusic</code>: <code>GameMusic::ScriptAttachMusic</code>, heard near the thing</td>
+</tr>
+<tr>
+<td>Takes the music off an object: <em>detach music from ‹object›</em> (called 12 times in 7 scripts)</td>
+<td>done</td>
+<td><code>DetachMusic</code>: <code>GameMusic::RemoveThingMusic</code></td>
+</tr>
+<tr>
+<td>Turns the angle sound (heard as the camera turns) on or off: <em>enable/disable angle sound</em> (called 2 times in 1 script)</td>
+<td>done</td>
+<td><code>StartAngleSound285</code>: <code>audio::confirmation::StartAngleSound</code>, the confirmation sound as the camera turns (<code>src/Audio/Services/Confirmation.cpp</code>); <code>test/test_confirmation.cpp</code></td>
+</tr>
+<tr>
+<td>Turns the creature's sounds on or off: <em>enable/disable creature sound</em> (called 42 times in 6 scripts)</td>
+<td>done</td>
+<td><code>SetCreatureSound</code>: the script audio state's creature-sound setting, read by the creature's voices (<code>src/ECS/Systems/Implementations/CreatureAudioSystem.cpp</code>)</td>
+</tr>
+<tr>
+<td>Gives the line the music has got to: <em>music line ‹line›</em> (called 36 times in 3 scripts)</td>
+<td>done</td>
+<td><code>LastMusicLine</code>: <code>GameMusic::ScriptLastMusicLine</code>; without audio it answers as text read, as the original</td>
+</tr>
+<tr>
+<td>Plays a spoken sound effect: <em>start say [extra] sound ‹sound› ‹position› ‹with position›</em> (called 74 times in 24 scripts)</td>
+<td>done</td>
+<td><code>GamePlaySaySoundEffect</code>: <code>audio::voices::Say</code>, at the position or not</td>
+</tr>
+<tr>
+<td>Turns the angle sound on or off (second form): <em>enable/disable angle sound</em> (called 2 times in 1 script)</td>
+<td>done</td>
+<td><code>StartAngleSound348</code>: <code>audio::confirmation::StartPitchSound</code>, the sound as the camera tilts</td>
+</tr>
+<tr>
+<td>Turns sound effects on or off: <em>enable/disable sound effects</em> (called 8 times in 5 scripts)</td>
+<td>done</td>
+<td><code>SetGameSound</code>: <code>audio::SetGameSound</code>; off stops every sample and only the dialogue banks play</td>
+</tr>
+<tr>
+<td>Stops a sound effect: <em>stop [say] sound ‹sound› [‹soundbank›]</em> (called 19 times in 7 scripts)</td>
+<td>done</td>
+<td><code>StopSoundEffect</code>: <code>audio::script_sound::StopSoundEffect</code></td>
+</tr>
+<tr>
+<td>Turns the music that follows the player's alignment on or off: <em>enable/disable alignment music</em> (called 2 times in 1 script)</td>
+<td>done</td>
+<td><code>EnableDisableAlignmentMusic</code>: the script audio state's alignment-music setting, read by <code>GameMusic</code></td>
+</tr>
+<tr>
+<td>Fixes a sound to an object, optionally heard in 3D: <em>attach [3d] sound tag ‹sound› [‹soundbank›] to ‹target›</em> (called 5 times in 2 scripts)</td>
+<td>done</td>
+<td><code>AttachSoundTag</code>: <code>audio::script_sound::AttachSoundTag</code>, in 3D or not</td>
+</tr>
+<tr>
+<td>Takes a sound off an object: <em>detach sound tag ‹sound› [‹soundbank›] from ‹target›</em> (called 6 times in 3 scripts)</td>
+<td>done</td>
+<td><code>DetachSoundTag</code>: <code>audio::script_sound::DetachSoundTag</code></td>
+</tr>
+<tr>
+<td>Whether a sound effect is playing: <em>sound ‹sound› [‹soundbank›] playing</em> (called 17 times in 3 scripts)</td>
+<td>done</td>
+<td><code>GameSoundPlaying</code>: <code>audio::script_sound::GameSoundPlaying</code></td>
+</tr>
+<tr>
+<td>Whether a spoken sound effect is playing: <em>say [extra] sound ‹sound› playing</em> (called 9 times in 1 script)</td>
+<td>done</td>
+<td><code>SaySoundEffectPlaying</code>: <code>audio::voices::IsSaying</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="not-used-by-the-shipped-scripts">Not used by the shipped scripts</h2>
+<p>The game has these but no shipped script calls them; mods and fan-made challenges can.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Moves a piece of music from one object to another: <em>move music from ‹value› to ‹value›</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>MoveMusic</code>: <code>GameMusic::MoveThingMusic</code></td>
+</tr>
+<tr>
+<td>Turns the music on an object on or off: <em>enable/disable music on ‹value›</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>EnableDisableMusic</code>: <code>GameMusic::EnableThingMusic</code></td>
+</tr>
+<tr>
+<td>Gives the distance from the camera to an object's music (unconfirmed): <em>get ‹source› music distance</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>GetMusicObjDistance</code>: <code>GameMusic::ThingMusicDistance</code>, nought for a missing thing</td>
+</tr>
+<tr>
+<td>Gives the distance from the camera to a piece of music (unconfirmed): <em>get music ‹type› distance</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>GetMusicEnumDistance</code>: <code>GameMusic::ScriptMusicTypeDistances</code>, two values for a wrong type as the original</td>
+</tr>
+<tr>
+<td>Moves the music on an object to a point in it: <em>set ‹value› music position to ‹value›</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>SetMusicPlayPosition</code>: <code>GameMusic::SetPlayPosition</code></td>
+</tr>
+<tr>
+<td>Starts the music on an object again: <em>restart music on ‹value›</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>RestartMusic</code>: <code>GameMusic::RestartThingMusic</code></td>
+</tr>
+<tr>
+<td>Whether the music on an object has played: <em>‹value› music played</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>MusicPlayed191</code>: <code>GameMusic::IsThingMusicFinished</code>, true for a missing thing</td>
+</tr>
+<tr>
+<td>Whether the music on an object has played (second form): <em>‹value› music played</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>MusicPlayed350</code>: <code>GameMusic::ScriptMusicPlayed</code>; without audio it answers as text read</td>
+</tr>
+<tr>
+<td>Whether a sound exists: <em>sound exists</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>SoundExists</code>: <code>audio::SoundExists</code></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

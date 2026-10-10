@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Throwing Stones — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#throwing-stones">Throwing Stones</a><ul>
+<li><a href="#how-it-appears">How it appears</a></li>
+<li><a href="#the-fisherman">The fisherman</a></li>
+<li><a href="#the-introduction">The introduction</a></li>
+<li><a href="#the-everlasting-pile">The everlasting pile</a></li>
+<li><a href="#what-the-player-must-do">What the player must do</a></li>
+<li><a href="#success">Success</a></li>
+<li><a href="#the-reward">The reward</a></li>
+<li><a href="#practice-afterwards">Practice afterwards</a></li>
+<li><a href="#music-and-sounds">Music and sounds</a></li>
+<li><a href="#creature-involvement">Creature involvement</a></li>
+<li><a href="#script-quirks-and-unused-material">Script quirks and unused material</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="throwing-stones">Throwing Stones</h1>
+<p>A silver scroll of the first land that teaches throwing: a boulder sits on top of a pillar down on the shore, and the
+player throws rocks from an everlasting pile on the hill above until one knocks the boulder off. A fisherman watches
+every throw from outside his hut. The prize is a toy ball for the creature, and afterwards the boulder keeps coming
+back for practice, turning into water miracle seeds. The land as a whole is in <a href="../land_1.html">../land_1.md</a>; the
+mini-game summary is in <a href="../minigames.html">../minigames.md</a>.</p>
+<p><strong>Land:</strong> 1 · <strong>Giver:</strong> the advisors (scroll over the hill above the pillar) · <strong>Script:</strong> ThrowingStones ·
+<strong>Reward:</strong> a toy ball in a chest from the sky; then up to six water miracle seeds for practice throws ·
+<strong>Repeatable:</strong> no (the practice afterwards is endless until six seeds)</p>
+<p>Sources: the quest's challenge script (the original source text, checked against the PC game's compiled
+<code>challenge.chl</code>), the land's setup and control scripts, the throwing hand demo, the shared reward and did-you-know
+scripts, the game's text table and the executable (how a scroll record and its alignment are applied). openblack's state
+is judged on this tree: the land's control script starts this quest with the start-up box's second, third and fourth
+answers (see <a href="../../scripts/land1_script.html">../../scripts/land1_script.md</a>), and of the 64 script functions the quest
+and the shared scripts it runs (notice, reward, did-you-know, hand demo) call, 10 only log "not implemented" in
+<code>src/CHLApi.cpp</code> (the held-object read included). The 54 that work include the camera reads, widescreen and its
+transition check, distance and position reads, random numbers, the game time, the existence check, setting a position
+and making rocks and mobile statics. Every row below is todo unless the notes say otherwise.</p>
+<p><strong>Progress: 1/47 done, 27 partial — 31%</strong></p>
+<h2 id="how-it-appears">How it appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's setup marks the boulder's spot with an area villagers avoid (20 across the target)</td>
+<td>partial</td>
+<td><code>SetupLand1</code> runs in our tree and <code>INFLUENCE_POSITION</code> works (<code>src/Magic/Script/CHLInfluence.cpp</code>); not checked in game</td>
+</tr>
+<tr>
+<td>The land's control script starts the quest at the very beginning of the land, in the background, right after the family's "follow us" walk and the temple guide (or at once when skipping to the creature choice), and lets it go at once</td>
+<td>partial</td>
+<td>started with the second, third and fourth tutorial answers (before the creature glade); with the first answer the intro never finishes, so it never starts</td>
+</tr>
+<tr>
+<td>The boulder on the pillar is always drawn, however far away it is</td>
+<td>done</td>
+<td>our tree fades no object with distance, so the boulder is always drawn; the special is accepted (<code>ecs::super_villager::ThingJcSpecial</code>)</td>
+</tr>
+<tr>
+<td>A bronze did-you-know scroll is placed nearby at once: "Silver Reward Scrolls are not vital so you don't have to do them, if you don't want to. But there are often rewards available if you complete them."</td>
+<td>partial</td>
+<td>the did-you-know script, <code>CREATE_HIGHLIGHT</code>, <code>HIGHLIGHT_PROPERTIES</code> and the text work (<code>src/ECS/ScriptHighlight.cpp</code>, <code>src/Help</code>); not checked in game</td>
+</tr>
+<tr>
+<td>A silver challenge scroll is put up on the hill above the pillar, 15 up in the air</td>
+<td>partial</td>
+<td><code>CREATE_HIGHLIGHT</code> and the height (<code>SET_PROPERTY</code> of the Y position) work; not checked in game</td>
+</tr>
+<tr>
+<td>While it is unclicked, whenever the camera is within 150 of it and it is on screen (at most every 30 seconds, and not during a film), the good advisor points at it: "Look. A Silver Reward Scroll. Let's see what it means." and the evil advisor adds "Yeah, Silver ones aren't as vital as the Gold ones, but we can still check them out."</td>
+<td>partial</td>
+<td>the quest's notice script runs on working natives (<code>DLL_GETTIME</code>, <code>GAME_THING_FIELD_OF_VIEW</code>, <code>SPIRIT_EJECT</code>, <code>SPIRIT_POINT_POS</code>, <code>RUN_TEXT</code>); not checked in game</td>
+</tr>
+<tr>
+<td>Clicking the scroll starts the quest; the scroll is switched to active</td>
+<td>partial</td>
+<td><code>GAME_THING_CLICKED</code> and <code>SET_ACTIVE</code> on a highlight work; not checked in game</td>
+</tr>
+<tr>
+<td>If the player knocks the boulder off before ever clicking the scroll, the scroll's notice stops, there is no introduction, no fisherman and no reward: the evil advisor just points at the pillar and says "You rule at rock throwing, Boss." and the practice round starts</td>
+<td>partial</td>
+<td>the check and the advisor's line work; the practice round that follows never gets going (see below)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-fisherman">The fisherman</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>On clicking, one Japanese fisherman is made at his hut by the shore and walks to a spot on the hill by the rock pile, faces the camera and plays an idle animation</td>
+<td>partial</td>
+<td><code>CREATE</code> makes the fisherman (<code>VillagerArchetype</code>), <code>MOVE_GAME_THING</code>, <code>SET_FOCUS</code>, <code>SET_SCRIPT_ULONG</code> on a villager work; not checked in game</td>
+</tr>
+<tr>
+<td>Every second he checks what the hand holds; only a rock counts (trees were meant to, but were left out) and only while he is on screen with the camera within 100</td>
+<td>todo</td>
+<td><code>GET_OBJECT_HELD</code> and <code>IS_OF_TYPE</code> are stubs: he never sees a rock in the hand</td>
+</tr>
+<tr>
+<td>He watches the rock in the hand; if it comes within 10 of him he ducks like a goalkeeper and waits a moment</td>
+<td>todo</td>
+<td><code>GET_OBJECT_HELD</code> and <code>IS_OF_TYPE</code> are stubs: he never sees a rock in the hand</td>
+</tr>
+<tr>
+<td>Once thrown, he follows its flight with his eyes; the script tracks how close the rock came to the foot of the pillar</td>
+<td>todo</td>
+<td><code>GET_OBJECT_HELD</code> and <code>IS_OF_TYPE</code> are stubs: he never sees a rock in the hand</td>
+</tr>
+<tr>
+<td>If it came within 12 of the pillar he cheers ("Ooh. Now that was close."), otherwise he despairs ("Hey, I saw that. You missed the pillar by miles!"); the lines are spoken from him only if no other dialogue is running</td>
+<td>todo</td>
+<td><code>GET_OBJECT_HELD</code> and <code>IS_OF_TYPE</code> are stubs: he never sees a rock in the hand</td>
+</tr>
+<tr>
+<td>If his hut drops below three quarters of its health (before the quest is won), the evil advisor points at it: "Great shot! The house didn't stand a chance." and the good advisor: "Please watch where you're throwing things. You could have someone's eye out."; he plays an angry animation and stomps off to a friend's house, then is left to his own life</td>
+<td>todo</td>
+<td><code>GET_PROPERTY</code> of health is not ported (answers 0), so the hut and the fisherman read wrong from the start</td>
+</tr>
+<tr>
+<td>Once the quest is won, if his hut is undamaged he walks back home and is left to his own life</td>
+<td>todo</td>
+<td>health answers 0 (<code>GET_PROPERTY</code>), so these tests are wrong</td>
+</tr>
+<tr>
+<td>If he dies, his watching stops</td>
+<td>todo</td>
+<td>health answers 0 (<code>GET_PROPERTY</code>), so these tests are wrong</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-introduction">The introduction</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A film (widescreen): the camera glides over 5 seconds to a view of the rock pile; both advisors come out</td>
+<td>partial</td>
+<td><code>SET_WIDESCREEN</code>, <code>MOVE_CAMERA_POSITION</code>, <code>MOVE_CAMERA_FOCUS</code>, <code>SPIRIT_EJECT</code> work; not checked in game</td>
+</tr>
+<tr>
+<td>Evil: "OK. Let's get our projectile skills up to scratch." Good: "What do you suggest? I presume it involves killing…" Evil: "Not at all. I was going to propose, er, we, um… "</td>
+<td>partial</td>
+<td><code>RUN_TEXT</code> and <code>TEXT_READ</code> work (<code>src/Help</code>); not checked in game</td>
+</tr>
+<tr>
+<td>The camera swings over 4 seconds to look at the boulder on its pillar; the good advisor looks at it and points: "I know, let's see if we can hit that pillar over there."</td>
+<td>partial</td>
+<td><code>LOOK_GAME_THING</code>, <code>SPIRIT_POINT_POS</code>, the camera moves work; not checked in game</td>
+</tr>
+<tr>
+<td>Good: "It's a test of our godly powers." — "And nobody gets hurt."</td>
+<td>partial</td>
+<td><code>RUN_TEXT</code> works; not checked in game</td>
+</tr>
+<tr>
+<td>The camera goes back up to the hill; five rocks of half to nine tenths of full size appear in a pile there; the evil advisor points at them: "How nice. And I guess we use this everlasting pile of stones." Good: "Hmm. Handy, that."</td>
+<td>partial</td>
+<td><code>CREATE_WITH_ANGLE_AND_SCALE</code> makes the rocks, and the film around them works; not checked in game</td>
+</tr>
+<tr>
+<td>The advisors go home, the dialogue box closes and the quest is recorded under the title "Throwing Stones" at 0% with the good advisor's reminder "See if you can hit that pillar with these handily-placed stones."</td>
+<td>partial</td>
+<td>the advisors and the dialogue work; the record is <code>SNAPSHOT</code>, a stub</td>
+</tr>
+<tr>
+<td>The throwing hand demo plays: the camera settles on the hill and a recorded hand shows how to throw, pausing at each step for the good advisor: "Move your Hand over a rock." — "Press the Action Button until the rock is in your hand." — "Hold down the Action Button." — "Put momentum on the throw by moving the Hand in the correct direction." — "Throw the rock by releasing the Action Button." then "Try throwing a rock now."</td>
+<td>partial</td>
+<td><code>PLAY_HAND_DEMO</code>, <code>HAND_DEMO_TRIGGER</code>, <code>IS_PLAYING_HAND_DEMO</code> work (the intro's drag demo is checked in game); this throw demo is not checked</td>
+</tr>
+<tr>
+<td>After the film a second did-you-know is placed by the hill, explaining aftertouch: "You can throw in different ways. A long smooth throw sends the missile low along the ground, and a quick hand move and release will throw the object higher. Moving the Hand after you release gives you aftertouch…"</td>
+<td>partial</td>
+<td>the did-you-know script works; not checked in game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-everlasting-pile">The everlasting pile</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A rock from the pile that is destroyed comes back at its place in the pile, at nine tenths size whatever size it was</td>
+<td>partial</td>
+<td><code>THING_VALID</code> and <code>CREATE_WITH_ANGLE_AND_SCALE</code> work; not checked in game</td>
+</tr>
+<tr>
+<td>A rock that has come to rest (not flying, not in the hand or the creature's hand) more than 40 from its place is put back there at half size</td>
+<td>partial</td>
+<td><code>SET_POSITION</code> and the flying test work; the in-hand property answers 0 and <code>IN_CREATURE_HAND</code> is a stub, so a held rock far away is also pulled back; setting a rock's scale is not ported</td>
+</tr>
+<tr>
+<td>The pile stops refilling once the quest is won, so it is "everlasting" only while the quest runs</td>
+<td>partial</td>
+<td>the script's own logic; not checked in game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-the-player-must-do">What the player must do</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Throw rocks at the pillar on the shore until the boulder on top is knocked more than 2 away from its spot; the script checks every 2 seconds</td>
+<td>partial</td>
+<td>picking up and throwing rocks work; the script's distance test on the boulder uses working natives; not checked in game</td>
+</tr>
+<tr>
+<td>Hitting the pillar while the boulder stays on top (checked 2 seconds after the hit): a film looking at the pillar; the evil advisor: "You're doing well but you have to knock the rock clean off." The record moves to 50% with the reminder "Can you knock the rock off the top? Eh?" This happens once only</td>
+<td>todo</td>
+<td><code>GAME_THING_HIT</code> is a stub</td>
+</tr>
+<tr>
+<td>There is no time limit, no limit on throws and no way to fail; damaging houses only upsets the fisherman</td>
+<td>partial</td>
+<td>nothing in our tree adds a limit; the fisherman part is not working (see above)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="success">Success</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A film: the camera flies over 2 seconds to look at the shore, following the falling boulder; the good advisor: "You hit it. Marvellous." and the record moves to 50%</td>
+<td>partial</td>
+<td><code>SET_FOCUS_FOLLOW</code> and the camera work; the record is <code>UPDATE_SNAPSHOT</code>, a stub</td>
+</tr>
+<tr>
+<td>The camera rises over 5 seconds; the quest is recorded as fully successful (no alignment change) and the evil advisor: "Neat, Boss. You're really gonna do damage with this skill later!"</td>
+<td>partial</td>
+<td>the camera and the line work; the record is <code>SNAPSHOT</code>, a stub</td>
+</tr>
+<tr>
+<td>The camera then looks at where the reward will land, the area villagers avoided is removed and an attraction 10 across is put at the reward spot</td>
+<td>partial</td>
+<td><code>INFLUENCE_POSITION</code> works; not checked in game</td>
+</tr>
+<tr>
+<td>The scroll is removed</td>
+<td>partial</td>
+<td><code>OBJECT_DELETE</code> of a highlight works</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-reward">The reward</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A chest holding a toy ball for the creature falls from the sky by the pillar, without a film</td>
+<td>todo</td>
+<td><code>CREATE_REWARD</code> is a stub: no chest</td>
+</tr>
+<tr>
+<td>If it is the game's first reward (likely, as this quest is open from the start of the land) the good advisor: "Wow. We've been given a chest. I wonder if there's anything in it?" and the evil advisor: "Yeah, click the Action Button on it to open it."; once opened, the reward's help line and "Now click on the contents to activate them."</td>
+<td>todo</td>
+<td><code>CREATE_REWARD</code> is a stub: no chest</td>
+</tr>
+<tr>
+<td>Otherwise, once the chest is clicked, the reward's help line is spoken in one line if the dialogue is free</td>
+<td>todo</td>
+<td><code>CREATE_REWARD</code> is a stub: no chest</td>
+</tr>
+</tbody>
+</table>
+<h2 id="practice-afterwards">Practice afterwards</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A new boulder is put back on the pillar (through a line of the land's map script), with a small area villagers avoid around it</td>
+<td>todo</td>
+<td><code>MAP_SCRIPT_FUNCTION</code> is a stub: no new boulder, so the practice script waits for good</td>
+</tr>
+<tr>
+<td>Each time it is knocked off and comes to rest, it fades away and a water miracle seed appears where it stopped</td>
+<td>todo</td>
+<td><code>MAP_SCRIPT_FUNCTION</code> is a stub: no new boulder, so the practice script waits for good</td>
+</tr>
+<tr>
+<td>A boulder destroyed rather than knocked off gives no seed; a new one is put up either way</td>
+<td>todo</td>
+<td><code>MAP_SCRIPT_FUNCTION</code> is a stub: no new boulder, so the practice script waits for good</td>
+</tr>
+<tr>
+<td>After six seeds the boulder is no longer put back</td>
+<td>todo</td>
+<td><code>MAP_SCRIPT_FUNCTION</code> is a stub: no new boulder, so the practice script waits for good</td>
+</tr>
+</tbody>
+</table>
+<h2 id="music-and-sounds">Music and sounds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The quest plays no music of its own; the fisherman's cheer and jeer are spoken from him</td>
+<td>partial</td>
+<td>no music, as the original; the cheer and jeer (<code>GAME_PLAY_SAY_SOUND_EFFECT</code> works) never come, since he never sees a rock</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creature-involvement">Creature involvement</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature isn't needed; rocks in its hand count as held (they aren't put back) but the fisherman only watches rocks in the player's hand</td>
+<td>todo</td>
+<td><code>IN_CREATURE_HAND</code> is a stub and the creature holding objects is not wired</td>
+</tr>
+<tr>
+<td>The toy ball is a plaything for the creature</td>
+<td>todo</td>
+<td>no ball: <code>CREATE_REWARD</code> is a stub and <code>CREATE</code> does not make balls</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-quirks-and-unused-material">Script quirks and unused material</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Knocking the boulder off before clicking the scroll forfeits the toy ball and the record (the quest is never recorded)</td>
+<td>partial</td>
+<td>the script's own logic; in our tree there is no record or chest either way</td>
+</tr>
+<tr>
+<td>After the win, if the fisherman's hut is damaged but still above three quarters, he never goes home and keeps watching throws</td>
+<td>todo</td>
+<td>health answers 0 (<code>GET_PROPERTY</code>), so the hut test is wrong</td>
+</tr>
+<tr>
+<td>Each practice round puts up another small avoid-area at the pillar and never removes the old ones</td>
+<td>todo</td>
+<td>the practice rounds never run (<code>MAP_SCRIPT_FUNCTION</code> is a stub)</td>
+</tr>
+<tr>
+<td>A counter of rocks put back at the pile is kept but never read</td>
+<td>n/a</td>
+<td></td>
+</tr>
+<tr>
+<td>An earlier version had three boulders to knock off (each with its own advisor line and the reminder "See if you can hit that pillar…" until all three fell); it was commented out and its lines are gone from the text table</td>
+<td>n/a</td>
+<td></td>
+</tr>
+<tr>
+<td>Only one fisherman is made, though the script is written to make several watchers spread around the spot</td>
+<td>n/a</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

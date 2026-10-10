@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Storm — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="here" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#storm">Storm</a><ul>
+<li><a href="#casting-and-cost">Casting and cost</a></li>
+<li><a href="#the-swirl-at-the-cast-point">The swirl at the cast point</a></li>
+<li><a href="#clouds">Clouds</a></li>
+<li><a href="#rain-and-wind">Rain and wind</a></li>
+<li><a href="#lightning-extreme-storm">Lightning (extreme storm)</a></li>
+<li><a href="#reactions-and-saving">Reactions and saving</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="storm">Storm</h1>
+<p>The storm miracle throws a swirl from the hand that gathers a ring of dark clouds over the land, bringing rain and
+wind that drift the storm with the weather. The extreme (power-up) storm adds lightning from the clouds; the second
+power-up is the tornado (see <a href="tornado.html">tornado.md</a>). Weather outside miracles is in <a href="../weather/index.html">../weather/</a>.</p>
+<p><strong>Progress: 32/35 done, 2 partial — 94%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../miracles.html">Miracles one by one</a>.</p>
+<h2 id="casting-and-cost">Casting and cost</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The cast radius is held between 20 m and 1000 m and sets the storm's size</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellStormAndTornado.cpp</code> (InitWithPos); test <code>Storm.radiusClampAndUpkeep</code> (<code>test/test_storm.cpp</code>)</td>
+</tr>
+<tr>
+<td>The normal storm has clouds, rain and wind only; the extreme storm adds lightning, the second power-up makes a tornado</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Storm.cpp</code> (the power-up level: lightning unless it is the plain storm, the tornado group with the second power-up)</td>
+</tr>
+<tr>
+<td>Cost to create, lifetime (40 s) and per-strike cost differ between normal and extreme</td>
+<td>done</td>
+<td><code>src/Magic/MagicTables.cpp</code>, <code>src/Magic/Core/Chants.cpp</code> (info.dat rows)</td>
+</tr>
+<tr>
+<td>Upkeep each turn grows with the square of the radius over the normal-cost radius of 40 m</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellStormAndTornado.cpp</code> (CostToMaintain); test <code>Storm.radiusClampAndUpkeep</code></td>
+</tr>
+<tr>
+<td>In the hand: a small dark cloud ball with flicks of lightning sized by the hand and the seed's strength; each flash lasts half a second, flashes come at randomised gaps</td>
+<td>done</td>
+<td><code>src/Magic/Hand/HandMagicFX.cpp</code> (the level's in-hand effect, from the data)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-swirl-at-the-cast-point">The swirl at the cast point</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A swirl of 30 dark sprites spins tighter and faster, then disperses after 2.4 s and fades 2 s later</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Storm.cpp</code> (UR_StormCast); test <code>Storm.realData</code> (the whirlwind alone)</td>
+</tr>
+<tr>
+<td>The swirl is thrown along the camera's level heading at up to 20 m/s, speeding up between 1 s and 3 s; cast straight down it stays where it is</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Storm.cpp</code> (UR_StormCast: the camera's level heading, not normalised, so straight down it stays)</td>
+</tr>
+<tr>
+<td>The swirl runs only while the miracle's caster exists and is removed when the caster goes</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellStormAndTornado.cpp</code> (Process: the whirlwind is deleted without a creator)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="clouds">Clouds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Clouds are born over about 10 s until the storm has its full number, each starting on a random ring around the centre</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Storm.cpp</code> (UR_CloudGather); test <code>Storm.cloudRamps</code></td>
+</tr>
+<tr>
+<td>Each cloud orbits the centre while it gathers, slowing and closing in as it forms, and is reborn when it has lived its gathering time</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Storm.cpp</code> (UR_CloudGather: the spiral in, the angular speed)</td>
+</tr>
+<tr>
+<td>A cloud's grey shade, transparency and size follow its gathering</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Storm.cpp</code> (colour, alpha, scale and ratio ramps); test <code>Storm.cloudRamps</code></td>
+</tr>
+<tr>
+<td>Clouds float about 90 m up, following the average height of the land under the storm</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Storm.cpp</code> (CloudHeight plus the average land height under the storm)</td>
+</tr>
+<tr>
+<td>Clouds darken the land below them as a moving shadow</td>
+<td>done</td>
+<td><code>src/Particles/Creators/Mist.cpp</code> (the clouds' shadow stamped on the land)</td>
+</tr>
+<tr>
+<td>When the storm ends the clouds fade out over about 3 s</td>
+<td>done</td>
+<td>The effect file's fade and removal rules</td>
+</tr>
+</tbody>
+</table>
+<h2 id="rain-and-wind">Rain and wind</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The storm lays a rain storm in the weather with inner and outer radii from its size, fading in over half its gathering time, overcast and rain set from the storm</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Storm.cpp</code>, <code>src/ECS/Weather/Storms.cpp</code>; tests <code>Storm.gatherDescriptorRadii</code>, <code>Storm.gatherDescriptorWindAndRain</code>; see <a href="../weather/index.html">../weather/</a></td>
+</tr>
+<tr>
+<td>The rain stops at once when the storm ends</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Storm.cpp</code> (the registered storm is marked on closing), <code>src/ECS/Weather/Storms.cpp</code>; test <code>Storm.gatherRegistersOneStorm</code></td>
+</tr>
+<tr>
+<td>The storm blows wind along the direction it was thrown, stronger for bigger storms, rounded as the game rounds</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Storm.cpp</code> (the wind byte, clipped and rounded); test <code>Storm.gatherDescriptorWindAndRain</code></td>
+</tr>
+<tr>
+<td>After a short delay the storm drifts with the local wind, smoothly and with no slowing on slopes</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Storm.cpp</code> (UR_CloudMoverNew: the slope changes nothing, as in the original)</td>
+</tr>
+<tr>
+<td>A storm cast by a script takes no wind and stays put</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Storm.cpp</code> (no wind for a script cast)</td>
+</tr>
+<tr>
+<td>Rain and wind ambience rise and fall with the weather at the camera</td>
+<td>done</td>
+<td><code>src/Audio/Services/SoundMap.cpp</code>, <code>src/Audio/Services/AtmosBanks.cpp</code></td>
+</tr>
+<tr>
+<td>The rain cools and puts out fires under the storm, and villagers come to watch the storm putting a fire out (one gathering per storm at a time)</td>
+<td>done</td>
+<td><code>src/ECS/Fire/FireEffect.cpp</code> (rain cooling), <code>src/Magic/Spells/SpellStormAndTornado.cpp</code> (the watchers' reaction, one per storm)</td>
+</tr>
+<tr>
+<td>The wind drifts fire sprites and smoke</td>
+<td>done</td>
+<td><code>src/ECS/Fire/FireGraphic.cpp</code> (the puffs drift with half the wind)</td>
+</tr>
+<tr>
+<td>A script can end every storm in an area; a miracle storm caught in it comes back on the next step and fades in again</td>
+<td>done</td>
+<td><code>src/Magic/Script/CHLWeather.cpp</code> (KILL_STORMS_IN_AREA), <code>src/Particles/Rules/Storm.cpp</code> (the next step registers another)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="lightning-extreme-storm">Lightning (extreme storm)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The first strikes come about 9.5 to 11 s after the cast</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Storm.cpp</code> (the first strike at rand(0.5, 1) times SwitchLife plus LightningDelay)</td>
+</tr>
+<tr>
+<td>Strikes come from clouds that are more than half gathered, at random waits shortened by tribal power</td>
+<td>partial</td>
+<td><code>src/Particles/Rules/Storm.cpp</code> has the rule, but <code>PlayerMagic::tribalPower</code> is never set in our tree, so the waits are never shortened</td>
+</tr>
+<tr>
+<td>A striking cloud flashes bright for half a second</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Storm.cpp</code> (the cloud's specular for half a second), <code>src/Particles/Creators/Mist.cpp</code>; test <code>Storm.cloudMistAtoms</code></td>
+</tr>
+<tr>
+<td>A bolt hits trees, buildings and other things below within its reach, or the ground when there are too few</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Lightning.cpp</code> (the parent mode); see <a href="lightning.html">lightning.md</a></td>
+</tr>
+<tr>
+<td>A bolt carried from one cloud to the next keeps what it was striking</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Storm.cpp</code> (the bolt's collection moves to the new cloud)</td>
+</tr>
+<tr>
+<td>Struck things catch fire and take damage, and each strike costs prayer power</td>
+<td>done</td>
+<td><code>src/Magic/Core/SpellEvent.cpp</code>, <code>src/ECS/Effects/EffectValues.cpp</code></td>
+</tr>
+<tr>
+<td>Thunder (small, medium or large at random) sounds from the land under the striking cloud, delayed by its distance at the speed of sound</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Storm.cpp</code> (random size, delayed by the distance and set on the ground), <code>src/Audio/Services/SpellSounds.cpp</code></td>
+</tr>
+<tr>
+<td>Thunder far from the camera is not heard, which keeps the number of thunders down</td>
+<td>done</td>
+<td><code>src/Audio/Services/SpellSounds.cpp</code> (a sample farther than its maximum distance is not started)</td>
+</tr>
+<tr>
+<td>The extreme storm is turned aside by shields it passes over</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Storm.cpp</code> (shield deflections of the cores only at the tornado's level). Our wiki differs: only the second power-up (the tornado) bounces its cores off shields, not the first (<a href="../../miracles.html#the-cores-and-the-clouds-ur_cloudmovernew-0x6d41c0-ur_cloudgather-0x6d4a70">page</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="reactions-and-saving">Reactions and saving</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Villagers flee from the storm, and are impressed by it as the game measures</td>
+<td>partial</td>
+<td>Fleeing: <code>src/ECS/Effects/Reactions.cpp</code>, <code>src/ECS/Systems/Implementations/VillagerReactions.cpp</code>; how impressed they are and the town belief it feeds are a TODO there</td>
+</tr>
+<tr>
+<td>A storm and its clouds are kept in a saved game</td>
+<td>todo</td>
+<td>openblack has no saving of running miracles yet; see <a href="../engine/index.html">../engine/</a></td>
+</tr>
+<tr>
+<td>The storm's clouds and spin keep their look when the camera is close below them</td>
+<td>done</td>
+<td><code>src/Particles/Creators/Mist.cpp</code></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

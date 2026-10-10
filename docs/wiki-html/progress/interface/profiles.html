@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Profiles — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="here" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#profiles">Profiles</a><ul>
+<li><a href="#the-players-page">The Players page</a></li>
+<li><a href="#what-a-profile-keeps">What a profile keeps</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="profiles">Profiles</h1>
+<p>Each person who plays has a player profile: their name, symbol, creature's name and tattoo, their saved games, their
+controls and what help they have seen. The Players page of the options picks, makes and edits them.</p>
+<p><strong>Progress: 1/17 done, 4 partial — 18%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../hand-and-interface.html">The hand and the interface</a>.</p>
+<h2 id="the-players-page">The Players page</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lists the players, the current one picked</td>
+<td>partial</td>
+<td>the list is there (<code>GameMenu::BuildPlayers</code>) with only one name, <code>OPENBLACK_PLAYER_NAME</code> or the computer's login</td>
+</tr>
+<tr>
+<td>Shows the player's name, symbol and creature's name</td>
+<td>done</td>
+<td><code>GameMenu::BuildPlayers</code> (<code>src/Gui/GameMenu.cpp</code>)</td>
+</tr>
+<tr>
+<td>The creature's name can be typed in</td>
+<td>partial</td>
+<td>the edit box works (<code>EditBox</code>); the name isn't given to the creature or kept</td>
+</tr>
+<tr>
+<td>The player picks one of sixteen symbols, its picture ringed as it comes up</td>
+<td>partial</td>
+<td><code>SymbolPicture</code> in <code>src/Gui/Controls.cpp</code>; the symbol chosen isn't used by the game</td>
+</tr>
+<tr>
+<td>Create New Player asks for a name and makes a profile</td>
+<td>todo</td>
+<td><code>GameMenu::Action::CreatePlayer</code> logs "This part of the menu is not available yet"</td>
+</tr>
+<tr>
+<td>Delete Player removes a profile, asking first</td>
+<td>todo</td>
+<td><code>Action::DeletePlayer</code> logs "This part of the menu is not available yet"</td>
+</tr>
+<tr>
+<td>Edit Tattoo opens the tattoo editor for the creature</td>
+<td>todo</td>
+<td><code>Action::EditTattoo</code> logs "This part of the menu is not available yet"; see ../creature/ for tattoos</td>
+</tr>
+<tr>
+<td>Start Game starts a new game for the player from the first land</td>
+<td>todo</td>
+<td><code>Action::StartNewGame</code> logs "This part of the menu is not available yet"</td>
+</tr>
+<tr>
+<td>Picking another player during a game asks to restart</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-a-profile-keeps">What a profile keeps</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Profiles are kept on disk, one folder each, and the last one played is picked at start</td>
+<td>todo</td>
+<td>there are no profiles on disk</td>
+</tr>
+<tr>
+<td>Each profile has its own saved games</td>
+<td>todo</td>
+<td>see ../engine/ for saving</td>
+</tr>
+<tr>
+<td>Each profile has its own key bindings</td>
+<td>todo</td>
+<td>see <a href="key_bindings.html">key_bindings.md</a></td>
+</tr>
+<tr>
+<td>The player's symbol is shown in the world (on the temple, the creature's pen and spells)</td>
+<td>partial</td>
+<td>the town belief symbols and the creature's marks use the players' symbols (<code>src/Particles/TownBelief.cpp</code>, the tattoo atlas in <code>Game.cpp</code>), with the game's own symbols, not a profile's</td>
+</tr>
+<tr>
+<td>The tattoo and its colours are kept with the profile</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>What help the player has been given, and how often, is kept so it isn't repeated in the next game</td>
+<td>todo</td>
+<td>the help record (<code>src/Help/HelpProfile.cpp</code>) starts at 0 every run; see <a href="help_system.html">help_system.md</a></td>
+</tr>
+<tr>
+<td>A picture of the creature is kept with the profile</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A web page about the creature is written from the profile for sharing</td>
+<td>todo</td>
+<td>(unconfirmed whether this is part of the shipping game or only of the creature upload tool)</td>
+</tr>
+<tr>
+<td>Creatures can be uploaded and downloaded online</td>
+<td>n/a</td>
+<td>the service no longer exists</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

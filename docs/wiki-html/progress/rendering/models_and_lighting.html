@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Models and lighting — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="here" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#models-and-lighting">Models and lighting</a><ul>
+<li><a href="#meshes-and-skinning">Meshes and skinning</a></li>
+<li><a href="#materials-and-render-modes">Materials and render modes</a></li>
+<li><a href="#lighting">Lighting</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="models-and-lighting">Models and lighting</h1>
+<p>How the game draws its 3D models (buildings, trees, villagers, animals, creatures, the hand) and how it lights them: the
+material modes, skinning, and the sun, ambient and night lights that shade them. A creature's look and body morphs are
+in <a href="../creature/index.html">../creature/</a>, the hand's look in <a href="../hand/index.html">../hand/</a>, the sky's light by time of day in
+<a href="../sky/index.html">../sky/</a>.</p>
+<p><strong>Progress: 16/26 done, 5 partial — 71%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../rendering-objects.html">Model rendering: original versus openblack</a>, <a href="../../parity.html">Graphics engine parity: original versus openblack</a>, <a href="../../rendering.html">World rendering: original versus openblack</a>.</p>
+<h2 id="meshes-and-skinning">Meshes and skinning</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Models from the game's mesh pack and model files are drawn with their own textures</td>
+<td>done</td>
+<td><code>src/3D/L3DMesh.cpp</code>, <code>src/Graphics/Renderer.cpp</code> (mesh and submesh drawing)</td>
+</tr>
+<tr>
+<td>Many copies of one model are drawn together</td>
+<td>done</td>
+<td>instanced draws in <code>src/Graphics/Renderer.cpp</code>; openblack batches them, the look is the same</td>
+</tr>
+<tr>
+<td>Boned models are posed by their skeletons as they animate</td>
+<td>done</td>
+<td>villagers and animals posed by their clips (<code>components::SkeletalAnimation</code>, <code>src/3D/SkeletalPose.cpp</code>, drawn per pose in <code>Renderer.cpp</code>), the creature (<code>CreatureAnimationSystem</code>) and the hand (<code>src/3D/HandAnimator.cpp</code>)</td>
+</tr>
+<tr>
+<td>Where the parts of a boned body meet, seam vertices are pulled towards their partners so shoulders, neck and tail bend instead of tearing</td>
+<td>todo</td>
+<td>no seam blending between a boned body's parts in our tree</td>
+</tr>
+<tr>
+<td>Poses cross-fade from one animation into the next</td>
+<td>partial</td>
+<td>the hand (<code>src/3D/HandAnimator.cpp</code>) and the high-detail villagers (<code>StepCrossFade</code>, <code>ComputeBlendedPose</code> in <code>src/ECS/Animations.cpp</code>, <code>src/3D/SkeletalPose.cpp</code>) cross-fade; ordinary villagers and animals switch clips at once</td>
+</tr>
+<tr>
+<td>Parts of a model shown only in some states (building stages, graves)</td>
+<td>todo</td>
+<td>status submeshes are skipped (<code>Renderer.cpp</code> submesh drawing)</td>
+</tr>
+<tr>
+<td>Collision-only parts of models are never drawn</td>
+<td>done</td>
+<td><code>Renderer.cpp</code> skips physics submeshes</td>
+</tr>
+</tbody>
+</table>
+<h2 id="materials-and-render-modes">Materials and render modes</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each material is drawn in one of the game's 19 render modes: its blending, alpha test, depth write and how texture alpha combines with vertex colour</td>
+<td>done</td>
+<td><code>src/Graphics/RenderModes.cpp</code> (<code>render_modes::State</code>)</td>
+</tr>
+<tr>
+<td>Two-sided materials are drawn from both sides, the others have their back faces culled</td>
+<td>done</td>
+<td>per-material culling in <code>Renderer.cpp</code></td>
+</tr>
+<tr>
+<td>Cut-out textures (leaves, fences) drop their see-through texels</td>
+<td>done</td>
+<td>alpha-tested render modes (<code>src/Graphics/RenderModes.cpp</code>), the threshold minus 5 for an object with its own alpha</td>
+</tr>
+<tr>
+<td>Textures that slide across a model or play frames</td>
+<td>partial</td>
+<td>frame-animated textures (<code>src/3D/FrameAnim.cpp</code>, test <code>test/test_frame_anim.cpp</code>) and sliding textures for mists, particle models and the temple; whether every sliding material of the game's models is covered is unconfirmed</td>
+</tr>
+<tr>
+<td>A model's materials swapped for others while the game runs</td>
+<td>todo</td>
+<td>only the particle meshes swap their materials' properties (<code>src/Particles/Creators/Mesh.cpp</code>); no other material swaps</td>
+</tr>
+<tr>
+<td>Textures cut to the game's low colour formats (16-bit)</td>
+<td>done</td>
+<td>the ARGB4444 and 555 cuts at load time (<code>src/Graphics/Argb4444.h</code>, <code>src/Graphics/Rgb16.h</code>, <code>Texture2DLoader</code> in <code>src/Resources/Loaders.cpp</code>); tests <code>test/test_argb4444.cpp</code></td>
+</tr>
+<tr>
+<td>Shiny environment map over some models (frozen things' ice, the cave's trophies)</td>
+<td>todo</td>
+<td>no environment map: the cave's trophies are drawn without it (<code>src/Graphics/RendererTemple.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="lighting">Lighting</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Models are lit per vertex by one light and an ambient level, in whole numbers</td>
+<td>done</td>
+<td><code>src/Graphics/ModelLight.cpp</code>, <code>assets/shaders/model_light.sh</code>; test <code>ArgbColour.ScaleRgbShift8KeepAlphaMatchesModelLight</code></td>
+</tr>
+<tr>
+<td>The light is a distant sun by day and moves beside the hand in the darker half of the night; none in the temple</td>
+<td>done</td>
+<td><code>model_light::UpdateFrameLight</code> (<code>src/Graphics/ModelLight.cpp</code>); the temple has its own lights (<code>src/3D/TempleLight.cpp</code>)</td>
+</tr>
+<tr>
+<td>Models take the colour of the land's light where they stand</td>
+<td>done</td>
+<td>the cell light texture filtered in <code>vs_object</code> (<code>assets/shaders/vs_object.sc</code>, <code>land_light.sh</code>)</td>
+</tr>
+<tr>
+<td>Trees take the land's light scaled by a brightness worked out each frame from where the camera looks against the light</td>
+<td>done</td>
+<td><code>src/Graphics/TreeBrightness.cpp</code>; test <code>test/test_tree_brightness.cpp</code></td>
+</tr>
+<tr>
+<td>Big forests, dead trees and flowers are drawn unlit</td>
+<td>partial</td>
+<td>an unlit colour path exists (<code>vs_object.sc</code>, used for windows and reflections); which models the original draws unlit is not in our wiki</td>
+</tr>
+<tr>
+<td>The hand is drawn half again as bright as the land's light under it</td>
+<td>done</td>
+<td><code>lightBoost</code> 1.5 for the hand's mesh (<code>src/Graphics/Renderer.cpp</code>)</td>
+</tr>
+<tr>
+<td>Homes with people inside show lit windows at night, blended by their material's alpha</td>
+<td>done</td>
+<td><code>night_lights::WindowColour</code> (<code>src/3D/NightLights.cpp</code>) with the villagers' presence at home</td>
+</tr>
+<tr>
+<td>Village lights and the hand's light brighten models near them at night</td>
+<td>partial</td>
+<td>the lanterns and the hand's light brighten the land's light (<code>src/3D/NightLights.cpp</code> through <code>Locator::villageLightSystem</code>, <code>src/Graphics/HandLight.cpp</code>), which the models take; whether models are lit exactly as the game does is unconfirmed</td>
+</tr>
+<tr>
+<td>Lights at night cast light and shadows on nearby objects</td>
+<td>todo</td>
+<td>the game adds lights of several kinds to a dynamic light and shadow list; not started</td>
+</tr>
+<tr>
+<td>A lightning flash brightens the world</td>
+<td>done</td>
+<td>the flash goes into the land light table at the camera (<code>src/3D/LandLightTable.cpp</code>, <code>src/3D/Lightning.cpp</code>), which land and models take; test <code>test/test_lightning_flash.cpp</code>; see <a href="../weather/index.html">../weather/</a></td>
+</tr>
+<tr>
+<td>Hot and burning objects glow red-orange, flickering</td>
+<td>done</td>
+<td><code>src/ECS/Fire/FireGraphic.cpp</code>; see <a href="../physics/index.html">../physics/</a></td>
+</tr>
+<tr>
+<td>Scripts give objects their own colour and alpha</td>
+<td>partial</td>
+<td>an object colour and alpha exist in the mesh draw (<code>RendererInterface.h</code>); SET_OBJECT_FADE_IN is a stub (<code>src/CHLApi.cpp</code>) and which other script calls reach it is unconfirmed</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Game loop and clock — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="here" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#game-loop-and-clock">Game loop and clock</a><ul>
+<li><a href="#game-turns">Game turns</a></li>
+<li><a href="#frame-clock">Frame clock</a></li>
+<li><a href="#pausing">Pausing</a></li>
+<li><a href="#game-speed">Game speed</a></li>
+<li><a href="#calendar">Calendar</a></li>
+<li><a href="#random-numbers">Random numbers</a></li>
+<li><a href="#determinism-and-input">Determinism and input</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="game-loop-and-clock">Game loop and clock</h1>
+<p>The game's heartbeat: the world moves on in fixed game turns, ten a second, while the screen is drawn as often as it
+can be. A game clock that runs at the game's speed and stops while paused decides when a turn is due; between turns the
+frame works out how far through the turn it is. Two random number streams keep the game's rules repeatable.</p>
+<p><strong>Progress: 28/39 done, 8 partial — 82%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../engine-loop.html">The engine loop: game turns and frames (original and openblack)</a>, <a href="../../engine-math.html">Coordinates, terrain, object size, game clock, matrices and Zoomer</a>.</p>
+<h2 id="game-turns">Game turns</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The world moves on in game turns of a tenth of a second</td>
+<td>done</td>
+<td><code>src/GameClock.cpp</code> (<code>game_clock</code>, 100 ms a turn); test <code>GameClockTest.FirstTurnRightAwayThenEveryHundredMs</code></td>
+</tr>
+<tr>
+<td>A turn is due once the game clock reaches the turn number times the turn's length, so no turn loses what was left of the one before</td>
+<td>done</td>
+<td><code>game_clock::TurnDue</code>; test <code>GameClockTest.ThirtyFpsKeepsTheLeftover</code></td>
+</tr>
+<tr>
+<td>At most one turn is played in a frame in a single-player game</td>
+<td>done</td>
+<td><code>Game::Update</code> plays at most one due turn a frame (<code>src/Game.cpp</code>). Network games play several to keep up: see ../multiplayer/</td>
+</tr>
+<tr>
+<td>When the game falls more than two seconds behind it gives up on the lost time rather than racing to catch up</td>
+<td>done</td>
+<td><code>src/GameClock.cpp</code>; test <code>GameClockTest.MoreThanTwoSecondsBehindDropsTheLag</code></td>
+</tr>
+<tr>
+<td>The turn number starts again from 0 as each land starts</td>
+<td>done</td>
+<td><code>game_clock::OnLoad</code> from <code>Game::LoadMap</code>; test <code>GameClockTest.OnLoadSetsTheVisualClockToTheTurn</code></td>
+</tr>
+<tr>
+<td>Each turn processes the world's parts in the game's fixed order (players, creatures, villagers, scripts, weather, magic …)</td>
+<td>partial</td>
+<td><code>Game::GameLogicLoop</code> names each step of the original's turn in order; the steps whose systems are not ported are marked there</td>
+</tr>
+<tr>
+<td>The per-frame (drawing-side) updates run in the game's order</td>
+<td>partial</td>
+<td>the frame updaters run in a fixed order in <code>Game::Update</code> (physics interpolation, fields, trees, fireflies, rings, scenery, mobiles, animations, sharks, fish); the camera updates before the turns where the original updates it after</td>
+</tr>
+<tr>
+<td>Physics is stepped by the game's turns, not by the wall clock</td>
+<td>done</td>
+<td>the game's own physics runs once a turn (<code>src/ECS/Physics</code>, "Turn: Physics" in <code>Game::GameLogicLoop</code>)</td>
+</tr>
+<tr>
+<td>The temple has turns of its own while the world outside is stopped</td>
+<td>partial</td>
+<td>inside the citadel the audio has a turn of its own (<code>audio::ProcessCitadelTurn</code> from <code>src/Game.cpp</code>); the rest of the temple's turn: see ../temple/</td>
+</tr>
+<tr>
+<td>A game starts with a short pause before its loop: the logo plays once, then the clock is reset to the current turn</td>
+<td>todo</td>
+<td>openblack starts its loop straight away; logo and intro films: see ../story/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="frame-clock">Frame clock</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each frame has a game-time step: how far the game clock moved since the last frame, none while paused</td>
+<td>done</td>
+<td><code>game_clock::UpdateFrameClock</code>, <code>FrameGameMs</code>; test <code>GameClockTest.RemainderFractionAndFrameMs</code></td>
+</tr>
+<tr>
+<td>Each frame knows how far it is through the current turn (0 to 0.99), so moving things can be drawn between their turn positions</td>
+<td>done</td>
+<td><code>game_clock::TurnFraction</code> (clamped at 0.99; test <code>GameClockTest.RemainderClampedAt99AndFrameMsAtMost199</code>), used to draw villagers and animals between turns (<code>src/ECS/MobileDrawing</code>), fire, magic, particles and shields</td>
+</tr>
+<tr>
+<td>The frame's real time is whole milliseconds of the wall clock and never zero</td>
+<td>done</td>
+<td><code>game_clock::FrameRealMs</code>; test <code>GameClockTest.RealClockAndSelectors</code></td>
+</tr>
+<tr>
+<td>The hand and the camera move by real time, except during a script's cut scene, when they keep to game time</td>
+<td>done</td>
+<td><code>game_clock::CameraFrameMs</code> (<code>src/GameClock.cpp</code>)</td>
+</tr>
+<tr>
+<td>While the window is minimised the whole game waits (no turn, no frame, no drawing) until it is restored; the game clock is not stopped, so a long time away is dropped by the turn rule for lag</td>
+<td>done</td>
+<td><code>Game::Update</code> waits on the window's events while <code>windowing::WaitsForWindow</code> (<code>src/Windowing/WindowAway.h</code>); tests <code>WindowAway.*</code></td>
+</tr>
+<tr>
+<td>Quitting is noticed between frames and ends the loop cleanly once help is not mid-sequence</td>
+<td>partial</td>
+<td><code>Game::Run</code> ends on quit; the help-sequence guard is not there</td>
+</tr>
+</tbody>
+</table>
+<h2 id="pausing">Pausing</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pausing stops the game clock; unpausing starts it again from where it stopped</td>
+<td>done</td>
+<td><code>game_clock::Pause</code>; test <code>GameClockTest.PauseStopsTheTimerKeepsTheFractionAndNoExtraTurn</code></td>
+</tr>
+<tr>
+<td>No turns are played while paused</td>
+<td>done</td>
+<td><code>game_clock::TurnDue</code> while paused; test <code>GameClockTest.PauseStopsTheTimerKeepsTheFractionAndNoExtraTurn</code></td>
+</tr>
+<tr>
+<td>Opening the game's menu pauses the game; leaving it restores the pause it had before</td>
+<td>done</td>
+<td>the menu's pause in <code>src/Game.cpp</code> (<code>_menuPaused</code>), left alone inside the temple</td>
+</tr>
+<tr>
+<td>A land starts unpaused</td>
+<td>done</td>
+<td>the game runs from the first frame by default (<code>OPENBLACK_START_PAUSED=1</code> starts paused)</td>
+</tr>
+<tr>
+<td>Entering the temple stops the world outside</td>
+<td>partial</td>
+<td>the world's turns stand still in the citadel (<code>game_clock::IsInsideCitadel</code>, <code>creature_loop::FrozenInCitadel</code>); see ../temple/ for the temple's side</td>
+</tr>
+</tbody>
+</table>
+<h2 id="game-speed">Game speed</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The game speed scales how fast the game clock runs; time already gone keeps the speed it went at</td>
+<td>done</td>
+<td><code>game_clock::SetSpeed</code>; test <code>GameClockTest.SpeedRebasesTheTimer</code></td>
+</tr>
+<tr>
+<td>Changing the speed while paused takes effect when the game is unpaused</td>
+<td>done</td>
+<td><code>game_clock::SetSpeed</code> (<code>src/GameClock.cpp</code>)</td>
+</tr>
+<tr>
+<td>Challenge scripts can speed the game up for a section and set it back</td>
+<td>done</td>
+<td>START_GAME_SPEED, SET_GAMESPEED and END_GAME_SPEED through <code>help::script_control</code> (<code>src/Help/ScriptControl.cpp</code>, <code>src/CHLApi.cpp</code>)</td>
+</tr>
+<tr>
+<td>A land's map script can set the length of a game turn</td>
+<td>todo</td>
+<td>the map command throws in <code>src/LHScriptX/MapScriptCommands.cpp</code> (and map commands are not run at all)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="calendar">Calendar</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The game keeps a calendar date: a game year of 36 000 turns from a fixed start date, with months, days and seasons</td>
+<td>done</td>
+<td><code>src/ECS/Weather/Calendar.cpp</code> (day of the year, month, season from the turn), read by the weather, births and fish farms</td>
+</tr>
+<tr>
+<td>A land's map script can set the start date, start time and turns per year</td>
+<td>todo</td>
+<td>map commands throw in <code>MapScriptCommands.cpp</code>; the original lands do not use them</td>
+</tr>
+<tr>
+<td>The visual time of day follows its own clock that scripts can set and scale</td>
+<td>done</td>
+<td><code>game_clock::VisualMs</code>; SET_GAME_TIME, GAME_TIME_ON_OFF, MOVE_GAME_TIME and SET_GAME_TIME_PROPERTIES in <code>src/CHLApi.cpp</code>; see ../sky/ for the day and night cycle</td>
+</tr>
+</tbody>
+</table>
+<h2 id="random-numbers">Random numbers</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Game rules draw from one synchronised random stream, so the same game plays the same everywhere</td>
+<td>done</td>
+<td><code>src/Common/GameRandom.cpp</code>; tests <code>GameRandom.SequenceFromInitialSeed</code>, <code>GameRandom.GameRandAfterInit</code></td>
+</tr>
+<tr>
+<td>Effects that don't change the game draw from a separate local stream</td>
+<td>done</td>
+<td><code>game_random</code> local stream; test <code>GameRandom.LocalStream</code></td>
+</tr>
+<tr>
+<td>A random fraction scales a 16-bit draw</td>
+<td>done</td>
+<td>test <code>GameRandom.GameFloatRand</code></td>
+</tr>
+<tr>
+<td>Drawing zero gives zero without moving the stream</td>
+<td>done</td>
+<td>tests <code>GameRandom.ZeroForZero</code>, <code>GameRandomProduction.ZeroForZeroDoesNotDraw</code></td>
+</tr>
+<tr>
+<td>Particle effects draw from the game's streams only while they step</td>
+<td>done</td>
+<td>tests <code>GameRandom.PSysOutsideAStep</code>, <code>GameRandom.PSysScopeDoesNotNest</code></td>
+</tr>
+<tr>
+<td>Some things use the C runtime's own random numbers, which behave as Microsoft's</td>
+<td>done</td>
+<td>tests <code>GameRandom.Crt</code>, <code>GameRandomProduction.CrtRand</code></td>
+</tr>
+<tr>
+<td>Both streams start from a fixed seed when the game starts and are reset as each land loads</td>
+<td>done</td>
+<td><code>game_random::Init</code> at the campaign's first land and <code>game_random::Reset</code> at every later land load (<code>Game::LoadMap</code>); tests <code>GameRandomProduction.InitAndReset</code></td>
+</tr>
+<tr>
+<td>The streams' positions are saved with a game and restored on load</td>
+<td>partial</td>
+<td>the streams can be saved and restored (test <code>GameRandom.SaveLoad</code>), but there are no save games yet (see saving_and_loading.md)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="determinism-and-input">Determinism and input</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The player's actions are queued and applied at the start of the next turn, not mid-frame</td>
+<td>partial</td>
+<td>the action packet queue (<code>src/Input/GamePackets.cpp</code>; tests <code>GamePackets.*</code>) carries the hand's turn actions, the seeds and the creature hand packets; part of the hand still acts in the frame</td>
+</tr>
+<tr>
+<td>Replaying the same inputs gives the same game</td>
+<td>done</td>
+<td><code>test_replay_determinism</code> (<code>ReplayDeterminism.sameGameInTwoProcesses</code>), the per-turn state hash (<code>src/Debug/StateHash.cpp</code>, <code>OPENBLACK_STATE_HASH</code>)</td>
+</tr>
+<tr>
+<td>Key presses are buffered so presses between frames are not lost</td>
+<td>partial</td>
+<td>SDL events are drained each frame (<code>Game::ProcessEvents</code> in <code>src/Game.cpp</code>); not compared with the game's buffering</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

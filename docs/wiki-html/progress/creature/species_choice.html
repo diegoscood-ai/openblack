@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Species and choosing a creature — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="here" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#species-and-choosing-a-creature">Species and choosing a creature</a><ul>
+<li><a href="#the-species">The species</a></li>
+<li><a href="#how-species-differ">How species differ</a></li>
+<li><a href="#choosing-the-first-creature">Choosing the first creature</a></li>
+<li><a href="#swapping-species-later">Swapping species later</a></li>
+<li><a href="#other-gods-creatures">Other gods' creatures</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="species-and-choosing-a-creature">Species and choosing a creature</h1>
+<p>The player's creature is one of the game's animal species. At the start of the first land the player chooses between
+three young creatures; later, silver scroll challenges offer other species (<a href="../story/silver_scrolls/creature_swaps.html">../story/silver_scrolls/creature_swaps.md</a>), which the player can swap to, keeping
+everything their creature has learnt. Each species looks, moves, sounds and grows its own way and has its own
+appetite, strength and knack for learning miracles.</p>
+<p><strong>Progress: 26/48 done, 9 partial — 64%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../creature.html">The creature: groundwork, random streams and what is unknown</a>.</p>
+<h2 id="the-species">The species</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ape (the giant ape), with its own body, animations and voice</td>
+<td>done</td>
+<td><code>CreatureType::GiantApe</code>; made with its rig, meshes, morphs and voice bank by <code>CreatureArchetype::Create</code> (<code>src/ECS/Archetypes/CreatureArchetype.cpp</code>, rigs from <code>Data/CTR</code> through <code>src/Resources/Loaders.cpp</code>), from <code>LOAD_MY_CREATURE</code>, <code>CREATE_CREATURE</code> or the debug spawner; tests <code>CreatureArchetype*</code>, <code>CreatureRigLoader*</code></td>
+</tr>
+<tr>
+<td>Cow</td>
+<td>done</td>
+<td>as above</td>
+</tr>
+<tr>
+<td>Tiger</td>
+<td>done</td>
+<td>as above</td>
+</tr>
+<tr>
+<td>Leopard</td>
+<td>done</td>
+<td>as above</td>
+</tr>
+<tr>
+<td>Wolf</td>
+<td>done</td>
+<td>as above</td>
+</tr>
+<tr>
+<td>Lion</td>
+<td>done</td>
+<td>as above</td>
+</tr>
+<tr>
+<td>Horse</td>
+<td>done</td>
+<td>as above</td>
+</tr>
+<tr>
+<td>Tortoise</td>
+<td>done</td>
+<td>as above</td>
+</tr>
+<tr>
+<td>Zebra</td>
+<td>done</td>
+<td>as above; offered by <a href="../story/silver_scrolls/the_riddles.html">The Riddles</a></td>
+</tr>
+<tr>
+<td>Brown bear</td>
+<td>done</td>
+<td>as above</td>
+</tr>
+<tr>
+<td>Polar bear</td>
+<td>done</td>
+<td>as above</td>
+</tr>
+<tr>
+<td>Sheep</td>
+<td>done</td>
+<td>as above</td>
+</tr>
+<tr>
+<td>Chimp</td>
+<td>done</td>
+<td>as above</td>
+</tr>
+<tr>
+<td>Ogre</td>
+<td>done</td>
+<td>as above; its bank is the "greek" one (<code>src/Creature/CreatureAudio.cpp</code>; test <code>CreatureBody.TheOgresVariantsKeepItsBaseName</code>)</td>
+</tr>
+<tr>
+<td>Mandrill</td>
+<td>done</td>
+<td>as above</td>
+</tr>
+<tr>
+<td>Rhino</td>
+<td>done</td>
+<td>as above</td>
+</tr>
+<tr>
+<td>Gorilla</td>
+<td>done</td>
+<td>as above</td>
+</tr>
+<tr>
+<td>Chicken and crocodile, listed by the game but with no bodies in its data</td>
+<td>n/a</td>
+<td>never playable in the five lands</td>
+</tr>
+<tr>
+<td>Species added by Creature Isle</td>
+<td>n/a</td>
+<td>Creature Isle</td>
+</tr>
+<tr>
+<td>Each species' row in the game's creature tables, the ape's first</td>
+<td>done</td>
+<td><code>creature::InfoRow</code> (<code>src/3D/CreatureBody.h</code>), <code>creature_mind_body::SpeciesFromRow</code>; test <code>SpeciesRowsStartWithTheGiantApe</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-species-differ">How species differ</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A new creature starts at its species' size, fatness and strength</td>
+<td>done</td>
+<td><code>CreatureArchetype::StartScale</code>, <code>StartBody</code> from the species tables</td>
+</tr>
+<tr>
+<td>Each species walks, runs and goes slowly at its own speeds</td>
+<td>done</td>
+<td>species speeds from the species' row of the creature tables (<code>src/InfoConstants.h</code>), used by <code>CreatureLocomotionSystem</code>; see <a href="locomotion.html">locomotion.md</a></td>
+</tr>
+<tr>
+<td>Each species gets hungry, thirsty, tired and grows at its own rates, and likes its own temperature</td>
+<td>done</td>
+<td>the species' rates (<code>src/InfoConstants.h</code>), used by <code>CreaturePhysiologySystem</code>; see <a href="physiology.html">physiology.md</a></td>
+</tr>
+<tr>
+<td>Each species has its own innate leanings: how nice, aggressive, lethargic, friendly or talkative it starts</td>
+<td>partial</td>
+<td>the starting desire tables are read per species (<a href="desires.html">desires.md</a>)</td>
+</tr>
+<tr>
+<td>Some species learn a miracle from fewer sightings than others</td>
+<td>partial</td>
+<td><code>src/Creature/CreatureWatching</code> per-species miracle rules (<code>creature_mind_tables::MiracleMultiplier</code>), reached only from the debug spawner's <code>SeeMiracle</code>; see <a href="learning_by_observation.html">learning_by_observation.md</a></td>
+</tr>
+<tr>
+<td>Each species pays for miracles with its own energy rates</td>
+<td>partial</td>
+<td><code>chantsPerEnergy</code>, <code>spellEnergyFloor</code> are read in the species' row (<code>src/InfoConstants.h</code>), but the creature casts no miracle; see <a href="creature_casting.html">creature_casting.md</a></td>
+</tr>
+<tr>
+<td>Each species has its own special fight move</td>
+<td>partial</td>
+<td>see <a href="fighting.html">fighting.md</a></td>
+</tr>
+<tr>
+<td>Each species leaves its own footprints</td>
+<td>done</td>
+<td><code>src/Creature/CreatureFootprints</code> per-species prints, drawn by <code>FootprintSystem</code>; test <code>CreatureFootprints.SpeciesCells</code></td>
+</tr>
+<tr>
+<td>Each species has its own places for tattoos</td>
+<td>done</td>
+<td>see <a href="creature_tattoos.html">creature_tattoos.md</a></td>
+</tr>
+<tr>
+<td>Some species have hair that moves</td>
+<td>done</td>
+<td><code>CreatureHairSystem</code>; see <a href="face_eyes_hair.html">face_eyes_hair.md</a></td>
+</tr>
+<tr>
+<td>The ogre can never be held by the hand</td>
+<td>done</td>
+<td><code>creature_hand::MayHold</code> (<code>src/Creature/CreatureHandRules.cpp</code>); test <code>CreatureHand.ACreatureOfAnyPlayerLetsTheHandHoldIt</code></td>
+</tr>
+<tr>
+<td>Other ogre limits (unconfirmed which)</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The hand's tooltip and the creature's help texts name its species</td>
+<td>todo</td>
+<td>the hand's tooltip on a creature (<code>HandToolTips.cpp</code>) does not name the species</td>
+</tr>
+</tbody>
+</table>
+<h2 id="choosing-the-first-creature">Choosing the first creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>In the first land the player is shown three young creatures to choose from: an ape, a cow and a tiger</td>
+<td>todo</td>
+<td>the tutorial makes them with <code>CREATE</code> type 12 and <code>CREATURE_SET_PLAYER</code>; our <code>CreateScriptObject</code> makes no creature and <code>CREATURE_SET_PLAYER</code> is a stub (<code>src/CHLApi.cpp</code>); the shipped quest: <a href="../story/gold_scrolls/choose_your_creature.html">../story/gold_scrolls/choose_your_creature.md</a></td>
+</tr>
+<tr>
+<td>Each of the three is shown off, and the good and evil advisors argue for and against it</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Picking one up and putting it down, or clicking it, chooses it; the others leave</td>
+<td>todo</td>
+<td>in the shipped quest the choice is two clicks on the same creature, and the other two are deleted rather than leaving: <a href="../story/gold_scrolls/choose_your_creature.html#choosing">../story/gold_scrolls/choose_your_creature.md</a></td>
+</tr>
+<tr>
+<td>The chosen creature takes the name the player gave in their profile</td>
+<td>partial</td>
+<td>the player page holds a creature name (<code>src/Gui/GameMenu.cpp</code>); nothing names the creature from it</td>
+</tr>
+<tr>
+<td>A player who already has a creature from an earlier game can keep it and skip the creature training</td>
+<td>partial</td>
+<td><code>LOAD_MY_CREATURE</code> and <code>CURRENT_PROFILE_HAS_CREATURE</code> work with the <code>--creature-file</code> setting (<code>ECS/PlayerCreature.cpp</code>), <code>IS_KEEPING_OLD_CREATURE</code> and <code>CAN_SKIP_CREATURE_TRAINING</code> read the land's skip flags (<code>src/CHLApi.cpp</code>); no profile choice and no saving back</td>
+</tr>
+<tr>
+<td>The new creature becomes the player's leashable creature</td>
+<td>done</td>
+<td><code>LeashSystem::ClaimOnArrival</code>, called from <code>CreatureArchetype::Create</code>; tests <code>test_leash_ownership.cpp</code></td>
+</tr>
+<tr>
+<td>The new creature starts young, at the first stage of growing up</td>
+<td>partial</td>
+<td>see <a href="development_phases.html">development_phases.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="swapping-species-later">Swapping species later</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Silver scroll challenges in the lands offer other species (unconfirmed which in each land)</td>
+<td>todo</td>
+<td>see <a href="../story/index.html">../story</a></td>
+</tr>
+<tr>
+<td>The offered creature waits for the player to come and look at it</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Choosing it swaps the player's creature for the new species, keeping its mind: desires, learning, opinions, known actions and miracles</td>
+<td>todo</td>
+<td><code>SWAP_CREATURE</code> is a stub (<code>src/CHLApi.cpp</code>)</td>
+</tr>
+<tr>
+<td>The swap keeps the creature's name, alignment, strength and size (unconfirmed which carry over)</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The old creature leaves</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Scripts can create a creature next to another</td>
+<td>todo</td>
+<td><code>CREATURE_CREATE_RELATIVE_TO_CREATURE</code> is a stub</td>
+</tr>
+<tr>
+<td>Scripts can make a creature, give it to a player and name it</td>
+<td>todo</td>
+<td><code>CREATE</code> makes no creature; <code>CREATURE_SET_PLAYER</code>, <code>SET_CREATURE_NAME</code> are stubs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="other-gods-creatures">Other gods' creatures</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Khazar's, Lethys's and Nemesis's creatures come from their own mind files</td>
+<td>partial</td>
+<td>land scripts can create a creature from a mind file (<code>FeatureScriptCommands::CreateCreatureFromFile</code>); the challenge scripts' <code>LOAD_CREATURE</code> is a stub, so the story's creatures aren't created</td>
+</tr>
+<tr>
+<td>Skirmish and computer players' creatures come from the game's template minds (destroy towns, impress towns, protect towns, destroy other creatures)</td>
+<td>partial</td>
+<td>the files can be read (<code>components/creaturemind</code>); computer players aren't in openblack (<a href="../multiplayer/index.html">../multiplayer</a>)</td>
+</tr>
+<tr>
+<td>Scripts can set what a computer player's creature likes</td>
+<td>todo</td>
+<td>no such native is handled; the computer player natives in <code>src/CHLApi.cpp</code> are stubs</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

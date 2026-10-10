@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Creature cave room — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="here" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+
+<h1 id="creature-cave-room">Creature cave room</h1>
+<p>The temple's room for the creature. Everything about the cave itself (the creature, its scrolls, belts and medals,
+tattoos) is in ../creature/creature_cave.md; this file only lists the room's part of the temple.</p>
+<p><strong>Progress: 3/6 done, 1 partial — 58%</strong></p>
+<h2 id="the-room-in-the-temple">The room in the temple</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A door of the main room leads to the cave</td>
+<td>done</td>
+<td><code>TempleInterior::EnterRoom</code>, and the room keys in <code>Game::ProcessTempleRoomKeys</code> (<code>src/Game.cpp</code>)</td>
+</tr>
+<tr>
+<td>The waterfall slides and sounds, the fire crackles where the creature stands</td>
+<td>done</td>
+<td><code>TempleInterior</code> plays <code>temple_sounds::CreatureCaveFire</code> each frame the room is drawn and stops the fire and water on leaving (<code>audio::LeaveCitadel</code>); test <code>CreatureCaveEffects.TheRoomsSoundsAtTheFireAndTheWaterfall</code></td>
+</tr>
+<tr>
+<td>Flames, smoke and the waterfall's spray and mist</td>
+<td>done</td>
+<td><code>src/3D/CreatureCaveEffects.cpp</code>, started by <code>TempleInterior</code>; test <code>test_creature_cave_effects</code></td>
+</tr>
+<tr>
+<td>The cave's contents</td>
+<td>partial</td>
+<td><code>src/Gui/CreatureCaveScreen.cpp</code>, <code>CreatureCaveSystem</code>, <code>src/3D/CreatureCaveTrophies.cpp</code>; tests <code>test_creature_cave*</code>, <code>CreatureCaveSystemTest.*</code>; see ../creature/creature_cave.md</td>
+</tr>
+<tr>
+<td>Clicking the creature opens the tattoo editor</td>
+<td>todo</td>
+<td>the creature is found as a target (<code>CreatureCaveTargets::Target::Creature</code>) but the click does nothing: TODO in <code>src/Camera/TempleCameraModel.cpp</code>; see ../creature/creature_tattoos.md</td>
+</tr>
+<tr>
+<td>The dummies start the creature's fight practice when no temple script runs</td>
+<td>todo</td>
+<td>the belts and medals only zoom the camera: TODO in <code>TempleCameraModel::ZoomToCaveTarget</code></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

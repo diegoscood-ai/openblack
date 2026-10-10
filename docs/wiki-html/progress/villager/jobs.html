@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Villager jobs — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="here" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#villager-jobs">Villager jobs</a><ul>
+<li><a href="#common-to-all-jobs">Common to all jobs</a></li>
+<li><a href="#food-jobs">Food jobs</a></li>
+<li><a href="#wood-and-building-jobs">Wood and building jobs</a></li>
+<li><a href="#worship-and-trade">Worship and trade</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="villager-jobs">Villager jobs</h1>
+<p>Every adult has a job from the villager tables: housewife, farmer, forester, fisherman, shepherd, leader or trader. Jobs
+gather food and wood for the town, and any adult can be sent to build, fetch or supply when the town wants it. A villager
+put to work by the hand becomes a disciple (see disciples.md).</p>
+<p><strong>Progress: 18/27 done, 3 partial — 72%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../villagers.html">Villagers: data, state machine and speed</a>.</p>
+<h2 id="common-to-all-jobs">Common to all jobs</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each tribe has the seven jobs, each with its own model, tool and speeds</td>
+<td>done</td>
+<td>the villager table's jobs by tribe (<code>src/Enums.h</code>, <code>src/InfoConstants.h</code>), their meshes (<code>src/ECS/Archetypes/VillagerArchetype.cpp</code>) and speeds; the tools in the hand (<code>src/ECS/CarriedProps.cpp</code>)</td>
+</tr>
+<tr>
+<td>A villager carries the tool or load of what it is doing</td>
+<td>done</td>
+<td>the carried object drawn on the hand bone (<code>src/ECS/CarriedProps.cpp</code>); See tools_and_carried_items.md</td>
+</tr>
+<tr>
+<td>Villagers carry food and wood up to their job's capacity, slowed by the load</td>
+<td>done</td>
+<td><code>Villager::resourceHeld</code> up to the job's capacity (<code>src/ECS/Villager/VillagerResources.cpp</code>), with the load slowdown (<code>src/ECS/VillagerSpeed.cpp</code>); <code>test/test_villager_resources.cpp</code></td>
+</tr>
+<tr>
+<td>Gatherers take what they gather to the storage pit and drop it off</td>
+<td>done</td>
+<td>the drop-off states (<code>GOTO_STORAGE_PIT_FOR_DROP_OFF</code>, <code>ARRIVES_AT_STORAGE_PIT_FOR_DROP_OFF</code>, <code>src/ECS/Villager/VillagerResources.cpp</code>)</td>
+</tr>
+<tr>
+<td>A villager who is thrown or dies drops only wood (over 50, as a log); food and the rest are lost, never a pile</td>
+<td>done</td>
+<td><code>CreateDroppedResource</code> (the log), <code>DropWood</code> and <code>DropFood</code> (<code>src/ECS/Villager/VillagerResources.cpp</code>, <code>src/ECS/Villager/VillagerDeath.cpp</code>); See <a href="tools_and_carried_items.html">tools_and_carried_items.md</a></td>
+</tr>
+<tr>
+<td>Without a storage pit, the town keeps its resources in temporary pots or in abodes</td>
+<td>done</td>
+<td>the town's temporary pots (<code>town_stores::GetTemporaryResourceStorePotOrPos</code>) and the abodes' own food; See ../town/storehouse.md</td>
+</tr>
+<tr>
+<td>An unemployed villager looks for work its town has room for</td>
+<td>done</td>
+<td>the food desire's job checks make a villager a farmer or fisherman where the town has room (<code>CheckSatisfyFoodDesire</code>, <code>src/ECS/Villager/VillagerSatisfy.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="food-jobs">Food jobs</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Farmers look for the town's best field, walk to it and plant the crop</td>
+<td>done</td>
+<td><code>FindBestField</code>, <code>FARMER_ARRIVES_AT_FARM</code>, <code>FARMER_PLANTS_CROP</code> (<code>src/ECS/Villager/VillagerFarmer.cpp</code>); <code>test/test_villager_farming.cpp</code></td>
+</tr>
+<tr>
+<td>Farmers harvest ripe crops at harvest time and dig up what is left</td>
+<td>done</td>
+<td><code>FARMER_DIGS_UP_CROP</code> and the harvest (<code>src/ECS/Villager/VillagerFarmer.cpp</code>)</td>
+</tr>
+<tr>
+<td>Fishermen look for water or the town's fish farm, fish there and bring fish home</td>
+<td>done</td>
+<td><code>FishermanLookForWater</code>, <code>FISHERMAN_ARRIVES_AT_FISHING</code>, <code>FISHING</code> and the catch (<code>src/ECS/Villager/VillagerFisherman.cpp</code>)</td>
+</tr>
+<tr>
+<td>Shepherds find a flock, take control of it, lead it to food and water and bring it back</td>
+<td>todo</td>
+<td>the shepherd's states are TODO rows; <code>VillagerBecomesShepherd</code> returns 0 (<code>src/ECS/Villager/VillagerSatisfy.cpp</code>)</td>
+</tr>
+<tr>
+<td>Shepherds fetch strays and wait for the flock</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Shepherds pick an animal for slaughter and slaughter it for food</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Housewives fetch food from the storage pit, gossip round it, and cook dinner at home</td>
+<td>n/a</td>
+<td>the housewife's states are TODO rows. Our wiki differs: the housewife's day (states 100 to 109, with the storage pit, the gossip and the dinner) is dead code in this version of the original (<a href="../../villagers.html#pregnancy-and-births">villagers</a>)</td>
+</tr>
+<tr>
+<td>Housewives do housework when nothing else needs doing</td>
+<td>n/a</td>
+<td><code>HOUSEWIFE_DOES_HOUSEWORK</code> is a TODO row; part of the housewife's day, dead code in the original (row above)</td>
+</tr>
+<tr>
+<td>The town decides when it is harvest time</td>
+<td>done</td>
+<td>the field's activity by its growth: sow, then harvest when ripe (<code>fields::GetFieldActivity</code>, <code>src/ECS/Fields.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="wood-and-building-jobs">Wood and building jobs</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Foresters go to the town's forest and chop trees for wood</td>
+<td>done</td>
+<td><code>FORESTER_GOTO_FOREST</code>, <code>FORESTER_ARRIVES_AT_FOREST</code>, <code>FORESTER_CHOPS_TREE</code> (<code>src/ECS/Villager/VillagerForester.cpp</code>); <code>test/test_villager_forester.cpp</code></td>
+</tr>
+<tr>
+<td>Foresters chop wood for a building site and take it there</td>
+<td>done</td>
+<td>a builder may fetch its wood from a forest (<code>DecideHowToGetWood</code>, <code>src/ECS/Villager/VillagerBuild.cpp</code>); the for-building chop states are never entered in the original either (<a href="../../villagers.html#builders">villagers</a>)</td>
+</tr>
+<tr>
+<td>Villagers take wood from big forests, from rocks the game counts as wood, from pots, and from fallen trees</td>
+<td>partial</td>
+<td>big forests (<code>ARRIVES_AT_BIG_FOREST</code>), pots (<code>TAKE_WOOD_FROM_POT</code>), trees (<code>TAKE_WOOD_FROM_TREE</code>) and loose wood (the wood reaction, <code>src/ECS/Systems/Implementations/VillagerResourceReactions.cpp</code>); the rocks' rows are TODO</td>
+</tr>
+<tr>
+<td>Builders fetch wood from the storage pit and walk to a building site</td>
+<td>done</td>
+<td><code>ARRIVES_AT_STORAGE_PIT_FOR_BUILDING_MATERIALS</code> and the walk to the site (<code>src/ECS/Villager/VillagerBuild.cpp</code>); See ../building/construction.md</td>
+</tr>
+<tr>
+<td>Builders stand round the site and build it up, using wood per stroke</td>
+<td>done</td>
+<td>the builders' ring and <code>BUILDING</code>, wood per cycle (<code>src/ECS/Villager/VillagerBuild.cpp</code>); <code>test/test_villager_build.cpp</code></td>
+</tr>
+<tr>
+<td>Builders never carry scaffolds: the game leaves that empty</td>
+<td>n/a</td>
+<td>See <a href="tools_and_carried_items.html">tools_and_carried_items.md</a></td>
+</tr>
+<tr>
+<td>Only craftsman disciples bring wood from the storage pit to the workshop; ordinary villagers never supply it</td>
+<td>partial</td>
+<td>ordinary villagers never supply it, as the desire is 0 (<code>src/ECS/Town/TownDesire.cpp</code>); there are no craftsman disciples yet; see <a href="../building/workshop_and_scaffolds.html">../building/workshop_and_scaffolds.md</a> and <a href="disciples.html">disciples.md</a></td>
+</tr>
+<tr>
+<td>Builders repair damaged buildings when the town wants repairs</td>
+<td>done</td>
+<td>a repairer is a builder (<code>CheckSatisfyToRepair</code>, <code>src/ECS/Villager/VillagerBuild.cpp</code>); <code>test/test_villager_repair.cpp</code></td>
+</tr>
+<tr>
+<td>A villager waits for wood when the site has none and none can be found</td>
+<td>n/a</td>
+<td>the state is a TODO row. Our wiki differs: the wait for wood is never entered in this version of the original, as a game flag it needs is never set (<a href="../../villagers.html#builders">villagers</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="worship-and-trade">Worship and trade</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Worshippers walk to the worship site, dance and pray, rest at the altar and come home</td>
+<td>partial</td>
+<td>the walk, the dance and the worship (<code>src/ECS/Systems/Implementations/VillagerWorship.cpp</code>) and the walk home; the altar rest's rows are TODO; See ../worship/</td>
+</tr>
+<tr>
+<td>Villagers carry food from the storage pit to the worship site for the worshippers</td>
+<td>todo</td>
+<td>the supply states are TODO rows; the town's desire for worship supplies is none (<code>src/ECS/Town/TownDesire.cpp</code>)</td>
+</tr>
+<tr>
+<td>Worshippers hide at the worship site when not dancing</td>
+<td>done</td>
+<td><code>HIDING_AT_WORSHIP_SITE</code> (<code>src/ECS/Systems/Implementations/VillagerWorship.cpp</code>)</td>
+</tr>
+<tr>
+<td>Traders take a town's excess food or wood from its storage pit and trade it in abodes, food for wood or wood for food</td>
+<td>todo</td>
+<td>the trader's states are TODO rows</td>
+</tr>
+<tr>
+<td>Traders pick up and drop off excess from abodes</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Leaders have no work of their own: they are never needed for anything and live as ordinary villagers</td>
+<td>done</td>
+<td>a leader lives as any villager (<code>src/ECS/Villager/VillagerDecide.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

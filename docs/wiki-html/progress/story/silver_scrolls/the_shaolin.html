@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Shaolin — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-shaolin">The Shaolin</a><ul>
+<li><a href="#how-it-appears">How it appears</a></li>
+<li><a href="#the-introduction">The introduction</a></li>
+<li><a href="#following-the-guru">Following the guru</a></li>
+<li><a href="#trying-again">Trying again</a></li>
+<li><a href="#success">Success</a></li>
+<li><a href="#the-reward-the-gurus-wonder">The reward: the guru's Wonder</a></li>
+<li><a href="#quirks-and-bugs">Quirks and bugs</a></li>
+<li><a href="#unused-and-cut">Unused and cut</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-shaolin">The Shaolin</h1>
+<p>A silver scroll on the third land. A guru leaves his mountain temple to meditate in a secret place and asks the player
+not to follow him. The player has to follow him anyway, unseen, all the way down the mountain to his hidden spot. If
+the player succeeds, the guru later comes back, while the creature is being freed, to start a Wonder for the player's
+people.</p>
+<p><strong>Land:</strong> 3 · <strong>Giver:</strong> the guru (a Shaolin monk) at the mountain temple above the Japanese village; the scroll itself stands by the Japanese village · <strong>Script:</strong> Shaolin · <strong>Reward:</strong> a Wonder begun for the player about 20 minutes into the creature's rescue (only if this scroll was done first) · <strong>Repeatable:</strong> no (failed attempts restart until it is done)</p>
+<p>The land as a whole is in <a href="../land_3.html">../land_3.md</a>, the script program in
+<a href="../../scripts/challenge_scripts.html">../../scripts/challenge_scripts.md</a>.</p>
+<p>Sources: the land's challenge script source (checked against the PC game's compiled <code>challenge.chl</code>), the game's text
+table (<code>Scripts/InfoScript2.txt</code>) and the executable. openblack is judged on this tree: of the 53 script functions the
+quest and the scripts it starts call, 3 only log "not implemented" in <code>src/CHLApi.cpp</code>, but Land 3's control script
+never runs (the land-loading command does nothing), so the guru never exists and every row below is todo unless the
+notes say otherwise. The reward scene calls 28 (none missing; <code>BuildBuilding</code> works).</p>
+<p><strong>Progress: 0/66 done, 5 partial — 4%</strong></p>
+<h2 id="how-it-appears">How it appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's control script starts the quest in the background as soon as the land begins, alongside the creature's rescue, the swap to an ape and the tree puzzle</td>
+<td>todo</td>
+<td><code>LandControl3</code> never runs: <code>LOAD_MAP</code> is empty (<a href="../../../map-loading.html#pending">map-loading</a>); see <a href="../../scripts/land3_script.html">../../scripts/land3_script.md</a></td>
+</tr>
+<tr>
+<td>The guru is made at once, at his temple on the mountain, as a special "Shaolin" villager</td>
+<td>todo</td>
+<td><code>Create</code> makes villagers (<code>CreateScriptObject</code> in <code>src/CHLApi.cpp</code>); the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>He cannot be picked up by the hand, hurt by fire or set alight for the whole quest</td>
+<td>partial</td>
+<td>the three flag commands work (<code>SetIdPickupable</code>, <code>SetHurtByFire</code>, <code>SetSetOnFire</code> in <code>src/CHLApi.cpp</code>), but there is no guru to set them on</td>
+</tr>
+<tr>
+<td>He walks slowly to his standing place just outside the temple and waits there</td>
+<td>todo</td>
+<td><code>MoveGameThing</code> works for villagers; the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The scroll does not appear until the player has some belief in the Japanese village (at least 0.02), checked every 5 seconds; the land's notes call this "waits until the player starts to take over the Japanese town"</td>
+<td>todo</td>
+<td><code>BeliefForPlayer</code> is a stub</td>
+</tr>
+<tr>
+<td>A silver scroll then appears beside the Japanese village, at the foot of the mountain, not at the temple</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> works (<code>src/ECS/ScriptHighlight.cpp</code>); the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>While the scroll is unclicked, whenever the camera is within 100 of it and it is on screen, the good advisor steps out every 30 seconds or more, points at it and says "Your godly attention is required here, Leader."</td>
+<td>todo</td>
+<td>the shared notify script's natives work (<code>SpiritEject</code>, <code>SpiritPointPos</code>, <code>RunText</code>); the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Clicking the scroll (or its spot on the ground) starts the quest</td>
+<td>todo</td>
+<td><code>GameThingClicked</code> works; the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-introduction">The introduction</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The temple's good Tibetan music is attached to the temple</td>
+<td>partial</td>
+<td><code>AttachMusic</code> works (<code>src/Audio</code>); the script never runs</td>
+</tr>
+<tr>
+<td>A cinematic begins (letterbox): the camera rises from above the Japanese village and sweeps up the mountain to the temple over 4 to 6 seconds, then closes in on the guru, who is drawn in high detail and faces it</td>
+<td>partial</td>
+<td>the letterbox, the camera glides, <code>SetFocus</code> on villagers and <code>SetHighGraphicsDetail</code> work; the cinematic never runs</td>
+</tr>
+<tr>
+<td>He plays a standing ambient animation three times</td>
+<td>todo</td>
+<td><code>OverrideStateAnimation</code> works for villagers; the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The scroll is entered in the player's challenge log as "The Shaolin", not yet done, with the good advisor's reminder "We should follow this guru carefully, Leader"</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>Guru: "Ah, I see a god. Greetings."</td>
+<td>todo</td>
+<td><code>RunText</code> and <code>TextRead</code> work; the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Guru: "I am a guru and a yogi."</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Guru: "I am off to meditate and increase my powers."</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Guru: "I have a secret place for this. Please don't follow me there."</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Guru: "That is all." (his sign-off after every speech)</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The camera follows him from behind and above as he takes his first steps away from the temple, then the cinematic ends</td>
+<td>todo</td>
+<td><code>SetFocusFollow</code> and <code>SetPositionFollow</code> work; the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Then, in an ordinary dialogue with both advisors out: evil, "You know what? Let's follow him."</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Evil: "But let's make sure he doesn't see us."</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Good: "Really. Following yogis isn't my idea of godly behaviour."</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="following-the-guru">Following the guru</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The guru walks a fixed path of 24 points down the mountainside, from the temple to a hidden spot by the water far below</td>
+<td>todo</td>
+<td><code>MoveGameThing</code> works; the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>He walks slowly (speeds of 0.2 and 0.3 between points)</td>
+<td>todo</td>
+<td>the speed property works for villagers; the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>At four places he stops to play a "looking for something" or "inspecting" animation, twice by mushrooms, before walking on</td>
+<td>todo</td>
+<td><code>OverrideStateAnimation</code> and <code>Played</code> work for villagers; the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>If the camera is more than 40 from him, he speeds up to 0.7 until his next point, so lagging behind makes him harder to keep up with</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Caught out by being thrown: if he is flying (thrown, for instance by the creature), once he lands he turns to the camera in despair and says "You followed me so I'm going back home now."; the good advisor points at him: "Oh. He's stopped."; the evil advisor: "I'm not surprised. You probably bust every bone in his body."</td>
+<td>todo</td>
+<td>the flying property works; the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Caught out by being held: if he is being held, once let go he turns to the camera in despair, says the same line, and the evil advisor points at him: "Oh real smart. He knows we're here now."</td>
+<td>todo</td>
+<td>the in-hand property (<code>GetProperty</code>) is not ported; the hand can never pick him up, so this only happens if something else holds him (undetermined what can)</td>
+</tr>
+<tr>
+<td>Losing him: if he is not on screen, or the camera is more than 70 from him, he is gone at once: he is put back at his temple and the good advisor says "Gosh, he's quick. He gave us the slip there." and "He's bound to be back at his Temple later."</td>
+<td>todo</td>
+<td><code>GameThingFieldOfView</code> works; the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Being seen: if he can see the camera (it is within the half circle in front of him), a second later he stops, turns to the camera in despair and says "You followed me so I'm going back home now."; the evil advisor points at him: "He saw us. Boss, we've got to try again. Rats."</td>
+<td>todo</td>
+<td><code>GameThingCanViewCamera</code> is a stub</td>
+</tr>
+<tr>
+<td>The checks are made in that order (flying, held, lost, seen), over and over while he walks</td>
+<td>todo</td>
+<td>the held and seen checks need stubs (above)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="trying-again">Trying again</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>After any failure he vanishes in puffs of smoke (where he stood and at his standing place by the temple), and two seconds later is back at the temple</td>
+<td>todo</td>
+<td><code>SpecialEffectPosition</code> works; the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>He waits there until the camera comes within 25 of him, playing a despairing animation</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A cinematic as the camera closes in: "You followed me earlier.", "Please don't try it again.", "That is all." (said even when he was merely lost, not caught)</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>He sets off again; the camera follows him from behind as in the introduction</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Checkpoints: once he has passed the twelfth point the attempt restarts at the eleventh, and once past the seventeenth at the sixteenth; the screen fades to black and back in with him standing at the checkpoint and the camera behind him</td>
+<td>partial</td>
+<td>fades work (<code>SetFade</code>, <code>SetFadeIn</code>, <code>FadeFinished</code>) and the camera can be set at once (<code>SetCameraPosition</code>, <code>SetCameraFocus</code>); the script never runs</td>
+</tr>
+<tr>
+<td>A lasting sparkle (the "command succeeded" spot effect) marks the latest checkpoint on the ground</td>
+<td>todo</td>
+<td><code>SpecialEffectPosition</code> works; the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>There is no limit on attempts and no time limit; the quest only ends by reaching the hidden spot (or if the guru stops existing)</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="success">Success</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>When he reaches his last point unseen, two clouds of butterflies appear at the hidden spot for six minutes and the checkpoint sparkle goes</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A cinematic: the guru, in high detail, sits down cross-legged and, after two seconds, rises into the air and floats there, bobbing gently up and down</td>
+<td>todo</td>
+<td>the height property (<code>SetProperty</code> y position) and the animations work; the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The scroll is marked done in the challenge log ("The Shaolin", success 1, alignment unchanged) and the silver scroll goes</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub; <code>ObjectDelete</code> works</td>
+</tr>
+<tr>
+<td>Guru: "Your stealth surprised me."</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Guru: "You know the secret of my special place of meditation."</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Guru: "If you will remain quiet I will help you on this land."</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Guru: "Rest assured I'll appear when needed."</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Guru: "That is all."</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The camera pulls back over six seconds to look down on him and the cinematic ends</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Once he is off screen and the camera is more than 50 away, he stops floating and, five seconds later, is put back at his temple, where he stays</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Doing the quest changes neither alignment nor belief by itself; there is no immediate prize</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-reward-the-gurus-wonder">The reward: the guru's Wonder</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The reward is given from the gold scroll that frees the creature: when the second prison statue is stopped and the player owns the village guarded by it, the possessed wolves attack, and at that same moment, if the guru's quest is already done, the Wonder scene is started</td>
+<td>todo</td>
+<td>the creature's rescue never runs either (see <a href="../land_3.html">../land_3.md</a>); the same finished quest brings the monk to turn most of the possessed wolves into cows (<a href="../gold_scrolls/the_wolves_are_possessed.html#the-monk-helps">../gold_scrolls/the_wolves_are_possessed.md</a>) and to hand over two water miracles against the burning fishermen (<a href="../gold_scrolls/fire_fire_im_on_fire.html#the-monk-helps">../gold_scrolls/fire_fire_im_on_fire.md</a>)</td>
+</tr>
+<tr>
+<td>The scene waits 20 minutes first (skipped when the scripts' debug flag is set)</td>
+<td>todo</td>
+<td>a plain script sleep, handled by the script machine itself, but the scene is never started</td>
+</tr>
+<tr>
+<td>The screen fades to black; a guru is made on a ledge above the land, facing the camera, and cannot be picked up</td>
+<td>partial</td>
+<td>the fade and pick-up flag work and <code>Create</code> makes villagers; the scene never runs</td>
+</tr>
+<tr>
+<td>A cinematic fades in on him. Guru: "It seems you require help."</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A building planned on the land below is turned into a building site and begun (a tenth built), with a high desire to finish it</td>
+<td>todo</td>
+<td><code>BuildBuilding</code> and the built property work; the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>An info sign (bronze scroll) is put beside it: "Wonders are special buildings which power up certain aspects of each tribe. They also increase your influence. This Wonder will cause more people to be born in the Village. And their worship power will also be boosted."</td>
+<td>todo</td>
+<td>the shared info-sign script; <code>CreateHighlight</code> works; the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Guru: "That last Village is causing you trouble."</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Guru: "So I have given your people the ability to build a Wonder." while the camera rises over four seconds</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Guru: "It will give you greater influence across this land." while the camera sweeps down to the new building site over eight seconds</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Guru: "That is all." and the cinematic ends</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The guru made for this scene is never removed; with the first guru kept at the temple, two gurus can be on the land at once</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Which tribe's Wonder is planned at that spot comes from the land's own data, not the script</td>
+<td>todo</td>
+<td>undetermined: the building planned at that spot was not read from the land file</td>
+</tr>
+</tbody>
+</table>
+<h2 id="quirks-and-bugs">Quirks and bugs</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The Wonder is checked for only once: if the guru's quest is finished after the second prison statue falls and its village is won, the reward is lost for good</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The quest's main script never ends: after success it waits for the guru at the temple to stop existing, which normally never happens</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The "held" failure can never come from the hand, since he cannot be picked up</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>After being merely lost, the guru still says "You followed me earlier."</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The scroll sits by the Japanese village while the guru waits at the temple far up the mountain; the introduction carries the camera from one to the other</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="unused-and-cut">Unused and cut</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The text table has five guru-quest lines no script says: evil, "He saw us! I say we leave him and come back later."; guru, "You tried to follow me before." and "Please leave me with my secrets."; "What was that?"; and "Leader, we're not managing to impress anyone in this place."</td>
+<td>n/a</td>
+<td>cut dialogue; nothing to play</td>
+</tr>
+<tr>
+<td>A wait for the guru to be off screen before he resets after a failure is commented out in the source, so he resets in plain view</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

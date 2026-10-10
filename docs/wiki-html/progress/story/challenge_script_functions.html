@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Challenge script language and functions — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="here" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+
+<h1 id="challenge-script-language-and-functions">Challenge script language and functions</h1>
+<p>The story is written in the game's challenge script language and compiled into one file the game runs. Every script
+command and native function, one row each, is in ../scripts/ (challenge_natives_*.md); the machine that runs the
+scripts is in ../engine/script_vm.md. This file only says how far the story's needs are met.</p>
+<p><strong>Progress: 6/12 done, 6 partial — 75%</strong></p>
+<h2 id="what-the-story-needs">What the story needs</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The game's own compiled challenge file is loaded and the story's top script started</td>
+<td>done</td>
+<td><code>Game.cpp</code> loads <code>Scripts/Quests/challenge.chl</code> (<code>LHVM::LoadBinary</code>) and starts <code>LandControlAll</code>; see ../engine/script_vm.md</td>
+</tr>
+<tr>
+<td>The language compiles and decompiles exactly as the game's</td>
+<td>done</td>
+<td><code>components/lhvmcompiler</code>, <code>components/lhvmdecompiler</code>; tests in <code>test/lhvm/</code> (<code>test_chl_roundtrip.cpp</code>, <code>test_lhvm_decompiler.cpp</code>); see ../debug/script_debugger.md</td>
+</tr>
+<tr>
+<td>Script kinds: story scripts, help scripts, challenge help, temple help and specials, multiplayer help</td>
+<td>partial</td>
+<td><code>Game.cpp</code> runs every kind each world turn (<code>LookIn(ScriptType::All)</code>) and only the temple help and temple special kinds inside the temple; when the original runs each kind is not fully checked; see ../engine/script_vm.md</td>
+</tr>
+<tr>
+<td>Camera commands for cut scenes</td>
+<td>done</td>
+<td>every camera native is real in <code>src/CHLApi.cpp</code> (set, move, follow, face, dual, paths, lens, shake, zones, widescreen); checked in the Land 1 intro; see <a href="../../script-camera.html#opcodes">script-camera.md</a></td>
+</tr>
+<tr>
+<td>Dialogue, text and the advisors</td>
+<td>done</td>
+<td><code>RunText</code>, <code>TempText</code>, <code>TextRead</code>, <code>StartDialogue</code>, <code>EndDialogue</code> and every advisor native are real (<code>src/Help</code>); checked in the Land 1 intro; see <a href="advisors.html">advisors.md</a></td>
+</tr>
+<tr>
+<td>Scrolls, challenge records and rewards</td>
+<td>partial</td>
+<td>scrolls are real (<code>CreateHighlight</code>, <code>HighlightProperties</code>, <code>src/ECS/ScriptHighlight.cpp</code>); the challenge records (<code>Snapshot</code>, <code>UpdateSnapshot</code>) and rewards (<code>CreateReward</code>, <code>CreateRewardInTown</code>) are stubs</td>
+</tr>
+<tr>
+<td>Music and sound</td>
+<td>done</td>
+<td>music and sound natives are real (<code>StartMusic</code>, <code>StopMusic</code>, <code>AttachMusic</code>, <code>PlaySoundEffect</code>, sound tags, the alignment music); see <a href="../../audio.html">audio.md</a></td>
+</tr>
+<tr>
+<td>Towns, belief, influence, players and computer gods</td>
+<td>partial</td>
+<td>influence natives, <code>GetNearestTownOfPlayer</code>, <code>SetTownDesireBoost</code> and <code>BuildBuilding</code> are real; <code>GetTownWithId</code>, the belief natives (<code>BeliefForPlayer</code>, <code>SetPlayerBelief</code>) and every computer player native are stubs</td>
+</tr>
+<tr>
+<td>The creature and the leash</td>
+<td>partial</td>
+<td>the leash natives, <code>LoadMyCreature</code>, <code>CallPlayerCreature</code>, <code>SetCreatureHome</code>, <code>SetCreatureDevStage</code> and two <code>DevFunction</code> values are real; every creature teaching, desire and action native is a stub</td>
+</tr>
+<tr>
+<td>Miracles, fire and weather</td>
+<td>partial</td>
+<td>the spell, fire and weather natives are real (<code>src/Magic/Script/CHL*.cpp</code>); mist, <code>SetMagicRadius</code>, <code>IsAffectedBySpell</code> and poison are stubs</td>
+</tr>
+<tr>
+<td>Time and timers</td>
+<td>done</td>
+<td>game time, timers and the countdown are real (<code>SetGameTime</code>, <code>MoveGameTime</code>, <code>CreateTimer</code>, <code>SetTimerTime</code>, <code>StartCountdownTimer</code>, <code>src/ECS/ScriptTimer.cpp</code>)</td>
+</tr>
+<tr>
+<td>Overall: about 62 of the 464 native functions do something, so no land's story runs past its first steps</td>
+<td>partial</td>
+<td>241 of the 464 natives are real and 13 more work in part (<code>src/CHLApi.cpp</code>); Land 1 runs the intro, then stops at the creature gate (the plinth reading <code>ObjectInfoBits</code> is a stub), and no other land loads (<code>LoadMap</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

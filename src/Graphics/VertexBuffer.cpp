@@ -13,6 +13,9 @@
 
 #include <array>
 
+#include <spdlog/spdlog.h>
+
+#include "Engine/GpuCommands.h"
 #include "GraphicsHandleBgfx.h"
 
 using namespace openblack::graphics;
@@ -35,12 +38,14 @@ constexpr std::array<bgfx::Attrib::Enum, 18> k_Attributes {
 
 } // namespace
 
-VertexBuffer::VertexBuffer(std::string name, const void* mem, VertexDecl decl) noexcept
+VertexBuffer::VertexBuffer(std::string name, const void* mem, VertexDecl decl, bool dynamic) noexcept
     : _name(std::move(name))
     , _vertexCount(0)
     , _vertexDecl(std::move(decl))
     , _strideBytes(0)
     , _handle(BGFX_INVALID_HANDLE)
+    , _dynamicHandle(BGFX_INVALID_HANDLE)
+    , _dynamic(dynamic)
     , _layoutHandle(BGFX_INVALID_HANDLE)
 {
 	// assert(vertices != nullptr);
@@ -70,19 +75,46 @@ VertexBuffer::VertexBuffer(std::string name, const void* mem, VertexDecl decl) n
 
 	_vertexCount = bgfxMem->size / _strideBytes;
 
-	_handle = fromBgfx(bgfx::createVertexBuffer(bgfxMem, layout));
+	engine::gpu::NoteResourceCall("VertexBuffer::create", _name);
+	if (_dynamic)
+	{
+		_dynamicHandle = fromBgfx(bgfx::createDynamicVertexBuffer(bgfxMem, layout));
+	}
+	else
+	{
+		_handle = fromBgfx(bgfx::createVertexBuffer(bgfxMem, layout));
+	}
+	engine::gpu::NoteResourceCall("VertexBuffer::createVertexLayout", _name);
 	_layoutHandle = fromBgfx(bgfx::createVertexLayout(layout));
-	bgfx::setName(toBgfx(_handle), _name.c_str());
+	if (!IsValid())
+	{
+		// (openblack guard) bgfx is out of handles (4096 of each kind): setName on kInvalidHandle writes out of bgfx's
+		// array in Release and corrupts the heap; the buffer stays empty and is not drawn
+		SPDLOG_LOGGER_WARN(spdlog::get("graphics"), "{}: out of bgfx buffer handles, not created", _name);
+		return;
+	}
+	// bgfx names only static buffers
+	if (!_dynamic)
+	{
+		bgfx::setName(toBgfx(_handle), _name.c_str());
+	}
 }
 
 VertexBuffer::~VertexBuffer() noexcept
 {
 	if (bgfx::isValid(toBgfx(_handle)))
 	{
+		engine::gpu::NoteResourceCall("VertexBuffer::destroy", _name);
 		bgfx::destroy(toBgfx(_handle));
+	}
+	if (bgfx::isValid(toBgfx(_dynamicHandle)))
+	{
+		engine::gpu::NoteResourceCall("VertexBuffer::destroy", _name);
+		bgfx::destroy(toBgfx(_dynamicHandle));
 	}
 	if (bgfx::isValid(toBgfx(_layoutHandle)))
 	{
+		engine::gpu::NoteResourceCall("VertexBuffer::destroy (layout)", _name);
 		bgfx::destroy(toBgfx(_layoutHandle));
 	}
 }
@@ -102,7 +134,58 @@ uint32_t VertexBuffer::GetSizeInBytes() const noexcept
 	return _vertexCount * _strideBytes;
 }
 
+bool VertexBuffer::IsValid() const noexcept
+{
+	return _dynamic ? bgfx::isValid(toBgfx(_dynamicHandle)) : bgfx::isValid(toBgfx(_handle));
+}
+
 void VertexBuffer::Bind() const
 {
-	bgfx::setVertexBuffer(0, toBgfx(_handle), 0, _vertexCount, toBgfx(_layoutHandle));
+	if (!IsValid())
+	{
+		return; // (openblack guard) never hand bgfx an invalid handle
+	}
+	Bind(0, _vertexCount);
+}
+
+void VertexBuffer::Bind(uint32_t firstVertex, uint32_t count) const
+{
+	if (!IsValid())
+	{
+		return;
+	}
+	if (_dynamic)
+	{
+		bgfx::setVertexBuffer(0, toBgfx(_dynamicHandle), firstVertex, count, toBgfx(_layoutHandle));
+	}
+	else
+	{
+		bgfx::setVertexBuffer(0, toBgfx(_handle), firstVertex, count, toBgfx(_layoutHandle));
+	}
+}
+
+void VertexBuffer::BindStream(uint8_t stream, VertexLayoutHandle layout) const
+{
+	if (!IsValid())
+	{
+		return; // (openblack guard) never hand bgfx an invalid handle
+	}
+	if (_dynamic)
+	{
+		bgfx::setVertexBuffer(stream, toBgfx(_dynamicHandle), 0, _vertexCount, toBgfx(layout));
+	}
+	else
+	{
+		bgfx::setVertexBuffer(stream, toBgfx(_handle), 0, _vertexCount, toBgfx(layout));
+	}
+}
+
+void VertexBuffer::Update(const void* memory) const
+{
+	assert(_dynamic);
+	if (!IsValid())
+	{
+		return;
+	}
+	bgfx::update(toBgfx(_dynamicHandle), 0, reinterpret_cast<const bgfx::Memory*>(memory));
 }

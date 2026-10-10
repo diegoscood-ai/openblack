@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Villager tools and carried items — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="here" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#villager-tools-and-carried-items">Villager tools and carried items</a><ul>
+<li><a href="#the-objects">The objects</a></li>
+<li><a href="#which-tool-each-job-uses">Which tool each job uses</a></li>
+<li><a href="#when-the-tool-or-load-shows">When the tool or load shows</a></li>
+<li><a href="#drawing-and-animation">Drawing and animation</a></li>
+<li><a href="#sounds-of-tool-use">Sounds of tool use</a></li>
+<li><a href="#picked-up-thrown-hurt-or-killed">Picked up, thrown, hurt or killed</a></li>
+<li><a href="#the-dropped-log">The dropped log</a></li>
+<li><a href="#logs-by-tree-type">Logs by tree type</a></li>
+<li><a href="#scripts-and-story">Scripts and story</a></li>
+<li><a href="#things-the-game-does-not-do">Things the game does not do</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="villager-tools-and-carried-items">Villager tools and carried items</h1>
+<p>What a villager holds in its hand: the tool of the job it is doing (axe, fishing rod, crook, spade, hammer, saw or
+mallet), the wood or food it is carrying, and the football. Tools are only drawn props; the only thing a villager ever
+lets fall as a real object is a log of the wood it carries. The load itself (how much food and wood, the storage pit
+trips, the slowdown) is in <a href="jobs.html">jobs.md</a>; a thrown villager's flight is in
+<a href="../physics/thrown_living.html">../physics/thrown_living.md</a>.</p>
+<p>openblack: villagers carry their loads and draw their tools and loads in their hands (<code>CarriedObjectFor</code> in
+<code>src/ECS/Villager/VillagerResources.cpp</code>, <code>src/ECS/CarriedProps.cpp</code>), and a villager thrown, launched or killed lets
+its wood fall as a log (<code>villager::CreateDroppedResource</code>). A script cannot yet set what a villager holds.</p>
+<p><strong>Progress: 56/66 done, 2 partial — 86%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../villagers.html">Villagers: data, state machine and speed</a>.</p>
+<h2 id="the-objects">The objects</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A villager can hold one of fourteen objects: axe, fishing rod, crook, saw, bag, ball, hammer, heavy mallet, scythe, spade, a plain piece of wood, and a log of evergreen, fruit tree or hardwood; or nothing</td>
+<td>done</td>
+<td>the carried object ids (<code>SkeletalAnimation::carriedObject</code>, <code>src/ECS/VillagerAnimations.cpp</code>, <code>src/ECS/Villager/VillagerResources.cpp</code>)</td>
+</tr>
+<tr>
+<td>Each object is one mesh from the mesh pack, the same for every tribe: the "O_" objects of <code>Data/AllMeshes.h</code> (axe 342, bag 343, ball 344, evergreen branch 347, fruit branch 348, hardwood branch 349, crook 354, fishing rod 355, hammer 367, heavy mallet 378, saw 383, scythe 384, spade 390, wood in hand 406)</td>
+<td>done</td>
+<td>one prop mesh per object, the same for every tribe (<code>k_PropMeshes</code>, <code>CarriedObjectMesh</code>, <code>src/ECS/CarriedProps.cpp</code>)</td>
+</tr>
+<tr>
+<td>The pack's second set of tools (the "U_" axe, bag, ball, crook, fishing rod, hammer, mallet, saw, scythe, spade) is never held: info.dat uses them as furniture scenery</td>
+<td>done</td>
+<td>only the "O_" meshes are props (<code>src/ECS/CarriedProps.cpp</code>); the furniture's placing is undetermined</td>
+</tr>
+<tr>
+<td>The logs, wheat and dead fish "in hand" meshes of the pack (372, 405, 370) are not villager objects either: a villager carrying food shows a bag, never fish or wheat</td>
+<td>done</td>
+<td>food shows as the bag (<code>CarriedObjectFor</code>, <code>src/ECS/Villager/VillagerResources.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="which-tool-each-job-uses">Which tool each job uses</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Foresters hold an axe from the moment they head for the forest, while they look for a tree and while they chop, and when they go to a big forest; finishing work puts it away</td>
+<td>done</td>
+<td>the state rows' carried object (<code>state_info::CarriedObject</code>) through <code>SetStateCarriedObject</code> (<code>src/ECS/Villager/VillagerResources.cpp</code>), in the forester's ported states</td>
+</tr>
+<tr>
+<td>Fishermen hold a fishing rod on the way to their fishing spot and while they fish</td>
+<td>done</td>
+<td>the fishing states' row (<code>SetStateCarriedObject</code>)</td>
+</tr>
+<tr>
+<td>Shepherds hold a crook through all their work: looking for a flock, taking control of it, leading it to water, food and home, waiting for it and fetching strays; the slaughter itself is not drawn</td>
+<td>todo</td>
+<td>the shepherd's states are TODO rows</td>
+</tr>
+<tr>
+<td>Farmers hold a spade on the way to the field and while they dig up the crop, but sow empty-handed</td>
+<td>done</td>
+<td>the farmer's states' rows (<code>src/ECS/Villager/VillagerFarmer.cpp</code>)</td>
+</tr>
+<tr>
+<td>Builders, at each stroke of building, pick one of three clips at random and hold its tool: hammering with a hammer, sawing with a saw, or the sledgehammer swing with a heavy mallet; an into-clip already started keeps its own tool</td>
+<td>done</td>
+<td>one of the three clips at random sets the hammer, the saw or the heavy mallet, unless the carried object is locked (<code>src/ECS/VillagerAnimations.cpp</code>)</td>
+</tr>
+<tr>
+<td>Housewives carry a bag from the storage pit to their home (picked up with the pot-on-the-head clip, walked home with the carrying-pot clip)</td>
+<td>n/a</td>
+<td>the housewife's states are TODO rows. Our wiki differs: the housewife's day, her trips to the storage pit included, is dead code in this version of the original (<a href="../../villagers.html#pregnancy-and-births">villagers</a>)</td>
+</tr>
+<tr>
+<td>Villagers fighting a fire with water hold a bag while they throw the water; fetching the water and beating the flames are done empty-handed</td>
+<td>done</td>
+<td>the water-fighting rows give the bag (<code>SetStateCarriedObject</code>); in this version a villager fighting with water gives up at once (<code>src/ECS/Systems/Implementations/VillagerFire.cpp</code>)</td>
+</tr>
+<tr>
+<td>A footballer picking up the ball for a restart holds a ball and runs with it until it puts it down; footballers hold nothing while playing, celebrating, watching or doing the wave</td>
+<td>todo</td>
+<td>no football; see play_and_gossip.md; <a href="../town/football.html#the-player-and-the-creature">../town/football.md</a></td>
+</tr>
+<tr>
+<td>Traders, missionaries, worship suppliers, workshop suppliers and builders on their way to the site have no tool of their own: they show their load (a bag of food or a piece of wood)</td>
+<td>partial</td>
+<td>builders on their way show their load (<code>CarriedObjectFor</code>); the traders', missionaries' and suppliers' states are TODO rows</td>
+</tr>
+<tr>
+<td>Breeder disciples and children hold nothing, and leaders have no tool</td>
+<td>done</td>
+<td>children and leaders hold nothing (no state row gives them a tool); there is no craftsman job</td>
+</tr>
+<tr>
+<td>Disciples doing a job go through that job's states, so they hold its tool (a forester disciple has the axe, and so on)</td>
+<td>partial</td>
+<td>a disciple goes through its job's states and so would hold its tool, but no disciple is made yet; See disciples.md</td>
+</tr>
+<tr>
+<td>The scythe is never held: no state and no code gives it</td>
+<td>done</td>
+<td>no state row gives the scythe</td>
+</tr>
+<tr>
+<td>Villagers taking wood from a rock, a tree or a pot play the chopping clip with nothing in their hands</td>
+<td>done</td>
+<td><code>TAKE_WOOD_FROM_TREE</code> and <code>TAKE_WOOD_FROM_POT</code> with the chopping clip and nothing held; the rock's rows are TODO</td>
+</tr>
+</tbody>
+</table>
+<h2 id="when-the-tool-or-load-shows">When the tool or load shows</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>What a villager holds is worked out again each time it picks a new animation: its load first, then the state it is heading for, then the state it is in; a state that names an object (or "nothing") overrides the one before</td>
+<td>done</td>
+<td><code>CarriedObjectFor</code>: the load, then the final state's row, then the top state's (<code>src/ECS/Villager/VillagerResources.cpp</code>), at each clip change (<code>src/ECS/VillagerAnimations.cpp</code>)</td>
+</tr>
+<tr>
+<td>The load shows when the villager holds more than 50 wood (a piece of wood or a log) or else more than 100 food (a bag); smaller loads are carried but not seen</td>
+<td>done</td>
+<td><code>minWoodToShowGraphic</code> and <code>minFoodToShowGraphic</code> (<code>CarriedObjectFor</code>)</td>
+</tr>
+<tr>
+<td>A villager holding both shows the wood if it has more than 50, even when it has more food</td>
+<td>done</td>
+<td>the wood first (<code>CarriedObjectFor</code>)</td>
+</tr>
+<tr>
+<td>A builder whose next state is building never shows a bag of food</td>
+<td>done</td>
+<td>the building final state shows no bag (<code>CarriedInput::finalIsBuilding</code>)</td>
+</tr>
+<tr>
+<td>A badly wounded villager (life at or below the crawling level) shows no load, but the tool of its job state still shows</td>
+<td>done</td>
+<td>at or below <code>lifeWhenCrawlsWounded</code> no load (<code>CarriedObjectFor</code>)</td>
+</tr>
+<tr>
+<td>The tool and the load disappear while the villager decides what to do next, has nothing to do, gossips, mourns, inspects or points at something, is scared stiff, confused, poisoned, on fire, fainting or weak on the ground, flees an object or a predator, flies, lands, drowns, dies or is being eaten</td>
+<td>done</td>
+<td>the state rows' "nothing" (<code>SetStateCarriedObject</code>)</td>
+</tr>
+<tr>
+<td>At worship the villager holds nothing: walking to the site, dancing, praying, resting at the altar and eating there; the same for dancing outside worship and the artifact dance</td>
+<td>done</td>
+<td>the worship and dance rows give nothing</td>
+</tr>
+<tr>
+<td>At home the villager is not drawn at all (sleeping, eating, cooking, housework), so neither is what it holds; sleeping on the floor, eating dinner, giving birth and making love all hold nothing</td>
+<td>done</td>
+<td>a villager at home is hidden, so its prop is not drawn (<code>src/ECS/CarriedProps.cpp</code>)</td>
+</tr>
+<tr>
+<td>Walking home, going for a drop-off, fleeing a creature or panicking, the villager keeps showing its load</td>
+<td>done</td>
+<td>the rows that keep the load (<code>CarriedObjectFor</code>)</td>
+</tr>
+<tr>
+<td>A villager under a script keeps the object it had when the script took it over, as long as the script holds it or plays an animation on it</td>
+<td>done</td>
+<td>the script states keep the current object (<code>src/ECS/VillagerAnimations.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="drawing-and-animation">Drawing and animation</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The object is drawn fixed to the grip bone at the end of the villager's arm (bone 15 of its skeleton), turning with it through every frame of the animation</td>
+<td>done</td>
+<td>linked to bone 15 of the pose, the grip at the end of its -X arm (<code>src/ECS/CarriedProps.cpp</code>)</td>
+</tr>
+<tr>
+<td>It is drawn only with the villager: not while the player's hand holds the villager, and not in a state whose animation is hidden (inside homes, hiding at the worship site)</td>
+<td>done</td>
+<td>not while hidden or in the hand (<code>src/ECS/CarriedProps.cpp</code>)</td>
+</tr>
+<tr>
+<td>A villager walking with any object except a saw, hammer or ball uses the carrying walk clip; running or sprinting with one uses the carrying run clip; men and women share both</td>
+<td>done</td>
+<td>the carrying walk and run clips for any object but the saw, the hammer and the ball (<code>src/ECS/VillagerAnimations.cpp</code>)</td>
+</tr>
+<tr>
+<td>A wounded villager crawls or limps instead, whatever it carries</td>
+<td>done</td>
+<td>the wounded clips come first (<code>src/ECS/VillagerAnimations.cpp</code>)</td>
+</tr>
+<tr>
+<td>The landing clip has a variant for landing on the feet while carrying, but landing itself always holds nothing, so the plain one is always played (outside scripts)</td>
+<td>done</td>
+<td><code>VillagerLandedClip</code> with nothing carried (<code>src/ECS/VillagerAnimations.cpp</code>)</td>
+</tr>
+<tr>
+<td>Picking up and putting down loads have their own clips: picking up sticks at the storage pit, putting them down at a building site, picking up and putting down a bag; a drop-off at the pit always uses the bag clip, even for wood</td>
+<td>done</td>
+<td>the states' own clips from info.dat and the animation table (<code>src/ECS/VillagerAnimationTable.h</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="sounds-of-tool-use">Sounds of tool use</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Chopping a tree sounds two axe blows and two axe releases per clip (blows at about 1.5 s and 3.6 s)</td>
+<td>done</td>
+<td>the clips' sound events (<code>src/Audio/Services/AnimationSounds.cpp</code>); see ../audio/sound_effects.md</td>
+</tr>
+<tr>
+<td>Sawing alternates the forward and backward saw sounds, each stroke stopping the other's</td>
+<td>done</td>
+<td>the saw's forward and back sounds, each stopping the other (<code>src/Audio/Services/AnimationSounds.cpp</code>)</td>
+</tr>
+<tr>
+<td>Both the hammering and the sledgehammer clips play the sledgehammer sound once per clip; the separate hammer sound is never used by a villager</td>
+<td>done</td>
+<td>the clips' sound events (<code>src/Audio/Services/AnimationSounds.cpp</code>)</td>
+</tr>
+<tr>
+<td>Fishing plays one cast sound per clip</td>
+<td>done</td>
+<td>the clips' sound events (<code>src/Audio/Services/AnimationSounds.cpp</code>)</td>
+</tr>
+<tr>
+<td>Sowing and digging up crops are silent: the digging sounds belong to two farmer clips the farming states never play</td>
+<td>done</td>
+<td>the farming states play the silent clips</td>
+</tr>
+<tr>
+<td>Kicks in football each play the kick sound</td>
+<td>todo</td>
+<td>no football; See play_and_gossip.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="picked-up-thrown-hurt-or-killed">Picked up, thrown, hurt or killed</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Picking a villager up with the hand takes nothing from it: it keeps its wood and food while held, and a gentle put-down leaves them with it</td>
+<td>done</td>
+<td>the pick-up takes nothing (<code>ecs::living::InterfaceSetInMagicHand</code>, <code>src/ECS/LivingPhysics.cpp</code>); a gentle put-down lands it with its load</td>
+</tr>
+<tr>
+<td>A villager the hand lets go of so that it flies, rather than being set down, lets its wood fall as a log that flies on beside it with the villager's speed</td>
+<td>done</td>
+<td><code>villager::CreateDroppedResource</code> from <code>src/ECS/Physics/FromHand.cpp</code>; see ../physics/thrown_living.md</td>
+</tr>
+<tr>
+<td>Anything else that launches a villager does the same first: being knocked by a flying object or an explosion, thrown or spat out by a creature, or taken by a tornado or vortex</td>
+<td>done</td>
+<td>the same from the knock and the other launches (<code>src/ECS/LivingPhysics.cpp</code>)</td>
+</tr>
+<tr>
+<td>A log falls only when the villager shows a load or a tool and holds more than 50 wood; a villager holding nothing visible keeps its wood through the throw</td>
+<td>done</td>
+<td><code>DroppedLogFor</code>: a shown object and more than 50 wood (<code>src/ECS/Villager/VillagerResources.cpp</code>)</td>
+</tr>
+<tr>
+<td>Food is never dropped by a throw: the villager keeps it and still has it when it lands</td>
+<td>done</td>
+<td>only the wood falls (<code>CreateDroppedResource</code>)</td>
+</tr>
+<tr>
+<td>Tools are never dropped, lost or picked up: they are only drawn, and come back as soon as the villager returns to its work</td>
+<td>done</td>
+<td>tools are only the drawn prop (<code>src/ECS/CarriedProps.cpp</code>)</td>
+</tr>
+<tr>
+<td>Every death lets the log fall where the villager is (if it shows something and holds more than 50 wood): starving, old age, drowning, chanting, a miracle or spell, a fall, being sacrificed, being eaten by an animal, and a script letting go of a villager whose life has run out</td>
+<td>done</td>
+<td><code>VillagerDead</code> calls <code>CreateDroppedResource</code> (<code>src/ECS/Villager/VillagerDeath.cpp</code>); See death.md</td>
+</tr>
+<tr>
+<td>A villager eaten by a creature drops nothing</td>
+<td>done</td>
+<td>a villager the creature eats is deleted without a death drop (<code>ecs::life::Kill</code>, <code>src/ECS/Life.cpp</code>)</td>
+</tr>
+<tr>
+<td>On death everything else the villager carried, food and the rest of the wood, is lost; it never becomes a pile</td>
+<td>done</td>
+<td><code>DropWood</code> and <code>DropFood</code> after the log (<code>src/ECS/Villager/VillagerDeath.cpp</code>)</td>
+</tr>
+<tr>
+<td>A hungry villager eats from the food it is carrying (eating out, eating at home, clearing away dinner, eating at the worship site)</td>
+<td>done</td>
+<td><code>EatFoodHeld</code> (<code>src/ECS/Villager/VillagerFood.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-dropped-log">The dropped log</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The log is a fallen pine trunk holding exactly the wood the villager carried, drawn with the mesh of what the villager was holding (a log of the carried tree type, plain wood, or even the tool it was showing)</td>
+<td>done</td>
+<td>the log holds the villager's wood and is drawn with its carried object's mesh (<code>CreateDroppedResource</code>, <code>src/ECS/Villager/VillagerResources.cpp</code>)</td>
+</tr>
+<tr>
+<td>It is placed on the ground and raised clear of anything it overlaps before it flies</td>
+<td>done</td>
+<td>put on the ground and raised until it intersects nothing (<code>CreateDroppedResource</code>)</td>
+</tr>
+<tr>
+<td>It flies without hitting other objects, so it hurts nothing and knocks nothing over on its way</td>
+<td>done</td>
+<td><code>PhysicsObjects::AddDroppedObject</code> hits no other object; see ../physics/collisions.md</td>
+</tr>
+<tr>
+<td>Once down it is an ordinary fallen tree: the hand can pick it up and throw it, it can burn, and villagers wanting wood come to collect it</td>
+<td>done</td>
+<td>the log is a fallen tree (<code>components::DeadTree</code>): the hand, the fire and the wood reaction treat it as one; See ../nature/</td>
+</tr>
+<tr>
+<td>Picked up again, a log of evergreen, fruit or hardwood gives back that tree type; a log drawn with any other mesh counts as evergreen</td>
+<td>done</td>
+<td>the carried tree type of a fallen tree (<code>CarriedTreeTypeOf</code>, <code>src/ECS/Systems/Implementations/VillagerResourceReactions.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="logs-by-tree-type">Logs by tree type</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Wood taken from a tree, a felled tree or a fallen trunk is carried as a log of that tree's type; wood from a storage pit, a pot, a rock or a big forest is carried as its own kind</td>
+<td>done</td>
+<td>the tree type kept with the wood (<code>PickupWood</code>, <code>src/ECS/Villager/VillagerResources.cpp</code>)</td>
+</tr>
+<tr>
+<td>Conifers, pines, cypresses and copses give evergreen logs; beech, birch, cedar, oak, olive, palms, bushes, hedges and burnt trees give hardwood; big forests give hardwood; storage pits, pots and rocks give plain wood</td>
+<td>done</td>
+<td>from the tree records of info.dat</td>
+</tr>
+<tr>
+<td>No tree gives fruit-tree logs, so the fruit branch is never seen in a villager's hand</td>
+<td>done</td>
+<td>no tree record gives it</td>
+</tr>
+<tr>
+<td>The tree type stays with the villager after it drops its wood, until its next wood pick-up replaces it</td>
+<td>done</td>
+<td>the tree type stays in the villager's flags until the next pick-up (<code>PickupResource</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="scripts-and-story">Scripts and story</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A script can set the object a villager holds (any of the list, or nothing); the next animation change overwrites it unless the villager is under the script</td>
+<td>todo</td>
+<td>SET_OBJECT_CARRYING only logs "not implemented" (<code>src/CHLApi.cpp</code>)</td>
+</tr>
+<tr>
+<td>Land 2's introduction of the disciple gives its villager a heavy mallet</td>
+<td>todo</td>
+<td>SET_OBJECT_CARRYING is a stub</td>
+</tr>
+<tr>
+<td>The worship tutorial gives the villager building the worship site a heavy mallet</td>
+<td>todo</td>
+<td>SET_OBJECT_CARRYING is a stub</td>
+</tr>
+<tr>
+<td>Land 5's waving villagers are given a fishing rod and an axe</td>
+<td>todo</td>
+<td>SET_OBJECT_CARRYING is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="things-the-game-does-not-do">Things the game does not do</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Villagers never carry scaffolds: the code for builders bringing one from the workshop is left empty, so only the hand and the creature move them</td>
+<td>done</td>
+<td>no villager state carries a scaffold; only the hand's and the creature's code move them (<code>src/ECS/Scaffolds.cpp</code>)</td>
+</tr>
+<tr>
+<td>Mothers never carry babies; children walk after their mothers</td>
+<td>done</td>
+<td>children walk after their mothers (<code>CHILD_FOLLOWS_MOTHER</code>); nobody carries a baby</td>
+</tr>
+<tr>
+<td>There are no tribe-specific tools: every tribe uses the same meshes</td>
+<td>done</td>
+<td>one prop table for every tribe (<code>src/ECS/CarriedProps.cpp</code>)</td>
+</tr>
+<tr>
+<td>A forester does not carry the tree it fells: the felled trunk lies where it fell, and villagers who want wood come to it and carry the wood away as a log</td>
+<td>done</td>
+<td>the felled tree falls and lies; villagers take its wood through the wood reaction (<code>src/ECS/Villager/VillagerForester.cpp</code>, <code>src/ECS/Systems/Implementations/VillagerResourceReactions.cpp</code>); See jobs.md</td>
+</tr>
+<tr>
+<td>What a villager in the creature's hand shows, and whether it keeps its load there</td>
+<td>todo</td>
+<td>Undetermined: the creature's holding of villagers was not traced</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

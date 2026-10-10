@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tutorial — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="here" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#tutorial">Tutorial</a><ul>
+<li><a href="#the-opening-scene">The opening scene</a></li>
+<li><a href="#the-opening-of-the-first-land">The opening of the first land</a></li>
+<li><a href="#the-tutorial-island">The tutorial island</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="tutorial">Tutorial</h1>
+<p>How the game teaches itself: the opening of the first land, where the advisors and short hand demonstrations show the
+camera, the hand and the first miracles. The separate practice island is in tutorial_island.md.</p>
+<p>A cut early draft of the opening at the temple (rotating the camera, carrying wood and food to the builders, the kinds
+of scroll) is in <a href="silver_scrolls/see_the_citadel.html">silver_scrolls/see_the_citadel.md</a>.</p>
+<p><strong>Progress: 5/17 done, 9 partial — 56%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../intro.html">The Land 1 intro and the tutorial's script side</a>.</p>
+<h2 id="the-opening-scene">The opening scene</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A Norse family (father, mother and son) is made, in high detail, at early morning</td>
+<td>partial</td>
+<td><code>SetHighGraphicsDetail</code> makes them high-detail villagers (<code>ecs::super_villager</code>, <code>src/Graphics/SuperVillagerFrame</code>, eyes in <code>src/ECS/SuperVillager*</code>), wired into <code>Game.cpp</code>; the wiki still calls it drafted, not checked against the original (<a href="../../intro.html#the-family-in-high-detail-supervillager">intro.md</a>)</td>
+</tr>
+<tr>
+<td>The scene takes the camera, the dialogue and the game speed, brings the cinema bars in and starts its music</td>
+<td>done</td>
+<td><code>StartCameraControl</code>, <code>StartDialogue</code>, <code>StartGameSpeed</code>, <code>SetWidescreen</code>, <code>StartMusic</code> in <code>src/CHLApi.cpp</code>; checked in game up to the hand-over (<a href="../../intro.html#flow">intro.md</a>)</td>
+</tr>
+<tr>
+<td>The parents kiss, the son swims out and sharks come for him</td>
+<td>partial</td>
+<td>the family's walks, the son and the sharks run (<code>CREATE</code> of the shark, <code>MoveGameThing</code>, script states); the villagers' focus and override animations are not all done (<a href="../../intro.html#state-in-openblack">intro.md</a>)</td>
+</tr>
+<tr>
+<td>The screen fades to black and the intro film plays</td>
+<td>done</td>
+<td><code>SetFade</code> and <code>SetAviSequence</code> play <code>INTRO.bik</code> through our Bink decoder (<code>src/Video</code>); see ../video/bink_videos.md</td>
+</tr>
+<tr>
+<td>A light falls from the sky, a ghostly hand lifts the boy from the sea and sets him down on the beach</td>
+<td>partial</td>
+<td>the light and the intro hand are in <code>ECS/IntroSpecial</code> and the JC specials (<code>PlayJcSpecial</code>, <code>ThingJcSpecial</code>), wired but still drafted (<a href="../../intro.html#jc-specials-and-the-confirmation-sounds">intro.md</a>)</td>
+</tr>
+<tr>
+<td>The village crowds round to welcome their new god; the advisors appear and introduce themselves</td>
+<td>partial</td>
+<td>the advisors appear, move and speak (<code>src/Help</code>, see advisors.md); the welcome dance (<code>DanceCreate</code>) is a stub (<a href="../../intro.html#state-in-openblack">intro.md</a>)</td>
+</tr>
+<tr>
+<td>A demonstration of dragging the land, then the scene hands control to the player</td>
+<td>done</td>
+<td><code>PlayHandDemo</code> plays <code>Data/HandDemo/drag.hnd</code> (<code>src/Input/HandDemo.h</code>), <code>HandDemoTrigger</code>, <code>IsPlayingHandDemo</code>, then the hand-over (<a href="../../intro.html#flow">intro.md</a>)</td>
+</tr>
+<tr>
+<td>About four minutes from the start to the hand-over</td>
+<td>done</td>
+<td>checked in game: about 4 min of game time (<a href="../../intro.html#state-in-openblack">intro.md</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-opening-of-the-first-land">The opening of the first land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The player follows the family to the village, learning to move over the land</td>
+<td>partial</td>
+<td>the rest of <code>FollowUs</code> calls real natives (walk paths, <code>MoveGameThing</code>, the camera distance checks) but is not checked in game past the hand-over; it also starts the gate-stone guards: <a href="gold_scrolls/choose_your_creature.html#the-stones-are-guarded">gold_scrolls/choose_your_creature.md</a></td>
+</tr>
+<tr>
+<td>Hand demonstrations: a ghost hand shows a movement (rotating, tilting, dragging the land, zooming, throwing, giving food)</td>
+<td>partial</td>
+<td><code>PlayHandDemo</code> reads the <code>Data/HandDemo</code> recordings (<code>src/Input/HandDemo.h</code>); only the drag demo is checked in game</td>
+</tr>
+<tr>
+<td>A demonstration waits for the player to copy it, and reminds them if they don't</td>
+<td>partial</td>
+<td>the dialogue, advisors, highlights and timers they use are real in <code>src/CHLApi.cpp</code>; not checked in game past the hand-over</td>
+</tr>
+<tr>
+<td>Lessons on worship, influence and casting a miracle by gesture</td>
+<td>todo</td>
+<td>Khazar's lessons are on Land 2, never reached (<code>LOAD_MAP</code> is empty); see land_2.md</td>
+</tr>
+<tr>
+<td>Each lesson's key or mouse button is shown as the player has bound it</td>
+<td>todo</td>
+<td><code>SetHandDemoKeys</code> is an empty native; see ../interface/help_system.md</td>
+</tr>
+<tr>
+<td>The camera's features are allowed one by one as each is taught</td>
+<td>partial</td>
+<td><code>SetInterfaceInteraction</code> sets the camera feature mask; what the player camera does with each feature is pending (<a href="../../script-camera.html#player-camera-features-camerahelp">../../bw1-notes/script-camera.md</a>)</td>
+</tr>
+<tr>
+<td>The interface is limited during the lessons (only grabbing, only rotating …)</td>
+<td>partial</td>
+<td><code>SetInterfaceInteraction</code> (<code>help::interface_interaction</code>) works; the levels' effects on the interface are partly done (<a href="../../intro.html#interface-interaction-levels">intro.md</a>)</td>
+</tr>
+<tr>
+<td>An Immersion force-feedback mouse is detected and welcomed</td>
+<td>n/a</td>
+<td>hardware long gone</td>
+</tr>
+<tr>
+<td>A returning player can skip the tutorial and the creature's training (patch 1.1)</td>
+<td>done</td>
+<td>the SkipBox (<code>src/Gui/SkipBox</code>) and <code>CanSkipTutorial</code>, <code>CanSkipCreatureTraining</code>, <code>IsKeepingOldCreature</code> are real; see <a href="../../map-loading.html#skipping-the-tutorial-skipbox-and-can_skip_tutorial">../../bw1-notes/map-loading.md</a> and land_1.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-tutorial-island">The tutorial island</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A separate practice island, the Gods' Playground, reached with F2</td>
+<td>todo</td>
+<td>see tutorial_island.md</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

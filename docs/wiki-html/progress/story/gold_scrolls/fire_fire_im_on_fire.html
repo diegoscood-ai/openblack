@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fire! Fire! I&#x27;m on Fire! — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#fire-fire-im-on-fire">Fire! Fire! I'm on Fire!</a><ul>
+<li><a href="#how-it-starts">How it starts</a></li>
+<li><a href="#lethyss-wrath">Lethys's wrath</a></li>
+<li><a href="#the-monk-helps">The monk helps</a></li>
+<li><a href="#the-burning-fishermen">The burning fishermen</a></li>
+<li><a href="#what-the-player-must-do">What the player must do</a></li>
+<li><a href="#endings">Endings</a></li>
+<li><a href="#aftermath">Aftermath</a></li>
+<li><a href="#soft-locks-and-what-comes-next">Soft-locks and what comes next</a></li>
+<li><a href="#script-quirks">Script quirks</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="fire-fire-im-on-fire">Fire! Fire! I'm on Fire!</h1>
+<p>A gold story event on the third land: once the player has won the Japanese village (as the first of the three villages
+that hold the creature's prison), Lethys sets sixteen of the village's fishermen alight at their beach campfire. Mad
+with pain, they run for the village's buildings. The player must put them out before they reach the village and burn to
+death; how many are saved sets the alignment. If the monk's quest is done, he hands over two water miracles. It is
+logged in the story log under the line "Fire! Fire! I'm on fire!" (borrowed from the man who wants to be thrown; it has
+no title of its own) and has no scroll to click.</p>
+<p><strong>Land:</strong> 3 · <strong>Giver:</strong> Lethys (a cut scene; no scroll) · <strong>Script:</strong> FreeTheCreature (its fanatic attack) · <strong>Reward:</strong> saved fishermen join the Japanese village; alignment +1 for all 16, none for 6 to 15, −0.8 for 5 or fewer · <strong>Repeatable:</strong> no</p>
+<p>Part of freeing the creature: <a href="so_you_couldnt_bear_to_be_without_your_creature.html">so_you_couldnt_bear_to_be_without_your_creature.md</a>.
+The monk: <a href="../silver_scrolls/the_shaolin.html">../silver_scrolls/the_shaolin.md</a>. Water: <a href="../../miracles/water.html">../../miracles/water.md</a>,
+fireball: <a href="../../miracles/fireball.html">../../miracles/fireball.md</a>, one-shot miracles:
+<a href="../../miracles/dispensers_and_seeds.html">../../miracles/dispensers_and_seeds.md</a>. The land: <a href="../land_3.html">../land_3.md</a>.</p>
+<p>Sources: the land's challenge scripts (the original source text, which matches the shipped <code>challenge.chl</code>) and the
+game's text table. openblack never runs Land 3's control script (the land-loading command does nothing). Fire works in
+openblack (setting things alight, the hurt-by-fire switch, reading whether something burns), and so do the bonfire's
+creation, villagers, dialogue, camera cuts, fades and music, but snapshots and the rival god's hand are stubs in
+<code>src/CHLApi.cpp</code>. Rows are todo unless the notes say otherwise.</p>
+<p><strong>Progress: 0/45 done, 0 partial — 0%</strong></p>
+<h2 id="how-it-starts">How it starts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It is started by the creature's prison when exactly one pillar is down and the Japanese village is the player's; win another village first and it never happens</td>
+<td>todo</td>
+<td>the prison's pillars follow town ownership, read through stubs (<code>GetTownWithId</code>), so it is never started</td>
+</tr>
+<tr>
+<td>A bonfire is made on the beach below the Japanese village as soon as it starts</td>
+<td>todo</td>
+<td><code>CREATE</code> makes the bonfire (<code>CreateScriptObject</code>); never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>It logs to its own story-log entry, separate from freeing the creature, and switches back to the creature's entry 20 seconds after it ends</td>
+<td>todo</td>
+<td><code>Snapshot</code> and <code>UpdateSnapshot</code> are stubs</td>
+</tr>
+<tr>
+<td>It waits 60 seconds; if all three pillars are down by then, nothing happens</td>
+<td>todo</td>
+<td>plain script wait; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+</tbody>
+</table>
+<h2 id="lethyss-wrath">Lethys's wrath</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A cut scene with Nemesis's music fades to black; Lethys's hand is held and flown fast to a spot above the beach</td>
+<td>todo</td>
+<td>Lethys's hand (<code>MoveComputerPlayerPosition</code>, <code>ReleaseComputerPlayer</code>) is a computer-player stub; <code>StartMusic</code> and the fade are real</td>
+</tr>
+<tr>
+<td>The camera is set looking at Lethys's hand and fades back in</td>
+<td>todo</td>
+<td><code>SetCameraPosition</code>, <code>SetCameraFocus</code>, <code>SetFade</code>, <code>SetFadeIn</code> are real; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>Sixteen Japanese fishermen are made round the bonfire, all facing it and unhurt by fire: they prod the fire, sit, sleep, yawn or look puzzled, each animation looping</td>
+<td>todo</td>
+<td><code>CREATE</code> makes villagers, <code>SetFocus</code>, the animations and <code>SetHurtByFire</code> are real; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>Game sound effects are switched on</td>
+<td>todo</td>
+<td><code>SetGameSound</code> is real; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>Lethys: "Your ally is dead. I have your Creature and you still dare to oppose me?"</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>The camera turns to the campfire. Lethys: "I see some of your minions have strayed." while it closes in low by the fire</td>
+<td>todo</td>
+<td>real camera and text natives; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>A second later the camera cuts back to Lethys's hand. Lethys: "Behold my wrath!"</td>
+<td>todo</td>
+<td>real camera and text natives; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>The weather is switched off and cleared within 150 of a spot between the beach and the village</td>
+<td>todo</td>
+<td><code>PauseUnpauseClimateSystem</code> and <code>KillStormsInArea</code> are real; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>One and a half seconds later Lethys throws three level-one fireballs: at the sand by the fire, at the bonfire and at the third fisherman</td>
+<td>todo</td>
+<td><code>SpellAtPos</code> and <code>SpellAtThing</code> are real (<code>src/Magic/Script/CHLSpells.cpp</code>); see <a href="../../miracles/fireball.html">../../miracles/fireball.md</a>; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>The fishermen are set alight and start running</td>
+<td>todo</td>
+<td><code>SetOnFire</code> is real; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>The camera pulls back over the beach. The story-log entry is started at nothing done, its reminder the good advisor's "Oh no! They're heading towards the Village!"</td>
+<td>todo</td>
+<td>the log entry is a stub</td>
+</tr>
+<tr>
+<td>Both advisors step out. Good: "Oh no! They're heading towards the Village!" Evil: "Stop them! Put them out! Do something!"</td>
+<td>todo</td>
+<td><code>SpiritEject</code> and <code>RunText</code> are real; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>A fade to black and the advisors go home</td>
+<td>todo</td>
+<td>fade and <code>SpiritHome</code> are real; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-monk-helps">The monk helps</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Only if the monk's own quest has reached its end: the monk appears on the path up to the village, playing his ambient animation three times, with two water one-shot miracles beside him</td>
+<td>todo</td>
+<td><code>CREATE</code> makes villagers and one-shot miracles (<code>magic::script::CreateOneShotSpell</code>); never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>Monk: "Your people are mad with pain and fear." Monk: "Let me help. It's the least I can do."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>The camera turns to the miracles. Monk: "These Water Miracles will be of use. But hurry." Monk: "That is all." A fade to black and he is gone</td>
+<td>todo</td>
+<td>real camera, text, fade and delete natives; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>While the monk talks, fishermen that reach the first point on their route wait there until he has finished</td>
+<td>todo</td>
+<td>plain script; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>Without the monk there are no water miracles from the script</td>
+<td>todo</td>
+<td>the same script; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>The camera is set over the path to the village, fades in, and Lethys's hand is let go</td>
+<td>todo</td>
+<td>the camera and fade are real; letting Lethys's hand go is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-burning-fishermen">The burning fishermen</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each runs at a random 0.3 to 0.5 of normal speed with the on-fire running animation</td>
+<td>todo</td>
+<td>the speed and the animation overrides are handled for villagers; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>Each first runs about wildly: seven short dashes to random spots within 10 of itself, set alight again at each</td>
+<td>todo</td>
+<td><code>MoveGameThing</code> and <code>SetOnFire</code> are real; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>It then runs to a point on the path, kept alight all the way, then to a second point near it (shifted at random by up to 5), then on to its target in the village</td>
+<td>todo</td>
+<td>villager moves and <code>SetOnFire</code> are real; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>Six make for the town centre, five for the storage pit, three for the crèche and two for the temple</td>
+<td>todo</td>
+<td>plain script; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>Within 2 of its target it waits 5 seconds and from then on is hurt by its flames, so it burns to death unless put out</td>
+<td>todo</td>
+<td><code>SetHurtByFire</code> is real; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>If it is picked up it waits to be dropped; if thrown it waits to land; then it runs on to its target, or to the second point if it had not yet passed it</td>
+<td>todo</td>
+<td>the held read (property 9) is not handled; flying is</td>
+</tr>
+<tr>
+<td>A fisherman's run ends when it is no longer on fire or no longer exists</td>
+<td>todo</td>
+<td><code>IsOnFire</code> is real; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>A fisherman put out while still alive joins the Japanese village</td>
+<td>todo</td>
+<td>joining a town (<code>AttachToGame</code>) is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-the-player-must-do">What the player must do</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Put the fishermen out before their flames kill them: with water (the monk's miracles, or the player's own), or by dropping them in the sea</td>
+<td>todo</td>
+<td>fire and water are real in our tree; see <a href="../../miracles/water.html">../../miracles/water.md</a>; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>There is no time limit other than how long the fishermen burn</td>
+<td>todo</td>
+<td>the same script; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+</tbody>
+</table>
+<h2 id="endings">Endings</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>When the sixteenth fisherman's run ends a cut scene starts; if that last one is alive the camera closes in on him</td>
+<td>todo</td>
+<td>real camera natives; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>All 16 saved: the last fisherman says "Thank you, Mighty One. You saved us all." and the entry is marked complete with alignment +1 (good)</td>
+<td>todo</td>
+<td>the log is a stub, so no alignment change; the line is real</td>
+</tr>
+<tr>
+<td>6 to 15 saved and the last one alive: he says "Thank you. At least we all didn't die."; complete, no alignment change</td>
+<td>todo</td>
+<td>the log is a stub</td>
+</tr>
+<tr>
+<td>6 to 15 saved and the last one dead: the good advisor steps out: "Well, you tried to save them. Pity you didn't help them all."; complete, no alignment change</td>
+<td>todo</td>
+<td>the log is a stub</td>
+</tr>
+<tr>
+<td>5 or fewer saved: the evil advisor steps out: "You let 'em fry. That was a treat to see, Boss."; complete with alignment −0.8 (evil)</td>
+<td>todo</td>
+<td>the log is a stub, so no alignment change</td>
+</tr>
+<tr>
+<td>After the last fisherman, the music stops and the weather is switched back on</td>
+<td>todo</td>
+<td><code>StopMusic</code> and <code>PauseUnpauseClimateSystem</code> are real; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+</tbody>
+</table>
+<h2 id="aftermath">Aftermath</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fires the fishermen started in the village stay to burn or be put out by the normal fire rules</td>
+<td>todo</td>
+<td>fire spreads by our fire rules; see ../nature/ and ../building/; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>Saved fishermen stay in the Japanese village as ordinary villagers</td>
+<td>todo</td>
+<td>joining a town (<code>AttachToGame</code>) is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="soft-locks-and-what-comes-next">Soft-locks and what comes next</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It cannot block the story: freeing the creature does not wait for it</td>
+<td>todo</td>
+<td>the same script; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-quirks">Script quirks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fishermen seven and eight are made twice: the first pair are left standing at the campfire with no animation, no fire protection and no script, and are not counted (undetermined: whether Lethys's fireballs burn them)</td>
+<td>todo</td>
+<td>the same script; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>The wait for all sixteen to finish has no pause in its loop</td>
+<td>todo</td>
+<td>the same script; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>A test switch skips the 60-second wait</td>
+<td>n/a</td>
+<td>only the test launcher uses it</td>
+</tr>
+<tr>
+<td>The story-log title is a line of the thrown man's script on the same land ("Fire! Fire! I'm on fire!")</td>
+<td>todo</td>
+<td>the log is a stub</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

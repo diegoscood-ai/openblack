@@ -27,6 +27,7 @@
 
 namespace openblack::debug::gui
 {
+
 class Window;
 
 class Gui final: public DebugGuiInterface
@@ -39,6 +40,8 @@ public:
 	void SetScale(float scale) noexcept override;
 	bool ProcessEvents(const SDL_Event& event) noexcept override;
 	bool Loop() noexcept override;
+	void OpenWindow(std::string_view name) noexcept override;
+	void SetTestbedHost(testbed_scenarios::TestbedHost* host) noexcept override;
 	void Draw() noexcept override;
 
 private:
@@ -68,5 +71,9 @@ private:
 	std::vector<std::unique_ptr<Window>> _debugWindows;
 	std::string _screenshotFilename = "screenshot.png";
 	bool _stealsFocus = false;
+	/// The game the testbed's menu item loads the testbed in, once it is given
+	testbed_scenarios::TestbedHost* _testbedHost {nullptr};
+	/// "Load Island" takes the player's creature along, as the game's land change does; a tester can switch it off
+	bool _islandTakesCreature = true;
 };
 } // namespace openblack::debug::gui

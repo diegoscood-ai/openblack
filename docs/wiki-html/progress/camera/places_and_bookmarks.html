@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Places and bookmarks — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="here" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#places-and-bookmarks">Places and bookmarks</a><ul>
+<li><a href="#temple-and-realm-keys">Temple and realm keys</a></li>
+<li><a href="#bookmarks">Bookmarks</a></li>
+<li><a href="#start-of-a-land">Start of a land</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="places-and-bookmarks">Places and bookmarks</h1>
+<p>The keys that fly the camera to set places (the temple, the realm, the creature, the temple's rooms), the bookmarks the
+player drops on the land to fly back to, and where the camera starts on a land.</p>
+<p><strong>Progress: 3/20 done, 10 partial — 40%</strong></p>
+<h2 id="temple-and-realm-keys">Temple and realm keys</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A single tap of the temple key puts the view back to a pleasing one over what the camera looks at</td>
+<td>partial</td>
+<td><code>ZoomToPlaces</code> (<code>src/Camera/ZoomToPlaces.cpp</code>; <code>ZoomToPlaces.ASingleTapViewsWhatIsLookedAtFromAPleasingHeight</code> in <code>test/camera/test_zoom_to_places.cpp</code>) is not wired: the temple key does nothing in the game yet</td>
+</tr>
+<tr>
+<td>A double tap of the temple key flies the camera to the player's temple</td>
+<td>partial</td>
+<td><code>ZoomToPlaces.ADoubleTapFliesToTheTempleAndAnotherFliesBack</code>; not wired into the game</td>
+</tr>
+<tr>
+<td>Without a temple the temple key flies over the realm</td>
+<td>partial</td>
+<td><code>ZoomToPlaces.WithoutATempleTheDoubleTapFliesOverTheRealm</code>; not wired</td>
+</tr>
+<tr>
+<td>The realm key flies the camera high over the middle of the island</td>
+<td>partial</td>
+<td><code>ZoomToPlaces.TheRealmKeyFliesOverTheRealmAndBack</code>; not wired</td>
+</tr>
+<tr>
+<td>Pressing the key again while still looking there flies back to where the camera was</td>
+<td>partial</td>
+<td><code>ZoomToPlaces.LookingAwayTheRealmKeyFliesThereAgain</code>; not wired</td>
+</tr>
+<tr>
+<td>The keys do nothing inside the temple or while a script's cinema bars are in</td>
+<td>todo</td>
+<td>the temple and realm keys are not wired, so there is nothing to block; the temple's room keys are read even during script cameras (<code>Game::ProcessTempleRoomKeys</code>)</td>
+</tr>
+<tr>
+<td>The keys that go straight into each room of the temple</td>
+<td>done</td>
+<td><code>Game::ProcessTempleRoomKeys</code> (<code>src/Game.cpp</code>): <code>ZOOM_TO_INSIDE_TEMPLE</code> to <code>ZOOM_TO_LIBRARY</code> (<code>src/Input/KeyBindings.h</code>) enter the temple at that room or cut to it; see <a href="temple_camera.html">temple_camera.md</a> and <code>../temple/</code></td>
+</tr>
+<tr>
+<td>The creature key flies the camera to the player's creature</td>
+<td>partial</td>
+<td>our tree locks the camera onto the creature instead (Creature Mode, see <a href="follow_cameras.html">follow_cameras.md</a>); how the game's key behaves exactly is unconfirmed</td>
+</tr>
+</tbody>
+</table>
+<h2 id="bookmarks">Bookmarks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ctrl with a number key drops a bookmark where the hand is</td>
+<td>partial</td>
+<td><code>src/Game.cpp</code> key handling, <code>CameraBookmarkSystem::SetBookmark</code>; eight bookmarks, set only while the hand is on the land</td>
+</tr>
+<tr>
+<td>A number key flies the camera back to its bookmark, looking from where it was when dropped</td>
+<td>partial</td>
+<td><code>src/Game.cpp</code>: <code>SetFlight</code> to the bookmark's saved camera position (Creature Mode let go first); not compared with the game</td>
+</tr>
+<tr>
+<td>Bookmarks show on the land as markers</td>
+<td>partial</td>
+<td><code>CameraBookmarkSystem::Update</code> pulses a placeholder marker; the game's look not matched</td>
+</tr>
+<tr>
+<td>Bookmarks can be cleared</td>
+<td>todo</td>
+<td><code>CameraBookmarkSystem::ClearBookmark</code> exists but nothing calls it; <code>SET_BOOKMARK_POSITION</code> is a stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>Keys step to the next and previous bookmark</td>
+<td>todo</td>
+<td>not in our tree (unconfirmed key)</td>
+</tr>
+<tr>
+<td>A key flies the camera to the player's own town</td>
+<td>todo</td>
+<td>not in our tree (unconfirmed key)</td>
+</tr>
+<tr>
+<td>A bookmark on a moving thing follows it</td>
+<td>todo</td>
+<td>not in our tree (unconfirmed)</td>
+</tr>
+<tr>
+<td>The camera can go back to where it was before jumping to a bookmark</td>
+<td>todo</td>
+<td>not in our tree</td>
+</tr>
+<tr>
+<td>Bookmarks are kept in saved games</td>
+<td>todo</td>
+<td>no saved games; see <code>../engine/</code></td>
+</tr>
+<tr>
+<td>Scripts can turn the bookmark keys off and on, and a script restart turns them back on</td>
+<td>done</td>
+<td>(added) <code>PLAY_JC_SPECIAL</code> 14 and 15 (<code>src/CHLApi.cpp</code>) call <code>CameraBookmarkSystem::SetEnabled</code>, the bookmark keys in <code>src/Game.cpp</code> check it, and the script reboot sets it again (<a href="../../intro.html#jc-specials-and-the-confirmation-sounds">intro</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="start-of-a-land">Start of a land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's script sets where the camera starts, looking towards the player's temple</td>
+<td>done</td>
+<td><code>START_CAMERA_POS</code> in <code>src/LHScriptX/FeatureScriptCommands.cpp</code>; <code>test/camera/test_set_camera_pos.cpp</code> (land 1, two and three gods)</td>
+</tr>
+<tr>
+<td>The start position with four gods</td>
+<td>partial</td>
+<td><code>SetCameraPos.DISABLED_setCameraFourGods</code> is disabled</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

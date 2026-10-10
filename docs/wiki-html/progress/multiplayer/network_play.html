@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Network play — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="here" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#network-play">Network play</a><ul>
+<li><a href="#finding-a-game">Finding a game</a></li>
+<li><a href="#the-lobby">The lobby</a></li>
+<li><a href="#in-the-game">In the game</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="network-play">Network play</h1>
+<p>Playing other people over a local network or the internet: finding and joining a game in a lobby, chatting, and keeping
+every player's game in step. How a network game is won and lost, and its end box, are in
+<a href="../story/losing_and_game_over.html">../story/losing_and_game_over.md</a>; the end box's Statistics tab and the figures sent
+online are in <a href="../interface/statistics.html">../interface/statistics.md</a>.</p>
+<p><strong>Progress: 0/19 done, 1 partial — 3%</strong></p>
+<h2 id="finding-a-game">Finding a game</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Join Online Game on the menu</td>
+<td>todo</td>
+<td>the menu's Join Online Game button is there (<code>GameMenu::BuildMain</code>, <code>src/Gui/GameMenu.cpp</code>) but <code>Game::HandleInterfaceAction</code> only logs "This part of the menu is not available yet"</td>
+</tr>
+<tr>
+<td>Multiplayer setup: choose a network and a lobby</td>
+<td>todo</td>
+<td>no network code in our tree</td>
+</tr>
+<tr>
+<td>Games on the local network are found and joined</td>
+<td>todo</td>
+<td>no network code in our tree</td>
+</tr>
+<tr>
+<td>Internet games are listed in the online lobby (GameSpy)</td>
+<td>n/a</td>
+<td>the original's lobby servers are gone</td>
+</tr>
+<tr>
+<td>Logging in to the internet game with a name and password</td>
+<td>n/a</td>
+<td>the original's servers are gone</td>
+</tr>
+<tr>
+<td>A channel can be created, joined, left and locked against newcomers (patch 1.1)</td>
+<td>todo</td>
+<td>no network code in our tree</td>
+</tr>
+<tr>
+<td>The host can kick or ban a player from the channel</td>
+<td>todo</td>
+<td>no network code in our tree</td>
+</tr>
+<tr>
+<td>Players see each other's ping</td>
+<td>todo</td>
+<td>no network code in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-lobby">The lobby</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Public chat and private messages between players</td>
+<td>todo</td>
+<td>no network code in our tree</td>
+</tr>
+<tr>
+<td>Players pick their colours</td>
+<td>todo</td>
+<td>no network code in our tree</td>
+</tr>
+<tr>
+<td>The host picks the island; players who lack it are told</td>
+<td>todo</td>
+<td>no network code in our tree</td>
+</tr>
+<tr>
+<td>Missing islands are sent to players who lack them</td>
+<td>todo</td>
+<td>no network code in our tree</td>
+</tr>
+<tr>
+<td>Teams: players change team, ask and invite others into theirs</td>
+<td>todo</td>
+<td>no network code in our tree; see <a href="multiplayer_rules.html">multiplayer_rules.md</a></td>
+</tr>
+<tr>
+<td>Starting: every player says ready, the files are sent, the game starts together; the start can be cancelled</td>
+<td>todo</td>
+<td>no network code in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="in-the-game">In the game</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every player's commands are sent to all, and every game runs the same turns</td>
+<td>todo</td>
+<td>no network code in our tree</td>
+</tr>
+<tr>
+<td>The game's random numbers are split into a shared stream and a local one</td>
+<td>partial</td>
+<td><code>game_random</code> (<code>src/Common/GameRandom.h</code>, <code>Locator::gameRandom</code>) keeps the synced and the local seed and every caller picks its stream, as the original; nothing is synced over a network</td>
+</tr>
+<tr>
+<td>Checksums detect a game out of step and the players wait to resync</td>
+<td>todo</td>
+<td>no network code in our tree; the per-turn state hash of the test runs is a verification tool, not a network checksum</td>
+</tr>
+<tr>
+<td>The host moves to another player if the host leaves</td>
+<td>todo</td>
+<td>no network code in our tree</td>
+</tr>
+<tr>
+<td>Players can talk to each other in the game</td>
+<td>todo</td>
+<td>no network code in our tree (unconfirmed whether the game sends voice or text)</td>
+</tr>
+<tr>
+<td>Multiplayer help scripts run during network games</td>
+<td>todo</td>
+<td>the multiplayer help scripts are listed by the script editor (<code>src/Editor/Scripts/ScriptModel.cpp</code>) but nothing starts them; see ../engine/script_vm.md</td>
+</tr>
+<tr>
+<td>Belief grows at the multiplayer rate</td>
+<td>todo</td>
+<td>the multiplayer belief speed scale is read into the info tables (<code>beliefSpeedScaleMultiPlayer</code>, <code>src/InfoConstants.h</code>) but nothing uses it, and nothing marks a game as multiplayer</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

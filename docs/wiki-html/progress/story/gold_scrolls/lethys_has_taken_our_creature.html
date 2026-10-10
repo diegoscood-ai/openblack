@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lethys has taken our Creature! — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#lethys-has-taken-our-creature">Lethys has taken our Creature!</a><ul>
+<li><a href="#is-it-a-gold-scroll">Is it a gold scroll?</a></li>
+<li><a href="#when-it-happens">When it happens</a></li>
+<li><a href="#the-kidnapping">The kidnapping</a></li>
+<li><a href="#what-the-player-can-do">What the player can do</a></li>
+<li><a href="#following">Following</a></li>
+<li><a href="#missing-the-chance">Missing the chance</a></li>
+<li><a href="#aftermath">Aftermath</a></li>
+<li><a href="#advisors">Advisors</a></li>
+<li><a href="#music-and-sounds">Music and sounds</a></li>
+<li><a href="#creature">Creature</a></li>
+<li><a href="#script-quirks">Script quirks</a></li>
+<li><a href="#unused-or-cut-parts">Unused or cut parts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="lethys-has-taken-our-creature">Lethys has taken our Creature!</h1>
+<p>The kidnapping that ends Land 2's story: after Khazar's death, once Lethys is down to his last town (or the player
+holds two of his three), Lethys opens a vortex by his temple, mesmerises the player's creature with a beam and walks it
+into the vortex; the leash doesn't work. The advisors argue, and for a few seconds a scroll over the vortex lets the
+player follow at once; miss it and the vortex closes, leaving the player to destroy Lethys's temple to open it again.
+It records a gold (quest) entry in the challenge log, filed under the good advisor's line "Lethys has taken our
+Creature! What are we going to do?". The land as a whole is in <a href="../land_2.html">../land_2.md</a>, Lethys in
+<a href="../../rival_gods/lethys.html#losing-the-second-land">../../rival_gods/lethys.md</a>, the vortex itself in
+<a href="../portals.html#opening-the-exit-per-land">../portals.md</a>.</p>
+<p><strong>Land:</strong> 2 · <strong>Giver:</strong> none (a story event at Lethys's temple; Lethys speaks) · <strong>Script:</strong> LethysVortex · <strong>Reward:</strong> none (following through the vortex takes the player to Land 3 straight away) · <strong>Repeatable:</strong> no</p>
+<p>Sources: the quest's script source (<code>LethysVortex.txt</code>) and the land's control script (<code>LandControl2.txt</code>), checked
+against the compiled form in the shipped <code>challenge.chl</code> (which also shows the log entry is filed under its own
+challenge number); the game's English text table; and the executable (read-only) for stopping scripts by name and for
+the challenge log. openblack's state is judged on this tree: of the 52 script functions this film needs, 6 still only
+log "not implemented" in <code>src/CHLApi.cpp</code> (the computer player's hand, the beam effect, the creature-in-temple switch
+and the challenge log), and openblack never runs Land 2's control script at all (see <a href="../land_2.html">../land_2.md</a> row
+1), so the kidnapping never happens; every row below is todo unless the notes say otherwise.</p>
+<p><strong>Progress: 0/52 done, 0 partial — 0%</strong></p>
+<h2 id="is-it-a-gold-scroll">Is it a gold scroll?</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Yes, as a story step: it records a quest (gold) entry in the challenge log, like Khazar's death, but has no gold scroll of its own</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>The scroll it puts over the vortex is a silver (challenge) highlight, used only as a "follow now" button: no advisor nags about it and it gives nothing</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> is real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Its log entry is filed under its own challenge number, kept apart from the land's exit through the temple vortex (which shares the script file's challenge)</td>
+<td>todo</td>
+<td>the log is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="when-it-happens">When it happens</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's control script checks every 9 seconds, but only after Khazar has died (<a href="nemesis_no.html">nemesis_no.md</a>), so never on the same check as his death</td>
+<td>todo</td>
+<td>Khazar's death needs computer-player natives (stubs); see <a href="nemesis_no.html">nemesis_no.md</a></td>
+</tr>
+<tr>
+<td>It starts when the player (or anyone) holds at least two of Lethys's three starting towns (the near Celtic town, the far one and his home town), or Lethys has one town or none in all</td>
+<td>todo</td>
+<td>the town owners and totals are stubs or unhandled properties</td>
+</tr>
+<tr>
+<td>It happens once; the control script waits for it to finish</td>
+<td>todo</td>
+<td>plain script; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>If Lethys has no towns left and his temple is nearly destroyed, it still comes first, and the exit through the temple (<a href="leave_through_the_vortex_land_2.html">leave_through_the_vortex_land_2.md</a>) is checked straight after it on the same loop</td>
+<td>todo</td>
+<td>the town and temple reads are stubs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-kidnapping">The kidnapping</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lethys's taunt script and the rival's confront-the-player script are stopped by name, and the land is told Lethys is gone</td>
+<td>todo</td>
+<td><code>StopScript</code> in <code>src/CHLApi.cpp</code> stops only a script whose name is exactly the given string; the game splits the string, so neither script would stop here</td>
+</tr>
+<tr>
+<td>A film starts and Nemesis's music plays; the camera's position and aim are remembered</td>
+<td>todo</td>
+<td><code>StartMusic</code> and the camera reads are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Lethys's computer player is paused, and his hand flies (speed 200) to above his temple</td>
+<td>todo</td>
+<td>pausing and moving a computer player are stubs</td>
+</tr>
+<tr>
+<td>The camera is put behind his temple looking out over it; the time of day is set to 20:00 and stopped</td>
+<td>todo</td>
+<td>setting the camera, <code>SetGameTime</code> and <code>GameTimeOnOff</code> are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Lethys's hand slowly sinks to 20 above the vortex spot in front of his temple; Lethys: "You are truly a powerful god but you failed to defeat me."</td>
+<td>todo</td>
+<td>Lethys's hand is a computer-player stub; <code>RunText</code> is real</td>
+</tr>
+<tr>
+<td>The camera cuts to a side view; the vortex opens there</td>
+<td>todo</td>
+<td><code>CREATE</code> of a vortex is ported; see <a href="../portals.html">../portals.md</a>; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The player's creature is moved to a spot below the temple, facing the vortex, wherever it was</td>
+<td>todo</td>
+<td><code>SetPosition</code> is real; turning a creature with <code>SetFocus</code> is not done</td>
+</tr>
+<tr>
+<td>The camera swings up over 11 seconds (its aim over 7); after 2 seconds Lethys: "Let's see how powerful you are without your Creature."</td>
+<td>todo</td>
+<td>real camera and text natives; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>A magic beam runs from Lethys's hand to the creature for 60 seconds</td>
+<td>todo</td>
+<td><code>SpecialEffectObject</code> is real; the beam <code>AddSpotVisualTargetObject</code> is a stub</td>
+</tr>
+<tr>
+<td>The creature starts walking to the vortex; its leash is switched off</td>
+<td>todo</td>
+<td><code>SetLeashWorks</code> is real; walking a creature by script (<code>MoveGameThing</code>) is not done</td>
+</tr>
+<tr>
+<td>The creature is kept from appearing in the creature cave in the temple while it is taken</td>
+<td>todo</td>
+<td><code>SetCreatureInTemple</code> is a stub</td>
+</tr>
+<tr>
+<td>The camera cuts to look at the creature from behind and follows down over 6 seconds</td>
+<td>todo</td>
+<td>real camera natives; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The challenge log records a quest entry titled "Lethys has taken our Creature! What are we going to do?", success 1, alignment 0, its picture the view of the walking creature, no reminder line</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>The evil advisor appears: "Look! He's heading for the Vortex! He's mesmerised!"; the good advisor appears: "The Creature! Get him on a Leash quickly!"; both disappear</td>
+<td>todo</td>
+<td><code>SpiritAppear</code>, <code>SpiritDisappear</code> and <code>RunText</code> are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The creature is made unable to die, so being hurt can't send it home to the temple halfway</td>
+<td>todo</td>
+<td>only <code>DevFunction</code> values 2 and 3 are handled</td>
+</tr>
+<tr>
+<td>The film ends, handing control back while the creature walks</td>
+<td>todo</td>
+<td>the camera release is real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-the-player-can-do">What the player can do</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The player has control while the creature walks to the vortex; nothing they do stops it</td>
+<td>todo</td>
+<td>the creature's walk by script is not done</td>
+</tr>
+<tr>
+<td>If the player puts the creature on a leash, the good advisor says once: "The Leash isn't working."</td>
+<td>todo</td>
+<td><code>IsLeashed</code>, the leash switch and the dialogue are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The walk ends when the creature is within 5 of the vortex, or no longer exists</td>
+<td>todo</td>
+<td>the creature's walk by script is not done</td>
+</tr>
+<tr>
+<td>The creature can die again from then on</td>
+<td>todo</td>
+<td>only <code>DevFunction</code> values 2 and 3 are handled</td>
+</tr>
+</tbody>
+</table>
+<h2 id="following">Following</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>After 1.5 seconds Lethys's hand sinks into the vortex (to the ground, speed 20); after 2 more a second film starts</td>
+<td>todo</td>
+<td>Lethys's hand is a computer-player stub</td>
+</tr>
+<tr>
+<td>The camera looks at the vortex from the south-west and swings round over 36 seconds (its aim, 20 above the vortex, over 20)</td>
+<td>todo</td>
+<td>real camera natives; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The evil advisor appears: "NO! He's gone through! And so has Lethys!"; the good advisor appears: "Lethys has taken our Creature! What are we going to do?"; evil: "We're going to get him back. Let's go through!"; good: "Yes! No! Let's think about this. It could be a trap."; the music stops</td>
+<td>todo</td>
+<td>advisors and texts are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The film ends but the dialogue goes on, and the silver scroll appears 20 above the vortex</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> is real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Evil: "No! There isn't time to think! The Vortex is closing!"; good: "But we don't know what's on the other side!"; evil: "Our Creature is on the other side! That's all we need to know. Let's go!"; both disappear</td>
+<td>todo</td>
+<td>real text natives; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The player has 10 seconds after these lines (plus however long the three lines take) to click the scroll or the vortex</td>
+<td>todo</td>
+<td><code>GameThingClicked</code> and the timer are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Clicking in time: the land is marked as being left; the camera flies to the start of the exit camera path over 4 seconds, runs the path, and after 2 seconds fades to black over 2 seconds</td>
+<td>todo</td>
+<td><code>RunCameraPath</code> and <code>SetFade</code> are real; see <a href="../portals.html#going-through">../portals.md</a>; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Game time starts again, the land's control loop ends and the story moves on to Land 3</td>
+<td>todo</td>
+<td><code>LOAD_MAP</code> does nothing, so Land 3 is never loaded</td>
+</tr>
+</tbody>
+</table>
+<h2 id="missing-the-chance">Missing the chance</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>If the player hasn't clicked within the 10 seconds, the chance is marked missed: the scroll stops waiting, the vortex fades out and game time starts again</td>
+<td>todo</td>
+<td><code>VortexFadeOut</code> and <code>GameTimeOnOff</code> are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The evil advisor appears: "All we gotta do is destroy his Temple to eradicate all belief in Lethys!", goes home and disappears</td>
+<td>todo</td>
+<td>advisors and texts are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The scroll is not deleted by the script</td>
+<td>todo</td>
+<td>the same script; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>From then on the only way out is to take every one of Lethys's towns and wreck his temple to a tenth of its health (<a href="leave_through_the_vortex_land_2.html">leave_through_the_vortex_land_2.md</a>)</td>
+<td>todo</td>
+<td>the town and temple reads are stubs; see <a href="../losing_and_game_over.html#how-a-temple-takes-damage">../losing_and_game_over.md</a></td>
+</tr>
+<tr>
+<td>Lethys's computer player stays paused for the rest of the land: no land 2 script resumes it</td>
+<td>todo</td>
+<td>Lethys's computer player does not exist in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="aftermath">Aftermath</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The player has no creature for the rest of Land 2 and arrives in Land 3 without it, whichever way they leave</td>
+<td>todo</td>
+<td>no land loading; Land 3: <a href="so_you_couldnt_bear_to_be_without_your_creature.html">so_you_couldnt_bear_to_be_without_your_creature.md</a></td>
+</tr>
+<tr>
+<td>Lethys's taunts end (his taunt script stops when it sees he is gone)</td>
+<td>todo</td>
+<td>Lethys's taunts need his computer player; see ../../rival_gods/lethys.md</td>
+</tr>
+<tr>
+<td>Once both gods are gone, the land's town-ownership watcher, which made them comment on towns changing hands, stops</td>
+<td>todo</td>
+<td>the watcher reads stubbed town owners</td>
+</tr>
+<tr>
+<td>It can't fail; missing the click only means the longer way out. It can't soft-lock unless Lethys's temple can't be brought down</td>
+<td>todo</td>
+<td>the same script; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="advisors">Advisors</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The advisors appear and disappear in place rather than stepping out of their corners</td>
+<td>todo</td>
+<td><code>SpiritAppear</code> is real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="music-and-sounds">Music and sounds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nemesis's music plays from the start of the first film until the end of the second</td>
+<td>todo</td>
+<td><code>StartMusic</code> and <code>StopMusic</code> are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creature">Creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature is moved, made to walk into the vortex, can't be led, can't die while walking, and can't appear in the temple</td>
+<td>todo</td>
+<td>walking, turning and the can't-die switch are not done for creatures</td>
+</tr>
+<tr>
+<td>What the vortex does with the creature when it arrives is not done by this script</td>
+<td>todo</td>
+<td>the vortex's take is ported (<code>ecs::vortex</code>); see <a href="../portals.html#being-sucked-in">../portals.md</a>; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-quirks">Script quirks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The script stops "LethysTauntAI, ComputerPlayerConfrontPlayer" as one string; the game splits it, so both stop, but the script that actually voices Lethys's taunts (run by the taunt script, and in the background by the town-ownership reactions) is a third one, which is not named</td>
+<td>todo</td>
+<td>our <code>StopScript</code> does not split the names</td>
+</tr>
+<tr>
+<td>The vortex here is 12 away from the one the temple exit opens, though the source comment says to keep them the same; both use the same recorded camera path</td>
+<td>todo</td>
+<td>the same script; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The creature's walk is checked in a loop with no pause</td>
+<td>todo</td>
+<td>the same script; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The window to follow is not a fixed 10 seconds: it also covers the three closing lines, however long the player takes to read them</td>
+<td>todo</td>
+<td>the same script; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="unused-or-cut-parts">Unused or cut parts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A script that would ring Lethys's temple with five lightning storms (time 80, no wind, heavy forks) is written but its start is commented out</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>A high camera spot is set up but never used; the good advisor's "No!" is in the text table but unused</td>
+<td>n/a</td>
+<td>unused</td>
+</tr>
+<tr>
+<td>Pointing the advisors at the creature is commented out</td>
+<td>n/a</td>
+<td>commented out</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

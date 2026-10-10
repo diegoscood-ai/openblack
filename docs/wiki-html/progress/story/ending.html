@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The ending — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="here" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-ending">The ending</a><ul>
+<li><a href="#nemesiss-defeat">Nemesis's defeat</a></li>
+<li><a href="#the-last-sequence">The last sequence</a></li>
+<li><a href="#unused">Unused</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-ending">The ending</h1>
+<p>How the game ends: Nemesis's last stand, the fight between the creatures, the creature's sequence at the volcano and the
+people waving goodbye, then the end of the game.</p>
+<p><strong>Progress: 0/11 done, 0 partial — 0%</strong></p>
+<h2 id="nemesiss-defeat">Nemesis's defeat</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Winning all of Nemesis's towns leaves him without power</td>
+<td>todo</td>
+<td>never reached (Land 5 needs <code>LOAD_MAP</code>), and the town and belief checks it needs (<code>BeliefForPlayer</code>, <code>GetTownWithId</code>) are stubs; see land_5.md; <a href="gold_scrolls/so_this_is_a_fight_to_the_death.html#nemesiss-last-stand-before-the-fight">gold_scrolls/so_this_is_a_fight_to_the_death.md</a></td>
+</tr>
+<tr>
+<td>Nemesis says he is not finished and calls his creature</td>
+<td>todo</td>
+<td>never reached (Land 5); his lines would play (<code>RunText</code>), but no script can make his creature (<code>CREATE</code> of a creature is not implemented); his creature is a mirror image of the player's: <a href="gold_scrolls/so_this_is_a_fight_to_the_death.html#the-mirror-creature-introduction">gold_scrolls/so_this_is_a_fight_to_the_death.md</a></td>
+</tr>
+<tr>
+<td>The big fight: the player's creature against Nemesis's, with its own music</td>
+<td>todo</td>
+<td>never reached (Land 5); the creature fight code exists (<code>CreatureFightSystem</code>), the script fight commands (<code>SetCreatureAutoFighting</code>, the fight queue) are stubs; see ../creature/fighting.md; <a href="gold_scrolls/so_this_is_a_fight_to_the_death.html#the-fight">gold_scrolls/so_this_is_a_fight_to_the_death.md</a></td>
+</tr>
+<tr>
+<td>The fight's camera circles the fighters with glittering effects</td>
+<td>todo</td>
+<td>never reached (Land 5); the camera natives are real, the fight is not</td>
+</tr>
+<tr>
+<td>Nemesis's temple is destroyed</td>
+<td>todo</td>
+<td>never reached (Land 5), and deleting a temple's heart from a script logs "not implemented" (<code>ObjectDelete</code>); <a href="gold_scrolls/so_this_is_a_fight_to_the_death.html#nemesiss-temple-falls">gold_scrolls/so_this_is_a_fight_to_the_death.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-last-sequence">The last sequence</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature walks to the volcano</td>
+<td>todo</td>
+<td>never reached (Land 5), and moving a creature from a script is not implemented (<code>MoveGameThing</code> on a creature); <a href="gold_scrolls/so_this_is_a_fight_to_the_death.html#into-the-volcano">gold_scrolls/so_this_is_a_fight_to_the_death.md</a></td>
+</tr>
+<tr>
+<td>The villagers wave the creature off, shown in windows that open and close over the picture</td>
+<td>todo</td>
+<td><code>SetClippingWindow</code> and <code>ClearClippingWindow</code> are stubs; never reached; <a href="gold_scrolls/so_this_is_a_fight_to_the_death.html#the-credits">gold_scrolls/so_this_is_a_fight_to_the_death.md</a>; a Celtic footballer is among the waving villagers and a Norse one in the special shepherd's place: <a href="../town/football.html#the-cup-final-and-the-footballers">../town/football.md</a></td>
+</tr>
+<tr>
+<td>The creature's end sequence music</td>
+<td>todo</td>
+<td><code>StartMusic</code> plays any music of the game's table (<code>Audio/Services/GameMusic</code>); the script that starts it is never reached; <a href="gold_scrolls/so_this_is_a_fight_to_the_death.html#into-the-volcano">gold_scrolls/so_this_is_a_fight_to_the_death.md</a></td>
+</tr>
+<tr>
+<td>The outro music and the end</td>
+<td>todo</td>
+<td><code>StartMusic</code> plays it (<code>Audio/Services/GameMusic</code>); the script that starts it is never reached; the first credits shot shows three crusaders at the Magic Dragon's cave exit: <a href="silver_scrolls/the_magic_dragon.html">silver_scrolls/the_magic_dragon.md</a>; <a href="gold_scrolls/so_this_is_a_fight_to_the_death.html#the-credits">gold_scrolls/so_this_is_a_fight_to_the_death.md</a></td>
+</tr>
+<tr>
+<td>Game over: the advisors give up and "Game Over" shows when the player's temple is destroyed (losing every villager does not end the game)</td>
+<td>todo</td>
+<td>nothing in our tree starts the <code>GameOver</code> script, which also needs stub natives (the drawn text, the temple's position); the whole sequence and what starts it: <a href="losing_and_game_over.html">losing_and_game_over.md</a></td>
+</tr>
+<tr>
+<td>After the ending the game goes on in the last land</td>
+<td>todo</td>
+<td>never reached; the land's control script sleeps after the credits, leaving the player in the fifth land: <a href="gold_scrolls/so_this_is_a_fight_to_the_death.html#the-credits">gold_scrolls/so_this_is_a_fight_to_the_death.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="unused">Unused</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nemesis's mirror fight against the player's creature's opposite self</td>
+<td>n/a</td>
+<td>in the scripts but never started; <a href="gold_scrolls/so_this_is_a_fight_to_the_death.html#unused-and-cut-parts">gold_scrolls/so_this_is_a_fight_to_the_death.md</a></td>
+</tr>
+<tr>
+<td>A script steering Nemesis's battle tactics</td>
+<td>n/a</td>
+<td>in the scripts but never started</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

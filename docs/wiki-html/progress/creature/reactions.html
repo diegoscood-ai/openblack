@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reactions — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="here" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#reactions">Reactions</a><ul>
+<li><a href="#how-reactions-are-taken-up">How reactions are taken up</a></li>
+<li><a href="#miracles">Miracles</a></li>
+<li><a href="#other-things-that-happen-near-it">Other things that happen near it</a></li>
+<li><a href="#the-players-hand">The player's hand</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="reactions">Reactions</h1>
+<p>A creature reacts to what happens around it: miracles cast near it, fires, deaths, fights, things flying past, food,
+balls, teleport stones, the player's hand at work, things crushed and things that hit it, and other creatures. Each kind
+of reaction has a priority that decides whether it drops what it is doing, and a time before it reacts to the same
+kind again.</p>
+<p><strong>Progress: 1/42 done, 1 partial — 4%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../creature.html">The creature: groundwork, random streams and what is unknown</a>.</p>
+<h2 id="how-reactions-are-taken-up">How reactions are taken up</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Reactions reach every creature within their range, as they do villagers</td>
+<td>todo</td>
+<td>the shared reactions (<code>src/ECS/Effects/Reactions.cpp</code>, <code>ReactionsSystem</code>) reach villagers and animals only: a creature is no living class there yet</td>
+</tr>
+<tr>
+<td>A creature takes a reaction up only after its species' reaction time from the game's tables</td>
+<td>todo</td>
+<td>the table's creature reaction times are read (<code>InfoConstants.h</code>) but nothing uses them</td>
+</tr>
+<tr>
+<td>After reacting to a kind of thing, it won't react to that kind again for a time from the game's tables, longer or shorter than villagers'</td>
+<td>todo</td>
+<td>the table's value is read (<code>InfoConstants.h</code>) but nothing uses it</td>
+</tr>
+<tr>
+<td>A more urgent reaction, nearer, takes over from what it reacts to, but only after a while</td>
+<td>todo</td>
+<td>no creature reactions</td>
+</tr>
+<tr>
+<td>A creature fighting or knocked out takes no reactions up</td>
+<td>todo</td>
+<td>no creature reactions</td>
+</tr>
+<tr>
+<td>While copying the player it takes up only the most urgent reactions</td>
+<td>todo</td>
+<td>no creature reactions</td>
+</tr>
+<tr>
+<td>A script can turn reactions off for a creature</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>No reactions during the dance editor, while forced to faint or carried by a teleport</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A shield it is under keeps reactions from outside off it</td>
+<td>todo</td>
+<td>no creature reactions; a shield only shapes its routes (<code>magic::map_shield::CreatureMustAvoid</code> in <code>src/ECS/RoutePlanWorld.cpp</code>)</td>
+</tr>
+<tr>
+<td>Reacting, it stops what it was doing and picks up again afterwards</td>
+<td>todo</td>
+<td>no creature reactions</td>
+</tr>
+<tr>
+<td>Its priority for each kind of reaction depends on the creature (how frightened or curious it is)</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="miracles">Miracles</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A nasty miracle near it frightens it: its fear rises</td>
+<td>todo</td>
+<td>no creature reactions to miracles</td>
+</tr>
+<tr>
+<td>Frightened by a nasty miracle, it may start back in fright, then runs away from where it struck</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Not afraid, or on the learning leash, it goes to look at a nasty miracle instead</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A nice miracle of its own player's draws it to look: it may turn and point, goes up to it, points, or waits there puzzled</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It takes no notice of another player's nice miracle or shield</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A shield of its own player's draws it to look, as a nice miracle does</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A shield struck or destroyed means nothing to it</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A magic tree is taken up but does nothing</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It is impressed by its own player's miracles and those of its player's other creature, not by its own</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It learns a miracle it reacts to, if cast by a creature or a human player, and a seed's miracle teaches only the first to learn it</td>
+<td>partial</td>
+<td><code>CreatureMindSystem::SeeMiracle</code> and the watching rules (<code>src/Creature/CreatureWatching</code>) exist, but only the debug spawner calls them; see <a href="learning_by_observation.html">learning by watching</a></td>
+</tr>
+<tr>
+<td>Frozen, its mind learns nothing</td>
+<td>todo</td>
+<td>no freeze check in the watching code</td>
+</tr>
+<tr>
+<td>A teleport stone used near it draws it aside into the stone</td>
+<td>todo</td>
+<td>the teleport miracle moves no creature; see <a href="../miracles/teleport.html">../miracles/teleport.md</a></td>
+</tr>
+<tr>
+<td>Caught by a tornado it faints</td>
+<td>todo</td>
+<td>the tornado takes no creature; see <a href="../miracles/tornado.html">../miracles/tornado.md</a></td>
+</tr>
+<tr>
+<td>A miracle hitting it during a fight makes it reel</td>
+<td>todo</td>
+<td>the fight's recoils (<code>src/Creature/CreatureFight</code>) are for blows only; no miracle reaches a fighting creature; see <a href="fighting.html">fighting</a></td>
+</tr>
+<tr>
+<td>Fleeing a miracle, it weighs how urgent fleeing is against what it does</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="other-things-that-happen-near-it">Other things that happen near it</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A fire near it: it goes to look, flees, or puts it out</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A death near it</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A fight between others near it: it goes to watch</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Something flying through the air: it watches it, and may try to catch it</td>
+<td>todo</td>
+<td>no catching: the physics' catch check leaves the creature's part pending (<code>src/ECS/Physics/FromHand.cpp</code>, <code>PhysicsObjects.cpp</code>); see <a href="../physics/throwing_and_landing.html">../physics/throwing_and_landing.md</a></td>
+</tr>
+<tr>
+<td>Food dropped or thrown near it</td>
+<td>todo</td>
+<td>see <a href="feeding_and_thrown_things.html">feeding and thrown things</a></td>
+</tr>
+<tr>
+<td>A ball near it: it goes to play</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Another creature near it: it goes to greet, inspect or confront it</td>
+<td>todo</td>
+<td>see <a href="friends_and_other_creatures.html">friends</a></td>
+</tr>
+<tr>
+<td>Another creature fainting near it</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Something crushed near it</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Something it can't make sense of: it looks confused</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Hit by something thrown, it reacts to the blow</td>
+<td>todo</td>
+<td>the creature has a physics body that thrown things hit (<code>src/ECS/CreaturePhysics.cpp</code>), but it is not hurt, angered, frightened or swayed; see <a href="feeding_and_thrown_things.html">feeding and thrown things</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-players-hand">The player's hand</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hand picks something up near it: it watches, and may come to see</td>
+<td>todo</td>
+<td>the reaction exists for villagers only</td>
+</tr>
+<tr>
+<td>The hand puts things in a store: it watches, and may copy it</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The hand uses a totem: it watches</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The hand comes near it: it looks at the hand, or runs from it if it fears the player</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Stroked or slapped, it reacts at once, by the part of the body touched</td>
+<td>done</td>
+<td><code>CreatureHandSystem</code> with <code>src/Creature/CreatureFeedback.h</code> (the part of the body by the nearest bone); tests <code>CreatureHandSystemTest.Resting_TheHandStrokes_SweptFastItSlaps</code>; see <a href="learning_from_feedback.html">learning from feedback</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

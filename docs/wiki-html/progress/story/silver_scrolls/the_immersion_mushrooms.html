@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Immersion Mushrooms — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-immersion-mushrooms">The Immersion Mushrooms</a><ul>
+<li><a href="#how-it-appears">How it appears</a></li>
+<li><a href="#the-introduction">The introduction</a></li>
+<li><a href="#the-mushrooms">The mushrooms</a></li>
+<li><a href="#the-result">The result</a></li>
+<li><a href="#the-reward">The reward</a></li>
+<li><a href="#quirks-and-cut-material">Quirks and cut material</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-immersion-mushrooms">The Immersion Mushrooms</h1>
+<p>A first-land silver scroll that exists only for players with an Immersion force-feedback mouse: a hippy beside his
+hut asks the player to find the most powerful of his magic mushrooms, the one that shakes most in the hand, and drop
+it in his cauldron. The right one gets a healing over his hut and a compassion creature miracle dispenser; the wrong
+one blows his hut up.</p>
+<p><strong>Land:</strong> 1 · <strong>Giver:</strong> a hippy at his hut · <strong>Script:</strong> MagicMushroom · <strong>Reward:</strong> a "Compassion" creature miracle dispenser beside the hut, for the right mushroom only · <strong>Repeatable:</strong> no</p>
+<p>Sources: the land's challenge scripts (the original source text, checked against the PC game's compiled
+<code>challenge.chl</code>), the game's text table and the executable (the puzzle's mushrooms). openblack is judged on this tree:
+of the 62 script functions the quest and the scripts it starts need, 6 only log "not implemented" in <code>src/CHLApi.cpp</code>,
+among them the force-feedback mouse check, the puzzle's state and the snapshot; creating the puzzle, the hippy and the
+dispenser works (<code>CreateScriptObject</code>), and so does the game-time read (<code>DllGettime</code>). openblack has no force-feedback
+support at all (see <a href="../../pc_integration/online_services.html">../../pc_integration/online_services.md</a>). The land's
+control script starts this quest only in a game that skips the creature training (the start-up box's fourth answer; see
+<a href="../../scripts/land1_script.html">../../scripts/land1_script.md</a>). The puzzle itself is summarised in
+<a href="../minigames.html">../minigames.md</a>, the mushrooms as things in the world in
+<a href="../../resources/poison_and_mushrooms.html">../../resources/poison_and_mushrooms.md</a>, the land in
+<a href="../land_1.html">../land_1.md</a>.</p>
+<p><strong>Progress: 0/37 done, 7 partial — 9%</strong></p>
+<h2 id="how-it-appears">How it appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's control script starts the quest after the trainer's slap-and-stroke lesson (with the singing stones' start), or straight after setup in a game that skips the creature training</td>
+<td>partial</td>
+<td>with the fourth tutorial answer <code>LandControl1</code> starts it straight after setup (run logs show it calling <code>ImmersionExists</code>); with the first answer the land's control script never gets that far</td>
+</tr>
+<tr>
+<td>The quest happens only if a force-feedback mouse is plugged in; otherwise the script ends at once, leaving the land as it is</td>
+<td>partial</td>
+<td><code>ImmersionExists</code> is a stub that always answers no, so the script ends at once, which is right for a player without such a mouse; openblack has no force-feedback support</td>
+</tr>
+<tr>
+<td>With the mouse, every magic mushroom and every small mushroom already standing within 100 of the puzzle's spot is removed</td>
+<td>todo</td>
+<td>never reached (row above): the mushrooms stay, as for a player without the mouse</td>
+</tr>
+<tr>
+<td>The mushroom puzzle is made beside the hippy's hut at 1.2 scale</td>
+<td>todo</td>
+<td>never reached; CHL <code>CREATE</code> makes a puzzle game thing (<code>src/ECS/PuzzleGames.cpp</code>), but only the fish puzzle has its parts ported</td>
+</tr>
+<tr>
+<td>A silver challenge scroll stands at the hippy's hut</td>
+<td>todo</td>
+<td>script scrolls work (<code>CreateHighlight</code>), but the quest never gets this far (no force-feedback mouse)</td>
+</tr>
+<tr>
+<td>While the camera is within 100 of the scroll and it is on screen, at most every 30 seconds the evil advisor steps out, points at it: "We got ourselves a task down here!"</td>
+<td>todo</td>
+<td>the notice's natives work, but the quest never gets this far</td>
+</tr>
+<tr>
+<td>Clicking the scroll or the hut starts the introduction</td>
+<td>todo</td>
+<td><code>GameThingClicked</code> on a scroll works, but the quest never gets this far</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-introduction">The introduction</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A hippy villager comes out of the hut; he can't be killed, hurt by fire or picked up</td>
+<td>partial</td>
+<td>never reached; CHL <code>CREATE</code> makes villagers and the three flags work (<code>SetIndestructable</code>, <code>SetHurtByFire</code>, <code>SetIdPickupable</code>)</td>
+</tr>
+<tr>
+<td>Generic script music 4 plays</td>
+<td>partial</td>
+<td><code>StartMusic</code> plays the track; the scene never runs</td>
+</tr>
+<tr>
+<td>In high detail he walks to his spot by the cauldron while the camera glides in (4 s); he faces the camera, a second later turns to the mushrooms and talks, pointing</td>
+<td>todo</td>
+<td>the scene never runs (<code>MoveGameThing</code>, <code>SetFocus</code> and <code>OverrideStateAnimation</code> work for villagers)</td>
+</tr>
+<tr>
+<td>The camera turns to the mushrooms: hippy: "Hello. Have you noticed my mushrooms?"</td>
+<td>todo</td>
+<td>the scene never runs</td>
+</tr>
+<tr>
+<td>The camera moves; he looks puzzled: "Only they have special properties."</td>
+<td>todo</td>
+<td>the scene never runs</td>
+</tr>
+<tr>
+<td>He faces the camera, gossiping: "The more they shake, the more powerful they are."</td>
+<td>todo</td>
+<td>the scene never runs</td>
+</tr>
+<tr>
+<td>The camera moves again: "And I'm after the best one to do a little experiment." / "Could you please find it and drop it in my cauldron?"</td>
+<td>todo</td>
+<td>the scene never runs</td>
+</tr>
+<tr>
+<td>He walks back into his hut, back to normal detail, as the camera pulls out</td>
+<td>todo</td>
+<td>the scene never runs</td>
+</tr>
+<tr>
+<td>The scroll is entered in the challenge list at 0% with the reminder "We need to find the strongest mushroom and put it in the hippy's cauldron."; the music stops</td>
+<td>todo</td>
+<td>never reached; <code>Snapshot</code> is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-mushrooms">The mushrooms</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The puzzle makes 18 mushrooms, scattered round it in a square, each of a slightly different size and turn; the scatter is worked out from each mushroom's number, so the layout is the same every game</td>
+<td>todo</td>
+<td>no mushroom puzzle in openblack (<code>src/ECS/PuzzleGames.cpp</code> ports the fish puzzle only)</td>
+</tr>
+<tr>
+<td>Held in the hand, each mushroom plays the mushroom-challenge effect on the mouse with its own pair of settings; the right one, the ninth, has the strongest setting (10000) with the smallest other value (13); one other has the same strength but a value of 50, the rest are weaker</td>
+<td>todo</td>
+<td>no force feedback and no mushroom puzzle in openblack</td>
+</tr>
+<tr>
+<td>A mushroom that is destroyed is made again at its spot</td>
+<td>todo</td>
+<td>no mushroom puzzle</td>
+</tr>
+<tr>
+<td>A mushroom taken from its spot and let go anywhere but the cauldron is put back at its spot</td>
+<td>todo</td>
+<td>no mushroom puzzle</td>
+</tr>
+<tr>
+<td>A mushroom dropped into the cauldron (the middle of the puzzle) is used up and decides the puzzle: the ninth wins, any other loses</td>
+<td>todo</td>
+<td>no mushroom puzzle; <code>Played</code> answers only for the fish puzzle and <code>GetObjectState</code> is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-result">The result</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A film: the scroll is removed; the hippy comes out to the cauldron in high detail as the camera closes in; facing it: "Many thanks, Holy One. I hope you got the right one or my experiment could be fatal."</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>He walks back into the hut as the camera pulls out to a wide view; two seconds later a suspense sound starts; once he is inside he is removed</td>
+<td>todo</td>
+<td>never reached (<code>PlaySoundEffect</code> works)</td>
+</tr>
+<tr>
+<td>Right mushroom: the camera shakes round the hut (radius 40, amplitude 0.1, 5 s); three seconds later the suspense sound stops and a level 2 healing miracle comes down onto the hut from 30 above it, lasting 5 s</td>
+<td>partial</td>
+<td>never reached; <code>SpellAtPos</code>, <code>ShakeCamera</code> and the sound natives work</td>
+</tr>
+<tr>
+<td>Right mushroom: the scroll is completed (100%, alignment 0)</td>
+<td>todo</td>
+<td>never reached; <code>UpdateSnapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>Wrong mushroom: the same shake; three seconds later the hippy is made again at the hut (unkillable), the hut is set on fire (burning speed 0.5) and a level 1 explosion miracle is cast on it from 30 above, 50 across, lasting 30; the suspense sound stops</td>
+<td>partial</td>
+<td>never reached; <code>SetOnFire</code>, the miracle cast and making a villager work</td>
+</tr>
+<tr>
+<td>Wrong mushroom: a second later the blast flings the hippy through the air so that he lands where the camera is two seconds later (thrown, with a random spin), and the scroll is completed (100%, alignment 0)</td>
+<td>todo</td>
+<td>never reached; <code>SetTarget</code> is a stub</td>
+</tr>
+<tr>
+<td>Wrong mushroom: after the film the hippy can be killed again and is handed back to the game; with the right one he is never seen again</td>
+<td>todo</td>
+<td>never reached (<code>ReleaseFromScript</code> works)</td>
+</tr>
+<tr>
+<td>Right mushroom: the good advisor steps out, points at the reward's spot: "Aha. We got the right mushroom. And there's a reward for us."</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>Wrong mushroom: two seconds later the evil advisor steps out: "Okay, okay. So we got the wrong mushroom. So sue us."</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-reward">The reward</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A "Compassion" creature miracle dispenser is built beside the hut</td>
+<td>partial</td>
+<td>never reached; CHL <code>CREATE</code> makes spell dispensers and <code>SetMagicProperties</code> works (<code>src/Magic/Script/CHLWorship.cpp</code>); dispensers: <a href="../rewards.html">../rewards.md</a></td>
+</tr>
+<tr>
+<td>Its recharge time is set to 0 seconds (what a zero time does was not confirmed)</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>A film with the reward sting: the camera glides to the dispenser; the evil advisor steps out</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>If it is the first dispenser given by a film in the game: a did-you-know scroll ("That there are Miracles hidden all over Eden. Keep your eyes peeled.") is placed by it, a signpost next to it ("A Miracle Dispenser gives out one-shot Miraculous Wonders when it's fully charged."); the evil advisor: "This pedestal is a Miracle Dispenser. It charges up and generates one-shot Miracles." then "Click on the signpost for more info."</td>
+<td>todo</td>
+<td>never reached; the shared dispenser script also reads the help (<code>GetFirstHelp</code>, <code>GetLastHelp</code> are stubs)</td>
+</tr>
+<tr>
+<td>Otherwise the evil advisor points at it: "Nice. Another of those cool Miracle Dispensers."</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>Then the dispenser's own help lines for its miracle are spoken</td>
+<td>todo</td>
+<td>never reached; which lines the game hands out for the compassion miracle was not traced</td>
+</tr>
+</tbody>
+</table>
+<h2 id="quirks-and-cut-material">Quirks and cut material</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The right-mushroom branch also stops a muffled child's crying sound that is never started</td>
+<td>n/a</td>
+<td>a leftover in the script; nothing to hear</td>
+</tr>
+<tr>
+<td>The evil advisor's wrong-mushroom line ends with a "stop pointing" though he never points</td>
+<td>n/a</td>
+<td>harmless script slip</td>
+</tr>
+<tr>
+<td>An earlier placing of the scroll's challenge-list entry during the film, and a final completion after the reward, are commented out</td>
+<td>n/a</td>
+<td>cut</td>
+</tr>
+<tr>
+<td>The engine has a second mushroom puzzle kind that no land uses</td>
+<td>n/a</td>
+<td>see <a href="../minigames.html">../minigames.md</a></td>
+</tr>
+<tr>
+<td>The end credits show a hippy beside a giant magic mushroom (among the credited firms is Immersion Corp.), and the fifth land's opening reuses the mushroom suspense sound</td>
+<td>n/a</td>
+<td>not this quest</td>
+</tr>
+<tr>
+<td>A saved game keeps the puzzle, the hippy and the scroll</td>
+<td>todo</td>
+<td>openblack has no saved games</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Beach Temple Puzzle — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-beach-temple-puzzle">The Beach Temple Puzzle</a><ul>
+<li><a href="#how-it-appears">How it appears</a></li>
+<li><a href="#the-introduction-scroll-clicked">The introduction (scroll clicked)</a></li>
+<li><a href="#what-the-player-must-do">What the player must do</a></li>
+<li><a href="#the-flood">The flood</a></li>
+<li><a href="#success">Success</a></li>
+<li><a href="#failure-and-abandoning">Failure and abandoning</a></li>
+<li><a href="#reward">Reward</a></li>
+<li><a href="#aftermath">Aftermath</a></li>
+<li><a href="#music-and-sounds">Music and sounds</a></li>
+<li><a href="#creature-involvement">Creature involvement</a></li>
+<li><a href="#script-quirks">Script quirks</a></li>
+<li><a href="#unused-or-cut-parts">Unused or cut parts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-beach-temple-puzzle">The Beach Temple Puzzle</h1>
+<p>The second land's beach silver scroll: a man in a small temple of four stacked rings on the beach asks the player to
+rebuild it, ring by ring, on the column furthest up the beach so the floods can't reach it. Once the temple stands on
+the far column, the man makes it heal every living thing that comes near it, for the rest of the land. The ring rules
+themselves are in <a href="../minigames.html#beach-temple-rings-land-2">../minigames.md</a>; this file covers the quest around them.</p>
+<p><strong>Land:</strong> 2 · <strong>Giver:</strong> a Greek farmer living in the small temple on the beach · <strong>Script:</strong> HanoiFlood · <strong>Reward:</strong> the temple heals every living thing within 10 of it, for good · <strong>Repeatable:</strong> no</p>
+<p>Sources: the quest's script source (<code>HanoiFlood.txt</code>) and the shared helpers it runs (the notify loop with an end
+variable, the signpost helper and the standard reminder), each checked line by line against the PC game's compiled
+<code>challenge.chl</code> (argument order, text numbers, the challenge number on the scroll and snapshots); the land's control
+script for the start; the game's English text table for every line; the puzzle object's class list in the PC executable
+for whether any flood exists. openblack is judged on this tree: of the 44 script functions the quest's scripts use, only
+the snapshot still only logs "not implemented" in <code>src/CHLApi.cpp</code>, and making a puzzle object works
+(<code>CreateScriptObject</code>). But the land's control script never runs (see <a href="../land_2.html">../land_2.md</a> row 1), so nothing
+below happens; every row is todo unless the notes say otherwise.</p>
+<p><strong>Progress: 0/49 done, 2 partial — 2%</strong></p>
+<h2 id="how-it-appears">How it appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The quest is started at once when the land begins, right after the land's set-up and alongside the singing stones and the tree puzzle, before the land's entry scene; no town has to be owned and there is no wait</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs (<a href="../../scripts/land2_script.html">../../scripts/land2_script.md</a>)</td>
+</tr>
+<tr>
+<td>The temple puzzle (four rings on three columns) is placed on the beach, turned 180 degrees, at normal size</td>
+<td>todo</td>
+<td>CREATE of a puzzle game makes only a bare <code>PuzzleGame</code> record (<code>src/ECS/PuzzleGames.cpp</code>): no rings or columns, only the fish puzzle has parts; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>A ring of the player's influence, radius 50, is put round the puzzle so the hand can reach the rings although the beach is outside any town; it is never removed, even after the puzzle is solved</td>
+<td>todo</td>
+<td><code>INFLUENCE_POSITION</code> is real (<code>src/Magic/Script/CHLInfluence.cpp</code>) but the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>A silver scroll stands about 16 north of the puzzle, raised 2 above the ground; it belongs to this challenge in the challenge list</td>
+<td>todo</td>
+<td><code>CREATE_HIGHLIGHT</code> and <code>SET_PROPERTY</code> altitude are real (<code>src/ECS/ScriptHighlight.cpp</code>); the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>While the scroll is unclicked, whenever the camera is within 100 of it and the scroll is on screen, the good advisor steps out, points at it and says "There's someone is this little temple. He definitely wants something." (the text table's own typo), at most once every 30 seconds and only when no other scene is using the widescreen</td>
+<td>todo</td>
+<td>the advisor natives, <code>RUN_TEXT</code> and <code>GAME_THING_FIELD_OF_VIEW</code> are real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The notify loop ends when the scroll or the spot under it is clicked, or when the puzzle is solved first (the quest's end flag is set); either way the scroll is then made active</td>
+<td>todo</td>
+<td><code>GAME_THING_CLICKED</code> and <code>SET_ACTIVE</code> on a highlight are real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The first line can come straight away: the loop's 30-second gap is primed so the advisor may speak as soon as the camera is near</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-introduction-scroll-clicked">The introduction (scroll clicked)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Clicking the scroll (before the puzzle is solved) starts a widescreen scene with the generic script music, and remembers that the introduction was played</td>
+<td>todo</td>
+<td>camera control, dialogue, game speed, widescreen and music natives are real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The camera glides over 4 seconds to a raised view of the temple; a Greek farmer appears inside the temple (at the puzzle's centre), drawn in full detail, and walks out to a spot just west of it</td>
+<td>todo</td>
+<td>villager CREATE, the camera moves, <code>SET_HIGH_GRAPHICS_DETAIL</code> and <code>MOVE_GAME_THING</code> on a villager are real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>After 2 seconds the camera drops over 3 seconds to ground level beside him; once he has arrived and the camera has stopped, he turns to face the camera</td>
+<td>todo</td>
+<td><code>HAS_CAMERA_ARRIVED</code> and <code>SET_FOCUS</code> on a villager are real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The challenge is recorded in the player's challenge log (the temple's list of challenges) with the title "The Beach Temple Puzzle", a picture of this view, progress 0 and an alignment of -0.5, and a reminder: the good advisor stepping out to say "There is risk of flooding."</td>
+<td>todo</td>
+<td><code>SNAPSHOT</code> is a stub (no challenge log entries); the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The man: "Thank goodness it's you. You're the only one who can help me." The camera creeps closer over 8 seconds while he plays a talking animation on loop</td>
+<td>todo</td>
+<td><code>RUN_TEXT</code> and <code>TEXT_READ</code> are real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The man: "My temple here keeps getting flooded during heavy rain."</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The man: "The building consists of separate rings which you place over these columns"</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The man: "Please, I beg you, move the sections up the beach to rebuild it on the furthest column, where it'll be safe." He turns to the far column up the beach and points once; the camera shifts and tilts slightly up</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The man: "But the temple has to be moved correctly. The architect left an explanation on this signpost." This line waits for the player to click on</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>A bronze "did you know" signpost appears beside the temple with the rules: "The Beach Temple Puzzle. You must move the Temple to the column furthest from the sea piece by piece. There are four Temple pieces and you may only place a piece on an empty spike or on a wider piece." (filed under miscellaneous tips)</td>
+<td>todo</td>
+<td>the signpost highlight and <code>HIGHLIGHT_PROPERTIES</code> are real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The camera turns to the signpost and the man points at it; once the line is read he faces the camera, talks twice more, and walks back into the temple while the camera returns over 3 seconds to where the player left it</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The man fades away, the music stops and the scene ends</td>
+<td>todo</td>
+<td><code>OBJECT_DELETE</code> on a villager and <code>STOP_MUSIC</code> are real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-the-player-must-do">What the player must do</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Move the four rings, by hand, from their column by the sea onto the column furthest up the beach, never resting a ring on a smaller one</td>
+<td>todo</td>
+<td>the ring rules are not ported: our puzzle record has no rings (<code>src/ECS/PuzzleGames.cpp</code>)</td>
+</tr>
+<tr>
+<td>There is no timer, move limit or penalty; the quest simply waits until the puzzle reports it is solved</td>
+<td>todo</td>
+<td><code>PLAYED</code> on a puzzle answers only for the fish puzzle (<code>IsPuzzleGamePlayed</code>); the Hanoi test is not ported</td>
+</tr>
+<tr>
+<td>Clicking the scroll is not needed: the puzzle can be solved before or without the introduction</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-flood">The flood</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nothing actually floods: the scripts start no water, rain, tide or timer, and the puzzle object in the PC game has no flooding of its own; the flood exists only in the man's lines, the reminder ("There is risk of flooding.") and the script's name</td>
+<td>todo</td>
+<td>nothing to do in our tree either, but the puzzle and the quest are not there; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The start snapshot records the quest with an alignment of -0.5, as if the challenge leaned evil; the success snapshot then records +1</td>
+<td>todo</td>
+<td><code>SNAPSHOT</code> is a stub; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="success">Success</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>As soon as the puzzle is solved, the quest's end flag is set (ending the advisor's reminders if the scroll was never clicked) and a widescreen scene starts</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The camera glides over 4 seconds to look over the far column; the Greek farmer appears at the rebuilt temple, in full detail, and walks a little west, then faces the camera</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>If the introduction was played, he says "Thank you, Holy One. No more flooding for me!"; if the player solved it without clicking the scroll, he says instead "You must have noticed my temple was at risk from flooding! Thank you for your actions!"</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The man, talking in a loop: "In return for this I will activate the temple's beneficial properties."</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The man: "Any living being who comes to the temple will be healed. " (with the text table's trailing space); the dialogue box is then closed</td>
+<td>todo</td>
+<td><code>GAME_CLOSE_DIALOGUE</code> is real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The camera swings over 4 seconds to look along the temple; he faces the temple and plays the summoning animation (the one the Pied Piper uses) twice</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>After 2 seconds the challenge log entry is recorded again, with the same title and reminder, progress 1 (complete) and alignment +1</td>
+<td>todo</td>
+<td><code>SNAPSHOT</code> is a stub; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The camera pulls back over 3 seconds, the healing starts, and the man walks into the temple; 2 seconds after the camera stops, it returns over 4 seconds to where the player left it, the man fades away and the scene ends</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="failure-and-abandoning">Failure and abandoning</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The quest cannot be failed: there is no time limit, no losing state is tested, and the puzzle cannot be broken (its pieces and columns are put back; see <a href="../minigames.html#beach-temple-rings-land-2">../minigames.md</a>)</td>
+<td>todo</td>
+<td>no rings in our puzzle record; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Ignoring the scroll leaves it standing with the advisor's reminders until the puzzle is solved or the land ends</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>After the introduction, the scroll's script waits until the puzzle is solved; the source's comment says this is to keep the scroll in the world (scripts' own objects are otherwise removed when the script ends, which is why the signpost helper hands its signpost back to the game)</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="reward">Reward</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A level-2 heal miracle is cast on the rebuilt temple's spot, radius 10, by the scripts (no player's own), and cast again every 20 seconds forever, so any villager, animal or creature within 10 is healed; this lasts for the rest of the land</td>
+<td>partial</td>
+<td><code>SPELL_AT_POS</code> works (<code>src/Magic/Script/CHLSpells.cpp</code>, the neutral player casts it); the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Each new heal is cast without removing the last one; the script keeps only the newest</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>No miracle, dispenser, prayer power or belief is given; the reward is only the healing temple</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; rewards: <a href="../rewards.html">../rewards.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="aftermath">Aftermath</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The rules signpost beside the temple is found (within 2 of its spot) and faded away after the success scene</td>
+<td>todo</td>
+<td><code>OBJECT_DELETE</code> is real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>If the introduction was never played, no signpost was ever made, so this finds nothing</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The rebuilt temple stays on the far column, the influence ring stays round the puzzle, and the healing goes on</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="music-and-sounds">Music and sounds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The introduction plays the generic script music from its start to its end</td>
+<td>partial</td>
+<td><code>START_MUSIC</code> and <code>STOP_MUSIC</code> work (<code>src/Audio/GameMusic.cpp</code>); the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The success scene starts no music or sound of its own (no reward sting)</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creature-involvement">Creature involvement</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The scripts never look at the player's creature; it can move rings like any other object it picks up only if the puzzle allows it (undetermined: the scripts don't say)</td>
+<td>todo</td>
+<td>no rings to pick up in our tree; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The creature, like any living thing, is healed when within 10 of the rebuilt temple</td>
+<td>todo</td>
+<td>the heal miracle exists (<code>src/Magic</code>), but the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-quirks">Script quirks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The quest's end flag is a game-wide variable shared with other scripts (the land 5 lion puzzle uses it; the land 1 singing stones reset it); the shared helper's own comment warns to use it with caution. On land 2 only this quest uses it</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The comments beside the dialogue are older drafts that differ from the spoken text: "Aha. Just the god I was looking for.", "My beach house keeps getting flooded by the tides.", "If you could move it further up the beach I'd be most grateful.", "The signposts provide the rules and instructions you need.", "Cheers, Mighty One. I can live without fear of flooding now.", "In return for your kindess I will activate the powers of the Tower." and "Any living being who visits it will be healed."</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Unused values: a timer primed 31 seconds back in the scroll script, and two marked spots in the main script (a start spot and a spot for the man) are set up but never used</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The good advisor's scroll line reads "There's someone is this little temple" (sic)</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="unused-or-cut-parts">Unused or cut parts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Eight of the man's lines, about belongings ruined by a flood, are in the text table but no script says them: "My collection of clocks!", "My soccer trophies!", "The Welsh dresser's toppled!", "Oh, my matchstick galleon!", "My ship in a bottle collection!", "Oh, my hip replacement!", "My CDs!", "My house of cards! That took four years!"</td>
+<td>n/a</td>
+<td>apparently a cut flooding stage, where the temple flooded and the man lamented as he lost things; flagged differently in the text table from the lines used. Whether the engine itself ever says them is not confirmed: no script source uses them, and a search of the PC executable for their text numbers finds no plausible use</td>
+</tr>
+<tr>
+<td>Every other line of the quest's set (1 to 8, 17 to 19) is used</td>
+<td>n/a</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

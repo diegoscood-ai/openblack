@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stores and piles — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="here" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#stores-and-piles">Stores and piles</a><ul>
+<li><a href="#the-store">The store</a></li>
+<li><a href="#piles">Piles</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="stores-and-piles">Stores and piles</h1>
+<p>Where food and wood are kept: each town's store (its storage pit) with its piles, loose piles and pots on the land, and
+the piles the miracles make. The game has only these two resources.</p>
+<p><strong>Progress: 17/24 done, 1 partial — 73%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../objects-and-resources.html">Objects and resources</a>.</p>
+<h2 id="the-store">The store</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A store has one food pile and five wood piles, at the points its model marks, turned with it</td>
+<td>done</td>
+<td>the store's piles made at its mesh's points (<code>src/ECS/Archetypes/AbodeArchetype.cpp</code>)</td>
+</tr>
+<tr>
+<td>Wood fills the piles in turn; every pile but the last holds no more than it is drawn full at</td>
+<td>done</td>
+<td><code>StoragePitStore::AddResource</code>: wood piles one to five, the last with no cap (<code>src/ECS/StoragePitStore.cpp</code>)</td>
+</tr>
+<tr>
+<td>The town keeps count of the food and wood its store holds</td>
+<td>done</td>
+<td><code>StoragePitStore::SyncTotals</code> keeps the abode's totals with the piles</td>
+</tr>
+<tr>
+<td>A store can hold more than its maximum for a while (unconfirmed what happens to the excess)</td>
+<td>done</td>
+<td><code>StoragePitStore::AmountOverMaximum</code> (the last wood pile has no cap; what is over is taken first)</td>
+</tr>
+<tr>
+<td>A damaged store causes an emergency in its town</td>
+<td>todo</td>
+<td>see <code>../town/</code></td>
+</tr>
+<tr>
+<td>A damaged store stops working until repaired</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A store's contents can be poisoned, tinting its piles</td>
+<td>done</td>
+<td>the poison flag on the store's piles (<code>object_resources::IsPoisoned</code>) and the poisoned colour of a pile (<code>src/ECS/Systems/Implementations/RenderingSystem.cpp</code>); see <a href="poison_and_mushrooms.html">poison and mushrooms</a>; Land 2's poisoned store: <a href="../story/silver_scrolls/the_plague.html">the_plague.md</a></td>
+</tr>
+<tr>
+<td>The store's desire flags stand by it</td>
+<td>todo</td>
+<td>only the workshop has its needs sign (<code>src/ECS/ShowNeeds.cpp</code>); see <code>../town/</code></td>
+</tr>
+<tr>
+<td>Villagers' taking food and wood from the store shrinks its piles</td>
+<td>done</td>
+<td>villagers take from the store (<code>GetResourceFrom</code>, <code>src/ECS/Villager/VillagerResources.cpp</code>) through <code>StoragePitStore::RemoveResource</code>, wood piles five to one</td>
+</tr>
+<tr>
+<td>Only food and wood exist; there is no ore</td>
+<td>n/a</td>
+<td>the game has no other resource</td>
+</tr>
+</tbody>
+</table>
+<h2 id="piles">Piles</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A pile rises out of the ground as it fills and sinks as it empties, easing over a second</td>
+<td>done</td>
+<td><code>PotArchetype::SetSize</code> with its zoomer (<code>src/ECS/Archetypes/PotArchetype.cpp</code>, <code>src/ECS/PotResource.cpp</code>)</td>
+</tr>
+<tr>
+<td>Food rises fast at first then slows; wood rises evenly; neither beyond full</td>
+<td>done</td>
+<td><code>pot_resource::PileFoodProportionRaised</code> and the wood's even rise; test <code>test/test_food_wood.cpp</code></td>
+</tr>
+<tr>
+<td>A pile is drawn only while some of it is above ground</td>
+<td>done</td>
+<td><code>src/ECS/Systems/Implementations/RenderingSystem.cpp</code></td>
+</tr>
+<tr>
+<td>The grain on a food pile flows down it as it rises</td>
+<td>done</td>
+<td>test <code>FoodWood.grainSplineKeyPoints</code></td>
+</tr>
+<tr>
+<td>Food piles follow the land's shape</td>
+<td>done</td>
+<td><code>MorphWithTerrain</code> on food piles (<code>src/ECS/Archetypes/PotArchetype.cpp</code>)</td>
+</tr>
+<tr>
+<td>A pile thuds as it is made or added to, louder for 200 or more; piles in the hand don't</td>
+<td>done</td>
+<td>the pile sound by amount (<code>PileSoundSample</code>, <code>src/ECS/PotResource.cpp</code>)</td>
+</tr>
+<tr>
+<td>Food and wood poured at a point go to the stores and piles in its cell, then the cells around, as far as each reaches</td>
+<td>done</td>
+<td><code>pot_resource::AddResourceToPos</code> (<code>src/ECS/PotResource.cpp</code>)</td>
+</tr>
+<tr>
+<td>What nothing takes makes a new pile, unless it lands in water</td>
+<td>done</td>
+<td><code>pot_resource::AddResourceToPos</code></td>
+</tr>
+<tr>
+<td>A new pile makes the nearby people come and look</td>
+<td>done</td>
+<td>a pot made or put down offers its reaction (<code>src/ECS/PotResource.cpp</code>, <code>HandHolding.cpp</code>)</td>
+</tr>
+<tr>
+<td>Pots and piles placed by the land scripts</td>
+<td>done</td>
+<td><code>CreatePot</code> (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>)</td>
+</tr>
+<tr>
+<td>A town's temporary pots placed by the land scripts</td>
+<td>todo</td>
+<td><code>CreateTownTemporaryPots</code> is empty (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>)</td>
+</tr>
+<tr>
+<td>A pile or pot with something in it can catch fire</td>
+<td>partial</td>
+<td>piles and pots burn (<code>src/ECS/Fire</code>), and emptying one puts its fire out (<code>src/ECS/ObjectResources.cpp</code>); unconfirmed whether the food or wood is lost</td>
+</tr>
+<tr>
+<td>Pots are physical: they can be thrown, roll and land</td>
+<td>done</td>
+<td>pots are physics objects (<code>src/ECS/Physics/PhysicsObjects.cpp</code>) and react to their impact (<code>src/ECS/HeldApply.cpp</code>); see <code>../physics/</code></td>
+</tr>
+<tr>
+<td>An emptied pile goes (unconfirmed)</td>
+<td>todo</td>
+<td>an emptied pile stays at 0, its reaction removed (<code>src/ECS/ObjectResources.cpp</code>); whether a loose one goes is unconfirmed</td>
+</tr>
+<tr>
+<td>Hovering over a pile shows how much it holds</td>
+<td>todo</td>
+<td>the hover texts are not ported; see <code>../interface/</code></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

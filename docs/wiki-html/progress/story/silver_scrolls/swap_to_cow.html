@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Swap To Cow — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#swap-to-cow">Swap To Cow</a><ul>
+<li><a href="#is-it-in-the-game">Is it in the game?</a></li>
+<li><a href="#the-introduction">The introduction</a></li>
+<li><a href="#herding">Herding</a></li>
+<li><a href="#the-reward">The reward</a></li>
+<li><a href="#bugs-and-quirks">Bugs and quirks</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="swap-to-cow">Swap To Cow</h1>
+<p>A herding challenge written for Land 4: a lame herder asks for the player's creature to drive ten frightened cattle into
+a pen by the player's home village, and a trader there pays with a strength miracle seed, or with a cow creature to swap
+for when the player's creature is not already a cow. It is compiled into the shipped game but nothing ever starts it.</p>
+<p><strong>Land:</strong> 4 (written for it; never started) · <strong>Giver:</strong> a Greek herder by a Japanese house, then a trader by the pen · <strong>Script:</strong> SwapToCow · <strong>Reward:</strong> a creature strength miracle seed (if already a cow) or a cow creature to swap for · <strong>Repeatable:</strong> no</p>
+<p><strong>Progress: 0/0 done, 0 partial — 0%</strong></p>
+<p>Sources: the script's source text and the decompile of the compiled challenge file, Land 4's map script, the game's text
+table. Every row is n/a: the game itself never runs this quest, so there is nothing for openblack to match. If openblack
+ever wants to restore it, it needs the same commands as the other swap quests (dialogue, flocks, animal states, timers,
+challenge records, the swap), of which the challenge records and the swap are still stubs in <code>src/CHLApi.cpp</code>.</p>
+<h2 id="is-it-in-the-game">Is it in the game?</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The script is compiled into the shipped challenge file (it is in Land 4's file list)</td>
+<td>n/a</td>
+<td>never started by the game: compiled, but no script in the compiled file runs it; Land 4's control script starts the ogre, the fish puzzle, the breeder and others, never this</td>
+</tr>
+<tr>
+<td>Only a single-quest test launcher, which is not compiled, ever runs it</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>A note at its top says it was to be triggered after the ogre fight on Land 4</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The herder's house is a real Japanese house in Land 4's neutral Japanese village; the pen is about 190 from the player's Norse home village; the trader's hut position matches no building on Land 4</td>
+<td>n/a</td>
+<td>never started by the game: checked against <code>Land4.txt</code></td>
+</tr>
+<tr>
+<td>The silver scroll over the herder's house and its advisor nag ("Whew! As if you ain't busy enough, here's something for you to do.") are commented out, so even if it were run it would start straight with the cut scene, with no scroll</td>
+<td>n/a</td>
+<td>never started by the game: the compiled version has no highlight at all</td>
+</tr>
+<tr>
+<td>Its title "Swap To Cow" and reminder "Let's get these cows back to the Village." exist in the text table, as do all its dialogue lines</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Not reachable at all in the shipped game</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-introduction">The introduction</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A cut scene: a Greek farmer comes out of the house and walks a few steps; the camera glides to him over 3 seconds</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Out of view, eight short Celtic fence pieces are set in a ring of radius 10 around the pen spot, each turned to face it</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>A still flock is made at the pen (inner 5, outer 10) and a moving flock at the cattle's start (inner 15, outer 20); ten cows are made at the start, scattered up to 10 either way, and join the moving flock</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The herder turns to the camera, prays, and says: "Mighty one. I need to herd my cattle to your home Village." then "But I have injured my ankle and cannot walk that far."</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The camera cuts to the cattle; the challenge record opens; the herder: "But as my beasts are afraid of your Creature I had an idea."</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The camera cuts to the pen: "You could get him to shepherd the cattle to the pen near your Village." and "Please try and chase as many into the pen as possible."</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The herder walks back home and is removed as the camera glides back</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="herding">Herding</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cows can't be picked up by the hand</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Every second, a cow within 50 of the player's creature, not held, runs from it: it picks a spot 4 to 20 away on the far side (within 60 degrees of straight away), retrying until the ground there is within 2 of the height where it stands, and walks there at speed 0.3 for 3 seconds</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>A cow more than 60 from the creature goes back to moving with the flock</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The moving flock's centre follows the cow that has got closest to the pen so far, so the herd drifts along behind the leader</td>
+<td>n/a</td>
+<td>never started by the game: the best distance is shared by all the cows and never reset</td>
+</tr>
+<tr>
+<td>A cow that reaches within 20 of the pen, alive, not held and not flying, counts as arrived, joins the pen's flock and sparkles for 3 seconds</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>A cow that dies or disappears counts as lost</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Every 3 seconds the record updates when the counts change: progress is a tenth per cow arrived or lost, alignment a tenth up per arrived and a tenth down per lost</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>There is no timer and no failure: the challenge only moves on when all ten cows are either penned or dead</td>
+<td>n/a</td>
+<td>never started by the game: a cow that never arrives and never dies keeps it open forever</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-reward">The reward</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It then waits until the camera is within 150 of the pen and looking at it</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>A cut scene: a man walks to the pen and faces the camera; the record closes as a success with the final alignment</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>If the player's creature is already a cow, the trader thanks by result and gives a creature strength miracle seed beside himself with a sparkle: all ten ("Thank you, lordly one. You got the herd here safely."), more penned than lost ("You got most of the cattle here safely."), at least one penned ("Well, some cows made it, Mighty One."), each followed by "Here's an offering to show my gratitude."</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>If all ten died, a cow owner gets nothing: "None of the cows made it. I shall look elsewhere for my herding requirements in future."</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Otherwise a cow creature appears near the trader's hut, looks at the camera and waves; the lines are "A billion thanks. All the cattle got to the pen safely." / "A hundred thanks. You managed to get most of the cattle here safely." / "Thanks, Holy One. A few cows did make it, in the end." each followed by "Take this Miraculous cow as an offering from me to you."</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Even with every cow dead, a non-cow owner still gets the cow: "Lordly spirit, none of my herd survived. I sense a famine coming." "Here. Take this special beast." "We might have to eat it otherwise."</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The camera returns, the trader is left in the world, and the cow is offered through the shared swap offer</td>
+<td>n/a</td>
+<td>never started by the game: see <a href="./creature_swaps.html">creature_swaps.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="bugs-and-quirks">Bugs and quirks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>When the creature is already a cow, the swap offer is still run with no creature</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Only a cow owner can get the miracle seed; everyone else always gets the cow, whatever the result</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

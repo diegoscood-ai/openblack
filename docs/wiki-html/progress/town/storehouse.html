@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Town storehouse — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="here" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#town-storehouse">Town storehouse</a><ul>
+<li><a href="#the-store">The store</a></li>
+<li><a href="#the-player-and-the-store">The player and the store</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="town-storehouse">Town storehouse</h1>
+<p>The storage pit is the town's store of food and wood: piles of wood and a pile of food beside it, which grow and shrink
+as villagers bring and take, and which the player can add to by hand or miracle. Without one the town makes do with
+temporary pots and its abodes' own stores.</p>
+<p><strong>Progress: 15/21 done, 4 partial — 81%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../buildings.html">Buildings, building sites and towns (the building side)</a>.</p>
+<h2 id="the-store">The store</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The storage pit holds five wood piles and a food pile placed by its model</td>
+<td>done</td>
+<td>the pit's five wood piles and food pile at its model's points (<code>src/ECS/Archetypes/AbodeArchetype.cpp</code>, <code>components::StoragePit</code>)</td>
+</tr>
+<tr>
+<td>Scripts start the pit with food and wood</td>
+<td>done</td>
+<td>CREATE_ABODE's food and wood go in through <code>StoragePitStore::AddResource</code> (<code>src/ECS/Archetypes/AbodeArchetype.cpp</code>)</td>
+</tr>
+<tr>
+<td>Piles rise out of the ground and sink as they fill and empty</td>
+<td>done</td>
+<td>each pile's size follows its amount (<code>src/ECS/PotResource.cpp</code>); <code>test/test_resource_stores.cpp</code></td>
+</tr>
+<tr>
+<td>Wood is added and taken pile by pile in the game's order</td>
+<td>done</td>
+<td>wood goes into piles 1 to 5 and comes out of 5 to 1 (<code>StoragePitStore::AddResource</code> and <code>RemoveResource</code>, <code>src/ECS/StoragePitStore.cpp</code>)</td>
+</tr>
+<tr>
+<td>The town's total food and wood follows the piles</td>
+<td>done</td>
+<td>the abode's totals are kept in step with the piles (<code>StoragePitStore::SyncTotals</code>); a pile reports the store's total</td>
+</tr>
+<tr>
+<td>A pit can hold only so much; the excess is left over</td>
+<td>done</td>
+<td>each pile caps at its pot's maximum (<code>AddResource</code>), and <code>StoragePitStore::AmountOverMaximum</code> gives the excess</td>
+</tr>
+<tr>
+<td>Villagers drop off food and wood they gather at the pit</td>
+<td>done</td>
+<td>the drop-off states (<code>GOTO_STORAGE_PIT_FOR_DROP_OFF</code>, <code>ARRIVES_AT_STORAGE_PIT_FOR_DROP_OFF</code>, <code>src/ECS/Villager/VillagerResources.cpp</code>); See ../villager/jobs.md</td>
+</tr>
+<tr>
+<td>Housewives and builders take food and wood from the pit</td>
+<td>partial</td>
+<td>builders fetch wood (<code>ARRIVES_AT_STORAGE_PIT_FOR_BUILDING_MATERIALS</code>) and villagers fetch their own food (<code>GOTO_STORAGE_PIT_FOR_FOOD</code>, <code>src/ECS/Villager/VillagerFood.cpp</code>); the housewife's states are TODO rows of the state table</td>
+</tr>
+<tr>
+<td>Food and wood miracles cast on the pit fill it</td>
+<td>done</td>
+<td>each landing grain goes into the store it reaches (<code>pot_resource::AddResourceToPos</code>, <code>StoragePitTakesPutDownResource</code>, from <code>src/Magic/Spells/SpellResource.cpp</code>); see ../miracles/</td>
+</tr>
+<tr>
+<td>The pit is the town's resource drop point; the nearest edge is used</td>
+<td>done</td>
+<td>villagers walk to the store's nearest edge (<code>GetResourceNearestEdge</code>, <code>src/ECS/Villager/VillagerResources.cpp</code>)</td>
+</tr>
+<tr>
+<td>Without a pit, temporary pots near the town hold its resources</td>
+<td>partial</td>
+<td>the town's temporary food or wood pot is made when a villager needs a store and the town has none (<code>town_stores::GetTemporaryResourceStorePotOrPos</code>, <code>src/ECS/Town/TownStores.cpp</code>) and goes once there is a pit; CREATE_TOWN_TEMPORARY_POTS is an empty stub (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>)</td>
+</tr>
+<tr>
+<td>Abodes keep some food of their own for dinner</td>
+<td>done</td>
+<td>the abode's own food (<code>Abode::foodAmount</code>), taken when a villager eats at home (<code>src/ECS/Villager/VillagerFood.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-player-and-the-store">The player and the store</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hand can take food or wood from the pit</td>
+<td>done</td>
+<td>the hand scoops from the pit's piles (<code>HandSystem::PickUp</code>, <code>src/ECS/Systems/Implementations/HandResources.cpp</code>); See ../resources/</td>
+</tr>
+<tr>
+<td>Dropping food or wood into the pit by hand adds it, and villagers react</td>
+<td>partial</td>
+<td>a handful put on the pit goes in, with the town's alignment and belief (<code>src/ECS/HeldApply.cpp</code>, <code>src/ECS/ObjectResources.cpp</code>); the town's spoken answer is pending (<code>src/ECS/Town/TownStores.cpp</code>)</td>
+</tr>
+<tr>
+<td>Taking from a town's pit lowers its belief in the taker for a while</td>
+<td>done</td>
+<td>the turn of the taking is kept (<code>town_stores::SetGameTurnResourceLastRemoved</code>) and later gifts of that resource earn less belief (<code>src/ECS/ObjectResources.cpp</code>). Our wiki differs: taking lowers no belief at once; it cuts what later gifts of that resource earn, for up to 1000 turns (<a href="../../buildings.html#resources-held-by-objects">buildings</a>)</td>
+</tr>
+<tr>
+<td>A pit belonging to another player gives its belief to that player when touched</td>
+<td>done</td>
+<td>giving to a town that is not the giver's earns the giver belief, times the non-owner multiplier (<code>DoResourceAdding</code>, <code>src/ECS/ObjectResources.cpp</code>)</td>
+</tr>
+<tr>
+<td>Food in the pit can be poisoned, harming those who eat it</td>
+<td>done</td>
+<td>the piles keep their poison (<code>StoragePitStore::AddResource</code>), and a villager who eats poisoned food loses life and shows it (<code>SHOW_POISONED</code>, <code>src/ECS/Villager/VillagerFood.cpp</code>); see <a href="../resources/poison_and_mushrooms.html">../resources/poison_and_mushrooms.md</a></td>
+</tr>
+<tr>
+<td>Magic food in the pit speeds up those who take from it, with a sparkle</td>
+<td>partial</td>
+<td>the pile's speed-up sparkle (<code>pot_resource::SetSpeedUp</code>) and the villagers' food speed-up rule (<code>src/ECS/VillagerSpeed.cpp</code>, <code>ProcessFoodSpeedup</code>) exist, but nothing gives a villager the speed-up; see ../villager/daily_routine.md</td>
+</tr>
+<tr>
+<td>The creature can eat from the pit and copy what the player does with it</td>
+<td>todo</td>
+<td>the deed a creature would copy is worked out (<code>StoragePitStore::DoCreatureMimicAfterAddingResource</code>) but the mimicry is pending; See ../creature/</td>
+</tr>
+<tr>
+<td>Damaging the pit puts the town in a state of emergency</td>
+<td>done</td>
+<td><code>abodes::ReduceLife</code> (<code>src/ECS/Abodes.cpp</code>) and the pit on fire (<code>src/ECS/Town/TownEmergency.cpp</code>); See emergencies_and_aggression.md</td>
+</tr>
+<tr>
+<td>The pit casts a shadow at night</td>
+<td>todo</td>
+<td>see ../rendering/shadows.md</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

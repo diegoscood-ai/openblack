@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trees — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="here" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#trees">Trees</a><ul>
+<li><a href="#kinds-and-placing">Kinds and placing</a></li>
+<li><a href="#growing">Growing</a></li>
+<li><a href="#moving">Moving</a></li>
+<li><a href="#fire">Fire</a></li>
+<li><a href="#hand-creature-and-villagers">Hand, creature and villagers</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="trees">Trees</h1>
+<p>The single trees and bushes on every land: their kinds, how they grow, sway and burn, and what the hand, the creature and
+the villagers do with them.</p>
+<p><strong>Progress: 21/30 done, 4 partial — 77%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../trees.html">Trees and forests</a>.</p>
+<h2 id="kinds-and-placing">Kinds and placing</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land scripts place trees of each kind (beech, birch, cedar, conifer, oak, olive, palm, pine, cypress, bushes, copses, hedges, burnt) and their variants, turned and sized</td>
+<td>done</td>
+<td><code>TreeArchetype</code> (<code>src/ECS/Archetypes/TreeArchetype.cpp</code>), CREATE_TREE and CREATE_NEW_TREE (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>)</td>
+</tr>
+<tr>
+<td>A tree has a size now and a largest size it grows to</td>
+<td>done</td>
+<td><code>components::Tree</code> (<code>src/ECS/Components/Tree.h</code>)</td>
+</tr>
+<tr>
+<td>Scripts mark some trees as scenery, which villagers leave alone (unconfirmed what else it changes)</td>
+<td>done</td>
+<td>The flag is kept (<code>Tree::isNonScenic</code>) and set again on replanting (<code>HandTrees.cpp</code>). Our wiki differs: the forester's tree search reads no such flag, so villagers do not leave those trees alone (<a href="../../trees.html#searches-for-trees-and-forests-for-the-villagers">trees.md</a>)</td>
+</tr>
+<tr>
+<td>Trees stand in the way of walkers, each as a circle on the ground</td>
+<td>done</td>
+<td>The route planner's obstacle circles (<code>src/ECS/RoutePlanWorld.cpp</code>)</td>
+</tr>
+<tr>
+<td>Trees are lit by the land's light and drawn unlit where the game does</td>
+<td>done</td>
+<td><code>ecs::TreeBrightness</code> and the cell light (<code>src/ECS/Trees.cpp</code>, <code>RenderingSystem.cpp</code>); test <code>test/test_tree_brightness.cpp</code></td>
+</tr>
+<tr>
+<td>Trees cast shadows, including at night (unconfirmed)</td>
+<td>done</td>
+<td>The static shadows, trees with alpha test (<code>RenderPass::StaticShadow</code>); see ../rendering/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="growing">Growing</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A tree short of its full size grows by its kind's amount every so many turns, the first wait a random part of it</td>
+<td>done</td>
+<td><code>ProcessTreesTurn</code> and <code>GrowTree</code> (<code>src/ECS/Trees.cpp</code>, the first wait random). Our wiki differs: only the trees of a forest grow; the land scripts' loose trees never do (<a href="../../trees.html#growth-treeprocess-0x74a290-treegrow-0x74a3f0">trees.md</a>)</td>
+</tr>
+<tr>
+<td>Trees grow faster in the rain and on good land</td>
+<td>done</td>
+<td><code>ecs::TreeGrowthAmount</code> (the rain and the land's alignment)</td>
+</tr>
+<tr>
+<td>The water miracle makes trees grow faster</td>
+<td>done</td>
+<td><code>ecs::ApplyWaterSpell</code> (<code>src/ECS/Trees.cpp</code>)</td>
+</tr>
+<tr>
+<td>The water miracle plants a young tree of the same kind by a full-grown one of a forest</td>
+<td>done</td>
+<td><code>ecs::ApplyWaterSpell</code> with <code>PlantTreeNear</code>; see <a href="forests.html">forests</a></td>
+</tr>
+<tr>
+<td>Each kind can seed only so many new trees (unconfirmed)</td>
+<td>todo</td>
+<td>Not confirmed in the game; nothing in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="moving">Moving</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Trees sway in the wind, in one of sixteen sways chosen by the way they face</td>
+<td>done</td>
+<td><code>Tree::windSlot</code> and <code>ecs::WindSway</code> (<code>src/ECS/Fields.cpp</code>, <code>RenderingSystem.cpp</code>)</td>
+</tr>
+<tr>
+<td>Trees bend away from the hand passing among them, and creatures bend small trees as they walk through</td>
+<td>partial</td>
+<td><code>UpdateTreeBends</code> (<code>src/ECS/Trees.cpp</code>) for the held object and flying bodies; the creature's slot is not fed</td>
+</tr>
+<tr>
+<td>Bent trees crash about, louder the further they bend; tall trees near the camera rustle and creak now and then</td>
+<td>done</td>
+<td><code>ecs::UpdateTrees</code> (the bend's crash, the rustle and creak of tall trees near the camera)</td>
+</tr>
+<tr>
+<td>Snow settles on trees</td>
+<td>todo</td>
+<td>No lying snow in our tree; see ../weather/snow.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="fire">Fire</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Trees catch fire and burn, their flames kept to the trunk's middle</td>
+<td>done</td>
+<td><code>src/ECS/Fire/FireGraphic.cpp</code> (trees' flames in the lower half, 0.2 of the height)</td>
+</tr>
+<tr>
+<td>A burning tree is drawn burning</td>
+<td>done</td>
+<td><code>graphic::TreeDrawColour</code> and the flames (<code>src/ECS/Fire/FireGraphic.cpp</code>); the foliage thinning is not ported, see <a href="../physics/fire.html">../physics/fire.md</a></td>
+</tr>
+<tr>
+<td>Fire spreads from tree to tree, each checking its neighbours now and then, with a random chance</td>
+<td>done</td>
+<td>Fire spreads by heat (<code>src/ECS/Fire/FireEffect.cpp</code>, the heat passed by the model's <code>fire::HeatTransfer</code> in <code>src/Fire/FireModel.cpp</code>), as our wiki describes (<a href="../../trees.html#fire">trees.md</a>); see ../physics/</td>
+</tr>
+<tr>
+<td>A tree burnt down leaves a burnt tree (unconfirmed) or goes</td>
+<td>done</td>
+<td>It goes (<code>fire::traits::DestroyedByEffect</code>), as our wiki gives it (<a href="../../trees.html#fire">trees.md</a>)</td>
+</tr>
+<tr>
+<td>A magic tree on fire stops being something people come to look at</td>
+<td>done</td>
+<td><code>magic_tree::StartOnFire</code> and <code>EndOnFire</code> (<code>src/Magic/Objects/MagicTree.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="hand-creature-and-villagers">Hand, creature and villagers</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hand pulls up a tree; held, it shows as branches or logs by its kind</td>
+<td>partial</td>
+<td>The tug and the uprooting are done (<code>HandTrees.cpp</code>); the held tree is drawn as itself; a firefly hiding in it leaves a one-shot seed (<a href="fireflies.html">fireflies.md</a>)</td>
+</tr>
+<tr>
+<td>A tree dropped on the land is planted where it falls; planting and pulling up move the alignment</td>
+<td>done</td>
+<td><code>HandSystem::Replant</code> (<code>HandTrees.cpp</code>, with the alignment's good push; the uprooting's evil one)</td>
+</tr>
+<tr>
+<td>A thrown tree flies and lands as a dead tree lying as it came down</td>
+<td>done</td>
+<td>The tree's end of physics (<code>HandPhysics.cpp</code>); see ../physics/throwing_and_landing.md</td>
+</tr>
+<tr>
+<td>Uprooted trees lie as dead trees, with their roots showing, and can be picked up and burnt</td>
+<td>done</td>
+<td>The tree becomes a dead tree in its landed pose with its roots (<code>HandPhysics.cpp</code>, <code>UpdateRoots</code>); dead trees can be picked up and burn</td>
+</tr>
+<tr>
+<td>The creature pulls up, eats, throws and plays with trees, and must be big enough for a tree</td>
+<td>partial</td>
+<td>The creature's knock-down action fells a tree (<code>CreatureObjectActionSystem.cpp</code>); it does not pick up, eat or throw trees; see ../creature/</td>
+</tr>
+<tr>
+<td>Foresters fell trees for wood; trees are worth wood by kind and size</td>
+<td>done</td>
+<td><code>src/ECS/Villager/VillagerForester.cpp</code>, <code>ecs::FellTree</code>, <code>ecs::TreeWoodValue</code>; see <a href="../resources/wood.html">../resources/wood.md</a></td>
+</tr>
+<tr>
+<td>Villagers sleep under trees and shelter by them (unconfirmed)</td>
+<td>todo</td>
+<td>Not confirmed in the game; nothing in our tree</td>
+</tr>
+<tr>
+<td>Footprints are worn round trees on busy routes (unconfirmed)</td>
+<td>todo</td>
+<td>Not confirmed in the game; nothing in our tree</td>
+</tr>
+<tr>
+<td>Trees on a building site block the town's clearing</td>
+<td>todo</td>
+<td>see ../building/</td>
+</tr>
+<tr>
+<td>Tooltips over trees say what the hand can do</td>
+<td>partial</td>
+<td>The held tree's own drop tooltip, Plant (<code>HandToolTips.cpp</code>); the tooltips over a standing tree are not checked; see ../interface/</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

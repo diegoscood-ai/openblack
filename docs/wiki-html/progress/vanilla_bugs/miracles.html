@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vanilla bugs: miracles — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="here" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#vanilla-bugs-miracles">Vanilla bugs: miracles</a><ul>
+<li><a href="#wrong-outcomes">Wrong outcomes</a></li>
+<li><a href="#missing-or-wrong-feedback">Missing or wrong feedback</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="vanilla-bugs-miracles">Vanilla bugs: miracles</h1>
+<p>Bugs in the original game's miracles, their effects and the miracle dispensers given as rewards. The fireflies and
+vortex research found no miracle bugs: the vortices are in <a href="story_scripts.html">story_scripts.md</a> and the skirmish map
+firefly data in <a href="multiplayer_and_skirmish.html">multiplayer_and_skirmish.md</a>.</p>
+<p><strong>Bugs: 2 (soft-locks and lost progress: 0)</strong></p>
+<h2 id="wrong-outcomes">Wrong outcomes</h2>
+<table>
+<thead>
+<tr>
+<th>Bug</th>
+<th>What the player sees</th>
+<th>Evidence</th>
+<th>Found in</th>
+<th>openblack</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The shared dispenser reward script's "if a refill period was given" check tests the game time instead of the period</td>
+<td>Every reward dispenser has its refill time set to whatever the quest passed, even 0 (the Hermit passes 0; the Explorers' note says the engine ignores 0 for such a dispenser; undetermined for the Hermit's)</td>
+<td><code>Reward.txt</code>: the check reads <code>time &gt; 0</code> rather than the period argument (checked in the script source)</td>
+<td><a href="../miracles/dispensers_and_seeds.html">dispensers_and_seeds.md</a>, <a href="../story/silver_scrolls/the_hermit.html">the_hermit.md</a>, <a href="../story/silver_scrolls/the_explorers.html">the_explorers.md</a>, <a href="../story/silver_scrolls/the_sea.html">the_sea.md</a></td>
+<td>undecided (never reached in this tree yet: no quest that uses the script gets to its reward)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="missing-or-wrong-feedback">Missing or wrong feedback</h2>
+<table>
+<thead>
+<tr>
+<th>Bug</th>
+<th>What the player sees</th>
+<th>Evidence</th>
+<th>Found in</th>
+<th>openblack</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Water rings come from a fixed pool of slots, and a reused slot keeps drifting with the wind</td>
+<td>Old blast and water-miracle rings on the sea drift away with the wind</td>
+<td>Per the miracle research, a reused ring slot drifts with the wind</td>
+<td><a href="../miracles/blast.html">blast.md</a>, <a href="../miracles/water.html">water.md</a></td>
+<td>differs: no ring drifts (the ring list in <code>src/ECS/WaterRings.h</code> keeps no reused slot's drift)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

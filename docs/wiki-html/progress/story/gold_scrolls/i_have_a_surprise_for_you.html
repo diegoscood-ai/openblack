@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>I have a surprise for you. — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#i-have-a-surprise-for-you">I have a surprise for you.</a><ul>
+<li><a href="#how-it-appears">How it appears</a></li>
+<li><a href="#the-opening-film">The opening film</a></li>
+<li><a href="#the-curse-at-night">The curse at night</a></li>
+<li><a href="#lifting-the-curse-step-by-step">Lifting the curse, step by step</a></li>
+<li><a href="#the-healing-scene">The healing scene</a></li>
+<li><a href="#the-reward">The reward</a></li>
+<li><a href="#aftermath-and-what-it-unlocks">Aftermath and what it unlocks</a></li>
+<li><a href="#failure-and-soft-locks">Failure and soft-locks</a></li>
+<li><a href="#music-and-sounds">Music and sounds</a></li>
+<li><a href="#script-quirks-and-bugs">Script quirks and bugs</a></li>
+<li><a href="#unused-and-cut-parts">Unused and cut parts</a></li>
+<li><a href="#creature-involvement">Creature involvement</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="i-have-a-surprise-for-you">I have a surprise for you.</h1>
+<p>Land 5's first story quest: as the player arrives, Nemesis curses the creature, and every night after that three of
+his Wonders drain its strength, shrink it and turn its alignment towards his own while a fourth pulls it towards his
+last village. Winning the three villages that hold the Wonders lifts the curse in a healing scene that gives a heal
+miracle dispenser. The quest is only ever logged: it has no scroll on the map, and its entry in the challenge log is
+titled with Nemesis's line "I have a surprise for you." (the game's text table has no proper title for it).</p>
+<p><strong>Land:</strong> 5 · <strong>Giver:</strong> Nemesis, in the land's opening film; lifted by a man dressed as a crusader at "the place of healing" by the Greek village · <strong>Script:</strong> BeginLand5, CreatureCurse and the land's control script LandControl5 (challenge CREATURE_CURSE) · <strong>Reward:</strong> the creature put back as it was when the land began, and a heal (powered-up) miracle dispenser that recharges every 5 minutes · <strong>Repeatable:</strong> no</p>
+<p>Sources: the land's challenge scripts (the original source text, which matches the PC game's compiled <code>challenge.chl</code>),
+the game's text table (<code>Scripts/InfoScript2.txt</code>) for every line and its speaker, and the executable for what the
+creature actions do. openblack's state is judged on this tree: the story's top script always runs Land 1's control
+script first and the land-loading command (<code>LoadMap</code> in <code>src/CHLApi.cpp</code>) has an empty body, so Land 5's control script,
+and this quest with it, never runs. Every row is todo unless its notes say a working command would do that part. The
+land as a whole is in <a href="../land_5.html">../land_5.md</a>, its map script in
+<a href="../../scripts/land5_script.html">../../scripts/land5_script.md</a>; the shielded Tibetan village that gates the third step
+is in <a href="nemesis_shielded_village.html">nemesis_shielded_village.md</a> and the end of the game in
+<a href="so_this_is_a_fight_to_the_death.html">so_this_is_a_fight_to_the_death.md</a>.</p>
+<p><strong>Progress: 0/79 done, 0 partial — 0%</strong></p>
+<h2 id="how-it-appears">How it appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's control script starts by setting the time of day to 13:00</td>
+<td>todo</td>
+<td><code>SetGameTime</code> is real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>It orders the three Wonders built in Nemesis's Aztec, Greek and Tibetan villages (build desire 0.6) and sets each Wonder, and a fourth in Nemesis's own village, to 60% built</td>
+<td>todo</td>
+<td><code>BuildBuilding</code> is real, but the building look-ups by town need <code>GetTownWithId</code> (a stub)</td>
+</tr>
+<tr>
+<td>It then runs the land's set-up (land number 5, the player's virtual influence on, no alliance with Nemesis, the volcano's glowing crater, scaffolds for a storage pit and a workshop in the home town, Nemesis's creature made at twice normal size) and the opening film below</td>
+<td>todo</td>
+<td><code>SetVirtualInfluence</code>, <code>SetPlayerAlly</code> and the rival creatures (<code>LoadCreature</code>) are stubs; the volcano vortex and scaffolds are real; see <a href="../portals.html">../portals.md</a></td>
+</tr>
+<tr>
+<td>The quest is a gold (story) quest logged in the challenge log with no scroll on the map: nothing in the land's scripts puts up a gold highlight for it</td>
+<td>todo</td>
+<td><code>Snapshot</code> and <code>UpdateSnapshot</code> are stubs; see <a href="../../interface/scrolls_and_signs.html">../../interface/scrolls_and_signs.md</a></td>
+</tr>
+<tr>
+<td>Its log title is the text of Nemesis's line "I have a surprise for you."; its reminder, replayed from the log, is the evil advisor stepping out to say "What's wrong with our Creature?"</td>
+<td>todo</td>
+<td>the log is a stub; the shared reminder itself calls real natives</td>
+</tr>
+<tr>
+<td>The log entry is made at the end of the opening film with progress 0 and no alignment change</td>
+<td>todo</td>
+<td>the log is a stub</td>
+</tr>
+<tr>
+<td>After the film, the land's control script notes the creature's size, strength and alignment as they are then; the cure puts these back</td>
+<td>todo</td>
+<td>strength and size are not handled by <code>GetProperty</code> for a creature</td>
+</tr>
+<tr>
+<td>The curse script is started in the background together with the Japanese Traitor, the shielded village, the Magic Dragon, the Explorers Again (only if the ark sailed on Land 1) and Nemesis's town defences</td>
+<td>todo</td>
+<td>plain script; see <a href="../silver_scrolls/the_japanese_traitor.html">../silver_scrolls/the_japanese_traitor.md</a>, <a href="nemesis_shielded_village.html">nemesis_shielded_village.md</a>; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-opening-film">The opening film</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nemesis is paused, his attitude to the player set to 2.0 and the two players made sure not to be allies; the vortex lets the player's people and creature through (shared vortex arrival)</td>
+<td>todo</td>
+<td><code>EnableDisableComputerPlayer</code>, <code>SetComputerPlayerAttitude</code> and <code>SetPlayerAlly</code> are stubs; arrival: <a href="../portals.html">../portals.md</a></td>
+</tr>
+<tr>
+<td>Nemesis's hand is moved to his citadel; the film starts with the Nemesis theme and a 6-second fade in, the camera at the vortex rising over 10 seconds</td>
+<td>todo</td>
+<td><code>StartMusic</code>, <code>SetFadeIn</code> and the camera are real; moving Nemesis's hand is a computer-player stub</td>
+</tr>
+<tr>
+<td>After 3 seconds the evil advisor steps out: "Time to face the ultimate foe, Boss." and "But hey - let's show no fear."; then goes home</td>
+<td>todo</td>
+<td><code>SpiritEject</code> and <code>RunText</code> are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The camera turns to Nemesis's citadel over 6 seconds; Nemesis: "I have been watching your power grow."</td>
+<td>todo</td>
+<td>real camera and text natives; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The lens widens to 100 over 15 seconds while Nemesis's hand drifts towards the vortex and the camera pans across the land for 20 seconds; Nemesis: "You are the only foe left and I have enjoyed your successes." and "The stronger you are, the more impressive it will be when I crush you."</td>
+<td>todo</td>
+<td><code>MoveCameraLens</code> and the camera are real; Nemesis's hand drifting is a computer-player stub</td>
+</tr>
+<tr>
+<td>His next line depends on the player's alignment: an evil player hears "Once I destroy you every living creature in Eden will worship me, Nemesis, the embodiment of good."; any other player hears "... the embodiment of evil."</td>
+<td>todo</td>
+<td><code>GetAlignment</code> and <code>RunText</code> are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>A dark red fade (3 seconds), the lens back to 70, then three 10-second fly-pasts of his Wonders, each opened with a 2-second fade in and closed with a red fade: the Tibetan one ("I gain nothing from defeating the weak. Only now are you worth beating."), the Greek one ("And all your power, all your worshippers will be mine.") and the Aztec one ("That, my enemy, is the ultimate prize.")</td>
+<td>todo</td>
+<td><code>SetFade</code> takes the colour (<code>src/3D/ScreenFade</code>); the lens and camera are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The creature is put at its start spot by the home town, the camera back at the vortex; the music stops; Nemesis: "I have a surprise for you."</td>
+<td>todo</td>
+<td><code>SetPosition</code> is real; turning a creature (<code>SetFocus</code>) is not done</td>
+</tr>
+<tr>
+<td>The curse itself is shown without seeing who casts it: the creature looks confused; sounds named for an imp hum, giggle and patter about while the camera shakes six times a tenth of a second apart and runs along the ground as if from the imp's eyes; the creature sneezes (to muzak), looks confused again, scratches itself (to muzak again) and is walked back to its spot</td>
+<td>todo</td>
+<td><code>PlaySoundEffect</code> is real; creature animations by script are not done</td>
+</tr>
+<tr>
+<td>The camera climbs to the creature's head and dives in (a suspense sound), a 1-second red fade, a punch sound, the Nemesis theme returns and the creature recoils, then collapses: the game's "die permanently" creature action only makes it faint and wait, it does not kill it</td>
+<td>todo</td>
+<td><code>CreatureDoAction</code> is a stub</td>
+</tr>
+<tr>
+<td>Two seconds later a 30-second high pan with a 2-second fade in; Nemesis: "You'll find your Creature is different since I cursed him." and his laugh "Bwa ha ha ha ha!" is played as speech only, not waited on</td>
+<td>todo</td>
+<td>real camera, fade and text natives; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>8 seconds later the quest is logged (see above); a 2-second fade to black, a view over the home town towards the vortex, a 2-second fade in; 3 seconds later the creature is let go, 2 more and the music stops</td>
+<td>todo</td>
+<td>the log is a stub</td>
+</tr>
+<tr>
+<td>The film ends in dialogue: the good advisor: "Phew! Our Creature seems to be all right." and "We'd better keep a close eye on him, though."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Nemesis is let go; 2 seconds later the home villagers are told to build the citadel and the town centre (desire 1.0)</td>
+<td>todo</td>
+<td><code>ReleaseComputerPlayer</code> is a stub; <code>BuildBuilding</code> is real</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-curse-at-night">The curse at night</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Which Wonder does what: the Aztec Wonder drains strength, the Greek Wonder shrinks the creature, the Tibetan Wonder turns its alignment, and the Wonder in Nemesis's own village draws it towards that village</td>
+<td>todo</td>
+<td>plain script; see <a href="../silver_scrolls/the_japanese_traitor.html">../silver_scrolls/the_japanese_traitor.md</a>; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The curse strikes once a night: when the game time is before 6:00 or after 18:00 it strikes, then waits until daytime (between 6:00 and 18:00) before it can strike again</td>
+<td>todo</td>
+<td><code>GetGameTime</code> is real; day and night: <a href="../../sky/day_night_cycle.html">../../sky/day_night_cycle.md</a>; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Each strike makes a dust cloud on the creature for 8 seconds, seven times normal size</td>
+<td>todo</td>
+<td><code>SpecialEffectPosition</code> is real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>While the Aztec Wonder stands and strength is above 0.2, strength falls by 0.16, and wobbles up and down round the new value for a short while</td>
+<td>todo</td>
+<td>a creature's strength is not handled by <code>SetProperty</code>; see <a href="../../creature/physiology.html">../../creature/physiology.md</a></td>
+</tr>
+<tr>
+<td>While the Greek Wonder stands and the creature is taller than 3, its height falls by 1, with a small wobble</td>
+<td>todo</td>
+<td>a creature's height is not handled by <code>SetProperty</code>; see <a href="../../creature/growth_and_size.html">../../creature/growth_and_size.md</a></td>
+</tr>
+<tr>
+<td>Alignment: the creature is pushed towards the opposite of the player's alignment (a good or neutral player's creature towards -1, an evil player's towards +1) by 0.4 a night, with a wobble</td>
+<td>todo</td>
+<td><code>SetAlignment</code> and <code>GetAlignment</code> are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The creature is frightened on the spot; the advisors cling to the left and right edges of the screen and one line is picked at random: evil "What's wrong with our Creature?", or good "Is this something to do with Nemesis' curse?", "What's going on with him?" or "What's the matter with our poor Creature?"</td>
+<td>todo</td>
+<td><code>ClingSpirit</code> and the texts are real; frightening the creature (<code>CreatureDoAction</code>) is a stub</td>
+</tr>
+<tr>
+<td>When the fright ends the creature looks at the hand</td>
+<td>todo</td>
+<td>creature actions by script are not done</td>
+</tr>
+<tr>
+<td>While Nemesis's own Wonder stands: a leashed creature stares and points at Nemesis's village and is frightened again; an unleashed one is walked off towards it</td>
+<td>todo</td>
+<td>creature actions and walks by script are not done</td>
+</tr>
+<tr>
+<td>The good advisor then steps out, points at the creature and says "Phew! Our Creature seems to be all right." every night, straight after the curse has struck</td>
+<td>todo</td>
+<td>advisors and texts are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Once the three Wonders are gone the strikes stop, but the pull towards Nemesis's village goes on each night while his own Wonder stands</td>
+<td>todo</td>
+<td>the creature's pull is a creature action, not done</td>
+</tr>
+<tr>
+<td>The curse script is stopped outright when the three villages have been won (see "Lifting the curse"), so the nightly pull ends there too</td>
+<td>todo</td>
+<td><code>StopScript</code> is real, but the three villages are never counted won: the village captures are read through stubs (<code>GetTownWithId</code>, <code>BeliefForPlayer</code>, unhandled owner properties)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="lifting-the-curse-step-by-step">Lifting the curse, step by step</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>While the curse is on, Nemesis's own village cannot be won: whenever the player's belief there reaches 0.1 it is set back to 0</td>
+<td>todo</td>
+<td><code>BeliefForPlayer</code> and <code>SetPlayerBelief</code> are stubs</td>
+</tr>
+<tr>
+<td>Each time that happens with the camera within 200 of the village and the village in view, the good advisor points at it: "Oh no. The people here are frantically zealous about Nemesis." and "We're not yet powerful enough to stand a chance!" (no once-only guard: it can repeat)</td>
+<td>todo</td>
+<td>follows from the belief reads, which are stubs</td>
+</tr>
+<tr>
+<td>Winning the neutral Japanese village for the first time starts Swap To Brown Bear (once)</td>
+<td>todo</td>
+<td>the village captures are read through stubs (<code>GetTownWithId</code>, <code>BeliefForPlayer</code>, unhandled owner properties); <a href="../silver_scrolls/swap_to_brown_bear.html">../silver_scrolls/swap_to_brown_bear.md</a></td>
+</tr>
+<tr>
+<td>Each Wonder village is a step: the first time it is won, a film plays, the Wonder is blasted and the quest's progress goes up by a third (0.33, 0.66, 0.99) in whatever order the villages fall</td>
+<td>todo</td>
+<td>the village captures are read through stubs (<code>GetTownWithId</code>, <code>BeliefForPlayer</code>, unhandled owner properties)</td>
+</tr>
+<tr>
+<td>Aztec village film: fade to black (1 second), a short epic sting; Nemesis's hand rushes in and drifts over the Wonder as the camera pans for 12 seconds; Nemesis: "How can this happen? You have stolen a town from me!" and "I will deny you the Wonder, though."; his hand rises, the camera pans 8 seconds, and after 2 seconds a blast (radius 50, 15 seconds) falls on the Wonder from 30 above; 1 second later the step is logged; fade back to where the player was, Nemesis let go</td>
+<td>todo</td>
+<td>the blast is cast by <code>SpellAtPos</code> (<a href="../../miracles/blast.html">../../miracles/blast.md</a>), but the film starts on a capture: the village captures are read through stubs (<code>GetTownWithId</code>, <code>BeliefForPlayer</code>, unhandled owner properties)</td>
+</tr>
+<tr>
+<td>Greek village film: Nemesis is paused; a Greek farmer is made by the Wonder: "We bow down to our new god!", "Nemesis forced us to build this Wonder.", "But now it will help you in your conquest of his realm!", "There's a nomad in the woods near the Village.", "He told us of the special powers this Wonder has." and "He said…"</td>
+<td>todo</td>
+<td>the village captures are read through stubs (<code>GetTownWithId</code>, <code>BeliefForPlayer</code>, unhandled owner properties)</td>
+</tr>
+<tr>
+<td>...he is cut off by a blast on the Wonder; the step is logged; the Nemesis theme starts, the farmer ducks and Nemesis's hand swoops down beside him: "Silence! You will not have this wonder!" and "I would rather it were destroyed!"</td>
+<td>todo</td>
+<td>the village captures are read through stubs (<code>GetTownWithId</code>, <code>BeliefForPlayer</code>, unhandled owner properties)</td>
+</tr>
+<tr>
+<td>...the farmer stands in despair: "And as for you, underling.", "Your change of alliance… disappoints me." and "You will regret your fickle spirit."; scared stiff, he screams; 1.5 seconds later a tornado (radius 25, 30 seconds) is cast on him and 4 seconds after that he is thrown into it</td>
+<td>todo</td>
+<td>the village captures are read through stubs (<code>GetTownWithId</code>, <code>BeliefForPlayer</code>, unhandled owner properties); the tornado is cast by <code>SpellAtPos</code>, throwing the farmer (<code>SetTarget</code>) is a stub</td>
+</tr>
+<tr>
+<td>...the camera tilts up over 20 seconds; Nemesis: "I WILL win this place back."; 10 seconds, a 5-second fade, and the film ends; the Heavenly Fire starts as it fades back in</td>
+<td>todo</td>
+<td>the village captures are read through stubs (<code>GetTownWithId</code>, <code>BeliefForPlayer</code>, unhandled owner properties); <a href="../silver_scrolls/the_heavenly_fire.html">../silver_scrolls/the_heavenly_fire.md</a></td>
+</tr>
+<tr>
+<td>Tibetan village film: the epic sting, Nemesis paused, a 20-second pan; both advisors out; the evil advisor: "That's one of Nemesis' towns!", "I can feel our power growing!" and "Nemesis must be pretty shook up. We can beat him, I know it!"; a blast on the Wonder; the step logged; Nemesis's hand rushes up: "Your cunning does you credit. But this is my land." and "And this town will be mine once more."</td>
+<td>todo</td>
+<td>the village captures are read through stubs (<code>GetTownWithId</code>, <code>BeliefForPlayer</code>, unhandled owner properties); see <a href="nemesis_shielded_village.html">nemesis_shielded_village.md</a></td>
+</tr>
+<tr>
+<td>A village only counts the first time it is won; losing it to Nemesis afterwards does not undo the step</td>
+<td>todo</td>
+<td>the village captures are read through stubs (<code>GetTownWithId</code>, <code>BeliefForPlayer</code>, unhandled owner properties)</td>
+</tr>
+<tr>
+<td>When all three have been won once, the curse script is stopped and the healing scene plays</td>
+<td>todo</td>
+<td>the village captures are read through stubs (<code>GetTownWithId</code>, <code>BeliefForPlayer</code>, unhandled owner properties)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-healing-scene">The healing scene</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A 2-second fade to black; a man dressed as a crusader is made by the Greek village and walks to his place; the creature is put at "the place of healing" beside him</td>
+<td>todo</td>
+<td>reached only after the three captures: the village captures are read through stubs (<code>GetTownWithId</code>, <code>BeliefForPlayer</code>, unhandled owner properties)</td>
+</tr>
+<tr>
+<td>He turns to the camera and does a Mexican wave: "Your power is plain to see.", then "I sense you are nearly a match for Nemesis himself." and, with a thank-you: "I have brought you to this place of healing."</td>
+<td>todo</td>
+<td>reached only after the three captures</td>
+</tr>
+<tr>
+<td>The camera frames the creature by its height; the glorious epic theme starts</td>
+<td>todo</td>
+<td>reached only after the three captures</td>
+</tr>
+<tr>
+<td>Four magic beams rise round the creature's spot, circling and closing in (radius 10 down to 1) until the change is done; a spell sound plays and the creature plays its summoning animation as the camera moves to frame it at its old size</td>
+<td>todo</td>
+<td>reached only after the three captures</td>
+</tr>
+<tr>
+<td>The man: "Your mighty Creature can now shake off the poisoned curse of Nemesis."</td>
+<td>todo</td>
+<td>reached only after the three captures</td>
+</tr>
+<tr>
+<td>The creature is put back: its alignment at once to what it was when the land began (after the opening film); its strength in steps of 0.1 and its height in steps of 0.5 until both are back at those values</td>
+<td>todo</td>
+<td>a creature's strength and height are not handled by <code>SetProperty</code></td>
+</tr>
+<tr>
+<td>5 seconds into a 10-second camera move the beams stop; 5 seconds after the move the creature sits and the man walks round in front of it</td>
+<td>todo</td>
+<td>reached only after the three captures</td>
+</tr>
+<tr>
+<td>The quest is logged complete (progress 1)</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>The man: "Your Creature is better, but Nemesis' sickly curse could still be lingering."</td>
+<td>todo</td>
+<td>reached only after the three captures</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-reward">The reward</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The camera cuts high above the healing place and a miracle dispenser of the powered-up heal is set up there (Norse style, turned 270), recharging every 5 minutes</td>
+<td>todo</td>
+<td><code>CREATE</code> of a spell dispenser is real, but it is reached only after the three captures; see <a href="../../miracles/dispensers_and_seeds.html">../../miracles/dispensers_and_seeds.md</a>, <a href="../../miracles/heal.html">../../miracles/heal.md</a></td>
+</tr>
+<tr>
+<td>Being given with the "tell" option, the shared reward script plays its own reward sting and film over it: the evil advisor's dispenser lines ("This pedestal is a Miracle Dispenser...", the signpost and "Did you know" tip for a player's first dispenser, otherwise "Nice. Another of those cool Miracle Dispensers.") and the advisors' help on the miracle</td>
+<td>todo</td>
+<td>the reward script needs <code>CreateReward</code> (a stub)</td>
+</tr>
+<tr>
+<td>The man goes on: "Your Creature is being drawn towards Nemesis' last Village!" (camera pans 15 seconds), "Your powers are strong enough to defeat him utterly!", "But be careful. He is weaker but he is not beaten." and "We will always be your servants. Return here should you need healing."</td>
+<td>todo</td>
+<td>reached only after the three captures</td>
+</tr>
+<tr>
+<td>He is deleted, the music stops, the film ends and the creature is let go</td>
+<td>todo</td>
+<td>reached only after the three captures</td>
+</tr>
+</tbody>
+</table>
+<h2 id="aftermath-and-what-it-unlocks">Aftermath and what it unlocks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land moves on to its last part: Nemesis's blast barrages on the player's villages and citadel every 15 seconds, and his last village can now be won whenever he holds none of the land's other villages</td>
+<td>todo</td>
+<td>the village captures are read through stubs (<code>GetTownWithId</code>, <code>BeliefForPlayer</code>, unhandled owner properties); <a href="nemesis_shielded_village.html">nemesis_shielded_village.md</a></td>
+</tr>
+<tr>
+<td>Winning his last village ends the land's script loop, stops every other Land 5 script and starts the big fight</td>
+<td>todo</td>
+<td>the village captures are read through stubs (<code>GetTownWithId</code>, <code>BeliefForPlayer</code>, unhandled owner properties); <a href="so_this_is_a_fight_to_the_death.html">so_this_is_a_fight_to_the_death.md</a>, <a href="../ending.html">../ending.md</a></td>
+</tr>
+<tr>
+<td>Swap To Brown Bear is only offered while the curse is on; once the curse loop ends, the Japanese village no longer starts it</td>
+<td>todo</td>
+<td>the village captures are read through stubs (<code>GetTownWithId</code>, <code>BeliefForPlayer</code>, unhandled owner properties)</td>
+</tr>
+<tr>
+<td>The dispenser and the healing place stay for the rest of the land</td>
+<td>todo</td>
+<td>reached only after the three captures</td>
+</tr>
+</tbody>
+</table>
+<h2 id="failure-and-soft-locks">Failure and soft-locks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The quest cannot be failed: the curse only weakens the creature (strength never below 0.2, height never below 3) and has no time limit</td>
+<td>todo</td>
+<td>the strength and height changes are not handled</td>
+</tr>
+<tr>
+<td>It cannot soft-lock on the villages: each counts once it has been won once, so Nemesis taking villages back never undoes progress</td>
+<td>todo</td>
+<td>the village captures are read through stubs (<code>GetTownWithId</code>, <code>BeliefForPlayer</code>, unhandled owner properties)</td>
+</tr>
+<tr>
+<td>The Tibetan village can only be won once the spiritual shield over it is down (it keeps the player's influence out); breaking it is always possible, by scaring or killing its three worshippers or moving their stones</td>
+<td>todo</td>
+<td>the village captures are read through stubs (<code>GetTownWithId</code>, <code>BeliefForPlayer</code>, unhandled owner properties); <a href="nemesis_shielded_village.html">nemesis_shielded_village.md</a></td>
+</tr>
+<tr>
+<td>Losing all the player's people still ends the game as on any land</td>
+<td>todo</td>
+<td>see <a href="../losing_and_game_over.html">../losing_and_game_over.md</a>; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="music-and-sounds">Music and sounds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The Nemesis theme plays over the opening film, is stopped before "I have a surprise for you." and comes back with the punch</td>
+<td>todo</td>
+<td><code>StartMusic</code> and <code>StopMusic</code> are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The curse is told in script sound effects: the imp's hum (three variants), giggles, footsteps, a muzak tune, the mushroom suspense sting and a body punch</td>
+<td>todo</td>
+<td><code>PlaySoundEffect</code> is real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Each Wonder village film opens with the short epic sting; the Greek film changes to the Nemesis theme after the blast; the healing scene plays the glorious epic theme and a spell sound</td>
+<td>todo</td>
+<td><code>StartMusic</code> and <code>StopMusic</code> are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-quirks-and-bugs">Script quirks and bugs</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The alignment part ignores its Wonder half the time: an evil player's creature is pushed 0.4 towards good every night whether or not the Tibetan Wonder stands (the "push down" branch can never apply to it), and once the Tibetan Wonder is gone a good player's creature is pushed 0.4 towards good every night instead of being left alone, for as long as any of the three Wonders stands</td>
+<td>todo</td>
+<td>the same script and <code>SetAlignment</code>; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The cure puts strength and size back to what they were just after the opening film, so anything the creature gained on Land 5 before the cure is lost, and growth is undone</td>
+<td>todo</td>
+<td>the strength and size reads and writes are not handled for creatures</td>
+</tr>
+<tr>
+<td>The man says the creature "is being drawn towards Nemesis' last Village" just after the script that did the drawing has been stopped</td>
+<td>todo</td>
+<td>reached only after the three captures</td>
+</tr>
+<tr>
+<td>Nemesis blows up each Wonder himself in its film, so the player never gets to keep one, although the Greek farmer says it "will help you in your conquest"</td>
+<td>todo</td>
+<td>the village captures are read through stubs (<code>GetTownWithId</code>, <code>BeliefForPlayer</code>, unhandled owner properties)</td>
+</tr>
+<tr>
+<td>The "village taken back" lines can never play: the check for Nemesis retaking a village tests the same condition as the check for the player owning it, so it is never reached, and the player's "retaken the town" lines never play either because a village is never marked as lost. Unreachable lines: good "Excellent! We've retaken the town!", Nemesis "Ha! That is how it should be!", evil "We're the best. We are! Way to go!", Nemesis "Ha. That was too easy to be a Challenge!", evil "Ha! Maybe Nemesis isn't as powerful as he likes to think." (which would have pointed at the Greek village while speaking of the Tibetan one) and Nemesis "Welcome back, my worshippers. Do not stray again."</td>
+<td>n/a</td>
+<td>never reachable in the game</td>
+</tr>
+<tr>
+<td>The opening film's laugh "Bwa ha ha ha ha!" is started as sound only and the film moves straight on</td>
+<td>todo</td>
+<td><code>PlaySoundEffect</code> is real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The advisors' "Phew! Our Creature seems to be all right." follows every nightly strike</td>
+<td>todo</td>
+<td>advisors and texts are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The changes are made by script loops without pauses (the cure's strength and size steps, and the beams' spiral) so they finish within the same moment or over a few frames rather than visibly</td>
+<td>todo</td>
+<td>the same script; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="unused-and-cut-parts">Unused and cut parts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nemesis's "You'll find he won't be of much use to you now." is commented out of the opening film</td>
+<td>n/a</td>
+<td>never in the game</td>
+</tr>
+<tr>
+<td>The advisors' "Where's our Creature going?" and "Where's he off to now?" were cut from the nightly lines ("the creature doesn't really move too much into Nemesis's land")</td>
+<td>n/a</td>
+<td>never in the game</td>
+</tr>
+<tr>
+<td>Nemesis's "I have one more surprise for you." has no script that says it</td>
+<td>n/a</td>
+<td>never in the game</td>
+</tr>
+<tr>
+<td>An earlier curse script is compiled into the game but nothing starts it: it struck every 60 seconds at night, took 0.1 strength (Aztec), 0.1 fatness (Greek, not height) and 0.2 alignment (Tibetan) per strike, played a first film ("Nemesis curse has harmed our Creature!") and later "Our Creature is suffering further from Nemesis' curse!" then "He's heading towards Nemesis himself!" or, if leashed, "The dark of night must be the key to this!", kept the creature's gains while cursed so they could be added back, and ended only when the player owned Nemesis's village</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Its helper that walks the creature to Nemesis's village and waits until it is leashed or within 100 is also unused</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creature-involvement">Creature involvement</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature is the quest's subject: placed, animated and made to faint in the opening film, frightened, shrunk, weakened and turned each night, pulled to Nemesis's village, then healed and seated in the healing scene</td>
+<td>todo</td>
+<td>creature commands are stubs in <code>src/CHLApi.cpp</code>; see <a href="../../creature/physiology.html">../../creature/physiology.md</a>, <a href="../../creature/growth_and_size.html">../../creature/growth_and_size.md</a></td>
+</tr>
+<tr>
+<td>Being on the leash changes the nightly pull: it only stares and points instead of walking off</td>
+<td>todo</td>
+<td><code>IsLeashed</code> is real, but the pull is a creature action, not done; see <a href="../../creature/leash.html">../../creature/leash.md</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

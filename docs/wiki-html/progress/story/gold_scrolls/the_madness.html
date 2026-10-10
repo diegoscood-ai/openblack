@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Madness — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-madness">The Madness</a><ul>
+<li><a href="#is-it-in-the-game">Is it in the game?</a></li>
+<li><a href="#how-it-would-begin">How it would begin</a></li>
+<li><a href="#the-cut-scene">The cut scene</a></li>
+<li><a href="#what-the-player-must-do">What the player must do</a></li>
+<li><a href="#the-end">The end</a></li>
+<li><a href="#script-quirks">Script quirks</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-madness">The Madness</h1>
+<p>A cut gold-scroll story chapter in which Nemesis takes over the player's creature: it is made strong, turned to the
+opposite alignment and sent to throw fireballs at a village's store and houses while the advisors look on, then
+confined for a minute and a half until the madness wears off. It was never compiled into the game; the shipped fifth
+land does the same story beat as the curse (<a href="i_have_a_surprise_for_you.html">i_have_a_surprise_for_you.md</a>).</p>
+<p><strong>Land:</strong> 5 (never started) · <strong>Giver:</strong> none (a cut scene that starts by itself) · <strong>Script:</strong> CreatureRunsAmok · <strong>Reward:</strong> none · <strong>Repeatable:</strong> no</p>
+<p><strong>Progress: 0/0 done, 0 partial — 0%</strong></p>
+<p>Sources: the script's source text, its single-quest test launcher, the game's text table (<code>InfoScript2.txt</code>) and the
+fifth land's map script (<code>Land5.txt</code>). Every row is n/a: nothing in the shipped game can start it, so there is nothing
+for openblack to do.</p>
+<h2 id="is-it-in-the-game">Is it in the game?</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The script is not in the list of files compiled into the shipped <code>challenge.chl</code>, so the game does not contain it</td>
+<td>n/a</td>
+<td>never started by the game: only its own test launcher (also uncompiled) runs it</td>
+</tr>
+<tr>
+<td>Its challenge name still has an entry in the compiler's list of challenges, so it was a planned story chapter</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Its title "The Madness" and the reminder "Your Creature is still out of control!" are in the shipped text table, and so are all eleven lines of its dialogue (Nemesis's four and the advisors' seven)</td>
+<td>n/a</td>
+<td>never started by the game: the text survived the cut; no shipped script uses the title</td>
+</tr>
+<tr>
+<td>Its markers fit the fifth land: the village it attacks is the Japanese village there (its centre is about 3 units from the land's town 7, a neutral town at the start), and its camera points are around that village</td>
+<td>n/a</td>
+<td>never started by the game; no other land has a town within 230 units</td>
+</tr>
+<tr>
+<td>The shipped fifth land tells the same story differently: Nemesis curses the creature's strength, size and alignment at the start and the player lifts it in three steps</td>
+<td>n/a</td>
+<td>see <a href="i_have_a_surprise_for_you.html">i_have_a_surprise_for_you.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-it-would-begin">How it would begin</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>There is no scroll to click: the chapter would start as soon as whatever started it ran the script</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The creature's leash is switched off and the creature is walked to a spot beside the village; the script waits until it is within 150 of it</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The scroll is logged in the story log as a gold quest titled "The Madness", at nothing done, with the reminder "Your Creature is still out of control!" (good advisor)</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The creature is given a Strength miracle that never runs out, and is taught everything</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-cut-scene">The cut scene</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The time of day is set to 18:30 and game time is stopped</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The camera locks onto the creature and follows it, the lens widening to 35 over 8 seconds</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Nemesis: "You are close to your Creature." then "After all this time, you think you know him."</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The camera swings round to a point east of the village over 5 seconds, aimed at the creature's chest (80% of its height), then rises 20 over 9 seconds</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Nemesis: "But I am stronger than you will ever be."; when the creature reaches its spot (within 5): "And now he obeys only me."</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The creature looks into the camera; two seconds later the camera cuts in close to it by the store and rises slowly</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>A target marker effect is put on the creature for 30 seconds; it is made to want only to be angry, plays its angry animation twice, and the camera shakes (amplitude 0.5 for 2 seconds within 200)</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The creature's alignment is flipped to its mirror (a good creature becomes as evil as it was good, and the other way round), in steps of 0.025</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The creature is allowed to attack its own side's town, looks at the store and throws a fireball at it at full energy, then plays angry again</td>
+<td>n/a</td>
+<td>never started by the game; the store is looked up by its position, about 50 from the village centre</td>
+</tr>
+<tr>
+<td>Both advisors step out. Good: "He's out of control! Oh this is terrible!" Evil: "We've got to prevent him from doing too much damage."</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The creature is moved to the village centre; the camera pulls back above the village. Good: "We've got to get him back, too. He's ours!"</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>It throws a fireball at a house; the cut scene ends but the advisors keep talking. Evil: "Restrain him first!" It throws a fireball at a second house. Evil: "That's it. We must keep him harmless until this wears off." Both advisors go home</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-the-player-must-do">What the player must do</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature is let go, still wanting only anger, and kept within 90 of the first house for 90 seconds; the player can only limit the damage it does</td>
+<td>n/a</td>
+<td>never started by the game; there is no success or failure test: the chapter simply waits</td>
+</tr>
+<tr>
+<td>After 90 seconds the leash is switched back on, the Strength miracle is removed, the confinement and the right to attack its own town are taken away</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-end">The end</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Good: "The Creature did some damage when he was out of our control." Evil: "I know. Let's get it cleaned up. As if we haven't got better things to do." Good: "Cleanliness is next to godliness." Evil: "Doh!"</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The gold scroll is marked complete</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>A target effect is put on the creature again and its alignment is turned back to what it was before, in 0.025 steps; game time runs again</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-quirks">Script quirks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The stored "mirror" alignment is negated a second time to restore it, so the creature ends where it began; the madness leaves nothing behind except the damage</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Commented-out lines show it once looked for the nearest town and its store wherever the creature was, and once made the creature examine the store before attacking; a "TODO cut to creature being horrible to town" note shows it was unfinished</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>If the targeted village is not the player's, "attack own town" means nothing to it: the fireballs are forced anyway</td>
+<td>n/a</td>
+<td>never started by the game; on the shipped fifth land this village starts neutral</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

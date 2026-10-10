@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Camera help — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="here" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#camera-help">Camera help</a><ul>
+<li><a href="#features-the-scripts-allow">Features the scripts allow</a></li>
+<li><a href="#the-self-tilting-camera">The self-tilting camera</a></li>
+<li><a href="#fixed-rotation">Fixed rotation</a></li>
+<li><a href="#showing-the-player-the-controls">Showing the player the controls</a></li>
+<li><a href="#during-fights">During fights</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="camera-help">Camera help</h1>
+<p>What the world's camera lets the player do, as the land's scripts allow it. The tutorials take most camera features away
+and give them back one by one, can make the camera tilt itself, and show the player which key or button to use.</p>
+<p><strong>Progress: 9/18 done, 6 partial — 67%</strong></p>
+<h2 id="features-the-scripts-allow">Features the scripts allow</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each tutorial interface level sets which camera features (zoom, turn, tilt, move, turn round the mouse) the player has</td>
+<td>done</td>
+<td><code>help::interface_interaction::Set</code> (<code>src/Help/InterfaceInteraction.cpp</code>) writes <code>camera_help::EnableCameraFeatures</code> (<code>src/Camera/CameraHelp.cpp</code>) for every <code>SET_INTERFACE_INTERACTION</code> level; <code>InterfaceInteractionTest.EveryLevelAsTheJumpTable</code> (<code>test/gui/test_interface_interaction.cpp</code>)</td>
+</tr>
+<tr>
+<td>Without a feature its controls do nothing</td>
+<td>done</td>
+<td><code>DefaultWorldCameraModel::Update</code> zeroes the zoom, turn and tilt input without their bits, and <code>HandleActions</code> needs the double-click and land-grab bits for the flight and the drag</td>
+</tr>
+<tr>
+<td>Turning round the mouse with the middle or both buttons needs its own feature</td>
+<td>done</td>
+<td><code>camera_help::Feature::JustZoom</code> (0x20) in <code>DefaultWorldCameraModel::HandleActions</code> and <code>src/Game.cpp</code>'s cursor freeze; <code>WorldCameraMouse.WithoutTheirFeatureTheMiddleButtonAndBothButtonsDoNothing</code></td>
+</tr>
+<tr>
+<td>Interface levels can take the camera keys away, or just the keys that fly to the temple, the creature and the realm</td>
+<td>partial</td>
+<td>the levels store the camera-moves and realm-zoom switches (<code>interface_interaction::IsActionBlocked</code>, <code>InterfaceInteractionTest.ControlMapActionGate</code>), but only the bookmark number keys read them (<code>KeyShortcutsEnabled</code> in <code>src/Game.cpp</code>); <code>IsActionBlocked</code> has no caller in the game</td>
+</tr>
+<tr>
+<td>The first tutorial level shortens how far from the camera the hand reaches</td>
+<td>done</td>
+<td><code>interface_interaction::LevelHandReach</code> hands the reach to <code>HandSystem::SetHandReach</code>, which clamps the hand's distance in <code>HandPlacement.cpp</code>; <code>InterfaceInteractionTest.InvalidLevelsLeaveTheReach</code></td>
+</tr>
+<tr>
+<td>Unknown levels change nothing</td>
+<td>done</td>
+<td><code>InterfaceInteractionTest.InvalidLevelsOnlyStoreTheLevel</code></td>
+</tr>
+<tr>
+<td>A new land gives every feature back</td>
+<td>done</td>
+<td>the map clear and script reboot call <code>interface_interaction::Set(0)</code> (<code>src/Game.cpp</code>), which gives back <code>camera_help::k_NormalFeatures</code></td>
+</tr>
+<tr>
+<td>The game starts with every feature but the self-tilting camera</td>
+<td>done</td>
+<td><code>camera_help::k_NormalFeatures</code> (every bit but auto-pitch) is the start value in <code>src/Camera/CameraHelp.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-self-tilting-camera">The self-tilting camera</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The camera tilts itself towards a set pitch, a fifth of the way at most each frame, while the land isn't gripped, and the player can't tilt it meanwhile</td>
+<td>done</td>
+<td><code>camera_help::AutoPitchInput</code>, <code>DefaultWorldCameraModel::HandleActions</code>; <code>CameraHelp.TheSelfTiltingCameraTiltsAFifthOfTheWayAtMostTheFramesSeconds</code>, <code>WorldCameraMouse.TheSelfTilting*</code></td>
+</tr>
+<tr>
+<td>While self-tilting, or with nothing done, the camera keeps to a set height over the land</td>
+<td>done</td>
+<td><code>DefaultWorldCameraModel::Update</code>; <code>WorldCameraMouse.TheSelfTiltingCameraTiltsAFifthOfTheWayAndKeepsToItsHeight</code></td>
+</tr>
+<tr>
+<td>Scripts set the pitch and height the camera tilts to</td>
+<td>partial</td>
+<td>only the tutorial levels 1, 2 and 10 store fixed values (<code>k_TutorialAutoPitchAngle</code>, <code>k_TutorialAutoPitchDistance</code> in <code>src/Help/InterfaceInteraction.cpp</code>), which the camera uses; no script sets its own values</td>
+</tr>
+</tbody>
+</table>
+<h2 id="fixed-rotation">Fixed rotation</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A script can make the camera turn only about a fixed point</td>
+<td>partial</td>
+<td><code>SET_FIXED_CAM_ROTATION</code> stores the point (<code>player_camera::ForceRotateAboutPoint</code>, <code>src/Camera/PlayerCameraScript.cpp</code>); <code>DefaultWorldCameraModel</code> does not turn about it yet</td>
+</tr>
+<tr>
+<td>Scripts can ask whether the camera has been turned to within the wanted rotation</td>
+<td>todo</td>
+<td><code>WITHIN_ROTATION</code> is a stub in <code>src/CHLApi.cpp</code> (always false)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="showing-the-player-the-controls">Showing the player the controls</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The tutorial shows glowing pictures of the key or mouse button to use, next to its text</td>
+<td>partial</td>
+<td>the key and mouse pictures are <code>help::input_prompt</code> (<code>src/Help/InputPromptIcon.cpp</code>, drawn by the renderer) for the help text's control icon and the click cue; not compared with the game</td>
+</tr>
+<tr>
+<td>The game counts how often and how recently each camera control was used, to remind the player of ones they don't use</td>
+<td>partial</td>
+<td><code>help_profile::OnPlayerCameraMove</code> and <code>CameraHelpCallback</code> (<code>src/Help/HelpProfile.cpp</code>) count the player's zoom, turn, tilt and double-click flights for <code>GET_TOTAL_EVENTS</code>, <code>GET_TIME_SINCE</code>; the input mask (keys, buttons, wheel) is not passed yet</td>
+</tr>
+<tr>
+<td>Reminders such as the zoom reminder play once a control has gone unused</td>
+<td>partial</td>
+<td>the tutorial scripts read those counts through <code>GET_TIME_SINCE</code> and <code>GET_TOTAL_EVENTS</code>; whether every reminder plays as in the game is not checked (see <code>../story/</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="during-fights">During fights</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Watching the player's creature fight, the camera can't be sent to another fight</td>
+<td>todo</td>
+<td>not in our tree: no camera rule for fights watched by the player's creature</td>
+</tr>
+<tr>
+<td>Watching a fight, the edges of the screen offer no tilting</td>
+<td>todo</td>
+<td>the edge drags are <code>camera_drag::</code> (<code>src/Camera/CameraDrag.cpp</code>), not wired into the game, and have no fight rule</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

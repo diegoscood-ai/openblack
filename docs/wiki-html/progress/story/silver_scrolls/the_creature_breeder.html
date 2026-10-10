@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Creature Breeder — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-creature-breeder">The Creature Breeder</a><ul>
+<li><a href="#where-and-when-it-appears">Where and when it appears</a></li>
+<li><a href="#the-scroll">The scroll</a></li>
+<li><a href="#the-breeders-show">The breeder's show</a></li>
+<li><a href="#the-advisors-chat">The advisors' chat</a></li>
+<li><a href="#the-swap-at-the-kennels">The swap at the kennels</a></li>
+<li><a href="#script-quirks">Script quirks</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-creature-breeder">The Creature Breeder</h1>
+<p>A standing silver scroll over a breeder's kennels on Land 1 and Land 4: the breeder shows whichever of the five special
+creatures (leopard, horse, mandrill, gorilla, rhino) the player has unlocked, plus the creature they last swapped away,
+and lets the player swap their creature's body for one of them. Without unlocked creatures and before any breeder swap,
+he only apologises. The swap itself is in <a href="./creature_swaps.html">creature_swaps.md</a>.</p>
+<p><strong>Land:</strong> 1 and 4 (also prepared for 2 and 5, never started there) · <strong>Giver:</strong> the creature breeder, a man standing by the kennels · <strong>Script:</strong> CreatureBreeder · <strong>Reward:</strong> a special creature's body for the player's creature · <strong>Repeatable:</strong> yes (the scroll comes back forever)</p>
+<p><strong>Progress: 1/28 done, 11 partial — 23%</strong></p>
+<p>Sources: the breeder script and its land launcher (the original source text, matching the PC game's compiled
+<code>challenge.chl</code>), the two land control scripts that start it, the land map scripts, the game's text table and the
+executable's creature-availability check. openblack's state is judged on this tree: Land 1's control script starts it
+only in a game that skips the creature training (the start-up box's fourth answer), and Land 4's control script never
+runs (the land-loading native does nothing); the villager, highlight, dialogue and camera commands it needs work, but
+<code>IsCreatureAvailable</code>, <code>SwapCreature</code> and the creature commands are stubs in <code>src/CHLApi.cpp</code>, and <code>Create</code> makes no
+creatures. Every row is todo unless it says otherwise.</p>
+<h2 id="where-and-when-it-appears">Where and when it appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Land 1 starts the breeder as soon as the player's creature has been chosen (or straight away when skipping to creature selection), alongside the explorers' quest</td>
+<td>partial</td>
+<td>with the fourth tutorial answer <code>LandControl1</code> starts it straight away (no creature choice); with the second and third the creature glade never ends, with the first the intro never finishes</td>
+</tr>
+<tr>
+<td>Land 4 starts it at the beginning of the land, with the fish puzzle and before the ogre</td>
+<td>todo</td>
+<td>no Land 4 in our tree: <code>LOAD_MAP</code> is empty, so Land 4's control script never runs</td>
+</tr>
+<tr>
+<td>Land 1's kennels are a Celtic house; Land 4's are a Norse house in the neutral Norse village in the far east</td>
+<td>partial</td>
+<td>Land 1's kennels are a house made by <code>Land1.txt</code> and found with <code>CALL</code> (works); Land 4 is never reached</td>
+</tr>
+<tr>
+<td>Land 2 and Land 5 positions are prepared too (each exactly on a Celtic house in a neutral Celtic village) but neither land's control script starts the breeder; only test launchers outside the compiled file do</td>
+<td>n/a</td>
+<td>never started by the game on those lands</td>
+</tr>
+<tr>
+<td>A breeder (an ordinary man) is made at his start spot; he can't be hurt or picked up</td>
+<td>partial</td>
+<td><code>CREATE</code> makes the villager (<code>VillagerArchetype</code>); <code>SET_INDESTRUCTABLE</code> and <code>SET_ID_PICKUPABLE</code> work; not checked in game</td>
+</tr>
+<tr>
+<td>The breeder's script runs for as long as the land does</td>
+<td>partial</td>
+<td>the script loops for as long as the land runs; not checked in game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-scroll">The scroll</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ten seconds after the breeder starts (and after every visit) a silver scroll appears 5 above the kennels</td>
+<td>partial</td>
+<td><code>CREATE_HIGHLIGHT</code> and the height (<code>SET_PROPERTY</code> of the Y position) work (<code>src/ECS/ScriptHighlight.cpp</code>); not checked in game</td>
+</tr>
+<tr>
+<td>While the camera is within 100 of it and it is on screen, at most every 30 seconds the evil advisor pops out, points at it and says "There's a Silver Reward Scroll down here, Boss."</td>
+<td>partial</td>
+<td>the shared notice script runs on working natives (<code>DLL_GETTIME</code>, <code>GAME_THING_FIELD_OF_VIEW</code>, <code>SPIRIT_EJECT</code>, <code>SPIRIT_POINT_POS</code>, <code>RUN_TEXT</code>); not checked in game</td>
+</tr>
+<tr>
+<td>Clicking the scroll or the kennels opens it; the scroll is removed</td>
+<td>partial</td>
+<td><code>GAME_THING_CLICKED</code> and <code>OBJECT_DELETE</code> of a highlight work; not checked in game</td>
+</tr>
+<tr>
+<td>No challenge record is made: the line that would have opened one is commented out, and the title it named is "The Lost Brother" (another quest's title, with the Lost Brother's reminder), so the breeder never shows in the challenge log</td>
+<td>done</td>
+<td>the compiled script makes no record, and our tree runs it as compiled</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-breeders-show">The breeder's show</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The current species of the player's creature is recorded</td>
+<td>todo</td>
+<td><code>GAME_SUB_TYPE</code> is a stub (answers 0)</td>
+</tr>
+<tr>
+<td>A cut scene: the breeder walks to his soap box and the camera glides to the kennels over 2 seconds</td>
+<td>partial</td>
+<td><code>MOVE_GAME_THING</code> on a villager and the camera moves work; not checked in game</td>
+</tr>
+<tr>
+<td>Each special creature that is unlocked and is not the player's current species is shown, in the order leopard, horse, mandrill, gorilla, rhino: a target sparkle for 3 seconds and the creature appears; each is placed about 6 further along a line from the last</td>
+<td>todo</td>
+<td><code>IS_CREATURE_AVAILABLE</code> is a stub that answers no, and <code>CREATE</code> does not make creatures</td>
+</tr>
+<tr>
+<td>Whether a special creature is unlocked comes from a stored code in the game's settings (a value and its checksum); if it is missing or doesn't match, none are unlocked; every other species always counts as available</td>
+<td>partial</td>
+<td><code>IS_CREATURE_AVAILABLE</code> is a stub that answers "no", which matches a game with no unlocks but never reads one; how the player got the codes is outside the game files</td>
+</tr>
+<tr>
+<td>The player's previous creature is shown too, if a breeder swap has happened, it differs from the current species and it isn't already among the special creatures shown</td>
+<td>todo</td>
+<td>no breeder swap ever happens (<code>SWAP_CREATURE</code> is a stub)</td>
+</tr>
+<tr>
+<td>With nothing to show, the breeder says "Sorry. I don't have any special Creatures for you." and walks back; this is what every player without unlocked creatures sees before any breeder swap</td>
+<td>partial</td>
+<td>this is the branch our tree always takes (nothing is available); <code>RUN_TEXT</code> and the walk back work; not checked in game</td>
+</tr>
+<tr>
+<td>With one creature: a two-subject camera on it and the breeder, and "Hello. I have this special Creature for you."</td>
+<td>todo</td>
+<td>nothing is ever shown (<code>IS_CREATURE_AVAILABLE</code> is a stub); <code>START_DUAL_CAMERA</code> itself works</td>
+</tr>
+<tr>
+<td>With several: the camera frames the first and last, and "Look. I have these wondrous Creatures you can choose from."</td>
+<td>todo</td>
+<td>nothing is ever shown (<code>IS_CREATURE_AVAILABLE</code> is a stub); <code>START_DUAL_CAMERA</code> itself works</td>
+</tr>
+<tr>
+<td>Each shown creature gets its own swap scroll and offer (see <a href="./creature_swaps.html#the-breeders-offer">creature_swaps.md</a>)</td>
+<td>todo</td>
+<td>nothing is ever shown (<code>IS_CREATURE_AVAILABLE</code> is a stub); <code>START_DUAL_CAMERA</code> itself works</td>
+</tr>
+<tr>
+<td>The breeder walks back to his start; the scroll stays away until the offer closes</td>
+<td>todo</td>
+<td>nothing is ever shown (<code>IS_CREATURE_AVAILABLE</code> is a stub); <code>START_DUAL_CAMERA</code> itself works</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-advisors-chat">The advisors' chat</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A second cut scene where both advisors discuss swapping: evil "So Boss, you can swap your Creature if you like." good "Yes, but do we really want to switch to a new Creature after all the training we've done?" evil "Nah, you got it wrong. Our Creature's mind will get transferred across." good "So it's just the body that's changing?" evil "Yeah. You got it. Kinda like cosmetic surgery."</td>
+<td>todo</td>
+<td>plays only when something is shown, which never happens in our tree</td>
+</tr>
+<tr>
+<td>It plays only when something is shown and the old and current species are both the ape (after swapping an ape away at the breeder and back to an ape), or for a "previous species" value that never occurs; in normal play it is almost never heard</td>
+<td>todo</td>
+<td>plays only when something is shown, which never happens in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-swap-at-the-kennels">The swap at the kennels</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Land 1: the creatures are walked to two spots about 100 from the kennels, on ground some 35 higher; the cut scene's three camera spots are set but not used by the swap</td>
+<td>todo</td>
+<td>nothing is shown, and <code>SWAP_CREATURE</code> is a stub</td>
+</tr>
+<tr>
+<td>Land 4: the creatures are walked to two spots about 30 to 50 from the kennels, at the same height</td>
+<td>todo</td>
+<td>nothing is shown, and <code>SWAP_CREATURE</code> is a stub</td>
+</tr>
+<tr>
+<td>After the swap the old body walks back to the kennel spot, then vanishes with the others when the offer closes; the old species is kept to be offered next time</td>
+<td>todo</td>
+<td>nothing is shown, and <code>SWAP_CREATURE</code> is a stub</td>
+</tr>
+<tr>
+<td>An offer that is left alone for its 60 to 120 seconds closes, and every creature on show vanishes in sparkles and smoke</td>
+<td>todo</td>
+<td>nothing is shown, and <code>SWAP_CREATURE</code> is a stub</td>
+</tr>
+<tr>
+<td>Clicking a second creature while one is chosen cancels the choice</td>
+<td>todo</td>
+<td>nothing is shown, and <code>SWAP_CREATURE</code> is a stub</td>
+</tr>
+<tr>
+<td>After the offer closes, the scroll returns 10 seconds later and the show repeats with the current unlocks</td>
+<td>partial</td>
+<td>with nothing shown the scroll comes back and the show repeats, always as "Sorry"; not checked in game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-quirks">Script quirks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The swap at the breeder records both species; the swap offered by quests only records the new one, so a creature swapped away by a quest is not offered back at the breeder</td>
+<td>todo</td>
+<td><code>SWAP_CREATURE</code> is a stub</td>
+</tr>
+<tr>
+<td>The comment above the breeder's swap asks people not to touch it because "it works and it was tricky to get to work"</td>
+<td>n/a</td>
+<td>developer note; nothing to do</td>
+</tr>
+<tr>
+<td>The launcher for Land 1 and Land 4 finds the kennels as a house; the Land 2 and 5 entries use a plain marker</td>
+<td>n/a</td>
+<td>never started by the game on those lands</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

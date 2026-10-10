@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Villager reactions — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="here" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#villager-reactions">Villager reactions</a><ul>
+<li><a href="#how-reactions-work">How reactions work</a></li>
+<li><a href="#miracles-and-magic">Miracles and magic</a></li>
+<li><a href="#fire">Fire</a></li>
+<li><a href="#the-creature">The creature</a></li>
+<li><a href="#the-hand-and-objects">The hand and objects</a></li>
+<li><a href="#people-and-animals">People and animals</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="villager-reactions">Villager reactions</h1>
+<p>Villagers react to what happens around them: they flee frightening miracles and watch pleasing ones, gather round
+the creature, fight fires, run from predators, point at flying objects, mourn the dead and are impressed, which gives
+their town belief. Each reaction has a reach, an urgency and a time from the reaction table.</p>
+<p><strong>Progress: 11/44 done, 5 partial — 31%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../villagers.html">Villagers: data, state machine and speed</a>.</p>
+<h2 id="how-reactions-work">How reactions work</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A reaction spreads to the villagers in its reach, each taking it up by urgency and distance</td>
+<td>done</td>
+<td><code>effects::reactions::CreateReaction</code> spreads it once over its cells (<code>src/ECS/Effects/Reactions.cpp</code>) to the villagers' handler, scored by priority and distance (<code>src/ECS/Systems/Implementations/VillagerReactions.cpp</code>); <code>test/test_villager_reactions.cpp</code></td>
+</tr>
+<tr>
+<td>A villager remembers the last few kinds it reacted to and won't react to the same kind again too soon</td>
+<td>done</td>
+<td>the per-villager reaction records (<code>components::ReactionRecords</code>, <code>src/ECS/Effects/Reactions.cpp</code>)</td>
+</tr>
+<tr>
+<td>A more urgent reaction of another kind takes over the current one</td>
+<td>done</td>
+<td>the switch rule from the current reaction (<code>src/ECS/Effects/Reactions.cpp</code>, <code>villager_reactions::ApplyReaction</code>)</td>
+</tr>
+<tr>
+<td>Only villagers able and alive, in a state that allows it, react</td>
+<td>done</td>
+<td>the availability and the state's own answer (<code>src/ECS/Systems/Implementations/VillagerReactions.cpp</code>)</td>
+</tr>
+<tr>
+<td>After reacting, the villager goes back to what it was doing</td>
+<td>done</td>
+<td><code>ResetStateAfterReacting</code> and <code>StopReactingAndSetState</code> (<code>src/ECS/Systems/Implementations/VillagerReactions.cpp</code>)</td>
+</tr>
+<tr>
+<td>Impressive things give belief to the villager's town, with a belief symbol rising from it</td>
+<td>todo</td>
+<td>how impressed a villager is feeds no belief yet (TODO in <code>villager_reactions::AddReaction</code>); see ../town/belief_and_conversion.md</td>
+</tr>
+<tr>
+<td>Awed villagers' voices are heard now and then near the hand</td>
+<td>partial</td>
+<td>the guidance's alignment remarks play (<code>src/Audio/Services/Guidance.cpp</code>); the awe that should time them is not ported; see ../audio/voices_and_speech.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="miracles-and-magic">Miracles and magic</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Flee a frightening miracle, straight away or across its path, then turn to watch it from a distance</td>
+<td>todo</td>
+<td>the miracle reaction states (<code>FLEEING_FROM_OBJECT_REACTION</code>, <code>FLEEING_AND_LOOKING_AT_OBJECT_REACTION</code>) are TODO rows; only fire, teleport, shield, death, food and wood reach a villager</td>
+</tr>
+<tr>
+<td>Turn to watch a nice or impressive miracle</td>
+<td>todo</td>
+<td><code>LOOKING_AT_OBJECT_REACTION</code> is a TODO row</td>
+</tr>
+<tr>
+<td>Walk to a magic shield, stand amazed under it looking out while the town wants protection</td>
+<td>partial</td>
+<td><code>src/ECS/Systems/Implementations/VillagerShield.cpp</code> (state 168, with its clip), gated by the town's protection desire, which stays 0, so only the homeless react in a normal game</td>
+</tr>
+<tr>
+<td>React when a shield is struck or destroyed</td>
+<td>todo</td>
+<td>the shield's struck and destroyed reactions reach no villager</td>
+</tr>
+<tr>
+<td>Walk (or run) into a teleport stone, jump and carry on</td>
+<td>done</td>
+<td><code>src/ECS/Systems/Implementations/VillagerTeleport.cpp</code>; <code>test/test_teleport.cpp</code></td>
+</tr>
+<tr>
+<td>Be bewildered by a magic tree: turn to it and stare</td>
+<td>todo</td>
+<td>the magic tree states are TODO rows</td>
+</tr>
+<tr>
+<td>Run to magic food or wood dropped nearby and take it</td>
+<td>done</td>
+<td>the food and wood reactions (<code>REACT_TO_FOOD</code>, <code>REACT_TO_WOOD</code>, <code>src/ECS/Systems/Implementations/VillagerResourceReactions.cpp</code>); <code>test/test_villager_reactions.cpp</code></td>
+</tr>
+<tr>
+<td>React to a fight won</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="fire">Fire</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Villagers near a blaze react; their own town's come to beat it out when needed, the rest go round it</td>
+<td>done</td>
+<td><code>src/ECS/Systems/Implementations/VillagerFire.cpp</code>; <code>test/test_fire.cpp</code></td>
+</tr>
+<tr>
+<td>Firemen fetching water to put out fire give up at once, as the game does</td>
+<td>done</td>
+<td><code>PutOutFireWithWater</code> goes straight to deciding (<code>src/ECS/Systems/Implementations/VillagerFire.cpp</code>)</td>
+</tr>
+<tr>
+<td>A villager set on fire runs about until it is out or dies</td>
+<td>done</td>
+<td><code>ON_FIRE</code> (<code>src/ECS/Systems/Implementations/VillagerFire.cpp</code>)</td>
+</tr>
+<tr>
+<td>Villagers run to their burning abode</td>
+<td>todo</td>
+<td>choosing the town's abode on fire is not ported</td>
+</tr>
+<tr>
+<td>A burning object in the hand alarms the villagers below</td>
+<td>partial</td>
+<td>picking up a burning thing makes the burning-object-in-hand reaction (<code>fire::StartedMoving</code>, <code>src/ECS/Fire/FireEffect.cpp</code>), but no villager handles it; see ../physics/fire.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-creature">The creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Villagers turn to face the creature, approach it and inspect it</td>
+<td>todo</td>
+<td>the creature reaction states are TODO rows</td>
+</tr>
+<tr>
+<td>They respect it, worship it, or flee it, by their town's attitude to the creature</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A villager is scared stiff by a frightening creature</td>
+<td>todo</td>
+<td><code>MAKE_SCARED_STIFF</code> and <code>SCARED_STIFF</code> are TODO rows</td>
+</tr>
+<tr>
+<td>Villagers walk towards the creature when it does something interesting</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A villager controlled by the creature (picked up or led) does as it is made to</td>
+<td>todo</td>
+<td><code>CONTROLLED_BY_CREATURE</code> is a TODO row; See ../creature/</td>
+</tr>
+<tr>
+<td>Villagers crowd round a creature fight and watch it</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-hand-and-objects">The hand and objects</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Approach the hand when it is near</td>
+<td>todo</td>
+<td><code>APPROACH_HAND_REACTION</code> is a TODO row</td>
+</tr>
+<tr>
+<td>React to a villager in the hand</td>
+<td>todo</td>
+<td>the alarm at a villager in the hand is a TODO in <code>InterfaceSetInMagicHand</code> (<code>src/ECS/LivingPhysics.cpp</code>)</td>
+</tr>
+<tr>
+<td>React to something dropped by the hand, or put in the storage pit</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Watch and point at a flying object thrown overhead</td>
+<td>todo</td>
+<td>the flying-object reaction is spread (<code>animal_ai::SpreadFlyingObjectReaction</code>), but no villager handles it; see <a href="../physics/thrown_living.html">../physics/thrown_living.md</a></td>
+</tr>
+<tr>
+<td>Get out of the way of a falling tree</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Inspect an object new to them, and tell others about it</td>
+<td>todo</td>
+<td>the inspect and tell states are TODO rows</td>
+</tr>
+<tr>
+<td>React to a newly built building and to a new scaffold</td>
+<td>partial</td>
+<td>the scaffold reaction is made (<code>scaffolds::BuildBuilding</code>) but no villager handles it; the new building reaction is not made yet (<code>abodes::Built</code> only logs it)</td>
+</tr>
+<tr>
+<td>Run after the ball and pick it up</td>
+<td>todo</td>
+<td>See play_and_gossip.md</td>
+</tr>
+<tr>
+<td>React to an object crushed nearby</td>
+<td>partial</td>
+<td>an effect's crush makes the crushed reaction (<code>src/ECS/Effects/EffectValues.cpp</code>), but no villager handles it</td>
+</tr>
+</tbody>
+</table>
+<h2 id="people-and-animals">People and animals</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Flee a predator, then look to see if it is safe</td>
+<td>todo</td>
+<td><code>FLEEING_FROM_PREDATOR_REACTION</code> and <code>LOOK_TO_SEE_IF_IT_IS_SAFE</code> are TODO rows; the predators' flee reaction reaches only animals (<code>src/ECS/AnimalFlee.cpp</code>)</td>
+</tr>
+<tr>
+<td>Go and hide in a nearby building when danger comes</td>
+<td>todo</td>
+<td><code>GO_AND_HIDE_IN_NEARBY_BUILDING</code> is a TODO row</td>
+</tr>
+<tr>
+<td>Point at, go towards, look at and mourn a dead villager</td>
+<td>done</td>
+<td><code>REACT_TO_DEATH</code> and the states 205 to 208 (<code>src/ECS/Villager/VillagerMourning.cpp</code>); See death.md</td>
+</tr>
+<tr>
+<td>Faint, panic and be confused at shocking sights</td>
+<td>todo</td>
+<td><code>FAINTING_REACTION</code>, <code>PANIC_REACTION</code> and the confused states are TODO rows</td>
+</tr>
+<tr>
+<td>Crowd round to watch something</td>
+<td>todo</td>
+<td><code>CROWD_REACTION</code> is a TODO row</td>
+</tr>
+<tr>
+<td>React to a breeder</td>
+<td>todo</td>
+<td><code>REACT_TO_BREEDER</code> is a TODO row</td>
+</tr>
+<tr>
+<td>Cheer the town's celebration when it is won over</td>
+<td>todo</td>
+<td>See ../town/belief_and_conversion.md</td>
+</tr>
+<tr>
+<td>React to a missionary</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Fight a villager of another town</td>
+<td>todo</td>
+<td>the fight reaction states are TODO rows</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

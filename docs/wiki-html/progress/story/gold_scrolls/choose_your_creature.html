@@ -1,0 +1,760 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Choose Your Creature — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#choose-your-creature">Choose Your Creature</a><ul>
+<li><a href="#where-it-sits-in-the-story">Where it sits in the story</a></li>
+<li><a href="#the-scroll-appears">The scroll appears</a></li>
+<li><a href="#the-trainers-challenge">The trainer's challenge</a></li>
+<li><a href="#finding-the-first-stone">Finding the first stone</a></li>
+<li><a href="#the-first-stone-placed">The first stone placed</a></li>
+<li><a href="#the-second-stone-placed">The second stone placed</a></li>
+<li><a href="#the-uncarved-rock">The uncarved rock</a></li>
+<li><a href="#the-stones-are-guarded">The stones are guarded</a></li>
+<li><a href="#opening-the-gates">Opening the gates</a></li>
+<li><a href="#the-creatures-show-off">The creatures show off</a></li>
+<li><a href="#choosing">Choosing</a></li>
+<li><a href="#the-choice">The choice</a></li>
+<li><a href="#skipping-and-keeping-an-old-creature">Skipping and keeping an old creature</a></li>
+<li><a href="#soft-locks-and-failure">Soft-locks and failure</a></li>
+<li><a href="#music-and-sounds">Music and sounds</a></li>
+<li><a href="#saves-other-versions-and-unused-material">Saves, other versions and unused material</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="choose-your-creature">Choose Your Creature</h1>
+<p>The first land's first creature chapter: Sable, the creature trainer, challenges the player to open the gates of the
+creatures' glade with three gate stones; the first is the stone the villagers danced round, the second is earned in
+<a href="the_lost_brother.html">The Lost Brother</a>, the third is carved by <a href="the_sculptor.html">The Sculptor</a>. With all three on the
+platform the gates open, the cow, the ape and the tiger show off, and the player picks one by clicking it twice.</p>
+<p><strong>Land:</strong> 1 · <strong>Giver:</strong> Sable, the creature trainer, at the creature gates north of the Norse village · <strong>Script:</strong> ChooseYourCreature (with CreaturesInGlade and the gate-stone guards in ProtectGateKeys) · <strong>Reward:</strong> the player's creature (cow, ape or tiger); no alignment change · <strong>Repeatable:</strong> no</p>
+<p>Sources: the land's challenge scripts (the original source text, checked against the PC game's compiled
+<code>challenge.chl</code>), the game's text table, the land file <code>Land1.txt</code> and the executable (how a gate stone fits into the
+platform). openblack's state is judged on this tree: the land's control script reaches this quest after the opening and
+the temple scene, which are not checked in game (see <a href="../../scripts/land1_script.html">../../scripts/land1_script.md</a>); 13
+of the 110 commands it and the scripts it starts need only log "not implemented" in <code>src/CHLApi.cpp</code>, and its gate-stone
+loop never ends (<code>ObjectInfoBits</code> is a stub), so no creature is chosen; every row is todo unless the notes say
+otherwise. How a creature is chosen and what the species differ in:
+<a href="../../creature/species_choice.html">../../creature/species_choice.md</a>.</p>
+<p><strong>Progress: 1/90 done, 47 partial — 27%</strong></p>
+<h2 id="where-it-sits-in-the-story">Where it sits in the story</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The quest is a gold scroll (a story highlight), logged as "Choose Your Creature"</td>
+<td>partial</td>
+<td><code>CreateHighlight</code> is real (<code>src/ECS/ScriptHighlight</code>); the log pictures <code>Snapshot</code> and <code>UpdateSnapshot</code> are stubs and the challenge log is not drawn</td>
+</tr>
+<tr>
+<td>It starts once the opening is over: after the family has led the player home and the temple scene is done, and after the Throwing Stones and Lost Flock silver scrolls have been set going</td>
+<td>partial</td>
+<td><code>LandControl1</code> runs it after <code>FollowUs</code> and <code>CitadelGuide</code>; reached only after the rest of the intro and the temple scene, which are not checked in game. See <a href="../land_1.html">../land_1.md</a>, <a href="../silver_scrolls/throwing_stones.html">../silver_scrolls/throwing_stones.md</a>, <a href="../silver_scrolls/the_lost_flock.html">../silver_scrolls/the_lost_flock.md</a></td>
+</tr>
+<tr>
+<td>The land's control script waits for the whole quest (all three stones and the choice) before going on</td>
+<td>todo</td>
+<td>blocked: the quest waits for ever in its gate-stone loop (<code>ObjectInfoBits</code> is a stub), so <code>LandControl1</code> never goes on</td>
+</tr>
+<tr>
+<td>What it unlocks next: the creature breeder, the Explorers and the guide's wandering are started, then the trainer's first lesson (seeing the creature's home pen) begins</td>
+<td>todo</td>
+<td>blocked: the quest waits for ever in its gate-stone loop (<code>ObjectInfoBits</code> is a stub). See <a href="the_creatures_learning.html">the_creatures_learning.md</a>; <a href="../creature_guide.html">../creature_guide.md</a>; <a href="../silver_scrolls/the_creature_breeder.html">../silver_scrolls/the_creature_breeder.md</a>; <a href="../silver_scrolls/the_explorers.html">../silver_scrolls/the_explorers.md</a></td>
+</tr>
+<tr>
+<td>The Lost Brother is started by this quest when the first stone is placed, and The Sculptor when the second is</td>
+<td>todo</td>
+<td>blocked: the quest waits for ever in its gate-stone loop (<code>ObjectInfoBits</code> is a stub); <a href="the_lost_brother.html">the_lost_brother.md</a> and <a href="the_sculptor.html">the_sculptor.md</a> are never started</td>
+</tr>
+<tr>
+<td>The scroll's progress mark and reminder change at every step: 0 at the start (reminder "Didn't we see the Villagers dancing around a Stone a while ago?"), 0.25 with one stone ("We need to find another Gate Stone. Perhaps the Villagers can help."), 0.5 with two ("We should speak to the sculptor about the Gate Stones."), 0.75 in the glade and 1 when a creature is chosen ("We need to choose a Creature!")</td>
+<td>todo</td>
+<td>the progress marks are set through <code>UpdateSnapshot</code>, a stub; the challenge log is not drawn</td>
+</tr>
+<tr>
+<td>Each reminder is said by whichever advisor owns the line (all of these are the good advisor's), stepping out to say it</td>
+<td>partial</td>
+<td>the shared reminder calls only real natives (<code>SpiritEject</code>, <code>RunText</code>); the reminder texts it would read come from the stubbed log</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-scroll-appears">The scroll appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A bronze did-you-know scroll is placed beside the gate stone platform: "Every time you activate a Gold Story Scroll you start the next chapter of the story of Black and White. How quickly you progress depends on how often you choose to activate them."</td>
+<td>partial</td>
+<td><code>CreateHighlight</code> and <code>HighlightProperties</code> are real; reached only after the rest of the intro and the temple scene, which are not checked in game</td>
+</tr>
+<tr>
+<td>A gold scroll appears in front of the creature gates, raised 14 above the ground</td>
+<td>partial</td>
+<td><code>CreateHighlight</code> and the height through <code>SetProperty</code> (YPos) are real; reached only after the rest of the intro and the temple scene, which are not checked in game</td>
+</tr>
+<tr>
+<td>Whenever the camera is within 100 of the scroll and it is on screen, the evil advisor steps out, points at it and says "There's a Gold Story Scroll down here, Boss.", at most once every 30 seconds and only when no cut-scene is running</td>
+<td>partial</td>
+<td>the shared notify script <code>ChallengeHighlightNotify</code> calls only real natives (<code>SpiritPointPos</code>, <code>RunText</code>); reached only after the rest of the intro and the temple scene, which are not checked in game</td>
+</tr>
+<tr>
+<td>The nagging stops when the scroll (or the place it stands) is clicked</td>
+<td>partial</td>
+<td><code>GameThingClicked</code> is real; reached only after the rest of the intro and the temple scene, which are not checked in game</td>
+</tr>
+<tr>
+<td>Nothing ever removes the gold scroll in this script once it is clicked (undetermined: whether the game hides a story scroll by itself once its chapter is logged as finished)</td>
+<td>partial</td>
+<td>the same script runs, so nothing removes it either; reached only after the rest of the intro and the temple scene, which are not checked in game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-trainers-challenge">The trainer's challenge</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Clicking the scroll starts a cut-scene with the creature guide's theme; the good advisor is sent home</td>
+<td>partial</td>
+<td><code>StartMusic</code> (<code>src/Audio/Services/GameMusic</code>), <code>StartCameraControl</code> and <code>SpiritHome</code> are real; reached only after the rest of the intro and the temple scene, which are not checked in game</td>
+</tr>
+<tr>
+<td>Sable, the trainer, is made inside the hut by the gates, walks out of its door to a spot before the camera and turns to face it, the camera gliding down to her and following her</td>
+<td>partial</td>
+<td><code>CREATE</code> makes villagers, <code>MoveGameThing</code> and <code>SetFocus</code> work on villagers, <code>MoveCameraPosition</code> and <code>FocusFollow</code> are real (<code>src/Camera/ScriptCamera</code>); reached only after the rest of the intro and the temple scene, which are not checked in game</td>
+</tr>
+<tr>
+<td>The quest is logged in the story's log at this point, with a picture, at 0 progress</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub; the challenge log is not drawn</td>
+</tr>
+<tr>
+<td>Sable bows and says "Greetings, Holy One. You've activated a Gold Story Scroll." then "My name is Sable. I am a trainer of Creatures."</td>
+<td>partial</td>
+<td><code>RunText</code>, <code>TextRead</code> and the villager's animation (<code>OverrideStateAnimation</code>) are real; reached only after the rest of the intro and the temple scene, which are not checked in game</td>
+</tr>
+<tr>
+<td>Gossiping: "I challenge you to open these gates.", "Behind them are three wondrous Creatures.", "Every god has a Creature.", "They can grow as tall as a mountain and can perform Miracles."</td>
+<td>partial</td>
+<td>real text natives; reached only after the rest of the intro and the temple scene, which are not checked in game</td>
+</tr>
+<tr>
+<td>"But you can't open the Gate unless you find the three Gate Stones." then "Each Stone you find must be placed on this platform.": the camera swings round to show the empty platform for a few seconds and comes back to her</td>
+<td>partial</td>
+<td>real camera and text natives; reached only after the rest of the intro and the temple scene, which are not checked in game</td>
+</tr>
+<tr>
+<td>"The Villagers were dancing around a Gate Stone when you arrived.": the camera rises over the land and flies down to the tiger gate stone at the end of the ravine the family led the player through, which is lit up</td>
+<td>partial</td>
+<td>real camera natives; the stone's guard lights it (below); reached only after the rest of the intro and the temple scene, which are not checked in game</td>
+</tr>
+<tr>
+<td>Over the stone: "Once you place this Gate Stone on the platform, I will tell you of the other two."</td>
+<td>partial</td>
+<td><code>RunText</code> is real; reached only after the rest of the intro and the temple scene, which are not checked in game</td>
+</tr>
+<tr>
+<td>A quick fade to black and back to Sable: "Now retrieve the first Gate Stone, Holy One."</td>
+<td>partial</td>
+<td><code>SetFade</code>, <code>SetFadeIn</code>, <code>FadeFinished</code> and the camera and text natives are real; reached only after the rest of the intro and the temple scene, which are not checked in game</td>
+</tr>
+<tr>
+<td>The camera rises high over the hut, looking south over the village, the music stops and the cut-scene ends</td>
+<td>partial</td>
+<td>real camera natives and <code>StopMusic</code>; reached only after the rest of the intro and the temple scene, which are not checked in game</td>
+</tr>
+<tr>
+<td>The tiger stone can now be picked up and moved (it was fixed in place since the family's welcome dance)</td>
+<td>partial</td>
+<td><code>SetIdPickupable</code> and <code>SetIdMoveable</code> are real; reached only after the rest of the intro and the temple scene, which are not checked in game</td>
+</tr>
+<tr>
+<td>Sable walks back to her door and is removed 3 seconds later</td>
+<td>partial</td>
+<td><code>MoveGameThing</code> and <code>ObjectDelete</code> work on villagers; reached only after the rest of the intro and the temple scene, which are not checked in game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="finding-the-first-stone">Finding the first stone</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The three stones are part of the land: the tiger stone where the villagers danced, the ape stone by the lost brother's house and a blank rock in the quarry, with the gate stone platform and the gates by the trainer's hut</td>
+<td>done</td>
+<td><code>Land1.txt</code> places them (<code>MobileStaticArchetype</code>, <code>AnimatedStaticArchetype</code>); see <a href="../../scripts/land1_script.html">../../scripts/land1_script.md</a></td>
+</tr>
+<tr>
+<td>A gate stone is dropped from the hand onto the platform to place it: the stone disappears and the platform shows it in one of its three sockets</td>
+<td>todo</td>
+<td>nothing fills the platform in our tree (its socket state stays 0)</td>
+</tr>
+<tr>
+<td>The quest knows which stones are in by what the platform holds: the ape stone counts 1, the tiger 2 and the cow 4, so 3 means ape and tiger and 7 all three; the blank rock counts nothing</td>
+<td>todo</td>
+<td><code>ObjectInfoBits</code> is a stub that always answers 0, so the loop never ends</td>
+</tr>
+<tr>
+<td>A stone once in the platform stays in it; the player can't take it out again</td>
+<td>todo</td>
+<td>nothing fills the platform</td>
+</tr>
+<tr>
+<td>When the camera is within 100 of the tiger stone and it is on screen, the good advisor points at it: "Here's the stone the people were dancing around! Pick it up by clicking the Action Button on it.", at most every 30 seconds, until the player first picks it up</td>
+<td>partial</td>
+<td><code>AdvisorSpotsGateKey2</code> calls only real natives (field of view, <code>SpiritPointPos</code>, <code>RunText</code>); the held read (property 9) is not handled by <code>GetProperty</code>; reached only after the rest of the intro and the temple scene, which are not checked in game</td>
+</tr>
+<tr>
+<td>The first time the player hits the gates (for instance throwing something at them), the good advisor says "I sense that battering the Gates won't work, esteemed one."; only once</td>
+<td>todo</td>
+<td><code>GameThingHit</code> and <code>ClearHitObject</code> are stubs</td>
+</tr>
+<tr>
+<td>Clues while the platform is empty: 2 minutes after the cut-scene the good advisor says "Didn't we see the Villagers dancing around a Stone a while ago?"</td>
+<td>partial</td>
+<td><code>SetTimerTime</code> and the timer reads are real (<code>src/ECS/ScriptTimer</code>); the platform always reads empty, so the clues would keep coming; reached only after the rest of the intro and the temple scene, which are not checked in game</td>
+</tr>
+<tr>
+<td>Every 2 minutes after that, still empty, the good advisor points at the stone and says "The Stone's at the end of the ravine we followed the Villagers through!" if it is within 50 of where they danced, or the first clue again if it has been moved</td>
+<td>partial</td>
+<td>real timer, distance and advisor natives; reached only after the rest of the intro and the temple scene, which are not checked in game</td>
+</tr>
+<tr>
+<td>From the second clue on the scroll's reminder becomes the ravine line, even when the advisor actually said the first clue</td>
+<td>partial</td>
+<td>the same script runs; the reminder is written through the stubbed log</td>
+</tr>
+<tr>
+<td>The clues stop for good once any stone is in the platform</td>
+<td>todo</td>
+<td>the platform never reads a stone, so the clues never stop</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-first-stone-placed">The first stone placed</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Placing the tiger stone plays a scaffold-planting sound and moves the scroll to 0.25</td>
+<td>todo</td>
+<td>blocked: the quest waits for ever in its gate-stone loop (<code>ObjectInfoBits</code> is a stub); <code>PlaySoundEffect</code> itself is real</td>
+</tr>
+<tr>
+<td>A cut-scene brings Sable out of her hut as before: she cheers ("Excellent. You've found a Gate Stone. You'll need to search for another, now.") then looks about ("Try looking for a Gold Story Scroll in the Village.")</td>
+<td>partial</td>
+<td>real villager, camera and text natives; blocked: the quest waits for ever in its gate-stone loop (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>The Lost Brother starts here, its scroll appearing in the village</td>
+<td>todo</td>
+<td>blocked: the quest waits for ever in its gate-stone loop (<code>ObjectInfoBits</code> is a stub); <a href="the_lost_brother.html">the_lost_brother.md</a> is never started</td>
+</tr>
+<tr>
+<td>The camera rises looking south over the village, Sable walks back in and is removed</td>
+<td>partial</td>
+<td>real camera and villager natives; blocked: the quest waits for ever in its gate-stone loop (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-second-stone-placed">The second stone placed</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The ape stone, earned in The Lost Brother, is placed the same way; with ape and tiger in, the scaffold sound plays and the scroll moves to 0.5</td>
+<td>todo</td>
+<td>blocked: the quest waits for ever in its gate-stone loop (<code>ObjectInfoBits</code> is a stub); see <a href="the_lost_brother.html">the_lost_brother.md</a></td>
+</tr>
+<tr>
+<td>Sable comes out cheering: "Good. You have two of the Gate Stones. But the third could be a problem.", "The Villagers say the final one was destroyed aeons ago. All is not lost, though.", "The Village sculptor can carve a new Gate Stone for you. You should see him."</td>
+<td>partial</td>
+<td>real villager and text natives; blocked: the quest waits for ever in its gate-stone loop (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>The Sculptor starts here; the camera rises over the village and Sable goes back in</td>
+<td>todo</td>
+<td>blocked: the quest waits for ever in its gate-stone loop (<code>ObjectInfoBits</code> is a stub); <a href="the_sculptor.html">the_sculptor.md</a> is never started</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-uncarved-rock">The uncarved rock</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>If the blank quarry rock is put down within 20 of the platform (not held, not flying), Sable comes out puzzled: "The stone isn't carved. Perhaps the sculptor can help?", and the camera looks south towards the sculptor</td>
+<td>partial</td>
+<td>the distance and flying reads are real, the held read (property 9) is not; blocked: the quest waits for ever in its gate-stone loop (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>If the rock is still there afterwards, a reminder starts: every 3 minutes that the rock stays put and isn't picked up, the next time the platform is in view within 80, Sable comes out and says the same line again</td>
+<td>partial</td>
+<td>real timer and field-of-view natives; blocked: the quest waits for ever in its gate-stone loop (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>Moving or picking up the rock ends the reminder, and putting it back by the platform starts it all over</td>
+<td>partial</td>
+<td>the same script; the held read (property 9) is not handled; blocked: the quest waits for ever in its gate-stone loop (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>The cow stone carved from the rock counts as the third stone when placed: the scaffold sound plays</td>
+<td>todo</td>
+<td>the carving is never reached; see <a href="the_sculptor.html">the_sculptor.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-stones-are-guarded">The stones are guarded</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The guards start in the opening, as the family reaches the unfinished temple; the ape stone is fixed in place from then until The Lost Brother frees it</td>
+<td>partial</td>
+<td><code>ProtectGateKeys</code> is started by <code>FollowUs</code> and calls only real natives (<code>SetIdPickupable</code>, <code>SetIdMoveable</code>); not checked in game past the intro's hand-over</td>
+</tr>
+<tr>
+<td>A gate stone left lying (not held or flying) where the player has no influence is removed and made again at once at its home: the tiger stone's home is the dance site (only when it is more than 20 from it), the ape stone's is the soapbox by the brother's house, the blank rock's is the quarry</td>
+<td>partial</td>
+<td>the guards call <code>GetInfluence</code>, <code>CREATE</code> and <code>ObjectDelete</code> (real), but the held read (property 9) is not handled by <code>GetProperty</code>, so a stone always counts as not held; not checked in game</td>
+</tr>
+<tr>
+<td>A stone picked up and dropped more than 50 from its home and more than 20 from the platform goes back home a minute later (for the rock, more than 20 from the sculptor)</td>
+<td>partial</td>
+<td>real timers (<code>CreateTimer</code>, <code>SetTimerTime</code>, <code>GetTimerTimeRemaining</code>); the held read (property 9) is not handled; not checked in game</td>
+</tr>
+<tr>
+<td>A stone that no longer exists (destroyed, thrown away) is made again at its home</td>
+<td>partial</td>
+<td><code>CREATE</code> of a mobile static is real; not checked in game</td>
+</tr>
+<tr>
+<td>Each stone made again is lit up by a marker on it; the tiger stone is first lit up when Sable shows it, the ape stone when it is more than 100 from its home, the rock once the sculptor has asked for it</td>
+<td>todo</td>
+<td><code>AddSpotVisualTargetObject</code> is a stub</td>
+</tr>
+<tr>
+<td>A guard stops when its stone is in the platform; the rock's guard stops when the sculptor has carved it, and a guard for the cow stone starts then</td>
+<td>partial</td>
+<td>plain script flags; the platform never reads a stone, so the first two guards never stop</td>
+</tr>
+<tr>
+<td>A rock left by the platform goes back to the quarry a minute after it was dropped, as the platform is more than 20 from the sculptor, so the 3-minute reminder above can hardly ever play</td>
+<td>partial</td>
+<td>follows from the same script; not checked in game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="opening-the-gates">Opening the gates</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>With all three stones in, the game's clock is set to 15:40 and runs for the scene, the scroll moves to 0.75, and the camera is kept inside a new zone around the glade</td>
+<td>partial</td>
+<td><code>SetGameTime</code>, <code>GameTimeOnOff</code> and <code>SetCameraZone</code> are real; the zone file is read (<code>src/Camera/PlayerCameraScript</code>) but the player camera does not keep to it yet (<a href="../../../script-camera.html#zones-and-fixed-rotation">../../../bw1-notes/script-camera.md</a>); reached in the glade with the second and third SkipBox answers</td>
+</tr>
+<tr>
+<td>The three young creatures are made in the glade beyond the gates: the cow, the ape and the tiger</td>
+<td>todo</td>
+<td>the three creatures are never made: <code>CREATE</code> of a creature is not done (<code>CreateScriptObject</code>)</td>
+</tr>
+<tr>
+<td>Sable comes out with a lasting "well done" and says "The Gate Stones are together. Pass through and claim your Creature!"</td>
+<td>partial</td>
+<td>real villager and text natives; blocked: the quest waits for ever in its gate-stone loop (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>The camera moves onto the platform; with a grinding stone sound and a 7-second camera shake (within 20, amplitude 0.1) the stones sink into the platform</td>
+<td>todo</td>
+<td><code>ShakeCamera</code> and <code>PlaySoundEffect</code> are real, but sinking the stones (<code>SetOpenClose</code>) is a stub</td>
+</tr>
+<tr>
+<td>The camera cuts to the gate's chain, the gates open with a bolt sound, Sable beckons, and the camera watches the gates swing open with their opening sound</td>
+<td>todo</td>
+<td><code>SetOpenClose</code> is a stub; the gates' and platform's collision models follow an open state (<code>src/ECS/PhysicsClasses.cpp</code>) but nothing opens them</td>
+</tr>
+<tr>
+<td>The camera flies through to the glade along a recorded path, with the third epic theme</td>
+<td>partial</td>
+<td><code>RunCameraPath</code> and <code>StartMusic</code> are real; reached with the second and third SkipBox answers, not checked in game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-creatures-show-off">The creatures show off</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The tiger sits, the cow walks to its place, the ape points at the camera; the cow looks confused, then cow and ape turn to face the camera</td>
+<td>todo</td>
+<td>the three creatures are never made: <code>CREATE</code> of a creature is not done (<code>CreateScriptObject</code>); <code>CreatureDoAction</code> is a stub</td>
+</tr>
+<tr>
+<td>The quest is logged again with a picture of the glade, at 0.75</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>Both advisors come out. Good: "Look at them. Just look at them. These are Miraculous Creatures indeed." (the cow asks to be picked, the ape waves)</td>
+<td>todo</td>
+<td>the three creatures are never made: <code>CREATE</code> of a creature is not done (<code>CreateScriptObject</code>), so their part is missing; the advisor lines are real</td>
+</tr>
+<tr>
+<td>Evil: "They certainly are. But not quite as big as I expected." Good: "Not yet, maybe. But they can become the most powerful Creatures in the world." (the cow prays, the tiger growls)</td>
+<td>todo</td>
+<td>the three creatures are never made: <code>CREATE</code> of a creature is not done (<code>CreateScriptObject</code>)</td>
+</tr>
+<tr>
+<td>Evil: "Now that I'd like to see. We must have one. Which should we choose?" Good: "Any. They're all special." Evil: "If rather small at the moment." (each creature plays happy or "pick me" in turn)</td>
+<td>todo</td>
+<td>the three creatures are never made: <code>CREATE</code> of a creature is not done (<code>CreateScriptObject</code>)</td>
+</tr>
+<tr>
+<td>The advisors go home, cow and ape wave, the camera settles on the choosing view, the music stops and the clock is stopped again</td>
+<td>partial</td>
+<td><code>StopMusic</code>, <code>GameTimeOnOff</code> and the camera are real; the creatures are not made</td>
+</tr>
+<tr>
+<td>Sable is removed and the camera is kept to a small choosing zone</td>
+<td>partial</td>
+<td><code>ObjectDelete</code> and <code>SetCameraZone</code> are real; the player camera does not keep to the zone yet</td>
+</tr>
+</tbody>
+</table>
+<h2 id="choosing">Choosing</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Left alone, each creature cycles through show-off moves (pointing at the camera, waving, "pick me", happy, praying, tired, impressing, "look at me", the ape laughing), one every 5 to 20 passes of the choosing loop</td>
+<td>todo</td>
+<td>the three creatures are never made: <code>CREATE</code> of a creature is not done (<code>CreateScriptObject</code>)</td>
+</tr>
+<tr>
+<td>Every 5 seconds each idle creature turns to face the camera</td>
+<td>todo</td>
+<td>the three creatures are never made: <code>CREATE</code> of a creature is not done (<code>CreateScriptObject</code>)</td>
+</tr>
+<tr>
+<td>With the hand right over a creature (within 1), it asks to be picked; the other two take turns looking at the camera, "look at me" and a sad face (the cow and ape cry, the tiger gets angry)</td>
+<td>todo</td>
+<td>the three creatures are never made: <code>CREATE</code> of a creature is not done (<code>CreateScriptObject</code>); <code>GetHandPosition</code> is real</td>
+</tr>
+<tr>
+<td>Hovering over the cow for ten passes, with nothing being said, the good advisor points at it: "We could have the cow. A strong and noble beast." and the evil advisor answers "What? Not the fierce, lethal tiger? Click the Action Button on him!"</td>
+<td>todo</td>
+<td>the three creatures are never made: <code>CREATE</code> of a creature is not done (<code>CreateScriptObject</code>)</td>
+</tr>
+<tr>
+<td>Over the ape: the good advisor, pointing: "Hmm. How about the ape. Intelligent and quick to learn?"</td>
+<td>todo</td>
+<td>the three creatures are never made: <code>CREATE</code> of a creature is not done (<code>CreateScriptObject</code>)</td>
+</tr>
+<tr>
+<td>Over the tiger the evil advisor should say "I'm up for the tiger. Look at those claws.", but the line waits on the ape's hover count, which is zero whenever the hand is over the tiger, so it never plays</td>
+<td>todo</td>
+<td>the three creatures are never made: <code>CREATE</code> of a creature is not done (<code>CreateScriptObject</code>)</td>
+</tr>
+<tr>
+<td>A comment isn't repeated for the same creature twice running; the creatures keep showing off while a comment is read</td>
+<td>todo</td>
+<td>the three creatures are never made: <code>CREATE</code> of a creature is not done (<code>CreateScriptObject</code>)</td>
+</tr>
+<tr>
+<td>Clicking a creature once has the good advisor ask "Are you sure you want this Creature? Click on him again if you are."; clicking another creature starts its count afresh</td>
+<td>todo</td>
+<td>the three creatures are never made: <code>CREATE</code> of a creature is not done (<code>CreateScriptObject</code>); <code>GameThingClicked</code> and <code>ClearClickedObject</code> are real. With the second and third SkipBox answers the glade waits for a click on a creature that does not exist</td>
+</tr>
+<tr>
+<td>Clicking the same creature a second time chooses it</td>
+<td>todo</td>
+<td>the three creatures are never made: <code>CREATE</code> of a creature is not done (<code>CreateScriptObject</code>); see <a href="../../creature/species_choice.html">../../creature/species_choice.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-choice">The choice</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The chosen creature is happy; the others cry (the tiger is angry instead when the ape is chosen); one points at the chosen creature and the other eyes it without coming near</td>
+<td>todo</td>
+<td>the three creatures are never made: <code>CREATE</code> of a creature is not done (<code>CreateScriptObject</code>)</td>
+</tr>
+<tr>
+<td>The camera closes in on the chosen creature over 10 seconds; evil advisor: "We've chosen a Creature."; a second later the creature-chosen theme plays</td>
+<td>todo</td>
+<td>the three creatures are never made: <code>CREATE</code> of a creature is not done (<code>CreateScriptObject</code>); the camera and <code>StartMusic</code> are real</td>
+</tr>
+<tr>
+<td>The quest is logged as finished (1, no alignment change) and the screen fades to black over 2 seconds</td>
+<td>todo</td>
+<td>the log is a stub; <code>SetFade</code> is real</td>
+</tr>
+<tr>
+<td>In the dark the creature becomes the player's creature and is moved to its home by the Norse village, which becomes its home position; the other two are deleted (they don't wander off)</td>
+<td>todo</td>
+<td><code>CreatureSetPlayer</code> is a stub; <code>SetCreatureHome</code> is real. Our player's creature comes only from <code>LoadMyCreature</code> (the fourth SkipBox answer, <code>src/ECS/PlayerCreature.cpp</code>)</td>
+</tr>
+<tr>
+<td>The camera zone widens to the fifth stage of the land and the creature is released to the game</td>
+<td>todo</td>
+<td>the three creatures are never made: <code>CREATE</code> of a creature is not done (<code>CreateScriptObject</code>); <code>ReleaseFromScript</code> and <code>SetCameraZone</code> are real</td>
+</tr>
+<tr>
+<td>The creature's development is started: it begins growing up from its first stage, kept at home</td>
+<td>partial</td>
+<td><code>DevFunction</code> and <code>SetCreatureDevStage</code> are real on our player's creature (see <a href="../../../creature.html#the-players-creature">../../../bw1-notes/creature.md</a>); the chosen creature is never made</td>
+</tr>
+<tr>
+<td>The screen stays black until the trainer's first lesson, which fades in on the creature waking at its pen</td>
+<td>todo</td>
+<td>the three creatures are never made: <code>CREATE</code> of a creature is not done (<code>CreateScriptObject</code>); see <a href="the_creatures_learning.html">the_creatures_learning.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="skipping-and-keeping-an-old-creature">Skipping and keeping an old creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A new game that skips the opening (the "skip tutorial" choice) deletes the three stones and goes straight to the glade: a 2-second fade to black instead of Sable and the platform, the gates opening as the screen fades in, and no advisor talk</td>
+<td>partial</td>
+<td><code>CanSkipTutorial</code> is real (the SkipBox, <code>src/Gui/SkipBox</code>); the stones are deleted (<code>ObjectDelete</code>), the fade and the camera path run, but the gates (<code>SetOpenClose</code>) stay shut and the creatures are not made. See <a href="../../../map-loading.html#skipping-the-tutorial-skipbox-and-can_skip_tutorial">../../../bw1-notes/map-loading.md</a></td>
+</tr>
+<tr>
+<td>A player keeping the creature of an earlier game (patch 1.1) skips the glade too: clock to 15:40, the fifth camera zone, the gates open, and the old creature is loaded at a fixed spot</td>
+<td>partial</td>
+<td><code>IsKeepingOldCreature</code>, <code>CurrentProfileHasCreature</code> and <code>LoadMyCreature</code> are real (the fourth SkipBox answer loads <code>--creature-file</code> at the fixed spot), as are the clock and the zone; the gates (<code>SetOpenClose</code>) stay shut</td>
+</tr>
+<tr>
+<td>Both paths count the quest as done for the scripts waiting on it (the Explorers)</td>
+<td>partial</td>
+<td>the fourth answer sets the done flag; the glade path (second and third answers) never finishes because the creatures are not made</td>
+</tr>
+</tbody>
+</table>
+<h2 id="soft-locks-and-failure">Soft-locks and failure</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The quest can't fail: lost, thrown away or destroyed stones are made again at home, and the platform keeps every stone placed</td>
+<td>partial</td>
+<td>the same script runs; the platform never takes a stone, so the quest cannot progress either</td>
+</tr>
+<tr>
+<td>The scenes wait for Sable to reach her spots with no time limit; if something blocked her, the cut-scene would never end (not known to happen)</td>
+<td>partial</td>
+<td>the same script runs; not checked in game</td>
+</tr>
+<tr>
+<td>The story waits for the choice with no time limit; there is no way to leave the glade without choosing, as the camera zone holds the camera there</td>
+<td>todo</td>
+<td>the creatures are never made, so the glade path waits for ever</td>
+</tr>
+</tbody>
+</table>
+<h2 id="music-and-sounds">Music and sounds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature guide's theme under Sable's first talk, the third epic theme for the gates and the glade, the creature-chosen theme for the choice</td>
+<td>partial</td>
+<td><code>StartMusic</code> and <code>StopMusic</code> are real; only the glade's theme is reached (second and third SkipBox answers)</td>
+</tr>
+<tr>
+<td>The scaffold-planting sound when a stone goes in; the stone-grinding, bolt and gate-opening sounds as the gates open</td>
+<td>todo</td>
+<td><code>PlaySoundEffect</code> is real, but these sounds come after the stones go in, which never happens</td>
+</tr>
+</tbody>
+</table>
+<h2 id="saves-other-versions-and-unused-material">Saves, other versions and unused material</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A saved game keeps which stones are in, the stones' guards and the chosen creature</td>
+<td>todo</td>
+<td>openblack has no saved games</td>
+</tr>
+<tr>
+<td>The cow's look-at point in the opening of the glade has a typing slip (a coordinate ten times too far north), so it stares far off past the glade</td>
+<td>n/a</td>
+<td>a data quirk in the script itself; our tree runs the script as shipped</td>
+</tr>
+<tr>
+<td>A cut placement of the ape stone first (and its line "Right. We need another Gate Stone…", missing from the text table) is commented out of the script</td>
+<td>n/a</td>
+<td>not in the program</td>
+</tr>
+<tr>
+<td>An older, unshipped version of the quest (a good-advisor "Shh." line and a swap-style "are you sure" line) and a bare test script ("Choose one of these mothers")</td>
+<td>n/a</td>
+<td>not in the program</td>
+</tr>
+<tr>
+<td>A cut silver scroll version of the sculptor's part</td>
+<td>n/a</td>
+<td>see <a href="../silver_scrolls/the_sculptor_cut_silver.html">../silver_scrolls/the_sculptor_cut_silver.md</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

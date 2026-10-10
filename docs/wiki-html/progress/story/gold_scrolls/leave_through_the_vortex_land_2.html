@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leave through the vortex (Land 2) — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#leave-through-the-vortex-land-2">Leave through the vortex (Land 2)</a><ul>
+<li><a href="#how-it-appears">How it appears</a></li>
+<li><a href="#the-temple-falls">The temple falls</a></li>
+<li><a href="#the-scroll">The scroll</a></li>
+<li><a href="#leaving">Leaving</a></li>
+<li><a href="#success-failure-and-aftermath">Success, failure and aftermath</a></li>
+<li><a href="#advisors">Advisors</a></li>
+<li><a href="#music-and-sounds">Music and sounds</a></li>
+<li><a href="#creature">Creature</a></li>
+<li><a href="#script-quirks">Script quirks</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="leave-through-the-vortex-land-2">Leave through the vortex (Land 2)</h1>
+<p>The way out of Land 2 when the player missed following Lethys through his vortex: once Lethys holds no towns and his
+temple is all but destroyed, the temple blows up, the vortex hidden under it opens again, the advisors say they must
+follow the creature, and a gold scroll over the vortex takes the player through to Land 3. The game gives this scroll
+no title and records no challenge log entry for it. The vortex itself (how it looks, sounds and what crosses) is in
+<a href="../portals.html#opening-the-exit-per-land">../portals.md</a>; the land as a whole in <a href="../land_2.html">../land_2.md</a>.</p>
+<p><strong>Land:</strong> 2 · <strong>Giver:</strong> the good advisor, at a gold scroll over the vortex where Lethys's temple stood · <strong>Script:</strong> LeaveThroughVortexL2 · <strong>Reward:</strong> none (the way to Land 3) · <strong>Repeatable:</strong> no</p>
+<p>Sources: the quest's script source (<code>LeaveThroughVortexL2.txt</code>) and the land's control script (<code>LandControl2.txt</code>),
+checked against the compiled form in the shipped <code>challenge.chl</code>; the shared scroll-notify script; the land's map script
+(<code>Land2.txt</code>); the game's English text table. openblack's state is judged on this tree: none of the 35 script functions
+this quest needs only logs "not implemented" in <code>src/CHLApi.cpp</code>, but openblack never runs Land 2's control script at
+all (see <a href="../land_2.html">../land_2.md</a> row 1), so the scroll never appears; every row below is todo unless the notes say
+otherwise.</p>
+<p><strong>Progress: 0/28 done, 1 partial — 2%</strong></p>
+<h2 id="how-it-appears">How it appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's control script checks every 9 seconds, while the land isn't already being left: Lethys must hold no towns at all and his temple must be at a tenth of its health or less</td>
+<td>todo</td>
+<td><code>LandControl2</code> reads the town totals through <code>GetPlayerTownTotal</code> and <code>GetTownWithId</code> (stubs), and a temple's health is not a property <code>GetProperty</code> handles; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>It runs once (an "exit vortex done" flag), and the control script waits for it</td>
+<td>todo</td>
+<td>plain script logic, run by our VM; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>In normal play it comes only after Khazar's death and Lethys's theft of the creature, when the player didn't follow him in time</td>
+<td>todo</td>
+<td>the theft scene needs computer-player natives (all stubs); see <a href="lethys_has_taken_our_creature.html">lethys_has_taken_our_creature.md</a> and <a href="nemesis_no.html#script-quirks">nemesis_no.md</a></td>
+</tr>
+<tr>
+<td>Setting the "exit vortex done" flag ends the land's last gold scroll's updates and its nagging</td>
+<td>todo</td>
+<td>plain script flags, run by our VM; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native. See <a href="destroy_it.html">destroy_it.md</a></td>
+</tr>
+<tr>
+<td>Not determined what the temple-health check reads if the temple has already been destroyed outright</td>
+<td>todo</td>
+<td>undetermined in the original; the health read is not handled by <code>GetProperty</code> here anyway</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-temple-falls">The temple falls</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A film starts with the camera close in front of Lethys's temple, drifting slowly towards it over 12 seconds</td>
+<td>todo</td>
+<td><code>SetCameraPosition</code>, <code>MoveCameraPosition</code> and <code>StartCameraControl</code> are real (<code>src/Camera/ScriptCamera</code>); never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Lethys's temple is blown up</td>
+<td>todo</td>
+<td><code>ObjectDelete</code> of a citadel heart (mode 3) only logs "not implemented"; see <a href="../losing_and_game_over.html#how-a-temple-is-destroyed">../losing_and_game_over.md</a></td>
+</tr>
+<tr>
+<td>When the camera arrives, it cuts to a high view behind the temple site looking at the vortex spot, and sinks over 10 seconds</td>
+<td>todo</td>
+<td>real camera natives (<code>SetCameraPosition</code>, <code>MoveCameraPosition</code>, <code>HasCameraArrived</code>); never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The vortex opens in front of where the temple stood; the camera flies over 8 seconds to look out from it over the land</td>
+<td>todo</td>
+<td><code>CREATE</code> of a vortex is ported (<code>ecs::vortex</code>); never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native. See <a href="../portals.html">../portals.md</a></td>
+</tr>
+<tr>
+<td>Both advisors step out; good: "Look! The Vortex has opened again!"; good: "I see! Lethys' Temple was hiding a Vortex. Let's go through!"; good: "We've got to get our Creature back."; evil: "Yeah. The poor guy. I really miss him."; good, clickable through: "We've no choice. We must follow him through the Vortex."</td>
+<td>todo</td>
+<td><code>SpiritEject</code> and <code>RunText</code> are real (advisors and dialogue texts in <code>src/Help</code>); never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Both go home and the film ends</td>
+<td>todo</td>
+<td><code>SpiritHome</code> and the camera release are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-scroll">The scroll</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A gold scroll appears 20 above the vortex</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> and the height through <code>SetProperty</code> (YPos) are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>While the camera is within 100 of it and it is on screen, the good advisor steps out, points at it and says "Action Button the Scroll and we'll get through the waiting Vortex.", at most once every 30 seconds and only when no film is playing</td>
+<td>todo</td>
+<td>the shared notify loop <code>ChallengeHighlightNotify</code> calls only real natives (<code>SetActive</code> partly); never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The player can wait as long as they like; the land goes on meanwhile</td>
+<td>todo</td>
+<td>plain script wait; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Clicking the scroll or the vortex switches the scroll on and leaves</td>
+<td>todo</td>
+<td><code>GameThingClicked</code> is real and <code>SetActive</code> handles highlights; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="leaving">Leaving</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A film: the camera flies to the start of the exit camera path over 4 seconds, runs the path, and after 2 seconds the screen fades to black over 2 seconds</td>
+<td>todo</td>
+<td><code>MoveCameraPosition</code>, <code>RunCameraPath</code> and <code>SetFade</code> are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native. See <a href="../portals.html#going-through">../portals.md</a></td>
+</tr>
+<tr>
+<td>The vortex is marked closed and the land is marked as being left; the land's control loop ends</td>
+<td>todo</td>
+<td>plain script flags; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The story's top script stops every other script and loads Land 3, which begins with the arrival through the vortex</td>
+<td>todo</td>
+<td><code>StopAllScriptsExcluding</code> works, but <code>LOAD_MAP</code> does nothing; Land 3: <a href="so_you_couldnt_bear_to_be_without_your_creature.html">so_you_couldnt_bear_to_be_without_your_creature.md</a></td>
+</tr>
+<tr>
+<td>No villagers are sent through by this script; who follows the player is the vortex's business</td>
+<td>todo</td>
+<td>nothing crosses between lands (no land loading); see <a href="../portals.html#what-crosses-and-what-is-left">../portals.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="success-failure-and-aftermath">Success, failure and aftermath</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No challenge log entry is recorded for this scroll</td>
+<td>todo</td>
+<td>the same script runs, so no entry either; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>It can't fail; it waits for the click for ever</td>
+<td>todo</td>
+<td>the same script runs; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>It can soft-lock only before it starts: if Lethys keeps a town or his temple can't be brought below a tenth of its health, the land never ends</td>
+<td>todo</td>
+<td>depends on the town totals and temple health reads, which are stubs or unhandled here, and on Lethys's computer player (stubs)</td>
+</tr>
+<tr>
+<td>What it unlocks: Land 3</td>
+<td>todo</td>
+<td><code>LOAD_MAP</code> is empty</td>
+</tr>
+</tbody>
+</table>
+<h2 id="advisors">Advisors</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The good advisor does most of the talking and gives the scroll; the evil advisor has one line</td>
+<td>todo</td>
+<td>advisors and texts are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="music-and-sounds">Music and sounds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The script plays no music or sound of its own</td>
+<td>partial</td>
+<td>the same script runs, with no sound calls; the vortex has no sounds of its own in our tree yet</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creature">Creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The player has no creature here: Lethys has taken it</td>
+<td>n/a</td>
+<td>the script doesn't touch a creature</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-quirks">Script quirks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The scroll is never deleted; the land ends with it</td>
+<td>todo</td>
+<td>the same script runs; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The vortex is 12 away from the one Lethys opened, though a source comment asks for them to be kept the same</td>
+<td>todo</td>
+<td>the same script runs, so the same place; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>A source comment on the second line describes a different line ("Now that Lethys belief in this land is no longer protecting the vortex") from the one spoken</td>
+<td>todo</td>
+<td>the same script runs, so the same line is said; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

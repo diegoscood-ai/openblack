@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Town actions — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="here" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#town-actions">Town actions</a><ul>
+<li><a href="#feeding-and-supplying-a-town">Feeding and supplying a town</a></li>
+<li><a href="#building">Building</a></li>
+<li><a href="#playing-with-villagers">Playing with villagers</a></li>
+<li><a href="#helping-a-town-in-trouble">Helping a town in trouble</a></li>
+<li><a href="#harming-a-town">Harming a town</a></li>
+<li><a href="#what-the-town-makes-of-it">What the town makes of it</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="town-actions">Town actions</h1>
+<p>What a creature does for or against villages: feeding them, building for them, playing and dancing with the villagers,
+making disciples, or stealing from them, eating them and knocking their homes down. A creature learns these by watching
+villagers and the player, and the town watches back, fearing or respecting it. The villagers' and the town's own side is
+in <a href="../villager/index.html">../villager</a> and <a href="../town/index.html">../town</a>.</p>
+<p><strong>Progress: 4/67 done, 8 partial — 12%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../creature.html">The creature: groundwork, random streams and what is unknown</a>.</p>
+<h2 id="feeding-and-supplying-a-town">Feeding and supplying a town</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Take food from a field to the town's storehouse</td>
+<td>todo</td>
+<td>no such plan action in <code>src/Creature/CreaturePlanActions.cpp</code>; see <a href="../resources/index.html">../resources</a></td>
+</tr>
+<tr>
+<td>Take fish from the sea to the storehouse</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Shake fruit from a tree and take it to the storehouse</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Cast food and put the magic food in the storehouse</td>
+<td>todo</td>
+<td>the creature casts no miracle; see <a href="creature_casting.html">creature_casting.md</a></td>
+</tr>
+<tr>
+<td>Pull up a tree and take the wood to the storehouse</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Cast wood and put the magic wood in the storehouse</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Drop a cow (or other animal) into the storehouse as food</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Put food from a field, fish or magic food by the worship site for the worshippers</td>
+<td>todo</td>
+<td>see <a href="../worship/index.html">../worship</a></td>
+</tr>
+<tr>
+<td>Give food to the worshippers</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Take food or fish to its own home instead</td>
+<td>todo</td>
+<td>see <a href="home_and_pen.html">home_and_pen.md</a></td>
+</tr>
+<tr>
+<td>Bring an object to a town and leave it there</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The player's putting things into a storehouse catches its eye, and it may copy it</td>
+<td>partial</td>
+<td>the copying rules exist (<code>creature_watching</code>, <code>ecs::creature_mimic</code>; <a href="learning_by_observation.html">learning_by_observation.md</a>); only four deeds are reported so far (throwing at a building, planting a tree, throwing into the sea, watering crops), none of the storehouse ones</td>
+</tr>
+</tbody>
+</table>
+<h2 id="building">Building</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Help build a house: carries wood to a building site and adds it</td>
+<td>todo</td>
+<td>see <a href="../building/index.html">../building</a></td>
+</tr>
+<tr>
+<td>Help repair a damaged house</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Take wood from a tree to a building site</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Cast wood by a building site</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Take wood from a tree to the workshop, or cast wood by it</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Steal scaffolding from a building site</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Plant a tree</td>
+<td>todo</td>
+<td>see <a href="../nature/index.html">../nature</a>; the player's planting is reported to the creature (<code>HandTrees.cpp</code>) but the creature cannot plant</td>
+</tr>
+<tr>
+<td>Water a tree or a field with the water miracle, also for a town that needs it</td>
+<td>todo</td>
+<td>see <a href="creature_casting.html">creature_casting.md</a></td>
+</tr>
+<tr>
+<td>Sprinkle water on crops (and its powered-up version)</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Raise a town's totem pole, or lower it</td>
+<td>todo</td>
+<td>see <a href="../town/index.html">../town</a></td>
+</tr>
+<tr>
+<td>The town's totem raised by the hand catches its eye</td>
+<td>todo</td>
+<td>see <a href="reactions.html">reactions.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="playing-with-villagers">Playing with villagers</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dance with villagers, telling them where to go and when to start and stop</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Dance playfully with villagers watching, or joining in</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Dance amorously with villagers</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Dance on its own by the sea</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Practise a dance</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Dance outside a worship site, or around a town's artefact</td>
+<td>todo</td>
+<td>see <a href="../town/artefacts.html">../town/artefacts.md</a></td>
+</tr>
+<tr>
+<td>Tell the villagers a story</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Play a game with the villagers, and see who wins</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Play football with villagers: attack, kick and throw at goal, defend, stomp on the ball, clear it, keep goal, catch, foul, celebrate and commiserate</td>
+<td>todo</td>
+<td>see <a href="../town/index.html">../town</a>; <a href="../town/football.html#the-player-and-the-creature">../town/football.md</a></td>
+</tr>
+<tr>
+<td>Kick a ball around, throw a ball at something</td>
+<td>partial</td>
+<td>plan actions <code>KickBallAround</code>, <code>ThrowBallAtObject</code> and <code>ThrowAround</code> (<code>CreaturePlanActions.cpp</code>) throw what it picks up nearby; balls aren't special (see <a href="object_actions.html">object_actions.md</a>)</td>
+</tr>
+<tr>
+<td>Playfully frighten villagers</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Playfully interact with a villager, playfully kiss one</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Stroke a villager</td>
+<td>partial</td>
+<td>plan action <code>Stroke</code> walks up to a villager and plays a fond animation (<code>CreaturePlanActions.cpp</code>); nothing happens to the villager</td>
+</tr>
+<tr>
+<td>Take a villager home to sleep</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Bring villagers to the worship site</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Make a villager a disciple (a breeder, among others)</td>
+<td>todo</td>
+<td>see <a href="../villager/index.html">../villager</a></td>
+</tr>
+<tr>
+<td>Impress a town: show off, throw things or cast miracles in front of it</td>
+<td>partial</td>
+<td>plan actions <code>ThrowToImpress</code> and <code>ShowImpressiveAnimation</code> play where it stands; no miracles, and the town is not told (<a href="leash.html">leash.md</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="helping-a-town-in-trouble">Helping a town in trouble</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Decides whether the nearest town should be helped</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Heal hurt villagers with the heal miracle</td>
+<td>todo</td>
+<td>the creature casts no miracle: no casting plan action in <code>CreaturePlanActions.cpp</code>; see <a href="creature_casting.html">creature_casting.md</a></td>
+</tr>
+<tr>
+<td>Put out fires in a town</td>
+<td>todo</td>
+<td>see <a href="object_actions.html">object_actions.md</a></td>
+</tr>
+<tr>
+<td>Shield a town with the shield miracle</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Help a town together with a friend</td>
+<td>todo</td>
+<td>see <a href="friends_and_other_creatures.html">friends_and_other_creatures.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="harming-a-town">Harming a town</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Decides whether the nearest town should be attacked; whether a town is under attack</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Eat villagers</td>
+<td>done</td>
+<td>plan action <code>EatAlive</code> (<code>CreaturePlanActions.cpp</code>), carried out by <code>CreatureObjectActionSystem</code>; test <code>CreatureObjectActionSystemTest.AVillagerEatenDiesAsAnyDeathGoes</code>; see <a href="object_actions.html">object_actions.md</a></td>
+</tr>
+<tr>
+<td>Hurl villagers or things at homes</td>
+<td>done</td>
+<td>plan action <code>Hurl</code> at the nearest home or tree (<code>creature_mind::Hurl</code> in <code>src/Creature/CreatureIdleMind.cpp</code>, <code>NearestHurlTarget</code> in <code>CreatureMindSystem.cpp</code>)</td>
+</tr>
+<tr>
+<td>Stamp on and kick homes, damaging them</td>
+<td>partial</td>
+<td>plan actions <code>Stomp</code> and <code>Kick</code>; <code>CreatureObjectActionSystem</code> gives a home the blow a thrown thing gives (<code>ecs::abodes::OnPhysicalDamage</code>), not one by the creature's size; whether they collapse is in <a href="../building/index.html">../building</a></td>
+</tr>
+<tr>
+<td>Cast lightning at villagers and homes</td>
+<td>todo</td>
+<td>the creature casts no miracle: no casting plan action; see <a href="creature_casting.html">creature_casting.md</a></td>
+</tr>
+<tr>
+<td>Cast fireballs at a town</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Set fire to a town</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Sacrifice villagers at the worship site</td>
+<td>todo</td>
+<td>see <a href="../worship/index.html">../worship</a></td>
+</tr>
+<tr>
+<td>Attack a town together with a friend</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Steal food from a farm or from the storehouse</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Steal wood from the storehouse</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Steal an animal, steal a villager</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Steal a miracle's seed (choosing which kind)</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Steal an object and put it in its own town, or by its citadel</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Eating, holding or throwing villagers frightens their town</td>
+<td>done</td>
+<td><code>creature_object_actions::AttitudeTo</code>, applied in <code>CreatureObjectActionSystem::ProcessTurn</code>; test <code>CreatureObjectActions.TheTownFearsThrowingAndEatingVillagers</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-the-town-makes-of-it">What the town makes of it</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The town sees what the creature does as nothing much, fearsome or worthy of respect</td>
+<td>partial</td>
+<td><code>CreatureObjectActionSystem::ProcessTurn</code> keeps a <code>CreatureTownAttitude</code>; nothing ever gives respect, and only the debug spawner reads it</td>
+</tr>
+<tr>
+<td>A fear lasts thirty seconds after the creature stops, respect ten</td>
+<td>done</td>
+<td><code>creature_object_actions::AttitudeSeconds</code></td>
+</tr>
+<tr>
+<td>Villagers react to the creature: run from it, cheer it, gather to watch</td>
+<td>partial</td>
+<td>the town's view is kept; the villagers do not react to it; see <a href="../villager/index.html">../villager</a></td>
+</tr>
+<tr>
+<td>How impressed a town is with the creature adds to the player's belief there</td>
+<td>todo</td>
+<td>see <a href="../worship/index.html">../worship</a></td>
+</tr>
+<tr>
+<td>The town's attitude to the creature is shown in the creature's help messages</td>
+<td>todo</td>
+<td>see <a href="lessons_and_help.html">lessons_and_help.md</a></td>
+</tr>
+<tr>
+<td>The creature's own belief about each town (whose, how big, how it feels) guides what it does to it</td>
+<td>partial</td>
+<td>see <a href="beliefs_and_opinions.html">beliefs_and_opinions.md</a></td>
+</tr>
+<tr>
+<td>A creature that messes up an action (a dance, a fire, impressing villagers, raising a totem) is told why</td>
+<td>todo</td>
+<td>see <a href="lessons_and_help.html">lessons_and_help.md</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,719 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Explorers — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-explorers">The Explorers</a><ul>
+<li><a href="#where-it-sits-in-the-land">Where it sits in the land</a></li>
+<li><a href="#the-scroll-and-the-advisors-hints">The scroll and the advisors' hints</a></li>
+<li><a href="#the-sailors-arrive-and-sing-the-first-verse">The sailors arrive and sing the first verse</a></li>
+<li><a href="#the-three-verses-words-on-screen">The three verses (words on screen)</a></li>
+<li><a href="#wood-finishing-the-boat">Wood: finishing the boat</a></li>
+<li><a href="#verse-two-grain">Verse two: grain</a></li>
+<li><a href="#verse-three-meat">Verse three: meat</a></li>
+<li><a href="#extra-hands-villagers-a-woman-and-a-galley-boy">Extra hands: villagers, a woman and a galley boy</a></li>
+<li><a href="#hurting-the-sailors">Hurting the sailors</a></li>
+<li><a href="#running-out-of-time">Running out of time</a></li>
+<li><a href="#setting-sail">Setting sail</a></li>
+<li><a href="#the-reward">The reward</a></li>
+<li><a href="#unused-and-cut-material">Unused and cut material</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-explorers">The Explorers</h1>
+<p>A silver scroll of the first land: three sailors (the script and the text call them missionaries) camp on a beach
+beside an unfinished ark and want to sail away. Each time they need something they sing a verse about it, to an
+accordion: wood to finish the boat, then grain, then meat. Once they have everything they sail off and leave a Water
+miracle dispenser behind. Killing them, or leaving them waiting for three and a half hours, ends the challenge with an
+evil mark. If they do sail, they come back on the fifth land ("The Explorers Again", see <a href="../land_5.html">../land_5.md</a>).</p>
+<p><strong>Land:</strong> 1 · <strong>Giver:</strong> three sailors at a campfire beside an ark in dry dock, on a beach the good advisor places
+"behind those huge Gates" · <strong>Script:</strong> TheMissionaries · <strong>Reward:</strong> a Water miracle dispenser on the beach ·
+<strong>Repeatable:</strong> no</p>
+<p>Sources: the challenge's script source (<code>TheMissionaries.txt</code>, checked against the PC game's compiled <code>challenge.chl</code>),
+the shared helper scripts it runs (the scroll notice, the dispenser reward), the game's text table and the executable.
+openblack's state is judged on this tree: of the 84 script functions the challenge and the helper scripts it runs need,
+9 still only log "not implemented" in <code>src/CHLApi.cpp</code> (among them the held-object checks, the store's resources and the
+challenge log). On top of that, the land's control script starts this challenge only in a game that skips to the
+creature choice (the start-up box's fourth answer; see <a href="../../scripts/land1_script.html">../../scripts/land1_script.md</a>).
+Every row is todo unless the notes say otherwise. The script program as a whole is in
+<a href="../../scripts/challenge_scripts.html">../../scripts/challenge_scripts.md</a>.</p>
+<p><strong>Progress: 0/89 done, 29 partial — 16%</strong></p>
+<h2 id="where-it-sits-in-the-land">Where it sits in the land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's control script starts the challenge in the background once the creature has been chosen (or straight away when a new game skips to the creature choice), alongside the creature breeder</td>
+<td>partial</td>
+<td>with the fourth tutorial answer <code>LandControl1</code> starts it with the creature breeder; with the other answers the land's control script never gets that far</td>
+</tr>
+<tr>
+<td>The challenge script also waits until the creature choice is finished before putting up the camp and the scroll, which matters only when the opening is skipped</td>
+<td>partial</td>
+<td>with the fourth answer the land sets the creature-choice flag when it loads the profile's creature, so the camp goes up; not checked in game</td>
+</tr>
+<tr>
+<td>The ark is a dry-dock building made at the start, already a fifth built, and it can't be destroyed, hurt by fire or set alight</td>
+<td>partial</td>
+<td>CHL <code>CREATE</code> makes the dry dock feature, the three flags work and <code>SetProperty</code> sets its built amount (<code>src/ECS/FeatureBuild.cpp</code>); not checked in game</td>
+</tr>
+<tr>
+<td>A ring of the player's influence, radius 150, is put round the ark, so the hand can reach the beach; it is never taken away, not even when the ark sails</td>
+<td>partial</td>
+<td><code>InfluencePosition</code> works (<code>src/Magic/Script/CHLInfluence.cpp</code>); not checked in game</td>
+</tr>
+<tr>
+<td>A campfire (a bonfire object) is placed between the sailors' three seats, can't be moved or picked up and is set burning</td>
+<td>partial</td>
+<td>CHL <code>CREATE</code>, <code>SetIdMoveable</code>, <code>SetIdPickupable</code> and <code>SetOnFire</code> work; not checked in game</td>
+</tr>
+<tr>
+<td>The guide's first lesson suggests this scroll first when the player hasn't opened it (or was already sent here and hasn't finished it): "You have not investigated many Silver Reward Scrolls, Leader. Try a few - it'll be worth it.", flying the camera to the beach</td>
+<td>todo</td>
+<td>the creature guide never runs in our tree; see <a href="../creature_guide.html">../creature_guide.md</a></td>
+</tr>
+<tr>
+<td>When the challenge ends by the time running out, the main script is stopped before it can mark itself finished, so the guide would keep suggesting it</td>
+<td>todo</td>
+<td>the timeout is never reached (see the deaths below)</td>
+</tr>
+<tr>
+<td>If the ark sails, a flag is set that the fifth land reads to bring the sailors back ("The Explorers Again"); killing them or letting the time run out loses that challenge</td>
+<td>todo</td>
+<td>the fifth land is never reached (<code>LOAD_MAP</code> is empty): <a href="../land_5.html">../land_5.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-scroll-and-the-advisors-hints">The scroll and the advisors' hints</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A silver scroll appears 16 above the ark</td>
+<td>partial</td>
+<td><code>CreateHighlight</code> (<code>src/ECS/ScriptHighlight.cpp</code>); not checked in game</td>
+</tr>
+<tr>
+<td>While it isn't clicked, every 30 seconds that the camera is within 100 of the scroll with the scroll on screen and the widescreen free, the evil advisor comes out, points at it in the world and says "A Silver Reward Scroll. Let's see what it's all about."</td>
+<td>partial</td>
+<td>the shared notice script's natives work (<code>SpiritEject</code>, <code>SpiritPointPos</code>, <code>RunText</code>, <code>GameThingFieldOfView</code>); not checked in game</td>
+</tr>
+<tr>
+<td>Clicking the scroll or the ark itself starts the challenge, and the scroll is switched to its active look</td>
+<td>partial</td>
+<td><code>GameThingClicked</code> and <code>SetActive</code> on a scroll work; not checked in game</td>
+</tr>
+<tr>
+<td>A second hint runs alongside until the scroll is clicked: when the camera comes within 100 of a point near the gates, the good advisor comes out, points at the scroll and says "There's a Silver Reward Scroll on the beach behind those huge Gates."; after that it waits 250 seconds before it can say it again</td>
+<td>partial</td>
+<td>the hint's natives work (<code>CreateTimer</code>, <code>SetTimerTime</code>, <code>GetTimerTimeRemaining</code>, the advisor ones); not checked in game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-sailors-arrive-and-sing-the-first-verse">The sailors arrive and sing the first verse</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>On the click, three sailors come out of the ark's door: two plain sailors and an accordion player, who carries the challenge's background accordion tune with him</td>
+<td>partial</td>
+<td>CHL <code>CREATE</code> makes the villagers and <code>AttachMusic</code> works (<code>src/Audio</code>); not checked in game</td>
+</tr>
+<tr>
+<td>A three-and-a-half-hour time limit starts from the click</td>
+<td>partial</td>
+<td><code>CreateTimer</code> works; the limit is never reached (see the deaths below)</td>
+</tr>
+<tr>
+<td>The first verse starts at once, as long as no sailor is in the hand or the creature's hand (the verse scene always checks this and is skipped otherwise)</td>
+<td>partial</td>
+<td>the verse runs; <code>GetObjectHeld</code> and <code>InCreatureHand</code> are stubs answering no, so a held sailor is not noticed</td>
+</tr>
+<tr>
+<td>The idle and building animations are stopped; the sailors walk at a slow 0.4 to their three seats round the fire (a sailor more than 15 away who isn't flying is put straight onto his seat; a flying one is waited for until he lands) and they are drawn in high detail</td>
+<td>partial</td>
+<td><code>MoveGameThing</code> (villagers), <code>SetPosition</code>, <code>SetHighGraphicsDetail</code> work; not checked in game</td>
+</tr>
+<tr>
+<td>The camera glides high over the beach, the first verse's music starts, then the camera drops low to the fire</td>
+<td>partial</td>
+<td>the camera moves and the verse's music (<code>StartMusic</code>, <code>src/Audio</code>) work; not checked in game</td>
+</tr>
+<tr>
+<td>The challenge is recorded with its title "The Explorers", no success and no alignment yet, and its reminder is this first verse scene, so clicking the scroll again replays the song</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>The accordion tune is moved to the third seat's sailor, who plays the accordion for the rest of the challenge; the second sits down and sways to the song; the first beckons, looks lost, then gossips</td>
+<td>partial</td>
+<td><code>DetachMusic</code>, <code>AttachMusic</code> and the villager animation commands work; not checked in game</td>
+</tr>
+<tr>
+<td>The camera cuts between close shots of the singers every 3 seconds, then the second sailor stands and despairs, and the camera sweeps along the ark and back to the fire</td>
+<td>partial</td>
+<td>the camera natives work; not checked in game</td>
+</tr>
+<tr>
+<td>The scene ends only when the song's words have finished; then the first two sailors go back to idling</td>
+<td>partial</td>
+<td>not checked in game</td>
+</tr>
+<tr>
+<td>The idle loop, at random: walk to the fire and prod it, whittle a stick, shrug, look puzzled or despair, then sit down, sway to a sailing song for 4 to 8 loops and stand up; it ends when the sailor dies</td>
+<td>todo</td>
+<td><span class="state approx">inferred</span> cut short: <code>GetProperty</code> has no health and answers 0, so the sailors are taken for dead at the first check after the first verse (see the deaths below)</td>
+</tr>
+<tr>
+<td>After the first verse, the evil advisor: "How dare they leave? After all we've done for them?"; the good advisor: "What have we done for them, exactly? Perhaps we should help them out. It might be nice."</td>
+<td>partial</td>
+<td><code>StartDialogue</code>, <code>RunText</code>, <code>TextRead</code> work; not checked in game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-three-verses-words-on-screen">The three verses (words on screen)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each verse's twelve lines are shown one at a time, each when the music reaches that line, or after 10 seconds if the music gives no cue; the last waits until read</td>
+<td>partial</td>
+<td><code>LastMusicLine</code> works; the word highlight that follows the song is not drawn (<code>src/Help</code>); not checked in game</td>
+</tr>
+<tr>
+<td>Verse one (wood): "Ooooh, we've got this notion" / "That we'd quite like to sail the ocean" / "So we're buildin' a big boat to leave here for good." / "We're not keen on sinkin'" / "So we're all sittin' here a thinkin'" / "Cos we built it too big and we've run out of wood." / "eidle eidle eee" / "eidle eidle eee" / "we simply can't leave til we get some more wood." / "Oooh, we're not keen on sinkin'" / "so that's why we're sittin' thinkin'" / "cos we simply can't leave til we get some more wood."</td>
+<td>partial</td>
+<td>sung in the sailors' (man's) voice; the first verse plays; not checked in game</td>
+</tr>
+<tr>
+<td>Verse two (grain): "Ooooh, the boat is now finished" / "But there's still somethin' on the wish-list" / "To keep us all goin' through the wind and the rain." / "There's no food on the table" / "And we can't sail unless we're able" / "So we ain't goin' nowhere 'til we get some grain." / "eidle eidle eee" / "eidle eidle eee" / "we simply can't leave until we get some grain." / "Therrrre's no food on the table" / "And we can't sail unless we're able" / "So we ain't goin' nowhere 'til we get some grain."</td>
+<td>todo</td>
+<td>never reached (inferred, see the deaths below)</td>
+</tr>
+<tr>
+<td>Verse three (meat): "Ooooh, We're not complainin'" / "but there's still one more thing remaining" / "Cos bread is quite borin' if that's all you eat." / "We need some flavour" / "So do us all a little favour" / "Cos, we ain't goin' nowhere 'til we get some meat." / "eidle eidle eee" / "eidle eidle eee" / "we simply can't leave until we've got some meat." / "Sooooo, Do us a favour" / "find somethin' with a little flavour" / "Cos we're goin' nowhere 'til we've got some meat."</td>
+<td>todo</td>
+<td>never reached <span class="state approx">inferred</span></td>
+</tr>
+<tr>
+<td>The songs are shown as known dialogue, so they don't wait for the player to click on through them</td>
+<td>partial</td>
+<td>not checked in game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="wood-finishing-the-boat">Wood: finishing the boat</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gifts are only looked for while all three sailors are alive</td>
+<td>todo</td>
+<td>never reached <span class="state approx">inferred</span>: the sailors count as dead</td>
+</tr>
+<tr>
+<td>Every 3 seconds the script looks for a wood store (a pile of wood dropped by the hand) within 40 of the ark</td>
+<td>todo</td>
+<td>never reached <span class="state approx">inferred</span>; <code>CallNear</code> works</td>
+</tr>
+<tr>
+<td>If one is there and no sailor is in either hand, its wood is counted and the pile fades away</td>
+<td>todo</td>
+<td>never reached; <code>GetResource</code> is a stub</td>
+</tr>
+<tr>
+<td>Each 1,500 wood builds a whole ark's worth; the ark starts a fifth built, so 1,200 wood in all finishes it; the target is capped at fully built</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>The building scene: the sailors walk at 0.4 to three spots along the ark and hammer, look overworked, saw, carve or swing a sledgehammer at random (1 to 5 loops, then a 4 to 10 second pause) until the ark is fully built</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>A sailor says "Thank you for this wood."; the camera glides to the ark, cuts, then pulls back over it</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>The ark grows on screen by 0.03 every half second, with a random small woodpile sound each step, until it reaches the new target</td>
+<td>todo</td>
+<td>never reached (<code>SetProperty</code> built amount and <code>PlaySoundEffect</code> work)</td>
+</tr>
+<tr>
+<td>If the ark still isn't finished: "Can we have some more wood please?"</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>The sailors stay at work by the ark until it is finished, not by the fire</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>A tree dropped within 40 of the ark (checked every 3.4 seconds) brings the good advisor out once in the whole challenge: "A tree is no good. These people require prepared wood."</td>
+<td>todo</td>
+<td>never reached (<code>SpiritAppear</code>, <code>SpiritDisappear</code> work)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="verse-two-grain">Verse two: grain</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>When the ark is fully built, verse two plays (if no sailor is held) and grain becomes the next need</td>
+<td>todo</td>
+<td>never reached; the cap at fully built was not traced</td>
+</tr>
+<tr>
+<td>Sailors that are flying are waited for, the others are put on their seats; all are drawn in high detail</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>The camera glides to the start of a recorded camera path and follows it while the second verse's music plays</td>
+<td>partial</td>
+<td>the music, <code>RunCameraPath</code> and the camera conversions work; never reached <span class="state approx">inferred</span></td>
+</tr>
+<tr>
+<td>The first sailor sits and sways, the accordion keeps playing; at the fourth line the second sailor is put on the ark's deck, walks along it, faces the camera and looks unimpressed, then is put back beside the ark and walks back to his seat to gossip</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>The challenge is recorded again: success 0.4, alignment 0.2, with verse two as the reminder</td>
+<td>todo</td>
+<td>never reached; <code>Snapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>The camera closes in on the fire with cuts every 3 seconds; when the words end, the first two sailors go back to idling</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>Every 3 seconds the script looks for a food store within 40 of the ark; its food is added up and the pile fades away</td>
+<td>todo</td>
+<td>never reached; <code>GetResource</code> is a stub</td>
+</tr>
+<tr>
+<td>While the player answers, the interface is limited to moving the hand</td>
+<td>partial</td>
+<td>the interaction level works (<code>SetInterfaceInteraction</code>); never reached <span class="state approx">inferred</span></td>
+</tr>
+<tr>
+<td>Under 300 food in all: "That's good grain. Please can we have more?"; 300 or more: "We're grateful for the grain, Holy One."</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+</tbody>
+</table>
+<h2 id="verse-three-meat">Verse three: meat</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>At 300 food, verse three plays (if no sailor is held) and meat becomes the last need</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>The sailors are put back on their seats as in the first verse; the third verse's music starts and the words follow</td>
+<td>partial</td>
+<td>the music works (<code>StartMusic</code>); never reached <span class="state approx">inferred</span></td>
+</tr>
+<tr>
+<td>The first sits and sways, the accordion plays, the second gossips; the record is updated to success 0.5, alignment 0.1, with verse three as the reminder</td>
+<td>todo</td>
+<td>never reached; <code>UpdateSnapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>The camera glides round the fire with cuts every 3 seconds, then cuts on the seventh, ninth and tenth lines of the song, ending in two quick moves</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>Every 3 seconds the script looks within 40 of the ark for a cow, a sheep, a horse or a pig, in that order, and takes one per check, fading it away</td>
+<td>todo</td>
+<td>never reached (<code>CallNear</code>, <code>ObjectDelete</code> work)</td>
+</tr>
+<tr>
+<td>A cow: "Great. Cattle to eat."; a sheep: "A sheep. Lovely. Sheep have many uses. And the voyage is long."; a pig: "A pig. Yeah, we'll have that."; after the first animal: "We need more meat, though."</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>Two animals are needed; the scroll is then taken away and a sailor says "Thanks for all this meat."</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>The interface is limited to moving the hand while they talk</td>
+<td>partial</td>
+<td>the interaction level works; never reached <span class="state approx">inferred</span></td>
+</tr>
+<tr>
+<td>Quirk: a horse gets no line of its own; as the first animal it is answered "Thanks for all this meat." and then "We need more meat, though."</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+</tbody>
+</table>
+<h2 id="extra-hands-villagers-a-woman-and-a-galley-boy">Extra hands: villagers, a woman and a galley boy</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every 3.3 seconds, while the ark is on screen and the camera within 200, the script looks for a villager within 40 of the ark who isn't held by a script</td>
+<td>todo</td>
+<td>never reached (<code>GameThingFieldOfView</code>, <code>CallNear</code> work)</td>
+</tr>
+<tr>
+<td>Before the boat is built, with no sailor dead: "Some more company is nice but we need to get the boat finished."</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>Once the boat is built, a man is taken aboard: "Hurrah! Another shipmate!"; he walks to the ark's door and vanishes, lost to his village</td>
+<td>todo</td>
+<td>never reached; <code>SexIsMale</code> is a stub</td>
+</tr>
+<tr>
+<td>A woman is taken too: "This young lady will keep us all in check during the voyage." / "Go inside. You have your own cabin."</td>
+<td>todo</td>
+<td>never reached; <code>SexIsMale</code> is a stub</td>
+</tr>
+<tr>
+<td>While a sailor is dead, a man is taken as a replacement: "Great! Another sailor. Just what we need!" / "Go inside and pick out a uniform, mate."</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>While a sailor is dead, a woman is turned away: "It'd be lovely to have you along, but we need a man to steer the big heavy rudder."</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>After a refusal the script waits until that villager is more than 40 from the ark, or 20 seconds</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>Each man taken while a sailor is dead brings a new sailor out of the door, who walks to the dead one's seat and starts idling; the death count goes back down</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>Once the boat is built, the first child brought within 40 (checked every 3.1 seconds) becomes the galley boy: "Great! Someone to scrub the decks! Get inside!"</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>The galley boy is put on the ark's deck scrubbing it for good, facing the camera, which closes on him and pulls back with a lens change over 6 seconds, then returns to where it was</td>
+<td>todo</td>
+<td>never reached (<code>SetCameraLens</code>, <code>MoveCameraLens</code> work)</td>
+</tr>
+<tr>
+<td>Only one galley boy is taken; he leaves with the ark</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+</tbody>
+</table>
+<h2 id="hurting-the-sailors">Hurting the sailors</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every pass of the main loop checks each sailor for having died or vanished, whatever killed him (hand, creature, miracle)</td>
+<td>todo</td>
+<td><code>ThingValid</code> works but <code>GetProperty</code> has no health and answers 0, so <span class="state approx">inferred</span> every sailor counts as dead at the first check</td>
+</tr>
+<tr>
+<td>The first seat's sailor dying: "Oh my god. You killed Kenneth!"; the others: "You killed my shipmate! Outrageous!" (not said for the last of the three)</td>
+<td>partial</td>
+<td><span class="state approx">inferred</span> the lines play, but wrongly, right after the first verse (see above); not checked in game</td>
+</tr>
+<tr>
+<td>A death records success at the dead share (a third per sailor) and alignment -0.2, then at once 0.3 and -0.4 if the second sailor still lives, or -0.6 if only the third does</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>If the accordion player dies, the tune moves: a surviving sailor is swapped for an accordion player in the same seat, who plays on</td>
+<td>todo</td>
+<td>not checked: with every sailor taken for dead at once <span class="state approx">inferred</span></td>
+</tr>
+<tr>
+<td>With a sailor dead, the reminder becomes "They haven't got enough shipmates." (good advisor) and no gifts are accepted until a man replaces him</td>
+<td>todo</td>
+<td>the reminder needs <code>Snapshot</code>, a stub</td>
+</tr>
+<tr>
+<td>All three dead: the evil advisor: "You killed all the explorers!" / "But I can't get their stupid song out of my brain."; the record is set to success 1, alignment -1, and the challenge ends with no reward</td>
+<td>partial</td>
+<td><span class="state approx">inferred</span> this ending plays, wrongly, right after the first verse; the record is a stub (<code>UpdateSnapshot</code>); the ark, the campfire and the scroll stay</td>
+</tr>
+</tbody>
+</table>
+<h2 id="running-out-of-time">Running out of time</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>After three and a half hours the sailors walk to the ark's door; the record is set to success 1, alignment -0.6</td>
+<td>todo</td>
+<td>never reached (the deaths end it first, inferred)</td>
+</tr>
+<tr>
+<td>The good advisor's voice: "The Missionaries have given up waiting for you, Leader."; the sailors fade away</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>Every script of the challenge is stopped; the ark, the campfire and the scroll stay</td>
+<td>todo</td>
+<td>never reached; <code>StopScriptsInFilesExcluding</code> works</td>
+</tr>
+</tbody>
+</table>
+<h2 id="setting-sail">Setting sail</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>When wood, grain and meat are all given, all three sailors are alive, no verse is playing and no sailor is held, the campfire and the galley boy are taken away and the departure starts</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>The sailors and the ark are removed and a hand-made film of the ark sailing away starts (its own two boat animations from the game's misc data)</td>
+<td>todo</td>
+<td>never reached; <code>PlayJcSpecial</code> does play the boat film (<code>src/CHLApi.cpp</code>, water.md)</td>
+</tr>
+<tr>
+<td>A heave sound, then two cheers 3.5 seconds apart as the camera glides along the boat</td>
+<td>todo</td>
+<td>never reached (<code>PlaySoundEffect</code> works)</td>
+</tr>
+<tr>
+<td>The camera turns to the sea and a sailor says "Thank you, highness. We won't forget you, you know." as the third epic theme starts</td>
+<td>partial</td>
+<td>the music works (<code>StartMusic</code>); never reached</td>
+</tr>
+<tr>
+<td>The dialogue box closes; a cheer, a close shot of the boat, then shots far out to sea to the west</td>
+<td>todo</td>
+<td>never reached (<code>GameCloseDialogue</code> works)</td>
+</tr>
+<tr>
+<td>The record is set to success 1, alignment 0.2, with a picture taken</td>
+<td>todo</td>
+<td>never reached; <code>UpdateSnapshotPicture</code> is a stub</td>
+</tr>
+<tr>
+<td>Back over the beach, the good advisor: "I just hate goodbyes."; the evil advisor: "I just hate good."</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-reward">The reward</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A Water miracle dispenser is built on the beach by the old camp, facing angle 0, and switched on</td>
+<td>partial</td>
+<td>CHL <code>CREATE</code> makes spell dispensers and <code>SetMagicProperties</code>, <code>SetActive</code> work (<code>src/Magic/Script/CHLWorship.cpp</code>); never reached; see ../../miracles/dispensers_and_seeds.md and ../../miracles/water.md</td>
+</tr>
+<tr>
+<td>Its refill time is left at the dispenser's own (the script asks for 0 seconds, which the engine ignores for a non-timer object)</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>The reward sting plays and the camera glides to a view 21.5 to the side and 14 up from the dispenser over 4 seconds</td>
+<td>todo</td>
+<td>never reached; see <a href="../rewards.html">../rewards.md</a></td>
+</tr>
+<tr>
+<td>If it is the player's first dispenser: the evil advisor: "This pedestal is a Miracle Dispenser. It charges up and generates one-shot Miracles."; a signpost is put beside it ("A Miracle Dispenser gives out one-shot Miraculous Wonders when it's fully charged."), "Click on the signpost for more info.", and a "did you know" scroll about miracles hidden around the land is placed ("That there are Miracles hidden all over Eden. Keep your eyes peeled.")</td>
+<td>todo</td>
+<td>never reached; shared with every dispenser reward (<a href="../rewards.html">../rewards.md</a>)</td>
+</tr>
+<tr>
+<td>Otherwise: "Nice. Another of those cool Miracle Dispensers."</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>The dispenser's own help lines are then spoken</td>
+<td>todo</td>
+<td>never reached; <code>GetFirstHelp</code>, <code>GetLastHelp</code> are stubs</td>
+</tr>
+<tr>
+<td>A storm reward falling from the sky was the original reward and is left commented out</td>
+<td>n/a</td>
+<td>not in the compiled scripts</td>
+</tr>
+</tbody>
+</table>
+<h2 id="unused-and-cut-material">Unused and cut material</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>An advisor line "It looks like the men are getting ready to set sail." (good advisor) is in the text table but no script says it</td>
+<td>n/a</td>
+<td>not used by the shipped scripts</td>
+</tr>
+<tr>
+<td>A sailor's line "How are we going to sail the ship now we don't have a full crew ?" is in the text table but no script says it</td>
+<td>n/a</td>
+<td>not used by the shipped scripts</td>
+</tr>
+<tr>
+<td>The quest's text calls the sailors missionaries throughout, though the scroll's title is "The Explorers"</td>
+<td>n/a</td>
+<td>naming only</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

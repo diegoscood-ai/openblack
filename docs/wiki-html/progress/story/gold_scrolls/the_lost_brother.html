@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Lost Brother — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-lost-brother">The Lost Brother</a><ul>
+<li><a href="#where-it-sits-in-the-story">Where it sits in the story</a></li>
+<li><a href="#how-it-appears">How it appears</a></li>
+<li><a href="#the-introduction">The introduction</a></li>
+<li><a href="#finding-the-brother">Finding the brother</a></li>
+<li><a href="#ending-reunited">Ending: reunited</a></li>
+<li><a href="#ending-healed">Ending: healed</a></li>
+<li><a href="#ending-smashing-the-house">Ending: smashing the house</a></li>
+<li><a href="#ending-deaths">Ending: deaths</a></li>
+<li><a href="#the-reward">The reward</a></li>
+<li><a href="#after-it-ends">After it ends</a></li>
+<li><a href="#unused-material">Unused material</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-lost-brother">The Lost Brother</h1>
+<p>The second step of finding the creature-gate stones on the first land: a Norse woman's sick brother has wandered off
+from his sick-bed in a fever; if the player finds him and brings him back to her she hands over the ape gate stone kept
+in her house. The player can instead heal him, smash her house to get the stone, or kill either of them, and each way
+ends the story differently with its own alignment.</p>
+<p><strong>Land:</strong> 1 · <strong>Giver:</strong> the brother's sister, a Norse housewife, at her house, on the edge of the Norse village · <strong>Script:</strong> LostBrother · <strong>Reward:</strong> the ape gate stone (one of the three that open the creatures' gates), set on her doorstep · <strong>Repeatable:</strong> no</p>
+<p>Sources: the land's challenge scripts (the original source text, checked against the PC game's compiled
+<code>challenge.chl</code>), the land's map script (<code>Land1.txt</code>) and the game's text table. openblack is judged on this tree: of
+the 85 commands the quest needs only 5 log "not implemented" in <code>src/CHLApi.cpp</code> (the record among them); the dialogue,
+advisor, scroll, villager-making, camera move, timer, effect and property commands work, and so do the pick-up,
+moveable, indestructible and fire flags, the camera cuts, fades, widescreen, music and game time. The land's control
+script stops before this quest is reached, in Choose Your Creature's gate-stone loop (see
+<a href="../../scripts/land1_script.html">../../scripts/land1_script.md</a>), so none of it happens in game; rows are todo unless the
+notes say otherwise. The land as a whole is in <a href="../land_1.html">../land_1.md</a>; the quest that starts it is
+<a href="choose_your_creature.html">Choose Your Creature</a>.</p>
+<p><strong>Progress: 1/68 done, 37 partial — 29%</strong></p>
+<h2 id="where-it-sits-in-the-story">Where it sits in the story</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The quest is a gold (story) scroll, titled "The Lost Brother"</td>
+<td>partial</td>
+<td><code>CreateHighlight</code> is real (<code>src/ECS/ScriptHighlight</code>); never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>It is started by the creature trainer at the creature gates, once the first gate stone (the tiger stone the villagers danced round when the player arrived) is on the plinth: "Excellent. You've found a Gate Stone. You'll need to search for another, now." then "Try looking for a Gold Story Scroll in the Village." and the camera rises to look down towards the village</td>
+<td>todo</td>
+<td>the plinth's stone count <code>ObjectInfoBits</code> is a stub, so Choose Your Creature never starts this quest; see <a href="choose_your_creature.html">choose_your_creature.md</a></td>
+</tr>
+<tr>
+<td>Its stone is the second of the three: the plinth knows the ape stone (this one), the tiger stone and the carved stone apart; with the ape and tiger stones both on it, the trainer sends the player on to <a href="the_sculptor.html">The Sculptor</a></td>
+<td>todo</td>
+<td>the plinth reading is a stub; see <a href="choose_your_creature.html">choose_your_creature.md</a></td>
+</tr>
+<tr>
+<td>The ape stone stands inside the woman's house from the start of the land (placed by the land's map)</td>
+<td>done</td>
+<td>our tree loads the land's mobile statics (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>, <code>Land1.txt</code>)</td>
+</tr>
+<tr>
+<td>From the end of the opening (the family leading the player home) the ape stone can't be picked up or moved; the quest keeps it locked until the woman gives it away or the quest ends</td>
+<td>partial</td>
+<td><code>ProtectGateKeys</code> (started by <code>FollowUs</code>) locks it with <code>SetIdPickupable</code> and <code>SetIdMoveable</code> (real); not checked in game past the intro's hand-over</td>
+</tr>
+<tr>
+<td>A separate watcher keeps the ape stone in play until it is on the plinth: lost (or left outside the player's influence) it is made again on the woman's doorstep; left elsewhere for a minute after being dropped it is put back on the doorstep; once more than 100 from the doorstep it sparkles</td>
+<td>partial</td>
+<td>the watcher calls real natives (<code>GetInfluence</code>, <code>CREATE</code>, timers), but the held read (property 9) is not handled by <code>GetProperty</code>; see <a href="choose_your_creature.html">choose_your_creature.md</a></td>
+</tr>
+<tr>
+<td>A new game that skips straight to choosing the creature (or keeps the old creature, patch 1.1) deletes the three gate stones and never starts this quest</td>
+<td>partial</td>
+<td>the skip questions are real (<code>CanSkipTutorial</code>, the SkipBox) and <code>LandControl1</code> deletes the stones (<code>ObjectDelete</code>); see <a href="choose_your_creature.html">choose_your_creature.md</a></td>
+</tr>
+<tr>
+<td>The quest can't leave the story stuck: every ending either hands over the stone or unlocks it where it stands in the house (see "After it ends"), and the watcher remakes it if it is lost</td>
+<td>partial</td>
+<td>the same script; never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-it-appears">How it appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A gold scroll appears over the woman's house, 6 up</td>
+<td>partial</td>
+<td><code>CreateHighlight</code> and the height through <code>SetProperty</code> (YPos) are real; never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>Until the scroll or the house is clicked, whenever the camera is within 100 of the scroll and it is on screen, the good advisor pops out at most every 30 seconds, points at it and says "Your godly attention is required here, Leader."</td>
+<td>partial</td>
+<td>the shared notify script calls only real natives (<code>SpiritEject</code>, <code>SpiritPointPos</code>, <code>RunText</code>); never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>Clicking the scroll or the house makes the scroll active and the introduction begins; nothing else of the quest happens until then</td>
+<td>partial</td>
+<td><code>GameThingClicked</code> is real and <code>SetActive</code> handles highlights; never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>The sister (a new Norse housewife) is made at her house and the brother (a Norse farmer) at his sick-bed in some trees through a pass beyond the village, with 0.4 health, lying in a dying loop</td>
+<td>todo</td>
+<td><code>CREATE</code> makes villagers and the dying loop is a script state (real), but health (property 1) is not handled by <code>SetProperty</code></td>
+</tr>
+<tr>
+<td>Each of them gets a small patch of the player's influence (radius 5) that moves with them, so they can be picked up wherever they are</td>
+<td>partial</td>
+<td><code>InfluenceObject</code> is real (<code>src/Magic/Script/CHLInfluence.cpp</code>); never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>A sparkle marks the brother for as long as he is lost</td>
+<td>partial</td>
+<td><code>SpecialEffectObject</code> is real; never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>A drizzle is made over the brother: 15 degrees, steady rain, fully overcast, eight clouds of shade 0.8 at height 130, no lightning, reaching 600 to 1000 around him, not blown by the wind, lasting two minutes and fading over 40 seconds</td>
+<td>partial</td>
+<td><code>CREATE</code> of a weather thing and the <code>Change*Properties</code> natives are real (<code>src/Magic/Script/CHLWeather.cpp</code>); <code>SetAffectedByWind</code> is a stub; never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-introduction">The introduction</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A widescreen cut-scene with the sad generic script theme; both villagers are drawn in high detail and the sister can't be hurt until it ends</td>
+<td>partial</td>
+<td><code>SetWidescreen</code>, <code>StartMusic</code>, <code>SetIndestructable</code> and <code>SetHighGraphicsDetail</code> (<code>ecs::super_villager</code>) are real; never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>The sister walks out in despair, very slowly (speed 0.12), to a spot in front of her house; the camera follows her and closes in over 10 seconds</td>
+<td>partial</td>
+<td><code>MoveGameThing</code>, <code>OverrideStateAnimation</code> on villagers, <code>FocusFollow</code> and <code>MoveCameraPosition</code> are real, the speed read and write are; never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>There she plays her scripted kneel and says "O Holy One, I kneel before you."</td>
+<td>partial</td>
+<td><code>RunText</code> is real; never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>The quest is recorded: "The Lost Brother", 0 done, alignment 0, reminder (good advisor) "The Lost Brother is by some trees. Reunite him with his sister."</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub; the challenge log is not drawn; see <a href="../challenges_and_rewards.html">../challenges_and_rewards.md</a></td>
+</tr>
+<tr>
+<td>Turning towards the sick-bed and pointing: "My brother, suffering a fever, has left his sick-bed and become lost." while the camera moves behind her; she stands in despair and the screen fades to black</td>
+<td>partial</td>
+<td>real villager, camera, text natives and <code>SetFade</code>; never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>The camera runs along a set path over to the brother lying in the trees; he writhes as if poisoned and groans: "He is so weak I'm frightened he'll die." (the sister's voice over the shot)</td>
+<td>partial</td>
+<td><code>RunCameraPath</code> and <code>PlaySoundEffect</code> are real; never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>The camera drops in close to him, he groans again and the screen fades</td>
+<td>partial</td>
+<td>real camera and sound natives; never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>Back at the weeping sister: "If you find him and bring him home, I'll give you one of the three Gate Stones. It's in my house." She mourns while the camera turns to the stormy mountain above</td>
+<td>partial</td>
+<td>real text and camera natives; never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>The game time is put back to what it was when the scene started (an earlier draft jumped the time of day for the brother's shot)</td>
+<td>partial</td>
+<td><code>GetGameTime</code> and <code>SetGameTime</code> are real; never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>The sister then wanders around in front of her house</td>
+<td>todo</td>
+<td><code>SetScriptStatePos</code> and <code>SetScriptFloat</code> (the wander's place and range) are stubs</td>
+</tr>
+<tr>
+<td>The music stops; both advisors come out. The evil advisor points at the house: "I gotta plan. Why don't we trash the house? We can get the Gate Stone that way." Good: "I heartily object! That's just malicious." Evil: "That's kind of the whole point."</td>
+<td>partial</td>
+<td><code>SpiritEject</code>, <code>SpiritPointPos</code>, <code>RunText</code> are real; never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>If the player hardly used the zoom while following the family in the opening, the good advisor adds "Leader, you haven't used your zoom ability much.", "You'll need it to find the lost brother." and "Here's a quick reminder." and the zoom hand demonstration plays</td>
+<td>partial</td>
+<td><code>PlayHandDemo</code> is real (<code>src/Input/HandDemo.h</code>) and the opening's zoom count is plain script; never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="finding-the-brother">Finding the brother</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Until the brother is first picked up: with the camera within 150 of him, him on screen and the sister not within 30 of him, the evil advisor points at him, "Hey! There's the sick guy!", at most every 30 seconds</td>
+<td>partial</td>
+<td>real field-of-view, distance and advisor natives; the held read (property 9) is not handled; never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>Otherwise, with the camera within 200 of the sister, a spot by the pass on screen and the brother still at his sick-bed, the good advisor points at him: "The Lost Brother is in some trees through the pass." at most every 30 seconds</td>
+<td>partial</td>
+<td>real natives; never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>The player carries him in the hand; while he is held within 2 of his living sister (she on land), she turns to him and jumps at the hand</td>
+<td>partial</td>
+<td>the hand carries villagers; the held read (property 9) is not handled by <code>GetProperty</code>; never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>Once his health drops below where it started (hurt by a drop or a throw) while he is not held, the evil advisor says once "No pain, no gain. Let's kill him."</td>
+<td>todo</td>
+<td>health (property 1) is not handled by <code>GetProperty</code></td>
+</tr>
+<tr>
+<td>While he is hurt and alive he groans every so often, a random one of five groans</td>
+<td>todo</td>
+<td><code>PlaySoundEffect</code> is real, but the hurt test reads health (property 1), not handled</td>
+</tr>
+<tr>
+<td>Nothing else harms him: he never dies of his fever (his 60-second countdown and slow decline were cut)</td>
+<td>partial</td>
+<td>the same script; never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="ending-reunited">Ending: reunited</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>When the brother is within 10 of his sister anywhere, both alive, on land, neither held nor flying, and no other dialogue is running, the reunion plays (once); his sparkle goes</td>
+<td>partial</td>
+<td>distance, flying and dialogue reads are real; the held read (property 9) is not; never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>Widescreen, the sad theme, both in high detail; the camera looks down on the brother as the sister runs to him (speed 0.4), and prays three times</td>
+<td>partial</td>
+<td>music, widescreen, high detail and villager moves are real; never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>A fade; "There you are. I've been so worried!" while, close up, she helps him up</td>
+<td>partial</td>
+<td>real fades, texts and villager animations; never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>Another fade; close in as they hug, then she gossips to the camera and he looks puzzled</td>
+<td>partial</td>
+<td>real fades and villager animations; never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>If she still has the stone: "Thank you for your benevolence. Here is the Gate Stone." and the stone is handed over (below), recorded as fully done with alignment +0.9</td>
+<td>todo</td>
+<td>the record goes through <code>Snapshot</code> and <code>UpdateSnapshot</code> (stubs), so no alignment change; the hand-over itself is real</td>
+</tr>
+<tr>
+<td>If the player had already smashed the house for it, the record closes fully done with alignment -0.3 instead</td>
+<td>todo</td>
+<td>the record is a stub</td>
+</tr>
+<tr>
+<td>His health rises by 0.1; both walk home slowly (speed 0.3) and each rejoins the Norse village when home, held or dead</td>
+<td>todo</td>
+<td>health (property 1) is not handled and rejoining the village (<code>AttachToGame</code>) is a stub; <code>ReleaseFromScript</code> is real</td>
+</tr>
+</tbody>
+</table>
+<h2 id="ending-healed">Ending: healed</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>If the brother's health rises above where it started (for instance a heal miracle), he sets off home and his sparkle goes</td>
+<td>todo</td>
+<td>health (property 1) is not handled by <code>GetProperty</code></td>
+</tr>
+<tr>
+<td>A cut-scene: the record goes to 70% with alignment +0.5; both advisors: good "A life saved and a worshipper on our side forever. You've made me happy, Leader."; evil "No way. You gave in there, my friend. I detest weakness. And niceness."</td>
+<td>todo</td>
+<td>the record is a stub; the advisor lines are real</td>
+</tr>
+<tr>
+<td>If she still has the stone, the sister sets off home too and the stone is handed over, fully done with alignment +0.8; the quest ends there, without the reunion scene</td>
+<td>todo</td>
+<td>the record is a stub and the health test is not handled</td>
+</tr>
+<tr>
+<td>If the stone was already taken, the quest goes on and a later reunion closes it (alignment -0.3)</td>
+<td>todo</td>
+<td>health (property 1) is not handled; the record is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="ending-smashing-the-house">Ending: smashing the house</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Once the house is below three quarters of its health while she still has the stone, the break-in scene plays (once)</td>
+<td>todo</td>
+<td>the house's health (property 1) is not handled by <code>GetProperty</code></td>
+</tr>
+<tr>
+<td>If the sister is alive she stops, faces the camera and waves for attention: "My house! Here, take the Gate Stone!", hands it over (recorded 50% done, alignment -0.3), then "You've got the Gate Stone. Now please find my brother!" and the quest goes on</td>
+<td>todo</td>
+<td>follows from the house's health read; the record is a stub</td>
+</tr>
+<tr>
+<td>If she is dead, the stone is handed over at once (fully done, alignment -0.7) and the evil advisor: "All right. Let's take the Gate Stone back to the pedestal."</td>
+<td>todo</td>
+<td>the record is a stub; the death test reads properties not handled</td>
+</tr>
+</tbody>
+</table>
+<h2 id="ending-deaths">Ending: deaths</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>If the brother dies (from the hand, a throw, a miracle or the creature), the camera follows his body until it lands and closes in; his sparkle goes</td>
+<td>partial</td>
+<td><code>PositionFollow</code> and <code>FocusFollow</code> are real; never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>The record goes to 50% with alignment -0.4; its reminder is the good advisor's "You killed the brother, but his sister doesn't know." if she is alive, else the evil advisor's "Way I see it, we need that Gate Stone. Wreck the house and grab it!"</td>
+<td>todo</td>
+<td>the record is a stub</td>
+</tr>
+<tr>
+<td>The evil advisor then points: at the body, "The sick dude's dead. Let's show the body to his sister. Ha!" if she is alive; at the house with "Way I see it, we need that Gate Stone. Wreck the house and grab it!" if she is dead and still has the stone; otherwise the record closes fully done</td>
+<td>partial</td>
+<td>the advisor lines are real; never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>If his body vanishes while she still has the stone, the record goes to 50% (alignment -0.3) and the evil advisor points at the house: "Now let's smash up the house with a rock to get that Gate Stone."</td>
+<td>todo</td>
+<td>the record is a stub</td>
+</tr>
+<tr>
+<td>Five minutes after his death, if the stone has been taken, the record closes fully done (alignment -0.4)</td>
+<td>todo</td>
+<td><code>CreateTimer</code> is real, but the record is a stub</td>
+</tr>
+<tr>
+<td>Laying his body within 10 of his living sister (on land, neither held) plays a scene with the sad theme: she walks to it, falls into mourning, "By the gods! He's dead! Oh my poor brother!"; if she still has the stone, "You are so cruel. Take the Gate Stone. Have it. But leave me in peace." and it is handed over (fully done, alignment -0.5); otherwise the hand-over scene plays again anyway (alignment -0.8). Once out of view she rejoins the village</td>
+<td>todo</td>
+<td>the record is a stub; the scene's villager and text natives are real</td>
+</tr>
+<tr>
+<td>If the sister dies, the camera follows her body and the record goes to 50% (alignment -0.4, reminder "Way I see it, we need that Gate Stone. Wreck the house and grab it!"); evil: "Wow. A world of pain. I like it."; if she still had the stone he points at the house, "Now let's smash up the house with a rock to get that Gate Stone.", otherwise the record closes fully done; good: "Aah. How appalling. Life is sacred you know."</td>
+<td>todo</td>
+<td>the record is a stub; the camera and advisor natives are real</td>
+</tr>
+<tr>
+<td>Bringing the living brother within 10 of his sister's body: "My Sister? Dead? How?", then "Ahhhh. Uh." and he dies of grief; recorded 50% (alignment -1) with the evil advisor pointing at the house, "We've finished off both of them. Now let's smash up her house to get the Gate Stone!", or fully done (alignment -1) if the stone was already taken</td>
+<td>todo</td>
+<td>the record is a stub</td>
+</tr>
+<tr>
+<td>With the sister dead, the brother, unless healed, dies two minutes later wherever he is; recorded 75% (alignment -0.5) if the stone is still in the house, fully done otherwise, and the quest ends</td>
+<td>todo</td>
+<td>the record is a stub</td>
+</tr>
+<tr>
+<td>Brought home hurt (within 10 of the house, not held or flying) with the sister dead, the good advisor: "You've saved the brother but there's no-one to cure him." (recorded 50%, alignment -0.3); 90 seconds later the record closes fully done with alignment -0.8 and the quest ends</td>
+<td>todo</td>
+<td>the health test is not handled and the record is a stub</td>
+</tr>
+<tr>
+<td>Set down right at the house (within 1) with the sister dead and him alive, the quest simply ends</td>
+<td>partial</td>
+<td>the same script; never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-reward">The reward</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Handing over the stone is a cut-scene: the stone is unlocked (can be picked up and moved) and set on the doorstep in front of the house</td>
+<td>partial</td>
+<td><code>SetIdPickupable</code>, <code>SetIdMoveable</code> and <code>SetPosition</code> are real; never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>A lasting sparkle marks the stone, and a ten-second "success" burst plays on it</td>
+<td>partial</td>
+<td><code>SpecialEffectObject</code> and <code>SpecialEffectPosition</code> are real; never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>If the camera is within 100 of the stone it glides over 10 seconds to a view past the stone towards the gates; otherwise the screen fades to black for 1.5 seconds, cuts to beside the stone, fades in over 3 seconds and makes the same glide</td>
+<td>partial</td>
+<td><code>SetCameraPosition</code>, <code>SetCameraFocus</code>, <code>SetFade</code>, <code>SetFadeIn</code> and <code>MoveCameraPosition</code> are real; never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>The scroll is removed and the record is set with that ending's success and alignment, keeping the reminder "The Lost Brother is by some trees. Reunite him with his sister."</td>
+<td>todo</td>
+<td><code>ObjectDelete</code> of the scroll is real, but the record (<code>Snapshot</code>) is a stub</td>
+</tr>
+<tr>
+<td>Each record update moves the player's alignment by its alignment; the best ending (+0.9) is the reunion with the stone still in the house, the worst (-1) the brother dying of grief</td>
+<td>todo</td>
+<td>the record is a stub, so no alignment moves; see <a href="../challenges_and_rewards.html">../challenges_and_rewards.md</a> and ../../worship/alignment.md</td>
+</tr>
+<tr>
+<td>The player takes the stone to the plinth by the creature gates; that is <a href="choose_your_creature.html">Choose Your Creature</a>'s part</td>
+<td>todo</td>
+<td>the plinth reading is a stub; see <a href="choose_your_creature.html">Choose Your Creature</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="after-it-ends">After it ends</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Five seconds after the quest ends, if the stone still exists it is unlocked; while it stays within 5 of the house the evil advisor points at the house every 30 seconds: "It doesn't look like that woman is going to give us the Gate Key."</td>
+<td>partial</td>
+<td>real natives; never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>The brother, if he exists, is faded out of the world, even after the happy endings where he was walking home (the check meant to spare him is always true)</td>
+<td>partial</td>
+<td><code>ObjectDelete</code> is real, so the same bug would follow; never started: Choose Your Creature stops before the first stone (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>The scroll is cleared once the stone is picked up or gone; with the two-minute death ending, the record is then set fully done (alignment -0.5)</td>
+<td>todo</td>
+<td>the record is a stub</td>
+</tr>
+<tr>
+<td>The siblings, if still around, rejoin the Norse village as ordinary villagers</td>
+<td>todo</td>
+<td><code>AttachToGame</code> is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="unused-material">Unused material</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A cut ending where both siblings arrive home together: "We offer thanks, O mighty spirit. Here. The Gate Stone." and the good advisor: "A Gate Stone! Let's give it to the woman at the Gate!"</td>
+<td>n/a</td>
+<td>commented out of the script; the lines are in the text table</td>
+</tr>
+<tr>
+<td>A cut scene for both siblings killed: "The siblings are dead. You gotta trash the house and get the Gate Stone now, Boss."</td>
+<td>n/a</td>
+<td>commented out</td>
+</tr>
+<tr>
+<td>A cut 60-second countdown and slow health loss, ending with the brother dying of his fever: "The lost one must be at death's door. This is dreadful!" / "Maybe we've got better things to do. You thought of that?"</td>
+<td>n/a</td>
+<td>commented out</td>
+</tr>
+<tr>
+<td>A cut scene for flying the brother to his sister</td>
+<td>n/a</td>
+<td>only a commented-out call; no such script</td>
+</tr>
+<tr>
+<td>An older copy of the quest run by an unshipped demo control script</td>
+<td>n/a</td>
+<td>not in the game's program</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

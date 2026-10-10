@@ -10,6 +10,7 @@
 #pragma once
 
 #include <memory>
+#include <string_view>
 
 #include "Graphics/RenderPass.h"
 
@@ -22,8 +23,16 @@ namespace openblack::graphics
 class Renderer;
 }
 
+namespace openblack::testbed_scenarios
+{
+class TestbedHost;
+}
+
 namespace openblack::debug::gui
 {
+/// The name of the window of the testbed's scenarios, which opens with the testbed
+constexpr std::string_view k_TestbedScenariosWindow = "Testbed Scenarios";
+
 class DebugGuiInterface
 {
 public:
@@ -34,6 +43,10 @@ public:
 	virtual void SetScale(float scale) noexcept = 0;
 	virtual bool ProcessEvents(const SDL_Event& event) noexcept = 0;
 	virtual bool Loop() noexcept = 0;
+	/// Opens the debug window of the name, if there is one
+	virtual void OpenWindow(std::string_view name) noexcept = 0;
+	/// The game the testbed's scenarios and its menu item reach, or none once it has gone
+	virtual void SetTestbedHost(testbed_scenarios::TestbedHost* host) noexcept = 0;
 	virtual void Draw() noexcept = 0;
 };
 } // namespace openblack::debug::gui

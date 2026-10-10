@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Temple camera — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="here" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#temple-camera">Temple camera</a><ul>
+<li><a href="#entering-and-leaving">Entering and leaving</a></li>
+<li><a href="#main-room">Main room</a></li>
+<li><a href="#creatures-room">Creature's room</a></li>
+<li><a href="#rooms-of-pictures">Rooms of pictures</a></li>
+<li><a href="#scrolls">Scrolls</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="temple-camera">Temple camera</h1>
+<p>The camera inside the temple: each room's camera comes in along the room's path, then the player looks around the room
+and walks between rooms by clicking doors. The rooms themselves are in <code>../temple/</code>.</p>
+<p><strong>Progress: 24/26 done, 1 partial — 94%</strong></p>
+<h2 id="entering-and-leaving">Entering and leaving</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Entering the temple, the camera flies up to the entrance and in</td>
+<td>todo</td>
+<td>our tree cuts straight inside (<code>TempleInterior::Activate</code>, <code>src/3D/Implementations/TempleInterior.cpp</code>) (unconfirmed exact flight)</td>
+</tr>
+<tr>
+<td>Each room's camera comes in along the room's path</td>
+<td>done</td>
+<td><code>src/Camera/TempleCameraModel.cpp</code>, paths from <code>Data/Citadel/engine/&lt;room&gt;.cam</code> (loaded in <code>src/Game.cpp</code>); <code>TempleCamera.PictureRoomsStartLookingAlongTheEndOfTheirPaths</code> (<code>test/camera/test_temple_camera.cpp</code>)</td>
+</tr>
+<tr>
+<td>Coming in, the camera eases from where it was onto the path</td>
+<td>done</td>
+<td><code>TempleCameraModel::StartIntro</code> blends from the previous camera over its first seconds</td>
+</tr>
+<tr>
+<td>The entrance doors close behind the camera as it comes in</td>
+<td>partial</td>
+<td><code>TempleCameraModel</code> closes the doors 0.4 s into a room's path at its own rate (<code>k_IntroDoorCloseTime</code>, <code>k_IntroDoorCloseRate</code>) through <code>TempleDoors</code> (<code>TempleDoors.*</code>, <code>test/temple/test_temple_doors.cpp</code>); not compared with the game</td>
+</tr>
+<tr>
+<td>Sent straight to a room by its key, the camera cuts past the room's path</td>
+<td>done</td>
+<td><code>Game::ProcessTempleRoomKeys</code> and <code>TempleInterior::GoToRoom</code>; keys in <code>src/Input/KeyBindings.h</code></td>
+</tr>
+<tr>
+<td>Leaving, the main room fades to white and the camera is put 50 above the place and 70 along from it, looking at it</td>
+<td>done</td>
+<td><code>TempleInterior</code> (<code>src/3D/Implementations/TempleInterior.cpp</code>): fade to white, then the camera 50 above and 70 along from the place</td>
+</tr>
+<tr>
+<td>A double click on the pool's island map leaves the temple for that place</td>
+<td>done</td>
+<td><code>TempleCameraModel::TakeMapDoubleClick</code>, read by <code>TempleInterior</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="main-room">Main room</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dragging the walls turns the room round the player and leans the view between the pool and the roof</td>
+<td>done</td>
+<td><code>TempleCamera.LooksAtTheMainRoomFromItsOrbit</code></td>
+</tr>
+<tr>
+<td>The arrow keys turn and lean</td>
+<td>done</td>
+<td><code>TempleCameraModel.cpp</code> orbit keys</td>
+</tr>
+<tr>
+<td>With the mouse at the screen's top or bottom edge the view leans, speeding up</td>
+<td>done</td>
+<td><code>TempleCameraModel.cpp</code> (<code>_edgeRamp</code>)</td>
+</tr>
+<tr>
+<td>The pool slowly draws the camera down towards it</td>
+<td>done</td>
+<td><code>TempleCameraModel.cpp</code>, the pool's lean</td>
+</tr>
+<tr>
+<td>Clicking a door walks the camera through it to that room</td>
+<td>done</td>
+<td><code>TempleCamera.ClickingADoorOnScreenFindsIt</code>, <code>HitsTheFloorBelowAndLeadsThroughTheDoorsToTheRooms</code></td>
+</tr>
+<tr>
+<td>The doors are found round the walls; the way out and the wall of scrolls aren't doors the camera goes through</td>
+<td>done</td>
+<td><code>TempleCamera.FindsTheMainRoomsDoorsAroundItsWalls</code></td>
+</tr>
+<tr>
+<td>Dragging the pool's map turns and tilts about the pressed point</td>
+<td>done</td>
+<td><code>TempleCameraModel.cpp</code>, holding the press on the pool's map</td>
+</tr>
+<tr>
+<td>The main room starts facing the scroll, leaning a little up</td>
+<td>done</td>
+<td><code>TempleCameraModel.cpp</code></td>
+</tr>
+<tr>
+<td>The cursor is cast against each room's own walls and floor, which the hand follows</td>
+<td>done</td>
+<td><code>TempleCamera.CastsAgainstEachRoomsOwnWalls</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="creatures-room">Creature's room</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The player looks around from where the room's path ends, by dragging and with the arrow keys</td>
+<td>done</td>
+<td><code>TempleCamera.TheCreaturesRoomLooksOnFromTheEndOfItsPath</code></td>
+</tr>
+<tr>
+<td>Clicking a target zooms to it over a second; a press anywhere or the arrow keys zoom back in half that</td>
+<td>done</td>
+<td><code>TempleCameraModel::UpdateCaveTargets</code> with <code>CreatureCaveTargets</code> (<code>src/3D/CreatureCaveTargets.cpp</code>; <code>test/temple/test_creature_cave_targets.cpp</code>)</td>
+</tr>
+<tr>
+<td>Zoomed to the exit, the player leaves the temple</td>
+<td>done</td>
+<td><code>TempleCameraModel.cpp</code>, the exit target</td>
+</tr>
+</tbody>
+</table>
+<h2 id="rooms-of-pictures">Rooms of pictures</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The challenge, save game, options, multiplayer and credits rooms turn round the player and raise and lower the camera, by dragging the walls and with the arrow keys</td>
+<td>done</td>
+<td><code>TempleCameraModel.cpp</code> picture rooms</td>
+</tr>
+<tr>
+<td>The credits room turns about where its path ends rather than its centre</td>
+<td>done</td>
+<td><code>TempleCameraModel.cpp</code> (<code>k_CreditsRoom</code>)</td>
+</tr>
+<tr>
+<td>Clicking the door walks back to the main room</td>
+<td>done</td>
+<td><code>TempleCameraModel.cpp</code></td>
+</tr>
+<tr>
+<td>Under a dialog the room turns slowly by itself, speeding up over a second</td>
+<td>done</td>
+<td><code>TempleCameraModel.cpp</code> (<code>k_PictureDialogTurnSpeed</code>)</td>
+</tr>
+<tr>
+<td>Each room's turn, lean and height are kept while the player stays in the temple</td>
+<td>done</td>
+<td><code>TempleCameraModel.h</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="scrolls">Scrolls</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Clicking a scroll brings the camera close to look at it along a smooth curve, with a whoosh</td>
+<td>done</td>
+<td><code>TempleCameraModel::LookAtSubMesh</code>; the whoosh <code>TempleSounds.TheCameraWooshesOneOfFourByTheClock</code> (<code>test/temple/test_temple_scroll.cpp</code>)</td>
+</tr>
+<tr>
+<td>A press elsewhere or the arrow keys send the camera back</td>
+<td>done</td>
+<td><code>TempleCameraModel.cpp</code></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

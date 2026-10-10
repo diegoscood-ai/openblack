@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Challenge natives: advisors, text and help — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="here" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#challenge-natives-advisors-text-and-help">Challenge natives: advisors, text and help</a><ul>
+<li><a href="#used-by-the-shipped-scripts">Used by the shipped scripts</a></li>
+<li><a href="#not-used-by-the-shipped-scripts">Not used by the shipped scripts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="challenge-natives-advisors-text-and-help">Challenge natives: advisors, text and help</h1>
+<p>The challenge scripts' functions for the good and evil advisors, the dialogue box and its spoken text, text drawn on screen, the help system, challenge markers (scrolls) and the tutorial's hand demonstrations and interface levels. The game has 464 of these functions in all; the language statement each comes from is shown in italics, and "called" counts are calls in the shipped <code>challenge.chl</code>. How the virtual machine runs them is in <a href="../engine/script_vm.html">../engine/script_vm.md</a>; what each challenge is about is in <a href="../story/index.html">../story/</a>.</p>
+<p><strong>Progress: 35/44 done, 1 partial — 81%</strong></p>
+<h2 id="used-by-the-shipped-scripts">Used by the shipped scripts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Brings the good or evil advisor out onto the screen: <em>eject good spirit/evil spirit</em> (called 460 times in 167 scripts)</td>
+<td>done</td>
+<td><code>SpiritEject</code> in <code>src/CHLApi.cpp</code>: the advisor controller (<code>src/Help/SpiritsRuntime.h</code>) ejects the spirit, a help script's one appears; drawn and moving in game; <code>test/test_spirits.cpp</code></td>
+</tr>
+<tr>
+<td>Sends the good or evil advisor back off the screen: <em>send good spirit/evil spirit home</em> (called 266 times in 101 scripts)</td>
+<td>done</td>
+<td><code>SpiritHome</code>: <code>HelpSystem::SpiritHome</code>, a help script's spirit vanishes and any other flies home</td>
+</tr>
+<tr>
+<td>Makes an advisor point at a place, on screen or in the world: <em>make good spirit/evil spirit point at ‹position› [in world]</em> (called 131 times in 61 scripts)</td>
+<td>done</td>
+<td><code>SpiritPointPos</code>: the advisor controller's <code>SpiritPointPosition</code>, on screen or in the world</td>
+</tr>
+<tr>
+<td>Makes an advisor point at an object, on screen or in the world: <em>make good spirit/evil spirit point to ‹target› [in world]</em> (called 19 times in 12 scripts)</td>
+<td>done</td>
+<td><code>SpiritPointGameThing</code>: the advisor controller's <code>SpiritPointObject</code>, re-sent every turn</td>
+</tr>
+<tr>
+<td>Shows a line of text (and plays its speech) in the dialogue box, optionally waiting for the player to click on: <em>say [single line] ‹text id› with interaction/without interaction</em> (called 1767 times in 264 scripts)</td>
+<td>done</td>
+<td><code>RunText</code>: <code>HelpSystem::RunText</code> (<code>src/Help/HelpSystem.cpp</code>), the dialogue text drawn and its speech played; <code>test/test_help_text_display.cpp</code></td>
+</tr>
+<tr>
+<td>Shows a line of text for a moment without the dialogue box: <em>say [single line] ‹string› with interaction/without interaction</em> (called 2 times in 2 scripts)</td>
+<td>done</td>
+<td><code>TempText</code>: <code>HelpSystem::TempText</code></td>
+</tr>
+<tr>
+<td>Whether the text on screen has been read (its speech finished or clicked past): <em>read</em> (called 1727 times in 267 scripts)</td>
+<td>done</td>
+<td><code>TextRead</code>: <code>HelpSystem::IsTextRead</code></td>
+</tr>
+<tr>
+<td>Sets how much of the interface the player may use (the tutorial opens it up step by step): <em>set interaction ‹level›</em> (called 25 times in 8 scripts)</td>
+<td>partial</td>
+<td><code>SetInterfaceInteraction</code>: <code>help::interface_interaction::Set</code> (<code>src/Help/InterfaceInteraction.cpp</code>) sets the interface flags, camera features, auto-pitch and hand reach; the control map does not ask it yet which actions are blocked</td>
+</tr>
+<tr>
+<td>Makes an advisor look at an object: <em>make good spirit/evil spirit look at ‹target›</em> (called 4 times in 4 scripts)</td>
+<td>done</td>
+<td><code>LookGameThing</code>: the advisor controller's <code>SpiritLookObject</code></td>
+</tr>
+<tr>
+<td>Takes the dialogue box for the script (start of the language's dialogue block); waits while another script has it: <em>begin dialogue (opening the block)</em> (called 626 times in 265 scripts)</td>
+<td>done</td>
+<td><code>StartDialogue</code>: <code>help::script_control::StartDialogue</code> (<code>src/Help/ScriptControl.cpp</code>); the advisors going home on it are not ported</td>
+</tr>
+<tr>
+<td>Lets go of the dialogue box (end of the dialogue block): <em>end dialogue (closing the block)</em> (called 748 times in 296 scripts)</td>
+<td>done</td>
+<td><code>EndDialogue</code>: <code>help::script_control::EndDialogue</code>, only for the task that holds the dialogue</td>
+</tr>
+<tr>
+<td>Whether the dialogue box is free for this script: <em>dialogue ready</em> (called 15 times in 13 scripts)</td>
+<td>done</td>
+<td><code>IsDialogueReady</code>: <code>help::script_control::IsSpiritReady</code></td>
+</tr>
+<tr>
+<td>Stops an advisor pointing: <em>stop good spirit/evil spirit pointing</em> (called 68 times in 38 scripts)</td>
+<td>done</td>
+<td><code>StopPointing</code>: the advisor controller's <code>SpiritStopPointing</code></td>
+</tr>
+<tr>
+<td>Stops an advisor looking: <em>stop good spirit/evil spirit looking</em> (called once in 1 script)</td>
+<td>done</td>
+<td><code>StopLooking</code>: the advisor controller's <code>SpiritStopLooking</code></td>
+</tr>
+<tr>
+<td>Makes an advisor look at a position: <em>make good spirit/evil spirit look at ‹position›</em> (called 10 times in 5 scripts)</td>
+<td>done</td>
+<td><code>LookAtPosition</code>: the advisor controller's <code>SpiritLookAtPosition</code></td>
+</tr>
+<tr>
+<td>Makes an advisor cling to the edge of the screen at a place: <em>make good spirit/evil spirit cling across ‹x percent› down ‹y percent›</em> (called 21 times in 12 scripts)</td>
+<td>done</td>
+<td><code>ClingSpirit</code>: the advisor controller's <code>SpiritCling</code>, with the screen range checks</td>
+</tr>
+<tr>
+<td>Makes an advisor fly to a place on the screen: <em>make good spirit/evil spirit fly across ‹x percent› down ‹y percent›</em> (called 2 times in 1 script)</td>
+<td>done</td>
+<td><code>FlySpirit</code>: the advisor controller's <code>SpiritFly</code></td>
+</tr>
+<tr>
+<td>Shows text with a number in it in the dialogue box: <em>say [single line] ‹string› with number ‹number› with interaction/without interaction</em> (called once in 1 script)</td>
+<td>done</td>
+<td><code>RunTextWithNumber</code>: <code>HelpSystem::RunTextWithNumber</code></td>
+</tr>
+<tr>
+<td>Whether an advisor is speaking: <em>good spirit/evil spirit speaks ‹text id›</em> (called 13 times in 6 scripts)</td>
+<td>done</td>
+<td><code>SpiritSpeaks</code>: whether <code>help::SpiritWhoTalks</code> of the text's narrator is this spirit</td>
+</tr>
+<tr>
+<td>Gives a help text by number: <em>get ‹object› help</em> (called 2 times in 2 scripts)</td>
+<td>todo</td>
+<td><code>GetHelp</code> logs "not implemented" and pushes nought</td>
+</tr>
+<tr>
+<td>Plays a recorded demonstration of the hand (moving, grabbing, casting) for the tutorial: <em>start hand demonstration ‹string› [with pause on trigger] [without hand modify]</em> (called 18 times in 17 scripts)</td>
+<td>done</td>
+<td><code>PlayHandDemo</code>: <code>hand_demo::Play</code> (<code>src/Input/HandDemo.cpp</code>) for the running task; the scripted hand demos are part of the verification runs</td>
+</tr>
+<tr>
+<td>Whether a hand demonstration has finished: <em>hand demonstration played</em> (called 17 times in 16 scripts)</td>
+<td>done</td>
+<td><code>IsPlayingHandDemo</code>: the negation of <code>hand_demo::IsPlaying</code>, as the scripts' wait loops expect</td>
+</tr>
+<tr>
+<td>Creates a challenge marker (the bronze, silver or gold scroll and its signpost) at a position: <em>create highlight ‹type› at ‹position› ‹challenge id›</em> (called 82 times in 78 scripts)</td>
+<td>done</td>
+<td><code>CreateHighlight</code>: <code>ecs::script_highlight::Create</code> (<code>src/ECS/ScriptHighlight.cpp</code>), drawn and tapped in game; <code>test/test_script_highlight.cpp</code>; the creating script's debug name is not kept</td>
+</tr>
+<tr>
+<td>Makes an advisor appear: <em>make good spirit/evil spirit appear</em> (called 20 times in 9 scripts)</td>
+<td>done</td>
+<td><code>SpiritAppear</code>: ejected as a help script's spirit</td>
+</tr>
+<tr>
+<td>Makes an advisor disappear: <em>make good spirit/evil spirit disappear</em> (called 20 times in 9 scripts)</td>
+<td>done</td>
+<td><code>SpiritDisappear</code>: sent home as a help script's spirit</td>
+</tr>
+<tr>
+<td>Whether challenge markers are drawn: <em>enable/disable highlight draw</em> (called 3 times in 3 scripts)</td>
+<td>done</td>
+<td><code>SetDrawHighlight</code>: the camera control's draw-highlight setting, read by the highlights' draw</td>
+</tr>
+<tr>
+<td>Sets the text and category of a challenge marker: <em>set ‹object› text properties text ‹text› category ‹category›</em> (called 2 times in 2 scripts)</td>
+<td>done</td>
+<td><code>HighlightProperties</code>: <code>ecs::script_highlight::SetScriptId</code> (text and category)</td>
+</tr>
+<tr>
+<td>Whether a hand demonstration has reached its trigger: <em>hand demonstration trigger</em> (called 33 times in 12 scripts)</td>
+<td>done</td>
+<td><code>HandDemoTrigger</code>: <code>hand_demo::ConsumeTrigger</code>, cleared as it is read</td>
+</tr>
+<tr>
+<td>Gives the first help text of a group: <em>get ‹object› first help</em> (called once in 1 script)</td>
+<td>todo</td>
+<td><code>GetFirstHelp</code> logs "not implemented" and pushes nought</td>
+</tr>
+<tr>
+<td>Gives the last help text of a group: <em>get ‹object› last help</em> (called once in 1 script)</td>
+<td>todo</td>
+<td><code>GetLastHelp</code> logs "not implemented" and pushes nought</td>
+</tr>
+<tr>
+<td>Clears the dialogue box: <em>clear dialogue</em> (called 18 times in 10 scripts)</td>
+<td>done</td>
+<td><code>GameClearDialogue</code>: <code>HelpSystem::ClearDialogue</code> (the voices go on)</td>
+</tr>
+<tr>
+<td>Closes the dialogue box: <em>close dialogue</em> (called 165 times in 70 scripts)</td>
+<td>done</td>
+<td><code>GameCloseDialogue</code>: <code>HelpSystem::CloseDialogue</code></td>
+</tr>
+<tr>
+<td>Draws text on the screen at a place, a size and fading in: <em>draw text ‹text id› across ‹across› down ‹down› width ‹width› height ‹height› size ‹size› fade in time ‹fade› seconds</em> (called 32 times in 2 scripts)</td>
+<td>todo</td>
+<td><code>GameDrawText</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Draws text on the screen for a moment: <em>draw text ‹string› across ‹across› down ‹down› width ‹width› height ‹height› size ‹size› fade in time ‹fade› seconds</em> (called 266 times in 1 script)</td>
+<td>todo</td>
+<td><code>GameDrawTempText</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Fades all drawn text out: <em>fade all draw text time ‹time› seconds</em> (called 26 times in 3 scripts)</td>
+<td>todo</td>
+<td><code>FadeAllDrawText</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Sets the colour of drawn text: <em>set draw text color red ‹red› green ‹green› blue ‹blue›</em> (called 61 times in 2 scripts)</td>
+<td>todo</td>
+<td><code>SetDrawTextColour</code> logs "not implemented"</td>
+</tr>
+</tbody>
+</table>
+<h2 id="not-used-by-the-shipped-scripts">Not used by the shipped scripts</h2>
+<p>The game has these but no shipped script calls them; mods and fan-made challenges can.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Makes an advisor play an animation across the screen: <em>make good spirit/evil spirit play across ‹value› down ‹value› ‹value› [speed ‹value›]</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>PlaySpiritAnim</code>: the advisor controller's <code>SpiritPlayAnim</code>, with the enum and screen range messages</td>
+</tr>
+<tr>
+<td>Whether an advisor has finished an animation: <em>good spirit/evil spirit played</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>SpiritPlayed</code>: whether the advisor is not playing an animation</td>
+</tr>
+<tr>
+<td>Whether the help system is on: <em>help system on</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>HelpSystemOn</code>: <code>HelpSystem::IsHelpSystemOn</code></td>
+</tr>
+<tr>
+<td>Shows the shape of a gesture at a position: <em>animate gesture ‹value› at ‹value› radius ‹value›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>PlayGesture</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Shows text with a number in it for a moment: <em>say [single line] ‹format› with number ‹value› with interaction/without interaction</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>TempTextWithNumber</code>: <code>HelpSystem::TempTextWithNumber</code></td>
+</tr>
+<tr>
+<td>Turns the help system on or off: <em>enable/disable help system</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>SetHelpSystem</code>: <code>HelpSystem::SetHelpOn</code></td>
+</tr>
+<tr>
+<td>Makes an advisor point at a place on the screen: <em>make good spirit/evil spirit point across ‹value› down ‹value›</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>SpiritScreenPoint</code>: the screen fraction turned into a pixel and the advisor controller's <code>SpiritScreenPoint</code></td>
+</tr>
+<tr>
+<td>Lets the hand demonstrations be stepped with keys: <em>enable/disable hand demonstration keys</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>SetHandDemoKeys</code> does nothing, as the original's empty handler</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

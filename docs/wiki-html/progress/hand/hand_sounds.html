@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hand sounds — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="here" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#hand-sounds">Hand sounds</a><ul>
+<li><a href="#gripping-the-land-and-the-sea">Gripping the land and the sea</a></li>
+<li><a href="#picking-up-and-putting-down">Picking up and putting down</a></li>
+<li><a href="#tapping">Tapping</a></li>
+<li><a href="#miracles-in-the-hand">Miracles in the hand</a></li>
+<li><a href="#influence-and-worship">Influence and worship</a></li>
+<li><a href="#the-villages-answering-the-hand">The villages answering the hand</a></li>
+<li><a href="#the-creature">The creature</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="hand-sounds">Hand sounds</h1>
+<p>Every sound the god hand makes or sets off: gripping the land and the sea, picking things up and putting them down,
+tapping, holding and shaking off miracles, crossing influence borders, and the voices of the villages answering what the
+hand does. The sound system itself (banks, 3D placement, music) is in <a href="../audio/index.html">../audio/</a>.</p>
+<p><strong>Progress: 22/38 done, 4 partial — 63%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../hand-and-interface.html">The hand and the interface</a>.</p>
+<h2 id="gripping-the-land-and-the-sea">Gripping the land and the sea</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gripping the land plays one of six land-grab sounds, picked at random</td>
+<td>done</td>
+<td><code>HandSystem::GripLandSound</code> (<code>HandFish.cpp</code>): a random one of the six G_HandGrabLand samples, from <code>HandPlacement.cpp</code> at the start of a land grip</td>
+</tr>
+<tr>
+<td>The land-grab sound is heard flat, not placed in the world</td>
+<td>done</td>
+<td><code>HandSystem::GripLandSound</code>: a sound tag, not 3D</td>
+</tr>
+<tr>
+<td>Gripping the sea plays the ten water sounds one after another, in turn</td>
+<td>done</td>
+<td><code>HandSystem::SplashHand</code>: InGame 99 plus <code>audio::Counter::HandInWater</code> (0..9 in turn)</td>
+</tr>
+<tr>
+<td>The water sound is placed on the water's surface where the hand went in</td>
+<td>done</td>
+<td><code>HandSystem::SplashHand</code>: 3D at (x, 0.2, z) where the hand went in</td>
+</tr>
+<tr>
+<td>Gripping is silent while a script holds the cinema bars</td>
+<td>partial</td>
+<td><code>HandPlacement.cpp</code>: no land-grip dust or sound while a script's widescreen is on; the water splash is only held back while paused</td>
+</tr>
+</tbody>
+</table>
+<h2 id="picking-up-and-putting-down">Picking up and putting down</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Picking an object up plays the pick-up sound</td>
+<td>done</td>
+<td><code>HandSystem::GenericPickupSounds</code> (<code>HandHolding.cpp</code>): a G_PickUpObject (10) tag at the object, not for a rooted tree or forest; a villager also screams</td>
+</tr>
+<tr>
+<td>Taking food from a store or field plays the food pick-up sound</td>
+<td>done</td>
+<td><code>HandEffects.cpp</code>: G_PickUpFood (44) looping while scooping food (piles, fields, fish farms), its pitch rising with the scoop (60 + 180 t^2)</td>
+</tr>
+<tr>
+<td>Taking wood from a store or forest plays the wood pick-up sound</td>
+<td>done</td>
+<td><code>HandEffects.cpp</code>: G_PickUpWood (98) for a wood pile, the same way</td>
+</tr>
+<tr>
+<td>Food or wood let fall from the hand lands with a thud sized by the amount: a small or a big pile sound</td>
+<td>done</td>
+<td>A hand pot put down becomes a pile through <code>pot_resource::AddResourceToPos</code>, which plays <code>pot_resource::PlayPileSound</code> (small or big by the amount, <code>src/ECS/PotResource.cpp</code>)</td>
+</tr>
+<tr>
+<td>Putting a tree back in the ground plays a planting sound, one of three</td>
+<td>done</td>
+<td><code>HandPhysics.cpp</code>: a tree landed and replanted plays G_PlantTree_01 + tick count % 3 at the tree</td>
+</tr>
+<tr>
+<td>Pulling a tree out of the ground plays a tree breaking sound</td>
+<td>done</td>
+<td><code>HandHolding.cpp</code>: uprooting plays a random one of three G_TreeBreak samples at the tree; see <a href="tug.html">tug.md</a></td>
+</tr>
+<tr>
+<td>A scaffold taken into the hand plays its appearing sound, and its vanishing sound when it leaves</td>
+<td>todo</td>
+<td>Not found in our tree (scaffolds have tap, combine and plant sounds only)</td>
+</tr>
+<tr>
+<td>Something thrown at another thing plays an impact sound where it hits</td>
+<td>done</td>
+<td><code>src/ECS/Physics/CollisionSounds.cpp</code>: the collision sound by the surfaces hit (ground, water, fragment, objects)</td>
+</tr>
+<tr>
+<td>A thrown rock or fireball whooshing past the camera plays one of five rock or fireball whooshes</td>
+<td>done</td>
+<td><code>PhysicsObjects.cpp</code>: a body entering 10 m of the camera faster than 20 m/s plays one of G_RockPast_01..05; the fireball's own whoosh is in <code>src/Particles/Rules/Fireball.cpp</code></td>
+</tr>
+<tr>
+<td>Dropping an animal from a height squashes it with one of four squash sounds</td>
+<td>todo</td>
+<td>(unconfirmed it is the hand's drop that plays it)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="tapping">Tapping</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Knocking on houses, tapping rocks and scaffolds, opening reward chests</td>
+<td>partial</td>
+<td>Houses (<code>abodes::InterfaceTap</code>), rocks (<code>Rocks::Tap</code>) and scaffolds (<code>scaffolds::Tap</code>) play their tap sounds; no reward chests. See <a href="clicking_and_activating.html">clicking_and_activating.md</a></td>
+</tr>
+<tr>
+<td>Tapping a one-shot miracle bubble pops it</td>
+<td>done</td>
+<td><code>magic::one_off::InterfaceTap</code> (<code>src/Magic/Core/OneOffSpellSeed.cpp</code>): G_SpellBubblePop_04 at the hand</td>
+</tr>
+<tr>
+<td>Tapping a leash post clicks</td>
+<td>todo</td>
+<td>No leash posts in our tree</td>
+</tr>
+<tr>
+<td>Opening a reward chest plays the chest and reward stings</td>
+<td>todo</td>
+<td>No reward chests</td>
+</tr>
+<tr>
+<td>Tapping a script's highlighted marker plays its chime</td>
+<td>done</td>
+<td><code>ecs::script_highlight::InterfaceTap</code>: its InGame chime for a "Did you know?" tapped by the local player</td>
+</tr>
+</tbody>
+</table>
+<h2 id="miracles-in-the-hand">Miracles in the hand</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Bands flying onto the hand play the power-up band sound</td>
+<td>done</td>
+<td><code>hand_fx::AddSpellToHandVisuals</code>: G_SpellPowerUpBand</td>
+</tr>
+<tr>
+<td>A held miracle hums in a loop that follows the hand</td>
+<td>partial</td>
+<td>Our tree loops G_HandGesture_02 at the hand while a hand-gesture seed is armed with the button down (<code>HandSystem::BeginApplyOnRelease</code>); no other hold loop found</td>
+</tr>
+<tr>
+<td>Shaking a miracle off plays the shake sound</td>
+<td>done</td>
+<td><code>hand_fx::RemoveHandSpellVisuals</code>: G_ShakeHand_01</td>
+</tr>
+<tr>
+<td>A miracle that can't be cast where it is let go plays the failure sound</td>
+<td>done</td>
+<td><code>HandSpellSeed.cpp</code>: G_SpellCastFailure on a failed apply</td>
+</tr>
+<tr>
+<td>The announcer names the power-up the hand has reached</td>
+<td>done</td>
+<td><code>seed::SetPowerUp</code>: SpellDialogue 10, 11 or 12</td>
+</tr>
+<tr>
+<td>A recognised gesture plays its sound</td>
+<td>done</td>
+<td>The recognised gesture's sound (2D for the local interface), see <a href="../../audio.html#the-miracles-on-channels-in-openblack">audio.md</a>; see <a href="../gesture/gesture_effects.html">../gesture/gesture_effects.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="influence-and-worship">Influence and worship</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hand crossing an influence border plays a sound once, at the hand, while the game runs</td>
+<td>done</td>
+<td><code>influence::ProcessHandCrossing</code> (<code>src/ECS/Influence/InfluenceCircles.cpp</code>): G_HandThroughInfluence_01 at the hand, not while paused</td>
+</tr>
+<tr>
+<td>Moving a village totem plays its grinding sound</td>
+<td>todo</td>
+<td>No totem in our tree; see <a href="totem.html">totem.md</a></td>
+</tr>
+<tr>
+<td>The totem's raising and lowering are followed by the guidance sounds while it moves</td>
+<td>todo</td>
+<td><code>audio::guidance::StartTotemRaiseSound</code> exists (<code>src/Audio/Services/Guidance.cpp</code>) but there is no totem to call it</td>
+</tr>
+<tr>
+<td>The local player hears a heartbeat as the guidance's warning</td>
+<td>done</td>
+<td><code>audio::guidance::UpdateHeartBeat</code> (<code>src/Audio/Services/Guidance.cpp</code>), at the citadel; see <a href="../audio/index.html">../audio/</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-villages-answering-the-hand">The villages answering the hand</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A deed of the hand that impresses a village sets off a group cheer, louder the more the player stands out from the other gods</td>
+<td>todo</td>
+<td>Not found in our tree; see <a href="../worship/index.html">../worship/</a></td>
+</tr>
+<tr>
+<td>A deed that loses belief sets off a group groan, by the same measure</td>
+<td>todo</td>
+<td>Not found in our tree</td>
+</tr>
+<tr>
+<td>Making a disciple has the village call out the job given, at most so often</td>
+<td>partial</td>
+<td><code>audio::guidance::PlayDiscipleRemark</code> exists but nothing calls it (dormant); see <a href="../villager/index.html">../villager/</a></td>
+</tr>
+<tr>
+<td>Dropping food or wood into a town makes the town answer, by how much it had: plenty, some or little</td>
+<td>todo</td>
+<td><code>audio::guidance::PlayBeliefRemark</code> exists, but its call from the town stores is pending (<code>src/ECS/Town/TownStores.cpp</code>); see <a href="../town/index.html">../town/</a></td>
+</tr>
+<tr>
+<td>A villager dying in the hand or by its throw sets off the death cries</td>
+<td>todo</td>
+<td>Not found in our tree; see <a href="../villager/index.html">../villager/</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-creature">The creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Stroking and slapping the creature has it make the sounds of its reaction</td>
+<td>done</td>
+<td><code>CreatureAudioSystem</code> plays the sounds of the reaction animations; see <a href="../creature/index.html">../creature/</a></td>
+</tr>
+<tr>
+<td>A glow on the creature's hands carries a looping glow sound</td>
+<td>todo</td>
+<td>The creed glow sound actions are named in <code>src/Creature/CreatureAudio.cpp</code> but never played; see <a href="hand_effects_and_glows.html">hand_effects_and_glows.md</a></td>
+</tr>
+<tr>
+<td>Giving the creature something plays the sound of it taking it</td>
+<td>todo</td>
+<td>Giving the creature something is not ported; see <a href="creature_contact.html">creature_contact.md</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

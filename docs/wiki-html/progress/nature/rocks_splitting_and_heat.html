@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Splitting and heating rocks — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="here" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#splitting-and-heating-rocks">Splitting and heating rocks</a><ul>
+<li><a href="#which-rocks-split">Which rocks split</a></li>
+<li><a href="#how-a-rock-splits">How a rock splits</a></li>
+<li><a href="#knocks-and-landings">Knocks and landings</a></li>
+<li><a href="#the-hand-and-the-creature">The hand and the creature</a></li>
+<li><a href="#rocks-as-wood">Rocks as wood</a></li>
+<li><a href="#heating">Heating</a></li>
+<li><a href="#the-creature-and-hot-rocks">The creature and hot rocks</a></li>
+<li><a href="#scripts-with-hot-rocks">Scripts with hot rocks</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="splitting-and-heating-rocks">Splitting and heating rocks</h1>
+<p>Rocks and boulders can be broken in two by the hand, by the creature and by hard knocks, again and again, each half a
+smaller rock of the same stone. They can also be heated: stone never burns away, so a rock stays as hot as whatever
+heated it, glows, sets things alight around it and cools slowly. This file goes into the detail behind the rock rows of
+<a href="rocks_and_features.html">rocks_and_features.md</a>, <a href="../hand/clicking_and_activating.html">../hand/clicking_and_activating.md</a>,
+<a href="../physics/collisions.html">../physics/collisions.md</a> and <a href="../physics/fire.html">../physics/fire.md</a>; the fire model itself
+(heat, spreading, cooling, water) is in the fire file.</p>
+<p>openblack: <code>src/ECS/Rocks.cpp</code> (splitting and the tap), <code>src/ECS/Physics/PhysicsObjects.cpp</code> (the knocks),
+<code>src/Fire/FireModel.cpp</code> and <code>src/ECS/Fire/FireEffect.cpp</code> (heat). The creature's blow is not ported.</p>
+<p><strong>Progress: 34/51 done, 3 partial — 70%</strong></p>
+<h2 id="which-rocks-split">Which rocks split</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Everything the game's tables class as a rock can split: the three boulders and the flat, long, plain, sharp and square rocks in chalk, limestone, sandstone and volcanic stone, the scripts' plain rock and the meteor</td>
+<td>done</td>
+<td><code>Rocks::IsRock</code> (the info's rock class, <code>src/ECS/Rocks.cpp</code>)</td>
+</tr>
+<tr>
+<td>Singing stones, the weeping stone, the idol, lanterns, gate totems, the altar and toys are other kinds and never split</td>
+<td>done</td>
+<td><code>Rocks::IsRock</code> (other classes are not rocks)</td>
+</tr>
+<tr>
+<td>Dead trees are handled like rocks in many ways but never split: a blow only lets a wood store take them, and they can't be tapped</td>
+<td>done</td>
+<td>Dead trees are not of the rock class; a wood store takes them (<code>HandPhysics.cpp</code>); see <a href="trees.html">trees.md</a></td>
+</tr>
+<tr>
+<td>A bonfire is never worn by knocks or broken by a tap</td>
+<td>done</td>
+<td>A bonfire is a mobile static of its own info (<code>BonfireArchetype</code>), not of the rock class</td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-a-rock-splits">How a rock splits</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The rock is replaced by two rocks of the same kind, each 0.7935 of its scale (about half its volume, so half its weight), turned to its heading, at full life</td>
+<td>done</td>
+<td><code>Rocks::SplitInTwo</code> (the Y angle kept, new rocks at full life)</td>
+</tr>
+<tr>
+<td>The halves lie either side of where it was, along a line at a random angle (from the game's random numbers), each 0.7935 of its width from the centre, at its height</td>
+<td>done</td>
+<td><code>Rocks::SplitInTwo</code> (a synced random angle, 0.7935 of its 2D radius, its altitude)</td>
+</tr>
+<tr>
+<td>A flying rock's halves fly on at its speed with half its spin; a resting rock's halves start still and drop</td>
+<td>done</td>
+<td><code>ReactToPhysicsImpact</code> in <code>src/ECS/Physics/PhysicsObjects.cpp</code> passes them to <code>Rocks::SplitInTwo</code></td>
+</tr>
+<tr>
+<td>A flying rock the physics has lost track of doesn't split</td>
+<td>done</td>
+<td>Only a rock in the physics list takes the impact</td>
+</tr>
+<tr>
+<td>A burning or hot rock's halves both carry its heat</td>
+<td>done</td>
+<td><code>fire::CopyFire</code> from <code>Rocks::SplitInTwo</code>; see <a href="../physics/fire.html">../physics/fire.md</a></td>
+</tr>
+<tr>
+<td>The halves keep the rock's owner (the player who last threw it)</td>
+<td>todo</td>
+<td>Rocks keep no owner in our tree</td>
+</tr>
+<tr>
+<td>The halves are new rocks: if the rock was a town's artefact, that is lost with it</td>
+<td>todo</td>
+<td>No town artefacts in our tree; see <a href="../town/artefacts.html">../town/artefacts.md</a></td>
+</tr>
+<tr>
+<td>Nothing limits how often a rock can be split; only the hand's tap and knocks stop at rocks 0.7 m tall or less</td>
+<td>done</td>
+<td><code>Rocks::ValidToTap</code> and the wear test both need a height over 0.7</td>
+</tr>
+<tr>
+<td>A split from a knock has no dust, particles or sound of its own; only the tap and the creature's blow play a sound</td>
+<td>done</td>
+<td><code>ReactToPhysicsImpact</code> plays nothing; <code>Rocks::Tap</code> plays the tap's sound</td>
+</tr>
+</tbody>
+</table>
+<h2 id="knocks-and-landings">Knocks and landings</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every turn, every rock in the physics that took a blow (from what it hit, what hit it, or the ground) is worn by it</td>
+<td>done</td>
+<td><code>EndTurn</code> and <code>ReactToPhysicsImpact</code> in <code>src/ECS/Physics/PhysicsObjects.cpp</code></td>
+</tr>
+<tr>
+<td>A blow wears a rock only when it is harder than four times the rock's weight and the rock is taller than 0.7 m</td>
+<td>done</td>
+<td><code>ReactToPhysicsImpact</code> (G over 4, height over 0.7)</td>
+</tr>
+<tr>
+<td>A rock is never worn by another rock, so rocks thrown at rocks bounce off whole</td>
+<td>done</td>
+<td><code>ReactToPhysicsImpact</code> (not when the hitter is a rock)</td>
+</tr>
+<tr>
+<td>Each such blow takes (strength over its weight − 4) × 0.005 of its life; below 0.01 life it splits</td>
+<td>done</td>
+<td><code>ReactToPhysicsImpact</code> ((G - 4) x 0.005; below 0.01 it splits)</td>
+</tr>
+<tr>
+<td>A rock thrown hard into the ground or a building can wear and split itself on landing</td>
+<td>done</td>
+<td>Every body's blow is measured (<code>EndTurn</code>)</td>
+</tr>
+<tr>
+<td>Miracles and everything else split rocks only through such blows, when something throws a rock about; no miracle, script or other rule splits a rock directly</td>
+<td>done</td>
+<td>Only the knock and the hand's tap split rocks in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-hand-and-the-creature">The hand and the creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tapping a rock taller than 0.7 m in the player's influence splits it, with one of four cracking sounds in turn, and the player's creature sees the player playing</td>
+<td>partial</td>
+<td><code>Rocks::Tap</code> from <code>HandSystem.cpp</code> (one of four cracking sounds in turn); the influence test before the tap and the creature's reaction are not there (<a href="../../physics.html#pending">physics.md</a>); see <a href="../hand/clicking_and_activating.html">../hand/clicking_and_activating.md</a></td>
+</tr>
+<tr>
+<td>The tooltip over a tappable rock says "hit to break"</td>
+<td>done</td>
+<td><code>HandToolTips.cpp</code> (the rock's own tap tooltip)</td>
+</tr>
+<tr>
+<td>At the blow of its smash, the creature splits the rock it hits, with one of four smashing sounds in turn</td>
+<td>todo</td>
+<td>The creature's knock-down action takes homes, trees and mobile objects, not rocks (<code>CreatureObjectActionSystem::CanDestroy</code>)</td>
+</tr>
+<tr>
+<td>The creature's blow on a villager or animal does nothing (the game's smash only breaks rocks and buildings)</td>
+<td>done</td>
+<td><code>CreatureObjectActionSystem::CanDestroy</code> refuses villagers and animals</td>
+</tr>
+<tr>
+<td>The creature can choose to smash a stone in half by stamping on any rock</td>
+<td>todo</td>
+<td>See <a href="../creature/object_actions.html">../creature/object_actions.md</a></td>
+</tr>
+<tr>
+<td>The creature can choose to break a rock: it picks up a rock it can lift, throws it at a spot three of its heights away, then goes to shatter it</td>
+<td>todo</td>
+<td>See <a href="../creature/object_actions.html">../creature/object_actions.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="rocks-as-wood">Rocks as wood</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every rock holds wood: its table's wood value (200 for every rock and boulder) times its scale</td>
+<td>todo</td>
+<td>Rocks give no wood in our tree</td>
+</tr>
+<tr>
+<td>Taking wood from a rock shrinks it by the share left, and takes its life down with it; a rock with all its wood taken is gone</td>
+<td>todo</td>
+<td>Only dead trees shrink as wood is taken (<code>ecs::RemoveWood</code>)</td>
+</tr>
+<tr>
+<td>Nothing in the game takes wood from a plain rock: villagers only go for wood to dead trees, which share this rule, and rocks are not stores</td>
+<td>todo</td>
+<td>Not traced; rocks give no wood in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="heating">Heating</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every rock and boulder burns at 500 degrees, holds heat like 4000 units, and is never hurt by fire</td>
+<td>done</td>
+<td>Read from info.dat (<code>src/ECS/Fire/FireObjectTraits.cpp</code>)</td>
+</tr>
+<tr>
+<td>Stone never heats itself: even at 500 or more a rock does not burn hotter, it only cools whenever nothing heated it that turn</td>
+<td>done</td>
+<td><code>fire::Step</code> (<code>src/Fire/FireModel.cpp</code>): an object with no burn defence only cools</td>
+</tr>
+<tr>
+<td>A rock gets only as hot as what heats it: burning trees (at most 220 degrees) and huts (300) can't bring it to 500; the fireball (up to 6000), lightning and scripts can</td>
+<td>done</td>
+<td>The model's <code>fire::HeatTransfer</code> (<code>src/Fire/FireModel.cpp</code>, the heat capped by the difference)</td>
+</tr>
+<tr>
+<td>A fireball's ball and its burn heat a rock like any other object</td>
+<td>done</td>
+<td><code>src/Magic/Objects/MagicFireBall.cpp</code>, <code>fire::ApplyEffectToFireEffectIfNecessary</code> (over <code>fire::ApplyBurn</code>, <code>src/Fire/FireModel.cpp</code>)</td>
+</tr>
+<tr>
+<td>A rock held in the hand is heated by the fires in its cell, but only while the hand is inside its player's influence</td>
+<td>done</td>
+<td><code>fire::CheckToSeeIfObjectIsNearOnFireObject</code> from <code>HandTurn.cpp</code>, inside the holder's influence</td>
+</tr>
+<tr>
+<td>A hot rock held in the hand passes its heat on only inside the holder's influence</td>
+<td>done</td>
+<td>The spread of a held object in <code>src/ECS/Fire/FireEffect.cpp</code> (only inside the holder's influence)</td>
+</tr>
+<tr>
+<td>The hand is never hurt by a hot rock and never drops it</td>
+<td>done</td>
+<td>Nothing ties the hand to heat</td>
+</tr>
+<tr>
+<td>From 400 degrees flames grow on a rock, full at 1000; at 500 or more it is on fire</td>
+<td>done</td>
+<td><code>fire::FireFraction</code> (<code>src/Fire/FireModel.cpp</code>), <code>src/ECS/Fire/FireGraphic.cpp</code></td>
+</tr>
+<tr>
+<td>Below 500 a hot rock heats only things that catch at or below its temperature (villagers 120, trees 110, huts 150, fences 300) and loses the heat it gives; at 500 or more it heats everything within reach without losing any</td>
+<td>done</td>
+<td>The model's <code>fire::HeatTransfer</code> (<code>src/Fire/FireModel.cpp</code>) and the spread (<code>src/ECS/Fire/FireEffect.cpp</code>)</td>
+</tr>
+<tr>
+<td>A thrown hot rock sets alight what it lands among by the same rules, its reach being its fire's radius plus 10 m</td>
+<td>done</td>
+<td>Flying things are off the map for fire; once at rest it spreads again (<code>src/ECS/Fire/FireEffect.cpp</code>); see <a href="../physics/fire.html">../physics/fire.md</a></td>
+</tr>
+<tr>
+<td>Hotter than 100 degrees a rock makes villagers within 35 m react as to a fire</td>
+<td>done</td>
+<td>The fire's reaction (<code>src/ECS/Fire/FireEffect.cpp</code>)</td>
+</tr>
+<tr>
+<td>Villagers flee a burning rock carried in the hand</td>
+<td>partial</td>
+<td>The reaction is made, but villagers have no handler for it; see <a href="../physics/fire.html">../physics/fire.md</a></td>
+</tr>
+<tr>
+<td>In the open a rock cools by its surface over its 4000 units of heat, so a big rock stays hot for minutes; rain cools it faster</td>
+<td>done</td>
+<td><code>fire::Step</code> and <code>fire::CoolingArea</code> (<code>src/Fire/FireModel.cpp</code>)</td>
+</tr>
+<tr>
+<td>Dropped in water (or on the shore, under 2 m up) it cools fifty times faster, hissing with steam once while hotter than 75</td>
+<td>partial</td>
+<td>Fifty times faster (<code>fire::Step</code>, <code>src/Fire/FireModel.cpp</code>) and the steam above 75 (<code>src/ECS/Fire/FireGraphic.cpp</code>); no hiss sound in our tree</td>
+</tr>
+<tr>
+<td>A hot rock glows red-orange, a thousandth of full per degree with a 20% flicker, full at 1000</td>
+<td>done</td>
+<td><code>graphic::CharringGlow</code> (<code>src/ECS/Fire/FireGraphic.cpp</code>; the flicker's noise is approximated)</td>
+</tr>
+<tr>
+<td>A burning rock crackles like any fire, the nearest fire on the ground holding the loop</td>
+<td>done</td>
+<td><code>src/ECS/Fire/FireSound.cpp</code>. Our wiki differs: the two fires nearest the camera hold the loop, not one (<a href="../../magic.html#fire-srcecsfire">magic.md</a>)</td>
+</tr>
+<tr>
+<td>A script can ask whether something is on fire near a place; a rock at 500 or more counts</td>
+<td>done</td>
+<td><code>script::IsFireNear</code> (<code>src/Magic/Script/CHLFire.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-creature-and-hot-rocks">The creature and hot rocks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature can set something alight with a burning thing it can lift (a burning rock among them): it picks it up, goes to the target, faces it, throws it down there and waits</td>
+<td>todo</td>
+<td>See <a href="../creature/object_actions.html">../creature/object_actions.md</a></td>
+</tr>
+<tr>
+<td>The creature's own "start a fire" action always gives up at once</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="scripts-with-hot-rocks">Scripts with hot rocks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Land 2's lost-treasure riddle asks for "something hot": it is solved when a wolf and a creature's dropping are within 10 m of the altar, a shield miracle within 5 m, and anything on fire (a rock at 500 or more will do) within 10 m</td>
+<td>todo</td>
+<td>IS_FIRE_NEAR is done; the challenge itself is not checked running; see <a href="../story/index.html">../story/</a> and <a href="../story/silver_scrolls/the_riddles.html">the_riddles.md</a></td>
+</tr>
+<tr>
+<td>Land 5: while the player's creature is within 200 m of the front of Nemesis's last town, every 6 seconds a burning rock (half size, 2000 degrees, not blown by the wind) is lobbed from high above to land within 30 m of a spot in front of the town over 6 seconds, trailing smoke</td>
+<td>todo</td>
+<td>Story script; see <a href="../story/index.html">../story/</a></td>
+</tr>
+<tr>
+<td>Each such rock that comes to rest (not caught in the hand) a few seconds later bursts: a small fireball is cast where it lies and the rock goes in an explosion</td>
+<td>todo</td>
+<td>Story script; see <a href="../story/index.html">../story/</a></td>
+</tr>
+<tr>
+<td>The "fire on high" challenge throws the same burning rocks at a town, and praises a good catch by the hand</td>
+<td>todo</td>
+<td>Challenge script; see <a href="../story/index.html">../story/</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

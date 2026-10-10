@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scooping handfuls — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="here" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#scooping-handfuls">Scooping handfuls</a><ul>
+<li><a href="#starting-a-scoop">Starting a scoop</a></li>
+<li><a href="#while-the-button-is-held">While the button is held</a></li>
+<li><a href="#ending-a-scoop">Ending a scoop</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="scooping-handfuls">Scooping handfuls</h1>
+<p>Holding the Action button over a pile, a village store, a field or a fish farm scoops up a handful of food or wood that
+grows the longer the button is held, with a stream of particles flowing into the hand. The hand hovers over the
+source, tipped down towards it, until the button is let go.</p>
+<p>openblack: <code>HandSystem</code> scoops from food and wood piles, storage pits' piles included, fields and fish farms
+(<code>HandResources.cpp</code>, <code>HandFish.cpp</code>), with the game's amounts (<code>ProcessInInteractPile</code>) and its rising sound
+(<code>HandSystem::UpdatePickupSound</code>). Test: <code>HandMultiPickUp.RampsWithTheSquareOfTheTurns</code>.</p>
+<p><strong>Progress: 20/24 done, 2 partial — 88%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../hand-and-interface.html">The hand and the interface</a>.</p>
+<h2 id="starting-a-scoop">Starting a scoop</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A scoop starts at once (no wait) from a food pile, a wood pile, a village store's food or wood, a field with crops or a fish farm with fish</td>
+<td>done</td>
+<td>The press starts the locked select at once (<code>HandSystem::Update</code>, the Field, Hovered and FishFarm branches -&gt; <code>SendStartLockedSelect</code>); <code>HandSystem::ApplyStartLockedSelect</code> (<code>HandTurn.cpp</code>) for piles, storage pits' piles, fields and fish farms (<code>TryPickUpField</code>, <code>TryPickUpFish</code> in <code>HandFish.cpp</code>)</td>
+</tr>
+<tr>
+<td>A pile only gives the resource it holds, and only while it holds some</td>
+<td>done</td>
+<td><code>HandSystem::Update</code>: a pile of the hand's own pot type is not scooped; <code>ProcessInInteractPile</code> (<code>HandResources.cpp</code>) takes the source's resource while it has some</td>
+</tr>
+<tr>
+<td>The first grab makes a handful (the hand's food or the hand's wood) of 25, or what the source has, and puts it in the hand</td>
+<td>done</td>
+<td><code>HandSystem::PickUp</code> (<code>HandHolding.cpp</code>): n = min(the hand pot's amount picked up at first, the source's resource) into a new HandFood or HandWood pot in the hand</td>
+</tr>
+<tr>
+<td>A handful from a poisoned pile is poisoned too</td>
+<td>done</td>
+<td><code>HandHolding.cpp</code>: the hand pot is poisoned when the source was; see <a href="../resources/poison_and_mushrooms.html">../resources/poison_and_mushrooms.md</a></td>
+</tr>
+<tr>
+<td>A field gives a first handful of 25 (or what it has), halved when the crop is ripe</td>
+<td>done</td>
+<td><code>HandFish.cpp</code> <code>TryPickUpField</code>: min(25, food), halved when ripe; the turn's ramp halved too</td>
+</tr>
+<tr>
+<td>The hand's distance from the camera is set to reach the source as the scoop starts</td>
+<td>done</td>
+<td><code>HandPlacement.cpp</code>: while the select lasts the hand stays at its x, z, at the ground + the source's height for the hand + the hold height</td>
+</tr>
+<tr>
+<td>The cursor is pinned while scooping, and freed when the scoop ends</td>
+<td>partial</td>
+<td>The hand stays over the source while the select lasts (<code>HandPlacement.cpp</code>); our tree draws no system cursor to pin</td>
+</tr>
+<tr>
+<td>Scooping starts a force-feedback effect for the kind of resource</td>
+<td>todo</td>
+<td>No force feedback; see <a href="clicking_and_activating.html">clicking_and_activating.md</a></td>
+</tr>
+<tr>
+<td>Scooping starts a stream of particles from the source into the hand, by the kind of resource</td>
+<td>done</td>
+<td><code>HandSystem::UpdatePickupParticles</code> (<code>HandEffects.cpp</code>): 8 a second rising over 1 s from the ground under the hand to the hand, wood, food or fish sprites, from the select's start to its end</td>
+</tr>
+</tbody>
+</table>
+<h2 id="while-the-button-is-held">While the button is held</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A handful starts at 25</td>
+<td>done</td>
+<td>The hand pots' info (<code>amountPickedUpInitially</code>), read in <code>HandSystem::PickUp</code></td>
+</tr>
+<tr>
+<td>Each game turn it takes 8 + 62·t² more, t rising from 0 to 1 over 60 turns (the info's 6 seconds turned into turns)</td>
+<td>done</td>
+<td><code>HandSystem::ProcessInInteractPile</code>: (int)(perTurn + (perTurnEnd - perTurn) t^2), t over the info's ramp time in turns</td>
+</tr>
+<tr>
+<td>A single handful can hold up to 20000</td>
+<td>done</td>
+<td><code>ProcessInInteractPile</code>: at most <code>maxAmountCanBePickedUp</code> (20000) in the hand</td>
+</tr>
+<tr>
+<td>The handful's mesh grows with its amount</td>
+<td>partial</td>
+<td>The hand's pots keep scale 1 (<code>PotArchetype::SetSize</code>); only the hand's grip opens as the food grows</td>
+</tr>
+<tr>
+<td>The scooping sound rises as the handful fills</td>
+<td>done</td>
+<td><code>HandSystem::UpdatePickupSound</code> (<code>HandEffects.cpp</code>): pitch 60 + 180 t^2</td>
+</tr>
+<tr>
+<td>The source loses what is scooped, and is gone once empty (a store's own pile stays)</td>
+<td>done</td>
+<td><code>ProcessInInteractPile</code>: a storage pit's pile takes from the pit, a loose pile from itself, and an emptied loose pile goes (<code>ToBeDeleted</code>)</td>
+</tr>
+<tr>
+<td>The hand hovers over the source at its height plus the source's height</td>
+<td>done</td>
+<td><code>HandPlacement.cpp</code>: the ground at the hand + <code>object::GetHeightForHandAboveInteractObject</code> of the source + the hold height</td>
+</tr>
+<tr>
+<td>The hand is tipped down towards the source at 78.75 degrees, further when it is lower than 2.5 units</td>
+<td>todo</td>
+<td>Not found in our tree</td>
+</tr>
+<tr>
+<td>The hand holds the handful from the side while scooping</td>
+<td>done</td>
+<td>A hand pot is held from the side (<code>HandSystem::ComputeHoldParameters</code>: SIDE for pots)</td>
+</tr>
+<tr>
+<td>The hand turns with the camera's heading as it scoops</td>
+<td>done</td>
+<td>The hand's matrix takes the heading from the camera-to-cursor ray every frame (<code>HandMatrixRotation</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="ending-a-scoop">Ending a scoop</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Letting go ends the scoop, as does the source emptying or the hand leaving the player's influence, and stops its particles and force feedback</td>
+<td>done</td>
+<td><code>HandSystem::ProcessLockedSelect</code> (<code>HandTurn.cpp</code>): it ends when the source is gone, its interaction says so or the influence at the hand is 0; the release sends the end packet; the particles and the loop stop with it</td>
+</tr>
+<tr>
+<td>The handful is then held like anything else</td>
+<td>done</td>
+<td>The hand pot stays in the hand; see <a href="holding.html">holding.md</a></td>
+</tr>
+<tr>
+<td>A handful let go slowly is poured out, streaming down into a pile where the hand is</td>
+<td>done</td>
+<td><code>HandSystem::Release</code> -&gt; <code>physics::from_hand</code>: a hand pot slow enough is put down at once (<code>PutDownHandPot</code>, <code>pot_resource::AddResourceToPos</code>); see <a href="throwing.html">throwing.md</a></td>
+</tr>
+<tr>
+<td>A handful pressed onto a store, or a pile of the same resource, goes into it</td>
+<td>done</td>
+<td><code>ecs::held_apply</code> (<code>HandApplyToObject.cpp</code>): a hand pot pressed onto a store or a same-resource pile goes into it; building sites are pending</td>
+</tr>
+<tr>
+<td>The food and wood miracles pour from the hand the same way</td>
+<td>done</td>
+<td>The food and wood seeds are poured from the hand (IN_HAND seeds, one apply a turn, <code>HandSpellSeed.cpp</code>); see <a href="../miracles/index.html">../miracles/</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

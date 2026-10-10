@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Creature Cave — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="here" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-creature-cave">The Creature Cave</a><ul>
+<li><a href="#getting-there-and-moving-about">Getting there and moving about</a></li>
+<li><a href="#the-creature-in-the-cave">The creature in the cave</a></li>
+<li><a href="#the-scrolls">The scrolls</a></li>
+<li><a href="#trophies">Trophies</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-creature-cave">The Creature Cave</h1>
+<p>The temple's room for the player's creature. The creature stands in it by a fire, and around the cave are scrolls
+telling of its attributes, its personality, the actions it has learnt and the miracles it knows, attack dummies hung
+with the belts it has won in fights and plinths with medals for its miracles. Clicking the creature opens the tattoo
+editor (<a href="creature_tattoos.html">creature_tattoos.md</a>). The temple itself is in <a href="../temple/index.html">../temple</a>.</p>
+<p><strong>Progress: 17/31 done, 4 partial — 61%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../creature.html">The creature: groundwork, random streams and what is unknown</a>.</p>
+<h2 id="getting-there-and-moving-about">Getting there and moving about</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>F5 takes the player into the temple's Creature Cave</td>
+<td>done</td>
+<td><code>CreatureCaveSystem::Update</code> and <code>Game.cpp</code> (F5, <code>ZOOM_TO_CREATURE_ROOM</code>, goes to the temple's creature room); test <code>CreatureCaveSystemTest.InTheTempleOpeningGoesToTheCreatureRoomAndClosingLeaves</code></td>
+</tr>
+<tr>
+<td>Without a temple, as on the testbed, F5 shows the cave's screen on its own, and F5 or Escape closes it</td>
+<td>done</td>
+<td><code>CreatureCaveSystem</code>, its screen drawn by <code>src/Gui/CreatureCaveScreen.cpp</code> from the ImGui loop; test <code>CreatureCaveSystemTest.WithoutATempleF5ShowsTheCaveOnItsOwn</code></td>
+</tr>
+<tr>
+<td>The room's camera zooms to whatever is clicked (a scroll, the dummies, the plinths, the creature) and back out</td>
+<td>partial</td>
+<td>targets and zoom points in <code>src/3D/CreatureCaveTargets.*</code> and <code>src/Camera/TempleCameraModel.cpp</code> (tests <code>CreatureCaveTargets.*</code>); zooming onto the creature is not done (a TODO in <code>TempleCameraModel.cpp</code>)</td>
+</tr>
+<tr>
+<td>A fourth target's tooltip says it zooms in, but clicking it does nothing</td>
+<td>done</td>
+<td><code>CreatureCaveTargets</code> (kept as the game has it)</td>
+</tr>
+<tr>
+<td>The cursor keys turn and tilt the zoomed view, with limits, slowing to a stop</td>
+<td>todo</td>
+<td>nothing in <code>TempleCameraModel.cpp</code> for the creature room's zoomed view</td>
+</tr>
+<tr>
+<td>Tooltips say what clicking each target does</td>
+<td>done</td>
+<td><code>src/3D/TempleToolTips.cpp</code></td>
+</tr>
+<tr>
+<td>The way out at the cave's far end leads out of the temple</td>
+<td>done</td>
+<td><code>CreatureCaveTargets</code> exit target; test <code>CreatureCaveTargets.TheExitWithinItsReach</code></td>
+</tr>
+<tr>
+<td>The waterfall's water slides and sounds, and the fire crackles where the creature stands</td>
+<td>done</td>
+<td><code>TempleInterior::UpdateCreatureCave</code> (the waterfall's texture slide, fire and water sounds every frame the room is drawn); test <code>CreatureCaveEffects.TheRoomsSoundsAtTheFireAndTheWaterfall</code></td>
+</tr>
+<tr>
+<td>Embers drift up from the fire</td>
+<td>partial</td>
+<td><code>src/3D/CreatureCaveEffects.*</code> moves the fire's flames and smoke and the waterfall's spray and mist (tests <code>CreatureCaveEffects.*</code>); whether the room's sixteen drifting things are embers is unconfirmed</td>
+</tr>
+<tr>
+<td>The scrolls and other room screens close when the player moves the view with the keys</td>
+<td>todo</td>
+<td>nothing in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-creature-in-the-cave">The creature in the cave</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The player's creature stands in the cave, as it looks in the world (body, skin, tattoos)</td>
+<td>todo</td>
+<td>the temple's creature room draws no creature yet</td>
+</tr>
+<tr>
+<td>It turns to face the hand as the hand moves about the cave</td>
+<td>todo</td>
+<td>nothing in our tree</td>
+</tr>
+<tr>
+<td>It looks at the hand with a static pose, at random mirrored, when the hand is in front of it</td>
+<td>todo</td>
+<td>nothing in our tree</td>
+</tr>
+<tr>
+<td>A click makes it look at where the hand clicked for a second and a half</td>
+<td>todo</td>
+<td>nothing in our tree</td>
+</tr>
+<tr>
+<td>With no creature yet, the cave is empty and the scrolls say so</td>
+<td>partial</td>
+<td>without a creature the room's four scrolls are blank (<code>GatherScrollFacts</code> in <code>TempleInterior.cpp</code>) and no cave screen opens; what the original's scrolls say then is unchecked (our wiki's Pending)</td>
+</tr>
+<tr>
+<td>The cave is always about the player's own creature, whichever the camera was following</td>
+<td>done</td>
+<td><code>CreatureCaveSystem::GetCreature</code></td>
+</tr>
+<tr>
+<td>A picture of the creature can be taken from the cave and saved (unconfirmed what for)</td>
+<td>todo</td>
+<td>nothing in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-scrolls">The scrolls</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The attributes scroll: name, species, age in years, alignment, strength, size, fatness, health and needs, as whole percentages cut short</td>
+<td>done</td>
+<td><code>creature_cave::FactsOf</code>, drawn on the room's scrolls by <code>TempleScrolls</code> through <code>GatherScrollFacts</code>; test <code>CreatureCave.FactsCutPercentagesShort</code></td>
+</tr>
+<tr>
+<td>The personality scroll: each desire it has and how much it likes it, from extremely to not at all, its view of its god and of other creatures</td>
+<td>done</td>
+<td>tests <code>CreatureCave.FactsTellOfTheMind</code>, <code>TempleScrolls.TheCreaturesMindListsItsDesires</code></td>
+</tr>
+<tr>
+<td>The actions learnt scroll: what it has learnt to do and not to do, the strongest opinions each way</td>
+<td>done</td>
+<td><code>creature_cave::LessonsOf</code>; test <code>CreatureCave.LessonsAreTheStrongestOpinionsEachWay</code></td>
+</tr>
+<tr>
+<td>The magic scroll: the skills it has learnt by watching and how far it has learnt each miracle it knows about, even at 0 %</td>
+<td>done</td>
+<td>test <code>CreatureCave.FactsTellOfSkillsAndMiracles</code>, <code>CreatureCaveSystemTest.TheMindsTablesNameItsActionsSkillsAndMiracles</code>, <code>CreatureCaveSystemTest.TheMagicScrollListsTheMiraclesItKnowsAboutHoweverLittleLearnt</code></td>
+</tr>
+<tr>
+<td>The thing it likes most is named and shown</td>
+<td>todo</td>
+<td>nothing in our tree</td>
+</tr>
+<tr>
+<td>A scroll's text unrolls when zoomed to and rolls up when left</td>
+<td>done</td>
+<td>the creature room's scrolls are the temple's <code>TempleScrolls</code>, which roll and unroll with the camera (test <code>TempleScrollTexture.TheParchmentRollsWithThePosition</code>); the ImGui cave screen (<code>src/Gui/CreatureCaveScreen.cpp</code>) is only for a land with no temple</td>
+</tr>
+<tr>
+<td>The scrolls' pages go round from one to the next</td>
+<td>done</td>
+<td>test <code>CreatureCave.PagesGoRound</code></td>
+</tr>
+<tr>
+<td>A lesson browser steps through the actions it knows, telling for each what it has learnt about why, on what and how to do it</td>
+<td>todo</td>
+<td>nothing in our tree (unconfirmed how the player opens it)</td>
+</tr>
+<tr>
+<td>The scrolls' texts come from the game's texts, in the player's language</td>
+<td>done</td>
+<td><code>TempleScrolls::Write</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="trophies">Trophies</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Belts hang on the attack dummies by how it fights: a row each way fills, white first, five a colour, as it leans to attack or defence</td>
+<td>done</td>
+<td><code>src/3D/CreatureCaveTrophies.*</code>, drawn by <code>TempleInterior::UpdateCaveTrophies</code>; tests <code>CreatureCaveTrophies.AnEvenBalanceFillsBothRowsAlike</code>, <code>AFullBalanceFillsOneRow</code></td>
+</tr>
+<tr>
+<td>Medals stand on the magic plinths: one for all its miracles together, then its best four, wood to gem by how well learnt</td>
+<td>done</td>
+<td><code>CreatureCaveTrophies</code>; tests <code>CreatureCaveTrophies.MedalsByLearning</code>, <code>LearningOfTheMiracles</code></td>
+</tr>
+<tr>
+<td>Every belt and every medal past wood is drawn shiny</td>
+<td>done</td>
+<td><code>CreatureCaveTrophies</code> (environment map); test <code>CreatureCaveTrophies.BeltsAndMedalsPastWoodShine</code></td>
+</tr>
+<tr>
+<td>The miracles it knows hover as seeds in the room</td>
+<td>todo</td>
+<td>nothing in our tree (unconfirmed which four the room shows)</td>
+</tr>
+<tr>
+<td>The fight scroll tells of its fights</td>
+<td>partial</td>
+<td><code>TempleScrolls::CreatureFacts::tallies</code> has kills and battles, but they are made-up values until the game keeps its statistics (<code>TempleScrolls::Facts::Mock</code>)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

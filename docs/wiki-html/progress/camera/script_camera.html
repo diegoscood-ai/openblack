@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Script camera — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="here" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#script-camera">Script camera</a><ul>
+<li><a href="#taking-the-camera">Taking the camera</a></li>
+<li><a href="#placing-and-gliding">Placing and gliding</a></li>
+<li><a href="#named-camera-positions-and-tracks">Named camera positions and tracks</a></li>
+<li><a href="#following">Following</a></li>
+<li><a href="#lens-and-effects">Lens and effects</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="script-camera">Script camera</h1>
+<p>The camera commands of the challenge scripts: taking the camera from the player, placing and gliding it, following
+things, the named camera positions of the camera library, the lens, and shaking. The cut scenes that use them are in
+<code>../story/</code>; the cinema bars and fades are in <a href="cinematics.html">cinematics.md</a>.</p>
+<p><strong>Progress: 22/28 done, 1 partial — 80%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../script-camera.html">Script camera (GCamera and CameraModeScript)</a>.</p>
+<h2 id="taking-the-camera">Taking the camera</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A script starts camera control, taking the camera from the player (only one script at a time)</td>
+<td>done</td>
+<td><code>START_CAMERA_CONTROL</code> (<code>src/CHLApi.cpp</code>): <code>script_camera::BeginFrom</code> (<code>src/Camera/ScriptCamera.cpp</code>) and <code>help::script_control::StartCameraControl</code>; <code>ScriptCamera.OneScriptModeAtATime</code>, <code>BeginStartsFromTheDrawnCamera</code> (<code>test/test_script_camera.cpp</code>)</td>
+</tr>
+<tr>
+<td>Ending camera control gives the camera back to the player</td>
+<td>done</td>
+<td><code>END_CAMERA_CONTROL</code> and the task stop call <code>script_camera::End</code>: the player's camera goes on from the script's zoomers, the lens back to 70 degrees in 0.5 s; <code>ScriptCameraDual.EndReleasesOneDualThenTheScriptMode</code></td>
+</tr>
+<tr>
+<td>A script stores the camera's position and focus and restores them later</td>
+<td>done</td>
+<td><code>STORE_CAMERA_DETAILS</code>, <code>RESTORE_CAMERA_DETAILS</code> in <code>src/CHLApi.cpp</code> (restore also sets the player's camera without a script mode: inferred)</td>
+</tr>
+<tr>
+<td>Scripts read the stored position and focus</td>
+<td>done</td>
+<td><code>GET_STORED_CAMERA_POSITION</code>, <code>GET_STORED_CAMERA_FOCUS</code> push <code>script_camera::Get().storedPosition</code> and <code>storedFocus</code></td>
+</tr>
+<tr>
+<td>Scripts set how a following camera behaves: distance, speed, angle and whether it stays behind</td>
+<td>done</td>
+<td><code>CAMERA_PROPERTIES</code> to <code>script_camera::SetFollowProperties</code>; <code>ScriptCameraFollow.CameraPropertiesWithoutSpeedPlaceAtOnce</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="placing-and-gliding">Placing and gliding</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Set the camera's position at once</td>
+<td>done</td>
+<td><code>SET_CAMERA_POSITION</code> to <code>script_camera::SetPosition</code>, only with the script mode current (<code>ScriptCameraMode</code> in <code>src/CHLApi.cpp</code>); <code>ScriptCamera.SetDropsTheMove</code></td>
+</tr>
+<tr>
+<td>Set the camera's focus at once</td>
+<td>done</td>
+<td><code>SET_CAMERA_FOCUS</code> to <code>script_camera::SetFocus</code>, the same check</td>
+</tr>
+<tr>
+<td>Read the camera's position and focus</td>
+<td>done</td>
+<td><code>GET_CAMERA_POSITION</code>, <code>GET_CAMERA_FOCUS</code> read the drawn camera</td>
+</tr>
+<tr>
+<td>Glide the camera's position to a point over a time</td>
+<td>done</td>
+<td><code>MOVE_CAMERA_POSITION</code> to <code>script_camera::MovePosition</code>, seconds of the wall clock; <code>ScriptCamera.MoveArrivesAfterItsTime</code>, <code>ShortTimeSetsAtOnce</code></td>
+</tr>
+<tr>
+<td>Glide the camera's focus to a point over a time</td>
+<td>done</td>
+<td><code>MOVE_CAMERA_FOCUS</code> to <code>script_camera::MoveFocus</code></td>
+</tr>
+<tr>
+<td>Set or glide position, focus and lens together</td>
+<td>done</td>
+<td><code>SET_CAMERA_POS_FOC_LENS</code>, <code>MOVE_CAMERA_POS_FOC_LENS</code>, with the lens not turned into radians as in the game</td>
+</tr>
+<tr>
+<td>"camera ready": whether the camera has arrived</td>
+<td>done</td>
+<td><code>HAS_CAMERA_ARRIVED</code>: <code>script_camera::ScriptArrived</code> (a track's time, or both points within 0.001), or the player's zoomers with the same rule; <code>ScriptCameraDual.ArrivedIgnoresThePathUnderneath</code></td>
+</tr>
+<tr>
+<td>Set or glide the camera to face a thing from a distance</td>
+<td>partial</td>
+<td><code>SET_CAMERA_TO_FACE_OBJECT</code>, <code>MOVE_CAMERA_TO_FACE_OBJECT</code> through <code>script_camera::FaceObject</code>; <code>ScriptCameraFollow.FacePosition</code>, <code>FaceObject</code>. A creature faces 0 for now: our tree has no creature body angle for it <span class="state approx">approximate</span></td>
+</tr>
+<tr>
+<td>A point in front of the camera at a distance</td>
+<td>done</td>
+<td><code>GET_FACING_CAMERA_POSITION</code>: the drawn position plus the distance towards the drawn focus (inferred unit vector)</td>
+</tr>
+<tr>
+<td>Whether a thing can see the camera within an angle</td>
+<td>todo</td>
+<td><code>GAME_THING_CAN_VIEW_CAMERA</code> is a stub (always false)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="named-camera-positions-and-tracks">Named camera positions and tracks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Set or glide the camera to a named position from the game's camera library</td>
+<td>done</td>
+<td><code>CONVERT_CAMERA_POSITION</code>, <code>CONVERT_CAMERA_FOCUS</code> read segment Cam%d of <code>Data/camera.edt</code> (<code>src/3D/CameraTracks.cpp</code>); the scripts then set or move the camera there</td>
+</tr>
+<tr>
+<td>Create a marker at a named camera position</td>
+<td>done</td>
+<td>a marker is made at any point (<code>MarkerArchetype</code> through <code>CREATE</code> in <code>src/CHLApi.cpp</code>), the point taken from <code>CONVERT_CAMERA_POSITION</code></td>
+</tr>
+<tr>
+<td>Run a recorded camera track by name</td>
+<td>done</td>
+<td><code>RUN_CAMERA_PATH</code> to <code>script_camera::RunPath</code> on track Track%d of <code>Data/camera.edt</code>; see <a href="camera_paths.html">camera_paths.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="following">Following</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Make the camera's focus follow a thing, at once or gliding</td>
+<td>done</td>
+<td><code>FOCUS_FOLLOW</code>, <code>SET_FOCUS_FOLLOW</code> to <code>script_camera::FocusFollow</code>; <code>ScriptCameraFollow.TimeRule</code>, <code>FollowStartsSlower</code></td>
+</tr>
+<tr>
+<td>Make the camera's position follow a thing, at once or gliding</td>
+<td>done</td>
+<td><code>POSITION_FOLLOW</code>, <code>SET_POSITION_FOLLOW</code> (placed at once with <code>PlaceFollowNow</code>); <code>ScriptCameraFollow.PositionFollowTakesTheCurrentAngles</code>, <code>PlaceNowThenFollow</code></td>
+</tr>
+<tr>
+<td>Follow a thing with both focus and position at a distance</td>
+<td>done</td>
+<td><code>FOCUS_AND_POSITION_FOLLOW</code>, <code>SET_FOCUS_AND_POSITION_FOLLOW</code>; <code>ScriptCameraFollow.DistanceAndPitchLimits</code>, <code>AThingThatGoesIsDropped</code></td>
+</tr>
+<tr>
+<td>Follow a computer player's hand</td>
+<td>todo</td>
+<td><code>SET_FOCUS_FOLLOW_COMPUTER_PLAYER</code>, <code>SET_POSITION_FOLLOW_COMPUTER_PLAYER</code> are stubs: no computer players</td>
+</tr>
+<tr>
+<td>A dual camera keeps two things in view</td>
+<td>done</td>
+<td><code>START_DUAL_CAMERA</code>, <code>UPDATE_DUAL_CAMERA</code>, <code>RELEASE_DUAL_CAMERA</code>, <code>CREATE_DUAL_CAMERA_WITH_POINT</code> (<code>script_camera::StartDual</code> and the rest); <code>ScriptCameraDual.*</code> in <code>test/test_script_camera_dual.cpp</code>. No camera mode stack: the dual always sits on the script mode <span class="state approx">approximate</span></td>
+</tr>
+<tr>
+<td>Focus a thing on another and release it</td>
+<td>todo</td>
+<td><code>SET_FOCUS_ON_OBJECT</code>, <code>RELEASE_OBJECT_FOCUS</code> are stubs in <code>src/CHLApi.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="lens-and-effects">Lens and effects</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Set, glide or reset the camera's lens</td>
+<td>done</td>
+<td><code>SET_CAMERA_LENS</code> (70 degrees in the given time, as the game does), <code>MOVE_CAMERA_LENS</code> (degrees in seconds of game time) through <code>script_camera::SetFov</code>; <code>ScriptCamera.FovFollowsGameTime</code></td>
+</tr>
+<tr>
+<td>Shake the camera from a point with a radius, amplitude and time</td>
+<td>done</td>
+<td><code>SHAKE_CAMERA</code> to <code>camera_shake::StartCameraShake</code> (<code>src/Camera/CameraShake.cpp</code>), drawn only, by <code>script_camera::ApplyShake</code>; <code>CameraShake.OnlyWithinTheRadiusAndLessAndLess</code>, <code>TheNearestDecides</code>, <code>YOnlyMovesY</code></td>
+</tr>
+<tr>
+<td>Explosions and particle effects shake the camera, less the further away it is</td>
+<td>todo</td>
+<td>only the script's shakes exist: the particle sounds' <code>DoCameraShake</code> is read but not applied (<code>src/Particles/Rules/Sound.cpp</code>). Our wiki differs: a shake is felt in full anywhere within its radius, fading only with its time, not with distance (<a href="../../script-camera.html#shake">script camera</a>)</td>
+</tr>
+<tr>
+<td>Turn close clipping on and off for close shots</td>
+<td>todo</td>
+<td><code>SET_GRAPHICS_CLIPPING</code> is a stub in <code>src/CHLApi.cpp</code>; <code>near_clipping::k_Close</code> (<code>NearClipping.ScriptsCanClipClose</code>) is unused</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

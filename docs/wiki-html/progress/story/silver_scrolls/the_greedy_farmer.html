@@ -1,0 +1,1046 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Greedy Farmer — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-greedy-farmer">The Greedy Farmer</a><ul>
+<li><a href="#how-it-appears">How it appears</a></li>
+<li><a href="#the-introduction">The introduction</a></li>
+<li><a href="#the-herd">The herd</a></li>
+<li><a href="#the-cattle-thieves">The cattle thieves</a></li>
+<li><a href="#saving-cows">Saving cows</a></li>
+<li><a href="#the-angry-farmer">The angry farmer</a></li>
+<li><a href="#endings-what-is-checked">Endings: what is checked</a></li>
+<li><a href="#ending-the-farmer-is-killed">Ending: the farmer is killed</a></li>
+<li><a href="#ending-the-herd-is-gone">Ending: the herd is gone</a></li>
+<li><a href="#ending-all-the-children-are-killed">Ending: all the children are killed</a></li>
+<li><a href="#ending-the-children-are-scared-off">Ending: the children are scared off</a></li>
+<li><a href="#alignment-and-success-values">Alignment and success values</a></li>
+<li><a href="#reward">Reward</a></li>
+<li><a href="#aftermath">Aftermath</a></li>
+<li><a href="#advisors-comments">Advisors' comments</a></li>
+<li><a href="#music-and-sounds">Music and sounds</a></li>
+<li><a href="#creature-involvement">Creature involvement</a></li>
+<li><a href="#script-quirks">Script quirks</a></li>
+<li><a href="#unused-or-cut-parts">Unused or cut parts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-greedy-farmer">The Greedy Farmer</h1>
+<p>A silver scroll on land 2: a Celtic farmer asks the player to stop a gang of five hungry children from stealing his
+herd of ten cows, which they lead off one at a time to a campfire hideout and slaughter. The quest ends
+when the farmer dies, the herd is gone, the children are all dead, or a child is killed beside the gang and the rest
+lose their nerve; three of those endings strengthen the local town's Lightning miracle. The land as a whole is in
+<a href="../land_2.html">../land_2.md</a>, the land's control script in <a href="../../scripts/land2_script.html">../../scripts/land2_script.md</a>,
+the challenge program in <a href="../../scripts/challenge_scripts.html">../../scripts/challenge_scripts.md</a>.</p>
+<p><strong>Land:</strong> 2 · <strong>Giver:</strong> a Celtic farmer at his house on the edge of the Celtic town (town id 4) · <strong>Script:</strong> GreedyFarmer · <strong>Reward:</strong> the Lightning miracle and its second power-up level put into the local town (not for the "all cows gone" ending) · <strong>Repeatable:</strong> no</p>
+<p>Sources: the quest's original script source (<code>GreedyFarmer.txt</code>, ten scripts) and the land's trigger in
+<code>LandControl2.txt</code>, both checked line by line against the PC game's compiled <code>challenge.chl</code>; the shared helpers it runs
+(the scroll notify loop and the standard reminder); the game's English text table for every line quoted; the executable
+(read-only) for what putting a miracle in a town does. openblack's state is judged on this tree: of the 62 script
+functions this quest and its helpers call, 6 still only log "not implemented" in <code>src/CHLApi.cpp</code> (among them the
+flock-member test, the held-by-creature check and the snapshots), and <code>CREATE</code> makes the cows, children, farmer and
+markers (<code>CreateScriptObject</code>), but the land's control script never runs (see <a href="../land_2.html">../land_2.md</a> row 1). The
+quest therefore never appears; every row below is todo unless the notes say otherwise.</p>
+<p><strong>Progress: 0/143 done, 4 partial — 1%</strong></p>
+<h2 id="how-it-appears">How it appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's control script starts a background check on the Celtic town with id 4 (the source comment on it reads "Celtic - Greedy Farmer")</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; see <a href="../land_2.html">../land_2.md</a></td>
+</tr>
+<tr>
+<td>The check waits 8 minutes, then looks whether the town belongs to the player; if not, it waits another 8 minutes and looks again, for ever, so the quest can only start on an 8-minute beat after the player has won the town</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; town ownership read is in the land script; the wait is the script VM's sleep</td>
+</tr>
+<tr>
+<td>Once the town is the player's the quest starts in the background and the check stops; it starts only once</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Nothing is made before that: the herd, the children and the farmer all appear only after the town is won</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>A campfire (a bonfire object) is lit at the children's hideout, on low ground about 180 from the farmer's house as soon as the quest starts</td>
+<td>todo</td>
+<td><code>CREATE</code> makes a bonfire (<code>CreateScriptObject</code> in <code>src/CHLApi.cpp</code>); the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Ten cows are made one at a time in the farmer's field, each within 2 of the field's centre, and each only at a moment when the field is not on screen, so the player never sees them pop in</td>
+<td>todo</td>
+<td><code>CREATE</code> makes animals and <code>POS_FIELD_OF_VIEW</code> is real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The cows form a herd that keeps its members within an inner radius of 5 and an outer radius of 30, and are set to move as a herd; 2 seconds later they start grazing</td>
+<td>todo</td>
+<td><code>FlockCreate</code>, <code>FlockAttach</code>, <code>ChangeInnerOuterProperties</code> are real; <code>SetScriptState</code> partly ported; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Each cow gets its own watcher script from the moment it is made (see "Saving cows")</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The script then waits until the hideout is off screen and makes five boys there, Celtic farmer children, each set to age 10, and puts them into a gang (a flock with inner radius 3, outer radius 5)</td>
+<td>todo</td>
+<td><code>CREATE</code> makes villagers and <code>SET_PROPERTY</code> age works for villagers; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The children start stealing at once, before the scroll is even shown (see "The cattle thieves")</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>A silver challenge scroll is then put up at the farmer's house</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> is real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>While the scroll waits, whenever the camera is within 100 of it and it is on screen, at most once every 30 seconds and only when no cut scene is running, the evil advisor steps out, points at the scroll and says "Hey. There's a job for you. Wanna do it?"</td>
+<td>todo</td>
+<td><code>SpiritEject</code>, <code>SpiritPointPos</code>, <code>RunText</code> are real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The scroll waits until the player clicks the scroll or the farmer's house itself; the scroll is then made active</td>
+<td>todo</td>
+<td><code>GameThingClicked</code> is real; <code>SetActive</code> partly ported; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The quest's main script waits on the scroll and does not watch for the endings meanwhile, so the children can steal the whole herd before the player ever clicks; the "all cows gone" ending then plays straight after the introduction</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; evidence: the notify helper is run as a blocking script before the main watch loop</td>
+</tr>
+<tr>
+<td>The farmer himself is made at his house only when the scroll is clicked</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-introduction">The introduction</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Clicking starts a cut scene (widescreen, the camera and dialogue taken from the player, the game at normal speed) with the generic script music, number 2</td>
+<td>todo</td>
+<td><code>StartCameraControl</code>, <code>StartDialogue</code>, <code>StartGameSpeed</code>, <code>SetWidescreen</code>, <code>StartMusic</code> are real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The farmer is drawn in high detail for the scene</td>
+<td>todo</td>
+<td><code>SetHighGraphicsDetail</code> is real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The camera's starting view is remembered so it can be given back</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The farmer walks from his house to his soap box, a spot beside it, while the camera glides over 3 seconds to a low view of the soap box</td>
+<td>todo</td>
+<td><code>MoveCameraPosition</code>, <code>MoveCameraFocus</code> are real; <code>MoveGameThing</code> partly ported; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The scene waits until the farmer is within 3 of the soap box and the camera has arrived; he then turns to face the camera and plays his idle animation on a loop</td>
+<td>todo</td>
+<td><code>SetFocus</code>, <code>SetScriptUlong</code>, <code>SetScriptState</code> partly ported; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>After 1 second the camera drifts over 5 seconds to a closer view of him</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The quest is recorded in the player's challenge log: a snapshot with the title "The Greedy Farmer", success 0 and alignment 0, the current camera view, and a reminder that replays the good advisor's line "Those hungry children are stealing the farmer's cattle Shall we get involved?"</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Farmer: "Excuse me powerful being. I need your help."</td>
+<td>todo</td>
+<td><code>RunText</code>, <code>TextRead</code> are real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Farmer: "Children have been stealing my cattle." He plays a disgruntled crowd animation once</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>2 seconds into that line the camera cuts to the gang of children, 13 to the side and 9 above them, and follows them</td>
+<td>todo</td>
+<td><code>SetFocusFollow</code>, <code>SetCameraPosition</code>, <code>SetCameraFocus</code> are real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Farmer, over the shot of the children: "Stop it you little thieves!"</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>After 3 seconds the camera cuts back to the close view of the farmer</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>He goes back to his idle animation on a loop</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Farmer: "Please, you must act to stop them." This line waits for the player to click on before going on</td>
+<td>todo</td>
+<td><code>RunText</code> is real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The camera glides back to the player's starting view over 2 seconds</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The farmer is set to wander around his soap box (with the script's wander values 6, 4 and 20) and goes back to normal detail; the music stops and the cut scene ends, keeping the dialogue</td>
+<td>todo</td>
+<td><code>SetScriptUlong</code> partly ported; <code>SetScriptStatePos</code>, <code>SetScriptFloat</code> are stubs; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Both advisors step out and the dialogue is cleared</td>
+<td>todo</td>
+<td><code>GameClearDialogue</code> is real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Evil advisor: "Kill someone. The rich farmer dude?"</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Good advisor: "Think of the poor hungry children."</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Evil advisor: "I am. "</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; the text table line ends in a space</td>
+</tr>
+<tr>
+<td>The dialogue then ends; neither advisor is sent home here</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-herd">The herd</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The herd grazes the field: the script picks a random spot within 20 (each way) of where the herd first stood, retrying until the spot is at least 20 from the herd's current position, and sends the herd there</td>
+<td>todo</td>
+<td><code>RANDOM</code> is real; <code>MoveGameThing</code> partly ported; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>It then waits 300 seconds plus a random 0 to 300 before the next move; the random part is drawn afresh on every check of the wait (see quirks)</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The grazing stops when the herd is empty or the quest has ended</td>
+<td>todo</td>
+<td><code>IdSize</code> is real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-cattle-thieves">The cattle thieves</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The gang is slowed to speed 0.4 and walks to where the herd is at that moment, waiting until it is within 5 of that spot</td>
+<td>todo</td>
+<td><code>SET_PROPERTY</code> speed is ported; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>A cow is taken out of the herd and one boy of the gang is picked</td>
+<td>todo</td>
+<td><code>FlockDetach</code>, <code>CallIn</code> are real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The cow is slowed to speed 0.4 and told to stand where it is; the boy walks up to it until he is within 5</td>
+<td>todo</td>
+<td><code>SET_PROPERTY</code> speed and <code>MOVE_GAME_THING</code> on animals and villagers are ported; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The cow is then put into the gang as its leader; cow and boy both walk to the gang and the script waits until both are within 10 of it</td>
+<td>todo</td>
+<td><code>FlockAttach</code> is real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The cow is sent to the hideout at speed 0.4, cow and boy are set to move as a flock, and the gang walks to the hideout</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The script waits until the gang is within 10 of the hideout and the cow within 1 of it; a cow-slaughter sound plays at the cow, it is taken out of the gang and deleted with a fade</td>
+<td>todo</td>
+<td><code>PlaySoundEffect</code> is real; <code>ObjectDelete</code> partly ported; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>A count of slaughtered cows goes up by one (the count is never used; see cut parts)</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The theft is abandoned at once if the cow or the boy stops existing, or if the cow is picked up by the player's hand or is in the player's creature's hand; the gang then goes back for another cow</td>
+<td>todo</td>
+<td><code>GET_PROPERTY</code> in hand is not ported; <code>InCreatureHand</code> is a stub; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The gang keeps stealing one cow after another until the quest ends; if no cow or no boy can be had it simply tries again</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="saving-cows">Saving cows</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Whenever a cow is picked up by the hand or held by the player's creature, its watcher waits until it is let go, then puts it back into the herd at speed 0.4, so a dropped cow walks back to the herd</td>
+<td>todo</td>
+<td><code>FlockAttach</code> is real; <code>GET_PROPERTY</code> in hand is not ported; <code>InCreatureHand</code> is a stub; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>A cow counts as stolen once it is in the gang</td>
+<td>todo</td>
+<td><code>FlockMember</code> is a stub; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>A stolen cow that ends up back in the herd counts as saved: the good advisor steps out and says "You saved a cow. The Farmer will be pleased." and goes home</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The first cow saved adds 0.4 to the quest's alignment total; later saves only repeat the line</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>A cow's watcher stops when the cow's health reaches 0 or the quest ends</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-angry-farmer">The angry farmer</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>After the introduction the farmer watches for the gang: when it comes within 40 of him he goes after it</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>If the camera is within 100 of him, he is on screen and no cut scene is starting, he shouts one of two lines picked at random: "Oi! Them's my cows!" or "Stop it you little thieves!"</td>
+<td>todo</td>
+<td><code>RandomUlong</code>, <code>RunText</code> are real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>He chases the gang until he is 20 or more from his soap box or within 10 of the gang</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Then, on the same camera conditions, he shouts "Come back with my cattle you swines!"</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>He walks back to his soap box and waits until he is within 10 of it</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>He chases again only after the gang has been more than 40 from him</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The chasing stops when he dies, the quest ends or the herd is empty</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="endings-what-is-checked">Endings: what is checked</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>After the introduction the main script watches the quest every 1.1 seconds</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Each boy has his own watcher, checking every 1.1 seconds; a dead boy (health 0 or less) still in the gang is taken out of it</td>
+<td>todo</td>
+<td><code>FlockDetach</code> is real; <code>GET_PROPERTY</code> health is not ported; <code>FlockMember</code> is a stub; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>If the dead boy is not flying through the air and lies within 10 of the gang, the gang is marked as scared and he is remembered as the dead boy</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>A boy killed more than 10 from the gang, or while flying, only leaves the gang; the next check can still find him near the gang once he has landed</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; evidence: the check repeats every 1.1 s for that boy until a scare is marked or the quest ends</td>
+</tr>
+<tr>
+<td>The cow being led is counted in the gang, so the main script allows for it: if the gang holds a cow and nothing else, every boy is gone</td>
+<td>todo</td>
+<td><code>CallIn</code>, <code>IdSize</code> are real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The first time the gang is smaller than five boys (plus the led cow), the evil advisor steps out: "Bit of killing. Nice one." waits 2 seconds and goes home; this is said once</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; it is also said when a boy leaves the gang for any other reason</td>
+</tr>
+<tr>
+<td>The endings are tested in this order, the first that holds wins: the farmer's health is 0 or less; the herd is empty; the gang is empty or holds only a cow; the gang is scared</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; evidence: the order of the end conditions in the compiled watch loop</td>
+</tr>
+<tr>
+<td>When an ending fires, any cut scene, game speed, dialogue and camera control running in the watch loop are ended at once, so the evil advisor's "Nice one" can be cut off</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; evidence: each end condition's handler closes widescreen, game speed, dialogue and camera control</td>
+</tr>
+</tbody>
+</table>
+<h2 id="ending-the-farmer-is-killed">Ending: the farmer is killed</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Good advisor steps out: "The farmer's dead. Outrageous." and goes home</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>0.6 is taken off the alignment total (total −0.6, or −0.2 if a cow was saved first)</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The log entry is updated: success 1.0, that alignment, the same title and reminder</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> is a stub; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The reward is given (see Reward)</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Who killed him does not matter (the player, the creature, a miracle or Khazar's or Lethys's side)</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; evidence: the test is only his health</td>
+</tr>
+</tbody>
+</table>
+<h2 id="ending-the-herd-is-gone">Ending: the herd is gone</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Reached when the herd's size is 0, whether the children stole every cow or the player, the creature or anything else killed or removed them</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The farmer walks to his soap box; the script waits until he is within 3 of it, then until the camera is within 100 of the soap box with it on screen (it waits for ever if the player never looks)</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>A cut scene glides the camera over 3 seconds to a view of the soap box</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The log entry is updated: success 1.0 with the alignment total unchanged (0, or +0.4 if a cow was saved)</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Farmer: "All my cows are gone. You're no god of mine!"</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>After the line is read and 1 more second, the camera glides back to the player's view over 2 seconds and the scene ends</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>No reward is given for this ending</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; evidence: it is the only ending that does not set the reward flag</td>
+</tr>
+</tbody>
+</table>
+<h2 id="ending-all-the-children-are-killed">Ending: all the children are killed</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Reached when the gang is empty or holds only the cow it was leading; in practice when each boy dies away from the gang (a death beside it scares the others first)</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The script waits until the camera is within 100 of the soap box and it is on screen</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>A cut scene cuts the camera straight to the soap box view; the farmer is sent walking to the soap box</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Evil advisor steps out: "Way to go, Boss. You killed all the children." and goes home</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The scene waits until the farmer is within 2 of the soap box, then 1 second; Farmer: "I wanted you to stop them stealing the cows, not kill them all!"</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The camera cuts back to the player's view and the scene ends</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>1.0 is taken off the alignment total (total −1.0, or −0.6 if a cow was saved), and the log entry is updated with success 1.0</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The reward is given</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="ending-the-children-are-scared-off">Ending: the children are scared off</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Reached when a boy dies beside the gang (see the checks above); no camera condition, the scene starts wherever the player is looking</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>A cut scene starts; each living boy other than the dead one walks to stand around the body (2 in front, 2 behind, 2 to either side, and one diagonally behind)</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The camera glides over 6 seconds to a view 10 to the side and 10 above a boy of the gang</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; which boy is the one found in the gang as the scene starts</td>
+</tr>
+<tr>
+<td>The gang turns to look at the body; the camera glides over 6 seconds to a closer view (8 to the side, 5 above)</td>
+<td>todo</td>
+<td><code>SET_FOCUS</code> on a flock (a script container) is ported; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>A boy: "I'm scared. I'm not stealing cows any more."</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>A boy: "Me neither. I'm off."</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The dialogue box is closed and, a tenth of a second later, a new snapshot is taken (not an update): success 1.0, the alignment total unchanged (0, or +0.4 if a cow was saved)</td>
+<td>todo</td>
+<td><code>GameCloseDialogue</code> is real; <code>Snapshot</code> is a stub; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The scene ends and the gang is broken up, the boys going their own way</td>
+<td>todo</td>
+<td><code>FlockDisband</code> is real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The reward is given</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="alignment-and-success-values">Alignment and success values</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The snapshot records the quest in the player's challenge log with its title, a success fraction, an alignment value, a camera view and a reminder script; later updates change the success and alignment of that entry</td>
+<td>todo</td>
+<td><code>Snapshot</code>, <code>UpdateSnapshot</code> are stubs; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Introduction: success 0.0, alignment 0.0</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The total starts at 0 and only one thing raises it: the first cow saved, +0.4</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Farmer killed: −0.6 → −0.6 (−0.2 with a saved cow), success 1.0</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Herd gone: no change → 0 (+0.4 with a saved cow), success 1.0</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Children all killed: −1.0 → −1.0 (−0.6 with a saved cow), success 1.0</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Children scared off: no change → 0 (+0.4 with a saved cow), success 1.0</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Every ending counts as full success (1.0), including losing the whole herd</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="reward">Reward</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Whatever the ending, any cows left are handed over to the local town (the town within 100 of a point about 60 from the farmer's house)</td>
+<td>todo</td>
+<td><code>FlockAttach</code> is real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>For the farmer-killed, children-killed and scared endings, the Lightning miracle and its second power-up level are added to that town's miracles (the source comment calls it "a lightning bolt PU 1 for the LocalTown")</td>
+<td>partial</td>
+<td><code>SET_MAGIC_IN_OBJECT</code> puts a miracle in a town (<code>src/Magic/Script/CHLWorship.cpp</code>, <code>worship::town::AddMagicTypesHeld</code>); the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; see <a href="../rewards.html">../rewards.md</a></td>
+</tr>
+<tr>
+<td>A cut scene flies the camera over 3 seconds to the town centre</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The evil advisor steps out: "The Lightning Bolt just got better." The dialogue then ends; the advisor is not sent home by the script and the camera is not moved back</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The local town is found by position, not by id; that it is the land script's town id 4 is inferred from the land script's comment and the positions, not checked</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="aftermath">Aftermath</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The farmer, if alive, keeps wandering around his soap box; nothing removes him</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>After the scare the boys stay in the world as ordinary children; after the other endings the gang simply stops stealing</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; the gang is broken up only in the scare ending</td>
+</tr>
+<tr>
+<td>The campfire at the hideout stays</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Nothing in the land script reads this quest's result</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; evidence: no other script uses the quest's finished flag</td>
+</tr>
+</tbody>
+</table>
+<h2 id="advisors-comments">Advisors' comments</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Evil advisor (scroll notify): "Hey. There's a job for you. Wanna do it?"</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Good advisor (reminder): "Those hungry children are stealing the farmer's cattle Shall we get involved?"</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; the line has no full stop between its two sentences in the text table</td>
+</tr>
+<tr>
+<td>The intro exchange: evil "Kill someone. The rich farmer dude?", good "Think of the poor hungry children.", evil "I am. "</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Good advisor on a saved cow: "You saved a cow. The Farmer will be pleased."</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Evil advisor on the first child lost: "Bit of killing. Nice one."</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Good advisor on the farmer's death: "The farmer's dead. Outrageous."</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Evil advisor on all the children dead: "Way to go, Boss. You killed all the children."</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Evil advisor on the reward: "The Lightning Bolt just got better."</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="music-and-sounds">Music and sounds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The introduction plays the generic script music number 2 and stops it at the end of the scene</td>
+<td>partial</td>
+<td><code>START_MUSIC</code> and <code>STOP_MUSIC</code> work (<code>src/Audio/GameMusic.cpp</code>); the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Each slaughtered cow plays the script cow-slaughter sound at the hideout</td>
+<td>partial</td>
+<td><code>PLAY_SOUND_EFFECT</code> works; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>No other music or sound is started by the quest</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creature-involvement">Creature involvement</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A cow in the player's creature's hand counts like one in the player's hand: the theft is dropped and the cow goes back to the herd when released</td>
+<td>todo</td>
+<td><code>InCreatureHand</code> is a stub; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The creature killing the farmer, the children or the cows leads to the same endings as the player doing it; the script never asks who did it</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-quirks">Script quirks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The grazing wait's random part is re-drawn on every check, so the wait ends as soon as the elapsed time beats a fresh draw; it ends a little after 5 minutes rather than anywhere from 5 to 10</td>
+<td>partial</td>
+<td>our VM's sleep (<code>Opcode21Sleep</code>, <code>components/ScriptLibrary/src/LHVM.cpp</code>) re-checks the condition each pass the same way; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The quest's alignment total is a global that is never reset; harmless because the quest runs once</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The farmer's first idle loop is given a count of −11 where the later one uses −1, apparently a typo; its effect is undetermined</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>A "Nice one" comment is also triggered by a boy leaving the gang for reasons other than death</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The "herd gone" and "children killed" scenes wait for the camera to come to the soap box with no time limit, so the reward and the end can be put off for ever</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The scare ending writes a second, new snapshot instead of updating the first</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Source comments describe other lines than those used: "Gutted you killed the farmer", "Oi! Stop nicking me cows you little rascals!", "I'm too old for this shit!", "You stoopid fugger. I wanted you to stop them stealing the cows, not kill them!!", "The children are gone! Problem solved.", "The cows are all gone, dispute solved!"</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; placeholder comments; the shipped text is quoted in the rows above</td>
+</tr>
+<tr>
+<td>A comment on the herd-gone ending says it "should make the Farmer request you to click"; no such click is asked for</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The introduction's comment calls them children "from the village", but the boys are made at the hideout by the script, not taken from the town</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="unused-or-cut-parts">Unused or cut parts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cut start condition: the comments say the children would appear only when the town's storage pit ran alarmingly low, and the scroll only after at least one cow had been stolen; the storage pit is looked up and a food and a starving counter set up, but none is ever used, and the wait for the first stolen cow is commented out</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The hideout house is looked up but never used; the slaughtered-cow count is kept but never read; an unused local alignment total and a commented-out debug size exist</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>A commented-out wander-around state for the children, and a commented-out condition that a cow only counts as saved once more than 50 from the gang</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>A stand-alone test challenge that just runs the quest exists in the sources but is not in the compiled game</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Unused lines in the text table: good advisor "Someone is praying to you here."; evil advisor "We should punish someone."; good advisor "But those children are hungry!" (an alternative advisor exchange)</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; no script uses them</td>
+</tr>
+<tr>
+<td>Unused boys' lines: "Well I'm still going to. I'm hungry."; "He's dead! We should stop this. It's gone too far."; "Let's get back to the Village."; and "I'm scared. I don't wanna do this any more." (the scare scene's comment quotes this one, but the script uses "I'm scared. I'm not stealing cows any more.")</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; suggests a cut ending where the farmer's death ends the thieving and one boy refuses to stop</td>
+</tr>
+<tr>
+<td>Two filler lines under the quest's prefix: "Sending synchronised map file" and "NOT USED"</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

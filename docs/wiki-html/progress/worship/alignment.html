@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alignment — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="here" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#alignment">Alignment</a><ul>
+<li><a href="#the-value">The value</a></li>
+<li><a href="#deeds-that-move-it">Deeds that move it</a></li>
+<li><a href="#what-it-shows">What it shows</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="alignment">Alignment</h1>
+<p>How good or evil each player is, from -1 (evil) to 1 (good). Everything the player does to the world moves it, and the
+world shows it back: the sky, the hand, the temple, the land and the music.</p>
+<p><strong>Progress: 12/18 done, 2 partial — 72%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../magic.html">Magic: the core of the miracles</a>.</p>
+<h2 id="the-value">The value</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each player has an alignment from evil to good, starting neutral</td>
+<td>done</td>
+<td><code>components::Alignment</code>, one per player outside the land's registry (<code>magic::players::AlignmentOf</code>, <code>src/Magic/Core/Players.cpp</code>), 0 at the start; <code>test/test_alignment_system.cpp</code></td>
+</tr>
+<tr>
+<td>A change comes through over the turns, at most so much a turn, and the rest is lost</td>
+<td>done</td>
+<td>the pending change, clamped, times the maximum change per turn, then cleared (<code>ecs::effects::alignment::ProcessForPlayer</code>, <code>src/ECS/Effects/Alignment.cpp</code>), in slot 3 of the turn (<code>src/Magic/MagicLoop.cpp</code>)</td>
+</tr>
+<tr>
+<td>The further a player leans, the less a change the same way moves them and the more one the other way does</td>
+<td>done</td>
+<td><code>ecs::effects::alignment::ScaleChange</code> (<code>src/ECS/Effects/Alignment.cpp</code>), used by every deed below</td>
+</tr>
+<tr>
+<td>Alignment falls into bands (very good to very evil) that the visuals and music follow (unconfirmed bands)</td>
+<td>done</td>
+<td>the music picks its piece from seven alignment bands (<code>DiscreteAlignment</code>, <code>src/Audio/Services/GameMusic.cpp</code>); the sky and the temple's outside follow the value smoothly</td>
+</tr>
+<tr>
+<td>Scripts set and read a player's alignment, with a cap on each change</td>
+<td>done</td>
+<td><code>GET_ALIGNMENT</code> and <code>SET_ALIGNMENT</code> in <code>src/CHLApi.cpp</code>: SET adds the value, clamped, and a value outside -1..1 is refused</td>
+</tr>
+</tbody>
+</table>
+<h2 id="deeds-that-move-it">Deeds that move it</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A miracle moves its caster by what it reached: animals (kind or nasty), villagers, creatures, buildings, plants, fields, features and the land each by their own amount</td>
+<td>done</td>
+<td><code>ecs::effects::alignment::Update</code> from <code>EffectValues::ApplyEffect</code> (<code>src/ECS/Effects/EffectValues.cpp</code>): the info's alignment table by the object's alignment type and the life it changed</td>
+</tr>
+<tr>
+<td>Impressing villagers moves the player by the kind of thing they saw</td>
+<td>todo</td>
+<td>a villager's impression is not ported (TODO in <code>villager_reactions::AddReaction</code>, <code>src/ECS/Systems/Implementations/VillagerReactions.cpp</code>)</td>
+</tr>
+<tr>
+<td>Planting a tree with the water miracle is good</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellWater.cpp</code> calls <code>alignment::UpdateForTree</code> for the tree it plants</td>
+</tr>
+<tr>
+<td>Pulling up a tree or planting one by hand</td>
+<td>done</td>
+<td>uprooting with the hand is evil (<code>src/ECS/Systems/Implementations/HandHolding.cpp</code>), replanting good (<code>HandTrees.cpp</code>): <code>alignment::UpdateForTree</code></td>
+</tr>
+<tr>
+<td>Each villager death moves its killer by how it died (thrown, burnt, drowned, eaten …)</td>
+<td>done</td>
+<td><code>alignment::UpdateForDeath</code> from <code>villager::VillagerDead</code> (<code>src/ECS/Villager/VillagerDeath.cpp</code>): the death reason table, doubled for a child</td>
+</tr>
+<tr>
+<td>Throwing or squashing villagers and animals</td>
+<td>partial</td>
+<td>a villager the hand throws or drowns to death moves its owner by that reason (<code>src/ECS/LivingPhysics.cpp</code>, <code>src/ECS/VillagerDrowning.cpp</code>); an animal's death keeps no reason (<code>src/ECS/AnimalAI.cpp</code>)</td>
+</tr>
+<tr>
+<td>Sacrificing at the worship site</td>
+<td>todo</td>
+<td>no sacrifice yet: a totem does not take a held object (<code>src/ECS/HeldApply.cpp</code>); see <a href="prayer_power.html">prayer power</a></td>
+</tr>
+<tr>
+<td>Feeding and giving wood to villagers by hand</td>
+<td>done</td>
+<td><code>alignment::UpdateForResource</code> from <code>src/ECS/ObjectResources.cpp</code>: the change in the town's desire, times the give or take multiplier</td>
+</tr>
+<tr>
+<td>What disciples do moves their god (unconfirmed which jobs)</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>What a creature does moves its own alignment, not its god's</td>
+<td>partial</td>
+<td>an effect a creature applies moves no alignment at all, neither its god's nor its own (TODO in <code>src/ECS/Effects/EffectValues.cpp</code>); see <code>../creature/</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-it-shows">What it shows</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The sky turns dark or bright with the alignment of whoever holds the land at the camera</td>
+<td>done</td>
+<td>the alignment of the most influential player at the camera (<code>alignment::UpdateInterfaceAlignment</code>, <code>src/ECS/Effects/Alignment.cpp</code>), the sky steps towards it (<code>AlignmentSystem::Update</code>); <code>test_alignment_system</code>; see <code>../sky/</code></td>
+</tr>
+<tr>
+<td>Crops and trees grow faster on good land</td>
+<td>done</td>
+<td>the land's alignment (<code>alignment::LandAlignmentAt</code>) feeds the fields (<code>src/ECS/Fields.cpp</code>) and the trees (<code>src/ECS/Trees.cpp</code>)</td>
+</tr>
+<tr>
+<td>Doves circle a good temple, bats an evil one</td>
+<td>todo</td>
+<td>the temple's alignment flock is not ported (<code>src/Worship/Citadel.cpp</code>; <a href="../../magic.html#the-temples-outside-alignment-and-size">our wiki</a>); see <code>../animal/birds.md</code></td>
+</tr>
+</tbody>
+</table>
+<p>How the hand, the temple and the music change with alignment is in <code>../hand/</code>, <code>../temple/</code> and <code>../audio/</code>.</p>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

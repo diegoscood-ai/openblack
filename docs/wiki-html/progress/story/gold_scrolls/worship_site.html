@@ -1,0 +1,692 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Worship Site — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#worship-site">Worship Site</a><ul>
+<li><a href="#where-it-sits-in-the-land">Where it sits in the land</a></li>
+<li><a href="#waiting-for-the-temple-and-village-centre">Waiting for the temple and village centre</a></li>
+<li><a href="#the-first-scroll">The first scroll</a></li>
+<li><a href="#the-builder-film">The builder film</a></li>
+<li><a href="#building-the-worship-site">Building the worship site</a></li>
+<li><a href="#the-second-scroll">The second scroll</a></li>
+<li><a href="#khazars-lesson-on-worship">Khazar's lesson on worship</a></li>
+<li><a href="#the-miracle-hand-demo">The miracle hand demo</a></li>
+<li><a href="#after-the-lesson">After the lesson</a></li>
+<li><a href="#dying-worshippers">Dying worshippers</a></li>
+<li><a href="#khazar-coming-to-the-player">Khazar coming to the player</a></li>
+<li><a href="#advisors">Advisors</a></li>
+<li><a href="#music-and-sounds">Music and sounds</a></li>
+<li><a href="#creature">Creature</a></li>
+<li><a href="#failing-khazars-death-and-the-story">Failing, Khazar's death and the story</a></li>
+<li><a href="#script-quirks">Script quirks</a></li>
+<li><a href="#unused-or-cut-parts">Unused or cut parts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="worship-site">Worship Site</h1>
+<p>The first of Khazar's lessons on the second land, logged as the gold scroll "Worship Site": once the player's temple
+and village centre are finished, Khazar gives a builder disciple to raise the Norse worship site; when it stands he
+comes back with a second scroll and teaches worship (raising the village totem) and charging miracles, then places the
+workshop's scaffold and a third scroll that leads to his two miracle challenges. The land as a whole is in
+<a href="../land_2.html">../land_2.md</a>, the land's script in <a href="../../scripts/land2_script.html">../../scripts/land2_script.md</a>, the
+script program in <a href="../../scripts/challenge_scripts.html">../../scripts/challenge_scripts.md</a>.</p>
+<p><strong>Land:</strong> 2 · <strong>Giver:</strong> Khazar (the friendly god's hand), at scrolls he lays by the player's temple · <strong>Script:</strong> LearnWorshipping · <strong>Reward:</strong> a builder disciple and the Norse worship site's miracles (grain, wood, water) to charge; the lesson ends with the workshop scaffold and the scroll to Khazar's two miracle challenges · <strong>Repeatable:</strong> no</p>
+<p>Sources: the quest's script source (<code>LearnWorshipping.txt</code>), the shared Land 2 scroll notifier (<code>SetupLand2.txt</code>), the
+hand demo scripts it runs (<code>HandDemos.txt</code>), the god-confronts-player helper (<code>Land2ComputerAI.txt</code>), the land's arrival
+(<code>BeginLand2.txt</code>) and control script (<code>LandControl2.txt</code>), checked against the compiled scripts in the shipped
+<code>challenge.chl</code>; the game's English text table (<code>InfoScript2.txt</code>) and its hand demo recordings (<code>Data/HandDemo</code>).
+openblack's state is judged on this tree: of the 95 script functions this quest and the scripts it runs need, 19 still
+only log "not implemented" in <code>src/CHLApi.cpp</code> (among them moving and forcing Khazar's hand, the challenge log, the
+totem read, disciples, hits on an object and the held object). More basically, openblack never runs Land 2's control
+script: the land-loading function does nothing and the story's top script always begins with Land 1's control script
+(see <a href="../../scripts/land2_script.html">../../scripts/land2_script.md</a>), so the quest never appears; every row is todo
+unless the notes say otherwise.</p>
+<p><strong>Progress: 0/74 done, 1 partial — 1%</strong></p>
+<h2 id="where-it-sits-in-the-land">Where it sits in the land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's control script starts the quest in the background straight after the arrival film (Khazar's introduction, the scaffolds, the disciple and the one-shot miracles), along with the land's other watchers</td>
+<td>todo</td>
+<td>never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The arrival leaves the player's citadel at 30% built and the village centre at 30% built, a builder disciple at the village centre, and Khazar's three gifts of one-shot food, wood and water (plus two heals) by the temple; the quest needs both buildings finished</td>
+<td>todo</td>
+<td><code>BuildBuilding</code> is real; the arrival is not a gold scroll and has no file of its own (see <a href="../land_2.html">../land_2.md</a>, Arriving); never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>When the quest finishes, the control script (which checks every 9 seconds) opens The Workshop's watcher, the 20-minute timer for Impress Village, the influence watcher and a "spruce up your worship site" info sign</td>
+<td>todo</td>
+<td>plain script flags in <code>LandControl2</code>; see <a href="the_workshop.html">the_workshop.md</a> and <a href="impress_village.html">impress_village.md</a>; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The lesson's own end lays the scroll that leads to <a href="khazars_fireball_challenge.html">Khazar's Fireball Challenge</a> and <a href="khazars_shield_challenge.html">Khazar's Shield Challenge</a></td>
+<td>todo</td>
+<td><code>CreateHighlight</code> is real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="waiting-for-the-temple-and-village-centre">Waiting for the temple and village centre</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>At once, the village centre can no longer be picked up and the citadel can't build a worship site</td>
+<td>todo</td>
+<td><code>SetIdPickupable</code> and <code>SetCanBuildWorshipsite</code> (<code>src/Magic/Script/CHLWorship.cpp</code>) are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The quest waits, checking without pause, until both the citadel and the village centre are fully built, or Khazar is gone</td>
+<td>todo</td>
+<td>the built percentage (property 22) is handled by <code>GetProperty</code>; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>When the citadel is finished, Khazar's hand flies to 10 m in front of the camera (snapped there if it hasn't arrived within 10 seconds) and he says "Your Temple is built. Excellent."</td>
+<td>todo</td>
+<td>moving Khazar's hand (<code>MoveComputerPlayerPosition</code>) is a stub; <code>RunText</code> is real</td>
+</tr>
+<tr>
+<td>When the village centre is finished, Khazar comes the same way and says "Good. You have built much. But there is more for you to construct."</td>
+<td>todo</td>
+<td>Khazar's hand moves are computer-player stubs; the line is real</td>
+</tr>
+<tr>
+<td>Each line is said once, in whichever order the buildings finish</td>
+<td>todo</td>
+<td>plain script; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-first-scroll">The first scroll</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Khazar's hand flies to a spot in front of the citadel (speed 250, at a fixed height), then is let go</td>
+<td>todo</td>
+<td><code>MoveComputerPlayerPosition</code> and <code>ReleaseComputerPlayer</code> are stubs</td>
+</tr>
+<tr>
+<td>A gold scroll appears there, raised 5 above the ground</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> and the height through <code>SetProperty</code> (YPos) are real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>While the camera is within 100 of the scroll and the scroll is on screen, the good advisor steps out, points at it and says "Khazar has something important to tell us.", at most once every 30 seconds and only when no film is playing</td>
+<td>todo</td>
+<td>the notifier calls real natives (<code>SpiritEject</code>, <code>SpiritPointPos</code>, <code>RunText</code>); never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The quest waits until the scroll (or its spot) is clicked, or until Khazar is gone; the scroll is then switched on</td>
+<td>todo</td>
+<td><code>GameThingClicked</code> is real and <code>SetActive</code> handles highlights; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>A new man is made at the citadel and joins the player's home town</td>
+<td>todo</td>
+<td><code>CREATE</code> makes villagers (<code>CreateScriptObject</code>); never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-builder-film">The builder film</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A widescreen film starts; Khazar's hand (speed 350) picks the man up and drops him by the worship site's plot while the camera swings over to look at it</td>
+<td>todo</td>
+<td>forcing Khazar to pick up and drop (<code>ForceComputerPlayerAction</code>) is a stub; widescreen and the camera are real</td>
+</tr>
+<tr>
+<td>Khazar: "I have given you an expert builder of Worship Sites"</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The man becomes a builder disciple (with its sound), carries a heavy mallet, walks to the plot and hammers in a loop</td>
+<td>todo</td>
+<td><code>SetDisciple</code> and <code>SetObjectCarrying</code> are stubs</td>
+</tr>
+<tr>
+<td>The camera pulls back over the plot; the home town and the citadel are now allowed to build a worship site</td>
+<td>todo</td>
+<td><code>SetCanBuildWorshipsite</code> and the camera are real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Khazar: "This building is of great importance." then "I shall return once you have finished building the Worship Site."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Khazar's hand is let go, the dialogue closes and the camera pulls further back</td>
+<td>todo</td>
+<td><code>ReleaseComputerPlayer</code> is a stub; the dialogue and camera are real</td>
+</tr>
+<tr>
+<td>The log entry "Worship Site" is recorded at 0 with the good advisor's reminder "You need to build the worship site. Create some Disciples."</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub; the challenge log is not drawn</td>
+</tr>
+<tr>
+<td>Both advisors step out; as the film ends the evil advisor says "Oh boy, oh boy, oh boy, are we going to cause some havoc now!" and the good advisor "Havoc? No, but it will be good to cast lots of lovely Miracles when we need them."</td>
+<td>todo</td>
+<td><code>SpiritEject</code> and <code>RunText</code> are real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The builder is let go to work on his own</td>
+<td>todo</td>
+<td><code>ReleaseFromScript</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="building-the-worship-site">Building the worship site</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The player has the Norse worship site built by the temple (any builders, the given disciple or the player's own)</td>
+<td>todo</td>
+<td>our tree has worship sites (<code>src/Worship</code>); see <a href="../../worship/worship_sites.html">../../worship/worship_sites.md</a>; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>At half built, the log entry is set to 0.5: recorded afresh if the worship site is on screen, otherwise only updated quietly</td>
+<td>todo</td>
+<td><code>Snapshot</code> and <code>UpdateSnapshot</code> are stubs; <code>GameThingFieldOfView</code> is real</td>
+</tr>
+<tr>
+<td>When it is fully built the first scroll fades away</td>
+<td>todo</td>
+<td><code>ObjectDelete</code> of a highlight is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The quest then waits until the worship site is on screen, or 30 seconds, and logs "Worship Site" at 1 (complete)</td>
+<td>todo</td>
+<td>the log entry is a stub</td>
+</tr>
+<tr>
+<td>Khazar comes up to the camera and says "The power you wield grows!"</td>
+<td>todo</td>
+<td>Khazar's hand moves are computer-player stubs</td>
+</tr>
+<tr>
+<td>There is no timer and no way to fail the building part: the quest waits for ever</td>
+<td>todo</td>
+<td>the same script; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-second-scroll">The second scroll</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Khazar's hand flies (speed 150) to a spot by the worship site and is let go; a second gold scroll appears there on the ground</td>
+<td>todo</td>
+<td><code>MoveComputerPlayerPosition</code> is a stub; <code>CreateHighlight</code> is real</td>
+</tr>
+<tr>
+<td>The good advisor nags the same way: "Look. One of Khazar's Scrolls. Let's click on it."</td>
+<td>todo</td>
+<td>the notifier calls real natives; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Two bronze info signs appear once it is clicked: one at the village centre on raising and lowering the totem to send people to worship, one by the temple on worship sites, worshippers' needs, charging and the chant store</td>
+<td>todo</td>
+<td>the info sign script and <code>CreateHighlight</code> are real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The village centre can be picked up again from now on</td>
+<td>todo</td>
+<td><code>SetIdPickupable</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="khazars-lesson-on-worship">Khazar's lesson on worship</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A widescreen film with Khazar's music; Khazar's hand flies to the village centre (speed 400) and the camera follows</td>
+<td>todo</td>
+<td><code>StartMusic</code> and the camera are real, but moving Khazar's hand is a computer-player stub</td>
+</tr>
+<tr>
+<td>Khazar: "Your Worship site is built. Now let me teach you how to create Miracles."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Khazar: "Your people will worship you at the Temple." then "To send them there you must raise the Totem at the Village Centre."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The totem hand demo plays, paused at each step: "You move the Hand over the Totem." · "Then you hold down the Action Button to grab the Totem." · "You move the Hand up and down to raise and lower the Totem." · "I've raised the Totem so your followers will go to the Worship Site."</td>
+<td>todo</td>
+<td><code>PlayHandDemo</code>, <code>HandDemoTrigger</code> are real (<code>src/Input/HandDemo.h</code>, <code>Data/HandDemo/totem.hnd</code>); see <a href="../../hand/hand_in_scripts.html">../../hand/hand_in_scripts.md</a> and <a href="../../hand/totem.html">../../hand/totem.md</a>; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>So that worship has begun by the film's end, up to eight of the home town's villagers (not ones held by scripts) are put straight at the worship site, within 3 of its centre, and gathered into a small group (inner 3, outer 10) that is then broken up</td>
+<td>todo</td>
+<td><code>FlockCreate</code>, <code>FlockAttach</code>, <code>FlockDisband</code> are real (<code>ecs::script_containers</code>); see <a href="../../worship/worshippers.html">../../worship/worshippers.md</a>; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Khazar: "The higher you raise the Totem the more people from your Village will go to worship you" then "Now come and look at your followers." while his hand drifts slowly to the worship site</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The camera flies a recorded track around the worshippers; the worship site's stored power is emptied before and after it</td>
+<td>todo</td>
+<td><code>RunCameraPath</code> and <code>GameSetMana</code> are real; see <a href="../../camera/camera_paths.html">../../camera/camera_paths.md</a>; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Khazar: "They are dancing, worshipping you. This gives you power." · "These are the Miracles that your people offer you." · "The Miracles of Grain, Wood and Water."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-miracle-hand-demo">The miracle hand demo</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The worship site's power is set to nothing and the "miracle" hand demo plays</td>
+<td>todo</td>
+<td><code>GameSetMana</code> and <code>PlayHandDemo</code> are real (<code>Data/HandDemo/Miracle.hnd</code>); never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Khazar: "To activate one, grab the Miracle with the Action Button and it will be charged by your worshippers."; while this is being read the site's power is held at nothing</td>
+<td>todo</td>
+<td>real text and mana natives; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Khazar: "You'll see the energy rings flowing into your hand."; the site's power is raised to three quarters of a grain miracle's cost, in 50 steps with no pause between them (so in effect at once)</td>
+<td>todo</td>
+<td><code>GetManaForSpell</code> and <code>GameSetMana</code> are real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Khazar: "When the Miracle is charged it appears in your hand and you are ready to cast the Miracle."; if nothing is in the hand by then, the site's power is set to that three quarters again</td>
+<td>todo</td>
+<td>the in-hand test <code>GetObjectHeld</code> is a stub</td>
+</tr>
+<tr>
+<td>The film waits for the demo to finish</td>
+<td>todo</td>
+<td><code>IsPlayingHandDemo</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Khazar: "Remember worshipping comes at a cost, the needs of your worshippers can be seen on these flags." as the camera moves to the worship site's needs flags</td>
+<td>todo</td>
+<td>real text and camera natives; see <a href="../../worship/worship_sites.html">../../worship/worship_sites.md</a>; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The "miraclecast" hand demo plays without changing the hand's look; meanwhile Khazar: "So it's good to satisfy these needs and keep your Villagers in good health."</td>
+<td>todo</td>
+<td><code>PlayHandDemo</code> is real (<code>Data/HandDemo/MiracleCast.hnd</code>); never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Khazar: "I'll leave you now to experiment with Miracles, and expand your influence by growing your Village."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The home town's totem is set to half height, so half the village goes on worshipping after the film</td>
+<td>todo</td>
+<td>the totem height is not a property <code>SetProperty</code> handles</td>
+</tr>
+<tr>
+<td>The camera pulls back over the temple, the music stops and the film ends; the second scroll fades away</td>
+<td>todo</td>
+<td><code>StopMusic</code>, the camera and <code>ObjectDelete</code> are real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="after-the-lesson">After the lesson</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Khazar makes a scaffold at his own workshop, set to become a workshop (size 3) and to vanish once used, and his hand carries it (speed 150) to a plot in the player's village to plan the workshop; it then can't be picked up or moved</td>
+<td>todo</td>
+<td>the scaffold (<code>CREATE</code>, <code>SetScaffoldProperties</code>) and the flags are real, but Khazar's hand carrying it (<code>ForceComputerPlayerAction</code>) is a stub</td>
+</tr>
+<tr>
+<td>Khazar's hand then flies to a third spot by the temple and is let go; the scroll for his miracle challenges appears there (see <a href="khazars_fireball_challenge.html">khazars_fireball_challenge.md</a> and <a href="khazars_shield_challenge.html">khazars_shield_challenge.md</a>)</td>
+<td>todo</td>
+<td><code>MoveComputerPlayerPosition</code> and <code>ReleaseComputerPlayer</code> are stubs; <code>CreateHighlight</code> is real</td>
+</tr>
+<tr>
+<td>The quest marks the lesson done, which lets the control script start The Workshop (<a href="the_workshop.html">the_workshop.md</a>), the timer for Impress Village (<a href="impress_village.html">impress_village.md</a>) and the "spruce up your worship site" info sign</td>
+<td>todo</td>
+<td>plain script flags; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="dying-worshippers">Dying worshippers</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>From the lesson's end, a watcher checks the home town's count of worshippers who died from worship, at most once a minute (first check a minute after it starts)</td>
+<td>todo</td>
+<td><code>GetTownWorshipDeaths</code> and <code>CreateTimer</code> are real; whether our worshippers die from worship: <a href="../../worship/worshippers.html">../../worship/worshippers.md</a>; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>If more have died than when the watcher began, both advisors step out: evil "Ha! Your worshippers are working and dying for you!", good "Save them! You only have to lower your Village Totem."</td>
+<td>todo</td>
+<td><code>SpiritEject</code> and <code>RunText</code> are real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The count it compares with is never moved on, so after the first death the warning comes back every minute, new deaths or not</td>
+<td>todo</td>
+<td>the same script; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The watcher ends for good as soon as the totem is below 0.4 of its height</td>
+<td>todo</td>
+<td><code>GetTotemStatue</code> is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="khazar-coming-to-the-player">Khazar coming to the player</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>For each remark, Khazar's hand flies (speed 350) to 10 m in front of the camera, rechecking every 0.3 seconds; after 10 seconds it is put there at once</td>
+<td>todo</td>
+<td><code>MoveComputerPlayerPosition</code> and <code>SetComputerPlayerPosition</code> are stubs; <code>GetFacingCameraPosition</code> is real</td>
+</tr>
+<tr>
+<td>The remark is shown as a one-line dialogue in his voice, then his hand is let go</td>
+<td>todo</td>
+<td><code>ReleaseComputerPlayer</code> is a stub; the dialogue is real</td>
+</tr>
+</tbody>
+</table>
+<h2 id="advisors">Advisors</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Both scrolls are nagged by the good advisor (see above); the log entry's reminder is the good advisor's "You need to build the worship site. Create some Disciples." and is the same at every stage, even after the site is built</td>
+<td>partial</td>
+<td>the reminder runs real natives; the log entry itself is a stub</td>
+</tr>
+<tr>
+<td>The advisors' banter after the builder film and the dying worshippers warning are the only other advisor lines</td>
+<td>todo</td>
+<td>the same script; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="music-and-sounds">Music and sounds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Khazar's theme plays through the worship lesson and stops at its end; the builder film has no music of its own (the arrival's Khazar theme has already stopped)</td>
+<td>todo</td>
+<td><code>StartMusic</code> and <code>StopMusic</code> are real (<code>src/Audio/Services/GameMusic</code>); never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The builder disciple is made with its disciple sound</td>
+<td>todo</td>
+<td><code>SetDisciple</code> is a stub</td>
+</tr>
+<tr>
+<td>Every spoken line is the voice of its speaker in the text table (Khazar, good spirit, evil spirit)</td>
+<td>todo</td>
+<td><code>RunText</code> speaks each line in its speaker's voice (<code>src/Help</code>); never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creature">Creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature takes no part in the quest; nothing in it moves or locks the creature</td>
+<td>n/a</td>
+<td>the creature takes no part</td>
+</tr>
+</tbody>
+</table>
+<h2 id="failing-khazars-death-and-the-story">Failing, Khazar's death and the story</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The quest can't be failed and has no time limit</td>
+<td>todo</td>
+<td>the same script; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>If Khazar is gone (killed by Nemesis, see <a href="../land_2.html">../land_2.md</a>, the end of the land) before the temple and village centre are done, the scroll, builder and film are skipped and the worship site is simply allowed</td>
+<td>todo</td>
+<td>Khazar's death needs Nemesis's computer player (stubs); see <a href="../land_2.html">../land_2.md</a></td>
+</tr>
+<tr>
+<td>If Khazar is gone when the second scroll would appear, the lesson, the workshop scaffold and the challenges' scroll are all skipped; the lesson is still marked done</td>
+<td>todo</td>
+<td>follows from Khazar's death, which needs computer-player natives (stubs)</td>
+</tr>
+<tr>
+<td>If Khazar dies while the second scroll waits, the scroll notifier stops but the scroll is never removed: it stays on the ground</td>
+<td>todo</td>
+<td>follows from Khazar's death, which needs computer-player natives (stubs)</td>
+</tr>
+<tr>
+<td>Nothing here can stop the land being finished: the land ends on Lethys's towns and temple, not on the lessons, so there is no soft-lock</td>
+<td>todo</td>
+<td>the same script; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-quirks">Script quirks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The wait for the citadel and village centre and the dying worshippers watcher loop without any pause</td>
+<td>todo</td>
+<td>the same script; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The first 0.5 log entry is recorded only if the worship site is on screen at that moment; otherwise the entry is updated without being announced</td>
+<td>todo</td>
+<td>the log entry is a stub</td>
+</tr>
+<tr>
+<td>The builder's two closing lines are said in the reverse order of their numbers in the text table ("of great importance" before "I shall return")</td>
+<td>todo</td>
+<td>the same script; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The miracle demo's slow fill of the worship site's power has no pause in it, so the power jumps straight to three quarters of a grain miracle</td>
+<td>todo</td>
+<td>the same script and <code>GameSetMana</code>; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="unused-or-cut-parts">Unused or cut parts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>An earlier place for the "Worship Site" log entry, in the middle of the builder film, is commented out</td>
+<td>n/a</td>
+<td>never in the shipped game</td>
+</tr>
+<tr>
+<td>A separate hand demo script for casting is commented out in favour of playing the cast demo directly</td>
+<td>n/a</td>
+<td>never in the shipped game</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

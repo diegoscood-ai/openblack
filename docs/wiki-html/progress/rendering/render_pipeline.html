@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Render pipeline — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="here" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#render-pipeline">Render pipeline</a><ul>
+<li><a href="#frame-structure">Frame structure</a></li>
+<li><a href="#transparency-and-ordering">Transparency and ordering</a></li>
+<li><a href="#clipping-and-haze">Clipping and haze</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="render-pipeline">Render pipeline</h1>
+<p>How a frame is put together: the passes drawn before the scene, the sky first, the opaque world, then everything that
+blends sorted farthest first, the near clipping plane and the distance haze. The sea's reflection pass is in
+<a href="../ocean/index.html">../ocean/</a>, the temple's rooms in <a href="../temple/index.html">../temple/</a>.</p>
+<p><strong>Progress: 13/16 done, 2 partial — 88%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../original-frame.html">The original B&amp;W frame (runblack.exe W120, D3D7, LH3D)</a>, <a href="../../parity.html">Graphics engine parity: original versus openblack</a>, <a href="../../rendering.html">World rendering: original versus openblack</a>.</p>
+<h2 id="frame-structure">Frame structure</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Before the scene: the land's luminosity and cell colours, the sky dome's bands, the rivers' alpha, the objects' shadows and the creatures' and hand's silhouettes</td>
+<td>done</td>
+<td><code>src/Graphics/RenderPass.h</code>, the per-frame preparation in <code>src/Graphics/Renderer.cpp</code> (land light, sky, static shadows, the projected shadow list of <code>src/Graphics/ShadowList.cpp</code>)</td>
+</tr>
+<tr>
+<td>The sky is drawn first and everything else over it</td>
+<td>done</td>
+<td><code>RenderPass.h</code>, <code>Renderer::DrawScene</code></td>
+</tr>
+<tr>
+<td>The frame's updaters run in the game's order, getting everything ready before drawing</td>
+<td>partial</td>
+<td>the renderer prepares each frame in the original's stage order (<code>Renderer::DrawScene</code>, see our wiki's original frame); not every updater of the original's frame is ported</td>
+</tr>
+<tr>
+<td>Films overlaid on the picture, and the order the frame is finished in</td>
+<td>done</td>
+<td><code>Renderer::DrawFinishFrameOverlays</code>: the bars, the film (<code>DrawVideoOverlay</code>), then the script fade, as the original finishes its frame</td>
+</tr>
+<tr>
+<td>The game's pointer is drawn over everything</td>
+<td>done</td>
+<td><code>RenderPass.h</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="transparency-and-ordering">Transparency and ordering</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Everything that blends is drawn after the rest of the scene, farthest from the camera first, whatever it is</td>
+<td>done</td>
+<td><code>src/Graphics/ZSort.cpp</code> (<code>graphics::zsort</code>, stable, capped at 2048); test <code>test/test_zsorter.cpp</code></td>
+</tr>
+<tr>
+<td>The sort uses the distance squared, in single precision, as the game does</td>
+<td>done</td>
+<td><code>ZSort.cpp</code>; test <code>test/test_zsorter.cpp</code></td>
+</tr>
+<tr>
+<td>Models that fade or have alpha, sprites, mists, clouds and the hand all go through the one sort</td>
+<td>done</td>
+<td><code>ZSort.cpp</code>: models with their mesh's sorted flag, sprites, mists, clouds and the hand in the one queue</td>
+</tr>
+<tr>
+<td>Chimney smoke, particles and rain each take their place in the sort</td>
+<td>done</td>
+<td><code>src/Graphics/RendererSmoke.cpp</code>, the particle draw paths, <code>src/Graphics/RendererRain.cpp</code>, all through <code>ZSort.cpp</code></td>
+</tr>
+<tr>
+<td>The see-through hand is drawn from both sides, the inside first</td>
+<td>done</td>
+<td>the hand is drawn whole in the queue with its materials' own culling (<code>Renderer.cpp</code>), as the original</td>
+</tr>
+<tr>
+<td>Footprints are blended onto the land before the rest of what blends</td>
+<td>done</td>
+<td>the footprint pass before the blended queue (<code>Renderer.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="clipping-and-haze">Clipping and haze</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The near clipping plane moves out with the camera's height over the land</td>
+<td>done</td>
+<td>0.3 + 0.16 x height, clamped to 0.3..3.5, in <code>src/Game.cpp</code>; test <code>NearClipping.FollowsTheHeightOverTheLand</code></td>
+</tr>
+<tr>
+<td>Scripts can set the clipping close</td>
+<td>partial</td>
+<td>the close plane is in <code>near_clipping::NearPlane</code> (<code>src/Camera/NearClipping.h</code>; test <code>NearClipping.ScriptsCanClipClose</code>), but nothing in the game uses that file yet</td>
+</tr>
+<tr>
+<td>Far land and models fade into the distance haze</td>
+<td>done</td>
+<td><code>src/Graphics/Haze.cpp</code>, <code>assets/shaders/haze.sh</code> (land per vertex, models once per object, with the storm and lightning haze); test <code>test/test_haze_land_light.cpp</code></td>
+</tr>
+<tr>
+<td>Lines and triangles game code draws straight into the world</td>
+<td>done</td>
+<td><code>src/Graphics/WorldTriangles.cpp</code> (<code>world_triangles::Submit</code>), used by the leashes, the influence border, exploded pieces and the creature</td>
+</tr>
+<tr>
+<td>Objects drawn slightly away from where they are, the gap closing over time</td>
+<td>todo</td>
+<td>the game keeps decaying draw offsets for objects (unconfirmed which)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

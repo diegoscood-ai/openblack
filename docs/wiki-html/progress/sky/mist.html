@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mist and haze — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="here" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#mist-and-haze">Mist and haze</a><ul>
+<li><a href="#map-mists">Map mists</a></li>
+<li><a href="#distance-haze">Distance haze</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="mist-and-haze">Mist and haze</h1>
+<p>Banks of mist the land's scripts lay over valleys and swamps, made of puffs of the smoke texture facing the camera, and
+the distance haze that fades the world.</p>
+<p><strong>Progress: 12/17 done, 0 partial — 71%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../day-night-weather.html">Day, night and weather in the original</a>, <a href="../../rendering.html">World rendering: original versus openblack</a>.</p>
+<h2 id="map-mists">Map mists</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's script lays puffs of mist with a position, height, colour, size and edge shrink</td>
+<td>done</td>
+<td><code>FeatureScriptCommands::CreateMist</code> (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>), <code>MistArchetype</code> (<code>src/ECS/Archetypes/MistArchetype.cpp</code>)</td>
+</tr>
+<tr>
+<td>Each puff faces the camera</td>
+<td>done</td>
+<td>The billboard in <code>src/Graphics/RendererMists.cpp</code></td>
+</tr>
+<tr>
+<td>Puffs animate through sixteen frames of the smoke texture, starting at a random frame</td>
+<td>done</td>
+<td><code>MistArchetype</code> (the start from the CRT stream), <code>frame_anim::MistCell</code>; test <code>test/test_mists.cpp</code></td>
+</tr>
+<tr>
+<td>Puffs that shrink edge on are round from above and flatter seen level</td>
+<td>done</td>
+<td>The effect branch's non-uniform scale (<code>src/3D/Mists.cpp</code>); test <code>test/test_mists.cpp</code></td>
+</tr>
+<tr>
+<td>Edge-shrinking puffs are lit from above, the others by the land's light where they stand</td>
+<td>done</td>
+<td><code>src/Graphics/RendererMists.cpp</code> (the effect branch's light from above, the normal branch's land light)</td>
+</tr>
+<tr>
+<td>The land cells' colour adds to a mist's light</td>
+<td>done</td>
+<td>The normal branch in <code>src/Graphics/RendererMists.cpp</code></td>
+</tr>
+<tr>
+<td>Mists are sorted with other translucent things, farthest first</td>
+<td>done</td>
+<td><code>Renderer::CollectMists</code> into the Z-sorted queue</td>
+</tr>
+<tr>
+<td>The game moves on only the mists in view; openblack moves them all</td>
+<td>done</td>
+<td>Our tree also advances only the mists in view (<code>MistSystem::Update</code>, <code>src/ECS/Systems/Implementations/MistSystem.cpp</code>, <code>Locator::mistSystem</code>, with <code>mists::InView</code>)</td>
+</tr>
+<tr>
+<td>Challenge scripts create a mist with a colour, scale and transparency</td>
+<td>todo</td>
+<td>CREATE_MIST is a stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>Challenge scripts fade a mist's scale and transparency over a time</td>
+<td>todo</td>
+<td>SET_MIST_FADE is a stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>Scripts read how far an object or mist has faded</td>
+<td>todo</td>
+<td>GET_OBJECT_FADE is a stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>Mists are saved with the game</td>
+<td>todo</td>
+<td>openblack has no saved games. See ../engine/</td>
+</tr>
+<tr>
+<td>Creatures notice mists as objects in the world</td>
+<td>todo</td>
+<td>See ../creature/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="distance-haze">Distance haze</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The world fades into haze with distance from the camera</td>
+<td>done</td>
+<td><code>src/Graphics/Haze.cpp</code>, <code>assets/shaders/haze.sh</code></td>
+</tr>
+<tr>
+<td>The haze colour is a third of the land's and its strength follows the land's brightness</td>
+<td>done</td>
+<td><code>src/3D/LandLightTable.cpp</code></td>
+</tr>
+<tr>
+<td>The haze closes in at dusk and under a storm</td>
+<td>done</td>
+<td><code>src/3D/LandLightTable.cpp</code> (<code>sky_type::HazeFactor</code>, the overcast)</td>
+</tr>
+<tr>
+<td>Particle mists from spells and effects</td>
+<td>done</td>
+<td>The mist creator of the particles (<code>src/Particles/Creators/Mist.cpp</code>; test <code>Water.mistCreatorMakesTheCloudAtom</code>); see ../rendering/</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

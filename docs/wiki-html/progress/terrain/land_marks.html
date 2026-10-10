@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Footprints and marks on the land — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="here" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#footprints-and-marks-on-the-land">Footprints and marks on the land</a><ul>
+<li><a href="#building-footprints">Building footprints</a></li>
+<li><a href="#creature-footprints">Creature footprints</a></li>
+<li><a href="#scars-and-rubble">Scars and rubble</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="footprints-and-marks-on-the-land">Footprints and marks on the land</h1>
+<p>What is printed onto the land: the paved ground of buildings, river beds, the creature's footprints, and the rubble
+and scars left by blasts.</p>
+<p><strong>Progress: 12/17 done, 2 partial — 76%</strong></p>
+<h2 id="building-footprints">Building footprints</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A building or feature whose model carries a footprint prints its texture onto the land under it</td>
+<td>done</td>
+<td><code>Renderer::DrawFootprintPass</code> (<code>src/Graphics/Renderer.cpp</code>), <code>assets/shaders/fs_footprint.sc</code></td>
+</tr>
+<tr>
+<td>Footprints are blended into the land's colour, not drawn on top as decals</td>
+<td>done</td>
+<td><code>assets/shaders/fs_terrain.sc</code> (the island's footprint texture)</td>
+</tr>
+<tr>
+<td>The footprint goes when the building is removed and appears when it is placed</td>
+<td>partial</td>
+<td>The footprint pass is drawn from the models standing; checked for loading, not for buildings built or destroyed in play</td>
+</tr>
+<tr>
+<td>River beds are printed the same way</td>
+<td>done</td>
+<td>see rivers.md</td>
+</tr>
+<tr>
+<td>Fields print their furrows</td>
+<td>partial</td>
+<td>Fields are drawn (<code>src/ECS/Fields.cpp</code>); whether their ground is a footprint is not confirmed, see ../building/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creature-footprints">Creature footprints</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature leaves a print under its lower foot as each footstep falls</td>
+<td>done</td>
+<td><code>FootprintSystem</code> (<code>src/ECS/Systems/Implementations/FootprintSystem.cpp</code>); test <code>CreatureFootprints.LowerFootGetsThePrint</code> (<code>test/creature/test_creature_footprints.cpp</code>)</td>
+</tr>
+<tr>
+<td>Each species has its own print, sized to the creature</td>
+<td>done</td>
+<td>test <code>CreatureFootprints.SpeciesCells</code></td>
+</tr>
+<tr>
+<td>Left and right feet print mirrored</td>
+<td>done</td>
+<td>test <code>CreatureFootprints.LeftFootFlipsThePicture</code></td>
+</tr>
+<tr>
+<td>Prints fade away over about five seconds, in steps</td>
+<td>done</td>
+<td>tests <code>CreatureFootprints.GoneInAboutFiveSeconds</code>, <code>FadesInStepsOfAtLeast200Ms</code></td>
+</tr>
+<tr>
+<td>When the trail is full, new prints are dropped rather than old ones taken</td>
+<td>done</td>
+<td>test <code>CreatureFootprints.FullTrailDropsNewPrints</code></td>
+</tr>
+<tr>
+<td>On the first of April every creature leaves smiley faces</td>
+<td>done</td>
+<td>tests <code>CreatureFootprints.AprilFoolsSmileyKeepsTheSpeciesSize</code>, <code>FootprintSystemDate.AprilFoolsComesFromTheInjectedDate</code></td>
+</tr>
+<tr>
+<td>Prints are not saved with the game</td>
+<td>done</td>
+<td>As the game (<code>FootprintSystemInterface.h</code>)</td>
+</tr>
+<tr>
+<td>Puffs of dust rise from the creature's feet as it walks</td>
+<td>todo</td>
+<td>See ../creature/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="scars-and-rubble">Scars and rubble</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A blast leaves a heap of rubble that lies a while and fades in its last second</td>
+<td>done</td>
+<td><code>src/ECS/GroundMarks.cpp</code> (from <code>src/Particles/Rules/Explosion.cpp</code>)</td>
+</tr>
+<tr>
+<td>The hand gripping the land throws up a puff of dust</td>
+<td>done</td>
+<td>The grip effect (<code>HandPlacement.cpp</code>, <code>HandEffects.cpp</code>, SF_GripLandscape); see ../hand/</td>
+</tr>
+<tr>
+<td>A spinning vortex marks the ground it passes over</td>
+<td>todo</td>
+<td>see ../miracles/ (tornado)</td>
+</tr>
+<tr>
+<td>Burnt ground under a fire or fireball (unconfirmed whether the game marks the land)</td>
+<td>todo</td>
+<td>Nothing in our tree (and it is not confirmed that the game marks the land)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Lost Flock — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-lost-flock">The Lost Flock</a><ul>
+<li><a href="#how-it-appears">How it appears</a></li>
+<li><a href="#the-introduction">The introduction</a></li>
+<li><a href="#bringing-the-sheep-back">Bringing the sheep back</a></li>
+<li><a href="#five-sheep-the-first-reward">Five sheep: the first reward</a></li>
+<li><a href="#more-sheep-up-to-all-ten">More sheep, up to all ten</a></li>
+<li><a href="#ten-sheep-the-sheep-creature">Ten sheep: the sheep creature</a></li>
+<li><a href="#swapping-to-the-sheep">Swapping to the sheep</a></li>
+<li><a href="#failure-and-abandoning">Failure and abandoning</a></li>
+<li><a href="#aftermath">Aftermath</a></li>
+<li><a href="#advisors-music-and-sounds">Advisors, music and sounds</a></li>
+<li><a href="#script-quirks">Script quirks</a></li>
+<li><a href="#other-modes-and-unused-material">Other modes and unused material</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-lost-flock">The Lost Flock</h1>
+<p>A first-land silver scroll: a shepherd has dozed off and nine of his sheep have strayed all over the island. Each sheep
+brought back to his field joins his flock; five back earns a large food reward, all ten back earns a sheep the player
+can take as their creature. Killing the shepherd, or letting five sheep die in his field, ends it badly.</p>
+<p><strong>Land:</strong> 1 · <strong>Giver:</strong> the Norse shepherd, from the house beside his field next to the player's village · <strong>Script:</strong> TheLostFlock · <strong>Reward:</strong> a large food reward at five sheep; a sheep creature to swap to at ten · <strong>Repeatable:</strong> no</p>
+<p>Sources: the land's challenge scripts (the original source text, checked against the PC game's compiled
+<code>challenge.chl</code>), the game's text table and the executable. openblack is judged on this tree: of the 83 script functions
+the quest and the scripts it starts need (including the creature-swap script it hands over to), 13 only log "not
+implemented" in <code>src/CHLApi.cpp</code>, among them the snapshot, reward, creature-action and swap commands; creating villagers
+and animals works (<code>Create</code>). The land's control script starts this quest with the start-up box's second, third and
+fourth answers (see <a href="../../scripts/land1_script.html">../../scripts/land1_script.md</a>), and it is not checked in game; rows
+are todo unless the notes say otherwise. The land as a whole is in <a href="../land_1.html">../land_1.md</a>, the script's function
+coverage in <a href="../../scripts/challenge_scripts.html">../../scripts/challenge_scripts.md</a>.</p>
+<p><strong>Progress: 0/80 done, 28 partial — 18%</strong></p>
+<h2 id="how-it-appears">How it appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The quest's script is started early in the land, right after the opening (the family leading the player home and the temple), before the creature is chosen</td>
+<td>partial</td>
+<td>with the second, third or fourth tutorial answer <code>LandControl1</code> starts it before the creature is chosen; with the first answer the land's control script never gets that far (the intro does not finish)</td>
+</tr>
+<tr>
+<td>On starting, it places the nine lost sheep at once, so they are out in the world long before the scroll shows</td>
+<td>partial</td>
+<td>CHL <code>CREATE</code> makes the sheep (<code>AnimalArchetype</code>); not checked in game</td>
+</tr>
+<tr>
+<td>The lost sheep are: one hidden in a flock of five pigs in another farmer's field, one behind the creature gates, one near the hermit's cottage, one at the sculptor's house, one in a beach gully, one at the throwing-stones range, one by the lost brother's spot, one on a peninsula near where the crowd gathers, and one on the hill above the town</td>
+<td>partial</td>
+<td>the nine places come from the script; not checked in game</td>
+</tr>
+<tr>
+<td>The pigs' flock that hides the sheep keeps within 5 to 8 of its spot</td>
+<td>partial</td>
+<td><code>FlockCreate</code>, <code>ChangeInnerOuterProperties</code> and <code>FlockAttach</code> work (<code>src/ECS/ScriptContainers.cpp</code>), but <code>PopulateContainer</code> is a stub, so the five pigs are never made</td>
+</tr>
+<tr>
+<td>Every lost sheep is always drawn, however far away, so it can be spotted from a distance</td>
+<td>partial</td>
+<td><code>ThingJcSpecial</code> feature 19 does nothing because openblack fades no object with distance, so they are drawn anyway (<code>src/ECS/SuperVillager.cpp</code>); not checked in game</td>
+</tr>
+<tr>
+<td>Each lost sheep bleats with its own sample (nine different bleats) every 6 to 8 seconds while it is alive and more than 10 from the shepherd's field; it falls silent once there, once dead or once the quest is over</td>
+<td>partial</td>
+<td>the shared bleat script's natives work (<code>PlaySoundEffect</code>, <code>GetDistance</code>); not checked in game</td>
+</tr>
+<tr>
+<td>An empty flock is made at the shepherd's house, keeping its members within 5 to 12</td>
+<td>partial</td>
+<td><code>FlockCreate</code>, <code>ChangeInnerOuterProperties</code> work; not checked in game</td>
+</tr>
+<tr>
+<td>The scroll waits until the creature's trainer has taught the leash and tied the creature to a house; only then does a silver scroll appear over the shepherd's house</td>
+<td>partial</td>
+<td>with the fourth answer the land raises the flag at once (the lesson is skipped) and <code>CreateHighlight</code> makes the scroll (<code>src/ECS/ScriptHighlight.cpp</code>); not checked in game</td>
+</tr>
+<tr>
+<td>Until the scroll or the house is clicked, whenever the camera is within 100 of the scroll and it is on screen, the good advisor pops out at most every 30 seconds, points at it and says "Your godly attention is required here, Leader."</td>
+<td>partial</td>
+<td>the shared notice script's natives work (<code>SpiritEject</code>, <code>SpiritPointPos</code>, <code>RunText</code>, <code>PosFieldOfView</code>, <code>DllGettime</code>); not checked in game</td>
+</tr>
+<tr>
+<td>Clicking the scroll makes it active (opened) and the introduction begins</td>
+<td>partial</td>
+<td><code>GameThingClicked</code> and <code>SetActive</code> on a scroll work; not checked in game</td>
+</tr>
+<tr>
+<td>Later, the guide's naps suggest unfinished silver scrolls: if the Explorers' scroll has been opened and isn't the outstanding last suggestion, and the flock's scroll hasn't been opened (or the flock was the last suggestion and isn't done), the good advisor says "You have not investigated many Silver Reward Scrolls, Leader. Try a few - it'll be worth it." and the camera sweeps up and over to the shepherd's field</td>
+<td>todo</td>
+<td>the creature guide never runs in our tree; see <a href="../creature_guide.html">../creature_guide.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-introduction">The introduction</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A widescreen scene with the first generic script theme</td>
+<td>partial</td>
+<td>widescreen and script music work (<code>SetWidescreen</code>, <code>StartMusic</code>); not checked in game</td>
+</tr>
+<tr>
+<td>The shepherd (a Norse shepherd villager) appears at his house with one sheep, which is sent to his field</td>
+<td>partial</td>
+<td>CHL <code>CREATE</code> makes the villager and the sheep, <code>MoveGameThing</code> sends it; not checked in game</td>
+</tr>
+<tr>
+<td>He walks very slowly out to a spot in front of the house (speed 0.08) with a tired-eyed walk while the camera follows him</td>
+<td>partial</td>
+<td><code>SetProperty</code> speed, <code>MoveGameThing</code>, <code>OverrideStateAnimation</code> (villagers) and <code>FocusFollow</code> work; not checked in game</td>
+</tr>
+<tr>
+<td>The quest is recorded: title "The Lost Flock", 0 done, alignment 0, reminder "There are still sheep missing!" (good advisor)</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub; how records are kept: <a href="../challenges_and_rewards.html">../challenges_and_rewards.md</a></td>
+</tr>
+<tr>
+<td>He faces the camera and yawns: "By the great gods, I have been asleep!"</td>
+<td>partial</td>
+<td><code>SetFocus</code> (villager), <code>RunText</code> and the shepherd's script animation (<code>SetScriptUlong</code>, <code>SetScriptState</code>) work; not checked in game</td>
+</tr>
+<tr>
+<td>Throwing up his arms: "I was just counting my sheep when I dozed off."</td>
+<td>partial</td>
+<td>as above; not checked in game</td>
+</tr>
+<tr>
+<td>Looking about: "Please find my straying sheep."</td>
+<td>partial</td>
+<td>as above; not checked in game</td>
+</tr>
+<tr>
+<td>If the sheep on the hill above the town is still there, the camera cuts to it for about four seconds, drifting, and it bleats; then cuts back to the shepherd. Otherwise the camera simply turns back to him</td>
+<td>partial</td>
+<td>the camera natives and <code>PlaySoundEffect</code> work; not checked in game</td>
+</tr>
+<tr>
+<td>The shepherd stands in despair, weeping, then looks over to his field</td>
+<td>partial</td>
+<td>villager script animations work; not checked in game</td>
+</tr>
+<tr>
+<td>The camera pulls back to look over the field as he walks to it at speed 0.15; the music stops</td>
+<td>partial</td>
+<td><code>MoveCameraPosition</code>, <code>MoveCameraFocus</code>, <code>HasCameraArrived</code>, <code>StopMusic</code> work; not checked in game</td>
+</tr>
+<tr>
+<td>He becomes the leader of his flock with his one sheep, and wanders around the field (within about 6)</td>
+<td>partial</td>
+<td><code>FlockAttach</code> makes him leader; his wandering state lacks its place and radius (<code>SetScriptStatePos</code>, <code>SetScriptFloat</code> are stubs)</td>
+</tr>
+<tr>
+<td>Both advisors pop out. Evil: "Well, they were going to be slaughtered anyway. I say we waste the wandering mutton." Good: "But if we find and return them, we'll have a dyed-in-the-wool follower." Evil: "Wow. The saintly one made a joke."</td>
+<td>partial</td>
+<td><code>SpiritEject</code>, <code>RunText</code>, <code>TextRead</code> work; not checked in game</td>
+</tr>
+<tr>
+<td>Any loose sheep already within 50 of his flock when the scene ends (ones the player brought early) join the flock at once</td>
+<td>todo</td>
+<td><span class="state approx">inferred</span> never reached: right after the introduction the script takes the shepherd for dead, since <code>GetProperty</code> has no health and answers 0, and the killed-shepherd ending runs (see that row)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="bringing-the-sheep-back">Bringing the sheep back</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The player brings the sheep back by any means (carrying them in the hand, throwing them, the creature carrying them); the scripts only count the shepherd's flock</td>
+<td>todo</td>
+<td>never reached (inferred, see above); the hand and throwing work, and the flock counting natives (<code>IdSize</code>, <code>CallNear</code>) too</td>
+</tr>
+<tr>
+<td>A returned sheep joins the shepherd's flock through the game's own flocking: an animal on its own looks about itself for a flock of the same kind to join, as long as the joined flock stays within the species' flock size</td>
+<td>partial</td>
+<td>lone animals look for a flock to join (<code>LookForFlocksInSpiral</code>, <code>src/ECS/AnimalAI.cpp</code>); the quest never gets this far (inferred, see above). Our wiki differs: a lone animal looks for a flock to merge with only after it lands (dropped or thrown), and a script-made flock takes it in whatever the size (<a href="../../../animals.html#flocks-age-and-smoke">animals</a>)</td>
+</tr>
+<tr>
+<td>If the flock has only the shepherd left in it, the script itself adds any sheep within 50, checking every 0.7 seconds</td>
+<td>todo</td>
+<td>never reached (inferred, see above)</td>
+</tr>
+<tr>
+<td>The second, third and fourth sheep in the flock each get "Many thanks, higher power. Keep them coming, please." (once each)</td>
+<td>todo</td>
+<td>never reached (inferred, see above)</td>
+</tr>
+<tr>
+<td>If more than three were already there when the introduction ended, these lines start from that count</td>
+<td>todo</td>
+<td>never reached (inferred, see above)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="five-sheep-the-first-reward">Five sheep: the first reward</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>When the flock reaches the shepherd and five sheep (four found), the script waits until the shepherd is not held by the hand or the creature, puts him back home if he is more than 50 away, and gathers the flock there</td>
+<td>todo</td>
+<td>never reached (inferred, see above); <code>InCreatureHand</code> is a stub and <code>GetProperty</code> has no in-hand</td>
+</tr>
+<tr>
+<td>A widescreen scene: the shepherd walks to a spot by his house while the camera closes in over 5 seconds</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>He faces the camera and shifts about; the record becomes 99% done with alignment +0.4 and the reminder "The shepherd seems to think we have returned all his sheep." (good advisor)</td>
+<td>todo</td>
+<td>never reached; <code>UpdateSnapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>"Thank you. Looks like you've returned my flock!"</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>He points, and a large food reward appears beside him (it appears on the ground, not falling from the sky, and belongs to no town)</td>
+<td>todo</td>
+<td>never reached; <code>CreateReward</code> is a stub; the reward itself: <a href="../rewards.html">../rewards.md</a></td>
+</tr>
+<tr>
+<td>"I can't offer much, but take this with my thanks."</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>He turns to the reward and the camera swings onto it</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>When the reward is clicked, its own help line is spoken if the dialogue is free</td>
+<td>todo</td>
+<td>never reached; <code>GetHelp</code> is a stub; see <a href="../rewards.html">../rewards.md</a></td>
+</tr>
+<tr>
+<td>He goes back to wandering in his field; the silver scroll is removed</td>
+<td>todo</td>
+<td>never reached (<code>ObjectDelete</code> works)</td>
+</tr>
+<tr>
+<td>For the guide's purposes the quest now counts as done, though it carries on</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+</tbody>
+</table>
+<h2 id="more-sheep-up-to-all-ten">More sheep, up to all ten</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The first sheep after the reward: "Ooh. You found another sheep. I forgot there was more than five."</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>Each one after that cycles through "Good gracious. Another sheep. Superb work.", "You've found another sheep." and "Another sheep. Well I never. This gets better and better."</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>A line is only said when the flock is bigger than the biggest it has been since the reward, so a sheep that dies and is replaced earns no new line</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+</tbody>
+</table>
+<h2 id="ten-sheep-the-sheep-creature">Ten sheep: the sheep creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>When the flock is the shepherd and all ten sheep, the script waits until he is not held and puts him in his field if he is more than 50 from it</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>A widescreen scene with the fourth epic script theme; the shepherd stands by his house as the camera moves in over 4 seconds</td>
+<td>partial</td>
+<td>the music command works (<code>StartMusic</code>); the scene is never reached</td>
+</tr>
+<tr>
+<td>"All my sheep are back! Thank you!"</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>A white success sparkle shows in the field for 3 seconds and a sheep creature appears in it</td>
+<td>todo</td>
+<td>never reached; <code>SpecialEffectPosition</code> works, but CHL <code>CREATE</code> makes no creatures</td>
+</tr>
+<tr>
+<td>"Behold! A sheep. You may use him as your Creature." as he looks to the field and bows, then turns to the camera and prays</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>The record becomes fully done with alignment +0.6, keeping the reminder "There are still sheep missing!"</td>
+<td>todo</td>
+<td>never reached; <code>UpdateSnapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>The camera pulls back over the field; the shepherd leaves his flock, the flock is let go, and he joins the Norse village as an ordinary villager</td>
+<td>todo</td>
+<td>never reached (<code>FlockDetach</code>, <code>ReleaseFromScript</code> work)</td>
+</tr>
+<tr>
+<td>The sheep creature is then offered to swap for (see below)</td>
+<td>todo</td>
+<td>never reached; <code>SwapCreature</code> is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="swapping-to-the-sheep">Swapping to the sheep</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The sheep creature can't be picked up and keeps looking at the camera, with a silver scroll just above its head</td>
+<td>todo</td>
+<td>never reached; the sheep creature is never made; the swap: <a href="../challenges_and_rewards.html">../challenges_and_rewards.md</a></td>
+</tr>
+<tr>
+<td>Whenever the camera is within 100 of it and it is on screen, the evil advisor pops out at most once a minute, points and says "Swap your Creature with this one if you want."</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>Clicking the scroll or the sheep with the player's creature more than 50 away: evil advisor: "You'll need to bring our Creature, Boss." and the scroll comes back</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>With the creature within 50, the scroll goes, the creature's leash is let go and it walks to within 15 of the sheep (given at most 5 seconds); the two creatures look each other over</td>
+<td>todo</td>
+<td>never reached; <code>CreatureDoAction</code> is a stub and <code>MoveGameThing</code> does not move creatures</td>
+</tr>
+<tr>
+<td>Every 30 seconds the good advisor asks "Are you sure you want a new Creature? Click the Action Button on the Creature you want to swap to if you are. Click your own Creature to cancel."</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>Clicking the sheep confirms; clicking the player's own creature, or waiting 110 seconds, cancels and the scroll comes back</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>On confirming, a two-creature camera frames them, both sparkle, point at each other and swap with the creature-swap sound; the player's creature becomes the sheep</td>
+<td>todo</td>
+<td>never reached; <code>StartDualCamera</code> works, <code>SwapCreature</code> is a stub</td>
+</tr>
+<tr>
+<td>Evil advisor: "Great, Boss. If you want your old Creature back, just return here later."</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>The old creature stays there, can't be picked up, and is offered in the same way, so the player can swap back and forth as often as they like</td>
+<td>todo</td>
+<td>never reached; the offer never closes: the script's own time limit (60 to 120 seconds) is made but never checked</td>
+</tr>
+<tr>
+<td>The offer lasts until the land's scripts are stopped (leaving for the next land)</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+</tbody>
+</table>
+<h2 id="failure-and-abandoning">Failure and abandoning</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every 2 seconds the script looks for a dead sheep within 30 of the field that is neither held nor flying; it is removed with a fade and counted</td>
+<td>todo</td>
+<td>never reached; also <code>CallNearInState</code> (finding a dead sheep) is a stub, so no dead sheep would be found</td>
+</tr>
+<tr>
+<td>The first dead sheep: "Oh dear. One of my sheep has died. Sheep happens, I suppose."</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>The second to fourth: "Oh drat. Another sheep dead."</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>The fifth: "Too many sheep have died for me to make a living. I'm going to quit." then "You're a powerful being, Holy One, but you're not the best shepherd ever."; the record is closed fully done with alignment -0.6 and the quest ends</td>
+<td>todo</td>
+<td>never reached; <code>UpdateSnapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>Any dead sheep counts, including ones that died elsewhere and were dropped in the field</td>
+<td>todo</td>
+<td><code>CallNearInState</code> is a stub</td>
+</tr>
+<tr>
+<td>If the shepherd dies (and is not in flight), the evil advisor pops out and points at him: "I never liked him anyway. He gave me the creeps."; the good advisor looks at him: "I thought nothing gave you the creeps."; evil: "You do, you big creep."; the record is closed fully done with alignment -1</td>
+<td>partial</td>
+<td><span class="state approx">inferred</span> it happens, but wrongly: <code>GetProperty</code> has no health and answers 0, so the shepherd counts as dead as soon as the introduction ends; <code>SpiritPointGameThing</code>, <code>LookGameThing</code>, <code>StopPointing</code> work, <code>UpdateSnapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>When the guide's storm begins, an unfinished, started flock quest is closed (fully done, alignment 0) and its script stopped</td>
+<td>todo</td>
+<td>the guide's storm never runs in our tree (creature training is skipped or never reached)</td>
+</tr>
+<tr>
+<td>A flock quest whose scroll was never clicked is simply left; the sheep stay where they are</td>
+<td>partial</td>
+<td>nothing happens until the click; not checked in game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="aftermath">Aftermath</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>After completion the shepherd lives on as one of the Norse village's people, and his ten sheep roam free</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>The large food reward stays where it appeared until opened</td>
+<td>todo</td>
+<td>never reached; <code>CreateReward</code> is a stub</td>
+</tr>
+<tr>
+<td>Nothing else in the land's later story depends on this quest beyond the guide's scroll suggestions</td>
+<td>todo</td>
+<td>the guide's suggestions never run</td>
+</tr>
+</tbody>
+</table>
+<h2 id="advisors-music-and-sounds">Advisors, music and sounds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every line of the shepherd is the "man" narrator voice; the advisor lines are the good and evil advisors' own voices</td>
+<td>partial</td>
+<td><code>RunText</code> shows the text and plays its narrator's voice (<code>src/Help/HelpSystem.cpp</code>); the lines after the introduction are never reached; not checked in game</td>
+</tr>
+<tr>
+<td>Clicking the active scroll again speaks its reminder through the advisor who owns it (the good advisor here)</td>
+<td>todo</td>
+<td>the shared reminder script needs <code>Snapshot</code>, a stub</td>
+</tr>
+<tr>
+<td>Music: the first generic script theme for the introduction, the fourth epic theme for the all-sheep scene; the five-sheep scene has none</td>
+<td>partial</td>
+<td>the music command plays these tracks (<code>StartMusic</code>, <code>src/Audio</code>); the introduction's can play, the all-sheep scene is never reached</td>
+</tr>
+<tr>
+<td>Sounds: nine different sheep bleats for the lost sheep, and the creature-swap sound</td>
+<td>partial</td>
+<td>the bleats play through <code>PlaySoundEffect</code>; the creature-swap sound is never reached</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-quirks">Script quirks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The five-sheep reward only fires when the flock is exactly the shepherd and five sheep; if two sheep join at the same moment and the count jumps past it, no reward or later line ever comes and the quest can't be finished (only the storm closes it)</td>
+<td>todo</td>
+<td>never reached; follows from the script</td>
+</tr>
+<tr>
+<td>The ten-sheep ending likewise needs exactly the shepherd and ten sheep; one more sheep at the same moment skips it and only the "another sheep" lines play</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>Since only ten sheep exist for the quest, one dead sheep makes the ten-sheep ending impossible unless some other sheep wanders into the flock</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>Dead sheep are counted only within 30 of the field, so sheep killed elsewhere never count</td>
+<td>todo</td>
+<td><code>CallNearInState</code> is a stub, so no dead sheep are counted anywhere</td>
+</tr>
+<tr>
+<td>The developers' comments call the line "You're a powerful being... not the best shepherd ever" a much ruder one; the shipped text is the polite version</td>
+<td>n/a</td>
+<td>text only</td>
+</tr>
+</tbody>
+</table>
+<h2 id="other-modes-and-unused-material">Other modes and unused material</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A saved game keeps the sheep, the shepherd, his flock count and the record</td>
+<td>todo</td>
+<td>openblack has no saved games</td>
+</tr>
+<tr>
+<td>A test script starts the quest on its own; an unshipped trade-show control script started it after the Pied Piper</td>
+<td>n/a</td>
+<td>not started by the game</td>
+</tr>
+<tr>
+<td>The quest exists only in the first land of the story</td>
+<td>n/a</td>
+<td>nothing to do beyond the story itself</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

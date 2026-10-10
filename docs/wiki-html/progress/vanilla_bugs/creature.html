@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vanilla bugs: creature — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="here" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#vanilla-bugs-creature">Vanilla bugs: creature</a><ul>
+<li><a href="#wrong-outcomes">Wrong outcomes</a></li>
+<li><a href="#missing-or-wrong-feedback">Missing or wrong feedback</a></li>
+<li><a href="#harmless">Harmless</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="vanilla-bugs-creature">Vanilla bugs: creature</h1>
+<p>Bugs in the original game's creature code and creature data: its reactions, actions and development. The guide's
+lesson scripts are in <a href="story_scripts.html">story_scripts.md</a>; creature swaps in <a href="silver_quests.html">silver_quests.md</a>.</p>
+<p><strong>Bugs: 3 (soft-locks and lost progress: 0)</strong></p>
+<h2 id="wrong-outcomes">Wrong outcomes</h2>
+<table>
+<thead>
+<tr>
+<th>Bug</th>
+<th>What the player sees</th>
+<th>Evidence</th>
+<th>Found in</th>
+<th>openblack</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Outside a fight, a creature struck by a thrown object or an effect has its fear and anger raised twice: once by its physics impact reaction and once by its cut-and-scarred reaction, which spares only an effect cast by its own player</td>
+<td>A struck creature becomes twice as frightened and angry as one source would make it</td>
+<td>Both reactions run for the same blow; read from the executable in the physics research (not yet a row of its own in a progress file)</td>
+<td><a href="../physics/impact_damage.html">impact_damage.md</a></td>
+<td>undecided (not in this tree yet: a struck creature has no impact reaction)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="missing-or-wrong-feedback">Missing or wrong feedback</h2>
+<table>
+<thead>
+<tr>
+<th>Bug</th>
+<th>What the player sees</th>
+<th>Evidence</th>
+<th>Found in</th>
+<th>openblack</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature's smash treats a living target as a rock, which fails, so the branch meant to play a body-hit sound never runs</td>
+<td>Smashing a villager or animal makes no smash sound and does nothing</td>
+<td>The smash's living branch picks one of three samples but casts the target to a rock first; read from the executable</td>
+<td><a href="../nature/rocks_splitting_and_heat.html">rocks_splitting_and_heat.md</a></td>
+<td>reproduced (the creature's knock-down refuses villagers and animals, <code>CreatureObjectActionSystem::CanDestroy</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="harmless">Harmless</h2>
+<table>
+<thead>
+<tr>
+<th>Bug</th>
+<th>What the player sees</th>
+<th>Evidence</th>
+<th>Found in</th>
+<th>openblack</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The "catch a fireball and throw it back" creature action is listed but always fails</td>
+<td>nothing visible: creatures never do it</td>
+<td>Read from the executable</td>
+<td><a href="../creature/feeding_and_thrown_things.html">feeding_and_thrown_things.md</a>, <a href="../creature/object_actions.html">object_actions.md</a></td>
+<td>reproduced (no creature ever catches anything)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

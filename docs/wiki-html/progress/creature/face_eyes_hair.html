@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Face, eyes and hair — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="here" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#face-eyes-and-hair">Face, eyes and hair</a><ul>
+<li><a href="#faces">Faces</a></li>
+<li><a href="#eyes">Eyes</a></li>
+<li><a href="#the-head-and-looking">The head and looking</a></li>
+<li><a href="#hair">Hair</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="face-eyes-and-hair">Face, eyes and hair</h1>
+<p>A creature's face shows what it is doing and feeling: it smiles, grimaces, growls, looks scared, sad, amazed or puzzled,
+laughs, and says ooh and aah. Its eyes look about and blink, its head turns towards what interests it, and some species
+have tufts of hair that swing as they move and change with their alignment.</p>
+<p><strong>Progress: 32/45 done, 6 partial — 78%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../creature.html">The creature: groundwork, random streams and what is unknown</a>.</p>
+<h2 id="faces">Faces</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Twelve faces from the creature spec: smile, grimace, growl, scared, sad, amazed, puzzled, laugh, ooh, aah and two spare</td>
+<td>done</td>
+<td><code>creature_face::Face</code> (<code>src/Creature/CreatureFace.h</code>); test <code>FacesAreTheSpecFilesFaceAnimations</code></td>
+</tr>
+<tr>
+<td>A face plays through once, holds the full expression as long as it is pulled, then relaxes back a quarter as fast</td>
+<td>done</td>
+<td><code>creature_layers::AdvanceFace</code> in <code>CreatureAnimationSystem</code>; tests <code>AFaceHoldsItsExpressionRatherThanLooping</code>, <code>AFaceRelaxesWhenItsTimeIsUp</code></td>
+</tr>
+<tr>
+<td>A new face first runs the current one back at full speed</td>
+<td>done</td>
+<td>test <code>AFaceRunsBackBeforeTheNextStarts</code></td>
+</tr>
+<tr>
+<td>Pulling the held face again keeps holding it</td>
+<td>done</td>
+<td>test <code>PullingTheHeldFaceAgainKeepsHoldingIt</code></td>
+</tr>
+<tr>
+<td>A face the species lacks stays at its start</td>
+<td>done</td>
+<td>test <code>AFaceTheSpeciesLacksStaysAtItsStart</code></td>
+</tr>
+<tr>
+<td>Idling, it pulls any of ten faces at random for three seconds, and again every few seconds</td>
+<td>done</td>
+<td>the idle cue of the agendas (<code>src/Creature/CreatureIdleMind.cpp</code>); test <code>IdlingPullsAnyOfTenFacesForThreeSeconds</code>; see <a href="idle_behaviour.html">idle_behaviour.md</a></td>
+</tr>
+<tr>
+<td>A few feelings take turns between two or three faces, by a count that moves on by a random step each face</td>
+<td>done</td>
+<td>test <code>SomeFeelingsPickBetweenFacesByTheVariety</code></td>
+</tr>
+<tr>
+<td>Showing how it feels about the player: a smile when it likes them, sad when it doesn't</td>
+<td>done</td>
+<td><code>Cue::AttitudeToPlayer</code> in the agendas; test <code>TheAttitudeToThePlayerShowsAsASmileOrSadness</code></td>
+</tr>
+<tr>
+<td>Faces for actions done out of anger (growl), compassion, curiosity, fear, playfulness</td>
+<td>done</td>
+<td><code>creature_face</code> cues set by the agendas (<code>src/Creature/CreatureIdleMind.cpp</code>) and the fights' anger (<code>CreatureFightSystem</code>), pulled by <code>CreatureMindSystem</code></td>
+</tr>
+<tr>
+<td>Smiling at a friend or having a poo; grimacing asleep or being sick; amazed at what it watches; puzzled at something strange</td>
+<td>done</td>
+<td>the action cues in <code>src/Creature/CreatureIdleMind.cpp</code></td>
+</tr>
+<tr>
+<td>Puzzled at finding no way to where it is going</td>
+<td>done</td>
+<td><code>Cue::Lost</code> pulled by <code>CreatureLocomotionSystem</code></td>
+</tr>
+<tr>
+<td>Pleased at being stroked, the face by the body part (aah for head and belly, ooh for the groin, a smile elsewhere)</td>
+<td>done</td>
+<td><code>creature_feedback::RewardFace</code> pulled by <code>CreatureHandSystem</code>; see <a href="learning_from_feedback.html">learning_from_feedback.md</a></td>
+</tr>
+<tr>
+<td>Pleased or saddened when its tattoo is drawn</td>
+<td>partial</td>
+<td><code>Cue::Tattooed</code> exists; nothing pulls it yet (see <a href="creature_tattoos.html">creature_tattoos.md</a>)</td>
+</tr>
+<tr>
+<td>Mood faces: frightened, sad, exhausted</td>
+<td>partial</td>
+<td>the faces for these moods exist (test <code>MoodsHaveTheirFaces</code>); only the debug spawner pulls them</td>
+</tr>
+<tr>
+<td>Mood faces: happy, in pain, irritable, lonely</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A face is pulled with each idle step as it starts and again every few seconds</td>
+<td>done</td>
+<td><code>creature_mind::k_FaceRepeatSeconds</code></td>
+</tr>
+<tr>
+<td>Faces play their sounds only the first time through</td>
+<td>done</td>
+<td>test <code>FaceSoundsOnlyItsFirstTimeThrough</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="eyes">Eyes</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each eye is an eyeball and an eyelid set into the body at a point on a triangle of the mesh</td>
+<td>done</td>
+<td><code>creature_eyes</code>, placed by <code>CreatureAnimationSystem</code>; test <code>ThePointIsOnTheTriangleAndItsNormalPointsIn</code></td>
+</tr>
+<tr>
+<td>Small creatures have bigger eyes for their size</td>
+<td>done</td>
+<td>test <code>SmallCreaturesHaveBiggerEyesForTheirSize</code></td>
+</tr>
+<tr>
+<td>The eyes look where the creature looks, or ahead, never back into the head</td>
+<td>done</td>
+<td>tests <code>EyesNeverLookBackIntoTheHead</code>, <code>TheEyeballFacesAwayFromWhereItLooks</code></td>
+</tr>
+<tr>
+<td>Open eyes turn faster</td>
+<td>done</td>
+<td>test <code>OpenEyesTurnFaster</code></td>
+</tr>
+<tr>
+<td>The lids blink every few seconds, closing and opening over 200 milliseconds each</td>
+<td>done</td>
+<td><code>creature_eyes::AdvanceBlink</code> in <code>CreatureAnimationSystem</code>; tests <code>BlinksCloseAndOpenOverTwoHundredMillisecondsEach</code>, <code>CreatureAnimationSystemTest.TheEyesBlinkByTheTurnOnTheRuntimesNumbers</code></td>
+</tr>
+<tr>
+<td>While calm the lids follow the pupils up and down</td>
+<td>done</td>
+<td>tests <code>CalmLidsSwingShutOverABlink</code>, <code>LidAnglesByMode</code></td>
+</tr>
+<tr>
+<td>Closed while asleep or knocked out</td>
+<td>done</td>
+<td><code>CreatureMindSystem</code> (sleep) and <code>CreatureFightSystem</code> (knocked out) set <code>creature_eyes::Mode::Closed</code></td>
+</tr>
+<tr>
+<td>Wide open when frightened</td>
+<td>partial</td>
+<td><code>creature_eyes::Mode::Wide</code> exists (test <code>LidAnglesByMode</code>); nothing sets it</td>
+</tr>
+<tr>
+<td>Stoned, wide and darting, when high</td>
+<td>partial</td>
+<td><code>creature_eyes::Mode::Stoned</code> exists; nothing sets it</td>
+</tr>
+<tr>
+<td>Fluttering eyelids when looking at something it loves (unconfirmed what)</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Just woken up, it looks about blearily</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Looking down at its feet, or at its dependants, or at a partner</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Eye colours or sizes change with alignment</td>
+<td>done</td>
+<td>eye size follows the evil to good axis (<code>creature_eyes::EyeSize</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-head-and-looking">The head and looking</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The head turns towards what the creature looks at, right and left up to half a turn, down and up a quarter turn</td>
+<td>done</td>
+<td><code>creature_layers::TurnHead</code>, <code>AnglesTowards</code> in <code>CreatureAnimationSystem</code>; tests <code>TheHeadNeverTurnsPastItsLimit</code>, <code>AnglesTowardsATarget</code></td>
+</tr>
+<tr>
+<td>It speeds up steadily and slows so as to stop exactly there, never overshooting</td>
+<td>done</td>
+<td>tests <code>TheHeadSpeedsUpSteadily</code>, <code>TheHeadSettlesWithoutOvershooting</code></td>
+</tr>
+<tr>
+<td>Sitting, it turns its head with the sitting look animations</td>
+<td>done</td>
+<td><code>k_SitLookRightLeft</code>, <code>k_SitLookDownUp</code> in <code>CreatureAnimationSystem</code></td>
+</tr>
+<tr>
+<td>Idle, it looks at the most interesting thing in sight, growing bored of it after a while</td>
+<td>done</td>
+<td><code>creature_look</code>, candidates gathered by <code>CreatureMindSystem</code>; see <a href="idle_behaviour.html">idle_behaviour.md</a></td>
+</tr>
+<tr>
+<td>It looks at the hand, the camera, the player</td>
+<td>partial</td>
+<td>looking at the hand and camera is part of some actions; looking at the player when the hand comes near is todo</td>
+</tr>
+<tr>
+<td>Walking or running somewhere, it looks where it is going; running from something, back at it</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It looks up at flying things</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It turns its head to show love or hate (the hate to love look animation)</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="hair">Hair</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Some species have tufts of hair: groups of strands rooted on triangles of the body</td>
+<td>done</td>
+<td><code>creature_hair</code>, <code>CreatureHairSystem</code>, drawn by <code>src/Graphics/CreatureDraw.cpp</code>; tests <code>StrandsGrowStraightOutOfTheSurface</code>, <code>RootFollowsTheBody</code></td>
+</tr>
+<tr>
+<td>Each strand springs back towards growing straight on, sags under gravity, loses speed and never stretches</td>
+<td>done</td>
+<td>tests <code>StiffStrandHoldsItsShape</code>, <code>LimpStrandSagsUnderGravity</code>, <code>StrandNeverStretches</code>, <code>SpeedIsCapped</code></td>
+</tr>
+<tr>
+<td>A group's colour, length, stiffness, damping and thickness move from neutral towards evil or good with the alignment</td>
+<td>done</td>
+<td>tests <code>ValuesMoveFromNeutralTowardsEvilOrGood</code>, <code>LookFollowsAlignment</code></td>
+</tr>
+<tr>
+<td>Strands are drawn as ribbons facing the camera, lit like the land</td>
+<td>done</td>
+<td>tests <code>RibbonFacesTheEye</code>, <code>StrandsTakeTheLandsLightAndColour</code>, <code>CreatureDrawHair.EachStrandIsARibbonInItsTuftsLitColour</code></td>
+</tr>
+<tr>
+<td>Animations can show or hide a tuft at a moment</td>
+<td>partial</td>
+<td>the event kind is read (<code>creature_audio::EventKind::HairGroup</code>) and skipped by <code>CreatureAudioSystem</code>; nothing hides a tuft</td>
+</tr>
+<tr>
+<td>Hair grows with the creature's size</td>
+<td>done</td>
+<td>test <code>ScaleGrowsWithSizeButHeadsShrink</code></td>
+</tr>
+<tr>
+<td>The hair can be hidden altogether</td>
+<td>done</td>
+<td><code>CreatureHairSystem::SetShown</code> (debug spawner only)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

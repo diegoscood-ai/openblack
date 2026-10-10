@@ -1,0 +1,979 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Land script commands — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="here" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#land-script-commands">Land script commands</a><ul>
+<li><a href="#reading-the-scripts">Reading the scripts</a></li>
+<li><a href="#land-set-up">Land set-up</a></li>
+<li><a href="#towns">Towns</a></li>
+<li><a href="#buildings">Buildings</a></li>
+<li><a href="#villagers">Villagers</a></li>
+<li><a href="#nature">Nature</a></li>
+<li><a href="#fields-and-food">Fields and food</a></li>
+<li><a href="#animals">Animals</a></li>
+<li><a href="#objects">Objects</a></li>
+<li><a href="#miracles">Miracles</a></li>
+<li><a href="#weather-and-land">Weather and land</a></li>
+<li><a href="#creatures-and-rival-gods">Creatures and rival gods</a></li>
+<li><a href="#commands-written-wrongly-in-the-shipped-scripts">Commands written wrongly in the shipped scripts</a></li>
+<li><a href="#map-script-commands">Map script commands</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="land-script-commands">Land script commands</h1>
+<p>Every land of Black &amp; White, the tutorial, the skirmish playgrounds and the developers' test lands is built by a plain text land script in <code>Scripts/</code>: one command a line, read from top to bottom when the land loads. The game knows 106 such commands for building a land and 25 more for the map script that picks the land. The command names below are the words written in the shipped files. Counts are lines in the shipped <code>Land1</code>–<code>Land5</code>, <code>LandT</code>, the seven <code>Playgrounds</code> scripts and <code>demo2</code>, <code>comp</code> and <code>dance</code>. openblack reads them in <code>src/LHScriptX/</code> (<code>FeatureScriptCommands.cpp</code>, <code>MapScriptCommands.cpp</code>, <code>Script.cpp</code>, <code>Lexer.cpp</code>). What each land builds is in the per-land files of this folder.</p>
+<p><strong>Progress: 76/134 done, 13 partial — 62%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../land-script-save.html">Writing land-script lines: SaveObject and WriteCommand</a>, <a href="../../map-loading.html">Map loading and script functions</a>.</p>
+<h2 id="reading-the-scripts">Reading the scripts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A land script is read line by line, one command and its bracketed arguments a line</td>
+<td>done</td>
+<td><code>Script::Load</code> in <code>src/LHScriptX/Script.cpp</code> and <code>src/LHScriptX/Lexer.cpp</code></td>
+</tr>
+<tr>
+<td>Lines starting <code>rem</code> and the <code>**** Player[n] ****</code> banner lines are skipped</td>
+<td>done</td>
+<td><code>Lexer.cpp</code> skips both</td>
+</tr>
+<tr>
+<td>Positions are written as "x,z" in quotes and put on the ground</td>
+<td>done</td>
+<td><code>Script.cpp</code> takes the land's height there</td>
+</tr>
+<tr>
+<td>Names may be written without quotes (job names, miracle names)</td>
+<td>done</td>
+<td>identifiers are taken as text</td>
+</tr>
+<tr>
+<td>Each argument is converted to what the command wants: a whole number given where a fraction is wanted (or the other way) still works</td>
+<td>done</td>
+<td><code>Script::RunCommand</code> (<code>src/LHScriptX/Script.cpp</code>) turns a whole number into a fraction and a fraction into a whole number where the command wants it</td>
+</tr>
+<tr>
+<td>A command the game doesn't know is skipped and the rest of the land still loads</td>
+<td>done</td>
+<td><code>Script::Load</code> logs "unknown command" and skips the line; the rest of the land loads</td>
+</tr>
+<tr>
+<td>A line missing its closing bracket is still read</td>
+<td>partial</td>
+<td><code>Script::Load</code> logs "missing )" and skips the line, where the original still reads it</td>
+</tr>
+<tr>
+<td>The script reader's variables and <code>IF</code> lines</td>
+<td>todo</td>
+<td>not used by any shipped land script; openblack's reader has neither</td>
+</tr>
+<tr>
+<td>After the last line the buildings are given to their towns, the towns' starting dates set, the players tidied and the streams built</td>
+<td>partial</td>
+<td><code>Game::LoadMap</code> (<code>src/Game.cpp</code>) assigns the town features (<code>ecs::town_features::AssignTownFeatures</code>, again for a playground start) and builds the rivers' footprints after the last line; the towns' starting dates and the players' tidy-up are not checked</td>
+</tr>
+<tr>
+<td>The land's footpath file is found from the land script's own name (<code>land1.fot</code> for <code>Land1.txt</code>)</td>
+<td>done</td>
+<td><code>Game::LoadMap</code>; the skirmish lands <em>Death Comes</em>, <em>Firestorm</em>, <em>Island Wars</em> and <code>construct</code> have none, as in the game</td>
+</tr>
+<tr>
+<td>An unreadable land is kept as far as it got, not ending the game</td>
+<td>partial</td>
+<td><code>Game::LoadMap</code> logs the error and keeps what was made; whether the game keeps it the same way is not checked</td>
+</tr>
+</tbody>
+</table>
+<h2 id="land-set-up">Land set-up</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SET_GLOBAL_LAND_BALANCE</code>: Sets one of the land's balance numbers (how fast villagers move, how fast belief grows, how impressive miracles are and others); used 30 times (story 9, playgrounds 21)</td>
+<td>partial</td>
+<td><code>land_balance::Set</code> (<code>src/LandBalance.cpp</code>) keeps all eight; only some are read (number 4 by the villagers' speed, 5 by the trees)</td>
+</tr>
+<tr>
+<td><code>LOAD_LANDSCAPE</code>: Loads the land's height map and textures; used 16 times (story 5, tutorial 1, playgrounds 7, demo and test 3)</td>
+<td>done</td>
+<td><code>Game::LoadLandscape</code></td>
+</tr>
+<tr>
+<td><code>SET_LAND_NUMBER</code>: Says which land of the story this is (0 for skirmish and test lands); used 16 times (story 5, tutorial 1, playgrounds 7, demo and test 3)</td>
+<td>done</td>
+<td>kept in the map script globals; read by the influence and the worship sites</td>
+</tr>
+<tr>
+<td><code>START_CAMERA_POS</code>: Where the camera starts, looking at a point from the game's standard height and angle; used 16 times (story 5, tutorial 1, playgrounds 7, demo and test 3)</td>
+<td>done</td>
+<td><code>FeatureScriptCommands::StartCameraPos</code>: the camera looks at the point from the standard height and angle</td>
+</tr>
+<tr>
+<td><code>VERSION</code>: States the version of the land script format; used 16 times (story 5, tutorial 1, playgrounds 7, demo and test 3)</td>
+<td>done</td>
+<td><code>FeatureScriptCommands::Version</code> keeps it in the map script globals; read by the flocks' arguments (from 2.1 on)</td>
+</tr>
+<tr>
+<td><code>SET_PLAYER_INFLUENCE_MULTIPLIER</code>: Scales how far every player's influence from their temple and buildings reaches; used 13 times (story 5, tutorial 1, playgrounds 7)</td>
+<td>done</td>
+<td>kept in the map script globals; read by <code>src/ECS/Influence</code></td>
+</tr>
+<tr>
+<td><code>SET_TOWN_INFLUENCE_MULTIPLIER</code>: Scales how far every town's influence reaches on this land; used 13 times (story 5, tutorial 1, playgrounds 7)</td>
+<td>done</td>
+<td>kept in the map script globals; read by <code>src/ECS/Influence</code></td>
+</tr>
+<tr>
+<td><code>SET_NIGHTTIME</code>: Sets the length of the day and how much of it is night and dawn and dusk; used 8 times (story 2, playgrounds 6)</td>
+<td>done</td>
+<td><code>DayNightClock::SetCycleFromLand</code></td>
+</tr>
+<tr>
+<td><code>ADD_GAME_MESSAGE_LINE</code>: A line of a skirmish land's description; used 5 times (playgrounds 5)</td>
+<td>partial</td>
+<td>the command is empty; the debug menu's land list reads the line itself for its tooltip</td>
+</tr>
+<tr>
+<td><code>START_GAME_MESSAGE</code>: The title of a skirmish land shown when choosing it; used 5 times (playgrounds 5)</td>
+<td>partial</td>
+<td>the command is empty; the debug menu's land list reads the line itself for its tooltip. In the game, reaching it pops up the land info box with this title and the description lines (the skirmish box lists lands by file name): see <a href="../multiplayer/skirmish.html">../multiplayer/skirmish.md</a></td>
+</tr>
+<tr>
+<td><code>BRUSH_SIZE</code>: Sets the editor's brush size; not used by the shipped scripts</td>
+<td>n/a</td>
+<td>an editor setting, empty in openblack</td>
+</tr>
+<tr>
+<td><code>CREATE_AREA</code>: Marks an area of the land with a radius; not used by the shipped scripts</td>
+<td>todo</td>
+<td>empty; what the game uses it for is not known</td>
+</tr>
+<tr>
+<td><code>EDIT_LEVEL</code>: Opens the land in the game's editor; not used by the shipped scripts</td>
+<td>todo</td>
+<td>empty</td>
+</tr>
+<tr>
+<td><code>FLY_BY_FILE</code>: Names a camera fly-by for the land; not used by the shipped scripts</td>
+<td>todo</td>
+<td>empty</td>
+</tr>
+<tr>
+<td><code>MULTIPLAYER_DEBUG</code>: Turns on network debugging; not used by the shipped scripts</td>
+<td>n/a</td>
+<td>a developer switch</td>
+</tr>
+<tr>
+<td><code>SET_A_TOWNS_INFLUENCE_MULTIPLIER</code>: Scales one town's influence; not used by the shipped scripts</td>
+<td>todo</td>
+<td><code>FeatureScriptCommands::SetATownInfluenceMultiplier</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td><code>SET_LAND_BALANCE</code>: Sets a balance number for one player; not used by the shipped scripts</td>
+<td>todo</td>
+<td>empty</td>
+</tr>
+<tr>
+<td><code>SET_LOST_TOWN_SCALE</code>: Scales what a player keeps of a town they lose; not used by the shipped scripts</td>
+<td>done</td>
+<td><code>land_balance::SetLostTownScale</code>, back to 1 on a land balance reset; read by the town belief's fold (boredom and the belief left in a lost town)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="towns">Towns</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CREATE_NEW_TOWN_SPELL</code>: Gives a town a miracle it offers at its village centre once won over; used 446 times (story 107, playgrounds 326, demo and test 13)</td>
+<td>done</td>
+<td><code>magic::script::CreateNewTownSpell</code> (<code>src/Magic/Script/MapScriptMagic.cpp</code>): the town holds the miracle and its base level</td>
+</tr>
+<tr>
+<td><code>SET_TOWN_BELIEF_CAP</code>: Caps how much a town can come to believe in a player; used 157 times (story 24, playgrounds 133)</td>
+<td>done</td>
+<td><code>ecs::town_belief::SetCap</code> on the town's belief in the player (<code>src/ECS/Town/TownBelief.cpp</code>); <code>test/test_town_belief.cpp</code></td>
+</tr>
+<tr>
+<td><code>CREATE_TOWN</code>: Creates a town at a place, owned by a player or nobody, of a tribe; used 152 times (story 43, tutorial 3, playgrounds 95, demo and test 11)</td>
+<td>done</td>
+<td><code>TownArchetype</code></td>
+</tr>
+<tr>
+<td><code>SET_TOWN_BELIEF</code>: Sets how much a town believes in a player; used 130 times (story 40, tutorial 2, playgrounds 77, demo and test 11)</td>
+<td>done</td>
+<td><code>ecs::town_belief::SetBeliefInPlayer</code>, capped, overwriting the slot</td>
+</tr>
+<tr>
+<td><code>SET_TOWN_CONGREGATION_POS</code>: Where a town's people gather (for example to watch a miracle or wait for the player); used 32 times (story 4, playgrounds 28)</td>
+<td>done</td>
+<td>the town's congregation position, read by <code>src/ECS/Town/TownQueries.cpp</code> and the building sites</td>
+</tr>
+<tr>
+<td><code>CREATE_TOWN_SPELL</code>: Gives a town a miracle its people can pray for (the older form); used 17 times (demo and test 17)</td>
+<td>done</td>
+<td><code>magic::script::CreateTownSpell</code>: the seed's miracle held by the town and added to its village centre</td>
+</tr>
+<tr>
+<td><code>SET_TOWN_UNINHABITABLE</code>: Marks a town that nobody may live in (ruins, deserted villages); used 13 times (story 13)</td>
+<td>done</td>
+<td>the town's uninhabitable flag, read by <code>src/ECS/Town/AbodeVillagers.cpp</code></td>
+</tr>
+<tr>
+<td><code>TOWN_DESIRE_BOOST</code>: Raises or lowers one of a town's desires (more houses, more civic buildings and so on); used 8 times (story 8)</td>
+<td>done</td>
+<td><code>ecs::town_desire::MapTownDesireBoost</code>, no re-sort nor range check as the original</td>
+</tr>
+<tr>
+<td><code>CREATE_PLANNED_SPELL_ICON</code>: A planned miracle icon for a town; not used by the shipped scripts</td>
+<td>done</td>
+<td><code>magic::script::CreatePlannedSpellIcon</code>: only the town's miracle, as the original</td>
+</tr>
+<tr>
+<td><code>CREATE_SPELL_ICON</code>: Puts a miracle's icon at a place; not used by the shipped scripts</td>
+<td>done</td>
+<td>does nothing, as the original</td>
+</tr>
+<tr>
+<td><code>CREATE_TOWN_CENTRE_SPELL_ICON</code>: Puts a miracle's icon on a town's village centre; not used by the shipped scripts</td>
+<td>done</td>
+<td>the same handler as create town spell, as the original</td>
+</tr>
+<tr>
+<td><code>CREATE_TOWN_TEMPORARY_POTS</code>: Gives a town some temporary food and wood; not used by the shipped scripts</td>
+<td>todo</td>
+<td>empty</td>
+</tr>
+<tr>
+<td><code>SET_TOWN_BALANCE_BELIEF_SCALE</code>: Scales how much a town's belief counts; not used by the shipped scripts</td>
+<td>done</td>
+<td>the town's belief scale, read by <code>ecs::town_belief::Fold</code></td>
+</tr>
+<tr>
+<td><code>TOWN_NEEDS_POS</code>: Where a town's needs are shown; not used by the shipped scripts</td>
+<td>todo</td>
+<td>empty</td>
+</tr>
+</tbody>
+</table>
+<h2 id="buildings">Buildings</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CREATE_ABODE</code>: Creates a building of a town (house, storehouse, crèche, graveyard, workshop, wonder and so on) with its food and wood; used 1109 times (story 266, tutorial 10, playgrounds 708, demo and test 125)</td>
+<td>done</td>
+<td><code>AbodeArchetype</code>; unknown names skipped</td>
+</tr>
+<tr>
+<td><code>CREATE_PLANNED_ABODE</code>: Plans a building for a town to build later; used 514 times (story 258, tutorial 5, playgrounds 149, demo and test 102)</td>
+<td>done</td>
+<td><code>FeatureScriptCommands::CreatePlannedAbode</code>: the town's planned list (the nearest town without one), never drawn; read by the building sites</td>
+</tr>
+<tr>
+<td><code>CREATE_TOWN_CENTRE</code>: Creates a town's village centre; used 107 times (story 23, playgrounds 75, demo and test 9)</td>
+<td>done</td>
+<td><code>AbodeArchetype</code>, the town's centre and its worship share (<code>worship::percentage::SetWorshipPercentage</code>)</td>
+</tr>
+<tr>
+<td><code>CREATE_SPELL_DISPENSER</code>: Creates a miracle dispenser of a tribe that gives a miracle, with its angle, scale and recharge time; used 45 times (story 2, playgrounds 43)</td>
+<td>done</td>
+<td><code>magic::script::CreateSpellDispenser</code>: the dispenser with its miracle, an orb at once and its period</td>
+</tr>
+<tr>
+<td><code>CREATE_CITADEL</code>: Creates a player's temple; used 28 times (story 4, playgrounds 20, demo and test 4)</td>
+<td>done</td>
+<td><code>CitadelArchetype</code>; the temple is made built</td>
+</tr>
+<tr>
+<td><code>CREATE_WORSHIP_SITE</code>: Creates a worship site for a player and tribe; used 19 times (story 8, playgrounds 5, demo and test 6)</td>
+<td>done</td>
+<td><code>magic::script::CreateWorshipSite</code>: a built site for the player's temple and the tribe</td>
+</tr>
+<tr>
+<td><code>CREATE_SCAFFOLD</code>: Creates a scaffold for a building; used 12 times (playgrounds 12)</td>
+<td>todo</td>
+<td>empty; see <a href="../building/workshop_and_scaffolds.html">../building/workshop_and_scaffolds.md</a></td>
+</tr>
+<tr>
+<td><code>CREATE_PLANNED_CITADEL</code>: Plans where a player's temple will be built; used 5 times (story 5)</td>
+<td>done</td>
+<td><code>CitadelArchetype::CreatePlan</code></td>
+</tr>
+<tr>
+<td><code>CREATE_BASE</code>: Creates a base; not used by the shipped scripts</td>
+<td>todo</td>
+<td>empty; what a base is is not known</td>
+</tr>
+<tr>
+<td><code>CREATE_CREATURE_PEN</code>: Creates a creature pen; not used by the shipped scripts</td>
+<td>todo</td>
+<td>empty</td>
+</tr>
+<tr>
+<td><code>CREATE_FURNITURE</code>: Creates furniture; not used by the shipped scripts</td>
+<td>todo</td>
+<td>empty</td>
+</tr>
+<tr>
+<td><code>CREATE_PITCH</code>: Creates a football pitch; not used by the shipped scripts</td>
+<td>todo</td>
+<td>empty</td>
+</tr>
+<tr>
+<td><code>CREATE_PLANNED_WALL_SECTION</code>: Plans a piece of wall; not used by the shipped scripts</td>
+<td>todo</td>
+<td>empty</td>
+</tr>
+<tr>
+<td><code>CREATE_PLANNED_WORSHIP_SITE</code>: Plans a worship site; not used by the shipped scripts</td>
+<td>todo</td>
+<td>empty</td>
+</tr>
+<tr>
+<td><code>CREATE_WALL_SECTION</code>: Creates a piece of wall; not used by the shipped scripts</td>
+<td>todo</td>
+<td>empty</td>
+</tr>
+</tbody>
+</table>
+<h2 id="villagers">Villagers</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CREATE_VILLAGER_POS</code>: Creates a villager of a tribe and job of an age, living in the house at a place; used 2248 times (story 618, tutorial 8, playgrounds 1299, demo and test 323)</td>
+<td>done</td>
+<td><code>VillagerArchetype</code> through <code>CreateVillagerAtAbode</code> (<code>src/LHScriptX/VillagerCommands.cpp</code>); <code>test/test_script_villager_commands.cpp</code></td>
+</tr>
+<tr>
+<td><code>CREATE_TOWN_VILLAGER</code>: Creates a villager of a tribe and job of an age in a town; used 46 times (story 2, playgrounds 15, demo and test 29)</td>
+<td>done</td>
+<td><code>CreateVillagerInTown</code> with the villager named by the line</td>
+</tr>
+<tr>
+<td><code>CREATE_SPECIAL_TOWN_VILLAGER</code>: Creates one of the game's named villagers in a town; not used by the shipped scripts</td>
+<td>done</td>
+<td><code>CreateVillagerInTown</code> with the villager number itself</td>
+</tr>
+<tr>
+<td><code>CREATE_VILLAGER</code>: Creates a villager at a place, going to a place; not used by the shipped scripts</td>
+<td>done</td>
+<td>the original's odd reading kept: no villager is named, so nothing is made. Our wiki differs: the original reads the villager's kind from the second argument, a position, so it never makes a villager (<a href="../../map-loading.html#villagers-from-the-map-script">map-loading</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="nature">Nature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CREATE_NEW_TREE</code>: Creates a tree of a kind, scenic or not, with its angle, size and the size it will grow to; used 11946 times (story 5316, tutorial 341, playgrounds 4581, demo and test 1708)</td>
+<td>done</td>
+<td><code>TreeArchetype</code>, nothing on top of another object</td>
+</tr>
+<tr>
+<td><code>FIRE_FLY_SPELL_REWARD_PROB</code>: How likely fireflies are to give each miracle; used 633 times (story 210, tutorial 42, playgrounds 381)</td>
+<td>done</td>
+<td><code>magic::script::FireFlySpellRewardProb</code> and the map globals' reward table</td>
+</tr>
+<tr>
+<td><code>CREATE_MIST</code>: Creates a patch of mist of a colour and size; used 186 times (story 111, playgrounds 5, demo and test 70)</td>
+<td>done</td>
+<td><code>MistArchetype</code></td>
+</tr>
+<tr>
+<td><code>CREATE_NEW_FEATURE</code>: Creates a feature (pillars, statues, craters, a pier) by name; used 182 times (story 76, tutorial 2, playgrounds 79, demo and test 25)</td>
+<td>done</td>
+<td><code>FeatureArchetype</code>; unknown names skipped, planned features not made</td>
+</tr>
+<tr>
+<td><code>CREATE_FIRE_FLY</code>: Creates a firefly that can carry a miracle reward; used 167 times (playgrounds 129, demo and test 38)</td>
+<td>todo</td>
+<td>empty; the story lands place none and rely on the nightly top-up: <a href="../nature/fireflies.html#where-they-come-from">../nature/fireflies.md</a></td>
+</tr>
+<tr>
+<td><code>CREATE_FOREST</code>: Creates a forest that trees belong to; used 143 times (story 9, playgrounds 107, demo and test 27)</td>
+<td>done</td>
+<td><code>ecs::CreateForest</code>: the forest the following trees are looked up in</td>
+</tr>
+<tr>
+<td><code>CREATE_NEW_BIG_FOREST</code>: Creates a big forest model; used 113 times (story 46, tutorial 4, playgrounds 47, demo and test 16)</td>
+<td>done</td>
+<td><code>BigForestArchetype</code></td>
+</tr>
+<tr>
+<td><code>CREATE_DEAD_TREE</code>: Creates a dead tree of a kind, leaning; used 18 times (story 3, demo and test 15)</td>
+<td>done</td>
+<td><code>DeadTreeArchetype</code> with its life and three angles</td>
+</tr>
+<tr>
+<td><code>CREATE_BIG_FOREST</code>: Creates a big forest model (older form); not used by the shipped scripts</td>
+<td>done</td>
+<td>through <code>CreateNewBigForest</code></td>
+</tr>
+<tr>
+<td><code>CREATE_FEATURE</code>: Creates a feature (pillars, statues, rocks) by number; not used by the shipped scripts</td>
+<td>done</td>
+<td><code>FeatureArchetype</code></td>
+</tr>
+<tr>
+<td><code>CREATE_FLOWERS</code>: Creates flowers; not used by the shipped scripts</td>
+<td>todo</td>
+<td>empty</td>
+</tr>
+<tr>
+<td><code>CREATE_TREE</code>: Creates a tree (older form); not used by the shipped scripts</td>
+<td>done</td>
+<td>through <code>CreateNewTree</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="fields-and-food">Fields and food</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CREATE_NEW_TOWN_FIELD</code>: Creates a field of a town, of a kind, with its angle; used 393 times (story 160, tutorial 2, playgrounds 231)</td>
+<td>done</td>
+<td><code>FieldArchetype</code></td>
+</tr>
+<tr>
+<td><code>CREATE_TOWN_FISH_FARM</code>: Creates a fish farm of a town; used 185 times (story 69, tutorial 5, playgrounds 104, demo and test 7)</td>
+<td>done</td>
+<td><code>FishFarmArchetype</code>, nothing without the town</td>
+</tr>
+<tr>
+<td><code>CREATE_POT</code>: Creates a pot of food or wood with an amount; used 81 times (story 22, tutorial 2, playgrounds 28, demo and test 29)</td>
+<td>done</td>
+<td><code>PotArchetype</code>, nothing on top of another object or for no amount; food spreads its reaction to the grazers</td>
+</tr>
+<tr>
+<td><code>CREATE_DRINK_WAYPOINT</code>: Marks a place where animals and creatures go to drink; used 75 times (story 47, playgrounds 28)</td>
+<td>partial</td>
+<td>a <code>DrinkWaypoint</code> is kept; nothing reads it yet</td>
+</tr>
+<tr>
+<td><code>CREATE_TOWN_FIELD</code>: Creates a field of a town; used 18 times (demo and test 18)</td>
+<td>done</td>
+<td>through <code>CreateNewTownField</code></td>
+</tr>
+<tr>
+<td><code>CREATE_FIELD</code>: Creates a field; not used by the shipped scripts</td>
+<td>done</td>
+<td>through <code>CreateNewTownField</code></td>
+</tr>
+<tr>
+<td><code>CREATE_FISH_FARM</code>: Creates a fish farm; not used by the shipped scripts</td>
+<td>done</td>
+<td><code>FishFarmArchetype</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="animals">Animals</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CREATE_NEW_ANIMAL</code>: Creates an animal of a kind with its age and owner; used 3529 times (story 934, tutorial 488, playgrounds 2107)</td>
+<td>done</td>
+<td><code>AnimalArchetype</code> with its kind, town, flock and age</td>
+</tr>
+<tr>
+<td><code>CREATE_FLOCK</code>: Creates a flock of animals around a place, with its size and spread; used 459 times (story 119, tutorial 19, playgrounds 310, demo and test 11)</td>
+<td>done</td>
+<td><code>FeatureScriptCommands::CreateFlock</code>: the flock's domain, its distance and its town, by the script's version</td>
+</tr>
+<tr>
+<td><code>CREATE_ANIMAL</code>: Creates an animal (older form); used 80 times (demo and test 80)</td>
+<td>done</td>
+<td>through create new animal, with a random age</td>
+</tr>
+</tbody>
+</table>
+<h2 id="objects">Objects</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CREATE_MOBILE_STATIC</code>: Creates a static object (rocks, fences, toys, totems, gates) with its height, angles and scale; used 2101 times (story 1522, tutorial 105, playgrounds 280, demo and test 194)</td>
+<td>done</td>
+<td><code>MobileStaticArchetype::CreateWithXYZAngles</code></td>
+</tr>
+<tr>
+<td><code>CREATE_STREET_LANTERN</code>: Creates a street or country lantern; used 302 times (story 89, tutorial 6, playgrounds 207)</td>
+<td>done</td>
+<td><code>StreetLanternArchetype</code></td>
+</tr>
+<tr>
+<td><code>CREATE_MOBILEOBJECT</code>: Creates a moveable object (mushrooms, barrels, carts, poo) with its angle and scale; used 159 times (story 97, playgrounds 45, demo and test 17)</td>
+<td>done</td>
+<td><code>MobileObjectArchetype</code>, nothing on top of another object</td>
+</tr>
+<tr>
+<td><code>CREATE_BONFIRE</code>: Creates a bonfire; used 11 times (story 6, tutorial 1, playgrounds 4)</td>
+<td>done</td>
+<td><code>BonfireArchetype</code>; the temperature is not used on creation, as in the original (<a href="../../map-loading.html#map-script-objects-street-lanterns-bonfires-dead-trees-gates">map-loading</a>)</td>
+</tr>
+<tr>
+<td><code>CREATE_ANIMATED_STATIC</code>: Creates an animated object (gates, cave entrances) by name; used 7 times (story 7)</td>
+<td>done</td>
+<td><code>AnimatedStaticArchetype</code></td>
+</tr>
+<tr>
+<td><code>CREATE_STREET_LIGHT</code>: Creates a street light; used 1 times (playgrounds 1)</td>
+<td>partial</td>
+<td><code>StreetLanternArchetype</code> as a town lantern; the street light itself is not decoded (no land uses it)</td>
+</tr>
+<tr>
+<td><code>CREATE_MOBILESTATIC</code>: Creates a static object (older form); not used by the shipped scripts</td>
+<td>done</td>
+<td><code>MobileStaticArchetype::CreateFromInfo</code></td>
+</tr>
+<tr>
+<td><code>MAKE_LAST_OBJECT_ARTIFACT</code>: Makes the last object made a town's artefact; not used by the shipped scripts</td>
+<td>todo</td>
+<td>empty</td>
+</tr>
+</tbody>
+</table>
+<h2 id="miracles">Miracles</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CREATE_ONE_SHOT_SPELL_PU</code>: Creates a one-shot miracle, powered up; used 244 times (story 2, playgrounds 242)</td>
+<td>done</td>
+<td><code>magic::script::CreateOneShotSpellPu</code>: the miracle's first seed at its power-up level</td>
+</tr>
+<tr>
+<td><code>CREATE_ARENA</code>: Creates an arena where creatures fight; used 5 times (story 4, demo and test 1)</td>
+<td>partial</td>
+<td>an <code>Arena</code> is kept; the creature fights that use it are not wired into the game</td>
+</tr>
+<tr>
+<td><code>CREATE_INFLUENCE_RING</code>: Creates a ring of influence for a player; used 1 times (playgrounds 1)</td>
+<td>done</td>
+<td><code>influence::CreateRing</code> for the player</td>
+</tr>
+<tr>
+<td><code>CREATE_ONE_SHOT_SPELL</code>: Creates a one-shot miracle that can be picked up and cast once; not used by the shipped scripts</td>
+<td>done</td>
+<td><code>magic::script::CreateOneShotSpell</code> by seed name</td>
+</tr>
+</tbody>
+</table>
+<h2 id="weather-and-land">Weather and land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CREATE_STREAM_POINT</code>: Adds a point to a stream; used 1123 times (story 1015, tutorial 37, playgrounds 71)</td>
+<td>done</td>
+<td>the point put on the ground and added to its stream; the rivers drawn from them</td>
+</tr>
+<tr>
+<td><code>CREATE_STREAM</code>: Starts a stream; used 60 times (story 55, tutorial 1, playgrounds 4)</td>
+<td>done</td>
+<td>streams are kept</td>
+</tr>
+<tr>
+<td><code>CREATE_WEATHER_CLIMATE_RAIN</code>: Sets a climate's rain: how much and how many dry and wet days; used 29 times (story 21, playgrounds 6, demo and test 2)</td>
+<td>done</td>
+<td><code>magic::map_script::CreateWeatherClimateRain</code> (<code>src/Magic/Script/MapScriptWeather.cpp</code>)</td>
+</tr>
+<tr>
+<td><code>CREATE_WEATHER_CLIMATE_TEMP</code>: Sets a climate's temperature; used 29 times (story 21, playgrounds 6, demo and test 2)</td>
+<td>done</td>
+<td><code>magic::map_script::CreateWeatherClimateTemp</code></td>
+</tr>
+<tr>
+<td><code>CREATE_WEATHER_CLIMATE_WIND</code>: Sets a climate's wind; used 29 times (story 21, playgrounds 6, demo and test 2)</td>
+<td>done</td>
+<td><code>magic::map_script::CreateWeatherClimateWind</code></td>
+</tr>
+<tr>
+<td><code>CREATE_WEATHER_CLIMATE</code>: Creates a climate over a circle of the land; used 27 times (story 21, playgrounds 6)</td>
+<td>done</td>
+<td><code>magic::map_script::CreateWeatherClimate</code></td>
+</tr>
+<tr>
+<td><code>CREATE_WEATHER_STORM</code>: Creates a storm that is there from the start, with its rain, lightning and path; used 2 times (playgrounds 2)</td>
+<td>done</td>
+<td><code>magic::map_script::CreateWeatherStorm</code>: a storm from the line's shape, clouds and weather texts</td>
+</tr>
+<tr>
+<td><code>COUNTRY_CHANGE</code>: Changes the land's country (look) around a place; not used by the shipped scripts</td>
+<td>todo</td>
+<td>empty</td>
+</tr>
+<tr>
+<td><code>CREATE_FOOTPATH_NODE</code>: Adds a point to a footpath; not used by the shipped scripts</td>
+<td>done</td>
+<td><code>FeatureScriptCommands::CreateFootpathNode</code>: the node at the head of its footpath</td>
+</tr>
+<tr>
+<td><code>CREATE_FOOTPATH</code>: Starts a footpath; not used by the shipped scripts</td>
+<td>done</td>
+<td><code>ecs::footpaths::Create</code> (the shipped footpaths come from the land's footpath file)</td>
+</tr>
+<tr>
+<td><code>CREATE_PATH</code>: Creates a path; not used by the shipped scripts</td>
+<td>todo</td>
+<td><code>FeatureScriptCommands::CreatePath</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td><code>CREATE_WATERFALL</code>: Creates a waterfall; not used by the shipped scripts</td>
+<td>todo</td>
+<td>empty</td>
+</tr>
+<tr>
+<td><code>HEIGHT_CHANGE</code>: Changes the land's height around a place; not used by the shipped scripts</td>
+<td>todo</td>
+<td>empty</td>
+</tr>
+<tr>
+<td><code>LINK_FOOTPATH</code>: Links a footpath to the last object made (a gate or bridge); not used by the shipped scripts</td>
+<td>todo</td>
+<td><code>FeatureScriptCommands::LinkFootpath</code> logs "not implemented"</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creatures-and-rival-gods">Creatures and rival gods</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CREATE_CREATURE_FROM_FILE</code>: Creates a rival god's creature of a species from a mind file; used 16 times (playgrounds 16)</td>
+<td>partial</td>
+<td><code>CreatureArchetype</code> with the mind loaded; faces a fixed way, its size from openblack's starting tables</td>
+</tr>
+<tr>
+<td><code>SET_COMPUTER_PLAYER_CREATURE_LIKE</code>: Makes a rival god's creature like another player; used 16 times (playgrounds 16)</td>
+<td>todo</td>
+<td>empty</td>
+</tr>
+<tr>
+<td><code>TOGGLE_COMPUTER_PLAYER</code>: Turns a rival god (computer player) on or off; used 16 times (story 4, playgrounds 11, demo and test 1)</td>
+<td>partial</td>
+<td>adds the player to the player system; the on or off is ignored. In the game it switches on that player's computer god mind and marks it a computer player, and is ignored while a network game's map loads: see <a href="../rival_gods/skirmish_opponents.html">../rival_gods/skirmish_opponents.md</a></td>
+</tr>
+<tr>
+<td><code>CREATE_CREATURE</code>: Creates a creature (older form); used 1 times (demo and test 1)</td>
+<td>todo</td>
+<td><code>FeatureScriptCommands::CreateCreature</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td><code>LOAD_COMPUTER_PLAYER_PERSONALLTY</code>: Loads a rival god's personality; not used by the shipped scripts</td>
+<td>todo</td>
+<td>empty</td>
+</tr>
+<tr>
+<td><code>SET_COMPUTER_PLAYER_PERSONALLTY</code>: Sets a rival god's personality; not used by the shipped scripts</td>
+<td>todo</td>
+<td>empty</td>
+</tr>
+<tr>
+<td><code>SET_INTERACT_DESIRE</code>: Sets the desire to interact; not used by the shipped scripts</td>
+<td>todo</td>
+<td>empty; whose desire is not known</td>
+</tr>
+</tbody>
+</table>
+<h2 id="commands-written-wrongly-in-the-shipped-scripts">Commands written wrongly in the shipped scripts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CREATE_SPECIAL_TOWNVILLAGER</code> (a misspelling of <code>CREATE_SPECIAL_TOWN_VILLAGER</code>) is written 119 times in <em>Death Comes To Those That Wait</em>; the game doesn't know it and skips each line, so those named villagers are never made</td>
+<td>done</td>
+<td>the line is logged and skipped as unknown, so the rest of the land loads, as in the game</td>
+</tr>
+<tr>
+<td>One <code>FIRE_FLY_SPELL_REWARD_PROB</code> line in <em>Death Comes To Those That Wait</em> lacks its closing bracket; the game reads it</td>
+<td>partial</td>
+<td>the line is logged and skipped, where the game reads it</td>
+</tr>
+<tr>
+<td>One miracle in <em>Death Comes To Those That Wait</em> is misspelt (<code>EXPLSION_PU1</code>); the game finds no such miracle for that town</td>
+<td>n/a</td>
+<td>data error in the shipped file; the miracle is not found and nothing is given, as in the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="map-script-commands">Map script commands</h2>
+<p>The map script (<code>map.txt</code>) is what the game reads first to choose a land; the shipped one has one line, loading the first land. openblack skips it and loads a land script directly (<code>--start-level</code>, default <code>Land1.txt</code>).</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SET_NO_PLAYERS</code>: Sets the number of players; not used by the shipped map script</td>
+<td>todo</td>
+<td>in <code>MapScriptCommands.cpp</code>, throws "not implemented"; openblack never runs a map script</td>
+</tr>
+<tr>
+<td><code>LOAD_TRIBE_DANCE</code>: Loads a tribe's dance; not used by the shipped map script</td>
+<td>todo</td>
+<td>in <code>MapScriptCommands.cpp</code>, throws "not implemented"; openblack never runs a map script</td>
+</tr>
+<tr>
+<td><code>SET_DATE</code>: Sets the date; not used by the shipped map script</td>
+<td>todo</td>
+<td>in <code>MapScriptCommands.cpp</code>, throws "not implemented"; openblack never runs a map script</td>
+</tr>
+<tr>
+<td><code>SET_TIME</code>: Sets the time; not used by the shipped map script</td>
+<td>todo</td>
+<td>in <code>MapScriptCommands.cpp</code>, throws "not implemented"; openblack never runs a map script</td>
+</tr>
+<tr>
+<td><code>SET_TURNS_PER_YEAR</code>: Sets how many game turns make a year; not used by the shipped map script</td>
+<td>todo</td>
+<td>in <code>MapScriptCommands.cpp</code>, throws "not implemented"; openblack never runs a map script</td>
+</tr>
+<tr>
+<td><code>SET_GAME_TICK_TIME</code>: Sets how long a game turn lasts; not used by the shipped map script</td>
+<td>partial</td>
+<td><code>MapScriptCommands::SetGameTickTime</code> sets the turn length (<code>game_clock::SetMsPerTurn</code>); openblack never runs a map script</td>
+</tr>
+<tr>
+<td><code>LOAD_FEATURE_SCRIPT</code>: Loads a land script (the shipped map script loads the first land); used 1 time in <code>map.txt</code></td>
+<td>todo</td>
+<td>in <code>MapScriptCommands.cpp</code>, throws "not implemented"; openblack loads the land script directly (<code>--start-level</code>)</td>
+</tr>
+<tr>
+<td><code>PAUSE_GAME</code>: Pauses the game; not used by the shipped map script</td>
+<td>todo</td>
+<td>in <code>MapScriptCommands.cpp</code>, throws "not implemented"; openblack never runs a map script</td>
+</tr>
+<tr>
+<td><code>CREATE_CREATURE</code>: Creates a creature; not used by the shipped map script</td>
+<td>todo</td>
+<td>in <code>MapScriptCommands.cpp</code>, throws "not implemented"; openblack never runs a map script</td>
+</tr>
+<tr>
+<td><code>OUTPUT_VILLAGERS</code>: Writes the villagers out (debugging); not used by the shipped map script</td>
+<td>n/a</td>
+<td>developer output</td>
+</tr>
+<tr>
+<td><code>OUTPUT_TOWN</code>: Writes the towns out (debugging); not used by the shipped map script</td>
+<td>n/a</td>
+<td>developer output</td>
+</tr>
+<tr>
+<td><code>OUTPUT_CREATURES</code>: Writes the creatures out (debugging); not used by the shipped map script</td>
+<td>n/a</td>
+<td>developer output</td>
+</tr>
+<tr>
+<td><code>OUTPUT_COLLIDE</code>: Writes collisions out (debugging); not used by the shipped map script</td>
+<td>n/a</td>
+<td>developer output</td>
+</tr>
+<tr>
+<td><code>OUTPUT_ALLOC</code>: Writes memory use out (debugging); not used by the shipped map script</td>
+<td>n/a</td>
+<td>developer output</td>
+</tr>
+<tr>
+<td><code>SAVE_FOR_NET_DEBUG</code>: Saves for network debugging; not used by the shipped map script</td>
+<td>n/a</td>
+<td>developer output</td>
+</tr>
+<tr>
+<td><code>LOAD_FOR_NET_DEBUG</code>: Loads for network debugging; not used by the shipped map script</td>
+<td>n/a</td>
+<td>developer output</td>
+</tr>
+<tr>
+<td><code>LOAD_LANDSCAPE</code>: Loads a landscape; not used by the shipped map script</td>
+<td>todo</td>
+<td>in <code>MapScriptCommands.cpp</code>, throws "not implemented"; openblack never runs a map script</td>
+</tr>
+<tr>
+<td><code>LOAD_GAME_SCRIPT</code>: Loads the compiled challenge script; not used by the shipped map script</td>
+<td>todo</td>
+<td>in <code>MapScriptCommands.cpp</code>, throws "not implemented"; openblack never runs a map script</td>
+</tr>
+<tr>
+<td><code>LOAD_RAW_GAME_SCRIPT</code>: Loads challenge script source; not used by the shipped map script</td>
+<td>todo</td>
+<td>in <code>MapScriptCommands.cpp</code>, throws "not implemented"; openblack never runs a map script</td>
+</tr>
+<tr>
+<td><code>LOAD_LANGUAGE</code>: Loads the language; not used by the shipped map script</td>
+<td>todo</td>
+<td>in <code>MapScriptCommands.cpp</code>, throws "not implemented"; openblack never runs a map script</td>
+</tr>
+<tr>
+<td><code>LOAD_CHALLENGES</code>: Loads the challenges; not used by the shipped map script</td>
+<td>todo</td>
+<td>not in openblack's map command table</td>
+</tr>
+<tr>
+<td><code>OUTPUT_RAND</code>: Writes the random numbers out (debugging); not used by the shipped map script</td>
+<td>n/a</td>
+<td>developer output</td>
+</tr>
+<tr>
+<td><code>LOAD_OLD_CREATURE</code>: Loads the player's old creature; not used by the shipped map script</td>
+<td>todo</td>
+<td>not in openblack's map command table</td>
+</tr>
+<tr>
+<td><code>CONFIG</code>: Reads the configuration; not used by the shipped map script</td>
+<td>todo</td>
+<td>not in openblack's map command table</td>
+</tr>
+<tr>
+<td><code>KEYCONFIG</code>: Reads the key configuration; not used by the shipped map script</td>
+<td>todo</td>
+<td>not in openblack's map command table</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

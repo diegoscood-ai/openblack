@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Ogre — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-ogre">The Ogre</a><ul>
+<li><a href="#how-it-appears">How it appears</a></li>
+<li><a href="#preparations-made-on-the-click">Preparations made on the click</a></li>
+<li><a href="#the-introduction">The introduction</a></li>
+<li><a href="#feeding-him">Feeding him</a></li>
+<li><a href="#fighting-him">Fighting him</a></li>
+<li><a href="#success-and-the-reward">Success and the reward</a></li>
+<li><a href="#advisors-music-and-the-creature">Advisors, music and the creature</a></li>
+<li><a href="#quirks-and-cut-material">Quirks and cut material</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-ogre">The Ogre</h1>
+<p>A first-land silver scroll: an ogre named Sleg sleeps in a narrow pass, guarding a reward. The player either feeds
+him twice until he falls asleep, or sends the creature in to beat him in a fight; either way the way to the reward
+opens, the reward turns out to be a beach ball, and a healing miracle dispenser appears by the temple.</p>
+<p><strong>Land:</strong> 1 · <strong>Giver:</strong> the advisors, at the ogre's pass (the ogre himself speaks once) · <strong>Script:</strong> CreatureGuardian · <strong>Reward:</strong> a beach ball (toy ball) reward behind the ogre, then a healing miracle dispenser near the temple (the powered-up heal if the healing miracle was already given) · <strong>Repeatable:</strong> no</p>
+<p>Sources: the land's challenge scripts (the original source text, checked against the PC game's compiled
+<code>challenge.chl</code>), the game's text table and the executable. openblack is judged on this tree: of the 74 script functions
+the quest and the scripts it starts need, 16 only log "not implemented" in <code>src/CHLApi.cpp</code>, among them every creature
+action, desire and fight command, the snapshot and reward commands, and making a creature from a script
+(<code>CreatureCreateRelativeToCreature</code>). The land's control script starts this quest only in a game that skips the creature
+training (the start-up box's fourth answer), and there the ogre never appears, since the fight lesson that lets it out
+is skipped (see <a href="../../scripts/land1_script.html">../../scripts/land1_script.md</a>), so none of it happens; rows are todo
+unless the notes say otherwise. The land as a whole is in <a href="../land_1.html">../land_1.md</a>, the script's function coverage
+in <a href="../../scripts/challenge_scripts.html">../../scripts/challenge_scripts.md</a>, chests and dispensers in
+<a href="../rewards.html">../rewards.md</a>.</p>
+<p><strong>Progress: 1/53 done, 6 partial — 8%</strong></p>
+<h2 id="how-it-appears">How it appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The quest's script is started by the land's control script after the guide's fight lesson, alongside the exit-vortex script, and then waits for the flag the fight lesson raises at its end</td>
+<td>partial</td>
+<td>with the fourth tutorial answer <code>LandControl1</code> starts it with the exit-vortex script and it waits on the flag; with the first answer the land's control script never gets that far (the intro does not finish)</td>
+</tr>
+<tr>
+<td>A new game that skips the creature training never runs the fight lesson, so the flag is never raised and the ogre never appears in that game</td>
+<td>done</td>
+<td>same in our tree: <code>CanSkipCreatureTraining</code> reads the requester's answer, <code>LandControl1</code> skips the lesson and the script waits for good (<code>Gui/SkipBox</code>, <code>Game::Run</code>)</td>
+</tr>
+<tr>
+<td>When the guide is asleep after the fight lesson and is clicked, it swings the camera to the ogre's place ("Why don't you try out what you've learnt while I sleep?") only if the ogre's scroll hasn't been clicked yet</td>
+<td>todo</td>
+<td>the creature guide's lessons never run in our tree</td>
+</tr>
+<tr>
+<td>The ogre is made from the player's creature (same mind data, scale 1) as an ogre, at his lair in a narrow pass</td>
+<td>todo</td>
+<td>the quest never starts in our tree (row 2 above); <code>CreatureCreateRelativeToCreature</code> is a stub and CHL <code>CREATE</code> makes no creatures</td>
+</tr>
+<tr>
+<td>He keeps itself 20% bigger than the player's creature for the rest of the quest</td>
+<td>todo</td>
+<td>never reached; <code>CreatureAutoscale</code> is a stub</td>
+</tr>
+<tr>
+<td>His name over him is "Sleg"</td>
+<td>todo</td>
+<td>never reached; <code>SetCreatureName</code> is a stub</td>
+</tr>
+<tr>
+<td>His alignment is set fully evil; all his desires are switched off except hunger (held at 0.1) and anger (held at 0.05); his own agenda gets almost no priority</td>
+<td>todo</td>
+<td>never reached; <code>CreatureSetDesireActivated</code>, <code>CreatureSetDesireValue</code>, <code>CreatureSetDesireMaximum</code>, <code>CreatureSetAgendaPriority</code> are stubs and <code>SetProperty</code> has no alignment</td>
+</tr>
+<tr>
+<td>He sleeps beside himself (the "sleep by object" state) at the lair until the scroll is clicked</td>
+<td>todo</td>
+<td>never reached; <code>CreatureDoAction</code> is a stub</td>
+</tr>
+<tr>
+<td>From the moment he exists until the introduction ends, whenever the player's creature comes within 70 of him it is unleashed and walked back to a spot down the valley (checked at most every 5 seconds), and freed again once out of range</td>
+<td>partial</td>
+<td>never reached; <code>DetachObjectLeash</code>, <code>ReleaseFromScript</code> and the timers work, but <code>MoveGameThing</code> does not move creatures</td>
+</tr>
+<tr>
+<td>A silver challenge scroll stands at the pass, a little beyond the lair</td>
+<td>todo</td>
+<td>script scrolls work (<code>CreateHighlight</code>, <code>src/ECS/ScriptHighlight.cpp</code>), but the quest never starts: the fight-lesson flag is never raised</td>
+</tr>
+<tr>
+<td>While the camera is within 100 of the scroll and it is on screen, at most every 30 seconds the good advisor steps out, points at it and says "Your attention is required here."</td>
+<td>todo</td>
+<td>the notice's natives work (<code>SpiritEject</code>, <code>SpiritPointPos</code>, <code>RunText</code>, <code>PosFieldOfView</code>, <code>DllGettime</code>), but the quest never starts</td>
+</tr>
+<tr>
+<td>Clicking the scroll or the spot it marks starts the introduction</td>
+<td>todo</td>
+<td><code>GameThingClicked</code> on a scroll works, but the quest never starts</td>
+</tr>
+</tbody>
+</table>
+<h2 id="preparations-made-on-the-click">Preparations made on the click</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A beach ball reward is placed in a hollow behind the ogre, at the far end of the pass</td>
+<td>todo</td>
+<td>never reached; <code>CreateReward</code> is a stub; the ball itself: <a href="../../nature/toys.html">../../nature/toys.md</a></td>
+</tr>
+<tr>
+<td>An anti-influence circle of radius 50 is put over the reward so the hand can't reach it, and an influence circle of radius 50 round the lair so the hand can act at the ogre</td>
+<td>todo</td>
+<td><code>InfluencePosition</code> makes influence and anti-influence rings (<code>src/Magic/Script/CHLInfluence.cpp</code>), but the quest never starts</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-introduction">The introduction</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sleg's own music plays for the scene</td>
+<td>partial</td>
+<td>the music command plays the track (<code>StartMusic</code>, <code>src/Audio</code>); the scene never runs</td>
+</tr>
+<tr>
+<td>The film starts: the creature's leash is taken off and it stands idle; the camera glides (3 s) to view the pass's entrance from below, looking at the ogre's upper body</td>
+<td>todo</td>
+<td>the scene never runs; the leash and camera natives work, but the ogre is never made</td>
+</tr>
+<tr>
+<td>The ogre scratches himself</td>
+<td>todo</td>
+<td>never reached; <code>OverrideStateAnimation</code> does not handle creatures</td>
+</tr>
+<tr>
+<td>The good advisor steps out, points at the ogre: "Ugh, how horrid. I think he's trying to speak." then clings to the screen's side</td>
+<td>todo</td>
+<td>the scene never runs (the advisor natives, <code>ClingSpirit</code> included, work)</td>
+</tr>
+<tr>
+<td>The camera moves to the other side of the entrance; the scroll is entered in the challenge list at 0% with the reminder "The Ogre's guarding something. We should investigate."</td>
+<td>todo</td>
+<td>never reached; <code>Snapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>The ogre, in his own voice: "Me guard here. Me big hungry. Me name Sleg." while the camera moves lower</td>
+<td>todo</td>
+<td>the scene never runs</td>
+</tr>
+<tr>
+<td>The good advisor: "This ogre seems to be guarding something. A reward, perhaps?" and goes home</td>
+<td>todo</td>
+<td>the scene never runs</td>
+</tr>
+<tr>
+<td>The evil advisor steps out and looks at the camera: "He's guarding the pass. He's outside our influence so let's send our Creature to fight him." and goes home</td>
+<td>todo</td>
+<td>the scene never runs</td>
+</tr>
+<tr>
+<td>The ogre turns to the player's creature and acts hungry</td>
+<td>todo</td>
+<td>never reached; creature actions are stubs</td>
+</tr>
+<tr>
+<td>The good advisor points at and looks at the ogre: "We shouldn't resort to combat with the poor thing. Hmm. He looks hungry."</td>
+<td>todo</td>
+<td>the scene never runs</td>
+</tr>
+<tr>
+<td>The creature points at the ogre; the ogre looks it over, plays his angry animation and goes back to sleep; the camera rises over the pass and the music stops</td>
+<td>todo</td>
+<td>never reached; <code>CreatureDoAction</code> is a stub</td>
+</tr>
+<tr>
+<td>The creature is given back to the player, and from now on it may walk up to the ogre</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+</tbody>
+</table>
+<h2 id="feeding-him">Feeding him</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every 3 seconds the script looks for a store of food within 50 of the ogre</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>When food is there and the player's creature is not within 50 of it, the ogre is fed for the first time (a film): the camera swings to the food, the ogre walks to it and eats it as he would a miracle food pile</td>
+<td>todo</td>
+<td>never reached; creature actions are stubs</td>
+</tr>
+<tr>
+<td>The rest of the food is removed; the scroll goes to 25%; the good advisor: "Well he's eaten that. Is he getting drowsy? Or is it me?"; the ogre walks back to his lair and the camera returns to where it was</td>
+<td>todo</td>
+<td>never reached; <code>UpdateSnapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>Food put by him a second time (again with the creature not within 50) is eaten the same way; the ogre then falls asleep beside himself and the food is removed</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>The evil advisor: "That big oaf's as thick as a rock! He's gone right to sleep. Duh!"; the scroll goes to 50%</td>
+<td>todo</td>
+<td>never reached; <code>UpdateSnapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>The camera flies through the pass (from the tunnel's start to its end) and comes to rest looking at the reward; the creature is freed</td>
+<td>todo</td>
+<td>never reached (the camera path natives work)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="fighting-him">Fighting him</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A fight starts when the creature comes within 30 of the ogre while he hasn't eaten twice and 30 seconds have passed since the last fight; or at once, whatever else, if it gets within 30 of a spot just past him (trying to slip by)</td>
+<td>todo</td>
+<td>never reached (the timer natives work)</td>
+</tr>
+<tr>
+<td>The creature is held idle, its leash is switched off and taken off</td>
+<td>partial</td>
+<td>never reached; the leash commands work (<code>SetLeashWorks</code>, <code>DetachObjectLeash</code>)</td>
+</tr>
+<tr>
+<td>The evil advisor: "Uh oh. You've got him mighty riled. Prepare for battle, Boss!"</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>The ogre is told to fight the creature; once the creature is fighting the ogre's strength is lowered by 0.2</td>
+<td>todo</td>
+<td>never reached; the creature fight natives are stubs and <code>SetProperty</code> has no strength</td>
+</tr>
+<tr>
+<td>When both have stopped fighting, the leash works again and the creature is freed; whichever has less fight health lost</td>
+<td>todo</td>
+<td>never reached; <code>IsFighting</code> is a stub and <code>GetProperty</code> has no health</td>
+</tr>
+<tr>
+<td>Won: the camera closes on the ogre, who is killed for good; the evil advisor: "You beat him! Now let's get the reward and scram!"; the camera then flies through the pass to the reward as for feeding</td>
+<td>todo</td>
+<td>never reached; the creature action natives are stubs</td>
+</tr>
+<tr>
+<td>Lost: both creatures stand idle; the good advisor: "Hold on, Leader. Pull back from the fight and try again when we've recovered some strength."; the scroll is set back to 0%; the ogre walks back to his lair and faces the creature</td>
+<td>todo</td>
+<td>never reached; <code>UpdateSnapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>After a lost fight the ogre heals by 1% of his health every 6 seconds (about 10 minutes from nothing to full), stopping for good if he starts fighting again</td>
+<td>todo</td>
+<td>never reached; the shared fight-healing script needs creature health (<code>GetProperty</code>, <code>SetProperty</code>)</td>
+</tr>
+<tr>
+<td>The player can try again after 30 seconds; every new fight lowers the ogre's strength by another 0.2, so each retry is easier (how low strength can go was not confirmed)</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+</tbody>
+</table>
+<h2 id="success-and-the-reward">Success and the reward</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Once he sleeps or dies, the anti-influence over the reward is replaced with an influence circle (radius 50) so the hand can reach it, and the lair's influence is removed</td>
+<td>todo</td>
+<td><code>InfluencePosition</code> and deleting a ring work, but the quest never starts</td>
+</tr>
+<tr>
+<td>The scroll goes to 75% with the reminder "Let's look for whatever that Ogre was hiding."</td>
+<td>todo</td>
+<td>never reached; <code>UpdateSnapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>The ogre (asleep or dead) is removed as soon as the camera is more than 100 away from him and he isn't on screen</td>
+<td>todo</td>
+<td>never reached (<code>ObjectDelete</code> and the field-of-view checks work)</td>
+</tr>
+<tr>
+<td>When the beach ball reward is opened, the scroll is completed (100%)</td>
+<td>todo</td>
+<td>never reached; <code>CreateReward</code> and <code>IsActive</code> are stubs; opening chests: <a href="../rewards.html">../rewards.md</a></td>
+</tr>
+<tr>
+<td>A healing miracle dispenser is built near the temple; if the healing miracle was already handed out (the Pied Piper also gives one), it is the powered-up healing miracle instead; there is no dispenser film or help for it</td>
+<td>partial</td>
+<td>never reached; CHL <code>CREATE</code> makes spell dispensers and <code>SetMagicProperties</code> works (<code>src/Magic/Script/CHLWorship.cpp</code>)</td>
+</tr>
+<tr>
+<td>The dispenser's recharge time is set to 0 seconds (what a zero time does was not confirmed)</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>The evil advisor: "A beach ball? We went through all that for a lousy beach ball?!"; a second later the good advisor: "Hold on! A spell Dispenser just appeared near our Temple!"</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+<tr>
+<td>The quest is marked finished for the rest of the land</td>
+<td>todo</td>
+<td>never reached</td>
+</tr>
+</tbody>
+</table>
+<h2 id="advisors-music-and-the-creature">Advisors, music and the creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sleg's music plays only for the introduction</td>
+<td>partial</td>
+<td><code>StartMusic</code> / <code>StopMusic</code> work; the scene never runs</td>
+</tr>
+<tr>
+<td>The ogre is a creature: he eats, sleeps, fights and is hurt like one, and the player's creature is the only one who can fight him</td>
+<td>todo</td>
+<td>no ogre is ever made; creature fights: see ../../creature/</td>
+</tr>
+<tr>
+<td>The player's creature is forced to point at the ogre in the introduction and is held for each film</td>
+<td>todo</td>
+<td>never reached; <code>CreatureDoAction</code> is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="quirks-and-cut-material">Quirks and cut material</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A day-to-night script is started with the quest but its whole body is commented out, so it does nothing; it once darkened the time of day and raised a lightning drizzle while the camera was near the pass</td>
+<td>n/a</td>
+<td>cut</td>
+</tr>
+<tr>
+<td>An unused evil line: "Look! Here it is. You know I reckon we could fight our way up to it."</td>
+<td>n/a</td>
+<td>in the text table, used by no script</td>
+</tr>
+<tr>
+<td>Cut ways to finish: the ogre running after the creature when hit by a rock, and the quest ending when the player's influence covered the reward</td>
+<td>n/a</td>
+<td>commented out of the script</td>
+</tr>
+<tr>
+<td>A cut reward of a heal-miracle dispenser at the reward's spot</td>
+<td>n/a</td>
+<td>commented out</td>
+</tr>
+<tr>
+<td>The fourth land has a different ogre quest with its own script</td>
+<td>n/a</td>
+<td>not this quest</td>
+</tr>
+<tr>
+<td>A test script starts this quest alone with the fight-lesson flag raised</td>
+<td>n/a</td>
+<td>not started by the game</td>
+</tr>
+<tr>
+<td>A saved game keeps the ogre, his state and the scroll</td>
+<td>todo</td>
+<td>openblack has no saved games</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Undead Village — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#undead-village">Undead Village</a><ul>
+<li><a href="#where-it-sits-in-the-land">Where it sits in the land</a></li>
+<li><a href="#the-scroll">The scroll</a></li>
+<li><a href="#the-story-scene">The story scene</a></li>
+<li><a href="#raising-the-totems">Raising the totems</a></li>
+<li><a href="#the-curse-lifted">The curse lifted</a></li>
+<li><a href="#the-creed">The Creed</a></li>
+<li><a href="#unused-or-cut">Unused or cut</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="undead-village">Undead Village</h1>
+<p>The fourth land's last story scroll before the Creed: once all three of Nemesis's Guardian Stones are broken, a man of
+the Japanese village tells how one village refused Nemesis, had its two totems driven into the ground and was turned
+into walking skeletons. Raising both totems back to full height breaks the curse; the freed villagers tell the player
+that the Creed lies in the body of the Guide, and the creature fetches it from the mountain top.</p>
+<p><strong>Land:</strong> 4 · <strong>Giver:</strong> a man of the Japanese village, under a gold scroll at the village's edge · <strong>Script:</strong> Land4Meteorites (its undead-village part) · <strong>Reward:</strong> the second element of the Creed (the creature picks it up) · <strong>Repeatable:</strong> no</p>
+<p>Sources: the land's challenge scripts (the original source text, checked against the PC game's compiled
+<code>challenge.chl</code>), the game's text table (<code>InfoScript2.txt</code>) for every spoken line and its speaker, and the executable.
+openblack is judged on this tree: the land never runs there (openblack starts the story's top script, which always runs
+Land 1's control script first, and the map-loading command has an empty body), and 6 of the 68 commands the quest uses
+(among them snapshots, skeletons, creature orders and the Creed) only log "not implemented" in <code>src/CHLApi.cpp</code>. Every
+row is todo unless the notes say otherwise. The land as a whole is in <a href="../land_4.html">../land_4.md</a>; its script program
+in <a href="../../scripts/land4_script.html">../../scripts/land4_script.md</a>.</p>
+<p><strong>Progress: 0/49 done, 0 partial — 0%</strong></p>
+<h2 id="where-it-sits-in-the-land">Where it sits in the land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The undead village is set up as soon as the land starts: the town by the two totems is made skeletons, two African totems (scale 2.233, turned 352.1° and 36°) are made beside it fully sunk into the ground (height 0), both totems and the whole town are made indestructible</td>
+<td>todo</td>
+<td><code>SetSkeleton</code> is a stub and <code>CREATE</code> of a totem is not done; <code>SetIndestructable</code> is real</td>
+</tr>
+<tr>
+<td>The quest itself only starts after the land's control script sees all three Guardian Stones broken: the lightning stone (beating Sleg, <a href="the_defending_ogres.html">the_defending_ogres.md</a>), the darkness stone (<a href="the_heartbroken_man.html">the_heartbroken_man.md</a>) and the fire stone (<a href="the_totem_puzzle.html">the_totem_puzzle.md</a>), in any order</td>
+<td>todo</td>
+<td><code>LandControl4</code> is never reached: <code>LOAD_MAP</code> is empty</td>
+</tr>
+<tr>
+<td>The control script waits for the whole quest (it is run in the foreground), then runs the Creed scene and only then the exit vortex quest (<a href="leave_through_the_vortex_land_4.html">leave_through_the_vortex_land_4.md</a>)</td>
+<td>todo</td>
+<td>plain script order; see <a href="leave_through_the_vortex_land_4.html">leave_through_the_vortex_land_4.md</a>; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Until the Creed is in the creature's hand, the undead town's health is set back to full every five minutes, "so they don't hobble about"</td>
+<td>todo</td>
+<td>health (property 1) is not handled by <code>SetProperty</code></td>
+</tr>
+<tr>
+<td>Until the town is saved, any belief of the player's in it that reaches 0.1 is wiped to 0 (checked every second): the town cannot be impressed while cursed</td>
+<td>todo</td>
+<td><code>BeliefForPlayer</code> and <code>SetPlayerBelief</code> are stubs</td>
+</tr>
+<tr>
+<td>After the story scene has been seen, the second time the belief is wiped the good advisor steps out: "Leader, we aren't getting anywhere trying to impress the people here." / "We've just GOT to break the curse Nemesis has put on this place.", then the evil advisor "But we'll need influence to get near those Totems."</td>
+<td>todo</td>
+<td>the belief wipes it counts are stubs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-scroll">The scroll</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A gold scroll appears at the edge of the Japanese village, on the man's spot</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>While the camera is within 100 of the scroll and looking at it, at most every 30 seconds the good advisor steps out, points at it and says "Your godly attention is required here, Leader."</td>
+<td>todo</td>
+<td>the notify script calls real natives (<code>SpiritEject</code>, <code>SpiritPointGameThing</code>); never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The quest waits until the scroll (or its spot) is clicked; nothing else moves on</td>
+<td>todo</td>
+<td><code>GameThingClicked</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>As the scene starts, both totems are pushed up to their full height so the story can show them</td>
+<td>todo</td>
+<td>the totems are never made</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-story-scene">The story scene</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nemesis's music plays through the whole scene</td>
+<td>todo</td>
+<td><code>StartMusic</code> is real (<code>src/Audio/Services/GameMusic</code>); never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The camera moves in 5 seconds to look at the river bank; a Japanese farmer appears from behind a hut, walks to a mark, turns 90° left, walks to his spot and faces the camera, gossiping</td>
+<td>todo</td>
+<td><code>CREATE</code> makes villagers; <code>MoveGameThing</code> and the animations are real for villagers; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The man: "Your success is great, Mighty One." / "You have almost restored our land to blessed normality." / (the camera creeps closer over 20 seconds) "But one more area remains tainted by Nemesis."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Fade to black; the town is shown as it was, alive: the skeletons are switched off, the time of day set to 16:50 and stopped, and the camera glides past the houses for 30 seconds</td>
+<td>todo</td>
+<td>the fade and clock natives are real, but <code>SetSkeleton</code> is a stub</td>
+</tr>
+<tr>
+<td>The man: "One Village refused to bow to Nemesis." / "They saw his might and were afraid."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Fade; a happy scene in the village: two children (ages 10 and 9) jumping and facing each other, a man walking slowly by, two women gossiping, and a man the camera follows walking to the middle of the village; all are drawn in high detail</td>
+<td>todo</td>
+<td><code>CREATE</code> makes villagers and <code>SetHighGraphicsDetail</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The totems shake: the gate-stone grinding sound and a camera shake (radius 150, strength 0.25, 5 seconds) around each totem, then the camera looks down from high behind them</td>
+<td>todo</td>
+<td><code>ShakeCamera</code> and <code>PlaySoundEffect</code> are real, but the totems are never made</td>
+</tr>
+<tr>
+<td>The scroll is entered in the challenge log here, titled "Undead Village", at 0%, with the reminder "Break Nemesis' curse to get the Creed." (said by the good advisor when the log entry is clicked)</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>From here the totems start to sink back (see "Raising the totems")</td>
+<td>todo</td>
+<td>the totems are never made</td>
+</tr>
+<tr>
+<td>The man: "So Nemesis buried their Totems, their source of power."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The curse: "And cursed their Village." — when the followed man reaches his spot a puff of smoke (scale 6) bursts and he is yanked into the ground; one child points and talks, then one after another, a quarter to half a second apart, each villager vanishes in smoke (scale 3) and is yanked underground; each comes back a skeleton, drowns, mourns and lies poisoned</td>
+<td>todo</td>
+<td><code>SpecialEffectPosition</code> is real, but <code>SetSkeleton</code> is a stub</td>
+</tr>
+<tr>
+<td>The whole town turns to skeletons; after the last villager six seconds pass, then a fade and the six actors are removed</td>
+<td>todo</td>
+<td><code>SetSkeleton</code> is a stub</td>
+</tr>
+<tr>
+<td>Back with the man (the time of day is put back and the clock restarted): "If you help them. I'm sure they'll be forever in your debt." / (the camera creeps closer over 20 seconds) "They know where the Creed you seek can be found."</td>
+<td>todo</td>
+<td>the clock and text natives are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Fade back to where the player's camera was before the scene; the music stops; the man is removed</td>
+<td>todo</td>
+<td>fade, camera, <code>StopMusic</code> and <code>ObjectDelete</code> are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="raising-the-totems">Raising the totems</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The player raises each totem with the hand (the town's totem pole is gripped and pulled up), which needs the player's influence there, as the advisors hint</td>
+<td>todo</td>
+<td>the totems are never made; see <a href="../../creature/town_actions.html">../../creature/town_actions.md</a></td>
+</tr>
+<tr>
+<td>A totem that is partly raised and not being held by the hand sinks back, a tiny step (0.00005 of its height) every pass of the watcher, and puffs dust (scale 7) while it sinks</td>
+<td>todo</td>
+<td>the totems are never made</td>
+</tr>
+<tr>
+<td>Quirk: the whole watch (sinking and the creature's help) only runs while the player has a creature; with none, the totems never sink</td>
+<td>todo</td>
+<td>the totems are never made</td>
+</tr>
+<tr>
+<td>If the creature is within 50 of a totem that has once been raised above 90 and has since fallen right back to the ground, the creature is ordered to raise that totem itself; when the totem reaches full height the creature is released</td>
+<td>todo</td>
+<td><code>CreatureDoAction</code> is a stub; see <a href="../../creature/decision_making.html">../../creature/decision_making.md</a></td>
+</tr>
+<tr>
+<td>The curse breaks the moment both totems stand at exactly full height together</td>
+<td>todo</td>
+<td>the totems are never made</td>
+</tr>
+<tr>
+<td>Nothing fails this quest and nothing times it out: the land waits for it for ever</td>
+<td>todo</td>
+<td>the same script; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-curse-lifted">The curse lifted</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A skeleton villager appears in the village, and a scene starts with the second epic theme: the camera moves in over 6 seconds and the skeleton walks to the village's middle</td>
+<td>todo</td>
+<td><code>StartMusic</code> is real, but the skeleton villager needs <code>SetSkeleton</code> (a stub)</td>
+</tr>
+<tr>
+<td>He is yanked into the ground in a large puff of smoke (scale 16); the whole town stops being skeletons, and so does he; he drowns, mourns and then stands</td>
+<td>todo</td>
+<td><code>SetSkeleton</code> is a stub</td>
+</tr>
+<tr>
+<td>The freed man: "We owe you everything." / "We can tell you where the Creed you need can be found." / "The Creed lies in the body of the one you knew as the Guide."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; see <a href="../creature_guide.html">../creature_guide.md</a>; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The Creed is made on a mountain top (at height 138.7, the height of the mountain top where the Guide died on the first land, though at a different spot of the map), with an anti-influence of radius 30 around it so the hand cannot take it</td>
+<td>todo</td>
+<td><code>CREATE</code> of the Creed object is not done</td>
+</tr>
+<tr>
+<td>Fade; the camera is set to the start of the land's seventh camera path and flies along it to show where the Creed lies</td>
+<td>todo</td>
+<td><code>RunCameraPath</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The scroll goes to 100% in the challenge log, the gold scroll is removed, and the village can be harmed again</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>The music stops; the creature is released; the town counts as saved (the belief wiping stops, so it can now be impressed)</td>
+<td>todo</td>
+<td><code>StopMusic</code> and <code>ReleaseFromScript</code> are real; the saved flag is plain script; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-creed">The Creed</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>After the freed man tells where it is, the Creed piece is made on a hill east of the home village, with a 30-radius ring of anti-influence round it so the player's hand cannot take it</td>
+<td>todo</td>
+<td><code>CREATE</code> of the Creed object is not done; <code>InfluencePosition</code> is real</td>
+</tr>
+<tr>
+<td>Only the creature can collect it: the scene waits until the Creed is in the creature's hand</td>
+<td>todo</td>
+<td><code>InCreatureHand</code> is a stub and the Creed object is not made</td>
+</tr>
+<tr>
+<td>The moment it is, the creature counts as having the Creed; the screen fades to white over a second and, 2 seconds later, the Creed object is removed</td>
+<td>todo</td>
+<td>reached only once the creature holds the Creed, which is a stub; <code>SetFade</code> and <code>ObjectDelete</code> are real</td>
+</tr>
+<tr>
+<td>The creature is put on the hilltop facing east, with a faint glow above its hand (scale 5, power 0.1)</td>
+<td>todo</td>
+<td><code>SetPosition</code> is real, but turning a creature (<code>SetFocus</code>) and <code>SetCreatureCreedProperties</code> are not done</td>
+</tr>
+<tr>
+<td>A cut scene with the epic script music (number 4): the camera looks up at the creature's head from below and fades in over a second</td>
+<td>todo</td>
+<td><code>StartMusic</code>, camera cuts and the fade are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The camera climbs slowly (20 seconds) high above the hill; after 4 seconds the glow above the hand grows to full power</td>
+<td>todo</td>
+<td><code>MoveCameraPosition</code> is real, but <code>SetCreatureCreedProperties</code> is a stub</td>
+</tr>
+<tr>
+<td>Both advisors step out. Good: "You found the second Creed!" Evil: "Yeah. Oh this is a great day!"</td>
+<td>todo</td>
+<td><code>SpiritEject</code> and <code>RunText</code> are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>A second later a screen rumble sounds and the camera shakes hard (amplitude 1, radius 100, 5 seconds)</td>
+<td>todo</td>
+<td><code>PlaySoundEffect</code> and <code>ShakeCamera</code> are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>6 seconds later the good advisor: "What was that?" Both go home, the music stops, the creature is let go</td>
+<td>todo</td>
+<td>advisors, <code>StopMusic</code> and <code>ReleaseFromScript</code> are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>While the creature has not got the Creed, the Undead Village's people are kept at full health</td>
+<td>todo</td>
+<td>health (property 1) is not handled</td>
+</tr>
+<tr>
+<td>The rumble leads straight into the exit vortex quest</td>
+<td>todo</td>
+<td>plain script order; <a href="leave_through_the_vortex_land_4.html">leave_through_the_vortex_land_4.md</a>; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>What the Creed does to the creature in play (beyond the glow)</td>
+<td>todo</td>
+<td>not determined; see <a href="../land_4.html">../land_4.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="unused-or-cut">Unused or cut</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A line "And they know the location of the object you desire." is recorded but taken out of the scene and marked as no longer needed</td>
+<td>n/a</td>
+<td>never played</td>
+</tr>
+<tr>
+<td>The quest's "finished" entry is marked in the script as possibly belonging elsewhere, but it stays at the moment the curse lifts</td>
+<td>n/a</td>
+<td>a note only; no behaviour</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

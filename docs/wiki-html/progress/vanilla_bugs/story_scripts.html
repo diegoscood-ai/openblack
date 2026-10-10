@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vanilla bugs: story scripts — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="here" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#vanilla-bugs-story-scripts">Vanilla bugs: story scripts</a><ul>
+<li><a href="#soft-locks-and-lost-progress">Soft-locks and lost progress</a></li>
+<li><a href="#wrong-outcomes">Wrong outcomes</a></li>
+<li><a href="#missing-or-wrong-feedback">Missing or wrong feedback</a></li>
+<li><a href="#data-and-text-errors">Data and text errors</a></li>
+<li><a href="#harmless">Harmless</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="vanilla-bugs-story-scripts">Vanilla bugs: story scripts</h1>
+<p>Bugs in the original game's story scripts: the gold scrolls, each land's control script, the creature's guide on Land 1
+the creature curse on Land 5, and the vortices that carry the player from land to land. Silver scrolls are in <a href="silver_quests.html">silver_quests.md</a>. Script file names are the
+compiled challenge scripts' own (in the game's <code>challenge.chl</code>); "checked in the script source" means the row was
+re-read in the script sources while building this list.</p>
+<p><strong>Bugs: 77 (soft-locks and lost progress: 5)</strong></p>
+<h2 id="soft-locks-and-lost-progress">Soft-locks and lost progress</h2>
+<table>
+<thead>
+<tr>
+<th>Bug</th>
+<th>What the player sees</th>
+<th>Evidence</th>
+<th>Found in</th>
+<th>openblack</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>An unfinished Khazar challenge keeps Khazar marked "busy", and Land 2's control script only starts Khazar's death while he is not busy</td>
+<td>Clicking Khazar's fireball or shield challenge and then never using the seeds holds back Khazar's death, the theft of the creature and Lethys's vortex until the challenge is finished</td>
+<td>Land 2's control script checks the busy flag every 9 seconds before starting the death; both challenges set it from the click to the reward</td>
+<td><a href="../story/gold_scrolls/khazars_fireball_challenge.html">khazars_fireball_challenge.md</a>, <a href="../story/gold_scrolls/khazars_shield_challenge.html">khazars_shield_challenge.md</a>, <a href="../story/gold_scrolls/nemesis_no.html">nemesis_no.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>Lifting Nemesis's curse puts the creature's strength and height back to what they were just after Land 5's opening film</td>
+<td>Anything the creature gained on Land 5 before the cure (strength, growth) is taken away again</td>
+<td>The curse script (<code>CreatureCurse</code>) stores strength and height when it starts and writes them back at the cure; an unused earlier curse script kept track of gains instead</td>
+<td><a href="../story/gold_scrolls/i_have_a_surprise_for_you.html">i_have_a_surprise_for_you.md</a></td>
+<td>undecided (never reached in this tree yet: Land 5 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>Every new incoming vortex empties the crossing file (the list of things the player sent through), so only the last incoming vortex of a land counts</td>
+<td>On Land 2, anything the player sent through Nemesis's or Lethys's vortex is thrown away when the exit vortex opens and never arrives on Land 3</td>
+<td>The vortex clears the file when it opens; Land 2 opens three incoming vortices</td>
+<td><a href="../story/portals.html">portals.md</a>, <a href="../story/portals_per_land.html">portals_per_land.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native; the In vortex takes nothing yet either)</td>
+</tr>
+<tr>
+<td>Land 4 can only end once the creature itself has picked up the Creed on the hill, and nothing moves the Creed or helps</td>
+<td>If the creature can't reach the hill, the land can't end (a risk, not seen to happen)</td>
+<td>Read from Land 4's exit quest</td>
+<td><a href="../story/gold_scrolls/leave_through_the_vortex_land_4.html">leave_through_the_vortex_land_4.md</a></td>
+<td>undecided (never reached in this tree yet: Land 4 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>If Lethys's town on Land 3 no longer exists before the creed scene, the scene waits on a belief reading that may never come (undetermined: what the reading gives for a destroyed town)</td>
+<td>Possibly no way out of Land 3</td>
+<td>The creed scene waits on the player's belief in Lethys's town; not traced in the executable</td>
+<td><a href="../story/gold_scrolls/so_you_couldnt_bear_to_be_without_your_creature.html">so_you_couldnt_bear_to_be_without_your_creature.md</a></td>
+<td>undecided (never reached in this tree yet: Land 3 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="wrong-outcomes">Wrong outcomes</h2>
+<table>
+<thead>
+<tr>
+<th>Bug</th>
+<th>What the player sees</th>
+<th>Evidence</th>
+<th>Found in</th>
+<th>openblack</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The curse's alignment step ignores whether the Tibetan Wonder still stands in one of its two branches</td>
+<td>An evil player's creature is pushed 0.4 towards good every night even after the Tibetan Wonder is gone; once it is gone, a good player's creature is pushed 0.4 towards good every night (instead of being left alone) for as long as any Wonder stands</td>
+<td><code>CreatureCurse</code>: the "push towards the target" branch tests the Wonder, its <code>else</code> branch (push the other way) doesn't; no clamp (checked in the script source)</td>
+<td><a href="../story/gold_scrolls/i_have_a_surprise_for_you.html">i_have_a_surprise_for_you.md</a></td>
+<td>undecided (never reached in this tree yet: Land 5 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>Khazar's death trigger adds up several reasons as if a total were needed but fires on any one (may be intended)</td>
+<td>Khazar dies the first time Lethys loses a single town</td>
+<td>Land 2's control script sums the reasons and tests "not zero"</td>
+<td><a href="../story/gold_scrolls/nemesis_no.html">nemesis_no.md</a>, <a href="../story/land_2.html">land_2.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The "Khazar busy" flag is shared by all his lessons, so whichever finishes first clears it</td>
+<td>Khazar's death (and its film) can start in the middle of the other challenge</td>
+<td>Both challenge scripts clear the same flag at their reward</td>
+<td><a href="../story/gold_scrolls/khazars_fireball_challenge.html">khazars_fireball_challenge.md</a>, <a href="../story/gold_scrolls/khazars_shield_challenge.html">khazars_shield_challenge.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The shield challenge's loop counts the remaining seeds into a total it never adds to, so it always thinks the seeds are used up</td>
+<td>The player gets exactly one go, ending 3 seconds after the hand is next empty, instead of time to practise with fresh seeds</td>
+<td><code>Land2ShieldChallenge</code>: the seed total is reset to 0 and only ever compared with 0 (checked in the script source)</td>
+<td><a href="../story/gold_scrolls/khazars_shield_challenge.html">khazars_shield_challenge.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The shield seeds lie about 40.6 m from the hut, just outside its 40 m ring of influence, one inside and one outside (undetermined whether the player can reach all three)</td>
+<td>Possibly seeds the hand can't take</td>
+<td>Measured from the script's markers</td>
+<td><a href="../story/gold_scrolls/khazars_shield_challenge.html">khazars_shield_challenge.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The fireball challenge looks up its first hut at the village's position, about 5 m from that house (undetermined whether the lookup finds it)</td>
+<td>If it doesn't, the first hut can never count as hit</td>
+<td>The house stands at a slightly different spot in <code>Land2.txt</code></td>
+<td><a href="../story/gold_scrolls/khazars_fireball_challenge.html">khazars_fireball_challenge.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>Khazar's computer player is paused at the start of the gesture lesson and no Land 2 script un-pauses it (undetermined whether letting his hand go lifts the pause)</td>
+<td>Possibly a rival-ally god who does nothing for the rest of the land</td>
+<td>No un-pause in any Land 2 script</td>
+<td><a href="../story/gold_scrolls/impress_village.html">impress_village.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The Lost Brother's check meant to spare the brother tests "not ending A or not ending B", which is always true</td>
+<td>The brother is faded out of the world even in the happy endings where he was walking home</td>
+<td><code>LostBrother</code>: the delete is guarded by <code>Finished != 82 or Finished != 69</code> (checked in the script source)</td>
+<td><a href="../story/gold_scrolls/the_lost_brother.html">the_lost_brother.md</a></td>
+<td>undecided (the quest never runs in this tree yet: Choose Your Creature stops before the first stone, <code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>The vortex Nemesis opens at Khazar's death is a real exit that writes to the crossing file, which the next incoming vortex empties</td>
+<td>Khazar's villagers, animals and loose things within its reach are pulled in and simply vanish</td>
+<td>Read from the vortex's rules and Land 2's scenes</td>
+<td><a href="../story/portals_per_land.html">portals_per_land.md</a>, <a href="../story/portals.html">portals.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native; the In vortex takes nothing yet either)</td>
+</tr>
+<tr>
+<td>The Workshop caps a town's adults at 40 when working out the homeless share (may be intended)</td>
+<td>A town of 40 or more adults only needs room for more than 24 of them, however big it is</td>
+<td>Read from the quest script</td>
+<td><a href="../story/gold_scrolls/the_workshop.html">the_workshop.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="missing-or-wrong-feedback">Missing or wrong feedback</h2>
+<table>
+<thead>
+<tr>
+<th>Bug</th>
+<th>What the player sees</th>
+<th>Evidence</th>
+<th>Found in</th>
+<th>openblack</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Over the tiger, the evil advisor's line waits on the ape's hover counter, which is reset whenever the hand isn't over the ape</td>
+<td>"I'm up for the tiger. Look at those claws." never plays</td>
+<td><code>ChooseYourCreature</code>: the tiger branch counts its own counter up but tests the ape's (checked in the script source)</td>
+<td><a href="../story/gold_scrolls/choose_your_creature.html">choose_your_creature.md</a></td>
+<td>undecided (never reached in this tree yet: the glade's creatures are never made, since <code>CREATE</code> of a creature is not done)</td>
+</tr>
+<tr>
+<td>The guide's fight lesson reads the player's creature's fight health twice and never the guide's</td>
+<td>The bout only stops on the player's creature's health, and afterwards the guide always says "You show great potential. But work on your technique."; its "I'm sorry I had to do that." / "But it was for your own good." never play</td>
+<td><code>CreatureGuide</code>: both health variables are set from the player's creature (checked in the script source)</td>
+<td><a href="../story/creature_guide.html">creature_guide.md</a></td>
+<td>undecided (never reached in this tree yet: the guide is never made, since <code>CREATE</code> of a creature is not done)</td>
+</tr>
+<tr>
+<td>The guide's "yes"/"no" help sounds as the creature comes closer only run in a loop that needs the creature beyond 45, which it never is by then (and the "further" test uses a distance never set)</td>
+<td>The sounds never play</td>
+<td>Read from the guide script and checked in the compiled program</td>
+<td><a href="../story/creature_guide.html">creature_guide.md</a></td>
+<td>undecided (never reached in this tree yet: the guide is never made, since <code>CREATE</code> of a creature is not done)</td>
+</tr>
+<tr>
+<td>The check for Nemesis retaking a Land 5 village tests the same condition as the check for the player owning it, and a village is never marked as lost</td>
+<td>Six lines never play, e.g. "Excellent! We've retaken the town!" and Nemesis's "Welcome back, my worshippers. Do not stray again."</td>
+<td>Read from the curse quest's village watch</td>
+<td><a href="../story/gold_scrolls/i_have_a_surprise_for_you.html">i_have_a_surprise_for_you.md</a></td>
+<td>undecided (never reached in this tree yet: Land 5 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>Land 1's vortex reminder is given the evil advisor's voice number where it expects an advisor</td>
+<td>Replaying the reminder from the log, neither advisor steps out or points</td>
+<td>The reminder only reacts to the good or evil advisor; the quest passes a narrator number</td>
+<td><a href="../story/gold_scrolls/leave_through_the_vortex_land_1.html">leave_through_the_vortex_land_1.md</a>, <a href="../story/portals_per_land.html">portals_per_land.md</a></td>
+<td>reproduced (the guide-skip answers run the same reminder on real natives, so neither advisor steps out; the log it would be replayed from is a stub; not checked in game)</td>
+</tr>
+<tr>
+<td>If Khazar is inside one of his scripts when the player wins Land 2 outright, the exit check (which doesn't wait for Khazar) can run before his death</td>
+<td>Khazar's death and the creature's theft are skipped, yet the advisors still talk of getting the creature back</td>
+<td>The control script runs the exit check every loop after the death check, and only the death check waits for Khazar (the theft check is skipped in that loop)</td>
+<td><a href="../story/gold_scrolls/nemesis_no.html">nemesis_no.md</a>, <a href="../story/portals_per_land.html">portals_per_land.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>Land 2's control script loads Land 3 once the 10 seconds to follow Lethys are up, waiting for his scene rather than for the dive into the vortex</td>
+<td>The camera's dive into the vortex is cut short if it is still running</td>
+<td>Read from Land 2's control script (the camera path's length was not measured)</td>
+<td><a href="../story/portals_per_land.html">portals_per_land.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>Land 4's exit rumbles play their sound however far away the camera is, while the shake keeps the strength of the last rumble felt in range</td>
+<td>Rumble sounds with no matching shake far away, and a shake that doesn't fade with distance</td>
+<td>Read from Land 4's exit script</td>
+<td><a href="../story/portals_per_land.html">portals_per_land.md</a></td>
+<td>undecided (never reached in this tree yet: Land 4 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>Once the camera has been in range, Land 4's rumbles keep speeding up even after it leaves</td>
+<td>The rumbles hurry towards the vortex opening although the player has looked away</td>
+<td>Read from Land 4's exit script</td>
+<td><a href="../story/portals_per_land.html">portals_per_land.md</a></td>
+<td>undecided (never reached in this tree yet: Land 4 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>After the dive into Land 4's vortex fades to black, the screen fades back in over 1 second on the old land before Land 5 loads</td>
+<td>A flash of Land 4 again before the loading screen</td>
+<td>Read from Land 4's exit script</td>
+<td><a href="../story/portals_per_land.html">portals_per_land.md</a></td>
+<td>undecided (never reached in this tree yet: Land 4 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>Land 3's fire attack only starts if exactly one prison pillar is down and the Japanese village is won; the wolves only if exactly two are down and the Indian village is won</td>
+<td>Win the villages in another order and one or both attacks never happen</td>
+<td>Read from the prison quest's main loop</td>
+<td><a href="../story/gold_scrolls/so_you_couldnt_bear_to_be_without_your_creature.html">so_you_couldnt_bear_to_be_without_your_creature.md</a></td>
+<td>undecided (never reached in this tree yet: Land 3 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>When a prison pillar falls, its cut scene doesn't put the camera back (a rising pillar's does)</td>
+<td>The camera is left looking at the won village</td>
+<td>Read from the prison quest</td>
+<td><a href="../story/gold_scrolls/so_you_couldnt_bear_to_be_without_your_creature.html">so_you_couldnt_bear_to_be_without_your_creature.md</a></td>
+<td>undecided (never reached in this tree yet: Land 3 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>If Khazar is dead when Impress Village's scroll is clicked, his lessons are skipped and the quest marks itself done without logging anything</td>
+<td>No log entry, and the scroll is never removed</td>
+<td>Read from the quest script (what his hand then does is undetermined)</td>
+<td><a href="../story/gold_scrolls/impress_village.html">impress_village.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>If the Norse village is destroyed, the influence lesson waits for that village to be won</td>
+<td>Khazar's influence lesson never comes (the land still ends normally)</td>
+<td>Read from the quest script</td>
+<td><a href="../story/gold_scrolls/impress_village.html">impress_village.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>When Impress Village's 5 minutes run out, both noted counts are pushed on by one each second until neither matches, so a count can match again</td>
+<td>"Well, it doesn't matter…" can be said twice</td>
+<td>Read from the quest script</td>
+<td><a href="../story/gold_scrolls/impress_village.html">impress_village.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>Impress Village updates its log entry before checking the 2,800 food</td>
+<td>The entry can briefly show just over complete</td>
+<td>Read from the quest script</td>
+<td><a href="../story/gold_scrolls/impress_village.html">impress_village.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>Khazar's line after the shield demonstration isn't conditional on a shield having been cast</td>
+<td>"The Shield is ready." is spoken even when no shield was cast</td>
+<td>Read from <code>Land2ShieldChallenge</code></td>
+<td><a href="../story/gold_scrolls/khazars_shield_challenge.html">khazars_shield_challenge.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The fireball challenge's "no hut hit" lines after the second and third misses are the same text</td>
+<td>The same line is heard twice in a row</td>
+<td>Read from the challenge script</td>
+<td><a href="../story/gold_scrolls/khazars_fireball_challenge.html">khazars_fireball_challenge.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>"Destroy it!"'s log counts only Lethys's towns, but the land's end also needs his temple wrecked</td>
+<td>The log entry can read fully done while the land goes on</td>
+<td>Read from the quest and the control script</td>
+<td><a href="../story/gold_scrolls/destroy_it.html">destroy_it.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>"Destroy it!"'s reminder is the whole fly-over, which contains the record command</td>
+<td>Replaying the entry from the log re-runs the fly-over and records the entry again with a new picture</td>
+<td>Read from the quest script</td>
+<td><a href="../story/gold_scrolls/destroy_it.html">destroy_it.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>Fishermen seven and eight of "Fire! Fire! I'm on fire!" are created twice</td>
+<td>A second pair stands at the campfire with no animation, no fire protection and no script, and isn't counted</td>
+<td>Read from the quest script</td>
+<td><a href="../story/gold_scrolls/fire_fire_im_on_fire.html">fire_fire_im_on_fire.md</a></td>
+<td>undecided (never reached in this tree yet: Land 3 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The healer says the creature "is being drawn towards Nemesis' last Village" just after the script doing the drawing has been stopped</td>
+<td>The line describes something that is no longer happening</td>
+<td>Read from Land 5's control script</td>
+<td><a href="../story/gold_scrolls/i_have_a_surprise_for_you.html">i_have_a_surprise_for_you.md</a></td>
+<td>undecided (never reached in this tree yet: Land 5 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The final fight's "retaken" warning fires the first time any other town is Nemesis's after the curse lifts, even if he never took it back</td>
+<td>A warning about a town being retaken that wasn't; the "we can conquer" line only follows such a warning</td>
+<td>Read from Land 5's control script</td>
+<td><a href="../story/gold_scrolls/so_this_is_a_fight_to_the_death.html">so_this_is_a_fight_to_the_death.md</a></td>
+<td>undecided (never reached in this tree yet: Land 5 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The closing crowd's Pied Piper is given a spot, focus and clapping but is never created</td>
+<td>He is missing from the crowd (he does appear in the last credit window)</td>
+<td>Read from the ending script</td>
+<td><a href="../story/gold_scrolls/so_this_is_a_fight_to_the_death.html">so_this_is_a_fight_to_the_death.md</a></td>
+<td>undecided (never reached in this tree yet: Land 5 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The hippy in the closing crowd is never switched to high detail, unlike everyone else</td>
+<td>He is drawn as a normal villager</td>
+<td>Read from the ending script</td>
+<td><a href="../story/gold_scrolls/so_this_is_a_fight_to_the_death.html">so_this_is_a_fight_to_the_death.md</a></td>
+<td>undecided (never reached in this tree yet: Land 5 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>In the creature's cow lesson, the near-the-cow "Yes." calls reuse flags already set while walking to the tree</td>
+<td>"Yes." almost never plays there; only "No." can</td>
+<td>The same counters serve both steps</td>
+<td><a href="../story/gold_scrolls/the_creatures_learning.html">the_creatures_learning.md</a></td>
+<td>undecided (never reached in this tree yet: a no-skip game stops at Choose Your Creature's gate stones, <code>ObjectInfoBits</code> is a stub, and the skip answers leave the lessons out)</td>
+</tr>
+<tr>
+<td>The worship lesson's dead-worshipper count it compares with is never moved on</td>
+<td>After the first death, the warning comes back every minute whether or not anyone else died</td>
+<td>Read from the quest script</td>
+<td><a href="../story/gold_scrolls/worship_site.html">worship_site.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native; the progress file says to keep it as the game does)</td>
+</tr>
+<tr>
+<td>If Khazar dies while the worship lesson's second scroll waits, the notifier stops but the scroll isn't deleted</td>
+<td>The scroll stays on the ground</td>
+<td>Read from the quest script</td>
+<td><a href="../story/gold_scrolls/worship_site.html">worship_site.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The worship lesson's first log entry is only announced if the worship site is on screen at that moment</td>
+<td>Otherwise the entry is added silently</td>
+<td>Read from the quest script</td>
+<td><a href="../story/gold_scrolls/worship_site.html">worship_site.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The miracle demo's slow fill of the worship site's power has no pause in its loop</td>
+<td>The power jumps straight to three quarters of a grain miracle instead of filling</td>
+<td>Read from the quest script</td>
+<td><a href="../story/gold_scrolls/worship_site.html">worship_site.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>"The Temple is Finished" sets up its reminder only after a 5-second wait</td>
+<td>Leaving the temple within those 5 seconds means the reminder never runs</td>
+<td>Read from the scene's script</td>
+<td><a href="../story/gold_scrolls/the_temple_is_finished.html">the_temple_is_finished.md</a></td>
+<td>undecided (never reached in this tree yet: a no-skip opening never finishes, and the skip answers leave the scene out)</td>
+</tr>
+<tr>
+<td>Sleg the ogre can be beaten before the man's story has logged the scroll (undetermined: what the log then shows)</td>
+<td>The scroll's 100% update can come before its 0% entry</td>
+<td>Read from Land 4's ogre quest</td>
+<td><a href="../story/gold_scrolls/the_defending_ogres.html">the_defending_ogres.md</a></td>
+<td>undecided (never reached in this tree yet: Land 4 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The Heartbroken Man's scroll is never deleted</td>
+<td>It stays where it is after the quest is over</td>
+<td>No delete of this scroll anywhere in the scripts</td>
+<td><a href="../story/gold_scrolls/the_heartbroken_man.html">the_heartbroken_man.md</a></td>
+<td>undecided (never reached in this tree yet: Land 4 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>If the player moves all three stones off their spots before the trigger, Nemesis's village shield never goes up</td>
+<td>No shield and no explanation</td>
+<td>Read from the shield script</td>
+<td><a href="../story/gold_scrolls/nemesis_shielded_village.html">nemesis_shielded_village.md</a></td>
+<td>undecided (never reached in this tree yet: Land 5 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="data-and-text-errors">Data and text errors</h2>
+<table>
+<thead>
+<tr>
+<th>Bug</th>
+<th>What the player sees</th>
+<th>Evidence</th>
+<th>Found in</th>
+<th>openblack</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The cow's look-at point in the opening of the creature glade has a coordinate ten times too far north</td>
+<td>The cow stares far off past the glade</td>
+<td>A typing slip in <code>ChooseYourCreature</code>'s coordinates</td>
+<td><a href="../story/gold_scrolls/choose_your_creature.html">choose_your_creature.md</a></td>
+<td>undecided (never reached in this tree yet: the glade's creatures are never made, since <code>CREATE</code> of a creature is not done)</td>
+</tr>
+<tr>
+<td>The Totem Puzzle's success reminder is the Undead Village's "Raise all the Totems to get the Guardian Stone."</td>
+<td>A reminder about raising totems for a memory game of bells</td>
+<td>Read from the quest script</td>
+<td><a href="../story/gold_scrolls/the_totem_puzzle.html">the_totem_puzzle.md</a></td>
+<td>undecided (never reached in this tree yet: Land 4 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The worship builder's two closing lines are played in the reverse order of their numbers in the text table</td>
+<td>"…of great importance" comes before "I shall return"</td>
+<td>Text table numbering against the script's order</td>
+<td><a href="../story/gold_scrolls/worship_site.html">worship_site.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The wolves' second line belongs to the evil advisor in the text table, but only the good advisor has stepped out</td>
+<td>The line is heard while the wrong advisor is on screen</td>
+<td>Text table speaker against the script</td>
+<td><a href="../story/gold_scrolls/the_wolves_are_possessed.html">the_wolves_are_possessed.md</a></td>
+<td>undecided (never reached in this tree yet: Land 3 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>Khazar's wood miracle is given power for six casts but he is told to cast four (the script's comment says three)</td>
+<td>Nothing visible beyond the leftover power</td>
+<td>Read from the quest script</td>
+<td><a href="../story/gold_scrolls/impress_village.html">impress_village.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="harmless">Harmless</h2>
+<table>
+<thead>
+<tr>
+<th>Bug</th>
+<th>What the player sees</th>
+<th>Evidence</th>
+<th>Found in</th>
+<th>openblack</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The totem fire effect's random wait sets its lower bound twice and never its upper one</td>
+<td>The wait is drawn between the lower bound and 0 (how the engine treats a reversed range is not checked)</td>
+<td>A script slip read from the source</td>
+<td><a href="../story/gold_scrolls/the_totem_puzzle.html">the_totem_puzzle.md</a></td>
+<td>undecided (never reached in this tree yet: Land 4 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The Land 4 ogre quest's fireball throwers set the minimum of their random wait twice and never the maximum (left at 0)</td>
+<td>The wait between fireballs is drawn between the minimum (30 idle, 5 in a wave, 20 aggressive) and 0 (how the engine treats a reversed range is not checked)</td>
+<td>A script slip read from the source</td>
+<td><a href="../story/gold_scrolls/the_defending_ogres.html">the_defending_ogres.md</a></td>
+<td>undecided (never reached in this tree yet: Land 4 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The vortex table's "fade when deleted" column is never read</td>
+<td>nothing visible: every vortex fades out only when a script tells it to</td>
+<td>Read from the executable's vortex code</td>
+<td><a href="../story/portals.html">portals.md</a></td>
+<td>reproduced (<code>ecs::vortex</code> reads no such column)</td>
+</tr>
+<tr>
+<td>The vortex table's limits (at most 1000 objects for the outgoing vortex, and counts of food, wood, villagers and one-shot miracles) are never read</td>
+<td>nothing visible: the only limit is a fixed 30 villagers</td>
+<td>Read from the executable's vortex code</td>
+<td><a href="../story/portals.html">portals.md</a></td>
+<td>reproduced (the Out stops at a fixed 30 villagers, <code>ProcessOut</code>, and reads none of the limits)</td>
+</tr>
+<tr>
+<td>A fireball round with seeds left waits for an empty hand with no time limit</td>
+<td>The round doesn't end while the player holds anything</td>
+<td>Read from the challenge script</td>
+<td><a href="../story/gold_scrolls/khazars_fireball_challenge.html">khazars_fireball_challenge.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>Every hit result sets the fireball log to 1 before the last line, while each miss adds a third</td>
+<td>After three misses the log shows 0.99 before the final 1</td>
+<td>Read from the challenge script</td>
+<td><a href="../story/gold_scrolls/khazars_fireball_challenge.html">khazars_fireball_challenge.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The shield challenge's third-seed respawn is guarded by whether the first seed exists</td>
+<td>With the first seed gone the third is never replaced (undetermined which case the engine hits)</td>
+<td><code>Land2ShieldChallenge</code> (checked in the script source)</td>
+<td><a href="../story/gold_scrolls/khazars_shield_challenge.html">khazars_shield_challenge.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>"Destroy it!" passes its scroll twice (as the scroll and as its place) to the notify loop</td>
+<td>nothing visible</td>
+<td>Read from the quest script</td>
+<td><a href="../story/gold_scrolls/destroy_it.html">destroy_it.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The cow lesson turns the trainer to the camera if she is at a spot in the north village, where she never is</td>
+<td>nothing visible</td>
+<td>A left-over position</td>
+<td><a href="../story/gold_scrolls/the_creatures_learning.html">the_creatures_learning.md</a></td>
+<td>undecided (never reached in this tree yet: a no-skip game stops at Choose Your Creature's gate stones, <code>ObjectInfoBits</code> is a stub, and the skip answers leave the lessons out)</td>
+</tr>
+<tr>
+<td>The Workshop enables the Forest miracle twice</td>
+<td>nothing visible</td>
+<td>Read from the quest script</td>
+<td><a href="../story/gold_scrolls/the_workshop.html">the_workshop.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The Workshop's wood step watches for wood being used up (a fall of 800 in a second), not for wood being given</td>
+<td>nothing visible: the drop comes when the scaffold is made, so it still works</td>
+<td>Read from the quest script</td>
+<td><a href="../story/gold_scrolls/the_workshop.html">the_workshop.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>Land 1's vortex quest records the creature's kind "for setting up the next land", but no script reads it back</td>
+<td>nothing visible</td>
+<td>No reader in any shipped script</td>
+<td><a href="../story/gold_scrolls/leave_through_the_vortex_land_1.html">leave_through_the_vortex_land_1.md</a></td>
+<td>undecided (never reached in this tree yet: the recording is in the no-skip vortex scene, and a no-skip game stops at Choose Your Creature's gate stones)</td>
+</tr>
+<tr>
+<td>In a skipped-guide game, the creature's permission to cross the vortex is set on nothing (the creature is only looked up in the skipped scene)</td>
+<td>nothing visible: the creature crosses anyway, because it is saved with the land</td>
+<td>Read from the quest script</td>
+<td><a href="../story/gold_scrolls/leave_through_the_vortex_land_1.html">leave_through_the_vortex_land_1.md</a>, <a href="../story/portals_per_land.html">portals_per_land.md</a></td>
+<td>reproduced (the guide-skip answers run the same script; the permission property is not handled by <code>SetProperty</code> anyway)</td>
+</tr>
+<tr>
+<td>Land 2's exit vortex opens 12 away from the one Lethys opened, though the source comment asks for them to match</td>
+<td>nothing visible (both use the same camera path)</td>
+<td>Read from the two quest scripts</td>
+<td><a href="../story/gold_scrolls/leave_through_the_vortex_land_2.html">leave_through_the_vortex_land_2.md</a>, <a href="../story/gold_scrolls/lethys_has_taken_our_creature.html">lethys_has_taken_our_creature.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>When Lethys takes the creature, the script stops two scripts by name but not the third one that actually voices his taunts</td>
+<td>Undetermined whether a taunt already playing is cut off</td>
+<td>Read from Land 2's scripts</td>
+<td><a href="../story/gold_scrolls/lethys_has_taken_our_creature.html">lethys_has_taken_our_creature.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>Nemesis's shielded village starts a new near-miss check every 3 seconds even while an earlier one is still moving the worshipper</td>
+<td>Two checks can move the same worshipper at once (effect undetermined)</td>
+<td>Read from the shield script</td>
+<td><a href="../story/gold_scrolls/nemesis_shielded_village.html">nemesis_shielded_village.md</a></td>
+<td>undecided (never reached in this tree yet: Land 5 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The Undead Village's totem watch (sinking, and the creature's help) only runs while the player has a creature</td>
+<td>Without a creature the totems never sink back</td>
+<td>Read from <code>Land4Meteorites</code></td>
+<td><a href="../story/gold_scrolls/undead_village.html">undead_village.md</a></td>
+<td>undecided (never reached in this tree yet: Land 4 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The development stages "meeting its guide", "the guide explains the history" and "helping a town" are never set by any shipped script</td>
+<td>nothing visible</td>
+<td>No script sets them; the stages are still in the tables</td>
+<td><a href="../story/creature_guide.html">creature_guide.md</a></td>
+<td>reproduced (this tree runs the shipped scripts, so nothing sets those stages either)</td>
+</tr>
+<tr>
+<td>The guide's wandering loop has an end state that is never reached; only the meeting stops it</td>
+<td>nothing visible</td>
+<td>Read from the guide script</td>
+<td><a href="../story/creature_guide.html">creature_guide.md</a></td>
+<td>undecided (never reached in this tree yet: the guide is never made, since <code>CREATE</code> of a creature is not done)</td>
+</tr>
+<tr>
+<td>In "Release the Creature" (never started by the game), the idle step waits for a count that is never reached</td>
+<td>nothing visible: the quest is never started</td>
+<td>Read from the unused script</td>
+<td><a href="../story/gold_scrolls/release_the_creature.html">release_the_creature.md</a></td>
+<td>reproduced (the game never starts the quest, nor does this tree)</td>
+</tr>
+<tr>
+<td>Land 2's death scene remembers a position for Khazar's hand that is never used, and releases the creature only to look it up again</td>
+<td>nothing visible</td>
+<td>Read from Land 2's scripts</td>
+<td><a href="../story/gold_scrolls/nemesis_no.html">nemesis_no.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>Land 4's arrival passes a head-count of 30 that is never used</td>
+<td>nothing visible</td>
+<td>Read from the arrival script; the vortex always tops up to 30 villagers itself</td>
+<td><a href="../story/gold_scrolls/the_defending_ogres.html">the_defending_ogres.md</a>, <a href="../story/portals_per_land.html">portals_per_land.md</a></td>
+<td>undecided (never reached in this tree yet: Land 4 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The creature lesson's punishment step makes a one-minute timer it never reads</td>
+<td>nothing visible</td>
+<td>Read from the quest script</td>
+<td><a href="../story/gold_scrolls/the_creatures_learning.html">the_creatures_learning.md</a></td>
+<td>undecided (never reached in this tree yet: a no-skip game stops at Choose Your Creature's gate stones, <code>ObjectInfoBits</code> is a stub, and the skip answers leave the lessons out)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

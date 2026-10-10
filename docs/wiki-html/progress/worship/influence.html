@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Influence — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="here" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#influence">Influence</a><ul>
+<li><a href="#how-far-it-reaches">How far it reaches</a></li>
+<li><a href="#the-border">The border</a></li>
+<li><a href="#what-it-allows">What it allows</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="influence">Influence</h1>
+<p>The area where a player's hand can act and their miracles can be cast: round their temple and round each town that
+believes in them, shown by a glowing border on the land. Khazar teaches it on the second land:
+<a href="../story/gold_scrolls/impress_village.html#khazars-lesson-on-influence">Impress Village</a>.</p>
+<p><strong>Progress: 21/22 done, 0 partial — 95%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../magic.html">Magic: the core of the miracles</a>.</p>
+<h2 id="how-far-it-reaches">How far it reaches</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The temple's reach is set per land of the story, fixed the first time, times the land's player multiplier</td>
+<td>done</td>
+<td><code>influence::CitadelInfluenceAt</code> (<code>src/ECS/Influence/InfluenceSources.cpp</code>): the heart's story influence, set once, times the player multiplier; test <code>InfluenceTest.citadelStoryInfluence</code></td>
+</tr>
+<tr>
+<td>A town's reach is a base for the land plus each building's share by its size and its people, times the land's multiplier</td>
+<td>done</td>
+<td><code>influence::ProcessTowns</code> (<code>src/ECS/Influence/InfluenceSources.cpp</code>): the land's base plus each abode's influence by its build, scale, life and people, times the town multiplier; test <code>InfluenceTest.townRadiusAndPlayer</code></td>
+</tr>
+<tr>
+<td>Only a player's own towns give them influence; the neutral player has none</td>
+<td>done</td>
+<td><code>influence::CalculatePlayerRawInfluence</code> (<code>src/ECS/Influence/Influence.cpp</code>) counts only the player's own towns. Our wiki differs: a neutral town counts for the neutral player, which only gets no border (<a href="../../magic.html#influence-srcecsinfluence">page</a>)</td>
+</tr>
+<tr>
+<td>Influence is full near the middle and falls away to nothing at the edge</td>
+<td>done</td>
+<td>rings fall off by <code>CalculateInfluenceOnRange</code> (test <code>Influence.rangeGradient</code>); the citadel and towns give full influence inside their radius. Our wiki differs: the citadel and towns are all or nothing, only the influence rings fall away towards their edge (<a href="../../magic.html#influence-srcecsinfluence">page</a>)</td>
+</tr>
+<tr>
+<td>A town's reach grows as it builds and fills, and shrinks as it loses buildings</td>
+<td>done</td>
+<td>the radius is worked out every turn from the town's abodes (<code>influence::ProcessTowns</code>), and towns build (<code>src/ECS/Systems/Implementations/VillagerBuildingSites.cpp</code>); see <code>../town/</code></td>
+</tr>
+<tr>
+<td>Land scripts set influence multipliers for one town, all towns and the players</td>
+<td>done</td>
+<td><code>SET_A_TOWNS_INFLUENCE_MULTIPLIER</code>, <code>SET_TOWN_INFLUENCE_MULTIPLIER</code>, <code>SET_PLAYER_INFLUENCE_MULTIPLIER</code> in <code>src/LHScriptX/FeatureScriptCommands.cpp</code></td>
+</tr>
+<tr>
+<td>Under another player's shield a player has no influence</td>
+<td>done</td>
+<td>a shield makes an anti ring for every other player (<code>src/Magic/Spells/SpellShield.cpp</code>), and an anti ring gives that player none (<code>influence::CalculatePlayerRawInfluence</code>)</td>
+</tr>
+<tr>
+<td>Scripts make influence rings round places and objects, which follow the objects they are on</td>
+<td>done</td>
+<td><code>CREATE_INFLUENCE_RING</code> (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>), <code>INFLUENCE_OBJECT</code> and <code>INFLUENCE_POSITION</code> (<code>src/Magic/Script/CHLInfluence.cpp</code>); a ring follows its object and goes with it (<code>influence::ProcessRings</code>); test <code>InfluenceTest.ringFollowsItsObject</code></td>
+</tr>
+<tr>
+<td>Anti-influence rings shut a player out of an area</td>
+<td>done</td>
+<td><code>influence::CalculatePlayerRawInfluence</code>, <code>IsInAntiInfluence</code>; test <code>InfluenceTest.ringsAndAntiRings</code></td>
+</tr>
+<tr>
+<td>The most influential player at a place decides the land's alignment there</td>
+<td>done</td>
+<td>the land's alignment sums each player's influence times alignment (<code>alignment::LandAlignmentAt</code>, <code>src/ECS/Effects/Alignment.cpp</code>) for fields and trees; the sky takes the most influential player's (<code>alignment::MostInfluentialPlayer</code>). Our wiki differs: the land's alignment is that weighted sum over every player, not the most influential player's; only the sky uses the most influential player (<a href="../../miracles.html#forest-magicspellsspellforest-magicobjectsmagictree-ecstrees">page</a>)</td>
+</tr>
+<tr>
+<td>Scripts read a player's influence at a place</td>
+<td>done</td>
+<td><code>GET_INFLUENCE</code> (<code>src/Magic/Script/CHLInfluence.cpp</code>)</td>
+</tr>
+<tr>
+<td>Prayer power can buy influence elsewhere (virtual influence; unconfirmed what it costs)</td>
+<td>todo</td>
+<td><code>SET_VIRTUAL_INFLUENCE</code> is a stub in <code>src/CHLApi.cpp</code> and the virtual influence is not read (<code>influence::CalculatePlayerInfluence</code>); reaching past the border draws motes of light from it to the hand, see <a href="../rendering/light_beams.html">../rendering/light_beams.md</a></td>
+</tr>
+<tr>
+<td>Allies share influence</td>
+<td>n/a</td>
+<td>multiplayer only, see <code>../multiplayer/</code>; the ally fallback in <code>influence::CalculatePlayerInfluence</code> gives 0</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-border">The border</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A curtain of light round the temple and each town, in the player's colour, following the land</td>
+<td>done</td>
+<td><code>src/ECS/Influence/InfluenceCircles.cpp</code>, <code>src/Graphics/RendererInfluence.cpp</code> (<code>land_morph::InfluenceCurtain</code>)</td>
+</tr>
+<tr>
+<td>It is drawn again every ten turns, and only once a reach has moved</td>
+<td>done</td>
+<td><code>influence::Update3DInfluence</code> (turn % 10 and a radius moved); test <code>InfluenceTest.circlesRebuildEveryTenTurns</code></td>
+</tr>
+<tr>
+<td>Circles inside others and the insides of overlapping ones are hidden</td>
+<td>done</td>
+<td>tests <code>InfluenceTest.circlesOverlapOfOnePlayer</code>, <code>circlesHideTheirContact</code></td>
+</tr>
+<tr>
+<td>It shows only from high enough above the land</td>
+<td>done</td>
+<td>the curtain's alpha by the camera's height (<code>influence::SetCurtainAlpha</code>); test <code>InfluenceTest.curtainAlphaAndLatch</code></td>
+</tr>
+<tr>
+<td>Its texture scrolls with game time</td>
+<td>done</td>
+<td><code>frame_anim::InfluenceScroll</code></td>
+</tr>
+<tr>
+<td>A player's border shows once their temple stands</td>
+<td>done</td>
+<td>the player's border latch (<code>influence::ProcessCitadels</code>), set as soon as the player has a temple (openblack has no temple fade)</td>
+</tr>
+<tr>
+<td>The hand crossing a border sends out a ripple and makes a sound</td>
+<td>done</td>
+<td><code>influence::ProcessHandCrossing</code>: the ripple and sound 52; test <code>InfluenceTest.handCrossingMakesARipple</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-it-allows">What it allows</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Miracles land only in the caster's influence; a press outside does nothing</td>
+<td>done</td>
+<td>the hand's in-influence flag (<code>src/ECS/Systems/Implementations/HandSpellSeed.cpp</code>) and the cast rule (<code>src/Magic/CastRules.cpp</code>)</td>
+</tr>
+<tr>
+<td>Shaking a miracle off the hand needs influence (except while powering up)</td>
+<td>done</td>
+<td>the scribble shakes off only in influence (<code>src/Magic/Gestures/PowerUpSystem.cpp</code>)</td>
+</tr>
+<tr>
+<td>The hand may pick up and use things only inside influence</td>
+<td>done</td>
+<td>taps, locked selects and pick-ups need it (<code>HandSystem::InInfluence</code>, <code>src/ECS/Systems/Implementations/HandSystem.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

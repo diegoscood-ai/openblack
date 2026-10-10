@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Launch switches and stray files — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="here" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#launch-switches-and-stray-files">Launch switches and stray files</a><ul>
+<li><a href="#command-line-switches">Command-line switches</a></li>
+<li><a href="#files-the-game-writes-about-the-creature">Files the game writes about the creature</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="launch-switches-and-stray-files">Launch switches and stray files</h1>
+<p>The original game's command-line switches, the alternative settings file that can point it at other challenge
+scripts, and the files it quietly writes about the player's creature. openblack's own switches are in
+<a href="../debug/command_line_tools.html">../debug/command_line_tools.md</a>; online services (the creature web site, the lobby)
+are in <a href="../pc_integration/index.html">../pc_integration/</a> and <a href="../multiplayer/index.html">../multiplayer/</a>.</p>
+<p><strong>Progress: 0/13 done, 1 partial — 4%</strong></p>
+<h2 id="command-line-switches">Command-line switches</h2>
+<p>Each switch starts with <code>-</code> or <code>/</code> and is matched by its start, in capitals, anywhere on the command line.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>NEWGAME</code> skips the main menu and starts a new game at once</td>
+<td>partial</td>
+<td>our tree's <code>--start-level</code> loads a land directly (<code>src/main.cpp</code>), but there is no main-menu flow to skip</td>
+</tr>
+<tr>
+<td><code>MULTIPLAYER</code> goes straight to the online lobby (ignored if <code>NEWGAME</code> came first)</td>
+<td>todo</td>
+<td>our tree has no such switch; no online lobby</td>
+</tr>
+<tr>
+<td><code>SKIRMISH</code> goes straight to the skirmish set-up box</td>
+<td>todo</td>
+<td>our tree has no such switch; <code>NEWGAME</code> overrides it, and it overrides <code>MULTIPLAYER</code>; see <a href="../multiplayer/skirmish.html">../multiplayer/skirmish.md</a></td>
+</tr>
+<tr>
+<td><code>PREINTROVIDEO</code> plays the video before the intro, which otherwise plays only while no player profile exists</td>
+<td>todo</td>
+<td>our tree has no such switch; the pre-intro is not played; see <a href="../video/index.html">../video/</a></td>
+</tr>
+<tr>
+<td><code>FORCEINETCONN</code> and <code>NOINETCONN</code> force, or skip, the start-up check for an internet connection</td>
+<td>n/a</td>
+<td>only the long-gone online extras use the connection; see <a href="../pc_integration/index.html">../pc_integration/</a></td>
+</tr>
+<tr>
+<td><code>VERSION</code> writes <code>mpver.txt</code> beside the game holding the program's checksum (the number multiplayer uses to match versions), then carries on</td>
+<td>todo</td>
+<td>our tree has no such switch</td>
+</tr>
+<tr>
+<td><code>NOLOADMUSIC</code> skips loading the music</td>
+<td>todo</td>
+<td>our tree has no such switch</td>
+</tr>
+<tr>
+<td><code>SETTINGS:&lt;file&gt;</code> reads that file (up to the next space) instead of the usual settings file</td>
+<td>todo</td>
+<td>our tree has no such switch</td>
+</tr>
+<tr>
+<td>In that settings file, a line <code>QUESTDIR &lt;folder&gt;</code> makes the game load its challenge scripts from another folder, so a modded challenge file can be played without replacing the original</td>
+<td>todo</td>
+<td>our tree always reads <code>Scripts/Quests/challenge.chl</code> (<code>Game.cpp</code>); lines starting with <code>//</code> are comments in the game</td>
+</tr>
+<tr>
+<td><code>CONVERT</code> is read when a game starts</td>
+<td>todo</td>
+<td>our tree has no such switch; what it does is unconfirmed</td>
+</tr>
+<tr>
+<td><code>EDITOR</code> and <code>LAND</code> are recognised but nothing in the released program uses them</td>
+<td>n/a</td>
+<td>left over from the developers' build</td>
+</tr>
+</tbody>
+</table>
+<h2 id="files-the-game-writes-about-the-creature">Files the game writes about the creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>About once a minute of play (every 600 game turns), the game writes a web page about the player's own creature, <code>html/&lt;profile name&gt;.html</code> in the profile's folder, from the template <code>Scripts/creature_html.tmpl</code></td>
+<td>todo</td>
+<td>no creature web page in our tree; the same feature is one row in <a href="../creature/lessons_and_help.html">../creature/lessons_and_help.md</a>; the exact conditions are partly unconfirmed</td>
+</tr>
+<tr>
+<td>The page, titled "Creature Cave", has a parchment frame and a floating spirit animation, and lists the creature's name, age, alignment, strength, health, energy, villagers killed and battles won; the template can also show mushrooms eaten, poos done, battles fought, creatures, animals and people killed, amount of poo, itchiness, thirst, tiredness, fatness, its beliefs, its desires and the miracles it has received</td>
+<td>todo</td>
+<td>no creature web page in our tree; the pictures it shows (<code>creatureshot_N.jpg</code>) are not made by the game</td>
+</tr>
+<tr>
+<td>At the same moment the creature's mind and body are saved to <code>Scripts/CreatureMind/&lt;id&gt;.erc</code> and <code>Scripts/CreatureMind/Physique&lt;id&gt;.erc</code></td>
+<td>todo</td>
+<td>nothing saves the creature's mind once a minute in our tree; the mind can be written (<code>CreatureMindSystem::SaveMind</code>, <code>src/ECS/Systems/Implementations/CreatureMindLearning.cpp</code>); see <a href="../creature/saves_and_files.html">../creature/saves_and_files.md</a></td>
+</tr>
+<tr>
+<td>The separate Creature Upload utility (<code>CreatureUpload.exe</code>) sent the profile's creature to Lionhead's creature site, where it could be viewed at a page of its own name</td>
+<td>n/a</td>
+<td>the site is gone; see <a href="../pc_integration/index.html">../pc_integration/</a></td>
+</tr>
+<tr>
+<td>Ctrl+Alt+T writes <code>creaturesnapshot.csn</code></td>
+<td>todo</td>
+<td>see <a href="hidden_keys_and_cheats.html">hidden_keys_and_cheats.md</a></td>
+</tr>
+<tr>
+<td>The program still knows the paths of several developer files: <code>savedmap.txt</code> (and <code>..\newtestbed\savedmap.txt</code>), <code>MemoryLeaks.txt</code>, a saved copy of <code>Data\PhysicsConstants.txt</code>, out-of-sync logs and a physics log</td>
+<td>n/a</td>
+<td>developer leftovers; <code>MemoryLeaks.txt</code> even ships in the game folder; which of them a player can trigger is unconfirmed</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Testbed scenarios — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="here" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#testbed-scenarios">Testbed scenarios</a><ul>
+<li><a href="#the-creature">The creature</a></li>
+<li><a href="#miracles-and-effects">Miracles and effects</a></li>
+<li><a href="#other-uses">Other uses</a></li>
+<li><a href="#parts-of-the-game-without-scenarios">Parts of the game without scenarios</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="testbed-scenarios">Testbed scenarios</h1>
+<p>The ready-made scenarios of the testbed (about 200, in <code>src/Debug/TestbedScenarioRegistry.cpp</code> and the facet files
+<code>src/Debug/TestbedScenario*.cpp</code>), grouped by what they show, and the parts of the game that have none yet. A row is
+done when there are scenarios for that part and this tree's runner plays everything they ask for; partial when some of
+what they ask for logs "not in this tree yet" and is skipped. No scenario has a reference run yet. The framework is in
+<a href="testbed.html">testbed.md</a>; how to write one is in <a href="../../refactor/SCENARIOS.html">SCENARIOS.md</a>.</p>
+<p><strong>Progress: 16/36 done, 11 partial — 60%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../openblack-internals.html">openblack internals</a>.</p>
+<h2 id="the-creature">The creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Idle: fidgeting, hanging around, wandering</td>
+<td>done</td>
+<td><code>idle.*</code></td>
+</tr>
+<tr>
+<td>Faces, emotions, gestures and the emotes of its desires; eyes and blinking</td>
+<td>done</td>
+<td><code>expressions.*</code></td>
+</tr>
+<tr>
+<td>What it looks at: watching a walker</td>
+<td>done</td>
+<td><code>senses.*</code></td>
+</tr>
+<tr>
+<td>Needs: thirst, hunger, sleep by night and day, poo, puking, fainting, cold, exhaustion</td>
+<td>done</td>
+<td><code>needs.*</code></td>
+</tr>
+<tr>
+<td>Growing up: a time-lapse, the stages unlocking desires, the morph lineup</td>
+<td>done</td>
+<td><code>growth.*</code></td>
+</tr>
+<tr>
+<td>Looks: skins and hair by alignment, tattoos and wounds</td>
+<td>done</td>
+<td><code>appearance.*</code></td>
+</tr>
+<tr>
+<td>Footprints per species, in snow, grass and shallows, the first of April smileys</td>
+<td>done</td>
+<td><code>footprints.*</code></td>
+</tr>
+<tr>
+<td>Moving: walking, running and turning, routes round obstacles, round the lake and through small trees</td>
+<td>done</td>
+<td><code>movement.*</code></td>
+</tr>
+<tr>
+<td>Objects: picking up, looking over, putting down, throwing, eating, knocking down trees, pointing</td>
+<td>done</td>
+<td><code>objects.*</code></td>
+</tr>
+<tr>
+<td>The hand on it: stroking each part, slapping, the status panel, the hand's look by alignment</td>
+<td>partial</td>
+<td><code>hand.stroke</code>, <code>hand.slap</code>, <code>hand.status_panel</code>, <code>hand.look_*</code>; the hand held to a creature (stroking, slapping and letting go by hand) logs "not in this tree yet"</td>
+</tr>
+<tr>
+<td>The leashes: leading, tying, keeping home, the leash keys and picker, other players' creatures</td>
+<td>partial</td>
+<td><code>leash.*</code>, <code>examples.leashed_creature</code>; shaking a leash off and the leash's gestures log "not in this tree yet"</td>
+</tr>
+<tr>
+<td>Fights: by themselves, charged and quick blows, blocks, knock-outs, slapping other gods' creatures</td>
+<td>partial</td>
+<td><code>combat.*</code> play in full; slapping another god's creature takes the hand held to it, which logs "not in this tree yet"</td>
+</tr>
+<tr>
+<td>Learning: rewards and punishments, by watching, from mind files, copying the player</td>
+<td>done</td>
+<td><code>mind.*</code>; a "chosen:" mind file is the game's file of that name</td>
+</tr>
+<tr>
+<td>Creature Mode, following it with C, and the Creature Cave with its tattoos</td>
+<td>partial</td>
+<td><code>creature_mode.*</code>; the double click and the held camera keys log "not in this tree yet"</td>
+</tr>
+<tr>
+<td>Its voices by species and size, and the sounds of the land</td>
+<td>done</td>
+<td><code>audio.*</code></td>
+</tr>
+<tr>
+<td>Its shadow, its reflection, light on the land through the day</td>
+<td>done</td>
+<td><code>light.*</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="miracles-and-effects">Miracles and effects</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every miracle cast, held, powered up and its effect, each in its own scenarios</td>
+<td>partial</td>
+<td><code>miracles.*</code> are listed and set up, but the scenarios' miracle casts log "not in this tree yet", so they cast nothing; the debug Magic window casts any miracle (<code>src/Debug/Magic.cpp</code>, <code>MiraclesCaster.cpp</code>)</td>
+</tr>
+<tr>
+<td>Dispensers, globes and seeds from worship</td>
+<td>partial</td>
+<td>the dispenser and hand-seed fixtures work (<code>src/Debug/TestbedFixtures.cpp</code>); the globe scenarios' own dispensers, seeds held or summoned and tribal power log "not in this tree yet"</td>
+</tr>
+<tr>
+<td>The creature casting its spells</td>
+<td>partial</td>
+<td><code>miracles.*</code> of the creature casting: the creature is taught and told to cast; a seed held in the hand and the hand held still are skipped</td>
+</tr>
+<tr>
+<td>Fire spreading, blasts, water putting fire out</td>
+<td>partial</td>
+<td>the fire fixture lights objects or a bonfire; the blast and water scenarios' casts log "not in this tree yet"</td>
+</tr>
+<tr>
+<td>Particles and sprites: sparkles, smoke, steam, mist, sorted sprites</td>
+<td>partial</td>
+<td><code>particles.*</code>; an effect in a player's colour logs "not in this tree yet"</td>
+</tr>
+<tr>
+<td>Gestures drawn through the recogniser</td>
+<td>todo</td>
+<td>the gesture scenarios are listed, but drawing a gesture logs "not in this tree yet"; the debug Gestures window draws and sends gestures (<code>src/Debug/Gestures.cpp</code>)</td>
+</tr>
+<tr>
+<td>Hand navigation: dragging, edge turning, tilting, both buttons, middle button</td>
+<td>partial</td>
+<td><code>hand.click</code>, <code>hand.drag</code>, <code>hand.edge_*</code> and the rest, driven by the scenario's pointer (<code>src/Debug/TestbedPointer.cpp</code>), whose buttons reach the hand only; the wheel and the camera's drags are dropped when the real input is ignored</td>
+</tr>
+<tr>
+<td>Hand demos replayed with things set out where they press</td>
+<td>done</td>
+<td><code>examples.miracle_near_village</code>, <code>examples.hand_throw_target</code> (<code>src/Debug/TestbedScenarioExamples.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="other-uses">Other uses</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Set ups for trying the editor on</td>
+<td>done</td>
+<td><code>editor.*</code></td>
+</tr>
+<tr>
+<td>Crowd benchmarks of creatures and villagers</td>
+<td>done</td>
+<td><code>benchmark.creatures_*</code>, <code>benchmark.villagers_*</code></td>
+</tr>
+<tr>
+<td>Example scenarios to copy, set out with fixtures</td>
+<td>done</td>
+<td><code>examples.*</code> (<code>src/Debug/TestbedScenarioExamples.cpp</code>); test <code>TestbedScenarios.ExamplesAreWellFormedFixtures</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="parts-of-the-game-without-scenarios">Parts of the game without scenarios</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Villagers' lives and jobs</td>
+<td>todo</td>
+<td>no scenario; the village fixture sets out huts, villagers and a storage pit</td>
+</tr>
+<tr>
+<td>Towns growing, their desires and building</td>
+<td>todo</td>
+<td>no scenario</td>
+</tr>
+<tr>
+<td>Buildings: construction, the workshop's scaffolds, damage and repair</td>
+<td>todo</td>
+<td>no scenario</td>
+</tr>
+<tr>
+<td>Wild animals and livestock on their own</td>
+<td>todo</td>
+<td>no scenario</td>
+</tr>
+<tr>
+<td>Worship and prayer power from worshippers</td>
+<td>todo</td>
+<td>no scenario; worship walks log "not in this tree yet"</td>
+</tr>
+<tr>
+<td>Weather on its own: climates, rain and snow, wind</td>
+<td>partial</td>
+<td>the island's weather is a scenario setting, and the storm fixture makes a storm (<code>examples.storm_lightning</code>); the climates and the wind have no scenario. The debug Weather window forces climates, rain and storms (<code>src/Debug/Weather.cpp</code>)</td>
+</tr>
+<tr>
+<td>The temple and its rooms</td>
+<td>todo</td>
+<td>no scenario; the debug Temple window goes to each room (<code>src/Debug/Temple.cpp</code>)</td>
+</tr>
+<tr>
+<td>Land scripts and challenges</td>
+<td>todo</td>
+<td>no scenario; no land script runs on the testbed</td>
+</tr>
+<tr>
+<td>Physics of thrown objects other than the creature's and the miracles'</td>
+<td>todo</td>
+<td>no scenario</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

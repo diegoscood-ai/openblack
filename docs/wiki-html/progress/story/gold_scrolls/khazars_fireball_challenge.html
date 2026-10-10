@@ -1,0 +1,633 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Khazar&#x27;s Fireball Challenge — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#khazars-fireball-challenge">Khazar's Fireball Challenge</a><ul>
+<li><a href="#where-it-sits-in-the-story">Where it sits in the story</a></li>
+<li><a href="#the-miracle-challenge-scroll">The Miracle Challenge scroll</a></li>
+<li><a href="#khazars-tour-introduction">Khazar's tour (introduction)</a></li>
+<li><a href="#how-the-fireball-scroll-appears">How the fireball scroll appears</a></li>
+<li><a href="#the-introduction">The introduction</a></li>
+<li><a href="#what-the-player-must-do">What the player must do</a></li>
+<li><a href="#results-and-retries">Results and retries</a></li>
+<li><a href="#reward">Reward</a></li>
+<li><a href="#aftermath">Aftermath</a></li>
+<li><a href="#advisors">Advisors</a></li>
+<li><a href="#music-and-sounds">Music and sounds</a></li>
+<li><a href="#creature">Creature</a></li>
+<li><a href="#script-quirks">Script quirks</a></li>
+<li><a href="#unused-or-cut-parts">Unused or cut parts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="khazars-fireball-challenge">Khazar's Fireball Challenge</h1>
+<p>A land 2 gold scroll and Khazar's lesson in attack: three empty huts on the shore are the targets, three fireball
+seeds are laid out a long throw away, and however well (or badly) the player throws them, Khazar ends by giving the
+Fireball miracle to the player's village. This file also covers the "Miracle Challenge" scroll that Khazar leaves by
+the worship site after the <a href="worship_site.html">Worship Site</a> lesson, which starts this challenge and
+<a href="khazars_shield_challenge.html">Khazar's Shield Challenge</a> together. The land as a whole is in
+<a href="../land_2.html">../land_2.md</a>, the land's control script in <a href="../../scripts/land2_script.html">../../scripts/land2_script.md</a>,
+the script program in <a href="../../scripts/challenge_scripts.html">../../scripts/challenge_scripts.md</a>, the miracle itself in
+<a href="../../miracles/fireball.html">../../miracles/fireball.md</a>.</p>
+<p><strong>Land:</strong> 2 · <strong>Giver:</strong> Khazar (the friendly god), through a scroll by the player's worship site and then a scroll on the target huts · <strong>Script:</strong> MiracleChallenges, FireBallChallenge · <strong>Reward:</strong> the Fireball miracle (first level) at the player's home village's worship site, given whatever the result · <strong>Repeatable:</strong> no</p>
+<p>Sources: the quest's script source (<code>Land2FireballChallenge.txt</code>), the land's scroll-notify helper (<code>SetupLand2.txt</code>),
+the hand demo (<code>HandDemos.txt</code>), the lesson that places the first scroll (<code>LearnWorshipping.txt</code>) and the land's control
+script, checked against the compiled <code>challenge.chl</code>; the game's English text table; and the land's map script
+(<code>Scripts/Land2.txt</code>) for the huts. openblack's state is judged on this tree: of the 61 script functions the two scrolls
+(and the shield challenge they start) need, 10 still only log "not implemented" in <code>src/CHLApi.cpp</code> (among them Khazar's
+hand, the held object, hits on an object and the challenge log), and the land's control script never runs in openblack
+(the land-loading function does nothing and the story always begins with Land 1's script), so the quest never appears;
+every row below is todo unless the notes say otherwise.</p>
+<p><strong>Progress: 0/72 done, 3 partial — 2%</strong></p>
+<h2 id="where-it-sits-in-the-story">Where it sits in the story</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>When the Worship Site lesson ends, Khazar's hand flies to a spot just south of the player's worship site (about 75 m from the altar) and the "Miracle Challenge" scroll is started there; the lesson does not wait for it</td>
+<td>todo</td>
+<td><code>MoveComputerPlayerPosition</code> is a stub; see <a href="worship_site.html">worship_site.md</a></td>
+</tr>
+<tr>
+<td>Nothing else in the land waits for either miracle challenge to be finished: no flag is set on completion, and the land's later quests (The Workshop, Impress Village, the last scroll) are started by other conditions</td>
+<td>todo</td>
+<td>the same script; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>What it unlocks: only the Fireball miracle at the home village's worship site; the same miracle also comes with Town10 (an Indian town that starts with a fire miracle) when it is won</td>
+<td>todo</td>
+<td><code>Land2.txt</code> gives town 10 a fire miracle and our map loading reads it; the challenge's own gift is never reached</td>
+</tr>
+<tr>
+<td>An unfinished challenge holds Khazar "busy" for as long as it runs; the land's control script will not start Khazar's death while he is busy, so leaving this challenge half done holds back the end of the land (see Script quirks)</td>
+<td>todo</td>
+<td>Khazar's death needs computer-player natives (stubs)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-miracle-challenge-scroll">The Miracle Challenge scroll</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A gold scroll appears 6 m up in the air at the spot Khazar's hand went to, just south of the worship site</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> and the height through <code>SetProperty</code> (YPos) are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>A two-minute timer starts as soon as the scroll is placed; it decides Khazar's first line later</td>
+<td>todo</td>
+<td><code>CreateTimer</code> is real (<code>src/ECS/ScriptTimer</code>); never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>While the camera is within 100 of the scroll and the scroll is on screen, the evil advisor steps out, points at it and says "Khazar's left us a Miracle Challenge, to expand our knowledge!", at most once every 30 seconds and only when no film is playing</td>
+<td>todo</td>
+<td>the notify loop calls real natives (<code>SpiritEject</code>, <code>SpiritPointPos</code>, <code>RunText</code>); never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The loop ends when the scroll or the spot under it is clicked, or when Khazar has died; either way the scroll is then switched to its active look</td>
+<td>todo</td>
+<td><code>GameThingClicked</code> is real and <code>SetActive</code> handles highlights; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>If Khazar has already died when the loop ends, nothing more happens: neither challenge is started and the two miracles are never taught this way</td>
+<td>todo</td>
+<td>Khazar's death needs computer-player natives (stubs)</td>
+</tr>
+<tr>
+<td>The scroll is never deleted by the script; it goes when the scroll's script ends (scripts' own objects are cleared with them; inferred, as for the other scrolls)</td>
+<td>todo</td>
+<td>the same script; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="khazars-tour-introduction">Khazar's tour (introduction)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Clicking it starts both challenges at once, each with its own scroll (this one on the target huts, the other on the island hut), and then plays a film</td>
+<td>todo</td>
+<td>plain script; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Khazar's music starts</td>
+<td>todo</td>
+<td><code>StartMusic</code> is real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Khazar's hand flies fast back to the worship site; the camera rises above it over 5 seconds looking west, then pans slowly east over 12 seconds</td>
+<td>todo</td>
+<td>the camera moves are real, but Khazar's hand flight (<code>MoveComputerPlayerPosition</code>) is a stub and his wait never ends (<code>ComputerPlayerReady</code>)</td>
+</tr>
+<tr>
+<td>Khazar speaks: if the scroll was clicked within two minutes of being placed, "You are keen to learn the secret of casting Miracles. I appreciate your enthusiasm."; otherwise "You are ready to learn the secret of using Miracles."</td>
+<td>todo</td>
+<td><code>GetTimerTimeRemaining</code> and <code>RunText</code> are real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Khazar: "Come with me. I have a set up an area where you can learn more." (the text table's own wording); two seconds later the camera lifts over the temple and his hand drifts off east</td>
+<td>todo</td>
+<td>real camera and text natives; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Scroll drawing is switched on, so the two new challenge scrolls show (inferred from where it is switched)</td>
+<td>todo</td>
+<td><code>SetDrawHighlight</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>His hand flies to the island hut of the shield challenge; the camera moves in over 7 seconds and he says "Here you can learn about defence."</td>
+<td>todo</td>
+<td>Khazar's hand flight is a stub; the camera and text are real</td>
+</tr>
+<tr>
+<td>His hand flies on to the middle target hut of this challenge; the camera follows over 7 seconds and he says "And here you can learn to attack."</td>
+<td>todo</td>
+<td>Khazar's hand flight is a stub; the camera and text are real</td>
+</tr>
+<tr>
+<td>The camera pulls back over 4 seconds to look over the huts from the west and Khazar says "Activate the Scroll of your choice."</td>
+<td>todo</td>
+<td>real camera and text natives; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Khazar's hand goes home to his own temple, the music stops, the film ends and Khazar is released</td>
+<td>todo</td>
+<td><code>ReleaseComputerPlayer</code> is a stub; <code>StopMusic</code> is real</td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-the-fireball-scroll-appears">How the fireball scroll appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The targets are the three houses of a small empty Norse village on the south-east shore, a neutral village the map makes uninhabitable for the challenge</td>
+<td>partial</td>
+<td>the houses are made by our map loading (<code>AbodeArchetype</code>); the uninhabitable flag is not (see <a href="../../scripts/land2_script.html">../../scripts/land2_script.md</a>)</td>
+</tr>
+<tr>
+<td>As soon as the challenge is started (at the tour, before its scroll is clicked) an anti-influence ring of radius 50 is laid round the first hut, so the player's hand can't reach in and must throw</td>
+<td>todo</td>
+<td><code>InfluencePosition</code> is real (<code>src/Magic/Script/CHLInfluence.cpp</code>); whether it makes an anti-influence ring was not checked; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>A gold scroll appears on the middle hut</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> is real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Notify: while the camera is within 100 of the scroll and it is on screen, the evil advisor steps out, points and says "We gotta have a go at this Fireballing. Boss. We gotta!", at most once every 30 seconds and only outside films</td>
+<td>todo</td>
+<td>the notify loop calls real natives; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The quest waits for the scroll or the middle hut to be clicked; if Khazar has died first the scroll is made active and nothing more happens</td>
+<td>todo</td>
+<td><code>GameThingClicked</code> is real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-introduction">The introduction</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>On the click, a ring of influence of radius 40 is made where the seeds will lie, so the player can pick them up</td>
+<td>todo</td>
+<td><code>InfluencePosition</code> is real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>All three huts are mended to full health</td>
+<td>todo</td>
+<td>a building's health (property 1) is not handled by <code>SetProperty</code></td>
+</tr>
+<tr>
+<td>The player's control is cut down to the hand only for the whole challenge</td>
+<td>todo</td>
+<td><code>SetInterfaceInteraction</code> is real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>A film starts; Khazar's music plays and Khazar counts as busy</td>
+<td>todo</td>
+<td><code>StartMusic</code> is real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The camera swings over 4 seconds to look along the shore at the huts while Khazar's hand flies fast to them</td>
+<td>todo</td>
+<td>the camera is real, but Khazar's hand flight is a stub</td>
+</tr>
+<tr>
+<td>Khazar: "Behold three huts. We shall use these as our targets."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The log entry "Khazar's Fireball Challenge" is recorded at 0 with the reminder "Try and burn one of these huts with the Fireball Miracle seeds."</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>Khazar's hand flies slowly back inland and three Fireball one-shot seeds appear on a hillside about 270 m from the huts, 2 m apart in a diagonal line</td>
+<td>todo</td>
+<td><code>CREATE</code> of one-shot seeds is real (<code>magic::script::CreateOneShotSpell</code>), but Khazar's hand flight is a stub</td>
+</tr>
+<tr>
+<td>The camera moves over 4 seconds to just behind the seeds, looking out to the huts</td>
+<td>todo</td>
+<td>real camera natives; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Khazar: "Here are some fireballs to use." while his hand drifts down to hover by the seeds</td>
+<td>todo</td>
+<td>Khazar's hand is a stub; <code>RunText</code> is real</td>
+</tr>
+<tr>
+<td>Khazar's fireball hand demo plays (a fire seed is put in the hand): "You hold the Action Button down. Like this.", pausing for the hand; "You then move the Hand to put momentum on the fireball.", pausing again; "You release the Action Button to cast the fireball."; then "Devastating! Fire spreads and causes serious damage."</td>
+<td>todo</td>
+<td><code>PlayHandDemo</code> and <code>HandDemoTrigger</code> are real (<code>src/Input/HandDemo.h</code>); never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-the-player-must-do">What the player must do</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>First the quest waits for the player to hold a fire miracle: until then, every 30 seconds (the first at once) the good advisor says "Tap the Fireball Miracle."</td>
+<td>todo</td>
+<td><code>GetObjectHeld</code> and <code>IsOfType</code> are stubs</td>
+</tr>
+<tr>
+<td>The check looks for a fire spell seed in the hand, not the one-shot globe itself (undetermined: whether picking up the globe alone counts, or only once tapped)</td>
+<td>todo</td>
+<td>the in-hand check is a stub</td>
+</tr>
+<tr>
+<td>The first wait also ends if all three seeds are gone without one being seen in the hand (for instance thrown at once); then the advisor's throwing tip is skipped</td>
+<td>todo</td>
+<td>the seed counts use real natives; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Lost seeds come back: about every sixth pass, a seed not held that is off screen or more than 15 m from the first seed's spot fades out and is made again at its own spot</td>
+<td>todo</td>
+<td>real field-of-view, distance, delete and create natives; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Once a fire miracle is held, the evil advisor steps out: "Now throw it at a hut like you'd throw a rock."</td>
+<td>todo</td>
+<td>follows from the in-hand check, a stub</td>
+</tr>
+<tr>
+<td>Any hut that drops below full health counts as hit, once; hits add up over the whole challenge</td>
+<td>todo</td>
+<td>a building's health (property 1) is not handled by <code>GetProperty</code></td>
+</tr>
+<tr>
+<td>A round ends at once if all three huts are hit; otherwise when all the seeds are used up: the quest waits 1 second, then until the hand is empty, then 6 seconds more, and counts the huts one last time</td>
+<td>todo</td>
+<td>the hit test reads health (not handled) and the empty-hand wait reads a stub</td>
+</tr>
+<tr>
+<td>The throw itself (fireball flight, bouncing, setting the huts alight and fire spreading) is the miracle's normal behaviour</td>
+<td>partial</td>
+<td>the fireball miracle works in our tree (<a href="../../miracles/fireball.html">../../miracles/fireball.md</a>); the challenge never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="results-and-retries">Results and retries</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>After each round a short film shows the huts from the shore, the camera drifting closer over 10 seconds (8 after a miss), then snaps back to where the player was</td>
+<td>todo</td>
+<td>real camera natives; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>All three huts hit: the log entry is set to 1 and the evil advisor says "Nice aiming, Boss. You damaged all three huts." and "Fire spreads, you see. A Village can be torched in minutes."</td>
+<td>todo</td>
+<td>the hit count reads health (not handled); the log is a stub</td>
+</tr>
+<tr>
+<td>Two huts hit: "Pretty nifty. Two of the three huts are damaged." then the same fire-spreads line; log 1</td>
+<td>todo</td>
+<td>the hit count reads health (not handled)</td>
+</tr>
+<tr>
+<td>One hut hit: "Oh yeah! You hit one of the huts." then the fire-spreads line; log 1</td>
+<td>todo</td>
+<td>the hit count reads health (not handled)</td>
+</tr>
+<tr>
+<td>Any hit ends the challenge; there is no reward difference between one hut and three</td>
+<td>todo</td>
+<td>the hit count reads health (not handled)</td>
+</tr>
+<tr>
+<td>No hut hit: the log entry's success goes up by a third, and the evil advisor says "Oh man. None of the huts got toasted." after the first miss, "You still haven't managed to hit anything." after the second and third</td>
+<td>todo</td>
+<td>the log is a stub; the hit test is not handled</td>
+</tr>
+<tr>
+<td>After a miss three new seeds appear at the same spots; Khazar says "Have some more practice. Here are more Fireballs." the first time and "Try again." the second</td>
+<td>todo</td>
+<td><code>CREATE</code> of the seeds and <code>RunText</code> are real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The player gets three rounds at most; after the third miss the challenge ends as if passed</td>
+<td>todo</td>
+<td>plain script; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>There is no failure: the challenge always ends with the reward</td>
+<td>todo</td>
+<td>the same script; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="reward">Reward</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The music stops, the log entry is set to 1 and the player's full control comes back</td>
+<td>todo</td>
+<td>the log is a stub; <code>StopMusic</code> and <code>SetInterfaceInteraction</code> are real</td>
+</tr>
+<tr>
+<td>In a dialogue (not a film) the Fireball miracle (first level) is given to the player's home village, so its worship site can pray for it</td>
+<td>todo</td>
+<td><code>SetMagicInObject</code> is real, but the home town comes from <code>GetTownWithId</code> (a stub); see <a href="../../miracles/dispensers_and_seeds.html">../../miracles/dispensers_and_seeds.md</a></td>
+</tr>
+<tr>
+<td>Khazar: "My Fireball Challenge is complete.", "I have given the knowledge of the Fireball Miracle to your Village.", "From now on your people can worship for this Miracle at your Worship Site."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The evil advisor: "Wow. We can create these now. Bet they'll impress non-believers!"</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Khazar is released and no longer busy; any seeds left fade away</td>
+<td>todo</td>
+<td><code>ReleaseComputerPlayer</code> is a stub; <code>ObjectDelete</code> is real</td>
+</tr>
+</tbody>
+</table>
+<h2 id="aftermath">Aftermath</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The huts stay as damaged as the player left them (burning huts burn on); nothing rebuilds them</td>
+<td>todo</td>
+<td>the same script; fire burns on in our tree; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The fireball miracle stays at the home village's worship site for the rest of the land</td>
+<td>todo</td>
+<td>follows from the gift, which needs the home town (<code>GetTownWithId</code> is a stub)</td>
+</tr>
+<tr>
+<td>The influence ring by the seeds and the anti-influence ring round the huts are never removed by the script (undetermined: whether they go when the script ends)</td>
+<td>todo</td>
+<td>the same script; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="advisors">Advisors</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The evil advisor owns the notifications and the results; the good advisor owns the log reminder and the tap tip</td>
+<td>todo</td>
+<td><code>SpiritEject</code> and <code>RunText</code> are real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Clicking the log entry speaks its reminder "Try and burn one of these huts with the Fireball Miracle seeds." through the good advisor, who steps out to say it</td>
+<td>partial</td>
+<td>the shared reminder calls real natives; the log entry is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="music-and-sounds">Music and sounds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Khazar's script music plays through the tour, and again from the challenge's click until the reward</td>
+<td>todo</td>
+<td><code>StartMusic</code> and <code>StopMusic</code> are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The tour stops the music at its end; the challenge stops it only after the last round</td>
+<td>todo</td>
+<td>the same script; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creature">Creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature plays no part; nothing in the scripts stops it from fetching or throwing the seeds (undetermined what happens if it does)</td>
+<td>todo</td>
+<td>the same script; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-quirks">Script quirks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Khazar counts as busy from the click until the reward; Khazar's death only starts while he is not busy, so a challenge clicked and then ignored (seeds never used) holds back Khazar's death, and with it Lethys's vortex and the end of the land, until it is finished</td>
+<td>todo</td>
+<td>Khazar's death needs computer-player natives (stubs)</td>
+</tr>
+<tr>
+<td>The busy flag is shared: the shield challenge (or any other Khazar lesson) finishing clears it even while this one is still running, so Khazar's death can then start in the middle of this challenge</td>
+<td>todo</td>
+<td>Khazar's death needs computer-player natives (stubs)</td>
+</tr>
+<tr>
+<td>The first hut is looked up at the village's position, about 5 m from that house's own position (undetermined: whether the lookup finds it; if not, that hut can't count as hit)</td>
+<td>todo</td>
+<td><code>CallNear</code> is real, so the same lookup would be made; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>A round with seeds left never ends while the player holds something: the wait for an empty hand has no time limit</td>
+<td>todo</td>
+<td>the empty-hand wait reads a stub</td>
+</tr>
+<tr>
+<td>The three hit results all set the log to 1 before the last line; a miss raises it by a third, so after three misses it reaches 0.99 before the final 1</td>
+<td>todo</td>
+<td>the log is a stub</td>
+</tr>
+<tr>
+<td>The two "no hut hit" lines after the second and third misses are the same line</td>
+<td>todo</td>
+<td>the same script; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="unused-or-cut-parts">Unused or cut parts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Unused lines in the text table: Khazar's "Here are some Fireball Miracle seeds." and "Using these fireballs.", the evil advisor's "Oh Boss. You didn't hit anything at all.", and two entries marked "NOT USED"</td>
+<td>n/a</td>
+<td>in the text table but never spoken by the shipped script</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

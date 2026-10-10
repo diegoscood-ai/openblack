@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Town artefacts and totems — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="here" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#town-artefacts-and-totems">Town artefacts and totems</a><ul>
+<li><a href="#becoming-an-artefact">Becoming an artefact</a></li>
+<li><a href="#the-villagers-dance">The villagers' dance</a></li>
+<li><a href="#worth-and-belief">Worth and belief</a></li>
+<li><a href="#totems-and-statues">Totems and statues</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="town-artefacts-and-totems">Town artefacts and totems</h1>
+<p>An artefact is a rock or other loose fixed object the player has put down by a town or worship site. The town's
+villagers gather and dance round it; their dances make it worth more to its owner, and in a town that isn't the owner's
+they win the owner belief. A worthy artefact glows with a magic effect and then shows its owner's symbol. Each town also
+has its town centre totem showing its worship share and, once it has seen the creature, a statue of the creature.</p>
+<p>Holding an object in the hand doesn't change it: nothing in the game paints held objects or counts how long they are
+held. An artefact's only marks are the magic effect and the owner's symbol.</p>
+<p>openblack has no artefacts: the table values are read (<code>InfoConstants.h</code>), the artefact effect's particle type exists
+(<code>ParticleTypes.cpp</code>), the two villager dance states are placeholders (<code>LivingActionSystem.cpp</code>) and the script command
+is a stub (<code>FeatureScriptCommands::MakeLastObjectArtifact</code>). Only the town centre's totem and spell icons are done
+(<code>src/Worship/WorshipPercentage.cpp</code>, <code>src/Worship/TownCentreSpellIcon.cpp</code>).</p>
+<p><strong>Progress: 3/34 done, 0 partial — 9%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../buildings.html">Buildings, building sites and towns (the building side)</a>.</p>
+<h2 id="becoming-an-artefact">Becoming an artefact</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A loose fixed object (a rock, a dead tree, a toy, a lantern, the idol and the like) put down gently from the hand by a player who isn't neutral becomes an artefact of the town of the nearest building within 50 m, or of the nearest worship site there</td>
+<td>todo</td>
+<td>no artefacts in our tree: the town turn's artefact step is a TODO (<code>src/ECS/Town/TownProcess.cpp</code>); see <a href="../physics/throwing_and_landing.html">../physics/throwing_and_landing.md</a></td>
+</tr>
+<tr>
+<td>Only kinds whose table gives an artefact multiplier above 0 qualify (all rocks 0.0002, volcanic 0.00025, singing stones and the idol 0.0003, gate totems 0.0006, the bowling ball 0.0002, other toys, lanterns, fences and dead trees 0.0001), and nothing a script is holding</td>
+<td>todo</td>
+<td>the multipliers are read (<code>src/InfoConstants.h</code>) but nothing uses them; toys: <a href="../nature/toys.html">../nature/toys.md</a></td>
+</tr>
+<tr>
+<td>Something thrown (faster than 2 m/s across the land as it leaves the hand), or put down by the creature, never becomes an artefact</td>
+<td>todo</td>
+<td>no artefacts. Our wiki differs: the creature's deed table describes an artefact as made by a thrown object that lands within 50 m of a town or worship site (<a href="../../creature.html#deed-table-complete-for-w120">creature</a>)</td>
+</tr>
+<tr>
+<td>A new artefact starts worth the kind's villager-impressing value from the tables (0.01 for rocks)</td>
+<td>todo</td>
+<td>no artefacts</td>
+</tr>
+<tr>
+<td>An artefact belongs to the player who put it down; it joins its town's (or site's) artefacts once, and the game's list of all artefacts</td>
+<td>todo</td>
+<td>no artefacts</td>
+</tr>
+<tr>
+<td>An artefact sent through a vortex comes out in the next land still an artefact of the same god with the same worth; only its town is forgotten</td>
+<td>todo</td>
+<td>no artefacts; see <a href="../story/portals.html#what-goes-in-kind-by-kind">../story/portals.md</a></td>
+</tr>
+<tr>
+<td>An artefact worth more than 1 put down by a town (or site) other than its own impresses it: the villagers come to look at it</td>
+<td>todo</td>
+<td>no artefacts</td>
+</tr>
+<tr>
+<td>Making an artefact can teach the player's creature to copy it</td>
+<td>todo</td>
+<td>the creature's deed exists as a number only (<code>CreatureDeeds::MakeArtefact</code>, <code>src/Creature/CreatureDeeds.h</code>); see <a href="../creature/learning_by_observation.html">../creature/learning_by_observation.md</a></td>
+</tr>
+<tr>
+<td>Taking an artefact in the hand takes it out of its town or site and stops its dance; whoever took it becomes its owner, and it keeps its worth</td>
+<td>todo</td>
+<td>no artefacts, so nothing to take out of a town</td>
+</tr>
+<tr>
+<td>An artefact whose object is gone (or broken in two) goes, with its dance and its effect</td>
+<td>todo</td>
+<td>no artefacts</td>
+</tr>
+<tr>
+<td>A land's feature script can make the last object it made an artefact of a numbered town (or else of the nearest town if that is the named player's, or else of no town), for a named player, at a set worth; no shipped land uses it</td>
+<td>todo</td>
+<td><code>FeatureScriptCommands::MakeLastObjectArtifact</code> (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>) is an empty stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-villagers-dance">The villagers' dance</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A town looks after its artefacts every time it is processed; artefacts at worship sites get no dance of their own</td>
+<td>todo</td>
+<td>the town turn's artefact step is a TODO (<code>src/ECS/Town/TownProcess.cpp</code>)</td>
+</tr>
+<tr>
+<td>A villager wants to join an artefact's dance less the farther it is (out to 250 m) and the fuller the dance already is; not at all while it is under way</td>
+<td>todo</td>
+<td>the villagers' best activity desire counts no artefacts (TODO in <code>src/ECS/Villager/VillagerSatisfy.cpp</code>)</td>
+</tr>
+<tr>
+<td>The dance is chosen by the object's width: under 7 m the small object dance, under 10 m the medium one, otherwise the dance for objects wider than 20 m (the dance for objects under 20 m is never chosen)</td>
+<td>todo</td>
+<td>see <a href="../scripts/dance_scripts.html">../scripts/dance_scripts.md</a></td>
+</tr>
+<tr>
+<td>If the artefact has moved since its dance was set out, the dance moves to it and footpaths are laid to it from the nearest town's storage pit</td>
+<td>todo</td>
+<td>see <a href="../terrain/footpaths.html">../terrain/footpaths.md</a></td>
+</tr>
+<tr>
+<td>A villager who joins goes to wait by the artefact: from farther than 12 m it walks to a clear spot up to 12 m away on its own side; there it finds itself room, and after waiting its time (200 turns for villagers) it starts the dance</td>
+<td>todo</td>
+<td><code>WAIT_FOR_ARTIFACT_DANCE</code> is a TODO row of the villager state table (<code>src/ECS/Systems/Implementations/LivingActionSystem.cpp</code>)</td>
+</tr>
+<tr>
+<td>When the dance starts, every dancer switches to the artefact dance, which lasts the dance's length</td>
+<td>todo</td>
+<td><code>ARTIFACT_DANCE</code> only walks, then is a TODO (<code>src/ECS/Systems/Implementations/LivingActionSystem.cpp</code>)</td>
+</tr>
+<tr>
+<td>When the dance is over, if the town most wants relaxation the dancers go back to waiting for another dance, otherwise they go back to their lives</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A dance left with no dancers ends</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The creature can go to an artefact (as near as three of its heights, at most 50 m) and dance round it</td>
+<td>todo</td>
+<td>see <a href="../creature/town_actions.html">../creature/town_actions.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="worth-and-belief">Worth and belief</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each dance finished in its owner's own town adds to its worth: the town's belief in its owner (counted fully up to 2, a third above, at most 3; 1 for a neutral town), times the kind's artefact multiplier, the share of the dance's dancers it had, the share of the dance's length danced and the land's artefact speed (1 unless a script sets it)</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>What is added is multiplied by 300 and, once the artefact is worth more than 1, divided by its worth, so it grows ever more slowly</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>While its dance is on in a town that isn't its owner's, every 100 turns (plus a random part up to a quarter) the town gives the owner belief: its worth (only once over 1) × the object's impressiveness × dancers per head of the town's people × 5</td>
+<td>todo</td>
+<td>see <a href="belief_and_conversion.html">belief_and_conversion.md</a></td>
+</tr>
+<tr>
+<td>Every 1000 turns each artefact at a worship site gains a little worth from the site's worship dance (0.00001 × the land's artefact speed × the site's dancers over a count of the player's)</td>
+<td>todo</td>
+<td>the worship site's turn notes it and skips it (<code>src/Worship/WorshipSite.cpp</code>)</td>
+</tr>
+<tr>
+<td>An artefact worth more than 1 makes the object 1 + its worth times as impressive to the villagers that see it</td>
+<td>todo</td>
+<td>see <a href="../worship/belief.html">../worship/belief.md</a></td>
+</tr>
+<tr>
+<td>Worth more than 1, a magic effect plays over it, as strong as it is worth</td>
+<td>todo</td>
+<td>the effect's particle type exists (<code>src/Particles/ParticleTypes.cpp</code>) but nothing plays it</td>
+</tr>
+<tr>
+<td>Worth more than 2, its owner's symbol floats over it at half size</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The rules are the same for every player, the computer's and other people's in multiplayer</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="totems-and-statues">Totems and statues</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The town centre's totem pole rises and falls with the town's worship share</td>
+<td>done</td>
+<td>the plinth and its icon rise by the town's worship percentage, eased (<code>percentage::UpdateTotems</code> and <code>percentage::ProcessTotem</code>, <code>src/Worship/WorshipPercentage.cpp</code>); made with the functional town centre (<code>src/ECS/Archetypes/AbodeArchetype.cpp</code>); see ../worship/</td>
+</tr>
+<tr>
+<td>The hand can pull the totem up or down to set how many worship</td>
+<td>todo</td>
+<td>only land scripts and a debug variable set the percentage (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>, <code>src/Worship/WorshipDebugHooks.cpp</code>); the hand does not drag the totem</td>
+</tr>
+<tr>
+<td>A statue of the player's creature is put up in the town centre once the town knows it</td>
+<td>todo</td>
+<td>the plinth's icon is always the hand (<code>CreateTotemStatue</code>, <code>src/ECS/Archetypes/AbodeArchetype.cpp</code>); no creature statue</td>
+</tr>
+<tr>
+<td>The creature can be impressed by, play with or steal the statue</td>
+<td>todo</td>
+<td>See ../creature/</td>
+</tr>
+<tr>
+<td>A totem is not destroyed by miracles</td>
+<td>done</td>
+<td>an effect can lower the totem's life, but only villagers and animals are destroyed by one (<code>effects::ApplyEffect</code>, <code>src/ECS/Effects/EffectValues.cpp</code>); the totem goes only with its town centre (<code>src/ECS/Abodes.cpp</code>)</td>
+</tr>
+<tr>
+<td>The town centre's spell icons show the miracles the town gives its worship site</td>
+<td>done</td>
+<td>one icon per seed the town holds, on the town centre's special points (<code>src/Worship/TownCentreSpellIcon.cpp</code>), made by the land's feature script (<code>CreateTownCentreSpellIcon</code>, <code>src/LHScriptX/FeatureScriptCommands.cpp</code>) and drawn by the rendering system; See ../miracles/</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

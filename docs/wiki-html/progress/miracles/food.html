@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Food miracle — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="here" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#food-miracle">Food miracle</a><ul>
+<li><a href="#casting-and-paying">Casting and paying</a></li>
+<li><a href="#the-hand-while-pouring">The hand while pouring</a></li>
+<li><a href="#grain-in-the-air">Grain in the air</a></li>
+<li><a href="#landing-and-piles">Landing and piles</a></li>
+<li><a href="#extreme-food">Extreme food</a></li>
+<li><a href="#what-it-does-to-people">What it does to people</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="food-miracle">Food miracle</h1>
+<p>The horn of plenty: held at the side of the hand and poured with the right button, it showers grain that lands as food
+piles or goes straight into a storage pit. Its extreme version makes speed-up food. Grain on villagers' tables is in
+<a href="../resources/index.html">../resources/</a>.</p>
+<p><strong>Progress: 26/32 done, 4 partial — 88%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../miracles.html">Miracles one by one</a>.</p>
+<h2 id="casting-and-paying">Casting and paying</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The horn is held at the side of the hand and pours while the right button is held</td>
+<td>done</td>
+<td>The seed's in-hand cast (<code>src/ECS/Systems/Implementations/HandSpellSeed.cpp</code>, <code>src/Magic/Hand/HandCasting.cpp</code>): one apply per turn while held, released on letting go</td>
+</tr>
+<tr>
+<td>The horn holds a finite pool (5000 prayer, 8000 extreme) that is never refilled; the pour ends when it is spent</td>
+<td>done</td>
+<td>A seed without a worship icon lives off its first charge and nothing refills it (<code>src/Magic/Core/Chants.cpp</code>). Our wiki differs: the charge is the miracle's cost to create, 7000 for food and 10000 for extreme food (<a href="../../magic.html#structure-and-data">page</a>)</td>
+</tr>
+<tr>
+<td>Each grain pays 7 per unit: the first brings 200 food, each later one 18 (20 extreme)</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellResource.cpp</code> (ResourceEvent); test <code>FoodWood.resourceEventCosts</code>, with the real rows <code>FoodWood.realInfoDat</code></td>
+</tr>
+<tr>
+<td>A grain becomes food only on dry land and while the miracle has strength; over water it is paid for and lost</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellResource.cpp</code> (paid first; off the map, on water or with no strength nothing lands)</td>
+</tr>
+<tr>
+<td>The amount is multiplied by the tribal power</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellResource.cpp</code> (amount times the tribal power, truncated)</td>
+</tr>
+<tr>
+<td>Letting go keeps the rest in the horn; pressing again needs enough for a first grain</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellResource.cpp</code> (HasEnoughChantsForResourceRecast); test <code>FoodWood.resourceEventCosts</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-hand-while-pouring">The hand while pouring</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hand rises and tips the horn over 4 s along a curve flat at both ends (up about 20 units and 121 degrees), then starts over</td>
+<td>done</td>
+<td><code>src/ECS/Systems/Implementations/HandGrain.cpp</code> (a natural spline through four key points, height 10 m and tilt 1.07 rad at 1, looping over 4 s); tests <code>FoodWood.grainSplineKeyPoints</code>, <code>FoodWood.grainRaiseLoopsOverTotalTime</code>. Our wiki differs: the curve is not flat at its ends and peaks at 1.61, so 16.1 m and 1.73 rad (<a href="../../miracles.html#food-and-wood-magicspellsspellresource-magicobjectsmagicfoodwood-ecspotresource">page</a>)</td>
+</tr>
+<tr>
+<td>The tip is a roll about the line to the camera, applied at once</td>
+<td>done</td>
+<td><code>src/ECS/Systems/Implementations/HandPlacement.cpp</code> (rotates by minus the tilt about the hand to camera axis)</td>
+</tr>
+<tr>
+<td>The hand is pinned where the pour began</td>
+<td>done</td>
+<td><code>src/ECS/Systems/Implementations/HandGrain.cpp</code> (ClampedPosition), used by <code>HandPlacement.cpp</code></td>
+</tr>
+<tr>
+<td>Stopping eases the hand back over one game turn</td>
+<td>done</td>
+<td><code>src/ECS/Systems/Implementations/HandGrain.cpp</code> (height and tilt blended from the last turn's by the turn fraction)</td>
+</tr>
+<tr>
+<td>The pour stops whenever the local player's miracle ends</td>
+<td>done</td>
+<td><code>src/Magic/Core/Spell.cpp</code> (the close-down of a spell this computer cast stops the hand's raise)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="grain-in-the-air">Grain in the air</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Grain streams from the horn, more as the hand moves, falls, lands and fades</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Sprinkle.cpp</code> (18 grains a second even from a still hand, more as it moves; each landing grain is a spell event); test <code>FoodWood.sprinkleEmitsAtTheRateEvenWhenStill</code></td>
+</tr>
+<tr>
+<td>The pouring sound loops and fades out softly when let go</td>
+<td>done</td>
+<td>The particle sound rules (<code>src/Particles/Rules/Sound.cpp</code>, <code>src/Audio/Services/SpellSounds</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="landing-and-piles">Landing and piles</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A landing grain looks outwards in a spiral of nine cells for something to take it</td>
+<td>done</td>
+<td><code>src/ECS/PotResource.cpp</code> (AddResourceToPos: nine cells along the spiral, fixed list then mobile list)</td>
+</tr>
+<tr>
+<td>A storage pit takes it (1.2 times as much) into its own food pile</td>
+<td>done</td>
+<td><code>src/ECS/PotResource.cpp</code>, <code>src/ECS/StoragePitStore.cpp</code>. Our wiki differs: 1.2 is how far a store reaches (its radius times 1.2), not more food (<a href="../../miracles.html#food-and-wood-magicspellsspellresource-magicobjectsmagicfoodwood-ecspotresource">page</a>)</td>
+</tr>
+<tr>
+<td>A worship site's food pot takes it (twice as much)</td>
+<td>done</td>
+<td>The site's food pot (<code>src/Worship/WorshipSite.cpp</code>) is taken like any food pot (<code>src/ECS/PotResource.cpp</code>); worship sites only exist after Land 1. Our wiki differs: a pot reaches twice its radius, it does not get twice the food (<a href="../../miracles.html#food-and-wood-magicspellsspellresource-magicobjectsmagicfoodwood-ecspotresource">page</a>)</td>
+</tr>
+<tr>
+<td>Existing food piles in reach take it in turn, never beyond full</td>
+<td>done</td>
+<td><code>src/ECS/PotResource.cpp</code> (the first pile that qualifies, not the nearest; clipped at its most only for non-magic piles, as the original's rule)</td>
+</tr>
+<tr>
+<td>Where nothing takes it and the land is dry, a new food pile appears, with no puff</td>
+<td>done</td>
+<td><code>src/ECS/PotResource.cpp</code>, <code>src/Magic/Objects/MagicFood.cpp</code></td>
+</tr>
+<tr>
+<td>A new pile rises out of the ground over one second and is drawn only once above it</td>
+<td>done</td>
+<td><code>src/ECS/Archetypes/PotArchetype.cpp</code> (the pile's sink, a one-second zoomer)</td>
+</tr>
+<tr>
+<td>A food pile grows quickly at first and never past full size</td>
+<td>done</td>
+<td><code>src/ECS/ObjectMetrics.cpp</code> (PileFoodProportionRaised); test <code>FoodWood.pileHelpers</code></td>
+</tr>
+<tr>
+<td>The grain texture flows while the pile is still sinking</td>
+<td>done</td>
+<td><code>src/ECS/Archetypes/PotArchetype.cpp</code> (the grain's UV scroll while the pile sinks)</td>
+</tr>
+<tr>
+<td>Piles sit on the land and follow it</td>
+<td>partial</td>
+<td>Set on the land when made and morphed with it (<code>src/ECS/Archetypes/PotArchetype.cpp</code>); not re-checked in the game</td>
+</tr>
+<tr>
+<td>A thud plays as food lands: small ones under 200 food, big ones above, heard only within their range</td>
+<td>done</td>
+<td><code>src/ECS/PotResource.cpp</code> (PileSoundSample, PlayPileSound); test <code>FoodWood.pileHelpers</code></td>
+</tr>
+<tr>
+<td>A magic food pile receives no projected shadow; a magic wood pile does</td>
+<td>done</td>
+<td>(added) <code>src/ECS/Systems/Implementations/RenderingSystem.cpp</code> (ReceivesDynamicShadow), <code>src/Graphics/ShadowList.cpp</code>; see <code>src/Magic/Objects/MagicFood.cpp</code></td>
+</tr>
+<tr>
+<td>The local player hears the advisor remark on the drop</td>
+<td>done</td>
+<td><code>src/ECS/PotResource.cpp</code> calls <code>audio::guidance::PlayResourceDropRemark</code> (<code>src/Audio/Services/Guidance.cpp</code>, the town's needs from <code>src/ECS/AudioQueries.cpp</code>), for a new pile</td>
+</tr>
+</tbody>
+</table>
+<h2 id="extreme-food">Extreme food</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The extreme horn starts with more prayer and drops 20 per grain</td>
+<td>done</td>
+<td>FOOD_PU1's row (<code>src/Magic/MagicTables.cpp</code>); test <code>FoodWood.realInfoDat</code></td>
+</tr>
+<tr>
+<td>A new pile from extreme food is speed-up food and sparkles for as long as it lasts</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellResource.cpp</code> (speed-up, not poisoned), <code>src/ECS/PotResource.cpp</code> (SetSpeedUp: the speed-up sparkles for good)</td>
+</tr>
+<tr>
+<td>Villagers who eat speed-up food work four times as fast for 2550 turns</td>
+<td>partial</td>
+<td>The villager's speed-up counter and its faster pace are there (<code>src/ECS/Villager/VillagerCore.cpp</code>, <code>src/ECS/VillagerSpeed.cpp</code>), but nothing sets the counter when a villager takes speed-up food</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-it-does-to-people">What it does to people</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Villagers nearby react to a new food pile, impressed by how much their town wants food</td>
+<td>todo</td>
+<td>The grain's look-at-nice-miracle reaction has no villager handler, and a miracle's new pile starts no food reaction (<code>src/ECS/PotResource.cpp</code> does not call <code>ecs::animal_ai::SetupPotReaction</code>)</td>
+</tr>
+<tr>
+<td>Villagers take food from the piles</td>
+<td>partial</td>
+<td>Villagers reacting to a food pile take food from it (<code>src/ECS/Systems/Implementations/VillagerResourceReactions.cpp</code>), but a miracle's pile starts no such reaction</td>
+</tr>
+<tr>
+<td>The creature can learn from the player feeding a storage pit, a worship site or a building site</td>
+<td>partial</td>
+<td>The storage-pit deed is worked out (<code>src/ECS/StoragePitStore.cpp</code>) but the put-down's deed is not passed on (<code>src/ECS/PotResource.cpp</code>); no worship-site or building-site deed for a cast</td>
+</tr>
+<tr>
+<td>Food piles are saved with the game</td>
+<td>todo</td>
+<td>No game save system</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

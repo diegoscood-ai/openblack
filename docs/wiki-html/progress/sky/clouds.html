@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clouds — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="here" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#clouds">Clouds</a><ul>
+<li><a href="#fair-weather-clouds">Fair-weather clouds</a></li>
+<li><a href="#storm-clouds">Storm clouds</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="clouds">Clouds</h1>
+<p>Seventy puffs of cloud drift with the wind along a track across the island, fading in and out at its ends, with two
+huge ones pinned on the horizon. Their shadows pass over the land. Storms bring dark clouds of their own.</p>
+<p><strong>Progress: 18/19 done, 1 partial — 97%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../day-night-weather.html">Day, night and weather in the original</a>, <a href="../../rendering.html">World rendering: original versus openblack</a>.</p>
+<h2 id="fair-weather-clouds">Fair-weather clouds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A new land lays 70 clouds at random along a track, 300 to 500 high, up to 5000 either side</td>
+<td>done</td>
+<td><code>Clouds::Clouds</code> (<code>src/3D/Clouds.cpp</code>, the CRT draws), rebuilt when a land opens (<code>Clouds::OnLandscapeOpened</code>, then <code>CloudSystem::Reset</code>, <code>Locator::cloudSystem</code>)</td>
+</tr>
+<tr>
+<td>The first two are pinned at the track's ends on the horizon, 300 times the size</td>
+<td>done</td>
+<td><code>src/3D/Clouds.cpp</code> (<code>Cloud::pinned</code>)</td>
+</tr>
+<tr>
+<td>Clouds move along the track at 70 units a second of game time, back to the start past its end</td>
+<td>done</td>
+<td><code>Clouds::Update</code> (wraps past the end), from <code>CloudSystem::Update</code> (<code>src/ECS/Systems/Implementations/CloudSystem.cpp</code>)</td>
+</tr>
+<tr>
+<td>The track lies three eighths of a turn about the middle of the map</td>
+<td>done</td>
+<td><code>Clouds::WorldPosition</code> (3 pi / 4 about (1280, 1280))</td>
+</tr>
+<tr>
+<td>Clouds fade in over the first 2000 units of the track and out over the last</td>
+<td>done</td>
+<td><code>Clouds::EdgeAlpha</code></td>
+</tr>
+<tr>
+<td>Clouds are puffs of mist that shrink edge on, seen from the side</td>
+<td>done</td>
+<td>The mist draw of <code>src/3D/Mists.cpp</code> (the edge-on scale)</td>
+</tr>
+<tr>
+<td>Clouds animate through frames of the smoke texture</td>
+<td>done</td>
+<td><code>Clouds::AdvanceAnimation</code>, <code>frame_anim::MistCell</code> (<code>src/3D/FrameAnim.h</code>); test <code>test/test_mists.cpp</code></td>
+</tr>
+<tr>
+<td>Clouds are white for good, grey for neutral and dark orange for evil, in the land's light</td>
+<td>done</td>
+<td><code>Clouds::Colour</code> (by the sky alignment, through the light table's last entry). Our wiki differs: on good land the clouds have alpha 0, so they are not seen at all; neutral ones are light grey and evil ones opaque ochre (<a href="../../rendering.html#sky-sun-moon-and-clouds-original">rendering.md</a>)</td>
+</tr>
+<tr>
+<td>Clouds stop while the game is paused</td>
+<td>done</td>
+<td><code>Clouds::Update</code> and <code>AdvanceAnimation</code> take the game time step, 0 while paused</td>
+</tr>
+<tr>
+<td>Clouds are sorted with other translucent things</td>
+<td>done</td>
+<td><code>Renderer::UpdateClouds</code> sends them to the Z-sorter (<code>src/Graphics/Renderer.cpp</code>)</td>
+</tr>
+<tr>
+<td>The cloud detail option turns clouds on or off</td>
+<td>done</td>
+<td><code>detail_level::Clouds</code> (<code>src/Graphics/DetailLevel.h</code>)</td>
+</tr>
+<tr>
+<td>Clouds' shadows darken the land as they pass</td>
+<td>done</td>
+<td><code>Clouds::StampShadows</code> (<code>sclouds.raw</code> through <code>land_light::AddStamp</code>)</td>
+</tr>
+<tr>
+<td>The cloud shadow option is separate from the clouds option</td>
+<td>partial</td>
+<td><code>detail_level::Level::clouds</code> stands for both the Clouds and the CloudShadows keys</td>
+</tr>
+<tr>
+<td>The track follows the climate's wind</td>
+<td>done</td>
+<td>The track's direction is the fixed 3 pi / 4 (<code>Clouds::WorldPosition</code>). Our wiki differs: the original's track angle is a constant and does not follow the wind (<a href="../../rendering.html#sky-sun-moon-and-clouds-original">rendering.md</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="storm-clouds">Storm clouds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each natural storm draws its own clouds: up to 16 puffs of mist wandering about its middle at its cloud height</td>
+<td>done</td>
+<td><code>storm_clouds::DrawFrame</code> (<code>src/ECS/Weather/StormClouds.cpp</code>, up to 16 puffs about every storm's centre at its elevation), from <code>WeatherLoop.cpp</code></td>
+</tr>
+<tr>
+<td>Storm clouds are greyed by the storm's overcast and grow with its radius</td>
+<td>done</td>
+<td><code>storm_clouds::PuffColour</code> and the puff size from the radius. Our wiki differs: the puffs are darkened by the storm's blackness, not its overcast (<a href="../../day-night-weather.html#climate">day-night-weather.md</a>)</td>
+</tr>
+<tr>
+<td>A storm's clouds cast a shadow on the land, stronger with its overcast</td>
+<td>done</td>
+<td><code>storm_clouds::DrawFrame</code> stamps <code>sstorm.raw</code> by (blackness + 0.7) x fade. Our wiki differs: the shadow grows with the blackness, not the overcast (<a href="../../day-night-weather.html#climate">day-night-weather.md</a>)</td>
+</tr>
+<tr>
+<td>The storm miracle's clouds gather and drift</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Storm.cpp</code>; see <a href="../miracles/storm.html">../miracles/storm.md</a></td>
+</tr>
+<tr>
+<td>Scripts change a storm's number of clouds, darkness and height</td>
+<td>done</td>
+<td><code>script::ChangeCloudProperties</code> (<code>src/Magic/Script/CHLWeather.cpp</code>); see <a href="../weather/scripted_weather.html">../weather/scripted_weather.md</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

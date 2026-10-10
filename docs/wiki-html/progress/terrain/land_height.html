@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Land height and mountains — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="here" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#land-height-and-mountains">Land height and mountains</a><ul>
+<li><a href="#height">Height</a></li>
+<li><a href="#the-test-land">The test land</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="land-height-and-mountains">Land height and mountains</h1>
+<p>The shape of the land: a height for every cell corner, interpolated over each cell's two triangles, with the sea level
+flattened, and the queries everything uses to stand on the ground.</p>
+<p><strong>Progress: 9/12 done, 3 partial — 88%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../engine-math.html">Coordinates, terrain, object size, game clock, matrices and Zoomer</a>.</p>
+<h2 id="height">Height</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every cell corner has a height of 0 to 255 units</td>
+<td>done</td>
+<td><code>components/lnd</code> cell altitude</td>
+</tr>
+<tr>
+<td>Heights between corners follow the cell's two triangles, split one way or the other per cell</td>
+<td>done</td>
+<td><code>LandIsland::GetHeightAt</code> (<code>src/3D/Implementations/LandIsland.cpp</code>)</td>
+</tr>
+<tr>
+<td>Height is worked out in the game's fixed-point units, so objects stand exactly where the game puts them</td>
+<td>done</td>
+<td><code>LandIsland::GetHeightAt</code>, <code>src/3D/MapCoords.h</code></td>
+</tr>
+<tr>
+<td>Land at or below altitude 3 next to the sea is drawn and treated as flat at sea level</td>
+<td>done</td>
+<td><code>LandIslandInterface::GetHeightAt</code> and <code>GetDrawnHeightAt</code> (the sea flattening)</td>
+</tr>
+<tr>
+<td>The land's normal is the flat normal of the triangle a point is on, worked out through the game's lookup tables</td>
+<td>done</td>
+<td><code>src/3D/LandNormal.cpp</code>; test <code>test/test_land_normal.cpp</code></td>
+</tr>
+<tr>
+<td>Mountains and hills are just high land: there are no separate cliff or rock-face meshes in the land itself</td>
+<td>done</td>
+<td>Rock features are objects, see ../nature/</td>
+</tr>
+<tr>
+<td>The highest point of each block is known for drawing and the creature's view of the land</td>
+<td>partial</td>
+<td>The field is read from the file but not used</td>
+</tr>
+<tr>
+<td>Scripts ask the height of the land at a point</td>
+<td>done</td>
+<td>GET_LAND_HEIGHT in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>Things dropped or thrown land on the ground and objects stand on it</td>
+<td>done</td>
+<td>The physics tests every point against the land height and normal (<code>PhysicsBody::GroundAndWater</code>); see ../physics/</td>
+</tr>
+<tr>
+<td>A point on the land is found under the mouse by the game's line test over the land's cells</td>
+<td>partial</td>
+<td>The game's land line test is ported (<code>LandIslandInterface::RayCast</code>; tests <code>LandRayCast.*</code>, <code>test/test_land_raycast.cpp</code>) and used by the lightning and the hand, but the mouse is picked with a Bullet ray (<code>DynamicsSystem::RayCastClosestHit</code> from <code>src/Camera/Camera.cpp</code>)</td>
+</tr>
+<tr>
+<td>Particles and spells can be kept at a fixed height above the land or forced onto it</td>
+<td>partial</td>
+<td>Particle rules in <code>src/Particles</code> follow the land; see ../rendering/</td>
+</tr>
+<tr>
+<td>The land never changes shape in play; buildings sit on it as they are</td>
+<td>done</td>
+<td>As the original; the land script's height change is in countries.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-test-land">The test land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>openblack's flat test land, with a lake, shallows, a bank and patches of sand and snow</td>
+<td>n/a</td>
+<td>openblack-only, and our tree has no flat test land; see ../debug/</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

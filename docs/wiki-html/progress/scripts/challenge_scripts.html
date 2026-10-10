@@ -1,0 +1,950 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Challenge scripts — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="here" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#challenge-scripts">Challenge scripts</a><ul>
+<li><a href="#the-program">The program</a></li>
+<li><a href="#starting-the-story-land-by-land">Starting the story land by land</a></li>
+<li><a href="#shared-by-every-land-help-rewards-the-creatures-training-the-storys-control">Shared by every land (help, rewards, the creature's training, the story's control)</a></li>
+<li><a href="#the-tutorial">The tutorial</a></li>
+<li><a href="#land-1">Land 1</a></li>
+<li><a href="#land-2">Land 2</a></li>
+<li><a href="#land-3">Land 3</a></li>
+<li><a href="#land-4">Land 4</a></li>
+<li><a href="#land-5">Land 5</a></li>
+<li><a href="#the-missing-functions-that-block-the-most-scripts">The missing functions that block the most scripts</a></li>
+<li><a href="#globals-and-saving">Globals and saving</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="challenge-scripts">Challenge scripts</h1>
+<p>The story, the tutorial, the advisors' help and the rewards are written as scripts in the game's challenge language and shipped compiled in <code>Scripts/Quests/challenge.chl</code>. This file covers those scripts as code: how many there are, where they come from, how they start land by land, and how many of them openblack can run without reaching a function it doesn't have yet. What each challenge is about is the story domain's (<a href="../story/index.html">../story/</a>); how the virtual machine runs scripts is <a href="../engine/script_vm.html">../engine/script_vm.md</a>; each function the scripts call is in the <code>challenge_natives_*.md</code> files of this folder.</p>
+<p>In all, 514 scripts: 260 call only functions openblack has, and 219 of those also start only scripts that do; the rest stop at a function that logs "not implemented" (most often the challenge log's pictures, a creature's actions and the rival gods' moves). "Runs" below means the script and every script it starts call nothing missing; whether what they do then matches the game is the natives' files' business.</p>
+<p>The function counts below are per source file: they count what that file's own scripts call, not the helper scripts
+in other files that a challenge also runs, so a challenge may need a few more; the
+per-quest files under <a href="../story/silver_scrolls/index.html">../story/silver_scrolls/</a> say what each quest needs. Every silver
+scroll is listed in <a href="../story/silver_scrolls.html">../story/silver_scrolls.md</a>.</p>
+<p>These challenge scripts are in the sources but not compiled into the game, so they have no row here: The Big Whale,
+Landslide, The Sculptor's early silver version, Food for Thought, The Attackers, The Miracle Stones, See The Citadel,
+Chimp Posse, the Creature Ladder and the swaps to horse, leopard, lion, tortoise and wolf (see the "Cut or never
+started" table of <a href="../story/silver_scrolls.html#cut-or-never-started">../story/silver_scrolls.md</a>).</p>
+<p><strong>Progress: 41/144 done, 71 partial — 53%</strong></p>
+<h2 id="the-program">The program</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>challenge.chl</code> holds 514 scripts compiled from 98 source files, with 398 global variables and 157,160 instructions</td>
+<td>done</td>
+<td>loaded whole by <code>LHVM::LoadBinary</code> (<code>components/ScriptLibrary/src/LHVM.cpp</code>) at a new game in <code>Game.cpp</code></td>
+</tr>
+<tr>
+<td>Scripts are of several kinds: 463 ordinary, 13 help, 15 challenge help, 17 temple help, 5 multiplayer help and 1 temple special; the game runs only some kinds in some situations (which, when, unconfirmed)</td>
+<td>partial</td>
+<td>outside the temple every kind runs each turn (<code>LHVM::LookIn</code> with every kind, <code>Game.cpp</code>); inside the temple only the temple help kinds run (<code>Game::ProcessTempleTurn</code>); when the original runs each kind is not fully checked</td>
+</tr>
+<tr>
+<td>One script starts by itself when the program loads: the creature's development (its training lessons)</td>
+<td>done</td>
+<td>the auto-start list in <code>LHVM::LoadBinary</code></td>
+</tr>
+<tr>
+<td>The program's source compiles back to exactly the shipped file</td>
+<td>done</td>
+<td><code>components/lhvmcompiler</code>; test <code>ChlRoundTrip.OriginalSourcesCompileToTheGamesProgram</code> (<code>test/lhvm/test_chl_roundtrip.cpp</code>)</td>
+</tr>
+<tr>
+<td>The scripts' names for objects, sounds, music, help texts and constants come from the game's headers and info tables</td>
+<td>done</td>
+<td><code>components/lhvmlang</code>; test <code>ChlLanguage.ConstantsFromHeaders</code> (<code>test/lhvm/test_chl_language.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="starting-the-story-land-by-land">Starting the story land by land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A new game starts the story's control script, which runs Land 1's control script and waits for it to finish</td>
+<td>partial</td>
+<td><code>Game.cpp</code> starts <code>LandControlAll</code> by name when the program loads at a new game; it starts even when another land or a playground was loaded</td>
+</tr>
+<tr>
+<td>When a land's control script ends, every script except the story's control script is stopped</td>
+<td>partial</td>
+<td><code>StopAllScriptsInFilesExcluding</code> works by source file (split on spaces only); reached only if Land 1 ends, which it can't yet</td>
+</tr>
+<tr>
+<td>The story's control script then loads the next land's script and runs that land's control script (Land 2, 3, 4 and 5 in turn)</td>
+<td>todo</td>
+<td>loading a land from a script does nothing (<code>LoadMap</code> in <code>src/CHLApi.cpp</code> is empty)</td>
+</tr>
+<tr>
+<td>Arriving on Land 3 fades the screen in over three seconds</td>
+<td>done</td>
+<td><code>SetFadeIn</code> (<code>ScreenFade::FadeBackToNormal</code>); reached only once lands can load</td>
+</tr>
+<tr>
+<td>Each land's control script runs its set-up script (computer players, creatures, influence, starting rewards), then starts the land's challenges and their reminders</td>
+<td>partial</td>
+<td>Land 1's set-up script runs with what it starts except <code>SetVirtualInfluence</code>, <code>BeliefForPlayer</code> and <code>SetPlayerBelief</code>; Land 2's lacks <code>SetVirtualInfluence</code>; Land 3's runs; Land 4's lacks <code>SetOpenClose</code> and Land 5's <code>SetVirtualInfluence</code> and <code>SetPlayerAlly</code>; only Land 1 is ever reached</td>
+</tr>
+<tr>
+<td>The tutorial land starts the tutorial's own control script, not the story's</td>
+<td>todo</td>
+<td>openblack always starts the story's control script</td>
+</tr>
+<tr>
+<td>The rival gods' creatures are loaded by a shared set-up script (each from its mind file, see creature_mind_scripts.md)</td>
+<td>todo</td>
+<td>the shared set-up script stops at <code>LoadCreature</code>, <code>SetCreatureName</code>, <code>CreatureSetKnowsAction</code>, <code>CreatureForceFriends</code> and <code>CreatureAutoscale</code>, which log "not implemented"</td>
+</tr>
+<tr>
+<td>A hidden script lets the player ring the phone boxes on Lands 1 to 4 for recorded messages (its land-skipping cheat is commented out in the shipped source and only says the cheat was removed)</td>
+<td>partial</td>
+<td>the sound functions are ported; the hidden scripts still call <code>SetOpenClose</code> and <code>SetAffectedByWind</code>, which log "not implemented"</td>
+</tr>
+</tbody>
+</table>
+<h2 id="shared-by-every-land-help-rewards-the-creatures-training-the-storys-control">Shared by every land (help, rewards, the creature's training, the story's control)</h2>
+<p>15 source files, 97 scripts; 70 call only functions openblack has and 67 run with everything they start.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Standard Reminder: 1 script, 0 run</td>
+<td>done</td>
+<td>0 of the 6 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; 1 of its 1 scripts call only working functions, 1 run with every script they start</td>
+</tr>
+<tr>
+<td>Vortex Entry: 1 script, 0 run</td>
+<td>partial</td>
+<td>1 of the 10 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: throws an object off along a heading at a speed; 1 of its 2 scripts call only working functions, 1 run with every script they start</td>
+</tr>
+<tr>
+<td>Swap Creatures: 2 scripts, 0 run</td>
+<td>todo</td>
+<td>3 of the 43 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: makes a creature do an action (eat, throw, pick up, cast, dance and so on) on an object / gives the sub-kind of an object (which animal, which building and so on) / swaps the player's creature for another species, keeping its mind; 0 of its 2 scripts call only working functions, 0 run with every script they start; quest: <a href="../story/silver_scrolls/creature_swaps.html">Creature swaps</a></td>
+</tr>
+<tr>
+<td>Challenge Notify: 6 scripts, 0 run</td>
+<td>done</td>
+<td>0 of the 19 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; 6 of its 6 scripts call only working functions, 6 run with every script they start</td>
+</tr>
+<tr>
+<td>Did You Know: 2 scripts, 0 run</td>
+<td>done</td>
+<td>0 of the 11 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; 2 of its 2 scripts call only working functions, 2 run with every script they start</td>
+</tr>
+<tr>
+<td>Help System: 9 scripts, 0 run</td>
+<td>done</td>
+<td>0 of the 11 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; 9 of its 9 scripts call only working functions, 9 run with every script they start</td>
+</tr>
+<tr>
+<td>Reward: 6 scripts, 0 run</td>
+<td>todo</td>
+<td>5 of the 38 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: gives the player a reward (a miracle, a creature or an object), dropping it from the sky or not / gives the player a reward in a town / gives a help text by number / gives the first help text of a group; 0 of its 6 scripts call only working functions, 0 run with every script they start</td>
+</tr>
+<tr>
+<td>Citadel Help: 17 scripts, 0 run</td>
+<td>done</td>
+<td>0 of the 11 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; 17 of its 17 scripts call only working functions, 17 run with every script they start</td>
+</tr>
+<tr>
+<td>Creature Help: 7 scripts, 0 run</td>
+<td>partial</td>
+<td>1 of the 13 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: gives the object a creature is going for; 6 of its 7 scripts call only working functions, 6 run with every script they start</td>
+</tr>
+<tr>
+<td>Creature Development: 15 scripts, 1 runs</td>
+<td>partial</td>
+<td>13 of the 88 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: makes a creature do an action (eat, throw, pick up, cast, dance and so on) on an object / updates the challenge log picture with what is going on / gives a creature a single desire for a time, overriding the rest / whether an object is locked in an interaction; 8 of its 15 scripts call only working functions, 7 run with every script they start; quest: <a href="../story/gold_scrolls/the_creatures_learning.html">The Creature's Learning</a></td>
+</tr>
+<tr>
+<td>Hand Demos: 18 scripts, 0 run</td>
+<td>partial</td>
+<td>1 of the 38 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: gives the object a player's hand or a creature is holding; 16 of its 18 scripts call only working functions, 16 run with every script they start</td>
+</tr>
+<tr>
+<td>Setup Computer Creatures: 4 scripts, 0 run</td>
+<td>todo</td>
+<td>6 of the 13 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: teaches a creature (or makes it forget) an action on a kind of object / loads a creature of a species from a mind file for a player at a position (the rival gods' creatures) / gives a creature a name / lets a creature's size follow the land's scale, or not; 0 of its 4 scripts call only working functions, 0 run with every script they start</td>
+</tr>
+<tr>
+<td>Creature Breeder: 3 scripts, 0 run</td>
+<td>partial</td>
+<td>2 of the 33 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: whether a species of creature is available to choose / gives the sub-kind of an object (which animal, which building and so on); 2 of its 3 scripts call only working functions, 0 run with every script they start; quest: <a href="../story/silver_scrolls/the_creature_breeder.html">The Creature Breeder</a></td>
+</tr>
+<tr>
+<td>Game Over: 1 script, 0 run</td>
+<td>todo</td>
+<td>5 of the 34 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: fades all drawn text out / gives the position of a player's temple entrance / gives the position of a player's temple / sets the colour of drawn text; 0 of its 1 scripts call only working functions, 0 run with every script they start</td>
+</tr>
+<tr>
+<td>Land Control All: 5 scripts, 0 run</td>
+<td>partial</td>
+<td>3 of the 52 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: opens or closes an object (a chest, a gate, a phone box) / loads the next land (its land script) for the story / whether an object is blown about by the wind; 2 of its 5 scripts call only working functions, 2 run with every script they start</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-tutorial">The tutorial</h2>
+<p>1 source files, 19 scripts; 9 call only functions openblack has and 7 run with everything they start.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Land Control T: 19 scripts, 1 runs</td>
+<td>partial</td>
+<td>4 of the 59 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: whether a key is held down / whether an object can see the camera within an angle / whether the camera is within a turn (unconfirmed) / whether the player's mouse has a wheel; 9 of its 19 scripts call only working functions, 7 run with every script they start</td>
+</tr>
+</tbody>
+</table>
+<h2 id="land-1">Land 1</h2>
+<p>20 source files, 144 scripts; 70 call only functions openblack has and 63 run with everything they start.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Setup Land 1: 3 scripts, 0 run</td>
+<td>partial</td>
+<td>3 of the 14 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: gives a player influence everywhere (or takes it back) / gives a town's or villager's belief in a player / sets a town's or villager's belief in a player; 1 of its 3 scripts call only working functions, 1 run with every script they start</td>
+</tr>
+<tr>
+<td>Creature Guide: 15 scripts, 1 runs</td>
+<td>partial</td>
+<td>23 of the 98 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: makes a creature do an action (eat, throw, pick up, cast, dance and so on) on an object / updates the challenge log picture with what is going on / takes a picture of the camera's view for the challenge log in the temple / whether a creature is fighting; 7 of its 15 scripts call only working functions, 5 run with every script they start</td>
+</tr>
+<tr>
+<td>Citadel Guide: 2 scripts, 0 run</td>
+<td>done</td>
+<td>0 of the 39 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; 2 of its 2 scripts call only working functions, 2 run with every script they start; quest: <a href="../story/gold_scrolls/the_temple_is_finished.html">The Temple Is Finished</a></td>
+</tr>
+<tr>
+<td>Protect Gate Keys: 5 scripts, 0 run</td>
+<td>done</td>
+<td>0 of the 17 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; 5 of its 5 scripts call only working functions, 5 run with every script they start; quest: <a href="../story/gold_scrolls/choose_your_creature.html#the-stones-are-guarded">Choose Your Creature</a> (the gate-stone guards)</td>
+</tr>
+<tr>
+<td>Lost Brother: 14 scripts, 0 run</td>
+<td>partial</td>
+<td>5 of the 79 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: updates the challenge log picture with what is going on / takes a picture of the camera's view for the challenge log in the temple / puts a living thing into a script state that takes a position / puts a living thing into a script state that takes a number with a fraction; 5 of its 14 scripts call only working functions, 4 run with every script they start; quest: <a href="../story/gold_scrolls/the_lost_brother.html">The Lost Brother</a></td>
+</tr>
+<tr>
+<td>The Sculptor: 9 scripts, 1 runs</td>
+<td>partial</td>
+<td>4 of the 59 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: takes a picture of the camera's view for the challenge log in the temple / updates the challenge log picture with what is going on / fills a town, flock or container with things of a kind / turns a villager into a skeleton or back; 7 of its 9 scripts call only working functions, 7 run with every script they start; quest: <a href="../story/gold_scrolls/the_sculptor.html">The Sculptor</a></td>
+</tr>
+<tr>
+<td>Choose Your Creature: 5 scripts, 0 run</td>
+<td>partial</td>
+<td>8 of the 74 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: makes a creature do an action (eat, throw, pick up, cast, dance and so on) on an object / takes a picture of the camera's view for the challenge log in the temple / updates the challenge log picture with what is going on / gives the player a creature (makes an existing creature the player's own); 2 of its 5 scripts call only working functions, 2 run with every script they start; quest: <a href="../story/gold_scrolls/choose_your_creature.html">Choose Your Creature</a></td>
+</tr>
+<tr>
+<td>Creature Guardian: 9 scripts, 1 runs</td>
+<td>partial</td>
+<td>14 of the 61 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: makes a creature do an action (eat, throw, pick up, cast, dance and so on) on an object / updates the challenge log picture with what is going on / whether a creature is fighting / turns one of a creature's desires on or off; 2 of its 9 scripts call only working functions, 2 run with every script they start; quest: <a href="../story/silver_scrolls/the_ogre.html">The Ogre</a></td>
+</tr>
+<tr>
+<td>Creature Saving People: 4 scripts, 1 runs</td>
+<td>partial</td>
+<td>4 of the 51 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: takes a picture of the camera's view for the challenge log in the temple / whether a creature is holding an object in its hand / gives the town with a number from the land script / updates the challenge log picture with what is going on; 2 of its 4 scripts call only working functions, 2 run with every script they start; quest: <a href="../story/silver_scrolls/the_saviour.html">The Saviour</a></td>
+</tr>
+<tr>
+<td>Follow Us: 7 scripts, 0 run</td>
+<td>partial</td>
+<td>3 of the 94 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: whether an immersion (force feedback) effect exists / starts an immersion (force feedback) effect / makes villagers perform a dance around a place for a time; 5 of its 7 scripts call only working functions, 5 run with every script they start</td>
+</tr>
+<tr>
+<td>Leave Through Vortex L1: 1 script, 0 run</td>
+<td>todo</td>
+<td>3 of the 39 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: gives the sub-kind of an object (which animal, which building and so on) / gives the object a player's hand or a creature is holding / throws an object off along a heading at a speed; 0 of its 1 scripts call only working functions, 0 run with every script they start; quest: <a href="../story/gold_scrolls/leave_through_the_vortex_land_1.html">Leave Through the Vortex (Land 1)</a></td>
+</tr>
+<tr>
+<td>Pied Piper: 18 scripts, 0 run</td>
+<td>partial</td>
+<td>11 of the 81 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: makes a creature do an action (eat, throw, pick up, cast, dance and so on) on an object / takes a picture of the camera's view for the challenge log in the temple / whether a creature is holding an object in its hand / updates the challenge log picture with what is going on; 9 of its 18 scripts call only working functions, 5 run with every script they start; quest: <a href="../story/silver_scrolls/the_pied_piper.html">The Pied Piper</a></td>
+</tr>
+<tr>
+<td>Singing Stone Circle: 15 scripts, 1 runs</td>
+<td>partial</td>
+<td>5 of the 67 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: takes a picture of the camera's view for the challenge log in the temple / whether an object is blown about by the wind / updates the challenge log picture with what is going on / puts a living thing into a script state that takes a position; 11 of its 15 scripts call only working functions, 11 run with every script they start; quest: <a href="../story/silver_scrolls/the_singing_stones.html">The Singing Stones</a></td>
+</tr>
+<tr>
+<td>Take Over Villages L1: 1 script, 0 run</td>
+<td>done</td>
+<td>0 of the 15 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; 1 of its 1 scripts call only working functions, 1 run with every script they start</td>
+</tr>
+<tr>
+<td>The Hermit: 6 scripts, 0 run</td>
+<td>todo</td>
+<td>7 of the 63 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: whether a creature is holding an object in its hand / puts a living thing into a script state that takes a position / puts a living thing into a script state that takes a number with a fraction / takes a picture of the camera's view for the challenge log in the temple; 0 of its 6 scripts call only working functions, 0 run with every script they start; quest: <a href="../story/silver_scrolls/the_hermit.html">The Hermit</a></td>
+</tr>
+<tr>
+<td>The Lost Flock: 6 scripts, 0 run</td>
+<td>partial</td>
+<td>7 of the 63 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: takes a picture of the camera's view for the challenge log in the temple / updates the challenge log picture with what is going on / puts a living thing into a script state that takes a position / puts a living thing into a script state that takes a number with a fraction; 1 of its 6 scripts call only working functions, 1 run with every script they start; quest: <a href="../story/silver_scrolls/the_lost_flock.html">The Lost Flock</a></td>
+</tr>
+<tr>
+<td>The Missionaries: 15 scripts, 0 run</td>
+<td>partial</td>
+<td>7 of the 75 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: whether a creature is holding an object in its hand / updates the picture of a challenge log entry / gives the object a player's hand or a creature is holding / updates the challenge log picture with what is going on; 7 of its 15 scripts call only working functions, 7 run with every script they start; quest: <a href="../story/silver_scrolls/the_explorers.html">The Explorers</a></td>
+</tr>
+<tr>
+<td>Throwing Stones: 7 scripts, 0 run</td>
+<td>partial</td>
+<td>7 of the 57 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: whether a creature is holding an object in its hand / takes a picture of the camera's view for the challenge log in the temple / updates the challenge log picture with what is going on / runs a line of land script; 3 of its 7 scripts call only working functions, 3 run with every script they start; quest: <a href="../story/silver_scrolls/throwing_stones.html">Throwing Stones</a></td>
+</tr>
+<tr>
+<td>Magic Mushroom: 1 script, 0 run</td>
+<td>todo</td>
+<td>4 of the 48 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: takes a picture of the camera's view for the challenge log in the temple / whether an immersion (force feedback) effect exists / gives the state a living thing is in / sends an object towards a target over a time; 0 of its 1 scripts call only working functions, 0 run with every script they start; quest: <a href="../story/silver_scrolls/the_immersion_mushrooms.html">The Immersion Mushrooms</a></td>
+</tr>
+<tr>
+<td>Land Control 1: 1 script, 0 run</td>
+<td>todo</td>
+<td>1 of the 18 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: opens or closes an object (a chest, a gate, a phone box); 0 of its 1 scripts call only working functions, 0 run with every script they start</td>
+</tr>
+</tbody>
+</table>
+<h2 id="land-2">Land 2</h2>
+<p>26 source files, 128 scripts; 53 call only functions openblack has and 36 run with everything they start.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Setup Land 2: 2 scripts, 0 run</td>
+<td>partial</td>
+<td>1 of the 18 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: gives a player influence everywhere (or takes it back); 1 of its 2 scripts call only working functions, 1 run with every script they start</td>
+</tr>
+<tr>
+<td>Slavers Warning: 1 script, 0 run</td>
+<td>done</td>
+<td>0 of the 21 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; 1 of its 1 scripts call only working functions, 1 run with every script they start</td>
+</tr>
+<tr>
+<td>Sacrifice: 2 scripts, 0 run</td>
+<td>todo</td>
+<td>4 of the 49 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: takes a picture of the camera's view for the challenge log in the temple / gives how much has been sacrificed at a worship site / updates the challenge log picture with what is going on / gives the object a player's hand or a creature is holding; 0 of its 2 scripts call only working functions, 0 run with every script they start; quest: <a href="../story/silver_scrolls/the_sacrifice.html">The Sacrifice</a></td>
+</tr>
+<tr>
+<td>Baywatch: 3 scripts, 0 run</td>
+<td>partial</td>
+<td>6 of the 49 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: whether a creature is holding an object in its hand / takes a picture of the camera's view for the challenge log in the temple / updates the challenge log picture with what is going on / puts a living thing into a script state that takes a position; 1 of its 3 scripts call only working functions, 1 run with every script they start; quest: <a href="../story/silver_scrolls/the_sea.html">The Sea</a></td>
+</tr>
+<tr>
+<td>Land 2Shield Challenge: 1 script, 0 run</td>
+<td>todo</td>
+<td>9 of the 47 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: takes a picture of the camera's view for the challenge log in the temple / gives the object a player's hand or a creature is holding / moves a rival god's hand to a position at a speed / whether an object has been hit; 0 of its 1 scripts call only working functions, 0 run with every script they start; quest: <a href="../story/gold_scrolls/khazars_shield_challenge.html">Khazar's Shield Challenge</a></td>
+</tr>
+<tr>
+<td>Land 2Fireball Challenge: 2 scripts, 0 run</td>
+<td>todo</td>
+<td>7 of the 46 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: moves a rival god's hand to a position at a speed / takes a picture of the camera's view for the challenge log in the temple / gives the object a player's hand or a creature is holding / updates the challenge log picture with what is going on; 0 of its 2 scripts call only working functions, 0 run with every script they start; quest: <a href="../story/gold_scrolls/khazars_fireball_challenge.html">Khazar's Fireball Challenge</a> (with the "Miracle Challenge" scroll)</td>
+</tr>
+<tr>
+<td>Land 2Computer AI: 7 scripts, 0 run</td>
+<td>partial</td>
+<td>9 of the 30 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: sets a rival god's attitude to a player / moves a rival god's hand to a position at a speed / puts a rival god's hand at a position at once / gives where a rival god's hand is; 2 of its 7 scripts call only working functions, 0 run with every script they start</td>
+</tr>
+<tr>
+<td>Begin Land 2: 14 scripts, 0 run</td>
+<td>partial</td>
+<td>11 of the 69 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: moves a rival god's hand to a position at a speed / whether a rival god is ready / makes a rival god do an action at once / gives where a rival god's hand is; 4 of its 14 scripts call only working functions, 4 run with every script they start</td>
+</tr>
+<tr>
+<td>Learn Worshipping: 4 scripts, 0 run</td>
+<td>todo</td>
+<td>12 of the 64 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: moves a rival god's hand to a position at a speed / whether a rival god is ready / hands a rival god back to its own thinking / takes a picture of the camera's view for the challenge log in the temple; 0 of its 4 scripts call only working functions, 0 run with every script they start; quest: <a href="../story/gold_scrolls/worship_site.html">Worship Site</a></td>
+</tr>
+<tr>
+<td>Greedy Farmer: 10 scripts, 0 run</td>
+<td>partial</td>
+<td>6 of the 57 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: updates the challenge log picture with what is going on / whether a creature is holding an object in its hand / whether an object is in a flock / takes a picture of the camera's view for the challenge log in the temple; 2 of its 10 scripts call only working functions, 2 run with every script they start; quest: <a href="../story/silver_scrolls/the_greedy_farmer.html">The Greedy Farmer</a></td>
+</tr>
+<tr>
+<td>Idol Pyre: 1 script, 0 run</td>
+<td>todo</td>
+<td>4 of the 59 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: takes a picture of the camera's view for the challenge log in the temple / forgets the object last hit / updates the challenge log picture with what is going on / whether an object has been hit; 0 of its 1 scripts call only working functions, 0 run with every script they start; quest: <a href="../story/silver_scrolls/the_idol.html">The Idol</a></td>
+</tr>
+<tr>
+<td>Kill Khazar: 2 scripts, 0 run</td>
+<td>partial</td>
+<td>9 of the 61 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: makes a creature do an action (eat, throw, pick up, cast, dance and so on) on an object / sets how a creature's creed (its learnt behaviour) is shown: hand, scale, power, time / turns one of a creature's desires on or off (the second form, taking the creature as an object) / fills a town, flock or container with things of a kind; 1 of its 2 scripts call only working functions, 1 run with every script they start; quest: <a href="../story/gold_scrolls/nemesis_no.html">Nemesis. No!</a></td>
+</tr>
+<tr>
+<td>Leave Through Vortex L2: 1 script, 0 run</td>
+<td>done</td>
+<td>0 of the 27 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; 1 of its 1 scripts call only working functions, 1 run with every script they start; quest: <a href="../story/gold_scrolls/leave_through_the_vortex_land_2.html">Leave through the vortex (Land 2)</a></td>
+</tr>
+<tr>
+<td>Lethys Vortex: 3 scripts, 0 run</td>
+<td>partial</td>
+<td>7 of the 58 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: whether an object is blown about by the wind / moves a rival god's hand to a position at a speed / turns a rival god on or off (second form) / whether a rival god is ready; 1 of its 3 scripts call only working functions, 1 run with every script they start; quest: <a href="../story/gold_scrolls/lethys_has_taken_our_creature.html">Lethys has taken our Creature!</a></td>
+</tr>
+<tr>
+<td>Lost Treasure: 4 scripts, 0 run</td>
+<td>partial</td>
+<td>3 of the 45 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: takes a picture of the camera's view for the challenge log in the temple / fills a town, flock or container with things of a kind / makes a creature do an action (eat, throw, pick up, cast, dance and so on) on an object; 1 of its 4 scripts call only working functions, 1 run with every script they start; quest: <a href="../story/silver_scrolls/the_riddles.html">The Riddles</a></td>
+</tr>
+<tr>
+<td>Singing Stones Songs: 16 scripts, 5 run</td>
+<td>partial</td>
+<td>14 of the 72 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: updates the challenge log picture with what is going on / fills a town, flock or container with things of a kind / creates a patch of mist of a colour, size and transparency / fades mist from one size and transparency to another over a time; 10 of its 16 scripts call only working functions, 9 run with every script they start; quest: <a href="../story/silver_scrolls/the_singing_stones_land_2.html">The Singing Stones (land 2)</a></td>
+</tr>
+<tr>
+<td>Plague: 1 script, 0 run</td>
+<td>todo</td>
+<td>13 of the 58 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: poisons an object (food) or clears the poison / updates the challenge log picture with what is going on / whether a rival god is ready / takes a picture of the camera's view for the challenge log in the temple; 0 of its 1 scripts call only working functions, 0 run with every script they start; quest: <a href="../story/silver_scrolls/the_plague.html">The Plague</a></td>
+</tr>
+<tr>
+<td>Spiritual Healer: 7 scripts, 0 run</td>
+<td>partial</td>
+<td>3 of the 48 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: whether a creature is holding an object in its hand / gives the town with a number from the land script / gives a spot visual a target object; 2 of its 7 scripts call only working functions, 2 run with every script they start; quest: <a href="../story/silver_scrolls/the_spiritual_healer.html">The Spiritual Healer</a></td>
+</tr>
+<tr>
+<td>The Slavers: 23 scripts, 1 runs</td>
+<td>partial</td>
+<td>11 of the 76 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: whether a creature is holding an object in its hand / updates the challenge log picture with what is going on / takes a picture of the camera's view for the challenge log in the temple / gives a spot visual a target object; 12 of its 23 scripts call only working functions, 10 run with every script they start; quest: <a href="../story/silver_scrolls/the_slavers.html">The Slavers</a></td>
+</tr>
+<tr>
+<td>The Workshop: 2 scripts, 0 run</td>
+<td>partial</td>
+<td>10 of the 52 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: takes a picture of the camera's view for the challenge log in the temple / gives how much food or wood a store holds / updates the challenge log picture with what is going on / gives how many adults a building can hold; 1 of its 2 scripts call only working functions, 0 run with every script they start; quest: <a href="../story/gold_scrolls/the_workshop.html">The Workshop</a></td>
+</tr>
+<tr>
+<td>Hanoi Flood: 3 scripts, 1 runs</td>
+<td>partial</td>
+<td>1 of the 36 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: takes a picture of the camera's view for the challenge log in the temple; 1 of its 3 scripts call only working functions, 1 run with every script they start; quest: <a href="../story/silver_scrolls/the_beach_temple_puzzle.html">The Beach Temple Puzzle</a></td>
+</tr>
+<tr>
+<td>Tree Puzzle One: 1 script, 0 run</td>
+<td>partial</td>
+<td>0 of the 6 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; 1 of its 1 scripts call only working functions, 0 run with every script they start</td>
+</tr>
+<tr>
+<td>Learn Gestures: 2 scripts, 0 run</td>
+<td>todo</td>
+<td>12 of the 53 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: moves a rival god's hand to a position at a speed / hands a rival god back to its own thinking / takes food or wood out of a store / adds an action to a rival god's queue; 0 of its 2 scripts call only working functions, 0 run with every script they start; quest: <a href="../story/gold_scrolls/impress_village.html">Impress Village</a></td>
+</tr>
+<tr>
+<td>Learn Influence: 1 script, 0 run</td>
+<td>todo</td>
+<td>3 of the 31 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: moves a rival god's hand to a position at a speed / gives the town with a number from the land script / hands a rival god back to its own thinking; 0 of its 1 scripts call only working functions, 0 run with every script they start; quest: <a href="../story/gold_scrolls/impress_village.html#khazars-lesson-on-influence">Impress Village</a> (Khazar's lesson on influence)</td>
+</tr>
+<tr>
+<td>Final Gold Scroll: 4 scripts, 0 run</td>
+<td>partial</td>
+<td>3 of the 37 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: gives the town with a number from the land script / takes a picture of the camera's view for the challenge log in the temple / updates the challenge log picture with what is going on; 1 of its 4 scripts call only working functions, 1 run with every script they start; quest: <a href="../story/gold_scrolls/destroy_it.html">Destroy it!</a></td>
+</tr>
+<tr>
+<td>Land Control 2: 11 scripts, 0 run</td>
+<td>partial</td>
+<td>2 of the 10 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: gives the town with a number from the land script / gives how many towns a player has; 10 of its 11 scripts call only working functions, 0 run with every script they start</td>
+</tr>
+</tbody>
+</table>
+<h2 id="land-3">Land 3</h2>
+<p>9 source files, 28 scripts; 12 call only functions openblack has and 9 run with everything they start.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Setup Land 3: 2 scripts, 1 runs</td>
+<td>partial</td>
+<td>4 of the 11 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: sets a rival god's personality (a named set of behaviours) on or off / gives a player influence everywhere (or takes it back) / sets how allied two players are / lets the player's creature into the temple or keeps it out; 1 of its 2 scripts call only working functions, 1 run with every script they start</td>
+</tr>
+<tr>
+<td>Shaolin: 5 scripts, 0 run</td>
+<td>partial</td>
+<td>3 of the 50 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: takes a picture of the camera's view for the challenge log in the temple / gives a town's or villager's belief in a player / whether an object can see the camera within an angle; 4 of its 5 scripts call only working functions, 4 run with every script they start; quest: <a href="../story/silver_scrolls/the_shaolin.html">The Shaolin</a></td>
+</tr>
+<tr>
+<td>Leave Through Vortex L3: 1 script, 0 run</td>
+<td>done</td>
+<td>0 of the 17 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; 1 of its 1 scripts call only working functions, 1 run with every script they start; quest: <a href="../story/gold_scrolls/leave_through_the_vortex_land_3.html">Leave Through the Vortex (Land 3)</a></td>
+</tr>
+<tr>
+<td>Free The Creature: 8 scripts, 0 run</td>
+<td>partial</td>
+<td>15 of the 83 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: takes a picture of the camera's view for the challenge log in the temple / makes a creature do an action (eat, throw, pick up, cast, dance and so on) on an object / updates the challenge log picture with what is going on / moves a rival god's hand to a position at a speed; 2 of its 8 scripts call only working functions, 2 run with every script they start; quest: <a href="../story/gold_scrolls/so_you_couldnt_bear_to_be_without_your_creature.html">So You Couldn't Bear to Be Without Your Creature?</a>, <a href="../story/gold_scrolls/the_wolves_are_possessed.html">The Wolves Are Possessed</a>, <a href="../story/gold_scrolls/fire_fire_im_on_fire.html">Fire! Fire! I'm on Fire!</a></td>
+</tr>
+<tr>
+<td>Get Through Vortex L2: 4 scripts, 0 run</td>
+<td>partial</td>
+<td>2 of the 39 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: throws an object off along a heading at a speed / takes a picture of the camera's view for the challenge log in the temple; 1 of its 3 scripts call only working functions, 0 run with every script they start; quest: <a href="../story/gold_scrolls/so_you_couldnt_bear_to_be_without_your_creature.html">So You Couldn't Bear to Be Without Your Creature?</a></td>
+</tr>
+<tr>
+<td>Swap To Ape: 2 scripts, 0 run</td>
+<td>todo</td>
+<td>6 of the 53 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: puts a living thing into a script state that takes a position / puts a living thing into a script state that takes a number with a fraction / takes a picture of the camera's view for the challenge log in the temple / updates the challenge log picture with what is going on; 0 of its 2 scripts call only working functions, 0 run with every script they start; quest: <a href="../story/silver_scrolls/the_rejuvenator.html">The Rejuvenator</a></td>
+</tr>
+<tr>
+<td>Tree Puzzle Two: 1 script, 0 run</td>
+<td>partial</td>
+<td>0 of the 19 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; 1 of its 1 scripts call only working functions, 0 run with every script they start</td>
+</tr>
+<tr>
+<td>Throw Bloke: 4 scripts, 0 run</td>
+<td>partial</td>
+<td>4 of the 41 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: whether a creature is holding an object in its hand / makes a creature do an action (eat, throw, pick up, cast, dance and so on) on an object / gives the position of a creature's backside (where it poops) / sends an object towards a target over a time; 1 of its 4 scripts call only working functions, 1 run with every script they start</td>
+</tr>
+<tr>
+<td>Land Control 3: 1 script, 0 run</td>
+<td>partial</td>
+<td>calls no functions itself; 0 of its 1 scripts run with every script they start</td>
+</tr>
+</tbody>
+</table>
+<h2 id="land-4">Land 4</h2>
+<p>11 source files, 47 scripts; 24 call only functions openblack has and 19 run with everything they start.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Setup Land 4: 1 script, 0 run</td>
+<td>todo</td>
+<td>1 of the 5 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: opens or closes an object (a chest, a gate, a phone box); 0 of its 1 scripts call only working functions, 0 run with every script they start</td>
+</tr>
+<tr>
+<td>Land 4Meteorites: 25 scripts, 1 runs</td>
+<td>partial</td>
+<td>10 of the 93 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: takes a picture of the camera's view for the challenge log in the temple / turns a villager into a skeleton or back / whether a creature is holding an object in its hand / gives a town's or villager's belief in a player; 12 of its 25 scripts call only working functions, 10 run with every script they start; quest: <a href="../story/gold_scrolls/the_defending_ogres.html">The Defending Ogres</a>, <a href="../story/gold_scrolls/the_totem_puzzle.html">The Totem Puzzle</a>, <a href="../story/gold_scrolls/the_heartbroken_man.html">The Heartbroken Man</a>, <a href="../story/gold_scrolls/undead_village.html">Undead Village</a></td>
+</tr>
+<tr>
+<td>Land 4Ogre: 7 scripts, 0 run</td>
+<td>partial</td>
+<td>14 of the 72 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: makes a creature do an action (eat, throw, pick up, cast, dance and so on) on an object / whether a creature is holding an object in its hand / creates a creature of a species from another creature's mind at a position / turns one of a creature's desires on or off; 4 of its 7 scripts call only working functions, 4 run with every script they start; quest: <a href="../story/gold_scrolls/the_defending_ogres.html">The Defending Ogres</a></td>
+</tr>
+<tr>
+<td>Begin Land 4: 2 scripts, 0 run</td>
+<td>partial</td>
+<td>1 of the 34 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: makes a creature do an action (eat, throw, pick up, cast, dance and so on) on an object; 1 of its 2 scripts call only working functions, 0 run with every script they start</td>
+</tr>
+<tr>
+<td>Leave Through Vortex L4: 1 script, 0 run</td>
+<td>done</td>
+<td>0 of the 32 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; 1 of its 1 scripts call only working functions, 1 run with every script they start; quest: <a href="../story/gold_scrolls/leave_through_the_vortex_land_4.html">Leave Through the Vortex (Land 4)</a></td>
+</tr>
+<tr>
+<td>Fish Puzzle: 1 script, 0 run</td>
+<td>todo</td>
+<td>4 of the 41 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: fills a town, flock or container with things of a kind / takes a picture of the camera's view for the challenge log in the temple / updates the challenge log picture with what is going on / makes a creature do an action (eat, throw, pick up, cast, dance and so on) on an object; 0 of its 1 scripts call only working functions, 0 run with every script they start; quest: <a href="../story/silver_scrolls/the_fish_puzzle.html">The Fish Puzzle</a></td>
+</tr>
+<tr>
+<td>Blind Woman: 5 scripts, 0 run</td>
+<td>partial</td>
+<td>6 of the 69 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: makes a creature do an action (eat, throw, pick up, cast, dance and so on) on an object / takes a picture of the camera's view for the challenge log in the temple / whether a creature is fighting / fills a town, flock or container with things of a kind; 3 of its 5 scripts call only working functions, 3 run with every script they start; quest: <a href="../story/silver_scrolls/the_treacherous_path.html">The Treacherous Path</a></td>
+</tr>
+<tr>
+<td>Swap To Cow: 2 scripts, 0 run</td>
+<td>todo</td>
+<td>6 of the 44 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: makes a creature do an action (eat, throw, pick up, cast, dance and so on) on an object / takes a picture of the camera's view for the challenge log in the temple / whether a creature is holding an object in its hand / gives a position at a distance and angle from one place towards another; 0 of its 2 scripts call only working functions, 0 run with every script they start</td>
+</tr>
+<tr>
+<td>Take Over Villages L4: 1 script, 0 run</td>
+<td>done</td>
+<td>0 of the 2 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; 1 of its 1 scripts call only working functions, 1 run with every script they start</td>
+</tr>
+<tr>
+<td>Thesius Puzzle Land 4: 1 script, 0 run</td>
+<td>partial</td>
+<td>0 of the 7 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; 1 of its 1 scripts call only working functions, 0 run with every script they start</td>
+</tr>
+<tr>
+<td>Land Control 4: 1 script, 0 run</td>
+<td>partial</td>
+<td>calls no functions itself; 0 of its 1 scripts run with every script they start</td>
+</tr>
+</tbody>
+</table>
+<h2 id="land-5">Land 5</h2>
+<p>16 source files, 51 scripts; 22 call only functions openblack has and 18 run with everything they start.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Begin Land 5: 1 script, 0 run</td>
+<td>todo</td>
+<td>7 of the 48 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: moves a rival god's hand to a position at a speed / turns a rival god on or off (second form) / sets a rival god's attitude to a player / sets how allied two players are; 0 of its 1 scripts call only working functions, 0 run with every script they start; quest: <a href="../story/gold_scrolls/i_have_a_surprise_for_you.html">I have a surprise for you.</a></td>
+</tr>
+<tr>
+<td>Creature Mirror Fight: 1 script, 0 run</td>
+<td>todo</td>
+<td>10 of the 35 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: moves a rival god's hand to a position at a speed / makes a creature do an action (eat, throw, pick up, cast, dance and so on) on an object / whether a rival god is ready / gives the sub-kind of an object (which animal, which building and so on); 0 of its 1 scripts call only working functions, 0 run with every script they start</td>
+</tr>
+<tr>
+<td>Fire On High: 3 scripts, 0 run</td>
+<td>partial</td>
+<td>6 of the 46 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: whether an object is blown about by the wind / sends an object towards a target over a time / gives the total health of a town's buildings and villagers / gives the object a player's hand or a creature is holding; 1 of its 3 scripts call only working functions, 1 run with every script they start; quest: <a href="../story/silver_scrolls/the_heavenly_fire.html">The Heavenly Fire</a></td>
+</tr>
+<tr>
+<td>Lion Puzzle: 2 scripts, 0 run</td>
+<td>partial</td>
+<td>4 of the 41 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: gives the state a living thing is in / takes a picture of the camera's view for the challenge log in the temple / updates the challenge log picture with what is going on / makes a creature do an action (eat, throw, pick up, cast, dance and so on) on an object; 1 of its 2 scripts call only working functions, 1 run with every script they start; quest: <a href="../story/silver_scrolls/stanley_the_wolf.html">Stanley The Wolf</a></td>
+</tr>
+<tr>
+<td>Missionaries Returned: 1 script, 0 run</td>
+<td>todo</td>
+<td>1 of the 39 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: takes a picture of the camera's view for the challenge log in the temple; 0 of its 1 scripts call only working functions, 0 run with every script they start; quest: <a href="../story/silver_scrolls/the_explorers_again.html">The Explorers Again</a></td>
+</tr>
+<tr>
+<td>Swap To Brown Bear: 3 scripts, 0 run</td>
+<td>partial</td>
+<td>1 of the 41 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: takes a picture of the camera's view for the challenge log in the temple; 2 of its 3 scripts call only working functions, 2 run with every script they start; quest: <a href="../story/silver_scrolls/swap_to_brown_bear.html">Swap To Brown Bear</a></td>
+</tr>
+<tr>
+<td>The Big Fight: 8 scripts, 0 run</td>
+<td>partial</td>
+<td>14 of the 59 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: makes a creature do an action (eat, throw, pick up, cast, dance and so on) on an object / puts a rival god's hand at a position at once / gives a position at a distance and angle from one place towards another / whether a creature is fighting; 3 of its 8 scripts call only working functions, 1 run with every script they start; quest: <a href="../story/gold_scrolls/so_this_is_a_fight_to_the_death.html">So this is a fight to the death</a></td>
+</tr>
+<tr>
+<td>Throw Through Shield: 3 scripts, 0 run</td>
+<td>todo</td>
+<td>5 of the 45 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: gives a spot visual (a glow or mark) a target position / finds a flying thing of a kind within a radius / whether an object is under a miracle / gives a town's or villager's belief in a player; 0 of its 3 scripts call only working functions, 0 run with every script they start; quest: <a href="../story/gold_scrolls/nemesis_shielded_village.html">Nemesis's Shielded Village</a></td>
+</tr>
+<tr>
+<td>Volcano: 1 script, 1 runs</td>
+<td>done</td>
+<td>0 of the 2 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; 1 of its 1 scripts call only working functions, 1 run with every script they start</td>
+</tr>
+<tr>
+<td>Final Creature Sequence: 1 script, 0 run</td>
+<td>todo</td>
+<td>3 of the 32 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: lets a living thing's animation be sped up or slowed down / gives how much of its animation a living thing has played / makes a creature do an action (eat, throw, pick up, cast, dance and so on) on an object; 0 of its 1 scripts call only working functions, 0 run with every script they start; quest: <a href="../story/gold_scrolls/so_this_is_a_fight_to_the_death.html#into-the-volcano">So this is a fight to the death</a></td>
+</tr>
+<tr>
+<td>Japanese Traitor: 2 scripts, 0 run</td>
+<td>done</td>
+<td>0 of the 42 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; 2 of its 2 scripts call only working functions, 2 run with every script they start; quest: <a href="../story/silver_scrolls/the_japanese_traitor.html">The Japanese Traitor</a></td>
+</tr>
+<tr>
+<td>Setup Land 5: 1 script, 0 run</td>
+<td>todo</td>
+<td>2 of the 8 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: gives a player influence everywhere (or takes it back) / sets how allied two players are; 0 of its 1 scripts call only working functions, 0 run with every script they start</td>
+</tr>
+<tr>
+<td>Creature Curse: 6 scripts, 0 run</td>
+<td>partial</td>
+<td>1 of the 39 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: makes a creature do an action (eat, throw, pick up, cast, dance and so on) on an object; 4 of its 6 scripts call only working functions, 3 run with every script they start; quest: <a href="../story/gold_scrolls/i_have_a_surprise_for_you.html">I have a surprise for you.</a></td>
+</tr>
+<tr>
+<td>Control Nemesis Battle Strategy: 2 scripts, 0 run</td>
+<td>todo</td>
+<td>4 of the 16 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: sets a rival god's personality (a named set of behaviours) on or off / gives a town's or villager's belief in a player / makes a rival god do an action at once / whether a rival god is ready; 0 of its 2 scripts call only working functions, 0 run with every script they start</td>
+</tr>
+<tr>
+<td>Crusaders: 6 scripts, 0 run</td>
+<td>partial</td>
+<td>1 of the 55 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: takes a picture of the camera's view for the challenge log in the temple; 5 of its 6 scripts call only working functions, 5 run with every script they start; quest: <a href="../story/silver_scrolls/the_magic_dragon.html">The Magic Dragon</a></td>
+</tr>
+<tr>
+<td>Land Control 5: 10 scripts, 0 run</td>
+<td>partial</td>
+<td>20 of the 84 functions it calls log "not implemented" in <code>src/CHLApi.cpp</code>; first to do: draws text on the screen for a moment / sets the colour of drawn text / draws text on the screen at a place, a size and fading in / fades all drawn text out; 3 of its 10 scripts call only working functions, 2 run with every script they start; quest: <a href="../story/gold_scrolls/i_have_a_surprise_for_you.html">I have a surprise for you.</a>, <a href="../story/gold_scrolls/nemesis_shielded_village.html">Nemesis's Shielded Village</a>, <a href="../story/gold_scrolls/so_this_is_a_fight_to_the_death.html">So this is a fight to the death</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-missing-functions-that-block-the-most-scripts">The missing functions that block the most scripts</h2>
+<p>Each row is one function the challenge scripts call that openblack didn't have when this list was made, with how many scripts call it directly. Of the first ten, the dialogue and cut-scene ones are now done and reading and changing objects' properties are partial; bringing out the advisors, the next row, is done too.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lets go of the dialogue box (end of the dialogue block) — called directly by 296 scripts</td>
+<td>done</td>
+<td><code>EndDialogue</code>: <code>help::script_control::EndDialogue</code>, only for the task that holds the dialogue (<a href="challenge_natives_advisors_and_text.html">challenge_natives_advisors_and_text</a>)</td>
+</tr>
+<tr>
+<td>Whether the text on screen has been read (its speech finished or clicked past) — called directly by 267 scripts</td>
+<td>done</td>
+<td><code>TextRead</code>: <code>HelpSystem::IsTextRead</code> (<a href="challenge_natives_advisors_and_text.html">challenge_natives_advisors_and_text</a>)</td>
+</tr>
+<tr>
+<td>Takes the dialogue box for the script (start of the language's dialogue block); waits while another script has it — called directly by 265 scripts</td>
+<td>done</td>
+<td><code>StartDialogue</code>: <code>help::script_control::StartDialogue</code> (<code>src/Help/ScriptControl.cpp</code>); the advisors going home on it are not ported (<a href="challenge_natives_advisors_and_text.html">challenge_natives_advisors_and_text</a>)</td>
+</tr>
+<tr>
+<td>Shows a line of text (and plays its speech) in the dialogue box, optionally waiting for the player to click on — called directly by 264 scripts</td>
+<td>done</td>
+<td><code>RunText</code>: <code>HelpSystem::RunText</code> (<code>src/Help/HelpSystem.cpp</code>), the dialogue text drawn and its speech played; <code>test/test_help_text_display.cpp</code> (<a href="challenge_natives_advisors_and_text.html">challenge_natives_advisors_and_text</a>)</td>
+</tr>
+<tr>
+<td>Reads one of an object's properties (health, age, food, wood, altitude, belief, scale, speed and dozens more) — called directly by 257 scripts</td>
+<td>partial</td>
+<td><code>GetProperty</code>: scale and age of villagers and animals, speed, flying, drowning, the built percentage, a highlight's height; the other properties, other things' scale and height and the creature's age log "not implemented"; <code>test/test_script_living_props.cpp</code> (<a href="challenge_natives_objects_and_world.html">challenge_natives_objects_and_world</a>)</td>
+</tr>
+<tr>
+<td>Gives the camera back to the player at the end of a cut scene — called directly by 238 scripts</td>
+<td>done</td>
+<td><code>EndCameraControl</code>: <code>help::script_control::EndCameraControl</code> then <code>script_camera::End</code> (the player's mode from where the camera is, the lens back to 70 degrees); a stopped task gives it back too (<a href="challenge_natives_camera.html">challenge_natives_camera</a>)</td>
+</tr>
+<tr>
+<td>Puts the game back to its normal speed after a cut scene — called directly by 238 scripts</td>
+<td>done</td>
+<td><code>EndGameSpeed</code>: <code>help::script_control::EndGameSpeed</code> gives the speed back to normal for the holding task (or nobody); a stopped task also gives it back (<code>OnTaskStopped</code>) (<a href="challenge_natives_game_flow.html">challenge_natives_game_flow</a>)</td>
+</tr>
+<tr>
+<td>Takes the camera from the player at the start of a cut scene (part of the language's cinema and camera blocks) — called directly by 181 scripts</td>
+<td>done</td>
+<td><code>StartCameraControl</code>: <code>help::script_control::StartCameraControl</code> and <code>script_camera::BeginFrom</code>, which takes over the player's zoomers; no camera mode inside the temple (<a href="challenge_natives_camera.html">challenge_natives_camera</a>)</td>
+</tr>
+<tr>
+<td>Puts the game at cinema speed for a cut scene (part of the cinema block) — called directly by 181 scripts</td>
+<td>done</td>
+<td><code>StartGameSpeed</code>: <code>help::script_control::StartGameSpeed</code> (<code>src/Help/ScriptControl.cpp</code>): the task takes the game speed when nobody holds it. Our wiki differs: the original only takes control of the game speed here and does not change it; the speed changes through set game speed (<a href="../../intro.html#flow">intro</a>) (<a href="challenge_natives_game_flow.html">challenge_natives_game_flow</a>)</td>
+</tr>
+<tr>
+<td>Changes one of an object's properties — called directly by 175 scripts</td>
+<td>partial</td>
+<td><code>SetProperty</code>: scale, speed and age of villagers and animals, a highlight's height and the built percentage; the other properties log "not implemented" (<a href="challenge_natives_objects_and_world.html">challenge_natives_objects_and_world</a>)</td>
+</tr>
+<tr>
+<td>Brings the good or evil advisor out onto the screen — called directly by 167 scripts</td>
+<td>done</td>
+<td><code>SpiritEject</code> in <code>src/CHLApi.cpp</code>: the advisor controller (<code>src/Help/SpiritsRuntime.h</code>) ejects the spirit, a help script's one appears; drawn and moving in game; <code>test/test_spirits.cpp</code> (<a href="challenge_natives_advisors_and_text.html">challenge_natives_advisors_and_text</a>)</td>
+</tr>
+<tr>
+<td>Glides the camera's eye to a position over a number of seconds — called directly by 162 scripts</td>
+<td>done</td>
+<td><code>MoveCameraPosition</code>: <code>script_camera::MovePosition</code>, in seconds of the wall clock; <code>test/test_script_camera.cpp</code> (<a href="challenge_natives_camera.html">challenge_natives_camera</a>)</td>
+</tr>
+<tr>
+<td>Glides the camera's point of view to a position over a number of seconds — called directly by 161 scripts</td>
+<td>done</td>
+<td><code>MoveCameraFocus</code>: <code>script_camera::MoveFocus</code> (<a href="challenge_natives_camera.html">challenge_natives_camera</a>)</td>
+</tr>
+<tr>
+<td>Makes a living thing walk to a position, ending within a radius of it — called directly by 156 scripts</td>
+<td>partial</td>
+<td><code>MoveGameThing</code>: villagers (<code>ecs::villager::SetupMoveToPos</code>), animals (<code>ecs::animal_ai::ScriptMoveTo</code>), flocks and other objects; a creature logs "not implemented" (<a href="challenge_natives_objects_and_world.html">challenge_natives_objects_and_world</a>)</td>
+</tr>
+<tr>
+<td>Whether the camera has finished a glide — called directly by 153 scripts</td>
+<td>done</td>
+<td><code>HasCameraArrived</code>: <code>script_camera::ScriptArrived</code> in the script mode, else the player's zoomers against their destinations (<a href="challenge_natives_camera.html">challenge_natives_camera</a>)</td>
+</tr>
+<tr>
+<td>Puts a villager, animal or other living thing into one of its script states (walking to a place, dancing, sitting and so on) — called directly by 150 scripts</td>
+<td>partial</td>
+<td><code>SetScriptState</code>: villagers and animals (and each member of a script container) through <code>ecs::script_held::SetLivingScriptState</code>; a creature logs "not implemented" (<a href="challenge_natives_objects_and_world.html">challenge_natives_objects_and_world</a>)</td>
+</tr>
+<tr>
+<td>Puts a living thing into a script state that takes a whole number — called directly by 140 scripts</td>
+<td>partial</td>
+<td><code>SetScriptUlong</code>: a villager's script clip and times (<code>ecs::villager::SetScriptAnimation</code>), also for a container's villagers; a creature logs "not implemented" (<a href="challenge_natives_objects_and_world.html">challenge_natives_objects_and_world</a>)</td>
+</tr>
+<tr>
+<td>Turns an object to face a position — called directly by 138 scripts</td>
+<td>partial</td>
+<td><code>SetFocus</code>: villagers and animals snap their yaw (<code>ecs::living::SetFocus</code>), also a container's members; creatures and other objects log "not implemented" (<a href="challenge_natives_objects_and_world.html">challenge_natives_objects_and_world</a>)</td>
+</tr>
+<tr>
+<td>Deletes an object, plainly, fading it away, exploding it or with the temple's explosion — called directly by 121 scripts</td>
+<td>partial</td>
+<td><code>ObjectDelete</code>: modes 0 to 2 delete the thing and a container is disbanded; the fade ghost and the break-up are not drawn, and the creature's fizz, the temple heart and puzzle games log "not implemented" (<a href="challenge_natives_objects_and_world.html">challenge_natives_objects_and_world</a>)</td>
+</tr>
+<tr>
+<td>Sends the good or evil advisor back off the screen — called directly by 101 scripts</td>
+<td>done</td>
+<td><code>SpiritHome</code>: <code>HelpSystem::SpiritHome</code>, a help script's spirit vanishes and any other flies home (<a href="challenge_natives_advisors_and_text.html">challenge_natives_advisors_and_text</a>)</td>
+</tr>
+<tr>
+<td>Whether a living thing has finished the animation or state the script gave it — called directly by 97 scripts</td>
+<td>partial</td>
+<td><code>Played</code>: villagers (<code>ecs::villager::IsScriptAnimationComplete</code>) and puzzle games; animals and creatures log "not implemented" and give false (<a href="challenge_natives_objects_and_world.html">challenge_natives_objects_and_world</a>)</td>
+</tr>
+<tr>
+<td>Hands an object back to the game after a script has controlled it (it goes back to its own life) — called directly by 96 scripts</td>
+<td>partial</td>
+<td><code>ReleaseFromScript</code>: <code>ecs::script_held::ReleaseFromScript</code> (<code>src/ECS/ScriptHeld.cpp</code>): villagers decide what to do (in the physics once out), animals wander, a flock's controlled members are released; a creature's and a ball's release and the music are not ported; <code>test/test_release_from_script.cpp</code> (<a href="challenge_natives_objects_and_world.html">challenge_natives_objects_and_world</a>)</td>
+</tr>
+<tr>
+<td>Creates a timer running for a number of seconds — called directly by 84 scripts</td>
+<td>done</td>
+<td><code>CreateTimer</code>: <code>ecs::script_timer::Create</code> makes a timer thing held by the script (<code>ecs::script_held::AddScriptThing</code>) (<a href="challenge_natives_game_flow.html">challenge_natives_game_flow</a>)</td>
+</tr>
+<tr>
+<td>Gives the time a timer has left — called directly by 79 scripts</td>
+<td>done</td>
+<td><code>GetTimerTimeRemaining</code>: <code>ecs::script_timer::Remaining</code>, nought once out or for a thing that is not a timer; <code>test/test_timers_events.cpp</code> (<a href="challenge_natives_game_flow.html">challenge_natives_game_flow</a>)</td>
+</tr>
+<tr>
+<td>Creates a challenge marker (the bronze, silver or gold scroll and its signpost) at a position — called directly by 78 scripts</td>
+<td>done</td>
+<td><code>CreateHighlight</code>: <code>ecs::script_highlight::Create</code> (<code>src/ECS/ScriptHighlight.cpp</code>), drawn and tapped in game; <code>test/test_script_highlight.cpp</code>; the creating script's debug name is not kept (<a href="challenge_natives_advisors_and_text.html">challenge_natives_advisors_and_text</a>)</td>
+</tr>
+<tr>
+<td>Takes a picture of the camera's view for the challenge log in the temple — called directly by 76 scripts</td>
+<td>todo</td>
+<td><code>Snapshot</code> logs "not implemented" (no challenge log) (<a href="challenge_natives_camera.html">challenge_natives_camera</a>)</td>
+</tr>
+<tr>
+<td>Finds an object of a kind within a radius of a position — called directly by 70 scripts</td>
+<td>done</td>
+<td><code>CallNear</code>: <code>FindForScript</code> with the radius and the distance check (<a href="challenge_natives_objects_and_world.html">challenge_natives_objects_and_world</a>)</td>
+</tr>
+<tr>
+<td>Closes the dialogue box — called directly by 70 scripts</td>
+<td>done</td>
+<td><code>GameCloseDialogue</code>: <code>HelpSystem::CloseDialogue</code> (<a href="challenge_natives_advisors_and_text.html">challenge_natives_advisors_and_text</a>)</td>
+</tr>
+<tr>
+<td>Sets a timer's time — called directly by 68 scripts</td>
+<td>done</td>
+<td><code>SetTimerTime</code>: <code>ecs::script_timer::SetTime</code> (<code>src/ECS/ScriptTimer.cpp</code>) restarts the timer from this turn; a spell dispenser takes it as its period (<a href="challenge_natives_game_flow.html">challenge_natives_game_flow</a>)</td>
+</tr>
+<tr>
+<td>Draws an object in full detail however far away it is — called directly by 66 scripts</td>
+<td>done</td>
+<td><code>SetHighGraphicsDetail</code>: <code>ecs::super_villager::SetHighGraphicsDetail</code> swaps in the high-detail family mesh with its eyes, drawn in game; <code>test/test_super_villager_eyes.cpp</code> (<a href="challenge_natives_objects_and_world.html">challenge_natives_objects_and_world</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="globals-and-saving">Globals and saving</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The 398 global variables (challenge progress flags such as whether a wonder was built or the ark sailed, chosen creature, counters) are shared by every script</td>
+<td>done</td>
+<td>held by the VM (see ../engine/script_vm.md)</td>
+</tr>
+<tr>
+<td>The scripts' state, globals and running tasks are written into a saved game and read back, so a challenge carries on where it was</td>
+<td>partial</td>
+<td>the VM can write and read its state; openblack has no saved games (see ../engine/saving_and_loading.md)</td>
+</tr>
+<tr>
+<td>The temple's challenge log keeps a picture of each challenge taken by the scripts</td>
+<td>todo</td>
+<td><code>Snapshot</code>, <code>UpdateSnapshot</code> and <code>UpdateSnapshotPicture</code> log "not implemented"</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

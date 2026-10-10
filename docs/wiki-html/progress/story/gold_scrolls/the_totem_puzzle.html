@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Totem Puzzle — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-totem-puzzle">The Totem Puzzle</a><ul>
+<li><a href="#where-it-sits-in-the-land">Where it sits in the land</a></li>
+<li><a href="#the-stone-and-the-towers">The stone and the towers</a></li>
+<li><a href="#how-it-appears">How it appears</a></li>
+<li><a href="#the-elders-introduction-first-attempt-only">The elder's introduction (first attempt only)</a></li>
+<li><a href="#later-attempts">Later attempts</a></li>
+<li><a href="#the-bells">The bells</a></li>
+<li><a href="#failing">Failing</a></li>
+<li><a href="#success">Success</a></li>
+<li><a href="#what-it-stops-the-fireballs">What it stops: the fireballs</a></li>
+<li><a href="#what-it-unlocks-next">What it unlocks next</a></li>
+<li><a href="#soft-locks">Soft-locks</a></li>
+<li><a href="#creature">Creature</a></li>
+<li><a href="#quirks-unused-and-cut-parts">Quirks, unused and cut parts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-totem-puzzle">The Totem Puzzle</h1>
+<p>The gold scroll on the fourth land that frees the first of Nemesis's Guardian Stones, the one sealed under a spiritual
+shield beside the Japanese village, which calls down the fireballs. Five bell towers (totems) stand round the stone; the
+village elder asks the player to work out their secret. It is a "follow the bells" memory game: the towers ring a
+sequence and the player clicks them back in the same order, four rounds of growing length, with the time allowed to
+click shrinking each round.</p>
+<p><strong>Land:</strong> 4 · <strong>Giver:</strong> the Japanese village's elder, at the bell towers by the village · <strong>Script:</strong> Land4Puzzle (in
+Land4Meteorites) · <strong>Reward:</strong> the fire Guardian Stone is destroyed and the fireballs stop for good · <strong>Repeatable:</strong>
+retried until solved (each failure needs the scroll clicked again); not after</p>
+<p>The land as a whole is in <a href="../land_4.html">../land_4.md</a>; the other stones are freed by
+<a href="the_heartbroken_man.html">The Heartbroken Man</a> and <a href="the_defending_ogres.html">The Defending Ogres</a>. The two raised totems
+that cure the skeletons belong to <a href="undead_village.html">Undead Village</a>, a different puzzle.</p>
+<p>Sources: the land's challenge scripts (the original source text, which matches the shipped <code>challenge.chl</code>) and the
+game's text table (<code>Scripts/InfoScript2.txt</code>) for every line and its voice. openblack's state is judged on this tree:
+the story's top script always runs the first land's control script first, the map-loading command (<code>LoadMap</code> in
+<code>src/CHLApi.cpp</code>) is empty and the first land stalls long before its end, so this quest never runs. Rows are partial
+only where every command they need works in openblack.</p>
+<p><strong>Progress: 0/65 done, 0 partial — 0%</strong></p>
+<h2 id="where-it-sits-in-the-land">Where it sits in the land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's control script starts the quest in the background when the land begins</td>
+<td>todo</td>
+<td><code>LandControl4</code> never runs (see <a href="../../scripts/land4_script.html">../../scripts/land4_script.md</a>); <code>LOAD_MAP</code> is empty</td>
+</tr>
+<tr>
+<td>The man who explains the curse describes this stone first: "So he set three Guardian Stones to control this land." "The first lies under a Spiritual Shield." "Even the wisest of our people don't know how to reach it."</td>
+<td>todo</td>
+<td>his scene is covered with <a href="the_defending_ogres.html">The Defending Ogres</a>; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>After his story, every 3 minutes until the player's belief in the Japanese village reaches 0.3 (or the village is gone), both advisors step out, the good one pointing at the village: "Leader, let's start impressing the Japanese village." Evil: "If it means we get our hands on the Guardian Stone, I'm for it."</td>
+<td>todo</td>
+<td><code>BeliefForPlayer</code> is a stub; the advisors are real</td>
+</tr>
+<tr>
+<td>Its intro is what lets <a href="the_heartbroken_man.html">The Heartbroken Man</a> start: that quest waits for the elder's introduction to finish</td>
+<td>todo</td>
+<td>plain script flag; see <a href="the_heartbroken_man.html">The Heartbroken Man</a>; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Breaking this stone is one of the three the land waits for before the <a href="undead_village.html">Undead Village</a> and the way out</td>
+<td>todo</td>
+<td>plain script flags; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-stone-and-the-towers">The stone and the towers</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>From the start of the land a small Guardian Stone (a meteor at a third of its size, 2 off the ground) sits by the Japanese village, indestructible, not moveable, not pick-up, smoking (a bonfire effect 25 times normal size)</td>
+<td>todo</td>
+<td><code>CREATE</code> makes the meteor, its three flags and <code>SpecialEffectPosition</code> are real; the height (YPos) is handled; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>It is sealed by two permanent miracles cast on it: a physical shield of radius 15 and a spiritual shield of radius 7</td>
+<td>todo</td>
+<td><code>SpellAtPos</code> casts both shields (<a href="../../miracles/physical_shield.html">../../miracles/physical_shield.md</a>, <a href="../../miracles/spiritual_shield.html">../../miracles/spiritual_shield.md</a>); never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Five bell towers are built round it in an arc, each a totem at full height, turned 340, 10, 50, 80 and 100 degrees</td>
+<td>todo</td>
+<td><code>CREATE</code> of a totem is not done (<code>CreateScriptObject</code> leaves it to its default case)</td>
+</tr>
+<tr>
+<td>None of the towers can be picked up</td>
+<td>todo</td>
+<td>the towers are never made</td>
+</tr>
+<tr>
+<td>The shields are what keeps the player from simply hitting the stone; nothing else in the script protects it</td>
+<td>todo</td>
+<td>the same script; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-it-appears">How it appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The scroll only comes once the player owns the Japanese village, it has been destroyed, or all its people are dead; this is checked every 10 seconds</td>
+<td>todo</td>
+<td>the town owner and population reads are stubs or unhandled</td>
+</tr>
+<tr>
+<td>A gold scroll appears just north of the towers and its challenge is made the current one</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>While it is not clicked, whenever the camera is within 100 and looking at it, at most every 30 seconds the good advisor steps out, points at it and says "Your godly attention is required here, Leader."</td>
+<td>todo</td>
+<td>the notify script calls real natives; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Clicking it removes the scroll and starts an attempt</td>
+<td>todo</td>
+<td><code>GameThingClicked</code> and <code>ObjectDelete</code> are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-elders-introduction-first-attempt-only">The elder's introduction (first attempt only)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A cut scene begins with the generic script music (number 1); the camera glides over 4 seconds to look at the towers</td>
+<td>todo</td>
+<td><code>StartMusic</code> and the camera are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The elder (a Japanese farmer, drawn in high detail) is made among the towers and walks at 0.4 speed past one spot to a stop before the camera</td>
+<td>todo</td>
+<td><code>CREATE</code> makes villagers and <code>MoveGameThing</code> walks them; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>He turns to the camera, prays, stands out of his prayer and gossips on a loop</td>
+<td>todo</td>
+<td>villager animations and <code>SetFocus</code> are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The elder: "Hail, spiritual leader!"</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>"I am the Village elder. I have tried to learn the secrets of the bell towers."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>He walks on at 0.2 speed with a beckoning walk; 2 seconds later the camera rises over 4 seconds to look down over all five towers</td>
+<td>todo</td>
+<td>real villager and camera natives; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>"But they are too much for my old brain. Perhaps you could solve the puzzle."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>"Good luck. I'll be praying for you."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The challenge log records the quest: title "The Totem Puzzle", progress 0, alignment 0, with the reminder: the evil advisor saying "Let's solve the puzzle and destroy the Guardian Stone."</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>The elder is removed, the music stops and the cut scene ends</td>
+<td>todo</td>
+<td><code>ObjectDelete</code> and <code>StopMusic</code> are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The flag that starts The Heartbroken Man is raised</td>
+<td>todo</td>
+<td>plain script flag; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="later-attempts">Later attempts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>From the second attempt on, a short cut scene instead: the camera rises over the towers and the evil advisor says "Let's solve the puzzle and destroy the Guardian Stone."</td>
+<td>todo</td>
+<td>real camera and advisor natives; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-bells">The bells</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>During an attempt the land's fireball waves are held where they are (no switching on or off, no advisor talk about them)</td>
+<td>todo</td>
+<td>plain script flag; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The towers show a sequence: each tower in turn flashes (an appearing sparkle for 2 seconds) and rings its own bell note, one a second</td>
+<td>todo</td>
+<td><code>SpecialEffectPosition</code> and <code>PlaySoundEffect</code> are real, but the towers are never made</td>
+</tr>
+<tr>
+<td>Clicks made while the sequence plays are thrown away: each wait for a click starts by clearing the last clicked object</td>
+<td>todo</td>
+<td>the towers are never made; <code>ClearClickedObject</code> is real</td>
+</tr>
+<tr>
+<td>Clicking a tower flashes it and rings its bell; the first tower clicked is taken as the answer for that step, right or wrong</td>
+<td>todo</td>
+<td>the towers are never made; <code>GameThingClicked</code> is real</td>
+</tr>
+<tr>
+<td>Round 1: towers 1, 2, 3 (three notes). The player has 10 seconds for the first click and 5 for each after</td>
+<td>todo</td>
+<td>the towers are never made</td>
+</tr>
+<tr>
+<td>Round 2: 1, 2, 3, 5, 2 (five notes). 10 seconds for the first click, 5 for each after</td>
+<td>todo</td>
+<td>the towers are never made</td>
+</tr>
+<tr>
+<td>Round 3: 1, 2, 3, 5, 2, 3, 1 (seven notes). 5 seconds for the first click, 3 for each after</td>
+<td>todo</td>
+<td>the towers are never made</td>
+</tr>
+<tr>
+<td>Round 4: 1, 2, 3, 5, 2, 3, 1, 4, 1 (nine notes). 3 seconds for the first click, 2 for each after</td>
+<td>todo</td>
+<td>the towers are never made</td>
+</tr>
+<tr>
+<td>Every round starts with the same notes as the one before: each is the last one with notes added</td>
+<td>todo</td>
+<td>the towers are never made</td>
+</tr>
+<tr>
+<td>A round answered fully plays a stone chime at the camera and, after 3 seconds, the next round's sequence</td>
+<td>todo</td>
+<td>the towers are never made</td>
+</tr>
+<tr>
+<td>A wrong tower, or running out of time on any click, ends the attempt there</td>
+<td>todo</td>
+<td>the towers are never made</td>
+</tr>
+</tbody>
+</table>
+<h2 id="failing">Failing</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A failed attempt plays the "bad stone" sound at the scroll's spot</td>
+<td>todo</td>
+<td><code>PlaySoundEffect</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The first failure: a cut scene, the camera moves over 4 seconds; the elder is made again near the scroll, faces the camera and gossips: "That's the same problem I had!" "You'll get the hang of it though."</td>
+<td>todo</td>
+<td>real villager, camera and text natives; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The camera moves again over 4 seconds: "To try again, activate the Scroll once more." Then the elder is removed</td>
+<td>todo</td>
+<td>real camera and text natives; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Every later failure: the evil advisor steps out alone: "Huh. Looks like you messed it up, Boss."</td>
+<td>todo</td>
+<td><code>SpiritEject</code> and <code>RunText</code> are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The fireball waves may change again; a new scroll appears at the same spot and the whole puzzle restarts from round 1 when clicked</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="success">Success</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>All four rounds answered: a beam explosion (2 seconds) bursts at each tower; a second later all five towers are destroyed with explosions</td>
+<td>todo</td>
+<td>the towers are never made</td>
+</tr>
+<tr>
+<td>The challenge log entry is updated: progress 1, alignment 0, and its reminder becomes the good advisor's "Raise all the Totems to get the Guardian Stone."</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>Both shields round the stone are removed</td>
+<td>todo</td>
+<td><code>ObjectDelete</code> of a spell is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The fireballs are forced on for the cut scene, so the player sees them stop</td>
+<td>todo</td>
+<td>plain script flag; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>After 2 seconds a cut scene: the camera moves to the stone over 6 seconds (4 to look at it) and holds 2 seconds</td>
+<td>todo</td>
+<td>real camera natives; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The good advisor points at the stone: "You solved the puzzle and got the Guardian Stone!" and goes home</td>
+<td>todo</td>
+<td>advisors and texts are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The Guardian Stones music starts; the camera shakes within 300 (amplitude 0.1, 5 seconds) and follows the stone as it rises a tenth at a time to 20 off the ground</td>
+<td>todo</td>
+<td><code>StartMusic</code>, <code>ShakeCamera</code>, <code>FocusFollow</code> and the height (YPos) are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>A bang and a flash (6 seconds) go off, the stone is destroyed with an explosion and the stone-explosion sound plays</td>
+<td>todo</td>
+<td><code>SpecialEffectPosition</code> and <code>PlaySoundEffect</code> are real; which <code>ObjectDelete</code> mode the stone uses was not checked</td>
+</tr>
+<tr>
+<td>A line in the good advisor's voice (the advisor has already been sent home): "That part of Nemesis just got vapourised."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The screen fades, the camera cuts to look over the home village's skies and fades back in; after 2 seconds the fire stone counts as broken</td>
+<td>todo</td>
+<td>fade and camera cut are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>9 seconds later the evil advisor: "Where are the fireballs? They've stopped!" then "Hmm! I think I preferred it before."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The music stops, the force on the fireballs is dropped and the stone's smoke is removed</td>
+<td>todo</td>
+<td><code>StopMusic</code> and <code>ObjectDelete</code> are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-it-stops-the-fireballs">What it stops: the fireballs</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Until this stone breaks, fireballs (level 1 fireball miracles) are thrown from a spot in the sky at five targets round the land, each scattered by up to 50 (one up to 100)</td>
+<td>todo</td>
+<td><code>SpellAtPos</code> casts fireballs; covered with the land in <a href="../land_4.html">../land_4.md</a>; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The fireballs come in waves: off for the first 4 minutes, then 2 minutes on and 2 off; the advisors say "Oh. The fireballs have stopped!" / "For now, at least." and "Oh dear. Here come the fireballs again."</td>
+<td>todo</td>
+<td>timers and advisors are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Once the home village's worship site is built and its centre is built, each new wave comes with a warning, "Some of those fiery orbs are getting close to our Village!", and 30 seconds later the fireballs turn aggressive: aimed at the village at double strength</td>
+<td>todo</td>
+<td>the built percentage read and the advisors are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>When the stone breaks, every fireball thrower stops for good</td>
+<td>todo</td>
+<td>plain script flag; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The fire effect's wait between fireballs is meant to be random, but its upper bound is never set (the source sets the lower one twice), so the wait is drawn between the lower bound and 0</td>
+<td>todo</td>
+<td>the same script; <code>Random</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-it-unlocks-next">What it unlocks next</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>With the darkness and lightning stones also broken, the land moves on to the <a href="undead_village.html">Undead Village</a></td>
+<td>todo</td>
+<td>plain script flags; see <a href="undead_village.html">Undead Village</a>; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="soft-locks">Soft-locks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The puzzle can be retried for ever, so it cannot lock the story by failing</td>
+<td>todo</td>
+<td>the towers are never made, so it can never be solved</td>
+</tr>
+<tr>
+<td>It never starts while the Japanese village stands with people in it and is not the player's; the land cannot finish until the player deals with that village</td>
+<td>todo</td>
+<td>the town owner and population reads are stubs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creature">Creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature plays no part; only the player's clicks on the towers count</td>
+<td>todo</td>
+<td>the same script; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="quirks-unused-and-cut-parts">Quirks, unused and cut parts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The title is "The Totem Puzzle" because the bell towers are totem objects, but the game is a memory game of bells; the reminder given on success ("Raise all the Totems…") belongs to a totem-raising puzzle</td>
+<td>todo</td>
+<td>the same script; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>A first version of this quest used the game's built-in totem puzzle (the third totem layout) at the stone and waited for it to be solved; it is left commented out</td>
+<td>n/a</td>
+<td>never in the shipped game</td>
+</tr>
+<tr>
+<td>A separate, bronze "Did you know?" totem puzzle stands north-west of the Japanese village (the same built-in third totem layout, with a 30-radius ring of influence round it): solving it gives a shield miracle dispenser; it is not part of this gold scroll</td>
+<td>todo</td>
+<td><code>JapaneseTotemPuzzle</code> makes a puzzle game (<code>CREATE</code> of a puzzle game, <code>ecs::CreatePuzzleGame</code>, <code>src/ECS/PuzzleGames</code>); never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>A line from the elder, "The rewards are surely worth the effort. But you must first gain influence over them.", is in the text table but cut from the scene</td>
+<td>n/a</td>
+<td>cut from the scene</td>
+</tr>
+<tr>
+<td>A test launcher, "Simon Says" (not compiled into the game), runs this quest on its own</td>
+<td>n/a</td>
+<td>never in the shipped <code>challenge.chl</code></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

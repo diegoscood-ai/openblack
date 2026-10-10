@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Spiritual Healer — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-spiritual-healer">The Spiritual Healer</a><ul>
+<li><a href="#what-it-is">What it is</a></li>
+<li><a href="#how-it-starts">How it starts</a></li>
+<li><a href="#the-healers-rounds">The healer's rounds</a></li>
+<li><a href="#keeping-the-village-young">Keeping the village young</a></li>
+<li><a href="#taking-the-children">Taking the children</a></li>
+<li><a href="#picking-him-up">Picking him up</a></li>
+<li><a href="#killing-or-banishing-him">Killing or banishing him</a></li>
+<li><a href="#aftermath">Aftermath</a></li>
+<li><a href="#advisors-music-and-sounds">Advisors, music and sounds</a></li>
+<li><a href="#creature-involvement">Creature involvement</a></li>
+<li><a href="#script-quirks">Script quirks</a></li>
+<li><a href="#other-modes-and-unused-material">Other modes and unused material</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-spiritual-healer">The Spiritual Healer</h1>
+<p>A second-land village event, not a silver scroll: once the player wins the Greek village with town id 9 (the one the
+control script calls Town5), a priest appears there who keeps the villagers young but feeds on their children, taking one
+about every half minute. The player can leave him, or pick him up and kill or banish him, which kills the whole village.
+The game's text table has no title for it; "The Spiritual Healer" is a descriptive title taken from the script's name.</p>
+<p><strong>Land:</strong> 2 · <strong>Giver:</strong> the healer, a priest made at a house in the village with town id 9 · <strong>Script:</strong> SpiritualHealer · <strong>Reward:</strong> none · <strong>Repeatable:</strong> no</p>
+<p>Sources: the event's script source (<code>SpiritualHealer.txt</code>, with the land control script <code>LandControl2.txt</code>), checked
+line by line against the PC game's compiled <code>challenge.chl</code>; the game's text table; the land file <code>Land2.txt</code> for which
+town sits where; and the executable for how stopping scripts and setting a town's properties work. It is not a scroll:
+neither the source nor the compiled code creates a highlight, takes or updates a snapshot, or names a scroll title, and
+no HELP_TEXT_TITLE line exists for it, so it never appears in the challenge log. openblack is judged on this tree: of
+the 48 script functions the event's scripts need, 3 only log "not implemented" in <code>src/CHLApi.cpp</code>, among them the town
+look-up and a special effect; creating villagers works (<code>Create</code>). The land's control script never runs (see
+<a href="../land_2.html">../land_2.md</a> and <a href="../../scripts/land2_script.html">../../scripts/land2_script.md</a>), so none of it happens;
+rows are todo unless the notes say otherwise. Function coverage is in
+<a href="../../scripts/challenge_scripts.html">../../scripts/challenge_scripts.md</a>.</p>
+<p><strong>Progress: 0/55 done, 3 partial — 3%</strong></p>
+<h2 id="what-it-is">What it is</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It is a background event, not a silver scroll: no scroll stands anywhere, nothing has to be clicked, and no record, reminder or alignment is written to the challenge log</td>
+<td>n/a</td>
+<td>checked in the source and the compiled program: no highlight, snapshot or title</td>
+</tr>
+<tr>
+<td>It has no reward and no alignment set by the script; whatever alignment the player gains or loses comes from the deaths and acts themselves</td>
+<td>todo</td>
+<td>undetermined how much the game's own rules move alignment for these deaths; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-it-starts">How it starts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's control script starts a watcher on the village with town id 9 when the land is set up</td>
+<td>todo</td>
+<td><code>LandControl2</code> never runs: <code>LOAD_MAP</code> is empty (<a href="../../../map-loading.html#pending">map-loading</a>)</td>
+</tr>
+<tr>
+<td>Every 1.3 seconds the watcher checks whether the village belongs to the player; the moment it does, the event starts and the watcher stops</td>
+<td>todo</td>
+<td>reading a town's owner (<code>GetProperty</code> player) is not ported</td>
+</tr>
+<tr>
+<td>The village is Greek: the land's map script makes town id 9 a Greek village; the control script's comment calls it Norse, and the villagers made at the end are Norse ones</td>
+<td>n/a</td>
+<td>naming only</td>
+</tr>
+<tr>
+<td>The healer is made as a priest villager at a house by the village centre; he joins no village and has no special protection: he can be picked up, thrown and killed</td>
+<td>todo</td>
+<td><code>Create</code> makes villagers; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Two background scripts start with him: his walk round the village and his keeping of the villagers' age</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-healers-rounds">The healer's rounds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>He walks a loop of five spots round the village (first, second, fourth, third, fifth), stopping at each to look for something or stand idle, then starts again</td>
+<td>todo</td>
+<td><code>MoveGameThing</code> and <code>Played</code> work for villagers; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Each walk ends when he is within 5 of the spot or after 30 seconds; each animation ends when played or after 30 seconds</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>At each stop he waits while he is in the player's hand or the creature's</td>
+<td>todo</td>
+<td><code>InCreatureHand</code> is a stub and the in-hand property is not ported</td>
+</tr>
+<tr>
+<td>The rounds end only when he dies</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="keeping-the-village-young">Keeping the village young</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every 3 minutes every villager of the village is set to age 16</td>
+<td>todo</td>
+<td>setting a property on a town (<code>SetProperty</code> age on a container) is not ported; in the game it applies to each of its villagers</td>
+</tr>
+<tr>
+<td>At the same time, unless he is in the player's or the creature's hand, a sparkle of success shows on him for 3 seconds</td>
+<td>todo</td>
+<td><code>SpecialEffectPosition</code> works; needs the held checks (stubs)</td>
+</tr>
+<tr>
+<td>At the same time, if the camera is within 100 of him and he is on screen, he calls out "While my heart beats you will all never age!"</td>
+<td>todo</td>
+<td><code>GamePlaySaySoundEffect</code> and <code>GameThingFieldOfView</code> work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>This keeps going until he dies; banishing him does not stop it</td>
+<td>todo</td>
+<td>see the quirks below</td>
+</tr>
+<tr>
+<td>Undetermined whether age 16 makes the village's children grow up, or what the game counts as a child for the healer's choice</td>
+<td>todo</td>
+<td>not settled by the scripts</td>
+</tr>
+</tbody>
+</table>
+<h2 id="taking-the-children">Taking the children</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every 30 seconds he looks for a child of the village; if there is one, he takes it</td>
+<td>todo</td>
+<td><code>Call</code> works; undetermined which child is picked; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>He stops his rounds and stands where he is; the child leaves the village</td>
+<td>todo</td>
+<td><code>StopScript</code> and <code>FlockDetach</code> work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>He faces the child and beckons, and a magic beam runs from him to the child (lasting up to 20 seconds)</td>
+<td>todo</td>
+<td><code>SpecialEffectObject</code> works, <code>AddSpotVisualTargetObject</code> is a stub</td>
+</tr>
+<tr>
+<td>The child walks to him, until within 1.5 or for 30 seconds, and faces him</td>
+<td>todo</td>
+<td><code>MoveGameThing</code> and <code>SetFocus</code> work for villagers; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>For the first two children he takes, if the camera is within 150, he is on screen and no scene is playing: the good advisor pops out, "Oh, I don't think I want to see this!", and vanishes; the evil advisor pops out: "I do. Let me have a look."</td>
+<td>todo</td>
+<td><code>SpiritEject</code>, <code>SpiritDisappear</code> work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The count of children taken goes up for each of the first two whether or not the player saw the exchange, so it is never heard after the second child</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The beam ends; he blows a raspberry at the child and, if the camera is within 150 and he is on screen, says "I take this life to feed the life of the many!"</td>
+<td>todo</td>
+<td>a life-draining priest animation is written in but commented out twice; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>When his animation ends the child dies, is let go from the script, and he looks pleased</td>
+<td>todo</td>
+<td>the health property (<code>SetProperty</code>) is not ported; <code>ReleaseFromScript</code> works</td>
+</tr>
+<tr>
+<td>After 6 seconds he resumes his rounds</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="picking-him-up">Picking him up</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The moment he is in the player's hand or the creature's (or dies), his rounds and his child-taking are stopped</td>
+<td>todo</td>
+<td>needs the held checks (stubs); <code>StopScript</code> would stop neither here (see the quirks)</td>
+</tr>
+<tr>
+<td>If he is alive he says "Put me down! The people need me for their eternal youthfulness."</td>
+<td>todo</td>
+<td>needs the held checks (stubs)</td>
+</tr>
+<tr>
+<td>Nothing more happens until he is put down or thrown</td>
+<td>todo</td>
+<td>needs the held checks (stubs)</td>
+</tr>
+<tr>
+<td>If thrown, a scene follows him through the air, camera position and focus both following him, until he lands</td>
+<td>todo</td>
+<td><code>SetPositionFollow</code> and <code>SetFocusFollow</code> work; needs the held checks</td>
+</tr>
+<tr>
+<td>Landing within 200 of the village centre, alive: "Kill me and you kill them all.", and his rounds start again</td>
+<td>todo</td>
+<td><code>GetDistance</code> works; needs the held checks</td>
+</tr>
+<tr>
+<td>Landing (or being put down) more than 200 from the village, alive, for the first time: "Banish me and they die." His rounds are not restarted; he resumes taking children from where he is</td>
+<td>todo</td>
+<td>the children walk to him, so later ones may walk out to him; the next child restarts his rounds</td>
+</tr>
+<tr>
+<td>The second time he ends up more than 200 away (the two need not be in a row), he is banished for good (below)</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>If he is dead, he has been killed (below)</td>
+<td>todo</td>
+<td>the health read is not ported</td>
+</tr>
+<tr>
+<td>Undetermined what happens if he is sacrificed or otherwise removed: the script reads his health and then checks he still exists, but reading the health of a thing that is gone is an error in the game</td>
+<td>todo</td>
+<td>reading the health of a thing that is gone is an error in the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="killing-or-banishing-him">Killing or banishing him</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>His rounds and child-taking are stopped (as written, see quirks)</td>
+<td>todo</td>
+<td>as written, see quirks</td>
+</tr>
+<tr>
+<td>If the camera is within 100 of him and he is on screen, a scene starts: the camera is put just above him (5 up, 5 off each way) and pulls out to 20 over 6 seconds</td>
+<td>partial</td>
+<td>setting the camera and its glide work (<code>SetCameraPosition</code>, <code>SetCameraFocus</code>, <code>MoveCameraPosition</code>); the scene never runs</td>
+</tr>
+<tr>
+<td>Killed: he cries "Argh!"</td>
+<td>todo</td>
+<td>needs the health read</td>
+</tr>
+<tr>
+<td>Banished: he says "It's all over. I'm off. I don't care what happens to the people." and joins the Greek village with town id 2 (the one near Khazar the control script calls Town4 and, wrongly, Norse), then is let go to live as one of its villagers where he stands</td>
+<td>todo</td>
+<td><code>GetTownWithId</code> is a stub; <code>FlockAttach</code>, <code>ReleaseFromScript</code> work</td>
+</tr>
+<tr>
+<td>The screen fades to black over 2 seconds, the camera is cut to look over the healer's village, and fades back in over 2 seconds</td>
+<td>partial</td>
+<td>the fades and camera cuts work (<code>SetFade</code>, <code>SetFadeIn</code>, <code>SetCameraPosition</code>, <code>SetCameraFocus</code>); the scene never runs</td>
+</tr>
+<tr>
+<td>Every villager of the village dies on screen</td>
+<td>todo</td>
+<td>the health property on a town is not ported</td>
+</tr>
+<tr>
+<td>Killed only: his voice says, after his death, "Kill me and you kill them all."</td>
+<td>todo</td>
+<td>needs the health read</td>
+</tr>
+<tr>
+<td>The good advisor: "Well, Leader, you stopped those nasty sacrifices." The scene waits until it is read and 10 seconds have passed</td>
+<td>todo</td>
+<td><code>SpiritEject</code> and <code>RunText</code> work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>If the camera was not near him or he was off screen, there is no scene: the village's villagers simply all die</td>
+<td>todo</td>
+<td>the health property on a town is not ported</td>
+</tr>
+<tr>
+<td>The event then ends</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="aftermath">Aftermath</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3 minutes after the end, four Norse villagers appear at the healer's house: a farmer, two housewives and a forester, as the seed of a new village</td>
+<td>todo</td>
+<td><code>Create</code> makes villagers; the script does not add them to any village (undetermined whether they join the village by themselves); the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Leaving him alone, the village keeps its age-16 adults and loses a child about every half minute forever; nothing ever ends the event</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="advisors-music-and-sounds">Advisors, music and sounds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>All the healer's lines are the "man" narrator voice; most are spoken as sounds at him rather than in the dialogue box ("While my heart beats...", "I take this life...", "Put me down!...", "Banish me...", "Kill me..." on landing); only the end scene's lines use the box</td>
+<td>todo</td>
+<td><code>GamePlaySaySoundEffect</code> works; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Advisors appear only for the child-taking exchange (first two children) and the good advisor's closing line</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>No music is played</td>
+<td>n/a</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="creature-involvement">Creature involvement</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature picking the healer up counts the same as the player's hand: his child-taking stops, he complains, and where it drops or throws him decides whether he is safe, banished or killed</td>
+<td>todo</td>
+<td><code>InCreatureHand</code> is a stub</td>
+</tr>
+<tr>
+<td>The creature killing him in any other way also ends the event with the "killed" scene and the village's death</td>
+<td>todo</td>
+<td>needs the health read</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-quirks">Script quirks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The stop lines name both scripts in one string ("Walkabout, KillChild"); the game splits the name at spaces, commas and tabs and stops every script named, so both stop</td>
+<td>todo</td>
+<td>our <code>StopScript</code> (<code>src/CHLApi.cpp</code>) compares the whole string as one name and would stop neither; the Missionaries, the Lethys vortex and the land-four meteorites use the same form</td>
+</tr>
+<tr>
+<td>The main loop's check for him being picked up is only made between children, not while he is taking one (by the script machine's rule, a script waiting on a called script doesn't run its own checks), so a child already being taken still dies even with the healer in the hand</td>
+<td>partial</td>
+<td>our <code>LHVM</code> (<code>components/ScriptLibrary/src/LHVM.cpp</code>) follows the same rule; not separately confirmed in the original; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Banishing him for good stops his rounds but not his age-keeping, so far away in his new village he keeps calling out "While my heart beats you will all never age!" every 3 minutes when the camera is near, and keeps setting the old village's (new) villagers to 16</td>
+<td>todo</td>
+<td>the age script ends only on his death</td>
+</tr>
+<tr>
+<td>If he is banished for good while off camera, he is neither added to the other village nor let go from the script</td>
+<td>todo</td>
+<td>those lines are inside the scene's branch</td>
+</tr>
+<tr>
+<td>The first banishment is only a warning, and does not send him back: he stays where he landed until the next child restarts his rounds</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The script reads its village by id itself and ignores the village the watcher passes it</td>
+<td>n/a</td>
+<td></td>
+</tr>
+<tr>
+<td>A comment says the landing lines are "not entry is in camera mode follow"; the "Banish me and they die." line waits for a text to be read though it is played as a sound</td>
+<td>todo</td>
+<td>undetermined how long that wait lasts</td>
+</tr>
+<tr>
+<td>His spoken lines read slightly differently from the developers' comments (e.g. "You kill me, you kill them all.")</td>
+<td>n/a</td>
+<td>comments only</td>
+</tr>
+</tbody>
+</table>
+<h2 id="other-modes-and-unused-material">Other modes and unused material</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The text table holds only the lines numbered 15 to 24 for him, all used; lines 1 to 14 are missing from the table and from every script, so an earlier version's lines were cut entirely</td>
+<td>n/a</td>
+<td></td>
+</tr>
+<tr>
+<td>There is no scroll title for it in the text table; the nearest unused-looking title, "The Rejuvenator", belongs to the ape-swap scroll</td>
+<td>n/a</td>
+<td>checked: that title is used by the ape-swap script</td>
+</tr>
+<tr>
+<td>A developers' test script starts the event on its own</td>
+<td>n/a</td>
+<td>not started by the game</td>
+</tr>
+<tr>
+<td>A saved game keeps the healer, his banishment count and the count of children taken</td>
+<td>todo</td>
+<td>openblack has no saved games</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

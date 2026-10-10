@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Advisors and characters — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="here" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#advisors-and-characters">Advisors and characters</a><ul>
+<li><a href="#look">Look</a></li>
+<li><a href="#where-they-are-and-how-they-move">Where they are and how they move</a></li>
+<li><a href="#voices-and-text">Voices and text</a></li>
+<li><a href="#what-they-talk-about">What they talk about</a></li>
+<li><a href="#idle-banter">Idle banter</a></li>
+<li><a href="#interruptions">Interruptions</a></li>
+<li><a href="#spooky-voices">Spooky voices</a></li>
+<li><a href="#other-speaking-characters">Other speaking characters</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="advisors-and-characters">Advisors and characters</h1>
+<p>The good and evil advisors, the player's two consciences, who hover at the edges of the screen, fly out into the world,
+point, act and talk in the voices of the game's recorded lines, arguing over what the player should do; and the story's
+other speaking characters. Which messages the help system sends is in ../interface/help_system.md; this file is who says
+them and how. openblack draws them, moves them and plays their lines (<code>src/Help</code>, <code>src/Graphics/RendererSpirits.cpp</code>,
+<code>src/Audio/Services/Advisor.h</code>); what it still lacks is in the rows.</p>
+<p><strong>Progress: 39/71 done, 23 partial — 71%</strong></p>
+<h2 id="look">Look</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The good advisor: a white-robed, bearded old sage with a halo</td>
+<td>done</td>
+<td><code>Help/HelpDudeFile</code> loads <code>markgood.hd</code> (mesh and 80 clips), drawn by <code>Graphics/RendererSpirits</code>; test <code>test/test_help_dude_file.cpp</code>; see <a href="../../intro.html#the-advisor-spirits">intro.md</a></td>
+</tr>
+<tr>
+<td>The evil advisor: a small red horned imp</td>
+<td>done</td>
+<td><code>markevil.hd</code> through <code>Help/HelpDudeFile</code>, drawn by <code>Graphics/RendererSpirits</code></td>
+</tr>
+<tr>
+<td>Their clips are layered and additive (a body pose plus face and gesture layers)</td>
+<td>done</td>
+<td><code>Help/SpiritAnimClip</code> (set and additive layers), <code>Help/SpiritsRuntime</code></td>
+</tr>
+<tr>
+<td>They are drawn after the scene, in their own view in front of everything, while near the screen</td>
+<td>done</td>
+<td><code>Graphics/RendererSpirits</code>: drawn after the scene in their own view while the in-world blend is under a half</td>
+</tr>
+<tr>
+<td>Sent out into the world they are drawn in the world instead, blending between the two</td>
+<td>done</td>
+<td><code>Help/Spirits</code> in-world blend; drawn in the world at a blend of 0.5 or more</td>
+</tr>
+<tr>
+<td>They fade in at three times a second's alpha, out at twice</td>
+<td>done</td>
+<td><code>Help/Spirits</code> alpha fade, +3 per second in, -2 out</td>
+</tr>
+<tr>
+<td>The good one glows with a halo; both leave a sparkling rainbow trail and a puff of smoke when they appear</td>
+<td>done</td>
+<td>the halo (good only), the smoke puff and the rainbow trail in <code>Help/Spirits</code> and <code>Graphics/RendererSpirits</code></td>
+</tr>
+<tr>
+<td>Their faces blink each eye, and show smiles, frowns, sadness, shock, a raised eyebrow and anger</td>
+<td>partial</td>
+<td>blinks and the face records per emotion are ported (<code>Help/Spirits</code>); the emotions are set by the voice tags, which are not fed, so they rarely change; the eye-bone scales are pending</td>
+</tr>
+<tr>
+<td>Their mouths move with their voice: three vowel shapes picked by analysing the sound as it plays</td>
+<td>done</td>
+<td>the mouth poses from the advisor lip-sync (<code>Audio/Services/Advisor.h</code> <code>LipSyncThisFrame</code>, <code>Help/Spirits</code>)</td>
+</tr>
+<tr>
+<td>Gestures and emotions while talking come from cue marks in each line's recording</td>
+<td>partial</td>
+<td>the tag parser and walker exist (<code>Help/Spirits.h</code> <code>ParseAudioTags</code>), but the recordings' cue labels are not read, so no tag reaches them</td>
+</tr>
+<tr>
+<td>They have no idle gestures of their own: between lines they just hover</td>
+<td>done</td>
+<td>no idle gestures, as in the original: <code>Help/Spirits</code> hovers on the base pose clip</td>
+</tr>
+</tbody>
+</table>
+<h2 id="where-they-are-and-how-they-move">Where they are and how they move</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>At rest they sit at the left and right edges of the screen, a few units in front of the camera</td>
+<td>done</td>
+<td><code>Help/Spirits</code> rest zones and home points</td>
+</tr>
+<tr>
+<td>They drift about on smooth curves, kept apart from each other, from the hand and from the middle of the screen</td>
+<td>done</td>
+<td><code>Help/Spirits</code> splines and the potential field (rest zones, partner, mouse, screen centre); <code>test/test_spirits.cpp</code></td>
+</tr>
+<tr>
+<td>They dodge left, right, up or down out of the hand's way</td>
+<td>done</td>
+<td>the mouse zone and the avoid clips in <code>Help/Spirits</code></td>
+</tr>
+<tr>
+<td>Appearing and disappearing, they flash in and out</td>
+<td>done</td>
+<td>the appear and vanish puff and flicker in <code>Help/Spirits</code></td>
+</tr>
+<tr>
+<td>Scripts make them appear and disappear</td>
+<td>done</td>
+<td><code>SpiritAppear</code>, <code>SpiritDisappear</code>, <code>SpiritEject</code>, <code>SpiritHome</code> in <code>src/CHLApi.cpp</code>; seen in the Land 1 intro</td>
+</tr>
+<tr>
+<td>Ejected, an advisor flies out from its corner into the middle of the view in a second</td>
+<td>done</td>
+<td><code>SpiritEject</code> (<code>src/CHLApi.cpp</code>, <code>Help/Spirits</code>); seen in the Land 1 intro</td>
+</tr>
+<tr>
+<td>Sent home, it flies back to its corner in a second</td>
+<td>done</td>
+<td><code>SpiritHome</code> (<code>src/CHLApi.cpp</code>, <code>Help/Spirits</code>)</td>
+</tr>
+<tr>
+<td>Scripts make one cling to a point on the screen (across, down)</td>
+<td>done</td>
+<td><code>ClingSpirit</code> (<code>src/CHLApi.cpp</code>, <code>Help/Spirits</code>)</td>
+</tr>
+<tr>
+<td>Scripts fly one to a place in the world</td>
+<td>done</td>
+<td><code>FlySpirit</code> (<code>src/CHLApi.cpp</code>, <code>Help/Spirits</code>)</td>
+</tr>
+<tr>
+<td>Scripts make one point at a place or an object in the world, and stop</td>
+<td>done</td>
+<td><code>SpiritPointPos</code>, <code>SpiritPointGameThing</code>, <code>StopPointing</code> (<code>src/CHLApi.cpp</code>)</td>
+</tr>
+<tr>
+<td>Scripts make one point at a place on the screen</td>
+<td>done</td>
+<td><code>SpiritScreenPoint</code> (<code>src/CHLApi.cpp</code>)</td>
+</tr>
+<tr>
+<td>Scripts make one look at a place, and stop</td>
+<td>done</td>
+<td><code>LookAtPosition</code>, <code>LookGameThing</code>, <code>StopLooking</code> (<code>src/CHLApi.cpp</code>)</td>
+</tr>
+<tr>
+<td>Scripts play an acted animation: nod, shake the head, laugh, cross arms, scratch the head, pick the nose, sulk, cry, dance, pray, punch the air, cover the eyes …</td>
+<td>done</td>
+<td><code>PlaySpiritAnim</code> (<code>src/CHLApi.cpp</code>, the play state of <code>Help/Spirits</code>)</td>
+</tr>
+<tr>
+<td>Scripts ask whether an advisor has finished its animation</td>
+<td>done</td>
+<td><code>SpiritPlayed</code> (<code>src/CHLApi.cpp</code>)</td>
+</tr>
+<tr>
+<td>While a dialogue runs both advisors come out; for two lines they cling near the bottom, for more they are ejected</td>
+<td>partial</td>
+<td>the help scripts (<code>HelpJustTalkMaybeWithSpirits</code>, <code>HelpSpritesTalk</code>) call only natives our tree has; they are started by the message sets (<code>Help/HelpMessageSets</code>) and the challenge scripts; checked in game only in the intro</td>
+</tr>
+</tbody>
+</table>
+<h2 id="voices-and-text">Voices and text</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every advisor line has its own recording; the good advisor's and evil advisor's lines come from the advisors' bank</td>
+<td>partial</td>
+<td>voice routing by narrator in <code>Help/HelpSystem</code> (<code>VoiceRoute</code>) and <code>Audio/Services/Advisor</code>; the dialogue banks load lazily; not checked line by line against the original</td>
+</tr>
+<tr>
+<td>An advisor starts speaking up to half a second late, the further it is from its rest place</td>
+<td>done</td>
+<td><code>Audio/Services/Advisor.h</code> <code>SaySentence</code>: a delay of up to 500 ms from the advisor's hover distance</td>
+</tr>
+<tr>
+<td>The line shows in a strip above the bottom of the screen, the good advisor's in pale yellow, the evil one's in pink, others in white</td>
+<td>partial</td>
+<td>the strip is <code>Help/HelpTextDisplay</code> (drawn by <code>Renderer::DrawHelpText</code>), coloured by narrator; its look is not yet checked against the original</td>
+</tr>
+<tr>
+<td>A line is read when the voice has finished (or, without a voice, after a time by its words and the reading speed)</td>
+<td>done</td>
+<td><code>HelpSystem::IsTextRead</code>: the voice's end, or the reading time from the words and the reading speed; <code>test/test_help_system.cpp</code></td>
+</tr>
+<tr>
+<td>Clicking ends the line being read</td>
+<td>done</td>
+<td><code>HelpSystem::ProcessInterface</code> (a click ends the text)</td>
+</tr>
+<tr>
+<td>Six recent lines stay on screen, older ones shrinking and dimming</td>
+<td>done</td>
+<td><code>Help/HelpTextDisplay</code>: a ring of six entries, older ones shrinking and dimming</td>
+</tr>
+<tr>
+<td>Their voice isn't ducked under the music</td>
+<td>done</td>
+<td>the advisors' sentences play straight on the sample player, outside the sound filters (<code>Audio/Services/Advisor.h</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-they-talk-about">What they talk about</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Introducing themselves and teaching the hand and camera in the opening</td>
+<td>partial</td>
+<td>the intro's texts and advisors run up to the hand-over (checked in game); the camera lessons after it (<code>TeachRotate</code>, <code>TeachPitch</code>, <code>TeachZoom</code>) are not checked in game; see <a href="tutorial.html">tutorial.md</a></td>
+</tr>
+<tr>
+<td>Introducing and reminding of challenges and pointing out scrolls</td>
+<td>todo</td>
+<td><code>ChallengeHighlightNotify</code>, <code>QuestHighlightNotify</code> and the reminder scripts call only natives our tree has; most challenges are never reached (Land 1 stops at the creature gate, Lands 2-5 need <code>LOAD_MAP</code>)</td>
+</tr>
+<tr>
+<td>Arguing over each challenge: the good one urges kindness, the evil one cruelty</td>
+<td>todo</td>
+<td>the challenge scripts' lines use real natives (<code>RunText</code>, <code>SpiritEject</code>); most challenges are never reached (Land 1 stops at the creature gate, Lands 2-5 need <code>LOAD_MAP</code>)</td>
+</tr>
+<tr>
+<td>Reactions to the player's deeds: killing, destroying, being very good or evil, acting against their alignment</td>
+<td>partial</td>
+<td>the alignment remarks are wired (<code>audio::guidance::UpdateAlignmentRemarks</code> from <code>ECS/Effects/Alignment.cpp</code>); the help message sets' deed conditions are not computed (<code>message_sets::ProcessConditions</code> only sets the idle one)</td>
+</tr>
+<tr>
+<td>Town and battle alerts, winning and losing</td>
+<td>partial</td>
+<td>the belief warning (<code>audio::guidance::WarnLosingBelief</code> from <code>ECS/Town/TownBelief.cpp</code>) is wired; the town and battle help conditions and the winning and losing messages are not</td>
+</tr>
+<tr>
+<td>The creature's learning and what it wants</td>
+<td>todo</td>
+<td>the creature help scripts are in the challenge file, but nothing in our creature code starts them</td>
+</tr>
+<tr>
+<td>Welcome remarks in the temple and interruptions there</td>
+<td>todo</td>
+<td>our temple code starts none of the temple's welcome help scripts</td>
+</tr>
+<tr>
+<td>Rewards and miracle dispensers</td>
+<td>todo</td>
+<td>no reward is made (<code>CreateReward</code>, <code>CreateRewardInTown</code> are stubs), so their help never plays; see <a href="rewards.html">rewards.md</a></td>
+</tr>
+<tr>
+<td>The moon's phase on real nights</td>
+<td>done</td>
+<td><code>audio::guidance::RemarkOnMoonPhase</code>, from the real clock (<code>Audio/Services/Guidance.h</code>)</td>
+</tr>
+<tr>
+<td>Remarks on the land's towns: what a town wants, food and wood given, a town under attack, disciples made, belief</td>
+<td>partial</td>
+<td><code>audio::guidance::UpdateTownDesireRemarks</code> and <code>PlayResourceDropRemark</code> are wired (<code>ECS/PotResource.cpp</code>, <code>ECS/ObjectDelivery.cpp</code>); the disciple and attack remarks are not checked</td>
+</tr>
+<tr>
+<td>Rare one-off remarks, once per land, each with a small chance</td>
+<td>partial</td>
+<td><code>audio::guidance::OneOff</code> exists; only the spooky voices and the moon call it, its other callers are not ported</td>
+</tr>
+<tr>
+<td>Saying "yes" as the player turns or tilts the camera the way a lesson asks</td>
+<td>done</td>
+<td><code>Audio/Services/Confirmation.h</code> (the good advisor's yes, never a no, as the original)</td>
+</tr>
+<tr>
+<td>The audio CD left in the drive</td>
+<td>n/a</td>
+<td>the game's own disc check</td>
+</tr>
+</tbody>
+</table>
+<h2 id="idle-banter">Idle banter</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>When the player does nothing for two minutes, the advisors start a short exchange between themselves</td>
+<td>done</td>
+<td><code>help::message_sets::ProcessConditions</code> (no interface event for 120 s, from <code>help_profile</code>) and <code>ProcessBanter</code>, each turn from <code>help::Process</code> (<code>Help/HelpSystem.cpp</code>)</td>
+</tr>
+<tr>
+<td>Doing nothing means none of the interface events: moving the hand, picking up, catching, throwing, giving, tapping, casting, any gesture, turning, tilting, zooming, double clicking, dragging, the leash, fight moves or asking for help</td>
+<td>partial</td>
+<td>the idle clock is <code>help_profile</code>'s all-interface event; which of our interface actions feed it is not checked one by one</td>
+</tr>
+<tr>
+<td>The idle clock runs on unpaused game time and stops while the game is paused or a script holds the cinema bars</td>
+<td>partial</td>
+<td>no idle condition while a script holds the bars (<code>ProcessConditions</code>); its behaviour while paused is not checked</td>
+</tr>
+<tr>
+<td>An exchange is one of 25 banter sets, picked at random among those not yet heard</td>
+<td>done</td>
+<td><code>message_sets::GetRandomBanterSet</code>: one of the 25 not heard yet, on the local random stream</td>
+</tr>
+<tr>
+<td>When all 25 have been heard the record is cleared and they come round again</td>
+<td>done</td>
+<td><code>GetRandomBanterSet</code> clears the record once all 25 were heard</td>
+</tr>
+<tr>
+<td>Starting an exchange counts as the player asking for help, so the next waits another two minutes of idleness</td>
+<td>done</td>
+<td><code>MarkMessageSetSent</code> triggers the help query event, which restarts the idle clock</td>
+</tr>
+<tr>
+<td>Banter needs the help system on and a help level above none</td>
+<td>done</td>
+<td><code>help::Process</code> runs the banter only while <code>IsHelpSystemOn</code> (help on, level above none)</td>
+</tr>
+<tr>
+<td>It doesn't start while a script's cutscene holds the bars, nor while a challenge script is talking</td>
+<td>partial</td>
+<td>not while a script holds the bars (<code>ProcessConditions</code>); a talking challenge is handled by <code>StopHelpScriptsForNewHelp</code>, not checked in game</td>
+</tr>
+<tr>
+<td>A help message already running is stopped for the banter</td>
+<td>done</td>
+<td><code>script_control::StopHelpScriptsForNewHelp</code> before a set runs</td>
+</tr>
+<tr>
+<td>For more than two lines both advisors fly out to talk; for two they cling near the bottom of the screen</td>
+<td>partial</td>
+<td>decided by the <code>Banter</code> help script (no stub natives); not checked in game</td>
+</tr>
+<tr>
+<td>Each line is said and waits to be read before the next</td>
+<td>partial</td>
+<td>the <code>Banter</code> help script waits on <code>TextRead</code>; not checked in game</td>
+</tr>
+<tr>
+<td>Clicking ends each line; any interface use resets the idle clock</td>
+<td>partial</td>
+<td>a click ends each line (<code>HelpSystem::ProcessInterface</code>) and the interface events feed <code>help_profile</code>; not checked in game</td>
+</tr>
+<tr>
+<td>Multiplayer games have their own banter set of taunts</td>
+<td>n/a</td>
+<td>openblack has no multiplayer (the <code>MultiBanter</code> script exists, but there is no multiplayer game)</td>
+</tr>
+<tr>
+<td>Whether banter runs in the temple or with the creature followed</td>
+<td>todo</td>
+<td>unconfirmed for the original; nothing checked in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="interruptions">Interruptions</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A more important message stops the running one</td>
+<td>partial</td>
+<td><code>StopHelpScriptsForNewHelp</code> stops a running help script for a new one; the help priorities are not all ported</td>
+</tr>
+<tr>
+<td>Interrupted, the good advisor coughs and the evil one grumbles a bitter remark</td>
+<td>partial</td>
+<td><code>audio::advisor::Interrupt</code> is ported; as in the original, the interruption line is never actually said (the sample's progress is read after the stop). Our wiki differs: in the shipped game the interruption line is never said, because the sample's progress is read after it is stopped (<a href="../../audio.html#how-it-works">audio.md</a>)</td>
+</tr>
+<tr>
+<td>Their own lines for being interrupted, and for being interrupted in the temple</td>
+<td>partial</td>
+<td>the interruption texts are picked in <code>audio::advisor::Interrupt</code>; never said, as in the original</td>
+</tr>
+</tbody>
+</table>
+<h2 id="spooky-voices">Spooky voices</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>On real nights (by the computer's clock, from a quarter to nine to nine, and from eleven to six) a voice whispers the player's name</td>
+<td>done</td>
+<td><code>Audio/Services/SpookyVoices</code>, at real night by the computer's clock</td>
+</tr>
+<tr>
+<td>The name is the player's profile name, matched by how it sounds against 100 recorded names</td>
+<td>partial</td>
+<td>the sound-alike match against the 100 names is ported (<code>Audio/Services/SpookyVoices</code>); openblack has no profiles, so the name is not the player's own</td>
+</tr>
+<tr>
+<td>Not on the first two lands</td>
+<td>done</td>
+<td><code>Audio/Services/SpookyVoices</code> (not on Lands 1 and 2)</td>
+</tr>
+<tr>
+<td>The chance rises over time and resets after a whisper; pitch and volume vary at random</td>
+<td>done</td>
+<td><code>Audio/Services/SpookyVoices</code> (the chance, its reset, random pitch and volume)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="other-speaking-characters">Other speaking characters</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Khazar, the friendly god of the second land</td>
+<td>todo</td>
+<td>his lines are texts with a voice (<code>RunText</code>, the narration route); never reached: Land 2 needs <code>LOAD_MAP</code></td>
+</tr>
+<tr>
+<td>Lethys, who steals the creature</td>
+<td>todo</td>
+<td>her lines are texts with a voice (<code>RunText</code>); never reached: her scenes are on Lands 2 and 3, which need <code>LOAD_MAP</code></td>
+</tr>
+<tr>
+<td>Nemesis, the enemy god</td>
+<td>todo</td>
+<td>his lines are texts with a voice (<code>RunText</code>); never reached: his scenes are on Lands 2-5, which need <code>LOAD_MAP</code></td>
+</tr>
+<tr>
+<td>The creature trainer, the monk, the ogre, the island keeper and the villagers of each challenge</td>
+<td>partial</td>
+<td>texts with a voice (<code>RunText</code>, the narration route); the Land 1 villagers speak in the intro (checked); the trainer is past the creature gate and the others are on later lands</td>
+</tr>
+<tr>
+<td>A character speaking in a scene turns to face the camera</td>
+<td>partial</td>
+<td><code>SetFocus</code> turns villagers and animals (<code>src/CHLApi.cpp</code>), not creatures or other objects</td>
+</tr>
+<tr>
+<td>A big booming voice for some lines</td>
+<td>partial</td>
+<td>the narration route plays any narrator's line (<code>Help/HelpSystem</code> <code>VoiceRoute::Narration</code>); which lines boom is not checked</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Home and pen — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="here" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#home-and-pen">Home and pen</a><ul>
+<li><a href="#the-pen-at-the-citadel">The pen at the citadel</a></li>
+<li><a href="#kept-at-home">Kept at home</a></li>
+<li><a href="#going-home">Going home</a></li>
+<li><a href="#carried-home">Carried home</a></li>
+<li><a href="#its-own-home-unconfirmed-whether-used-in-the-five-lands">Its own home (unconfirmed whether used in the five lands)</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="home-and-pen">Home and pen</h1>
+<p>A creature has a home: the pen by its player's citadel (temple), where it is kept while young, where it is carried
+when it passes out, and which it goes back to when it wants to rest or feels safe. The game also has a creature building
+a home of its own and bringing things back to it.</p>
+<p><strong>Progress: 8/36 done, 8 partial — 33%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../creature.html">The creature: groundwork, random streams and what is unknown</a>.</p>
+<h2 id="the-pen-at-the-citadel">The pen at the citadel</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each citadel has a pen for its player's creature, made by the land's script</td>
+<td>partial</td>
+<td>the pen is the temple mesh's pen point, kept as the creature's home each turn (<code>player_creature::FollowTemplePens</code>, <code>TemplePenPoint</code> in <code>src/ECS/PlayerCreature.cpp</code>; tests <code>PlayerCreature.ATemplesPenPointTurnsAndMovesWithIt</code>, <code>PlayerCreatureNativesTest.TheHomeFollowsTheTemplesPenOnTheGround</code>); the land script's <code>CREATE_CREATURE_PEN</code> does nothing (<code>FeatureScriptCommands::CreateCreaturePen</code>)</td>
+</tr>
+<tr>
+<td>A planned pen is shown as a plan before the citadel is built</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The pen's size and look come from the game's pen tables</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The creature's home is where a script sets it</td>
+<td>done</td>
+<td><code>SET_CREATURE_HOME</code> writes the leash's home (<code>player_creature::SetHome</code>, <code>src/CHLApi.cpp</code>); a built temple's pen overrides it each turn, as in the original; tests <code>PlayerCreatureNativesTest.SetCreatureHomeHousesOnlyACreature</code>, <code>TheLeashSystemKeepsTheHomeItIsGiven</code></td>
+</tr>
+<tr>
+<td>With no temple, the creature's home is where it stands (as on the testbed)</td>
+<td>done</td>
+<td><code>LeashSystem::ConfineToHome</code> and <code>creature_mode::PenOf</code> fall back to where it stands; test <code>CreatureMode.PenIsTheHomeThenTheTempleThenTheFallback</code></td>
+</tr>
+<tr>
+<td>Scripts can put the creature inside the temple or bring it out</td>
+<td>todo</td>
+<td><code>SET_CREATURE_IN_TEMPLE</code> is a stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>The creature shrinks to fit as it nears the citadel, and grows back as it leaves</td>
+<td>done</td>
+<td><code>player_creature::ShrinkInPens</code> each turn (<code>BetweenPenWalls</code>, <code>PenDrawnSize</code>) sets the drawn scale; tests <code>PlayerCreature.InThePenACreatureIsDrawnDownToANewbornsSize</code>, <code>OutsideThePenACreatureIsDrawnAtItsOwnSize</code>, <code>Land1sHomeIsBetweenThePensWalls</code>; see <a href="growth_and_size.html">growth_and_size.md</a></td>
+</tr>
+<tr>
+<td>Enter the citadel</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Pray at the citadel</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A creature without a citadel behaves as if it had no home</td>
+<td>partial</td>
+<td><code>LeashSystem::FreeOfHome</code> needs the player to have a temple, but only the debug spawner asks it; other effects todo</td>
+</tr>
+</tbody>
+</table>
+<h2 id="kept-at-home">Kept at home</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>While it starts to grow up the creature is kept within a short distance of its home</td>
+<td>partial</td>
+<td><code>LeashSystem::ConfineToHome</code> (within 12, <code>k_HomeConfinement</code>; test <code>LeashRules.Confinement</code>) exists, but only the debug spawner calls it: <code>DEV_FUNCTION</code> 1 (start development scripts) is not ported</td>
+</tr>
+<tr>
+<td>Straying out of the area it is kept in, it walks back</td>
+<td>done</td>
+<td><code>LeashSystem::ProcessTurn</code> walks it back to the confinement's centre (once something confines it)</td>
+</tr>
+<tr>
+<td>On a working leash it may go further than the area</td>
+<td>done</td>
+<td><code>creature_leash::IsConfined</code>; test <code>LeashRules.Confinement</code></td>
+</tr>
+<tr>
+<td>It is free to roam only within reach of home while its player has a temple</td>
+<td>partial</td>
+<td><code>creature_leash::FreeOfHome</code> (test <code>LeashRules.Confinement</code>); <code>LeashSystem::FreeOfHome</code> is read only by the debug spawner</td>
+</tr>
+<tr>
+<td>Once mature enough it may leave home</td>
+<td>partial</td>
+<td><code>CREATURE_IN_DEV_SCRIPT</code> and <code>SET_CREATURE_DEV_STAGE</code> work (<code>ECS/PlayerCreature.cpp</code>); nothing confines it or frees it by stage (<a href="development_phases.html">development_phases.md</a>)</td>
+</tr>
+<tr>
+<td>Its plans weigh being too far from home, or on the leash</td>
+<td>todo</td>
+<td>see <a href="decision_making.html">decision_making.md</a></td>
+</tr>
+<tr>
+<td>Scripts can confine a creature to an area</td>
+<td>todo</td>
+<td>no script native confines a creature; the confinement exists only for the debug spawner</td>
+</tr>
+<tr>
+<td>Tying the leash to a house teaches it to stay there</td>
+<td>partial</td>
+<td>see <a href="leash.html">leash.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="going-home">Going home</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hang around at home: walks somewhere nearby and sits</td>
+<td>partial</td>
+<td>plan action <code>HangAroundAtHome</code> walks somewhere near where it is, not near home (<code>creature_mind::HangAround</code> in <code>src/Creature/CreatureIdleMind.cpp</code>); test <code>CreatureIdleMind.HangingAroundWalksSomewhereNearbyThenSits</code></td>
+</tr>
+<tr>
+<td>Go home</td>
+<td>todo</td>
+<td>the wish to go home is a desire with no action (<a href="desires.html">desires.md</a>)</td>
+</tr>
+<tr>
+<td>Run home when frightened</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Go home to recover when hurt</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Rest at home</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Nothing scary near home makes home a safe place to go</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Is it near home, is it not</td>
+<td>partial</td>
+<td>distance to home is measured for roaming (<code>LeashSystem::FreeOfHome</code>) and for the pen's drawn size (<code>ShrinkInPens</code>); not used by plans</td>
+</tr>
+</tbody>
+</table>
+<h2 id="carried-home">Carried home</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A creature that passes out (from damage, hunger or tiredness) is carried to its pen to come round</td>
+<td>done</td>
+<td><code>CreatureMindSystem::ProcessTurn</code> knocks out a fainting creature (<code>physiology::ShouldFaint</code>) through <code>CreatureFightSystem::KnockOut</code>, which carries it to <code>HomeOf</code> (the temple's pen point); test <code>CreatureMode.PassesOutWhenAStatusReachesAHundredPercent</code></td>
+</tr>
+<tr>
+<td>A creature knocked out in a fight lies out cold, then fades out and in at home</td>
+<td>done</td>
+<td><code>CreatureFightSystem::KnockOut</code>, <code>HomeOf</code>, the <code>CreatureKnockedOut</code> stages (lying, fading out, fading in, waiting); test <code>CreatureFightSystemTest.KnockedOutItIsTakenHomeAtOnce</code></td>
+</tr>
+<tr>
+<td>It rests at home until healthy enough, then gets up</td>
+<td>done</td>
+<td><code>CreatureKnockedOut</code> resting and getting up (<code>CreatureFightSystem</code>)</td>
+</tr>
+<tr>
+<td>The player is told their creature was carried home</td>
+<td>todo</td>
+<td>see <a href="lessons_and_help.html">lessons_and_help.md</a></td>
+</tr>
+<tr>
+<td>Scripts can call the player's creature home</td>
+<td>todo</td>
+<td><code>CALL_PLAYER_CREATURE</code> only hands the creature to the script (<code>src/CHLApi.cpp</code>); nothing calls it home</td>
+</tr>
+</tbody>
+</table>
+<h2 id="its-own-home-unconfirmed-whether-used-in-the-five-lands">Its own home (unconfirmed whether used in the five lands)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature wants to build a home of its own</td>
+<td>todo</td>
+<td>the desire exists with nothing to act on (<a href="desires.html">desires.md</a>)</td>
+</tr>
+<tr>
+<td>It creates the home where it chooses</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It builds it from rocks, and is told when more rocks are needed</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It knows whether its home is built, being built, or missing</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Bring things home, bring food home, take food or fish home, take a toy home</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Go out to look for food and bring it back</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

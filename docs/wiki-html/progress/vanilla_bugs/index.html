@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vanilla bugs — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="here" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#vanilla-bugs">Vanilla bugs</a><ul>
+<li><a href="#summary">Summary</a></li>
+<li><a href="#how-bugs-are-classified">How bugs are classified</a></li>
+<li><a href="#columns">Columns</a></li>
+<li><a href="#the-openblack-column">The openblack column</a></li>
+<li><a href="#adding-a-bug">Adding a bug</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="vanilla-bugs">Vanilla bugs</h1>
+<p>Every bug in the original Black &amp; White (2001, "vanilla") that the progress research has found: mistakes in its code,
+its compiled story scripts or its shipped data. Each row is one defect, with what the player sees, the evidence, the
+progress file(s) where the research found it, and what openblack does about it.</p>
+<p>This section is a log, not a feature list: its tables have no Status column and are not counted in the scores
+(<a href="../INDEX.html">../INDEX.md</a> lists the files with no rows).</p>
+<p>What is not here:</p>
+<ul>
+<li>openblack's own bugs (they belong in the feature files' notes or in issues).</li>
+<li>Deliberate cut content: lines, quests and features the developers switched off or never finished are in
+  <a href="../easter_eggs/unused_content.html">../easter_eggs/unused_content.md</a>. A cut thing is listed here only when it is a
+  mistake, e.g. a line meant to play that can't.</li>
+<li>Design choices the research merely finds odd. A row marked "may be intended" is one where the evidence points to a
+  slip but the developers could have meant it.</li>
+</ul>
+<p>The sweep covers every progress file as it stood at the end of 2026-10-08, including the finished gold scrolls of all
+lands and the cut ones, football, the vortex (portals and portals per land), fireflies and the gathering box, plus the
+physics research spec. New research adds its findings to the area files below.</p>
+<h2 id="summary">Summary</h2>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>File</th>
+<th>Bugs</th>
+<th>Soft-locks and lost progress</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Story scripts: gold scrolls, land control, the guide, the Land 5 curse, the vortices</td>
+<td><a href="story_scripts.html">story_scripts.md</a></td>
+<td>77</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Silver quests and the shared swap offer</td>
+<td><a href="silver_quests.html">silver_quests.md</a></td>
+<td>71</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Creature</td>
+<td><a href="creature.html">creature.md</a></td>
+<td>3</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Villagers and towns (tools, sounds, football)</td>
+<td><a href="villagers_and_towns.html">villagers_and_towns.md</a></td>
+<td>8</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Physics and objects</td>
+<td><a href="physics_and_objects.html">physics_and_objects.md</a></td>
+<td>7</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Miracles and dispensers</td>
+<td><a href="miracles.html">miracles.md</a></td>
+<td>2</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Interface, help and text</td>
+<td><a href="interface_and_text.html">interface_and_text.md</a></td>
+<td>11</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Multiplayer and skirmish</td>
+<td><a href="multiplayer_and_skirmish.html">multiplayer_and_skirmish.md</a></td>
+<td>9</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Engine (picking, land queries, clips, films)</td>
+<td><a href="engine.html">engine.md</a></td>
+<td>5</td>
+<td>0</td>
+</tr>
+<tr>
+<td><strong>All</strong></td>
+<td></td>
+<td><strong>193</strong></td>
+<td><strong>11</strong></td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-bugs-are-classified">How bugs are classified</h2>
+<p>Each area file groups its rows by how much the bug matters to a player, worst first:</p>
+<ol>
+<li><strong>Soft-locks and lost progress</strong>: the story or a quest can stall, or the player loses something they earned (a
+   reward, growth, a game in progress).</li>
+<li><strong>Wrong outcomes</strong>: the wrong reward, alignment, score or result, or a rule that doesn't do what it plainly means
+   to.</li>
+<li><strong>Missing or wrong feedback</strong>: lines, sounds, camera work or visuals that never play, play twice, or are wrong.</li>
+<li><strong>Data and text errors</strong>: typos and slips in the text tables, land scripts and other shipped data.</li>
+<li><strong>Harmless</strong>: real mistakes with no visible effect (dead checks, values set and never read, bugs in quests the game
+   never starts).</li>
+</ol>
+<p>A file leaves out a group it has no rows for.</p>
+<h2 id="columns">Columns</h2>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>What goes in it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Bug</td>
+<td>The defect, in plain English</td>
+</tr>
+<tr>
+<td>What the player sees</td>
+<td>Its effect in play, or "nothing visible"</td>
+</tr>
+<tr>
+<td>Evidence</td>
+<td>The script, data or engine evidence in plain words: script file names (<code>CreatureCurse</code>, <code>Reward.txt</code>) and quoted lines are fine; no addresses, no decompiled or internal names of the original, no assembly. "checked in the script source" or "checked in the game data" marks rows re-read while building this list</td>
+</tr>
+<tr>
+<td>Found in</td>
+<td>Links to the progress file(s) that describe it; "nearest:" when only the physics research spec has it so far</td>
+</tr>
+<tr>
+<td>openblack</td>
+<td>What openblack does about it</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-openblack-column">The openblack column</h2>
+<p>Whether openblack should reproduce a vanilla bug for fidelity or fix it is a policy question for the project, decided
+per bug. Until it is decided a row says <strong>undecided</strong>. The column is measured against this tree's code (<code>src/</code> and
+<code>test/</code>), and says what it does:</p>
+<ul>
+<li><strong>reproduced</strong>: openblack behaves the same way today.</li>
+<li><strong>differs: …</strong>: openblack behaves differently today (not a decision, just the current state).</li>
+<li><strong>undecided (…)</strong>: no decision, with a note when the progress file already leans one way (e.g. "the progress file
+  says to keep it").</li>
+</ul>
+<p>Many story-script bugs come for free once openblack runs the original compiled scripts, since it runs them as shipped;
+fixing one would mean patching the script or the command it relies on.</p>
+<h2 id="adding-a-bug">Adding a bug</h2>
+<ol>
+<li>Check it is a bug in the original game (not openblack's, not cut content) and find its evidence.</li>
+<li>Add a row to the area file's matching severity group (add the group if the file lacks it), in the five-column format,
+   with the second column never one of the status words (done, partial, todo, n/a) so the scorer skips it.</li>
+<li>Link the progress file that describes it, and make sure that file mentions it too.</li>
+<li>Update the file's count line (or rerun
+   <code>python docs/progress/tools/vanilla_bugs_count.py docs/progress/vanilla_bugs</code>, which rewrites
+   every file's count line) and the summary table above.</li>
+</ol>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

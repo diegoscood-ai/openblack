@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Challenge natives: miracles, influence and weather — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="here" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#challenge-natives-miracles-influence-and-weather">Challenge natives: miracles, influence and weather</a><ul>
+<li><a href="#used-by-the-shipped-scripts">Used by the shipped scripts</a></li>
+<li><a href="#not-used-by-the-shipped-scripts">Not used by the shipped scripts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="challenge-natives-miracles-influence-and-weather">Challenge natives: miracles, influence and weather</h1>
+<p>The challenge scripts' functions for miracles (casting, giving, finding and changing them), rewards, prayer power, influence, the vortex and storms and climates. The game has 464 of these functions in all; the language statement each comes from is shown in italics, and "called" counts are calls in the shipped <code>challenge.chl</code>. How the virtual machine runs them is in <a href="../engine/script_vm.html">../engine/script_vm.md</a>; what each challenge is about is in <a href="../story/index.html">../story/</a>.</p>
+<p><strong>Progress: 28/38 done, 1 partial — 75%</strong></p>
+<h2 id="used-by-the-shipped-scripts">Used by the shipped scripts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Changes the inner and outer radius (and calm) of a shield, storm or influence: <em>set ‹obj› properties inner ‹inner› outer ‹outer› [calm ‹calm›]</em> (called 43 times in 25 scripts)</td>
+<td>partial</td>
+<td><code>ChangeInnerOuterProperties</code>: <code>ecs::script_containers::ChangeInnerOuter</code> (<code>src/ECS/ScriptContainers.cpp</code>) sets a flock's domain radius, flock distance and calm; the weather thing's version is not ported. Our wiki differs: the original changes a flock's radii and calm, or a storm's (<a href="../../villagers.html#script-flocks-and-containers">villagers</a>)</td>
+</tr>
+<tr>
+<td>Puts a ring of influence around an object for a player: <em>create influence on ‹target› [radius ‹radius›] ‹zero› ‹anti›</em> (called 19 times in 9 scripts)</td>
+<td>done</td>
+<td><code>InfluenceObject</code>: <code>magic::script::InfluenceObject</code> (<code>src/Magic/Script/CHLInfluence.cpp</code>), a ring on the object through <code>influence::CreateRingOnObject</code>; <code>test/test_influence.cpp</code></td>
+</tr>
+<tr>
+<td>Puts a ring of influence at a position for a player: <em>create influence at ‹position› [radius ‹radius›] ‹zero› ‹anti›</em> (called 29 times in 23 scripts)</td>
+<td>done</td>
+<td><code>InfluencePosition</code>: <code>influence::CreateRing</code> at the position</td>
+</tr>
+<tr>
+<td>Gives a player's influence at a position: <em>influence ‹player› ‹raw› at ‹position›</em> (called 10 times in 7 scripts)</td>
+<td>done</td>
+<td><code>GetInfluence</code>: <code>influence::CalculatePlayerInfluence</code>, with allies unless raw</td>
+</tr>
+<tr>
+<td>Changes a storm's temperature, rain, snow, cloud cover and how fast its rain falls: <em>set ‹storm› properties degrees ‹temperature› rainfall ‹rainfall› snowfall ‹snowfall› overcast ‹overcast› fallspeed ‹fallspeed›</em> (called 15 times in 8 scripts)</td>
+<td>done</td>
+<td><code>ChangeWeatherProperties</code>: <code>weather_thing::SetWeatherProperties</code> (<code>src/Magic/Script/CHLWeather.cpp</code>); <code>test/test_weather.cpp</code></td>
+</tr>
+<tr>
+<td>Changes how often a storm throws sheet and forked lightning: <em>set ‹storm› properties sheetmin ‹sheetmin› sheetmax ‹sheetmax› forkmin ‹forkmin› forkmax ‹forkmax›</em> (called 18 times in 8 scripts)</td>
+<td>done</td>
+<td><code>ChangeLightningProperties</code>: <code>weather_thing::SetLightningProperties</code></td>
+</tr>
+<tr>
+<td>Changes how long a storm lasts and how it fades: <em>set ‹storm› properties time ‹duration› fade ‹fade time›</em> (called 16 times in 8 scripts)</td>
+<td>done</td>
+<td><code>ChangeTimeFadeProperties</code>: <code>weather_thing::SetTimeFadeProperties</code></td>
+</tr>
+<tr>
+<td>Changes a storm's clouds, their shade and their height: <em>set ‹storm› properties clouds ‹num clouds› shade ‹blackness› height ‹elevation›</em> (called 15 times in 8 scripts)</td>
+<td>done</td>
+<td><code>ChangeCloudProperties</code>: <code>weather_thing::SetCloudProperties</code></td>
+</tr>
+<tr>
+<td>Casts a miracle on an object, from a place, with a radius, time and curl: <em>cast ‹spell› spell on ‹target› from ‹from› radius ‹radius› time ‹duration› curl ‹curl›</em> (called 4 times in 3 scripts)</td>
+<td>done</td>
+<td><code>SpellAtThing</code>: <code>magic::script::SpellAtThing</code> (<code>src/Magic/Script/CHLSpells.cpp</code>), cast by the neutral player on the object</td>
+</tr>
+<tr>
+<td>Casts a miracle at a position, from a place, with a radius, time and curl: <em>cast ‹spell› spell at ‹target› from ‹from› radius ‹radius› time ‹duration› curl ‹curl›</em> (called 51 times in 16 scripts)</td>
+<td>done</td>
+<td><code>SpellAtPos</code>: <code>magic::script::CastSpellAtPos</code>, the neutral player with no cast check</td>
+</tr>
+<tr>
+<td>Finds a miracle of a kind already at a position, within a radius: <em>get spell ‹spell› at ‹position› radius ‹radius›</em> (called 9 times in 3 scripts)</td>
+<td>done</td>
+<td><code>SpellAtPoint</code>: the first spell of that kind within the radius (shields are not looked up)</td>
+</tr>
+<tr>
+<td>Changes a miracle's radius: <em>set ‹object› radius ‹radius›</em> (called once in 1 script)</td>
+<td>todo</td>
+<td><code>SetMagicRadius</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives the player a reward (a miracle, a creature or an object), dropping it from the sky or not: <em>reward ‹reward› at ‹position› [from sky]</em> (called 8 times in 5 scripts)</td>
+<td>todo</td>
+<td><code>CreateReward</code> logs "not implemented" and pushes 0</td>
+</tr>
+<tr>
+<td>Gives the player a reward in a town: <em>reward ‹reward› in ‹town› at ‹position› [from sky]</em> (called 6 times in 3 scripts)</td>
+<td>todo</td>
+<td><code>CreateRewardInTown</code> logs "not implemented" and pushes 0</td>
+</tr>
+<tr>
+<td>Whether a player has a miracle: <em>spell ‹spell› for player ‹player›</em> (called 41 times in 1 script)</td>
+<td>done</td>
+<td><code>HasPlayerMagic</code>: <code>players::HasMagicTypeEverBeenEnabled</code></td>
+</tr>
+<tr>
+<td>Gives a player influence everywhere (or takes it back): <em>enable/disable player ‹player› virtual influence</em> (called 4 times in 4 scripts)</td>
+<td>todo</td>
+<td><code>SetVirtualInfluence</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Fades a vortex out: <em>start ‹vortex› fade out</em> (called 4 times in 4 scripts)</td>
+<td>done</td>
+<td><code>VortexFadeOut</code>: <code>ecs::vortex::StartFadeOut</code> (<code>src/ECS/Vortex.cpp</code>); <code>test/test_vortex.cpp</code></td>
+</tr>
+<tr>
+<td>Sets a vortex's town, the flock it gathers, the flock's position, distance and radius: <em>set ‹vortex› properties town ‹town› flock position ‹position› distance ‹distance› radius ‹radius› flock ‹flock›</em> (called 2 times in 2 scripts)</td>
+<td>done</td>
+<td><code>VortexParameters</code>: <code>ecs::vortex::SetParameters</code>, the vortex's town and flock parameters</td>
+</tr>
+<tr>
+<td>Sets how much prayer power a store or player has: <em>set ‹object› mana ‹mana›</em> (called 9 times in 4 scripts)</td>
+<td>done</td>
+<td><code>GameSetMana</code>: <code>worship::site::SetMana</code> on the thing's worship site (<code>src/Magic/Script/CHLWorship.cpp</code>)</td>
+</tr>
+<tr>
+<td>Sets a miracle's properties for a time: <em>set ‹object› magic properties ‹magic type› [time ‹duration›]</em> (called once in 1 script)</td>
+<td>done</td>
+<td><code>SetMagicProperties</code>: <code>worship::dispenser::SetMagicProperties</code></td>
+</tr>
+<tr>
+<td>Whether an object is under a miracle: <em>‹object› affected by spell ‹spell›</em> (called 2 times in 2 scripts)</td>
+<td>todo</td>
+<td><code>IsAffectedBySpell</code> logs "not implemented" and pushes false</td>
+</tr>
+<tr>
+<td>Puts a miracle inside an object (a dispenser, a chest) or takes it out: <em>enable/disable spell ‹magic type› in ‹object›</em> (called 14 times in 8 scripts)</td>
+<td>done</td>
+<td><code>SetMagicInObject</code> (<code>src/Magic/Script/CHLWorship.cpp</code>): a town's held miracles through <code>worship::town::AddMagicTypesHeld</code> or <code>RemoveMagicTypesHeld</code>; anything that is not a town gets the original's "Object should be town"</td>
+</tr>
+<tr>
+<td>Pauses or restarts the climates' weather: <em>enable/disable climate weather</em> (called 4 times in 2 scripts)</td>
+<td>done</td>
+<td><code>PauseUnpauseClimateSystem</code>: <code>climate::SetClimateSystemEnabled</code></td>
+</tr>
+<tr>
+<td>Gives the prayer power a miracle costs: <em>get mana for spell ‹spell›</em> (called 4 times in 3 scripts)</td>
+<td>done</td>
+<td><code>GetManaForSpell</code>: the miracle's cost to create from the info tables</td>
+</tr>
+<tr>
+<td>Ends every storm within a radius of a position: <em>delete all weather at ‹position› radius ‹radius›</em> (called 2 times in 2 scripts)</td>
+<td>done</td>
+<td><code>KillStormsInArea</code>: <code>storms::KillStormsInArea</code>; <code>test/test_storm.cpp</code></td>
+</tr>
+<tr>
+<td>Gives a player's prayer power: <em>get ‹worship site› mana total</em> (called 2 times in 2 scripts)</td>
+<td>done</td>
+<td><code>GetMana</code>: the worship site's prayer power</td>
+</tr>
+<tr>
+<td>Stops a player charging a miracle: <em>clear player ‹player› spell charging</em> (called 2 times in 2 scripts)</td>
+<td>done</td>
+<td><code>ClearPlayerSpellCharging</code>: <code>worship::player::CancelAllSpellsCharging</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="not-used-by-the-shipped-scripts">Not used by the shipped scripts</h2>
+<p>The game has these but no shipped script calls them; mods and fan-made challenges can.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gives a player a miracle or takes it away: <em>enable/disable spell ‹value› for player ‹value›</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>SetPlayerMagic</code>: <code>players::SetMagicTypeEnabled</code></td>
+</tr>
+<tr>
+<td>Whether an object was cast by another: <em>‹spell instance› cast by ‹caster›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>ObjectCastByObject</code> logs "not implemented" and pushes false</td>
+</tr>
+<tr>
+<td>Whether there is wind magic at a position (unconfirmed): <em>wind magic at a position (no statement in the language)</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>IsWindMagicAtPos</code> logs "not implemented" and pushes false</td>
+</tr>
+<tr>
+<td>Gives the time since a player last cast a miracle: <em>get player ‹player› time since last spell cast</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>PlayerSpellCastTime</code>: the seconds since the player's last cast, the largest float without one</td>
+</tr>
+<tr>
+<td>Gives the last miracle a player cast: <em>get player ‹player› last spell cast</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>PlayerSpellLastCast</code>: the player's last cast's miracle</td>
+</tr>
+<tr>
+<td>Gives where a player last cast a miracle: <em>last player ‹player› spell cast position</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>GetLastSpellCastPos</code>: the world point of the player's last cast</td>
+</tr>
+<tr>
+<td>Whether a player is charging a miracle: <em>player ‹value› spell charging</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>IsSpellCharging</code>: <code>worship::player::AnySpellCharging</code></td>
+</tr>
+<tr>
+<td>Whether a player is charging a given miracle: <em>player ‹value› spell ‹value› charging</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>IsThatSpellCharging</code>: <code>worship::player::IsThatSpellCharging</code></td>
+</tr>
+<tr>
+<td>Sets whether a player's miracles resist the wind: <em>enable/disable player ‹value› wind resistance</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>SetPlayerWindResistance</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives whether a player's miracles resist the wind: <em>a player's wind resistance (no statement in the language)</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>GetPlayerWindResistance</code> logs "not implemented" and pushes nought</td>
+</tr>
+<tr>
+<td>Pauses or restarts the climates making storms: <em>enable/disable climate create storms</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>PauseUnpauseStormCreationInClimateSystem</code>: <code>climate::SetStormCreationEnabled</code></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The scribble — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="here" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-scribble">The scribble</a><ul>
+<li><a href="#recognising-a-scribble">Recognising a scribble</a></li>
+<li><a href="#with-a-miracle-in-the-hand">With a miracle in the hand</a></li>
+<li><a href="#with-other-things-in-the-hand">With other things in the hand</a></li>
+<li><a href="#closing-pickers">Closing pickers</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-scribble">The scribble</h1>
+<p>A quick back-and-forth scribble is the game's "no" gesture: it shakes a miracle out of the hand, calls off a power-up,
+takes the leash off and closes the pickers. What it does depends on what the hand holds and what is open.</p>
+<p><strong>Progress: 11/15 done, 1 partial — 77%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../magic.html">Magic: the core of the miracles</a>.</p>
+<h2 id="recognising-a-scribble">Recognising a scribble</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A scribble is strokes back and forth that must be wider than they are tall</td>
+<td>done</td>
+<td>Two SCRIBBLE templates with <code>checkAspect</code> in <code>Data\Gestures.jty</code>, matched by <code>src/Magic/Gestures/GestureMatch.cpp</code></td>
+</tr>
+<tr>
+<td>A scribble is only recognised when there is something for it to do</td>
+<td>done</td>
+<td><code>ProcessPowerUpSystem</code> (<code>src/Magic/Gestures/PowerUpSystem.cpp</code>) only tries the scribble while a power-up is asked for, something is held, the selection is open or an icon charges</td>
+</tr>
+<tr>
+<td>A scribble leaves no trail on the land and makes no recognition sound</td>
+<td>done</td>
+<td>Every scribble path calls <code>gestures::Success(false)</code>, which lays no sparkles and plays no recognition sound (<code>PowerUpSystem.cpp</code>)</td>
+</tr>
+<tr>
+<td>Scribbling makes the hand shake, with the shake sound and the bands flying off</td>
+<td>partial</td>
+<td><code>hand_fx::RemoveHandSpellVisuals</code> (<code>src/Magic/Hand/HandMagicFX.cpp</code>) plays the shake sound and sends a band back; no shaking motion of the hand itself was found in our hand code</td>
+</tr>
+</tbody>
+</table>
+<h2 id="with-a-miracle-in-the-hand">With a miracle in the hand</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>While a power-up is being charged by the worship icon, a scribble calls it off instead of dropping the miracle</td>
+<td>done</td>
+<td><code>PowerUpGestures</code> in <code>PowerUpSystem.cpp</code>: with a power-up asked for, the scribble powers down (<code>SetPowerUpCharge(icon, -1)</code>, help event 20) and keeps the seed</td>
+</tr>
+<tr>
+<td>With a ready miracle from a worship icon in the hand and no power-up asked for, a scribble drops it back where it came from, even outside the player's influence</td>
+<td>done</td>
+<td><code>PowerUpGestures</code>: with no power-up asked for, the scribble drops the icon seed with no influence test (<code>ForceDropHeld</code>, help event 22). Only where worship sites exist (none on Land 1, as in the original)</td>
+</tr>
+<tr>
+<td>Any other miracle in the hand is only scribbled away inside the player's influence</td>
+<td>done</td>
+<td><code>ProcessPowerUpSystem</code> step (b): the shake needs <code>inInfluence</code> and <code>validToShake</code> (<code>HandSystem::UpdateSeedInHand</code> in <code>src/ECS/Systems/Implementations/HandSpellSeed.cpp</code>)</td>
+</tr>
+<tr>
+<td>A miracle scribbled away gives its prayer power back to the worship site it came from</td>
+<td>done</td>
+<td><code>HandSystem::ApplyForceDropHeld</code> sends the seed's charge back to its icon's worship site (<code>worship::OnSeedOutOfHand</code>, <code>src/Worship/Worship.cpp</code>)</td>
+</tr>
+<tr>
+<td>A help message follows a scribble that drops a miracle or calls off a power-up</td>
+<td>done</td>
+<td>Help events 20 and 22 are counted in the help profile (<code>src/Help/HelpProfile.cpp</code>), which the scripts' help functions read; the plain shake-out of a seed with no power-up step sends none, as in our wiki's reading</td>
+</tr>
+</tbody>
+</table>
+<h2 id="with-other-things-in-the-hand">With other things in the hand</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Inside the player's influence, a scribble shakes out anything the hand holds that may be shaken out, not only miracles</td>
+<td>done</td>
+<td><code>validToShake</code> is any held object; <code>HandSystem::ForceDropHeld</code> drops it (<code>HandSpellSeed.cpp</code>)</td>
+</tr>
+<tr>
+<td>With the hand holding the leash, a scribble takes the leash off the creature</td>
+<td>todo</td>
+<td>Not in <code>ProcessPowerUpSystem</code> (a TODO there); <code>LeashSystem::TakeOffHeldLeash</code> exists but only a hand demo's start calls it (<code>creature_loop::ReleaseLeashHeldInHand</code>). Our wiki differs: our reading of the scribble's step lists only the held object and the most charged icon, and whether a held leash is shaken off there is still unread (<a href="../../creature.html#pending">page</a>)</td>
+</tr>
+<tr>
+<td>A leash tied to something rather than held in the hand is not taken off by a scribble</td>
+<td>todo</td>
+<td>The rule is in <code>creature_loop::ReleaseLeashHeldInHand</code> (<code>src/ECS/CreatureLoop.cpp</code>) but no scribble reaches it</td>
+</tr>
+<tr>
+<td>With an empty hand while a worship icon is charging, a scribble cancels the charging</td>
+<td>done</td>
+<td><code>ProcessPowerUpSystem</code> step (b): <code>CancelMostChargedIcon</code> through <code>src/Worship/GestureIconProvider.cpp</code> (<code>player::CancelMostRecentCharge</code>; which icon is cancelled is unverified in our wiki)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="closing-pickers">Closing pickers</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>With the leash picker open, a scribble closes it and leaves the leash on</td>
+<td>todo</td>
+<td>No leash picker in our tree (see <a href="leash_gestures.html">leash_gestures.md</a>)</td>
+</tr>
+<tr>
+<td>With the miracle selection open, a scribble closes it</td>
+<td>done</td>
+<td><code>Selection::Stage</code> closes on a scribble (help event 21) in <code>PowerUpSystem.cpp</code></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

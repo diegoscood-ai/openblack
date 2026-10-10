@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>File system and packs — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="here" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#file-system-and-packs">File system and packs</a><ul>
+<li><a href="#the-install">The install</a></li>
+<li><a href="#paths-and-letter-case">Paths and letter case</a></li>
+<li><a href="#packs">Packs</a></li>
+<li><a href="#patches-and-languages">Patches and languages</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="file-system-and-packs">File system and packs</h1>
+<p>How the game finds its files in the install, how it handles the paths its own scripts write, and the pack files that
+bundle many meshes, animations, textures or sounds into one. Each file format is listed in
+<a href="asset_formats.html">asset_formats.md</a>.</p>
+<p><strong>Progress: 11/19 done, 6 partial — 74%</strong></p>
+<h2 id="the-install">The install</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The game's files are found under its install folder: <code>Data</code>, <code>Scripts</code>, <code>Audio</code>, <code>Profiles</code>, <code>Plug Ins</code> and their sub-folders</td>
+<td>done</td>
+<td><code>src/FileSystem/FileSystemInterface.h</code> (named game folders, <code>filesystem::Path</code>)</td>
+</tr>
+<tr>
+<td>The install folder comes from the registry or the command line</td>
+<td>done</td>
+<td><code>--game-path</code>, else the registry's GameDir (<code>src/main.cpp</code>); see options_and_settings.md</td>
+</tr>
+<tr>
+<td>A folder's files can be listed, to load every creature mesh, texture, temple camera or land in it</td>
+<td>done</td>
+<td><code>FileSystemInterface::Iterate</code>, used in <code>Game::Initialize</code></td>
+</tr>
+<tr>
+<td>The story's lands are the land scripts in <code>Scripts</code></td>
+<td>partial</td>
+<td>found by listing the folder (<code>Game::Initialize</code>); the lands should come from the challenge script</td>
+</tr>
+<tr>
+<td>Extra lands put in <code>Scripts/Playgrounds</code> can be played as playgrounds</td>
+<td>partial</td>
+<td>loaded into the level list (<code>Game::Initialize</code>); starting one is only through the command line or the debug tools (see ../debug/)</td>
+</tr>
+<tr>
+<td>Downloaded multiplayer lands go into <code>Online Maps</code></td>
+<td>todo</td>
+<td>see ../multiplayer/</td>
+</tr>
+<tr>
+<td>The game writes only into the player's profile folder (saves, screenshots, statistics)</td>
+<td>todo</td>
+<td>openblack writes nothing to the install yet; see saving_and_loading.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="paths-and-letter-case">Paths and letter case</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Paths in the game's scripts (backslashes, a leading <code>.\</code>, any mix of upper and lower case) still find their file</td>
+<td>partial</td>
+<td><code>FileSystemInterface::FixPath</code> fixes backslashes and the case of a few known folder names only</td>
+</tr>
+<tr>
+<td>Any file is found whatever the case of its name, on file systems where case matters</td>
+<td>partial</td>
+<td><code>DefaultFileSystem::FindPath</code> checks the path as given; there is no general case-insensitive lookup</td>
+</tr>
+<tr>
+<td>Names looked up in the game's tables (abodes, features, statics) ignore case, as the game's do</td>
+<td>done</td>
+<td>the info tables' lookups by name compare case-insensitively (<code>src/InfoConstants.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="packs">Packs</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A pack is a file of named blocks, each read on its own</td>
+<td>done</td>
+<td><code>components/pack</code></td>
+</tr>
+<tr>
+<td>The mesh pack holds every object mesh, with a texture block of its own</td>
+<td>done</td>
+<td><code>PackFile::GetMeshes</code>, <code>GetTextures</code> (<code>components/pack</code>)</td>
+</tr>
+<tr>
+<td>The animation pack holds every animation, numbered</td>
+<td>done</td>
+<td><code>PackFile::GetAnimations</code> (<code>components/pack</code>)</td>
+</tr>
+<tr>
+<td>Sound banks are packs of sample headers and sample data, with tables tying animations to sounds</td>
+<td>done</td>
+<td><code>audio::banks::LoadAll</code> reads every bank under <code>Audio</code> (<code>src/Audio/Game/Banks.cpp</code>); see ../audio/</td>
+</tr>
+<tr>
+<td>A sound bank's samples can be streamed from its headers rather than read whole</td>
+<td>partial</td>
+<td>the dialogue banks keep only their headers and read each wave at its first play (<code>banks::ReadWave</code>; test <code>LazyDialogueBank.*</code>); the other banks are read whole</td>
+</tr>
+<tr>
+<td>Zipped files are unzipped as they are read</td>
+<td>done</td>
+<td><code>src/Common/Zip.cpp</code>, <code>src/Resources/Loaders.cpp</code></td>
+</tr>
+<tr>
+<td>The info table file is a pack whose blocks are the tables</td>
+<td>done</td>
+<td><code>src/Parsers/InfoFile.cpp</code>; see info_tables.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="patches-and-languages">Patches and languages</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The patch's text script is read after the game's, its texts replacing the game's of the same name</td>
+<td>done</td>
+<td><code>helptext::GetPatch</code> (<code>src/Common/HelpText.cpp</code>), <code>src/Gui/TextDatabase.cpp</code></td>
+</tr>
+<tr>
+<td>The game's text and speech are in the language of the install</td>
+<td>partial</td>
+<td>whatever text the install has is used; choosing a language in the map script is todo</td>
+</tr>
+<tr>
+<td>Player-made data overrides (mods)</td>
+<td>n/a</td>
+<td>the game has none; openblack left its mod support out on purpose (only the minimal <code>ModLoader</code> library stays, <code>src/ModLoader</code>)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

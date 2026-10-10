@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Friends and other creatures — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="here" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#friends-and-other-creatures">Friends and other creatures</a><ul>
+<li><a href="#noticing-and-judging-other-creatures">Noticing and judging other creatures</a></li>
+<li><a href="#asking-and-answering">Asking and answering</a></li>
+<li><a href="#friendly-actions">Friendly actions</a></li>
+<li><a href="#unfriendly-actions">Unfriendly actions</a></li>
+<li><a href="#missing-a-friend">Missing a friend</a></li>
+<li><a href="#minds-and-control">Minds and control</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="friends-and-other-creatures">Friends and other creatures</h1>
+<p>When creatures meet they size each other up. Each keeps a feeling for every other creature it knows, and from that
+they make friends, play together, teach each other, sulk or quarrel, and go looking for a friend they miss. Fights
+between creatures are in <a href="fighting.html">fighting.md</a>.</p>
+<p><strong>Progress: 7/56 done, 1 partial — 13%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../creature.html">The creature: groundwork, random streams and what is unknown</a>.</p>
+<h2 id="noticing-and-judging-other-creatures">Noticing and judging other creatures</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Another creature is among the most interesting things a creature looks at</td>
+<td>done</td>
+<td><code>src/Creature/CreatureLook</code> (<code>Interest::Creature</code>, third after doves and the citadel), fed by <code>CreatureMindSystem</code>; test <code>CreatureLook.DovesAndTheCitadelCatchTheEyeMostAndFixedThingsLeast</code></td>
+</tr>
+<tr>
+<td>A creature keeps a feeling, from nasty to nice, for each other creature it knows</td>
+<td>done</td>
+<td><code>creature_learning::AttitudeTo</code> in the mind (<code>CreatureMindLearning.cpp</code>); test <code>CreatureLearning.AttitudesToCreatures</code></td>
+</tr>
+<tr>
+<td>It judges another creature by whose it is, its species and whether it is stronger</td>
+<td>partial</td>
+<td>the decision trees test these (<a href="beliefs_and_opinions.html">beliefs_and_opinions.md</a>); the creature-specific belief record is todo</td>
+</tr>
+<tr>
+<td>How much more life and strength an opponent has, and how many dangerous miracles it knows, weigh on whether to take it on</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Whether another creature seems friendly</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Another creature can be frightening, and it runs from it</td>
+<td>done</td>
+<td>plan action <code>RunAwayFromObject</code> takes any living thing, other creatures included (<code>CreaturePlanActions.cpp</code>), through <code>CreatureLocomotionSystem::FleeFrom</code></td>
+</tr>
+<tr>
+<td>Inspect another creature: walks up and looks it over</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Look at another creature with a friend</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A creature only reacts to another again after a while</td>
+<td>todo</td>
+<td>see <a href="reactions.html">reactions.md</a></td>
+</tr>
+<tr>
+<td>Being led together on a leash makes two creatures warmer (compassion leash) or cooler (aggression leash) to each other</td>
+<td>done</td>
+<td><code>LeashSystem</code> with <code>creature_leash::AttitudeStepDue</code> and <code>AttitudeStep</code>: at once, then after more than 600 turns, the turn kept on the other creature (<code>CreatureLeashAttitude</code>); tests <code>LeashRules.LeashedCreaturesWarmOrCoolToEachOther</code>, <code>TheFirstAttitudeStepIsAtOnceThenAfterMoreThan600Turns</code>, <code>LeashSystemTest.LeashedToAnotherCreatureTheyWarmAtOnceThenByTheOthersLastStep</code></td>
+</tr>
+<tr>
+<td>Scripts can force two creatures to be friends</td>
+<td>todo</td>
+<td><code>CREATURE_FORCE_FRIENDS</code> is a stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="asking-and-answering">Asking and answering</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A creature asks another to be friends; the other decides whether to accept</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A creature asks another to play; the other may refuse</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A creature asks another to fight; the other may refuse</td>
+<td>todo</td>
+<td>fights start without asking (see <a href="fighting.html">fighting.md</a>)</td>
+</tr>
+<tr>
+<td>A creature asks a friend to teach it; the friend may oblige</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A creature busy elsewhere can't join in, and the asker waits for it to be free</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The player is told when the other creature refused to fight, play or be friends</td>
+<td>todo</td>
+<td>see <a href="lessons_and_help.html">lessons_and_help.md</a></td>
+</tr>
+<tr>
+<td>A friend doing something worth following draws the creature to join in</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="friendly-actions">Friendly actions</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Smile at a friend</td>
+<td>done</td>
+<td>plan action <code>SmileAtFriend</code> walks up to another creature and smiles (<code>CreaturePlanActions.cpp</code>)</td>
+</tr>
+<tr>
+<td>Wave at a friend</td>
+<td>done</td>
+<td>plan action <code>WaveAtFriend</code> (<code>CreaturePlanActions.cpp</code>)</td>
+</tr>
+<tr>
+<td>Kiss a friend</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Follow a friend around</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Dance with a friend</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Run a race with a friend</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Throw stones into the sea with a friend; play throwing games; throw stones at a can</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Sit on top of a hill with a friend</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Eat, drink, poo, sit and sleep with a friend</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Eat from a field or eat fish with a friend, or get the friend to fetch it</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Be happy with a friend</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Go to the beach with a friend</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Show a friend a miracle: fireball, lightning, storm, food, wood</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Show a friend an object, its home or its citadel</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Give a friend food or a toy</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Teach a friend: the friend learns the actions and miracles it is shown</td>
+<td>todo</td>
+<td>see <a href="learning_by_observation.html">learning_by_observation.md</a></td>
+</tr>
+<tr>
+<td>Talk to a friend, tell it a joke, howl at it</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Get a friend's attention</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Help a town with a friend</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Cast an amusing miracle on another creature: freeze, small, big, weak, strong, fat, thin, invisible, nice, angry, hungry, frightened, tired, ill, thirsty, itchy</td>
+<td>todo</td>
+<td>the creature casts no miracle: no casting plan action in <code>CreaturePlanActions.cpp</code>; the spells' effects on a creature exist (<code>src/Magic/Spells/SpellCreature.cpp</code>); see <a href="creature_casting.html">creature_casting.md</a> and <a href="../miracles/index.html">../miracles</a></td>
+</tr>
+<tr>
+<td>Cast warming or cooling on another creature, cure its illness, give it food</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="unfriendly-actions">Unfriendly actions</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Argue with a friend</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Mope about with a friend</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Confuse a friend</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Show off to a friend</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Kiss a friend's backside</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Order a friend around, and the friend obeys</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Tell another creature to go away</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Show another creature it hates it</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Attack a town with a friend</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Pick a fight with a creature it is angry with</td>
+<td>done</td>
+<td><code>CreatureFightSystem::ProcessTurn</code> (<code>fight::WantsToFight</code>); see <a href="fighting.html">fighting.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="missing-a-friend">Missing a friend</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pine for a friend that is gone</td>
+<td>todo</td>
+<td>the wish to see a missed friend is a desire with no actions (<a href="desires.html">desires.md</a>)</td>
+</tr>
+<tr>
+<td>Look for a missing friend</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="minds-and-control">Minds and control</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Obey another creature: wants to do what a creature it looks up to tells it</td>
+<td>todo</td>
+<td>the desire exists, nothing feeds it (<a href="desires.html">desires.md</a>)</td>
+</tr>
+<tr>
+<td>Swap minds with another creature: they act on each other's learning</td>
+<td>todo</td>
+<td><code>SWAP_CREATURE</code> is a stub</td>
+</tr>
+<tr>
+<td>A computer player's creature takes on another god's creature, by the computer's choice</td>
+<td>todo</td>
+<td>see <a href="../multiplayer/index.html">../multiplayer</a></td>
+</tr>
+<tr>
+<td>The dominant creature of a pair leads, the other follows</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The opposing creature in a challenge is set by script</td>
+<td>todo</td>
+<td><code>OPPOSING_CREATURE</code> is a stub</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Creature contact — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="here" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#creature-contact">Creature contact</a><ul>
+<li><a href="#taking-hold">Taking hold</a></li>
+<li><a href="#where-the-hand-rests">Where the hand rests</a></li>
+<li><a href="#stroking">Stroking</a></li>
+<li><a href="#slapping">Slapping</a></li>
+<li><a href="#letting-go-and-after">Letting go and after</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="creature-contact">Creature contact</h1>
+<p>The hand's side of touching a creature: taking hold of it, stroking and slapping it, how the hand rests on and turns to
+the body, and what the creature is told when the hand lets go. What the creature learns from it is in
+<a href="../creature/index.html">../creature/</a>. Giving the creature something to hold or eat is in
+<a href="holding.html">holding.md</a>.</p>
+<p><strong>Progress: 24/46 done, 7 partial — 60%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../hand-and-interface.html">The hand and the interface</a>.</p>
+<h2 id="taking-hold">Taking hold</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Holding the Action button over a creature takes hold of it</td>
+<td>done</td>
+<td><code>hand_press::Branch::Creature</code> -&gt; <code>SendStartLockedSelect</code>; the turn locks it (<code>HandTurn.cpp</code>, <code>CreatureHandSystem::Grab</code>), then <code>HandSystem::UpdateCreatureLock</code> / <code>UpdateCreatureFrame</code>; tests <code>HandCreatureLock.*</code>, <code>HandCreatureFrame.*</code> (<code>test/test_hand_creature.cpp</code>)</td>
+</tr>
+<tr>
+<td>Any player's creature can be held, not only the player's own, unless it is asleep or frozen; never an ogre</td>
+<td>done</td>
+<td>Only the player's own creature (<code>creature_hand::TakesPress</code>, <code>IsFriendlyTo</code>), not asleep or frozen, never an ogre (<code>creature_hand::MayHold</code>); test <code>CreatureHandSystemTest.OnlyAPlayersCreatureMayBeHeld</code>. Our wiki differs: the original holds only its own or an allied player's creature, not any god's (<a href="../../hand-and-interface.html#the-hand-on-a-creature">page</a>)</td>
+</tr>
+<tr>
+<td>A press let go quickly, before stroking or slapping, is a click, which puts the leash on instead</td>
+<td>done</td>
+<td>A let-go within 450 ms of camera time on the own creature sends the click packet, which presses the leash key (<code>creature_hand::IsClick</code>, <code>hand_creature::StepFrame</code>, <code>CreatureHandPackets.cpp</code>); test <code>HandCreatureFrame.ALetGoWithinAClickOfTheOwnCreatureSendsTheClickThenTheFeedback</code></td>
+</tr>
+<tr>
+<td>The nearest creature along the line of sight is the one taken hold of</td>
+<td>done</td>
+<td>The cursor's pick takes creatures by capsules round their posed bones (<code>CreatureHandSystem::CreatureAlong</code>, called from <code>HandPlacement.cpp</code>), the nearest wins; test <code>CreatureHandSystemTest.TheNearestCreatureAlongASightAndHowFar</code></td>
+</tr>
+<tr>
+<td>Holding a creature can't be done while the hand holds a miracle</td>
+<td>done</td>
+<td>The creature branch needs an empty hand (<code>hand_press::EmptyHandOverNothing</code>), so a seed in the hand blocks it</td>
+</tr>
+<tr>
+<td>Scripts and the testbed can put the hand on a creature and stroke or slap it</td>
+<td>partial</td>
+<td><code>CreatureHandSystem::Grab</code> is public on <code>CreatureHandSystemInterface</code>, but only the hand's locked select calls it; no script command uses it</td>
+</tr>
+<tr>
+<td>Taking hold starts the hand facing back towards the camera and settles it over a second</td>
+<td>todo</td>
+<td>The hand is placed on the body at once (<code>CreatureHandSystem::Update</code>)</td>
+</tr>
+<tr>
+<td>Taking hold starts the hand with its stroking pose and a clean slate: no part stroked yet, no slap yet</td>
+<td>done</td>
+<td><code>CreatureHandSystem::Grab</code> makes a fresh <code>HandOnCreature</code> (no part stroked, no slap, sum 0); the hand's clip stays the normal one (Cstroke)</td>
+</tr>
+<tr>
+<td>Holding a creature zooms the camera in on it</td>
+<td>todo</td>
+<td>The interaction camera is not ported (<code>UpdateCreatureFrame</code>: "(not ported) the interaction camera")</td>
+</tr>
+<tr>
+<td>Letting go stops any force-feedback effect of the contact</td>
+<td>todo</td>
+<td>No force feedback</td>
+</tr>
+</tbody>
+</table>
+<h2 id="where-the-hand-rests">Where the hand rests</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hand meets the body where the line of sight through the cursor meets the creature's mesh</td>
+<td>partial</td>
+<td>Capsules round the posed bones (<code>creature_feedback::RayHit</code>), not the drawn mesh; test <code>CreatureFeedback.TheHandTouchesTheBodyWhereTheLineOfSightMeetsIt</code></td>
+</tr>
+<tr>
+<td>Missing the body, the hand tries again along the line through the middle of the cursor's last two places</td>
+<td>todo</td>
+<td>Missing the body, the hand goes to the upright plane through the creature instead (<code>CreatureHandSystem::Update</code>)</td>
+</tr>
+<tr>
+<td>The hand is held a little short of the body, by about a twentieth of the creature's height, easing there over 0.3 seconds</td>
+<td>partial</td>
+<td><code>CreatureHandSystem::Update</code> puts the hand at the touch point, which <code>HandPlacement.cpp</code> uses in the creature state; no gap and no ease</td>
+</tr>
+<tr>
+<td>Coming nearer than the body allows, it snaps to the nearer place at once rather than easing</td>
+<td>todo</td>
+<td>Not ported</td>
+</tr>
+<tr>
+<td>Away from the body, the hand keeps back from the camera by a quarter of the creature's height</td>
+<td>todo</td>
+<td>Away from the body the hand is on the plane through the creature's middle (<code>OnPlaneThrough</code>), not kept back</td>
+</tr>
+<tr>
+<td>The hand is drawn larger with the creature's size, so it suits the creature</td>
+<td>todo</td>
+<td>The hand keeps its usual size</td>
+</tr>
+<tr>
+<td>Far from the creature's middle (more than 0.6 of its height), the hand is drawn 0.3 of its height back towards the camera</td>
+<td>todo</td>
+<td>Not ported</td>
+</tr>
+<tr>
+<td>On the body, the hand turns to face the body's surface over 0.9 seconds</td>
+<td>todo</td>
+<td>Not ported</td>
+</tr>
+<tr>
+<td>Off the body, the hand turns back upright over 2.5 seconds</td>
+<td>todo</td>
+<td>Not ported</td>
+</tr>
+<tr>
+<td>The body is felt as capsules from each joint to its parent, as posed</td>
+<td>done</td>
+<td><code>creature_feedback::BodyCapsules</code> (openblack's stand-in for the mesh); test <code>CreatureFeedback.TheBodyIsACapsuleFromEachJointToItsParentsPlaced</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="stroking">Stroking</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>On the body the hand plays its tickling cycle as it strokes</td>
+<td>partial</td>
+<td>Our hand keeps the normal state's clip over a creature (Cstroke), not the tickle cycle; the creature state's own clip is not traced</td>
+</tr>
+<tr>
+<td>The hand must rest on the body for a second, with the button held, before it strokes</td>
+<td>done</td>
+<td><code>creature_feedback::k_StrokeHoldMs</code> (1000 ms) in <code>CreatureHandSystem::Update</code></td>
+</tr>
+<tr>
+<td>A stroke lands on the nearest of nine parts of the body: the head, each armpit, the belly, the groin, each foot and each hand</td>
+<td>done</td>
+<td><code>creature_feedback::NearestPart</code> with the rig's action points; test <code>CreatureFeedback.AStrokeLandsOnTheNearestPart</code></td>
+</tr>
+<tr>
+<td>A new stroke needs another part than the last and two seconds since the last</td>
+<td>done</td>
+<td><code>creature_feedback::StrokeDue</code>; test <code>CreatureFeedback.StrokesNeedANewPartAndTime</code></td>
+</tr>
+<tr>
+<td>The creature plays the pleased animation of the part stroked, mirrored for the left side</td>
+<td>done</td>
+<td><code>creature_feedback::k_RewardAnimations</code>, <code>k_RewardMirrored</code>, played through <code>CreatureMindSystem::ForceAction</code></td>
+</tr>
+<tr>
+<td>It pulls a face for two seconds: an aah for the head and belly, an ooh for the groin, a smile elsewhere</td>
+<td>done</td>
+<td><code>creature_feedback::k_RewardFaces</code>, <code>RewardFace</code> (2 s)</td>
+</tr>
+<tr>
+<td>A stroke doesn't interrupt an action less than 0.8 of the way through</td>
+<td>done</td>
+<td><code>creature_feedback::k_StrokeInterruptsAfter</code> passed to <code>ForceAction</code></td>
+</tr>
+<tr>
+<td>Each stroke adds 0.1 to the running sum, at most 1</td>
+<td>done</td>
+<td><code>creature_feedback::AfterStroke</code> (<code>k_StrokeAmount</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="slapping">Slapping</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hand moving across the creature faster than five of its heights a second shows the slapping cycle</td>
+<td>partial</td>
+<td>The slap is classed by speed (<code>creature_feedback::k_SlapSpeed</code>) and kept 0.3 s, but nothing reads the pose's slapping flag: the hand does not change its clip</td>
+</tr>
+<tr>
+<td>A slap needs the hand between the ground and 1.1 of the creature's height</td>
+<td>done</td>
+<td><code>creature_feedback::k_SlapAbove</code> in <code>ClassifySlap</code></td>
+</tr>
+<tr>
+<td>Below 0.4 of its height a slap hits the feet, below 0.7 the waist, above that the head</td>
+<td>done</td>
+<td><code>creature_feedback::ClassifySlap</code>; test <code>CreatureFeedback.SlapsAreClassedByHeightAndSpeed</code></td>
+</tr>
+<tr>
+<td>Faster than nine heights a second it is a hard slap, slower a gentle one, with the gentle animations</td>
+<td>done</td>
+<td><code>creature_feedback::k_SlapSpeed</code>, <code>k_HardSlapSpeed</code>, <code>k_GentleOffset</code></td>
+</tr>
+<tr>
+<td>The slap plays to the side the hand swept towards</td>
+<td>done</td>
+<td><code>ClassifySlap</code> mirrors by the cursor's sweep (<code>CreatureHandSystem::Update</code>)</td>
+</tr>
+<tr>
+<td>Slaps are at least a second apart</td>
+<td>done</td>
+<td><code>creature_feedback::k_SlapIntervalMs</code></td>
+</tr>
+<tr>
+<td>The hand's sweep only counts as a slap as the cursor crosses the middle of the screen</td>
+<td>todo</td>
+<td>(unconfirmed reading of the game's test)</td>
+</tr>
+<tr>
+<td>A slap doesn't interrupt an action less than 0.35 of the way through</td>
+<td>done</td>
+<td><code>creature_feedback::k_SlapInterruptsAfter</code></td>
+</tr>
+<tr>
+<td>A gentle slap takes 0.1 off the sum and a hard one 0.2, twice as much if the creature was enjoying itself (sum past 0.25), never below -1</td>
+<td>done</td>
+<td><code>creature_feedback::AfterSlap</code>; test <code>CreatureFeedback.StrokesAndSlapsAddUp</code></td>
+</tr>
+<tr>
+<td>Every third hard slap in a row throws up an effect on the creature, stronger the harder the slap</td>
+<td>todo</td>
+<td>Not ported</td>
+</tr>
+<tr>
+<td>With a force-feedback mouse a gentle and a hard slap each have their own jolt</td>
+<td>todo</td>
+<td>No force feedback</td>
+</tr>
+<tr>
+<td>In a network game a hard slap knocks the creature's body about</td>
+<td>todo</td>
+<td>No network game. (unconfirmed)</td>
+</tr>
+<tr>
+<td>Punching the creature</td>
+<td>n/a</td>
+<td>the punch cycle is in the hand's animations but the game never plays it</td>
+</tr>
+<tr>
+<td>Tickling as a separate act</td>
+<td>n/a</td>
+<td>the game has no tickle apart from stroking; its tickle cycle is what the hand plays while stroking</td>
+</tr>
+</tbody>
+</table>
+<h2 id="letting-go-and-after">Letting go and after</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Letting go tells the creature's mind how it was treated, from -1 to 1</td>
+<td>done</td>
+<td><code>HandSystem::LeaveCreatureState</code> -&gt; <code>CreatureHandSystem::Release</code> -&gt; the creature feedback packet, applied at the next turn (<code>CreatureMindSystem</code>); test <code>CreatureHandSystemTest.LettingGoGivesHowTheCreatureWasTreated</code></td>
+</tr>
+<tr>
+<td>Feedback this slight only makes the creature look at the player</td>
+<td>done</td>
+<td><code>creature_feedback::k_SlightFeedback</code> in <code>CreatureMindSystem.cpp</code></td>
+</tr>
+<tr>
+<td>The status panel shows the reward until the hand next takes hold</td>
+<td>partial</td>
+<td><code>CreatureHandSystem::GetLastFeedbackSum</code> keeps it, but the status panel (<code>src/Creature/CreatureStatusPanel.cpp</code>) is not wired into the game</td>
+</tr>
+<tr>
+<td>The creature reacts to each stroke and slap</td>
+<td>done</td>
+<td><code>CreatureMindSystem::ForceAction</code> plays the pleased and slapped animations; learning in <code>CreatureMindLearning.cpp</code></td>
+</tr>
+<tr>
+<td>The creature looks at, follows, turns to or runs from the player's hand nearby</td>
+<td>todo</td>
+<td>Nothing in the creature's code reads the hand's position</td>
+</tr>
+<tr>
+<td>The creature copies what it sees the hand do to others</td>
+<td>partial</td>
+<td><code>ecs::creature_mimic::Consider</code> for some deeds (planting a tree from the hand, damaging a building by a throw, casting water on crops); not the rock's tap</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The computer gods&#x27; creatures — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="here" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-computer-gods-creatures">The computer gods' creatures</a><ul>
+<li><a href="#the-mind-files">The mind files</a></li>
+<li><a href="#how-the-story-sets-them-up">How the story sets them up</a></li>
+<li><a href="#knowledge-and-size-for-skirmish">Knowledge and size for skirmish</a></li>
+<li><a href="#looking-after-it">Looking after it</a></li>
+<li><a href="#teaching-it">Teaching it</a></li>
+<li><a href="#playing-with-it">Playing with it</a></li>
+<li><a href="#using-it">Using it</a></li>
+<li><a href="#story-scenes-with-them">Story scenes with them</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-computer-gods-creatures">The computer gods' creatures</h1>
+<p>Each computer god has a creature, loaded from a mind file the game ships, set up by script and then steered by its god:
+fed, healed, taught, played with and sent to win, destroy or defend towns and to fight other creatures.</p>
+<p><strong>Progress: 2/47 done, 4 partial — 9%</strong></p>
+<p>See <a href="../creature/index.html">../creature/</a> for how any creature thinks and acts, especially
+<a href="../creature/decision_making.html">../creature/decision_making.md</a>, <a href="../creature/fighting.html">../creature/fighting.md</a> and
+<a href="../creature/saves_and_files.html">../creature/saves_and_files.md</a>.</p>
+<h2 id="the-mind-files">The mind files</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Khazar's, Lethys's and Nemesis's creatures come from three mind files that are byte for byte the same (an older file version), so they start alike; the script picks the species</td>
+<td>partial</td>
+<td>the files can be read (<code>components/creaturemind</code>, <code>resources::CreatureMindLoader</code>); <code>LOAD_CREATURE</code>, the story's loading function, is a stub</td>
+</tr>
+<tr>
+<td>Skirmish gods' creatures come from a generic computer creature file in a newer version</td>
+<td>done</td>
+<td><code>CREATE_CREATURE_FROM_FILE</code> loads it (<code>FeatureScriptCommands::CreateCreatureFromFile</code>)</td>
+</tr>
+<tr>
+<td>One skirmish land uses Nemesis's file for all its gods</td>
+<td>done</td>
+<td>the same command, with Nemesis's file</td>
+</tr>
+<tr>
+<td>Four larger template minds (destroying other creatures, destroying towns, impressing towns, protecting towns) ship with the game but no script loads them, and the game refuses their old layout</td>
+<td>n/a</td>
+<td>unused; our reader rejects their layout too (<code>components/creaturemind/include/MindFile.h</code>, unsupported version)</td>
+</tr>
+<tr>
+<td>Exported creatures the player saved also sit beside them; they are the player's, not a god's</td>
+<td>n/a</td>
+<td>see <a href="../creature/saves_and_files.html">../creature/saves_and_files.md</a></td>
+</tr>
+<tr>
+<td>A creature loaded for a god belongs to that god and is placed where the script says</td>
+<td>partial</td>
+<td>the land command does this (<code>CreatureArchetype</code>, owned by the script's player), turned a fixed 180 degrees and at the species' starting size (unconfirmed what the game uses)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-the-story-sets-them-up">How the story sets them up</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Khazar's is a tortoise at 1.2 times size, Lethys's a wolf at 1.5, Nemesis's a lion at 2</td>
+<td>todo</td>
+<td><code>LOAD_CREATURE</code> is a stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>Each is named from the game's text</td>
+<td>todo</td>
+<td><code>SET_CREATURE_NAME</code> is a stub</td>
+</tr>
+<tr>
+<td>Each is made fully grown and scaled automatically by the factor given</td>
+<td>todo</td>
+<td><code>SET_CREATURE_DEV_STAGE</code> works (<code>ecs::player_creature::SetDevelopmentStage</code>) but <code>CREATURE_AUTOSCALE</code> is a stub, and the creature is never loaded</td>
+</tr>
+<tr>
+<td>Each knows every everyday skill: building, using fields, totems and storehouses, fishing and dancing</td>
+<td>todo</td>
+<td><code>CREATURE_SET_KNOWS_ACTION</code> is a stub</td>
+</tr>
+<tr>
+<td>Each knows fireball and lightning with both power-ups, heal and its power-up, teleport, forest, food and its power-up, both storms, tornado, both shields, wood, water and its power-up, both flocks, and all sixteen creature miracles</td>
+<td>todo</td>
+<td><code>CREATURE_SET_KNOWS_ACTION</code> is a stub, and the creature is never loaded</td>
+</tr>
+<tr>
+<td>The explosion miracle was left out of their lessons</td>
+<td>n/a</td>
+<td>commented out in the game's scripts</td>
+</tr>
+<tr>
+<td>Strength, warmth, fatness, energy, itchiness, poo, exhaustion, thirst and fighting health are all set to 0.2</td>
+<td>todo</td>
+<td>the creature is never loaded (<code>LOAD_CREATURE</code> stub)</td>
+</tr>
+<tr>
+<td>They are released into the world, then again after their alignment is set</td>
+<td>todo</td>
+<td>the creature is never loaded (<code>LOAD_CREATURE</code> stub)</td>
+</tr>
+<tr>
+<td>Khazar's takes the player's creature's alignment and is made its friend; the others take the opposite</td>
+<td>todo</td>
+<td><code>CREATURE_FORCE_FRIENDS</code> is a stub</td>
+</tr>
+<tr>
+<td>The story waits for the player's creature, checking every 5 seconds, before setting alignment</td>
+<td>todo</td>
+<td>the script waits on the stubbed creature functions above</td>
+</tr>
+<tr>
+<td>A creature that wins a fight is healed by 1% every 6 seconds until full or until it fights again</td>
+<td>todo</td>
+<td>done by the story scripts of lands our story never reaches (<code>LOAD_MAP</code> is empty), and the creature is never loaded</td>
+</tr>
+</tbody>
+</table>
+<h2 id="knowledge-and-size-for-skirmish">Knowledge and size for skirmish</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A god's creature learns every miracle its god has, and heal, food, wood and water always, as if seen enough to learn</td>
+<td>todo</td>
+<td>no computer god mind in our tree; see <a href="skirmish_opponents.html">skirmish_opponents.md</a></td>
+</tr>
+<tr>
+<td>Its size is set from the person's creature: 0.9 to 1.2 times as tall</td>
+<td>todo</td>
+<td><code>SET_COMPUTER_PLAYER_CREATURE_LIKE</code> is empty; see <a href="skirmish_opponents.html">skirmish_opponents.md</a></td>
+</tr>
+<tr>
+<td>Its height for decisions ignores the shrinking near its temple</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>A computer god's creature keeps the speed it was given when it stops, where a person's goes back to walking</td>
+<td>todo</td>
+<td>no computer players in our tree; see <a href="../creature/locomotion.html">../creature/locomotion.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="looking-after-it">Looking after it</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The god finds its creature and judges how hungry, starving, thirsty, tired, hot, cold, hurt or ill it is</td>
+<td>todo</td>
+<td>no computer god mind in our tree; see <a href="ai.html">ai.md</a></td>
+</tr>
+<tr>
+<td>It feeds it from fields or fish farms, or casts food for it</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It makes it drink, sleep, go home, or move somewhere warmer or cooler (all off unless a script turns them on)</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It heals it when hurt, and restores it from illness</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It judges how near and free its creature is before using it</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="teaching-it">Teaching it</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It judges how important it is to teach an ordinary skill, aggressive, compassionate or impressive magic</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It only teaches miracles its creature doesn't know, choosing among those marked known from the start</td>
+<td>partial</td>
+<td>the filter is read (<code>MiracleRule::knownAtStart</code>, which makes nothing known; see <a href="../creature/learning_by_observation.html">../creature/learning_by_observation.md</a>); no god uses it</td>
+</tr>
+<tr>
+<td>To teach a skill it leads the creature on the leash and does the action in front of it</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>To teach a miracle it casts it in front of the creature</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It teaches its creature to use the town's totem</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It weighs the creature's own desire to learn a miracle</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It leashes its creature to things or to other creatures</td>
+<td>todo</td>
+<td>no computer god mind in our tree; see <a href="../creature/leash.html">../creature/leash.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="playing-with-it">Playing with it</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It throws food at it to play</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It strokes or slaps it (both off by default)</td>
+<td>todo</td>
+<td>no computer god mind in our tree; see <a href="../creature/learning_from_feedback.html">../creature/learning_from_feedback.md</a></td>
+</tr>
+<tr>
+<td>It casts on it for a laugh (off by default)</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="using-it">Using it</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It sends it to impress a town it wants to win (with a 3300 setting on that action, unconfirmed what it measures)</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It sends it to destroy a town</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It sends it to defend a town, or to help a town or a building site</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It sends it to attack another creature, if it is near enough</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It uses it as a diversion against a player who attacks it</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>Scripts force a god's creature to help a town (Nemesis's battle plan does)</td>
+<td>todo</td>
+<td><code>FORCE_COMPUTER_PLAYER_ACTION</code> is a stub</td>
+</tr>
+<tr>
+<td>A computer god's creature fights with the computer's moves</td>
+<td>partial</td>
+<td>any creature not the local player's fights by the computer's moves (<code>fight::ChooseMove</code>, <code>CreatureFightSystem</code>); there are no computer players; see <a href="../creature/fighting.html">../creature/fighting.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="story-scenes-with-them">Story scenes with them</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lethys's creature torments the captive player's creature on the third land</td>
+<td>todo</td>
+<td>the creature is never loaded; see <a href="lethys.html">lethys.md</a></td>
+</tr>
+<tr>
+<td>Lethys's creature is made strong and carries Khazar's off on the second land</td>
+<td>todo</td>
+<td>the story never reaches Land 2 (<code>LOAD_MAP</code> is empty); see <a href="khazar.html">khazar.md</a></td>
+</tr>
+<tr>
+<td>Nemesis's lion is swapped for a double of the player's species for the final fight</td>
+<td>todo</td>
+<td><code>SWAP_CREATURE</code> and <code>LOAD_CREATURE</code> are stubs; see <a href="nemesis.html">nemesis.md</a></td>
+</tr>
+<tr>
+<td>A mirror creature of the player's species, opposite in alignment, angry and fully grown, is made from the player's creature for a fight (unconfirmed whether the game runs it)</td>
+<td>todo</td>
+<td><code>CREATURE_CREATE_RELATIVE_TO_CREATURE</code> (the script statement create creature from creature) logs "not implemented"; see <a href="../story/land_5.html">../story/land_5.md</a></td>
+</tr>
+<tr>
+<td>While a script kills Khazar, both gods' creatures have all their desires turned off and are kept at full health</td>
+<td>todo</td>
+<td><code>CREATURE_TURN_OFF_ALL_DESIRES</code> and the desire functions are stubs</td>
+</tr>
+<tr>
+<td>Scripts can turn every desire off and set one desire on, as for the mirror creature's anger at 0.5</td>
+<td>todo</td>
+<td>the desire script functions are stubs (<code>src/CHLApi.cpp</code>)</td>
+</tr>
+<tr>
+<td>Freed creatures on the third land, the player's and Lethys's, can both be leashed</td>
+<td>todo</td>
+<td>the story never reaches Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Swap To Brown Bear — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#swap-to-brown-bear">Swap To Brown Bear</a><ul>
+<li><a href="#how-it-appears">How it appears</a></li>
+<li><a href="#the-introduction">The introduction</a></li>
+<li><a href="#following-the-trail">Following the trail</a></li>
+<li><a href="#finding-the-bear">Finding the bear</a></li>
+<li><a href="#the-reward">The reward</a></li>
+<li><a href="#the-swap-offer">The swap offer</a></li>
+<li><a href="#aftermath-advisors-and-music">Aftermath, advisors and music</a></li>
+<li><a href="#bugs-quirks-and-unused-parts">Bugs, quirks and unused parts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="swap-to-brown-bear">Swap To Brown Bear</h1>
+<p>A fifth-land silver scroll that appears once the player wins the neutral Japanese village: a villager complains of a
+stench from the forest, and the player follows a trail of eight piles of dung, picking each one up, to find the brown
+bear that made them. The bear stays as a creature the player can swap their own creature for, and a heal miracle chest
+falls beside it.</p>
+<p><strong>Land:</strong> 5 · <strong>Giver:</strong> a Japanese farmer from a house on the edge of the neutral Japanese village · <strong>Script:</strong> SwapToBrownBear · <strong>Reward:</strong> a brown bear creature to swap to, and a heal miracle chest given to the player's home village · <strong>Repeatable:</strong> no (the swap offer itself never ends)</p>
+<p>Sources: the quest's script (the original source text, checked line by line against the decompile of the PC game's
+compiled <code>challenge.chl</code>, where it is compiled), Land 5's control script and map script, the game's text table and its
+reward table (<code>info.dat</code>). openblack is judged on this tree: the quest's challenge-record, reward and creature commands
+are stubs in <code>src/CHLApi.cpp</code> (they only log "not implemented"), <code>Create</code> makes the villager and the dung but no
+creature (<code>CreateScriptObject</code>), and <code>SwapCreature</code> is a stub. The land-loading command does nothing, so Land 5's
+control script, which starts this quest, never runs at all. Every row is todo unless the notes say otherwise. The land
+is in <a href="../land_5.html">../land_5.md</a>; the swap that ends the quest is described in full in
+<a href="./creature_swaps.html">creature_swaps.md</a>.</p>
+<p><strong>Progress: 0/53 done, 3 partial — 3%</strong></p>
+<h2 id="how-it-appears">How it appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The quest is started by the land's control script the first time the neutral Japanese village becomes the player's, however it was won</td>
+<td>todo</td>
+<td><code>LandControl5</code> never runs: <code>LOAD_MAP</code> is empty (<a href="../../../map-loading.html#pending">map-loading</a>); reading a town's owner (<code>GetProperty</code> player) is not ported</td>
+</tr>
+<tr>
+<td>It is started only once: losing the village to Nemesis and winning it back does not start it again</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The check sits in the land's main loop that runs while the creature is cursed, until the three wonder villages (Greek, Tibetan and Aztec) are all the player's; if the player takes all three before the Japanese village, the loop ends and this quest is never offered</td>
+<td>todo</td>
+<td>read from the control script: no later code starts it; the curse: <a href="../gold_scrolls/i_have_a_surprise_for_you.html">../gold_scrolls/i_have_a_surprise_for_you.md</a>; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The control script's town checks run one after another with the cut scenes for taking the wonder villages, so the scroll can appear a little after the village is won if one of those scenes is playing</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>As soon as the quest starts, a silver scroll appears over a house on the village's edge (about 60 from its centre) and the challenge is registered</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> works (<code>src/ECS/ScriptHighlight.cpp</code>), <code>Snapshot</code> is a stub; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Until the scroll or the house is clicked, whenever the camera is within 100 of the scroll and it is on screen, the good advisor steps out at most every 30 seconds, points at it and says "We've got something to do. Let's see what it is."</td>
+<td>todo</td>
+<td>the shared notify script's natives work (<code>SpiritEject</code>, <code>SpiritPointPos</code>, <code>RunText</code>); the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Clicking the scroll or the house makes the scroll active and the quest goes on; nothing happens before that click (no time limit)</td>
+<td>todo</td>
+<td><code>GameThingClicked</code> and <code>SetActive</code> on a highlight work (see <a href="../../scripts/challenge_scripts.html">../../scripts/challenge_scripts.md</a>); the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-introduction">The introduction</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The first pile of dung appears at once, about 100 west of the house, with a swarm of flies over it that lasts for ever</td>
+<td>todo</td>
+<td><code>Create</code> makes the dung (a lump of poo, <code>CreateScriptObject</code>) and <code>SpecialEffectObject</code> works; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A Japanese farmer comes out of the house (the source notes he was a woman until the voice used turned out to be a man's)</td>
+<td>todo</td>
+<td><code>Create</code> makes villagers; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A cut scene with the "happy" script music starts; the farmer is drawn in high detail</td>
+<td>partial</td>
+<td>the music command plays the track (<code>StartMusic</code>, <code>src/Audio/GameMusic.cpp</code>); the scene never runs</td>
+</tr>
+<tr>
+<td>The camera glides to a low view by the house (3 seconds for the position, 4 for the focus)</td>
+<td>todo</td>
+<td><code>MoveCameraPosition</code>, <code>MoveCameraFocus</code> work; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>After 2 seconds the farmer walks slowly (speed 0.4) to a spot a few paces in front of the house, then turns to face the camera</td>
+<td>todo</td>
+<td><code>MoveGameThing</code>, <code>SetFocus</code> and the speed property work for villagers; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>He plays his "poisoned" (retching) animation once while the camera creeps closer over 12 seconds</td>
+<td>todo</td>
+<td>the villagers' script animations (<code>SetScriptState</code>, <code>SetScriptUlong</code>, <code>Played</code>) work; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A quarter of a second after it ends, the challenge record opens: title "Swap To Brown Bear", progress 0, reminder "The people here are complaining about the stench." (good advisor)</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>He looks around as if searching and says "Ugh. There's a frightful stench coming from the forest."</td>
+<td>todo</td>
+<td><code>RunText</code> works; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>He turns to the first pile of dung, talks and points, as the camera swings up and round to look west over the forest (3 seconds): "Could you check it out, big one. It's sickening."</td>
+<td>todo</td>
+<td><code>RunText</code>, <code>SetFocus</code> and the camera moves work; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The camera goes back to where the player had it, but now looking at the first pile of dung (3 seconds)</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The farmer walks back to his house, the music stops and the scene ends; once he is within 2 of the house he is removed</td>
+<td>todo</td>
+<td><code>MoveGameThing</code>, <code>StopMusic</code>, <code>ObjectDelete</code> work; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Straight after, the good advisor steps out: "Sickening, is it? I don't believe you." then "Hmm. Yes it really is rancid. I wonder what's causing it?" (the evil advisor is popped out for the second line, but both lines are recorded in the good advisor's voice)</td>
+<td>todo</td>
+<td><code>SpiritEject</code> and <code>RunText</code> work; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="following-the-trail">Following the trail</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The player clears the dung by picking each pile up with the hand; the moment a pile is in the hand it vanishes (the hand is left empty) and the next pile appears with its own flies</td>
+<td>todo</td>
+<td>the in-hand property (<code>GetProperty</code>) is not ported; <code>ObjectDelete</code> works</td>
+</tr>
+<tr>
+<td>Only one pile exists at a time; they lead from near the village west, then north through the forest, each 25 to 45 apart: eight piles in all, the last about 220 north-west of the house</td>
+<td>todo</td>
+<td>positions from the script; needs the in-hand test</td>
+</tr>
+<tr>
+<td>After the first pile, the good advisor: "Ugh. I can still smell something. There must be several more around. Let's clear them up."</td>
+<td>todo</td>
+<td>needs the in-hand test</td>
+</tr>
+<tr>
+<td>After the seventh pile, the evil advisor: "The smell is almost gone. There's one more out there, though."</td>
+<td>todo</td>
+<td>needs the in-hand test</td>
+</tr>
+<tr>
+<td>Picking up the eighth pile ends the trail</td>
+<td>todo</td>
+<td>needs the in-hand test</td>
+</tr>
+<tr>
+<td>The flies of a picked-up pile are never removed by the script (undetermined whether they go with the pile)</td>
+<td>todo</td>
+<td>needs the in-hand test</td>
+</tr>
+<tr>
+<td>There is no time limit, no counter on screen and no way to fail; the creature can't do it for the player (only the hand holding a pile counts)</td>
+<td>todo</td>
+<td>read from the script; whether a creature picking a pile up counts as "in hand" is undetermined</td>
+</tr>
+<tr>
+<td>If the farmer's house is damaged at any time during the trail (its health drops below what it was after the introduction), the good advisor steps out, points at it and says "The owner of that house will be a little distraught." (once only)</td>
+<td>todo</td>
+<td>the health property (<code>GetProperty</code>) is not ported</td>
+</tr>
+<tr>
+<td>A further hint was meant for the first pile: once it was on screen with the camera within 100, the good advisor would point at it and say "We really should clean up this mess. Someone could step in it." It never plays (see bugs)</td>
+<td>todo</td>
+<td>script behaviour to keep; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="finding-the-bear">Finding the bear</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A spell-success sparkle appears for 2 seconds at a spot about 30 past the last pile, almost at sea level, and a brown bear creature appears there</td>
+<td>todo</td>
+<td><code>Create</code> makes no creatures (<code>CreatureArchetype::Create</code> exists, used by the debug creature spawner); <code>SpecialEffectPosition</code> works</td>
+</tr>
+<tr>
+<td>A cut scene with the short epic sting starts; the camera moves to a low view of the spot over 2 seconds</td>
+<td>partial</td>
+<td><code>StartMusic</code> plays the sting; the scene never runs</td>
+</tr>
+<tr>
+<td>The good advisor: "Aha! So that's what's been causing this smell!"</td>
+<td>todo</td>
+<td>needs the trail (in-hand test) and the bear</td>
+</tr>
+<tr>
+<td>The bear walks about 25 further north, the camera following it down over 2 seconds; when it is there the camera drops lower</td>
+<td>todo</td>
+<td>needs the bear</td>
+</tr>
+<tr>
+<td>The heal miracle chest falls from the sky onto the spot the bear appeared on (see below)</td>
+<td>todo</td>
+<td><code>CreateRewardInTown</code> is a stub</td>
+</tr>
+<tr>
+<td>The evil advisor: "The brown bear. So they do do it in the woods!" while the bear looks back at the spot, for at least 3 seconds</td>
+<td>todo</td>
+<td>needs the bear</td>
+</tr>
+<tr>
+<td>The bear turns to the camera, both advisors go home, the dialogue closes and a second later the challenge record closes as a success (progress 1, alignment 0)</td>
+<td>todo</td>
+<td><code>Snapshot</code> stub</td>
+</tr>
+<tr>
+<td>The music stops and the scene ends; the bear is then handed to the shared creature-swap offer</td>
+<td>todo</td>
+<td>needs the bear; <code>SwapCreature</code> stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-reward">The reward</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A reward chest drops from the sky at the bear's spot, given in the player's home Norse village (the first village on the land), without its own camera film</td>
+<td>todo</td>
+<td><code>CreateRewardInTown</code> is a stub; see <a href="../rewards.html">../rewards.md</a></td>
+</tr>
+<tr>
+<td>The chest is the reward table's first heal kind: it holds a heal miracle seed (undetermined whether it is the powered-up heal its name suggests; the table's power-up field is empty for both heal kinds)</td>
+<td>todo</td>
+<td>read from the reward table in <code>info.dat</code> with our <code>GRewardInfo</code> layout (<code>src/InfoConstants.h</code>); no reward chests</td>
+</tr>
+<tr>
+<td>Once the chest is opened, the good advisor says "Great! We can heal people with this." if no dialogue is in the way; if this were the game's first reward, the first-reward explanation would play instead</td>
+<td>todo</td>
+<td>no reward chests; <code>GetHelp</code> is a stub</td>
+</tr>
+<tr>
+<td>The real reward is the bear itself: a new species for the player's creature, if they want it</td>
+<td>todo</td>
+<td>see the next section</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-swap-offer">The swap offer</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A silver scroll appears over the bear and it keeps turning to look at the camera; when the camera is near, the evil advisor says "Swap your Creature with this one if you want." at most once a minute</td>
+<td>todo</td>
+<td>no bear; the shared swap script; full detail in <a href="./creature_swaps.html">creature_swaps.md</a></td>
+</tr>
+<tr>
+<td>Clicking it with the player's creature further than 50 away: "You'll need to bring our Creature, Boss."</td>
+<td>todo</td>
+<td>no bear</td>
+</tr>
+<tr>
+<td>Otherwise the two creatures meet, the good advisor asks to confirm ("Are you sure you want a new Creature? ...") and clicking the bear confirms, clicking the player's own creature cancels</td>
+<td>todo</td>
+<td>no bear; <code>SwapCreature</code> stub</td>
+</tr>
+<tr>
+<td>On confirmation the creature's mind moves into the brown bear in a short scene, and the evil advisor says "Great, Boss. If you want your old Creature back, just return here later."</td>
+<td>todo</td>
+<td><code>SwapCreature</code> is a stub; our tree has no way to change a creature's species or move its mind into another body</td>
+</tr>
+<tr>
+<td>The old body stays under a scroll and the offer never ends, so the player can swap back and forth</td>
+<td>todo</td>
+<td><code>SwapCreature</code> stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="aftermath-advisors-and-music">Aftermath, advisors and music</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The farmer is gone for good (removed once home); the house stays</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The scroll over the house is never removed by the script (undetermined whether the game removes it when the quest's script ends)</td>
+<td>todo</td>
+<td>undetermined whether the game removes it when the quest's script ends</td>
+</tr>
+<tr>
+<td>The reminder line, replayed by clicking the scroll, is spoken by whichever advisor owns it (the good advisor)</td>
+<td>todo</td>
+<td>the shared reminder script's natives work; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Music: the "happy" script track for the introduction, the short epic sting for the bear</td>
+<td>partial</td>
+<td>music itself works (<code>StartMusic</code>); counted in the scene rows above</td>
+</tr>
+<tr>
+<td>The player's creature is not involved until the swap; nothing checks the creature during the trail</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="bugs-quirks-and-unused-parts">Bugs, quirks and unused parts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The pointing hint for the first pile ("We really should clean up this mess. Someone could step in it.") can never play: the step counter is set past it just before the trail loop starts</td>
+<td>todo</td>
+<td>dead branch, the same in the compiled program</td>
+</tr>
+<tr>
+<td>The source's to-do notes say the trail was meant to lead "through a forest to reach the brown bear" and the camera was meant to "zoom to bear"; the shipped version does both only roughly as described above</td>
+<td>n/a</td>
+<td>development notes, nothing to do</td>
+</tr>
+<tr>
+<td>The text table has no lines numbered 5, 8 to 11 or 16 for this quest, so lines were cut; the source's comments quote older wordings of three lines ("I don't think the owner of that house is gonna be too pleased.", "Urgh. The smell still persists...", "The smell has improved drastically...")</td>
+<td>n/a</td>
+<td>the shipped wordings are the ones above</td>
+</tr>
+<tr>
+<td>The quest is the only one on the land tied to winning the Japanese village, and can be missed for good by taking the wonder villages first</td>
+<td>todo</td>
+<td>see "How it appears"</td>
+</tr>
+<tr>
+<td>A saved game keeps where the trail is, the bear and the offer</td>
+<td>todo</td>
+<td>openblack has no saved games</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

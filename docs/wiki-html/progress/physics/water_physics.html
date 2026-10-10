@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Water physics — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="here" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#water-physics">Water physics</a><ul>
+<li><a href="#falling-into-the-water">Falling into the water</a></li>
+<li><a href="#floating">Floating</a></li>
+<li><a href="#soaking-and-sinking">Soaking and sinking</a></li>
+<li><a href="#drowning">Drowning</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="water-physics">Water physics</h1>
+<p>What happens to things that fall into the sea: the splash, floating or sinking, bobbing and drifting, soaking up water
+until they go under, and villagers and animals drowning. The sea itself is in <a href="../ocean/index.html">../ocean/</a>; what a drowning
+does to a villager's family and town is in <a href="../villager/index.html">../villager/</a>.</p>
+<p>openblack floats and sinks bodies in the game's own physics: the sea test, buoyancy, water drag and
+soaking are in <code>PhysicsBody::GroundAndWater</code> (<code>src/ECS/Physics/PhysicsBody.cpp</code>), <code>src/ECS/Physics/CollisionSounds.cpp</code>
+makes the water rings (<code>ecs::AddWaterRing</code>), the foam puffs and the water sound of a splash, and <code>Substep</code> makes the
+bobbing rings. A sunk villager drowns for its type's drowning time and dies (<code>VillagerEndPhysicsInWater</code>,
+<code>VillagerDrowningState</code>, <code>src/ECS/VillagerDrowning.cpp</code>), a sunk animal dies and is gone (<code>ecs::HasSunk</code>), and a tree
+that ends in the water becomes a dead tree (the tree's end of physics in <code>HandPhysics.cpp</code>). Tests:
+<code>test/test_physics_body_water.cpp</code>.</p>
+<p><strong>Progress: 25/27 done, 2 partial — 96%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../water.html">Water in the game</a>, <a href="../../physics.html">Physics: thrown objects, collisions, damage and rocks that split</a>.</p>
+<h2 id="falling-into-the-water">Falling into the water</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A body is in the water when the land under its centre is at sea level, its centre is less than one radius above the sea, and the map cell under its first point has no land</td>
+<td>done</td>
+<td><code>PhysicsBody::GroundAndWater</code> and <code>PhysicsBody::IsLandUnder</code> (<code>src/ECS/Physics/PhysicsBody.cpp</code>); tests <code>PhysicsBodyWaterTest.NearestCellDecides</code>, <code>NoCellIsWater</code></td>
+</tr>
+<tr>
+<td>Only the sea at height 0 counts as water for the physics: raised lakes are not water to it</td>
+<td>done</td>
+<td><code>PhysicsBody::GroundAndWater</code> (the surface is height 0)</td>
+</tr>
+<tr>
+<td>Hitting deep water plays the water collision sound, six foam puffs and a ring, and makes fish within 8 m dart away</td>
+<td>done</td>
+<td><code>CollisionSounds::AttemptToAddSoundEvent</code> (water sound, foam, ring) and <code>ecs::SplashWater</code>, which scares the fish shoals (<code>src/ECS/FishShoals.cpp</code>)</td>
+</tr>
+<tr>
+<td>Hitting the water makes a ring that grows to twice the body's radius, faster for small bodies</td>
+<td>done</td>
+<td><code>CollisionSounds.cpp</code> (ring at y 0.1, growth 2 R, rate 1 / R) into <code>ecs::AddWaterRing</code></td>
+</tr>
+<tr>
+<td>Six foam-coloured puffs rise where it hits the water</td>
+<td>done</td>
+<td><code>CollisionSounds.cpp</code> and <code>src/ECS/Physics/Dust.cpp</code> (the foam colour)</td>
+</tr>
+<tr>
+<td>Over the shallow shore it makes both a ring and dust, with the ground's sound</td>
+<td>done</td>
+<td><code>CollisionSounds.cpp</code> (dry land, shore and deep tests)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="floating">Floating</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The water lifts a body by how deep its centre is (as a share of its size) times its weight, divided by its density: lighter than water floats, heavier sinks</td>
+<td>done</td>
+<td><code>PhysicsBody::GroundAndWater</code> (buoyancy fraction x m g / density)</td>
+</tr>
+<tr>
+<td>The water slows a body a hundred times more than the air does, by how much of it is under</td>
+<td>done</td>
+<td><code>PhysicsBody::GroundAndWater</code> (drag x 100)</td>
+</tr>
+<tr>
+<td>The water's push acts at the centre; only its turning effect is shared among the points under the surface, so floating things tilt and settle</td>
+<td>done</td>
+<td><code>PhysicsBody::GroundAndWater</code></td>
+</tr>
+<tr>
+<td>A floating body bobs; whenever its vertical speed turns round while its centre is below half its radius above the sea, it makes a small ring</td>
+<td>done</td>
+<td><code>Substep</code> in <code>src/ECS/Physics/PhysicsObjects.cpp</code> (<code>AddRipple</code>)</td>
+</tr>
+<tr>
+<td>Floating things drift only with their own speed: there are no currents or wind</td>
+<td>done</td>
+<td>No current or wind force in <code>PhysicsBody</code></td>
+</tr>
+<tr>
+<td>While under the sea a body never touches the sea floor</td>
+<td>done</td>
+<td><code>PhysicsBody::GroundAndWater</code> (no contact with the bottom)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="soaking-and-sinking">Soaking and sinking</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Things soak up water: their density rises a little every step they are in it (about 0.013 a second), so floating things sink in the end</td>
+<td>done</td>
+<td><code>PhysicsBody::GroundAndWater</code> (density rises each submerged substep)</td>
+</tr>
+<tr>
+<td>How long things float: wood in the hand about 15 s, trees about 20 s, carried food about 30 s, the lightest toys over a minute; animals go under in a few seconds and villagers almost at once; rocks sink straight away</td>
+<td>done</td>
+<td>Follows from the materials and the soaking rate (<code>Data/PhysicsConstants.txt</code>, <code>PhysicsBody</code>); see <a href="../nature/toys.html">../nature/toys.md</a></td>
+</tr>
+<tr>
+<td>Something has sunk when it is denser than water and its centre is less than half its radius above the sea</td>
+<td>done</td>
+<td><code>Substep</code> (centre below half its radius and density over 1, then the class's <code>hasSunk</code> or <code>ecs::HasSunk</code>)</td>
+</tr>
+<tr>
+<td>Ordinary objects that sink keep going down and are deleted deep under the sea</td>
+<td>done</td>
+<td><code>ecs::HasSunk</code> is false for them (<code>src/ECS/VillagerDrowning.cpp</code>); deleted below minus four radii</td>
+</tr>
+<tr>
+<td>An animal that sinks dies and is gone (the creature may learn "throw in the sea" from it)</td>
+<td>partial</td>
+<td><code>ecs::HasSunk</code> sets it dying and deletes it; the creature does not learn from an animal yet (only from a villager)</td>
+</tr>
+<tr>
+<td>Carried food or wood that comes to rest in the water stays a floating object rather than becoming a pile</td>
+<td>done</td>
+<td>The pot class's end of physics makes a pile only on land (<code>HandPhysics.cpp</code>)</td>
+</tr>
+<tr>
+<td>A tree that ends in the water is not planted again but becomes a dead tree</td>
+<td>done</td>
+<td>The tree class's end of physics (<code>HandPhysics.cpp</code>: replanted only when landed on land)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="drowning">Drowning</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A villager that sinks stops where it is and starts drowning (one already dead goes to dying instead)</td>
+<td>done</td>
+<td><code>ecs::HasSunk</code> and <code>VillagerEndPhysicsInWater</code> (<code>src/ECS/VillagerDrowning.cpp</code>)</td>
+</tr>
+<tr>
+<td>A villager that lands on a water cell, the shallow shore included, drowns too; one already dead just dies</td>
+<td>done</td>
+<td><code>VillagerEndPhysicsInWater</code> from the villager's end of physics (the cell's water bit)</td>
+</tr>
+<tr>
+<td>A drowning villager struggles for its type's drowning time (600 turns, 60 s, for every villager type in info.dat), then dies drowned</td>
+<td>done</td>
+<td><code>VillagerDrowningState</code> (the info's drowning time, 600 turns)</td>
+</tr>
+<tr>
+<td>The drowning is credited to the player who dropped or threw the villager, else to the last player who interacted with it</td>
+<td>done</td>
+<td><code>VillagerDeadDrowned</code> with the last player to interact (<code>RememberLastPlayerToInteract</code>)</td>
+</tr>
+<tr>
+<td>An indestructible villager never finishes drowning (its count is reset to 10 each turn)</td>
+<td>done</td>
+<td><code>VillagerDrowningState</code> holds the counter at 10 for <code>Indestructible</code> (SET_INDESTRUCTABLE in <code>src/CHLApi.cpp</code>)</td>
+</tr>
+<tr>
+<td>A drowning villager plays its drowning animation, with swimming splashes and a scream</td>
+<td>done</td>
+<td>The drowning clip and its sound events (<code>src/ECS/VillagerAnimations.cpp</code>, the clip's sounds)</td>
+</tr>
+<tr>
+<td>Scripts can ask whether something is drowning: a villager in the drowning state, or an object in the physics with its centre under the sea</td>
+<td>done</td>
+<td><code>ecs::IsDrowning</code> for GET_PROPERTY (<code>src/CHLApi.cpp</code>)</td>
+</tr>
+<tr>
+<td>Throwing a villager or animal into the sea is something the creature can learn from</td>
+<td>partial</td>
+<td>A villager: <code>creature_mimic::ConsiderThrownInTheSea</code> from <code>ecs::HasSunk</code>; an animal: not yet</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

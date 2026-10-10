@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forests — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="here" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#forests">Forests</a><ul>
+<li><a href="#forests-of-trees">Forests of trees</a></li>
+<li><a href="#big-forests">Big forests</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="forests">Forests</h1>
+<p>Groups of trees the land scripts set out as forests, and the big forest models. A forest grows new trees, gives its town
+wood, has footpaths and is a place for creatures and animals.</p>
+<p><strong>Progress: 10/16 done, 1 partial — 66%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../trees.html">Trees and forests</a>.</p>
+<h2 id="forests-of-trees">Forests of trees</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land scripts make forests and put trees in them by number</td>
+<td>done</td>
+<td>CREATE_FOREST and CREATE_TREE (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>) to <code>ecs::CreateForest</code> and <code>ResolveForestId</code> (<code>src/ECS/Trees.cpp</code>): an unknown number leaves the tree without a forest</td>
+</tr>
+<tr>
+<td>A forest grows new young trees near its trees over time</td>
+<td>done</td>
+<td><code>ProcessForests</code> and <code>PlantTreeNear</code> (<code>src/ECS/Trees.cpp</code>), from the world turn (<code>magic::ProcessForests</code>)</td>
+</tr>
+<tr>
+<td>A forest gains a tree no sooner than so many turns after the last any forest gained (41), at the first free spot round the tree</td>
+<td>done</td>
+<td><code>ProcessForests</code> (the turns since the last tree any forest planted) and <code>PlantTreeNear</code> (32 angles by 5 radii, the first free spot)</td>
+</tr>
+<tr>
+<td>A forest's trees die back now and then (unconfirmed when)</td>
+<td>todo</td>
+<td>Not found in our tree (<code>ShrinkAllTrees</code> exists for the miracles); not confirmed in the game</td>
+</tr>
+<tr>
+<td>A forest belongs to the towns near it; a town's foresters work it, and it is removed from them when it's gone</td>
+<td>done</td>
+<td><code>MakeScenicForest</code> and <code>AssignForestsToTown</code> from <code>src/ECS/Town/TownFeatures.cpp</code> and <code>src/ECS/Scaffolds.cpp</code>; <code>DeleteForest</code> drops it from every town; the foresters (<code>src/ECS/Villager/VillagerForester.cpp</code>)</td>
+</tr>
+<tr>
+<td>A forest's wood is the sum of its trees'</td>
+<td>done</td>
+<td><code>ecs::ForestWood</code> (its big forest's and each tree's); see <a href="../resources/wood.html">../resources/wood.md</a></td>
+</tr>
+<tr>
+<td>Villagers' footpaths lead into forests</td>
+<td>todo</td>
+<td>see ../terrain/footpaths.md</td>
+</tr>
+<tr>
+<td>Forests are places for the creature to go, play and vent its anger</td>
+<td>todo</td>
+<td>see ../creature/</td>
+</tr>
+<tr>
+<td>Wild animals choose lairs near forests</td>
+<td>done</td>
+<td>The predators' lairs from the land's forests (<code>src/ECS/AnimalLairs.cpp</code>); see ../animal/wild_animals.md</td>
+</tr>
+<tr>
+<td>The hand over a forest shows help and makes its own sound</td>
+<td>todo</td>
+<td>see ../interface/</td>
+</tr>
+<tr>
+<td>Scripts read and change forests</td>
+<td>todo</td>
+<td>No forest functions in <code>src/CHLApi.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="big-forests">Big forests</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land scripts place big forest models, turned and scaled</td>
+<td>done</td>
+<td><code>BigForestArchetype</code> (<code>src/ECS/Archetypes/BigForestArchetype.cpp</code>), with its own forest</td>
+</tr>
+<tr>
+<td>Big forests are lit as the game lights them</td>
+<td>done</td>
+<td>Drawn as the other models</td>
+</tr>
+<tr>
+<td>The creature and villagers walk round big forests</td>
+<td>partial</td>
+<td>The route planner takes a big forest as an obstacle (<code>src/ECS/RoutePlanWorld.cpp</code>); the creature's walk is not checked</td>
+</tr>
+<tr>
+<td>The hand tugging a big forest pulls a tree out of it</td>
+<td>done</td>
+<td><code>HandSystem::TakeTreeFromForest</code> (<code>HandTrees.cpp</code>). Our wiki differs: a big forest is not tugged; grabbing it takes 350 of its wood and puts a new conifer in the hand (<a href="../../trees.html#pick-up-rules-and-bigforest">trees.md</a>)</td>
+</tr>
+<tr>
+<td>A big forest gives wood (unconfirmed how much)</td>
+<td>done</td>
+<td><code>ecs::BigForestRemoveWood</code> (its wood starts at its type's wood value times its scale)</td>
+</tr>
+</tbody>
+</table>
+<p>The forest miracle's forests are in <code>../miracles/forest.md</code>.</p>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

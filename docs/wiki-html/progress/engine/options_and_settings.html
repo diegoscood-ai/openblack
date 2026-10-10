@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Options and settings — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="here" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#options-and-settings">Options and settings</a><ul>
+<li><a href="#install-and-setup">Install and setup</a></li>
+<li><a href="#options">Options</a></li>
+<li><a href="#player-profiles">Player profiles</a></li>
+<li><a href="#key-bindings">Key bindings</a></li>
+<li><a href="#openblacks-own-settings">openblack's own settings</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="options-and-settings">Options and settings</h1>
+<p>Where the game keeps what the player chose and who the player is: the install's settings in the Windows registry, the
+graphics setup, the options set from the menu, the player profiles with their own folders, and the key bindings. The
+options screens themselves are in <a href="../interface/index.html">../interface/</a>.</p>
+<p><strong>Progress: 7/24 done, 9 partial — 48%</strong></p>
+<h2 id="install-and-setup">Install and setup</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The game finds its install folder through the registry</td>
+<td>done</td>
+<td><code>src/main.cpp</code> and <code>src/FileSystem/DefaultFileSystem.cpp</code> read the GameDir registry value on Windows; <code>--game-path</code> elsewhere</td>
+</tr>
+<tr>
+<td>The setup program's graphics choices (screen mode, resolution, device, vertical sync) are kept in the registry and used at start</td>
+<td>partial</td>
+<td>openblack takes them from its command line (<code>-W</code>, <code>-H</code>, <code>--window-mode</code>, <code>--backend-type</code>, <code>--no-vsync</code> (on by default, as the original)) and does not read the registry's</td>
+</tr>
+<tr>
+<td>A sound override setting in the registry changes how the audio starts (unconfirmed what it sets)</td>
+<td>todo</td>
+<td>not read; see ../audio/</td>
+</tr>
+<tr>
+<td>The game can be started straight into a land</td>
+<td>done</td>
+<td><code>--start-level</code> in <code>src/main.cpp</code> (openblack's own switch)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="options">Options</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The menu's options (help level, story text, tooltips, films) are read from the registry at start and written back when changed</td>
+<td>todo</td>
+<td><code>MenuSettings</code> in <code>src/Gui/GameMenu.h</code> starts from defaults each run</td>
+</tr>
+<tr>
+<td>Sound effect and music volumes set in the menu are applied and kept between runs</td>
+<td>partial</td>
+<td>applied at once from the options box (<code>src/Game.cpp</code>, <code>EngineConfig::audioSampleMainVolume</code> and <code>audioMusicMainVolume</code>); not kept</td>
+</tr>
+<tr>
+<td>The detail level chosen in the menu takes effect the next time a land loads, and is kept</td>
+<td>partial</td>
+<td>the menu steps through the levels but changes nothing yet (<code>GameMenu.cpp</code>); <code>--detail-level</code> sets it at start</td>
+</tr>
+<tr>
+<td>Each detail level turns parts of the drawing on and off (water tiling, clouds, fog, weather and the rest of the table)</td>
+<td>partial</td>
+<td>water tiling, land reflection, clouds, fog and the hand shadow on objects follow the level (<code>src/Graphics/DetailLevel.h</code>); the weather and rain splash settings are not read yet; see ../rendering/</td>
+</tr>
+<tr>
+<td>Autosave and push scrolling are options kept with the others</td>
+<td>partial</td>
+<td>boxes in the menu (<code>MenuSettings::autoSave</code>, <code>pushScrolling</code>), not kept; autosave itself: see saving_and_loading.md</td>
+</tr>
+<tr>
+<td>Left- or right-handed hand is an option of the player</td>
+<td>partial</td>
+<td>a box in the menu (<code>MenuSettings::leftHandedHand</code>), not read by the hand and not kept</td>
+</tr>
+</tbody>
+</table>
+<h2 id="player-profiles">Player profiles</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>There can be several players, each with a name, a symbol and a creature, created, chosen and deleted on the Players page</td>
+<td>partial</td>
+<td>openblack has one player named after <code>OPENBLACK_PLAYER_NAME</code> or the login (<code>src/Game.cpp</code>, <code>GameMenu::BuildPlayers</code>)</td>
+</tr>
+<tr>
+<td>The player chosen last is remembered and greeted next time</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Each player has a folder of their own for saved games, the current land's screenshots, help statistics and their creature</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Profile folder names are written so that upper and lower case survive on any file system (unconfirmed exact rule)</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The help the player has already seen is saved with their profile so it isn't shown again</td>
+<td>todo</td>
+<td>see ../interface/</td>
+</tr>
+<tr>
+<td>The player's symbol and creature name are kept with their profile</td>
+<td>partial</td>
+<td>edited in the menu, not kept</td>
+</tr>
+<tr>
+<td>Whether the current profile already has a creature decides if the game starts at the creature choice</td>
+<td>todo</td>
+<td>see ../story/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="key-bindings">Key bindings</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every game action has a default key or mouse binding</td>
+<td>done</td>
+<td><code>src/Input/KeyBindings.cpp</code>; test <code>test/test_key_bindings.cpp</code></td>
+</tr>
+<tr>
+<td>The player can rebind an action and set the defaults back</td>
+<td>done</td>
+<td><code>GameActionMap::SetKeyBinding</code>, <code>ResetKeyBindings</code> (<code>src/Input/GameActionMap.cpp</code>); the key bindings debug window (<code>src/Debug/KeyBindingsWindow.cpp</code>); see ../interface/</td>
+</tr>
+<tr>
+<td>Bindings are kept between runs</td>
+<td>todo</td>
+<td>held in memory only</td>
+</tr>
+</tbody>
+</table>
+<h2 id="openblacks-own-settings">openblack's own settings</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Log file and per-part log levels</td>
+<td>done</td>
+<td><code>--log-file</code>, <code>--log-level</code> in <code>src/main.cpp</code></td>
+</tr>
+<tr>
+<td>Screenshots of a chosen frame, and running a set number of frames then quitting</td>
+<td>done</td>
+<td><code>--screenshot-frame</code>, <code>--num-frames-to-simulate</code> (<code>src/main.cpp</code>)</td>
+</tr>
+<tr>
+<td>Frame statistics and benchmarks</td>
+<td>partial</td>
+<td><code>--frame-stats</code> and <code>--frame-stats-views</code> (<code>src/Debug/FrameStatsLog.cpp</code>); the benchmark recorder (<code>src/Debug/BenchmarkRecorder.cpp</code>) is only used by its test; see platforms_and_performance.md</td>
+</tr>
+<tr>
+<td>Interface scale for the debug windows</td>
+<td>done</td>
+<td><code>--ui-scale</code> (<code>src/main.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

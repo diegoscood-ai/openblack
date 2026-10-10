@@ -1,0 +1,777 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Singing Stones (land 2) — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-singing-stones-land-2">The Singing Stones (land 2)</a><ul>
+<li><a href="#how-it-appears">How it appears</a></li>
+<li><a href="#the-stones">The stones</a></li>
+<li><a href="#day-and-night">Day and night</a></li>
+<li><a href="#the-introduction">The introduction</a></li>
+<li><a href="#the-priest">The priest</a></li>
+<li><a href="#the-whistlers-hints">The whistlers (hints)</a></li>
+<li><a href="#the-melodies">The melodies</a></li>
+<li><a href="#twinkle-twinkle-little-star-night-falls">Twinkle Twinkle Little Star: night falls</a></li>
+<li><a href="#the-funeral-march-the-dead-rise">The funeral march: the dead rise</a></li>
+<li><a href="#white-christmas-snow">White Christmas: snow</a></li>
+<li><a href="#success-and-the-challenge-log">Success and the challenge log</a></li>
+<li><a href="#failure-and-abandoning">Failure and abandoning</a></li>
+<li><a href="#reward">Reward</a></li>
+<li><a href="#aftermath">Aftermath</a></li>
+<li><a href="#advisors-comments">Advisors' comments</a></li>
+<li><a href="#music-and-sounds">Music and sounds</a></li>
+<li><a href="#creature-involvement">Creature involvement</a></li>
+<li><a href="#script-quirks">Script quirks</a></li>
+<li><a href="#unused-or-cut-parts">Unused or cut parts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-singing-stones-land-2">The Singing Stones (land 2)</h1>
+<p>A silver scroll on Khazar's land: a priest shows the player a horseshoe of nine singing stones that "hold the spirits of
+the ancients". Tapping the stones in the shape of three hidden melodies (Twinkle Twinkle Little Star, Chopin's funeral
+march and White Christmas) brings on night with bats and mist, raises the dead inside the ring, or makes it snow. Two
+whistling wanderers about the land give away the first two tunes. There is no reward object; each first-time tune adds a
+third to the challenge's success.</p>
+<p>A cut stone-circle quest, never compiled, is <a href="./the_miracle_stones.html">The Miracle Stones</a>.</p>
+<p><strong>Land:</strong> 2 · <strong>Giver:</strong> a priest from the hut above the stones (the scroll stands on the hut) · <strong>Script:</strong>
+SingingStonesSongs · <strong>Reward:</strong> none given; the tunes' effects (night with bats, the dead raised, a snowfall) are the
+prize · <strong>Repeatable:</strong> yes (every tune can be played again and again; the challenge never closes)</p>
+<p>Land 1 has a different quest with the same title (the hippy's stone circle, <code>SingingStoneCircle</code>, documented by its own
+file); it is not described here. The land as a whole is in <a href="../land_2.html">../land_2.md</a>, the land's control script in
+<a href="../../scripts/land2_script.html">../../scripts/land2_script.md</a>, the stones as a puzzle in
+<a href="../minigames.html#singing-stones-lands-1-and-2">../minigames.md</a>, the script program in
+<a href="../../scripts/challenge_scripts.html">../../scripts/challenge_scripts.md</a>.</p>
+<p>Sources: the quest's original script source (<code>SingingStonesSongs.txt</code>, 15 scripts, checked against the PC game's
+compiled <code>challenge.chl</code> for argument orders and object types), the land's control script (<code>LandControl2.txt</code>), the
+shared notify script (<code>ChallengeNotify.txt</code>) and the game's English text table. openblack is judged on this tree: the
+quest and the scripts it runs use 78 script functions, of which 64 do something in <code>src/CHLApi.cpp</code> (among them creating
+objects, highlights, dialogue, advisors, the camera moves, sounds, weather and timers) and 14 only log "not implemented"
+(among them the clicked object, the dead, mist, skeletons and snapshots). The land's control script never runs (see
+<a href="../land_2.html">../land_2.md</a>), so the quest never appears; every row is todo unless the notes say otherwise.</p>
+<p><strong>Progress: 0/85 done, 5 partial — 3%</strong></p>
+<h2 id="how-it-appears">How it appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's control script starts the quest at once, in the background, right after the land's set-up and the first did-you-know signposts and before the land's entry scene; no town has to be won and there is no wait</td>
+<td>todo</td>
+<td><code>LandControl2</code> never runs: <code>LOAD_MAP</code> is empty, so the story never reaches Land 2 (<a href="../../../map-loading.html#pending">map-loading</a>)</td>
+</tr>
+<tr>
+<td>The nine stones, their bases, both whistlers and the stone-tap listener are made before the scroll appears, so the stones already sing when tapped before the quest is taken (those early taps are wiped when the quest starts)</td>
+<td>todo</td>
+<td><code>Create</code> makes the singing stones and their bases (mobile statics) and villagers; the tap listener needs <code>GetObjectClicked</code> (stub); the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A silver challenge scroll is put on the hut above the stones (a house at about 2135, 3011; no height is given, so the game's default for a challenge scroll)</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> works (<code>src/ECS/ScriptHighlight.cpp</code>); the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>While the scroll waits, whenever the camera is within 100 of it and it is in view, the good advisor steps out, points at it and says "Look. Something for you to do here.", at most once every 30 seconds and only when widescreen is ready</td>
+<td>todo</td>
+<td>the shared notify script's natives work (<code>SpiritEject</code>, <code>SpiritPointPos</code>, <code>GameThingFieldOfView</code>, <code>RunText</code>); the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Clicking the scroll or the hut itself starts the quest; the scroll is then switched to active</td>
+<td>todo</td>
+<td><code>GameThingClicked</code> and <code>SetActive</code> on a highlight work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A priest is then made at the hut to give the introduction</td>
+<td>todo</td>
+<td><code>Create</code> makes villagers; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-stones">The stones</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nine singing stones, numbered 1 to 9, stand in a horseshoe of about 10 radius around the circle's centre (about 2105, 3000), open towards the west; each sits on its own singing-stone base</td>
+<td>todo</td>
+<td><code>Create</code> / <code>CreateWithAngleAndScale</code> make the stones and bases (<code>CreateScriptObject</code> in <code>src/CHLApi.cpp</code>); the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The stones are made at three-quarter size, each turned to face the centre (turned by -10, -27, -44, -70, -100, -130, -140, -160 and -180 degrees from stone 1 to stone 9)</td>
+<td>todo</td>
+<td>as above; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The stones cannot be picked up or moved by the hand; the bases are not locked by the script</td>
+<td>partial</td>
+<td><code>SetIdPickupable</code>, <code>SetIdMoveable</code> work; the physics treats the stone as heavy and its base as unmovable (<code>src/ECS/PhysicsClasses.cpp</code>); the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Tapping a stone (clicking it) plays that stone's own note at the stone, flashes a short success sparkle on it (a tenth of a second) and adds the stone's number to the tune being remembered</td>
+<td>todo</td>
+<td><code>GetObjectClicked</code> is a stub; <code>PlaySoundEffect</code>, <code>SpecialEffectObject</code>, <code>ClearClickedObject</code> work</td>
+</tr>
+<tr>
+<td>By day the stones play one set of nine notes (the "twinkle" samples); at night they play a second, darker set (the "funeral" samples)</td>
+<td>todo</td>
+<td>the taps are never read (<code>GetObjectClicked</code> stub); <code>PlaySoundEffect</code> would play the samples</td>
+</tr>
+<tr>
+<td>Only the player's own clicks count; the script never looks at the creature or anything else touching the stones</td>
+<td>todo</td>
+<td><code>GetObjectClicked</code> stub</td>
+</tr>
+<tr>
+<td>The stones remember the last 14 taps in a ring: each tap goes in the next of 14 slots, the 15th tap overwriting the first</td>
+<td>todo</td>
+<td>the taps are never read (<code>GetObjectClicked</code> stub); rules summary in <a href="../minigames.html#singing-stones-lands-1-and-2">../minigames.md</a></td>
+</tr>
+<tr>
+<td>Each tune is listened for all the time by its own checker, which looks for the tune starting at every one of the 14 slots in turn</td>
+<td>todo</td>
+<td>needs the taps</td>
+</tr>
+<tr>
+<td>After any tune is recognised, and whenever the stones change between day and night, all 14 slots and the tap count are wiped</td>
+<td>todo</td>
+<td>needs the taps</td>
+</tr>
+</tbody>
+</table>
+<h2 id="day-and-night">Day and night</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>When the hour of the day is after 22:00 or before 5:20, the nine stones fade away and nine tombstones (three-quarter size, same places and turns) take their place; they too cannot be picked up or moved</td>
+<td>todo</td>
+<td><code>GetGameTime</code>, <code>ObjectDelete</code> and creating the tombstone features work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Outside those hours the tombstones fade away and the singing stones come back, unless the dead are still being raised, in which case the tombstones stay until the five minutes are over</td>
+<td>todo</td>
+<td>as above; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The funeral march can only be recognised at night, while the tombstones stand; the other two tunes are recognised by day or night, on stones or tombstones (at night they sound in the darker notes)</td>
+<td>todo</td>
+<td>needs the taps</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-introduction">The introduction</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A cinema scene (widescreen, camera under script control) starts with the fourth generic script theme</td>
+<td>todo</td>
+<td><code>StartCameraControl</code>, <code>SetWidescreen</code>, <code>StartMusic</code> work (<code>src/Audio/GameMusic.cpp</code>); the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The priest is shown in high detail; the camera closes on the hut as he walks slowly out (speed 0.2)</td>
+<td>todo</td>
+<td><code>SetHighGraphicsDetail</code>, the speed property and <code>MoveGameThing</code> work for villagers; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>After 2.5 seconds he goes on down the path to the stones on his own (speed 0.3, then 0.5 for the last stretch) while the camera follows him in three moves and then settles beside the stones</td>
+<td>todo</td>
+<td><code>MoveGameThing</code> and the camera moves work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Facing the camera, gossiping with his hands: "These stones hold the spirits of the ancients. Each has its own voice."</td>
+<td>todo</td>
+<td><code>RunText</code>, <code>SetFocus</code> and the villagers' script animations work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>"It is said that when a correct tune is played, special powers are unleashed."</td>
+<td>todo</td>
+<td><code>RunText</code> works; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>"When the stones are tapped the spirit sings." as the camera drifts closer over seven seconds</td>
+<td>todo</td>
+<td><code>RunText</code> and the camera moves work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>"Few people know the melodies. You may meet them, or discover the melodies for yourself."</td>
+<td>todo</td>
+<td><code>RunText</code> works; the hint that the whistlers carry two of the tunes; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The dialogue closes, the camera pulls back over the stones, the priest goes back to normal detail</td>
+<td>todo</td>
+<td><code>GameCloseDialogue</code>, the camera moves and <code>SetHighGraphicsDetail</code> work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The challenge is entered in the player's challenge log (the snapshot records a picture, the title "The Singing Stones" and the reminder script) with success 0 and alignment 0; the music stops</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-priest">The priest</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>After the introduction the priest walks slowly (speed 0.2) and wanders around the circle's centre within 6 of it, with two further wander settings of 4 and 30 (undetermined: their exact meaning in the wander state)</td>
+<td>todo</td>
+<td><code>SetScriptStatePos</code> and <code>SetScriptFloat</code> are stubs; the speed property works</td>
+</tr>
+<tr>
+<td>He is not protected: he can be picked up, thrown or killed</td>
+<td>partial</td>
+<td>the script sets no flags on him; the hand can pick up and throw villagers; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The first time he is found dead, the evil advisor steps out: "Ah… Now that's what I call music." (once only)</td>
+<td>todo</td>
+<td>the health property (<code>GetProperty</code>) is not ported</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-whistlers-hints">The whistlers (hints)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A whistling wanderer (a pied-piper villager) is made north of the stones (about 2011, 3201) with the whistled Twinkle Twinkle Little Star fixed to him, so it is heard near him</td>
+<td>todo</td>
+<td><code>Create</code> makes the villager and <code>AttachMusic</code> works (<code>src/Audio</code>); the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>He walks a loop of 31 points through the north of the land and back, waiting at each until within 5 of it or 60 seconds pass; at the fifth point he sits down for two minutes</td>
+<td>todo</td>
+<td><code>MoveGameThing</code>, <code>GetDistance</code>, timers and the villagers' script states work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A second whistler is made far to the south (about 2387, 1840) with the whistled funeral march fixed to him; he walks a loop of 24 points, sitting for two minutes at a rest spot on a rise</td>
+<td>todo</td>
+<td>as above; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Both whistlers cannot be killed, cannot be hurt by fire and cannot be set alight</td>
+<td>partial</td>
+<td><code>SetIndestructable</code>, <code>SetHurtByFire</code>, <code>SetSetOnFire</code> work in <code>src/CHLApi.cpp</code>; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Both are made as soon as the land starts the quest, before its scroll is clicked, and walk forever</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>No one whistles White Christmas: that tune must be found by the player</td>
+<td>todo</td>
+<td>needs the taps</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-melodies">The melodies</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Twinkle Twinkle Little Star is 14 taps on fixed stones: 1, 1, 8, 8, 9, 9, 8, 6, 6, 5, 5, 3, 3, 1</td>
+<td>todo</td>
+<td>needs the taps (<code>GetObjectClicked</code> stub)</td>
+</tr>
+<tr>
+<td>The funeral march is 11 taps judged by the steps between stones, not the stones themselves, so it can start on any stone: the same stone four times, three stones up, one down, the same, two down, the same, one down, one up (for example 4, 4, 4, 4, 7, 6, 6, 4, 4, 3, 4)</td>
+<td>todo</td>
+<td>needs the taps; only listened for at night</td>
+</tr>
+<tr>
+<td>White Christmas is 8 taps judged by steps, starting anywhere: one up, one down, one down, one up, one up, one up, one up (for example 3, 4, 3, 2, 3, 4, 5, 6)</td>
+<td>todo</td>
+<td>needs the taps</td>
+</tr>
+<tr>
+<td>The step shapes match the real tunes if neighbouring stones are a semitone apart (the funeral march's B-flat opening and White Christmas's chromatic climb); with that reading Twinkle's stones give C, D, E, F, G but stone 9 would be a semitone below the tune's A (undetermined: the stones' real pitches would need the sound samples)</td>
+<td>todo</td>
+<td>needs the taps</td>
+</tr>
+<tr>
+<td>The tunes can be played in any order; Twinkle's night is the intended way to reach the funeral march, which needs night</td>
+<td>todo</td>
+<td>needs the taps</td>
+</tr>
+<tr>
+<td>If more than one tune is waiting, the main loop deals with Twinkle first, then the funeral march, then White Christmas</td>
+<td>todo</td>
+<td>needs the taps</td>
+</tr>
+</tbody>
+</table>
+<h2 id="twinkle-twinkle-little-star-night-falls">Twinkle Twinkle Little Star: night falls</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A cinema scene starts with the Twinkle theme</td>
+<td>todo</td>
+<td>needs a tune to be recognised (taps are never read)</td>
+</tr>
+<tr>
+<td>The first time only, a flock of 10 bats is made at the circle's centre (inner radius 15, outer 30); they stay for good</td>
+<td>todo</td>
+<td><code>FlockCreate</code> and <code>ChangeInnerOuterProperties</code> work, <code>PopulateContainer</code> is a stub; never reached</td>
+</tr>
+<tr>
+<td>Every time, a white mist is made at the centre (size 0.8, faint, low: height ratio 0.6)</td>
+<td>todo</td>
+<td><code>CreateMist</code> is a stub; this is the only mist the shipped scripts make</td>
+</tr>
+<tr>
+<td>The time of day moves to 23:00 over 10 seconds and the clock is started again</td>
+<td>partial</td>
+<td><code>MoveGameTime</code> and <code>GameTimeOnOff</code> work, but the scene needs a recognised tune</td>
+</tr>
+<tr>
+<td>The camera starts low by the stones, rises straight up over 12 seconds, then swings out wide</td>
+<td>todo</td>
+<td>the camera moves work; never reached</td>
+</tr>
+<tr>
+<td>At the end the mist grows from size 1 to 2 and fades from 50 to 0 over 10 seconds, and the music stops; the mist is never deleted (undetermined whether 0 there means fully gone)</td>
+<td>todo</td>
+<td><code>SetMistFade</code> is a stub</td>
+</tr>
+<tr>
+<td>Because it is now night, the stones turn into tombstones straight after</td>
+<td>todo</td>
+<td>needs a recognised tune</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-funeral-march-the-dead-rise">The funeral march: the dead rise</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A cinema scene starts with the funeral theme; the camera moves in low beside the stones</td>
+<td>todo</td>
+<td>needs a recognised tune</td>
+</tr>
+<tr>
+<td>If the priest is alive he walks into the ring, stops, and faces the camera; the scene waits until he gets there with no time limit</td>
+<td>todo</td>
+<td>needs a recognised tune; quirk: if he cannot reach the spot the scene would never end (no time-out, unlike the whistlers' 60 seconds)</td>
+</tr>
+<tr>
+<td>After 10 seconds the raising begins, and a second later the priest says: "Behold, the dead will rise again when placed within the ring."</td>
+<td>todo</td>
+<td>needs a recognised tune; the source's comment gives an older line, "The Dead shall live."</td>
+</tr>
+<tr>
+<td>The camera pulls back over the stones and the music stops</td>
+<td>todo</td>
+<td>needs a recognised tune</td>
+</tr>
+<tr>
+<td>A healing glow (the singing stones' heal effect, 13.5 times its size) covers the ring for five minutes</td>
+<td>todo</td>
+<td><code>SpecialEffectPosition</code> and <code>CreateTimer</code> work; never reached</td>
+</tr>
+<tr>
+<td>For those five minutes, any dead body within 10 of the centre is found (about every 0.3 seconds, one at a time), puffs steam, plays a spell sound and is brought back to full health</td>
+<td>todo</td>
+<td><code>GetDeadLiving</code> is a stub; the sound is number 18 of the spell sound bank (undetermined which sound that is)</td>
+</tr>
+<tr>
+<td>A dead villager or child is made again in its place as the same kind with the same age, but as a skeleton, and joins the town with id 11 (the Indian town by Lethys's snow edge) if it still exists, whichever town it came from</td>
+<td>todo</td>
+<td><code>SetSkeleton</code> and <code>GetTownWithId</code> are stubs; the script calls it the "nearest town", but it is always the same town</td>
+</tr>
+<tr>
+<td>A dead animal is made again in its place as the same kind</td>
+<td>todo</td>
+<td><code>GetDeadLiving</code> is a stub</td>
+</tr>
+<tr>
+<td>Each revived thing is held by the script for 3 seconds, given full health again and let go to live its own life</td>
+<td>todo</td>
+<td><code>ReleaseFromScript</code> works; needs <code>GetDeadLiving</code>; at most about one revival every 3.3 seconds</td>
+</tr>
+<tr>
+<td>Playing the march again while the raising is running replays the scene and the priest's line but starts no second raising</td>
+<td>todo</td>
+<td>needs a recognised tune</td>
+</tr>
+<tr>
+<td>The tombstones stay, even past dawn, until the five minutes end; then the glow goes</td>
+<td>todo</td>
+<td>needs a recognised tune</td>
+</tr>
+</tbody>
+</table>
+<h2 id="white-christmas-snow">White Christmas: snow</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A snowstorm is made at the centre: 300 seconds long fading over 5, snow only (no rain, no lightning, temperature 0, fall speed 1), 10 clouds, shade 1, height 70, inner radius 200, outer 500, not blown by the wind</td>
+<td>todo</td>
+<td>creating a weather thing and <code>ChangeWeatherProperties</code>, <code>ChangeCloudProperties</code>, <code>ChangeLightningProperties</code>, <code>ChangeTimeFadeProperties</code>, <code>ChangeInnerOuterProperties</code> work (<code>src/Magic/Script/CHLWeather.cpp</code>); <code>SetAffectedByWind</code> is a stub; needs a recognised tune</td>
+</tr>
+<tr>
+<td>A cinema scene with the Christmas theme sweeps the camera round the stones in four moves (about 30 seconds)</td>
+<td>todo</td>
+<td>needs a recognised tune</td>
+</tr>
+<tr>
+<td>The scene never stops its music (the other two scenes do)</td>
+<td>todo</td>
+<td>undetermined whether ending the cinema stops it</td>
+</tr>
+</tbody>
+</table>
+<h2 id="success-and-the-challenge-log">Success and the challenge log</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The first time each tune is played, the challenge log entry is updated: success 0.33 for the first tune found, 0.66 for the second, 0.99 for the third, in whatever order they were played</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>Once all three have been played, success becomes 1.0 at once</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> stub; quirk: the update to 1.0 is then repeated on every pass of the main loop for the rest of the game</td>
+</tr>
+<tr>
+<td>Alignment is 0 at every step (the snapshot and every update): nothing in the quest is good or evil</td>
+<td>todo</td>
+<td><code>Snapshot</code> stub</td>
+</tr>
+<tr>
+<td>Every entry keeps the title "The Singing Stones" and the reminder script</td>
+<td>todo</td>
+<td>land 1's stone circle uses the same title text, so both lands' entries read "The Singing Stones"</td>
+</tr>
+<tr>
+<td>Playing a tune again replays its effects every time but adds no more success</td>
+<td>todo</td>
+<td>needs the taps</td>
+</tr>
+</tbody>
+</table>
+<h2 id="failure-and-abandoning">Failure and abandoning</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>There is no way to fail and no time limit; the quest's main loop never ends</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Killing the priest does not end it: only the evil advisor's remark changes, and the funeral scene skips his walk and his line</td>
+<td>todo</td>
+<td>needs the health read (not ported)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="reward">Reward</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No reward object is given at any point; the quest's effects (night with bats and mist, the dead raised, the snowstorm) are its only payoff</td>
+<td>todo</td>
+<td>see <a href="../rewards.html">../rewards.md</a> for the rewards other scrolls give; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="aftermath">Aftermath</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The bats from the first Twinkle stay in the land</td>
+<td>todo</td>
+<td>no bats (<code>PopulateContainer</code> stub)</td>
+</tr>
+<tr>
+<td>Villagers raised by the march stay skeletons, living in town 11</td>
+<td>todo</td>
+<td><code>SetSkeleton</code> stub</td>
+</tr>
+<tr>
+<td>The stones keep switching to tombstones every night and back every morning for the rest of the land</td>
+<td>todo</td>
+<td>the day and night swap's natives work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The whistlers keep walking their loops forever</td>
+<td>todo</td>
+<td>the walk loop's natives work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="advisors-comments">Advisors' comments</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Asking for a reminder from the challenge log: the good advisor steps out: "Create melodies on these stones to awaken the spirits of the ancients." then the evil advisor: "Few people know the melodies. But who knows? We may meet them, Boss."</td>
+<td>todo</td>
+<td>the reminder script's natives (<code>SpiritEject</code>, <code>RunText</code>) work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The good advisor's scroll notice (see How it appears) and the evil advisor's remark on the priest's death are the only other advisor lines</td>
+<td>todo</td>
+<td>the death remark needs the health read; the notice is partial (above)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="music-and-sounds">Music and sounds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Five script themes: the fourth generic theme (introduction), Twinkle, the funeral march, Christmas, and the two whistled versions fixed to the whistlers</td>
+<td>partial</td>
+<td>all six banks are listed in <code>src/Audio/GameMusic.cpp</code>; <code>StartMusic</code>, <code>StopMusic</code>, <code>AttachMusic</code> work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Eighteen stone notes: nine day ("twinkle") and nine night ("funeral") samples, one per stone, played at the stone tapped</td>
+<td>todo</td>
+<td><code>PlaySoundEffect</code> works but the taps are never read</td>
+</tr>
+<tr>
+<td>A spell sound at each revival</td>
+<td>todo</td>
+<td><code>GetDeadLiving</code> stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creature-involvement">Creature involvement</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature plays no part: no line, no action, and it cannot tap the stones for the player (only the player's clicks are read)</td>
+<td>todo</td>
+<td>undetermined whether the creature can learn anything from watching</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-quirks">Script quirks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Because the checkers read the 14 slots as a ring, a tune may run across the point where the newest tap sits next to the oldest: e.g. White Christmas's last notes, then six other taps, then its first notes, is accepted; and any rotation of Twinkle (such as starting from its third note and ending with its first two) is accepted too</td>
+<td>todo</td>
+<td>needs the taps</td>
+</tr>
+<tr>
+<td>An empty slot counts as a stone numbered 0, so after a wipe a 13-tap run whose 11th to 13th taps and 1st to 4th taps happen to fit White Christmas around the still-empty 14th slot is accepted</td>
+<td>todo</td>
+<td>needs the taps</td>
+</tr>
+<tr>
+<td>The checkers loop without pausing, testing all 14 starting slots continuously</td>
+<td>todo</td>
+<td>needs the taps</td>
+</tr>
+<tr>
+<td>The reminder's evil line repeats the priest's own "Few people know the melodies" almost word for word</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="unused-or-cut-parts">Unused or cut parts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>All six of the quest's own lines are used; no unused lines of this quest were found in the text table</td>
+<td>n/a</td>
+<td>checked the text table for the quest's line prefix and for tune names</td>
+</tr>
+<tr>
+<td>A small starter script that just runs this quest exists in the sources but is not in the land's challenge list (a test launcher)</td>
+<td>n/a</td>
+<td>not shipped as a quest</td>
+</tr>
+<tr>
+<td>A cut stone-circle quest on this land, "The Miracle Stones" (eight stones, three hidden around the land, healing a boy), sits in the sources unlisted; its script is named "more singing stones", the very prefix this quest's own lines use, suggesting this quest replaced it</td>
+<td>n/a</td>
+<td>belongs to the shared-and-unused quests' file</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

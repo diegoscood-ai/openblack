@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Learning from feedback — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="here" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#learning-from-feedback">Learning from feedback</a><ul>
+<li><a href="#taking-hold-of-the-creature">Taking hold of the creature</a></li>
+<li><a href="#stroking">Stroking</a></li>
+<li><a href="#slapping">Slapping</a></li>
+<li><a href="#delivering-the-feedback">Delivering the feedback</a></li>
+<li><a href="#crediting-what-it-did">Crediting what it did</a></li>
+<li><a href="#what-it-learns">What it learns</a></li>
+<li><a href="#before-it-is-old-enough-to-learn">Before it is old enough to learn</a></li>
+<li><a href="#other-teachers">Other teachers</a></li>
+<li><a href="#the-reward-on-the-status-panel">The reward on the status panel</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="learning-from-feedback">Learning from feedback</h1>
+<p>The player teaches the creature with the hand: holding the action button on it puts the hand on its body, resting the hand
+there strokes it and sweeping the hand across it slaps it. When the hand lets go, the creature credits the reward or
+punishment to what it did lately and learns from it: how much to want the desire behind the action, which kinds of thing
+to do it to and use, and what it thinks of the action itself.</p>
+<p><strong>Progress: 49/77 done, 17 partial — 75%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../creature.html">The creature: groundwork, random streams and what is unknown</a>.</p>
+<h2 id="taking-hold-of-the-creature">Taking hold of the creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hand can never pick a creature up; holding the action button on one puts the hand on it instead</td>
+<td>done</td>
+<td><code>CreatureHandSystem::Grab</code> (<code>src/ECS/Systems/Implementations/CreatureHandSystem.cpp</code>), from the hand's press in <code>HandTurn.cpp</code>; tests <code>CreatureHandSystemTest.*</code></td>
+</tr>
+<tr>
+<td>A quick click on the player's own creature, before any stroke or slap, puts the leash on instead of holding it</td>
+<td>done</td>
+<td>let go within 450 ms of camera time is a click (<code>creature_hand::IsClick</code>, <code>src/Creature/CreatureHandRules.h</code>), sent as the leash key (<code>ECS/CreatureHandPackets.cpp</code>); tests <code>CreatureHand.LetGoWithinAClicksCameraTimeIsAClick</code>, <code>CreatureHandPacketsTest.TheClickIsThePlayersLeashKey</code>; see <a href="leash.html">leash.md</a></td>
+</tr>
+<tr>
+<td>Any player's creature can be held, stroked and slapped, other gods' too; a creature of nobody cannot</td>
+<td>done</td>
+<td><code>creature_hand::MayHold</code> refuses nobody's creature, and <code>creature_hand::TakesPress</code> takes only the pressing player's own (no alliances in openblack); tests <code>CreatureHand.ACreatureOfAnyPlayerLetsTheHandHoldIt</code>, <code>CreatureHand.OnlyTheOwnersHandTakesHoldOnAPress</code>. Our wiki differs: the hand holds only its own or an allied player's creature, not other gods' (<a href="../../hand-and-interface.html#the-hand-on-a-creature">hand-and-interface.md</a>)</td>
+</tr>
+<tr>
+<td>A sleeping creature can't be held</td>
+<td>done</td>
+<td><code>creature_hand::MayHold</code>; test <code>CreatureHandSystemTest.OnlyAPlayersCreatureMayBeHeld</code></td>
+</tr>
+<tr>
+<td>A creature frozen by the freeze spell can't be held</td>
+<td>done</td>
+<td><code>creature_hand::MayHold</code>, frozen from <code>components::CreatureSpells</code> in <code>CreatureHandSystem</code></td>
+</tr>
+<tr>
+<td>Ogres can never be held</td>
+<td>done</td>
+<td><code>creature_hand::MayHold</code>; test <code>CreatureHand.ACreatureOfAnyPlayerLetsTheHandHoldIt</code></td>
+</tr>
+<tr>
+<td>The hand's tooltip for interacting shows only over the player's own awake creature</td>
+<td>partial</td>
+<td><code>creature_hand::ShowsInteractTip</code>, used by <code>HandToolTips.cpp</code>; ours also shows it over another player's creature in the influence and does not check it is awake (test <code>CreatureHand.TheInteractTipIsForTheOwnCreatureOrAnotherInTheInfluence</code>)</td>
+</tr>
+<tr>
+<td>While held, the hand is drawn on the body where the cursor meets it, or beside the creature when the cursor is off it</td>
+<td>done</td>
+<td><code>CreatureHandSystem::Update</code> gives the hand's pose (on the body or on the upright plane through the creature), used by <code>HandSystem</code></td>
+</tr>
+<tr>
+<td>The hand finds the point it touches by testing the creature's posed mesh each frame</td>
+<td>partial</td>
+<td>openblack tests capsules round the posed bones (<code>creature_feedback::BodyCapsules</code>, <code>RayHit</code>), not the mesh; tests <code>CreatureFeedback.TheHandTouchesTheBodyWhereTheLineOfSightMeetsIt</code>, <code>TheBodyIsACapsuleFromEachJointToItsParentsPlaced</code></td>
+</tr>
+<tr>
+<td>The hand and camera close in on the creature by its size while it is held</td>
+<td>todo</td>
+<td>not modelled (hand pose and camera belong to <a href="../hand/index.html">../hand/</a>)</td>
+</tr>
+<tr>
+<td>A clicked creature belonging to another player still answers the leash's refusal</td>
+<td>partial</td>
+<td><code>LeashSystem::TapCreature</code> exists but nothing calls it</td>
+</tr>
+<tr>
+<td>Letting go of another creature to hold a new one delivers the first's feedback first</td>
+<td>done</td>
+<td><code>CreatureHandSystem</code> lets go of a held creature before taking another</td>
+</tr>
+</tbody>
+</table>
+<h2 id="stroking">Stroking</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hand must rest on the body for a second before the first stroke</td>
+<td>done</td>
+<td><code>creature_feedback::k_StrokeHoldMs</code>; test <code>CreatureFeedback.StrokesNeedANewPartAndTime</code></td>
+</tr>
+<tr>
+<td>A stroke lands on the nearest of nine body parts: head, both armpits, belly, groin, both feet, both hands</td>
+<td>done</td>
+<td><code>creature_feedback::NearestPart</code>; test <code>CreatureFeedback.AStrokeLandsOnTheNearestPart</code></td>
+</tr>
+<tr>
+<td>Each part has its own pleased animation; the left side plays the right side's mirrored</td>
+<td>done</td>
+<td><code>k_RewardAnimations</code>, <code>k_RewardMirrored</code> in <code>src/Creature/CreatureFeedback.h</code>, played by <code>CreatureHandSystem</code></td>
+</tr>
+<tr>
+<td>The creature pulls a face for two seconds: an "aah" for the head and belly, an "ooh" for the groin, a smile elsewhere</td>
+<td>done</td>
+<td><code>creature_feedback::RewardFace</code>, pulled by <code>CreatureHandSystem</code></td>
+</tr>
+<tr>
+<td>A new stroke needs a different part from the last and two seconds since it</td>
+<td>done</td>
+<td><code>creature_feedback::StrokeDue</code>; test <code>CreatureFeedback.StrokesNeedANewPartAndTime</code></td>
+</tr>
+<tr>
+<td>A stroke only plays when the body is idle or more than four fifths through what it is doing</td>
+<td>done</td>
+<td><code>k_StrokeInterruptsAfter</code>, <code>CreatureMindSystem::ForceAction</code></td>
+</tr>
+<tr>
+<td>Each stroke that plays adds a tenth to the reward, up to the most</td>
+<td>done</td>
+<td><code>creature_feedback::AfterStroke</code>; test <code>CreatureFeedback.StrokesAndSlapsAddUp</code></td>
+</tr>
+<tr>
+<td>The stroke sounds as the pleased animation plays</td>
+<td>partial</td>
+<td>sounds come from the animation's sound events (<code>src/ECS/Systems/Implementations/CreatureAudioSystem.cpp</code>); which events the pleased animations carry is not checked (unconfirmed)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="slapping">Slapping</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hand slaps when it sweeps across the creature faster than five of its heights a second, at most once a second</td>
+<td>done</td>
+<td><code>k_SlapSpeed</code>, <code>k_SlapIntervalMs</code>; tests <code>CreatureFeedback.SlapsAreClassedByHeightAndSpeed</code>, <code>CreatureHandSystemTest.Resting_TheHandStrokes_SweptFastItSlaps</code></td>
+</tr>
+<tr>
+<td>Where it lands goes by the hand's height: the feet below two fifths of the creature's height, the waist below seven tenths, the head above, nothing above eleven tenths</td>
+<td>done</td>
+<td><code>creature_feedback::ClassifySlap</code>; test <code>CreatureFeedback.SlapsAreClassedByHeightAndSpeed</code></td>
+</tr>
+<tr>
+<td>Slower than nine heights a second the slap is gentle, with its own gentler animations</td>
+<td>done</td>
+<td><code>k_HardSlapSpeed</code>, <code>k_GentleOffset</code> in <code>src/Creature/CreatureFeedback</code></td>
+</tr>
+<tr>
+<td>The slap plays to the left or right by which way the hand swept across the screen</td>
+<td>done</td>
+<td><code>Slap::mirrored</code></td>
+</tr>
+<tr>
+<td>A slap only plays when the body is idle or more than about a third through what it is doing</td>
+<td>done</td>
+<td><code>k_SlapInterruptsAfter</code></td>
+</tr>
+<tr>
+<td>A gentle slap takes a tenth off the reward, a hard one a fifth, twice that when the creature was enjoying being stroked (past a quarter); the reward never goes below -1</td>
+<td>done</td>
+<td><code>creature_feedback::AfterSlap</code>; test <code>CreatureFeedback.StrokesAndSlapsAddUp</code></td>
+</tr>
+<tr>
+<td>A force-feedback mouse jolts with each slap, harder for a hard one</td>
+<td>todo</td>
+<td>no force feedback in openblack</td>
+</tr>
+<tr>
+<td>The slap sounds as it lands</td>
+<td>partial</td>
+<td>through the animation's sound events (<code>CreatureAudioSystem</code>); not checked against the original (unconfirmed)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="delivering-the-feedback">Delivering the feedback</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>When the hand lets go, the creature's mind is told the reward, from -1 to 1</td>
+<td>done</td>
+<td><code>CreatureHandSystem::Release</code>, through <code>ECS/CreatureHandPackets.cpp</code> at the next turn, to <code>CreatureMindSystem::ReceiveFeedback</code>; tests <code>CreatureHandSystemTest.LettingGoGivesHowTheCreatureWasTreated</code>, <code>TheFeedbackGivenIsClampedToOne</code>, <code>CreatureHandPacketsTest.TheFeedbackReachesTheCreaturesMind</code></td>
+</tr>
+<tr>
+<td>Feedback too slight to count (a hundredth or less) only makes the creature turn to the player and show the interaction tip</td>
+<td>partial</td>
+<td><code>ReceiveFeedback</code> turns it to face the camera; the original plans its "look at the player" action and shows a tooltip</td>
+</tr>
+<tr>
+<td>Any feedback stops what the creature was doing</td>
+<td>partial</td>
+<td><code>ReceiveFeedback</code> stops it only when slapped; the original finishes the current action on a stroke too</td>
+</tr>
+<tr>
+<td>Its attitude to the player moves: seven tenths of what it was plus a twentieth of the feedback</td>
+<td>done</td>
+<td><code>creature_feedback::AttitudeAfter</code>, in <code>ReceiveFeedback</code></td>
+</tr>
+<tr>
+<td>A running average of the feedback it gets, the newest counting most</td>
+<td>done</td>
+<td><code>creature_feedback::AverageAfter</code>, in <code>ReceiveFeedback</code></td>
+</tr>
+<tr>
+<td>A stroke holds back its sadness for a minute and a half</td>
+<td>done</td>
+<td><code>k_StrokeSadnessSeconds</code> in <code>CreatureMindLearning.cpp</code></td>
+</tr>
+<tr>
+<td>Feedback resets how long it has gone without the player's attention</td>
+<td>done</td>
+<td><code>ReceiveFeedback</code> resets <code>secondsAlone</code></td>
+</tr>
+<tr>
+<td>Next it shows the player its pleasure (stroked) or sorrow (slapped)</td>
+<td>done</td>
+<td><code>ReceiveFeedback</code> clears the show-desire wait; <code>src/Creature/CreatureIdleMind.cpp</code></td>
+</tr>
+<tr>
+<td>A stroke tells the creature its god wants compassion, a slap anger</td>
+<td>done</td>
+<td><code>ReceiveFeedback</code> after the slight-feedback test, by how hard; the hit by a thrown thing (the physics' impact) is not wired</td>
+</tr>
+<tr>
+<td>Feedback in a networked game reaches the creature on every machine</td>
+<td>todo</td>
+<td>no network play; see <a href="../multiplayer/index.html">../multiplayer/</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="crediting-what-it-did">Crediting what it did</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feedback goes to the most recent thing it can learn from: fully while still doing it, less the longer ago it finished, nothing once the action's learning window has closed</td>
+<td>done</td>
+<td><code>creature_learning::LearningPriority</code>, <code>BestContext</code> (<code>src/Creature/CreatureLearning.cpp</code>), used in <code>CreatureMindLearning.cpp</code>; test <code>CreatureLearning.CreditGoesToRecentActions</code></td>
+</tr>
+<tr>
+<td>Each action has its own learning window from the game's tables (eating 20 seconds, stomping 25, fighting 30, examining 5 to 10)</td>
+<td>done</td>
+<td><code>src/Creature/CreatureMindTables.cpp</code></td>
+</tr>
+<tr>
+<td>Actions the tables mark as not learnable get no credit</td>
+<td>done</td>
+<td><code>Context::learnable</code></td>
+</tr>
+<tr>
+<td>It remembers its last few actions to credit</td>
+<td>done</td>
+<td><code>creature_learning::Remember</code>, <code>k_MaxContexts</code> (the original's stack size is unconfirmed)</td>
+</tr>
+<tr>
+<td>Every action it can do is remembered for credit</td>
+<td>partial</td>
+<td>only the actions openblack carries out are remembered (<code>src/Creature/CreaturePlanActions.cpp</code>); building, dancing, fishing, casting, fighting by choice and others can't be rewarded</td>
+</tr>
+<tr>
+<td>Feedback weaker than a half counts as a half either way</td>
+<td>done</td>
+<td><code>creature_learning::Strengthened</code>; test <code>CreatureLearning.OpinionsAndFeedbackStrength</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-it-learns">What it learns</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>To want the desire more or less: its growing time is multiplied up or down, by an amount set per desire (the desires that matter most change slowly)</td>
+<td>done</td>
+<td><code>creature_learning::LessonFactor</code>, <code>LearnDesireLesson</code>; test <code>CreatureLearning.LessonFactor</code></td>
+</tr>
+<tr>
+<td>The source that drove the desire most since it was last decided on drives it more or less readily</td>
+<td>done</td>
+<td><code>creature_learning::DominantSource</code>; test <code>CreatureLearning.DominantSourceFollowsDrive</code></td>
+</tr>
+<tr>
+<td>The desire's maximum rises or falls by up to a tenth of its starting maximum</td>
+<td>done</td>
+<td><code>k_MaxStep</code> in <code>src/Creature/CreatureLearning.h</code></td>
+</tr>
+<tr>
+<td>Its weight changes, for the desires whose tables allow it</td>
+<td>done</td>
+<td><code>DesireRules::learnsWeight</code></td>
+</tr>
+<tr>
+<td>How slowly it fades changes a little</td>
+<td>done</td>
+<td><code>k_DecayStep</code></td>
+</tr>
+<tr>
+<td>Desires that go with it grow faster too, opposed ones slower (compassion and anger oppose each other)</td>
+<td>done</td>
+<td><code>LearnDesireLesson</code> with the dependency table; test <code>CreatureLearning.DesireLessonAndDependencies</code></td>
+</tr>
+<tr>
+<td>Desires the tables mark as not learnable aren't changed by feedback</td>
+<td>done</td>
+<td><code>DesireRules::learnable</code></td>
+</tr>
+<tr>
+<td>Which kinds of thing to act on for that desire, and in proportion for the desires that depend on it</td>
+<td>done</td>
+<td><code>creature_learning::Spread</code>, <code>creature_mind_model::Learn</code> (decision trees); tests <code>CreatureLearning.SpreadsLessonsByDependency</code>, <code>CreatureMindModel.LearningRebuildsTrees</code></td>
+</tr>
+<tr>
+<td>Which kinds of thing to use, when it used something other than what it acted on; for poo at most half as strongly</td>
+<td>done</td>
+<td><code>k_PooUseFeedback</code> in <code>CreatureMindLearning.cpp</code></td>
+</tr>
+<tr>
+<td>Its opinion of the action moves four fifths of the way to the feedback</td>
+<td>done</td>
+<td><code>creature_learning::OpinionAfter</code>; test <code>CreatureLearning.OpinionsAndFeedbackStrength</code></td>
+</tr>
+<tr>
+<td>Its decision trees are grown again from scratch after every new example, keeping at most sixteen examples each</td>
+<td>partial</td>
+<td><code>src/Creature/CreatureDecisionTree</code> (<code>k_MaxEpisodes</code> 16); openblack keeps the newest sixteen, while the original may drop the newest when full (unconfirmed)</td>
+</tr>
+<tr>
+<td>Slapped for what it is doing, it gives it up and wants that desire least of all, and every held-down desire is let go</td>
+<td>done</td>
+<td><code>creature_learning::MakeLeastDominant</code>, <code>CreatureMindSystem::LearnFromFeedback</code></td>
+</tr>
+<tr>
+<td>Stroked for something it did to a thing, it does it again to something like it nearby</td>
+<td>partial</td>
+<td><code>LearnFromFeedback</code> replans the action on a thing of the same kind; only for kinds openblack can find (<code>Gather</code>)</td>
+</tr>
+<tr>
+<td>Stroked while holding food during an action that allows it, it learns to eat what it is given and eats it</td>
+<td>done</td>
+<td><code>LearnFromFeedback</code> ("I've learnt to eat what I'm given")</td>
+</tr>
+<tr>
+<td>Stroked for running away from the player, it is forgiven: it stops, wants to run less, and its wish to run needs more to start</td>
+<td>done</td>
+<td><code>LearnFromFeedback</code> (<code>k_RunAwayThresholdStep</code>)</td>
+</tr>
+<tr>
+<td>Each lesson is put into words as the creature's thought ("I've learnt to ...")</td>
+<td>partial</td>
+<td><code>DesireLessonText</code>, <code>ObjectLessonText</code>, <code>ActionLessonText</code>; shown only in the debug spawner, not to the player (see <a href="lessons_and_help.html">lessons_and_help.md</a>)</td>
+</tr>
+<tr>
+<td>What it learns shows in the Creature Cave's lists of what it likes and does</td>
+<td>partial</td>
+<td>what it likes shows on the temple creature room's scroll (<code>creature_cave::FactsOf</code>, <code>src/3D/Implementations/TempleInterior.cpp</code>); the lessons list (<code>creature_cave::LessonsOf</code>) only in the debug cave window (<code>src/Gui/CreatureCaveScreen.cpp</code>); see <a href="creature_cave.html">creature_cave.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="before-it-is-old-enough-to-learn">Before it is old enough to learn</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Before the second stage of growing up, feedback teaches no lessons: a stroke makes it more playful, showy and kind, a slap angrier and more fearful</td>
+<td>done</td>
+<td><code>LearnFromFeedback</code> (<code>k_MinLessonPhase</code> = 2)</td>
+</tr>
+<tr>
+<td>At that stage it may also react happily or sadly at once, one time in two</td>
+<td>todo</td>
+<td>not modelled</td>
+</tr>
+<tr>
+<td>A slap marks it as punished, which its reactions follow</td>
+<td>todo</td>
+<td>not modelled (unconfirmed what it changes)</td>
+</tr>
+<tr>
+<td>The creature passes through the stages where it learns to eat from the hand and to be punished, as the first land's scripts move it on</td>
+<td>partial</td>
+<td>the stage gates exist and <code>SET_CREATURE_DEV_STAGE</code> sets the stage (<code>ECS/PlayerCreature.cpp</code>), but our creatures start fully grown (<code>CreatureMindState::developmentPhase</code>); see <a href="development_phases.html">development_phases.md</a></td>
+</tr>
+<tr>
+<td>The player is told when a stroke or slap teaches it nothing</td>
+<td>todo</td>
+<td>see <a href="lessons_and_help.html">lessons_and_help.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="other-teachers">Other teachers</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>On the aggression leash, what the player points it at teaches it anger towards such things and less compassion; the compassion leash the reverse</td>
+<td>done</td>
+<td><code>CreatureMindSystem::LearnTurn</code> (<code>CreatureMindLearning.cpp</code>); test <code>LeashRules.LessonsOfWhatThePlayerShows</code>; see <a href="leash.html">leash.md</a></td>
+</tr>
+<tr>
+<td>Leashed to another creature, it comes to find it nicer or nastier, and learns befriending or anger towards creatures like it</td>
+<td>done</td>
+<td><code>creature_learning::ChangeHowNice</code>; tests <code>CreatureLearning.AttitudesToCreatures</code>, <code>LeashRules.LeashedCreaturesWarmOrCoolToEachOther</code></td>
+</tr>
+<tr>
+<td>Seen to help, an action teaches it a little about what it acted on and used</td>
+<td>todo</td>
+<td>not modelled</td>
+</tr>
+<tr>
+<td>Doing something while the player watches and doesn't punish it counts as approval</td>
+<td>todo</td>
+<td>not modelled (exact rule unconfirmed)</td>
+</tr>
+<tr>
+<td>Scripts can teach it that a kind of thing is good or bad for a desire</td>
+<td>todo</td>
+<td><code>CREATURE_LEARN_DISTINCTION_ABOUT_ACTIVITY_OBJECT</code> is a stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>A new creature is given its first lessons, such as that villagers are good to eat</td>
+<td>todo</td>
+<td>not modelled</td>
+</tr>
+<tr>
+<td>Stroke and slap buttons in the debug spawner and the testbed deliver feedback directly</td>
+<td>done</td>
+<td><code>src/Debug/CreatureSpawnerMind.cpp</code> (openblack only; no testbed in our tree; see <a href="../debug/index.html">../debug/</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-reward-on-the-status-panel">The reward on the status panel</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>While the hand is over or holding a creature, the status panel shows a reward bar below damage, hunger and tiredness</td>
+<td>partial</td>
+<td>dormant: <code>src/Creature/CreatureStatusPanel</code> lays it out (test <code>CreatureStatusPanel.LayoutWithTheReward</code>) but nothing draws the panel</td>
+</tr>
+<tr>
+<td>The reward bar is half full at nothing, full at the most reward, empty at the most punishment, with words for how much</td>
+<td>partial</td>
+<td>tests <code>CreatureStatusPanel.RewardWords</code>, <code>BarsFillAndColour</code>; nothing draws the panel</td>
+</tr>
+<tr>
+<td>After letting go, the bar keeps the last sum until the hand takes hold of a creature again</td>
+<td>partial</td>
+<td><code>CreatureHandSystem::GetLastFeedbackSum</code> keeps it; nothing draws the panel</td>
+</tr>
+<tr>
+<td>While the camera follows a creature the panel shows no reward</td>
+<td>partial</td>
+<td>test <code>CreatureStatusPanel.LayoutFollowingACreature</code>; nothing draws the panel; see <a href="creature_mode.html">creature_mode.md</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

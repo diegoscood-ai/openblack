@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dance scripts — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="here" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#dance-scripts">Dance scripts</a><ul>
+<li><a href="#the-machinery">The machinery</a></li>
+<li><a href="#the-25-dances-of-the-dance-table">The 25 dances of the dance table</a></li>
+<li><a href="#shipped-dance-files-the-game-doesnt-use">Shipped dance files the game doesn't use</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="dance-scripts">Dance scripts</h1>
+<p>Villagers dance at worship sites, around totems and artefacts, when buildings are finished, at the town's celebrations and with the creature. Each dance is a choreography file in <code>Scripts/Dance/</code> (dancers' steps and actions key-framed to the beat), chosen through the dance table in <code>info.dat</code>. openblack reads the table (<code>InfoConstants</code>, its dance entries) but has no dances: worshippers only walk to a ring round the worship site and pray there (<code>VillagerWorship.cpp</code>), and the villagers' dance states are listed as to-do in <code>LivingActionSystem.cpp</code>. What dancing does for worship is the worship domain's (<a href="../worship/index.html">../worship/</a>).</p>
+<p><strong>Progress: 0/32 done, 9 partial — 14%</strong></p>
+<h2 id="the-machinery">The machinery</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The dance table in <code>info.dat</code> names, for each of 25 dances, its file, length, beats, whether it starts on its own, the room it needs and its fewest and most dancers</td>
+<td>partial</td>
+<td>read into <code>InfoConstants</code> (dance entries); nothing uses it</td>
+</tr>
+<tr>
+<td>A dance file is loaded once and kept: its groups of dancers, their key frames on the beat, the shape they dance in and the actions they play</td>
+<td>todo</td>
+<td>no reader for the dance files</td>
+</tr>
+<tr>
+<td>Dancers first walk to their starting places, wait for each other, then dance in step to the beat</td>
+<td>partial</td>
+<td>only at worship sites: the worshippers walk to their places in a ring and pray there (<code>VillagerWorship.cpp</code>); no dance file, beat or waiting for each other</td>
+</tr>
+<tr>
+<td>Dancers rotate between places and swap partners as the file says</td>
+<td>todo</td>
+<td>nothing in our tree</td>
+</tr>
+<tr>
+<td>Coloured dance lights (red, green, yellow, blue, white) light the creature's dance</td>
+<td>todo</td>
+<td>nothing in our tree</td>
+</tr>
+<tr>
+<td>A dance camera can follow the creature's dance</td>
+<td>todo</td>
+<td>nothing in our tree</td>
+</tr>
+<tr>
+<td>A dance stops when there are no villagers left to dance with</td>
+<td>todo</td>
+<td>nothing in our tree</td>
+</tr>
+<tr>
+<td>The challenge scripts can start a dance of a kind around a place for a time</td>
+<td>todo</td>
+<td><code>DanceCreate</code> in <code>src/CHLApi.cpp</code> logs "not implemented" (called twice by the shipped scripts)</td>
+</tr>
+<tr>
+<td>The map script can load a tribe's dance</td>
+<td>todo</td>
+<td><code>LoadTribeDance</code> in <code>MapScriptCommands.cpp</code> throws; never used by the shipped map script</td>
+</tr>
+<tr>
+<td>The developers' dance editing (a dance-for-editing state and an editor state)</td>
+<td>n/a</td>
+<td>a developer tool; the test land for it (<code>dance.txt</code>) loads a landscape that isn't shipped</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-25-dances-of-the-dance-table">The 25 dances of the dance table</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Villagers dancing at a worship site while they pray: file <code>NewWorship2</code>, 120 beats, no set length, any number of dancers, starts on its own</td>
+<td>partial</td>
+<td>the worshippers walk to a ring around the worship site's dance centre and pray there (<code>src/ECS/Systems/Implementations/VillagerWorship.cpp</code>, <code>worship::site::DancePosition</code>); the ring is our stand-in, the dance file is not read</td>
+</tr>
+<tr>
+<td>Villagers dancing with the creature, with lights and the camera: file <code>CreatureDanceWithLightsAndCamera</code>, 120 beats, no set length, 8 to 20 dancers</td>
+<td>todo</td>
+<td>no dances in our tree</td>
+</tr>
+<tr>
+<td>Children dancing together in town: file <code>ChildrenDancing</code>, 120 beats, length 12000 (units unconfirmed), any number of dancers, starts on its own</td>
+<td>todo</td>
+<td>no dances in our tree</td>
+</tr>
+<tr>
+<td>A housewives' dance in town: file <code>Test</code>, 120 beats, length 240 (units unconfirmed), any number of dancers, starts on its own</td>
+<td>todo</td>
+<td>no dances in our tree</td>
+</tr>
+<tr>
+<td>Celebrating a small building finished: file <code>SmallBuilding</code>, 120 beats, length 300 (units unconfirmed), 0 to 12 dancers, starts on its own</td>
+<td>todo</td>
+<td>no dances in our tree</td>
+</tr>
+<tr>
+<td>Celebrating a large building finished: file <code>LargeBuilding</code>, 120 beats, length 500 (units unconfirmed), 0 to 20 dancers, starts on its own</td>
+<td>todo</td>
+<td>no dances in our tree</td>
+</tr>
+<tr>
+<td>Villagers dancing around a person: file <code>DanceAroundPerson</code>, 120 beats, no set length, 0 to 8 dancers, starts on its own</td>
+<td>todo</td>
+<td>no dances in our tree</td>
+</tr>
+<tr>
+<td>Villagers praying facing inwards: file <code>DancePrayInwards</code>, 120 beats, no set length, any number of dancers, starts on its own</td>
+<td>n/a</td>
+<td>the file isn't shipped (only <code>DancePrayingInwards.dat</code> is), so this dance can't be loaded in the game either (what the game does is not known)</td>
+</tr>
+<tr>
+<td>The town's celebration around its village centre: file <code>DanceAroundTownCentre</code>, 120 beats, length 50000 (units unconfirmed), 0 to 20 dancers, starts on its own</td>
+<td>todo</td>
+<td>no dances in our tree</td>
+</tr>
+<tr>
+<td>The creature telling villagers a story: file <code>CreatureTellingStory</code>, 100 beats, no set length, 4 to 20 dancers</td>
+<td>todo</td>
+<td>no dances in our tree</td>
+</tr>
+<tr>
+<td>The creature playing a game with villagers: file <code>CreaturePlayingWithVillagers</code>, 90 beats, no set length, 8 to 20 dancers</td>
+<td>todo</td>
+<td>no dances in our tree</td>
+</tr>
+<tr>
+<td>The creature dancing while villagers watch: file <code>CreatureDanceWithVillagersWatching</code>, 120 beats, no set length, 8 to 20 dancers</td>
+<td>todo</td>
+<td>no dances in our tree</td>
+</tr>
+<tr>
+<td>The creature dancing to impress villagers: file <code>CreatureImpressingVillagers</code>, 90 beats, no set length, 8 to 20 dancers</td>
+<td>todo</td>
+<td>no dances in our tree</td>
+</tr>
+<tr>
+<td>The creature dancing amorously with villagers: file <code>CreatureDanceAmorous</code>, 120 beats, no set length, 8 to 8 dancers</td>
+<td>todo</td>
+<td>no dances in our tree</td>
+</tr>
+<tr>
+<td>Villagers dancing around a person: file <code>NewDanceAroundPerson</code>, 120 beats, no set length, 0 to 8 dancers, starts on its own</td>
+<td>todo</td>
+<td>no dances in our tree</td>
+</tr>
+<tr>
+<td>Villagers dancing around an object narrower than 7 (a totem or artefact): file <code>DanceAroundObjectDiameterLess7</code>, 90 beats, length 900 (units unconfirmed), 14 to 20 dancers</td>
+<td>todo</td>
+<td>no dances in our tree</td>
+</tr>
+<tr>
+<td>Villagers dancing around an object narrower than 10: file <code>DanceAroundObjectDiameterLess10</code>, 120 beats, length 1200 (units unconfirmed), 14 to 20 dancers</td>
+<td>todo</td>
+<td>no dances in our tree</td>
+</tr>
+<tr>
+<td>Villagers dancing around an object narrower than 20: file <code>DanceAroundObjectDiameterLess20</code>, 90 beats, length 900 (units unconfirmed), 14 to 20 dancers</td>
+<td>n/a</td>
+<td>never chosen: objects 10 or wider get the "20 or wider" dance (see ../town/artefacts.md)</td>
+</tr>
+<tr>
+<td>Villagers dancing around an object 20 or wider: file <code>DanceAroundObjectDiameterGreater20</code>, 120 beats, length 1200 (units unconfirmed), 14 to 20 dancers</td>
+<td>todo</td>
+<td>no dances in our tree</td>
+</tr>
+<tr>
+<td>Worshippers' dance at the temple (one of six, using NewWorship2): file <code>NewWorship2</code>, 120 beats, no set length, any number of dancers, starts on its own</td>
+<td>partial</td>
+<td>the worshippers walk to a ring around the worship site's dance centre and pray there (<code>src/ECS/Systems/Implementations/VillagerWorship.cpp</code>, <code>worship::site::DancePosition</code>); the ring is our stand-in, the dance file is not read</td>
+</tr>
+<tr>
+<td>Worshippers' dance at the temple (one of six, using NewWorship1): file <code>NewWorship1</code>, 120 beats, no set length, any number of dancers, starts on its own</td>
+<td>partial</td>
+<td>the worshippers walk to a ring around the worship site's dance centre and pray there (<code>src/ECS/Systems/Implementations/VillagerWorship.cpp</code>, <code>worship::site::DancePosition</code>); the ring is our stand-in, the dance file is not read</td>
+</tr>
+<tr>
+<td>Worshippers' dance at the temple (one of six, using NewWorship): file <code>NewWorship</code>, 120 beats, no set length, any number of dancers, starts on its own</td>
+<td>partial</td>
+<td>the worshippers walk to a ring around the worship site's dance centre and pray there (<code>src/ECS/Systems/Implementations/VillagerWorship.cpp</code>, <code>worship::site::DancePosition</code>); the ring is our stand-in, the dance file is not read</td>
+</tr>
+<tr>
+<td>Worshippers' dance at the temple (one of six, using NewWorship2): file <code>NewWorship2</code>, 120 beats, no set length, any number of dancers, starts on its own</td>
+<td>partial</td>
+<td>the worshippers walk to a ring around the worship site's dance centre and pray there (<code>src/ECS/Systems/Implementations/VillagerWorship.cpp</code>, <code>worship::site::DancePosition</code>); the ring is our stand-in, the dance file is not read</td>
+</tr>
+<tr>
+<td>Worshippers' dance at the temple (one of six, using NewWorship1): file <code>NewWorship1</code>, 120 beats, no set length, any number of dancers, starts on its own</td>
+<td>partial</td>
+<td>the worshippers walk to a ring around the worship site's dance centre and pray there (<code>src/ECS/Systems/Implementations/VillagerWorship.cpp</code>, <code>worship::site::DancePosition</code>); the ring is our stand-in, the dance file is not read</td>
+</tr>
+<tr>
+<td>Worshippers' dance at the temple (one of six, using NewWorship): file <code>NewWorship</code>, 120 beats, no set length, any number of dancers, starts on its own</td>
+<td>partial</td>
+<td>the worshippers walk to a ring around the worship site's dance centre and pray there (<code>src/ECS/Systems/Implementations/VillagerWorship.cpp</code>, <code>worship::site::DancePosition</code>); the ring is our stand-in, the dance file is not read</td>
+</tr>
+</tbody>
+</table>
+<h2 id="shipped-dance-files-the-game-doesnt-use">Shipped dance files the game doesn't use</h2>
+<p>39 files are shipped; 20 are used by the table, the 19 below are not (older versions, tests and dances that were cut: funeral, marriage, totem, line dancing and others).</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Creature1</code> (656 bytes) is shipped but no dance in the table uses it</td>
+<td>n/a</td>
+<td>left over from development; nothing to do</td>
+</tr>
+<tr>
+<td><code>CreatureImpressVillagers</code> (2,729 bytes) is shipped but no dance in the table uses it</td>
+<td>n/a</td>
+<td>left over from development; nothing to do</td>
+</tr>
+<tr>
+<td><code>CreaturePlayingGame</code> (8,123 bytes) is shipped but no dance in the table uses it</td>
+<td>n/a</td>
+<td>left over from development; nothing to do</td>
+</tr>
+<tr>
+<td><code>DancePrayingInwards.dat</code> (396 bytes) is shipped but no dance in the table uses it</td>
+<td>n/a</td>
+<td>left over from development; nothing to do</td>
+</tr>
+<tr>
+<td><code>FourDancers</code> (3,808 bytes) is shipped but no dance in the table uses it</td>
+<td>n/a</td>
+<td>left over from development; nothing to do</td>
+</tr>
+<tr>
+<td><code>LineDancing1</code> (2,628 bytes) is shipped but no dance in the table uses it</td>
+<td>n/a</td>
+<td>left over from development; nothing to do</td>
+</tr>
+<tr>
+<td><code>NewCelebration1</code> (7,628 bytes) is shipped but no dance in the table uses it</td>
+<td>n/a</td>
+<td>left over from development; nothing to do</td>
+</tr>
+<tr>
+<td><code>NewCelebration2</code> (11,896 bytes) is shipped but no dance in the table uses it</td>
+<td>n/a</td>
+<td>left over from development; nothing to do</td>
+</tr>
+<tr>
+<td><code>NewEightDancers</code> (7,840 bytes) is shipped but no dance in the table uses it</td>
+<td>n/a</td>
+<td>left over from development; nothing to do</td>
+</tr>
+<tr>
+<td><code>NewFourDancers</code> (5,056 bytes) is shipped but no dance in the table uses it</td>
+<td>n/a</td>
+<td>left over from development; nothing to do</td>
+</tr>
+<tr>
+<td><code>OnlyDanceThatWorks</code> (5,912 bytes) is shipped but no dance in the table uses it</td>
+<td>n/a</td>
+<td>left over from development; nothing to do</td>
+</tr>
+<tr>
+<td><code>TwoDancers</code> (1,876 bytes) is shipped but no dance in the table uses it</td>
+<td>n/a</td>
+<td>left over from development; nothing to do</td>
+</tr>
+<tr>
+<td><code>Worship1</code> (6,140 bytes) is shipped but no dance in the table uses it</td>
+<td>n/a</td>
+<td>left over from development; nothing to do</td>
+</tr>
+<tr>
+<td><code>Worship2</code> (9,724 bytes) is shipped but no dance in the table uses it</td>
+<td>n/a</td>
+<td>left over from development; nothing to do</td>
+</tr>
+<tr>
+<td><code>Worship3</code> (684 bytes) is shipped but no dance in the table uses it</td>
+<td>n/a</td>
+<td>left over from development; nothing to do</td>
+</tr>
+<tr>
+<td><code>funeral1</code> (5,916 bytes) is shipped but no dance in the table uses it</td>
+<td>n/a</td>
+<td>left over from development; nothing to do</td>
+</tr>
+<tr>
+<td><code>marraige1</code> (8,061 bytes) is shipped but no dance in the table uses it</td>
+<td>n/a</td>
+<td>left over from development; nothing to do</td>
+</tr>
+<tr>
+<td><code>totem1</code> (4,408 bytes) is shipped but no dance in the table uses it</td>
+<td>n/a</td>
+<td>left over from development; nothing to do</td>
+</tr>
+<tr>
+<td><code>totem2</code> (3,870 bytes) is shipped but no dance in the table uses it</td>
+<td>n/a</td>
+<td>left over from development; nothing to do</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

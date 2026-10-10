@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Casting and globes — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="here" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#casting-and-globes">Casting and globes</a><ul>
+<li><a href="#buttons-and-pressing">Buttons and pressing</a></li>
+<li><a href="#holding-a-seed">Holding a seed</a></li>
+<li><a href="#globes">Globes</a></li>
+<li><a href="#power-ups-extreme-miracles">Power-ups (extreme miracles)</a></li>
+<li><a href="#dropping-and-cancelling">Dropping and cancelling</a></li>
+<li><a href="#choosing-a-miracle-and-moving-with-it">Choosing a miracle and moving with it</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="casting-and-globes">Casting and globes</h1>
+<p>How the player takes a miracle into the hand, holds it, powers it up, casts it with the mouse and drops it, and how
+the one-shot globes look and are taken. Gesture recognition itself is in <a href="../gesture/index.html">../gesture/</a>; the prayer power
+side is in <a href="prayer_cost.html">prayer_cost.md</a>; dispensers, icons and where globes come from are in
+<a href="dispensers_and_seeds.html">dispensers_and_seeds.md</a>.</p>
+<p><strong>Progress: 41/54 done, 9 partial — 84%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../miracles.html">Miracles one by one</a>.</p>
+<h2 id="buttons-and-pressing">Buttons and pressing</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The right button casts the held miracle; the left button taps globes and grabs as usual</td>
+<td>done</td>
+<td>The action button (right) both casts the held seed and taps globes; <code>SeedActionPressed</code> in <code>src/ECS/Systems/Implementations/HandSpellSeed.cpp</code>, the press branches in <code>src/ECS/HandPressChain.cpp</code></td>
+</tr>
+<tr>
+<td>Gesture miracles (fireball, storm, shields, flocks) arm on press and cast on release</td>
+<td>done</td>
+<td>Armed on press (<code>BeginApplyOnRelease</code>), cast on release (<code>UpdateSeedAction</code>), <code>src/ECS/Systems/Implementations/HandSpellSeed.cpp</code>; no unit test</td>
+</tr>
+<tr>
+<td>Held miracles (lightning, food, wood, water) lock on press, cast at once, then apply once a game turn where the hand points</td>
+<td>done</td>
+<td>Locked apply on press, then one apply packet a turn while held; <code>src/ECS/Systems/Implementations/HandSpellSeed.cpp</code> (<code>LockedApplyMap</code>, <code>SendSeedApplyToMapCoord</code>)</td>
+</tr>
+<tr>
+<td>Placed miracles (forest, heal, teleport, blast, creature spells) cast at once on press</td>
+<td>partial</td>
+<td>Forest, heal, teleport and blast cast on press (<code>src/ECS/Systems/Implementations/HandSpellSeed.cpp</code>); creature spells can't be cast from the hand at all (<code>cast_rules::CanCastOn</code> in <code>src/Magic/CastRules.cpp</code> refuses the creature class, TODO)</td>
+</tr>
+<tr>
+<td>A creature spell can only be cast on a creature</td>
+<td>partial</td>
+<td>Never at a point (<code>cast_rules::CanCastAt</code> refuses the creature class); but the hand can't cast one on a creature either, only scripts can (<code>SPELL_AT_THING</code>, <code>src/Magic/Script/CHLSpells.cpp</code>)</td>
+</tr>
+<tr>
+<td>An object under the hand is tried before the land</td>
+<td>done</td>
+<td><code>SeedActionPressed</code> tries <code>ValidToApplyThisToObject</code> first, <code>src/ECS/Systems/Implementations/HandSpellSeed.cpp</code></td>
+</tr>
+<tr>
+<td>A press outside the player's influence does nothing at all: no puff, no sound, even over a creature</td>
+<td>done</td>
+<td><code>SeedActionPressed</code> returns with no fail puff when the hand is out of influence, <code>src/ECS/Systems/Implementations/HandSpellSeed.cpp</code></td>
+</tr>
+<tr>
+<td>A press before the seed is ready fails with the failure puff and sound</td>
+<td>done</td>
+<td><code>ValidToApplyThisToMapCoord</code> needs the seed ready, else <code>FailApply</code> (spot visual 4 and <code>G_SpellCastFailure</code>), <code>src/ECS/Systems/Implementations/HandSpellSeed.cpp</code></td>
+</tr>
+<tr>
+<td>A press where the miracle's cast rule refuses (needs land, needs influence, out of the map) fails with the puff and the failure sound</td>
+<td>done</td>
+<td><code>magic::seed::CanCast</code> (<code>src/Magic/Core/SpellSeed.cpp</code>, <code>src/Magic/CastRules.cpp</code>) then <code>FailApply</code></td>
+</tr>
+<tr>
+<td>Land for a cast rule means a map cell without water, whatever its height</td>
+<td>done</td>
+<td><code>cast_rules::IsLand</code> uses <code>sea_cells::IsLand</code> (<code>src/Magic/CastRules.cpp</code>); no unit test</td>
+</tr>
+<tr>
+<td>The failure puff is drawn at full size (the camera-distance scaling applies only to effects a player's miracle owns)</td>
+<td>done</td>
+<td><code>psys::manager::CreateSpotVisual</code> at magnitude 1 (<code>src/Particles/PSysManager.cpp</code>)</td>
+</tr>
+<tr>
+<td>A second press while a gesture seed is armed is ignored</td>
+<td>done</td>
+<td>While armed the button is still down; the release casts before any new press, <code>src/ECS/Systems/Implementations/HandSpellSeed.cpp</code></td>
+</tr>
+<tr>
+<td>While a gesture seed is armed a humming loop plays at the hand, following it, and stops hard on release or cancel</td>
+<td>done</td>
+<td><code>BeginApplyOnRelease</code> / <code>EndApplyOnRelease</code>: the hand's sound tag, track 3, looping, <code>src/ECS/Systems/Implementations/HandSpellSeed.cpp</code></td>
+</tr>
+<tr>
+<td>Storm and shields are cast at the circle drawn while the button is held; a circle is remembered 5 s; with no circle the cast fails</td>
+<td>done</td>
+<td>Circle kept 5 s (<code>k_CircleLife</code>, <code>src/Magic/Gestures/PowerUpSystem.cpp</code>); <code>GestureAllowsCast</code> fails a cast without it, <code>src/ECS/Systems/Implementations/HandSpellSeed.cpp</code></td>
+</tr>
+<tr>
+<td>A locked miracle moved over a place it can't apply skips that turn but stays locked; only letting go ends it</td>
+<td>done</td>
+<td><code>UpdateSeedAction</code> skips the apply when the point is not valid and stays locked, <code>src/ECS/Systems/Implementations/HandSpellSeed.cpp</code></td>
+</tr>
+<tr>
+<td>Letting go of a held miracle stores its remaining prayer power and age back in the seed, so it can be pressed again until spent</td>
+<td>done</td>
+<td><code>seed::ApplyUnlockProcess</code> and <code>StoreChantsAndAgeFromSpell</code>, <code>src/Magic/Core/SpellSeed.cpp</code></td>
+</tr>
+<tr>
+<td>After a cast the seed is deleted, kept in the hand, or follows its miracle, as its record says; a success sparkle shows as it leaves the hand</td>
+<td>done</td>
+<td><code>ApplySeedToMapCoord</code> keeps or removes the seed by <code>isKeptInHand</code>, success spot visual 3; <code>seed::FollowsSpell</code>, <code>seed::DrawSpells</code> (<code>src/ECS/Systems/Implementations/HandSpellSeed.cpp</code>, <code>src/Magic/Core/SpellSeed.cpp</code>)</td>
+</tr>
+<tr>
+<td>A seed is deleted together with its miracle</td>
+<td>done</td>
+<td><code>seed::ProcessInHand</code> deletes the seed when its spell closed; the spell's deletion deletes its seed (<code>src/Magic/Core/Spell.cpp</code>)</td>
+</tr>
+<tr>
+<td>A held miracle carried outside its cast rule (over water, out of influence) is dropped from the hand</td>
+<td>partial</td>
+<td>The spell's cast point follows the hand (<code>src/Magic/Core/Spell.cpp</code>), but the "can't cast here" end of the action is pending; the apply only skips that turn</td>
+</tr>
+<tr>
+<td>A hand-cast miracle is placed at the hand's reported point</td>
+<td>done</td>
+<td>The apply packet's point and <code>FinishCast</code> in <code>src/Magic/Core/SpellSeed.cpp</code></td>
+</tr>
+<tr>
+<td>Every hand cast lasts the miracle's player timer times the seed's multiplier</td>
+<td>done</td>
+<td><code>PrepareCast</code> in <code>src/Magic/Core/SpellSeed.cpp</code> (player timer and initial chants times <code>castMultiplier</code>)</td>
+</tr>
+<tr>
+<td>Force-feedback effects on recognising and casting</td>
+<td>n/a</td>
+<td>openblack has no force-feedback devices</td>
+</tr>
+</tbody>
+</table>
+<h2 id="holding-a-seed">Holding a seed</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A seed from an icon needs 1.5 s before it is ready; a globe or dispenser seed is ready at once</td>
+<td>done</td>
+<td><code>seed::ProcessInHand</code> (<code>delayBeforeSeedActive</code>), <code>src/Magic/Core/SpellSeed.cpp</code>; a globe's seed is ready at once (<code>one_off::CreateSpellIntoHand</code>, <code>src/Magic/Core/OneOffSpellSeed.cpp</code>)</td>
+</tr>
+<tr>
+<td>Becoming ready cancels a press made too early</td>
+<td>done</td>
+<td><code>seed::ProcessInHand</code> calls the hand's <code>EndAction</code> when the seed becomes ready</td>
+</tr>
+<tr>
+<td>The hand holds a seed as a not-ready miracle until it is ready, then by the seed's hold (above, side or magic), refreshed each game turn</td>
+<td>done</td>
+<td><code>ComputeHoldParameters</code> (MAGIC until ready, then the seed's hold type), every frame from <code>UpdateSeedInHand</code>; <code>src/ECS/Systems/Implementations/HandHolding.cpp</code></td>
+</tr>
+<tr>
+<td>Each hold shows a still frame of its hand animation chosen by the seed's size, with no leaning</td>
+<td>done</td>
+<td><code>Cwiggle</code>, <code>Chold_above</code>, <code>Chold_side</code> held at a frame by the hold radius, <code>src/ECS/Systems/Implementations/HandSystem.cpp</code></td>
+</tr>
+<tr>
+<td>The hand rises by how it holds (a little above, more for magic, by the seed's height at the side)</td>
+<td>done</td>
+<td>The hold height by hold type in <code>src/ECS/Systems/Implementations/HandPlacement.cpp</code></td>
+</tr>
+<tr>
+<td>The seed's model sits below the hand, turned with it (forest half round, ground flock a quarter)</td>
+<td>partial</td>
+<td>The seed sits at the hold point turned with the hand (<code>HandPlacement.cpp</code>); the seed's own turn from its record (forest, ground flock) is not applied</td>
+</tr>
+<tr>
+<td>The held seed and hand sway as the cursor runs ahead, and roll about the line to the camera</td>
+<td>done</td>
+<td><code>HeldSway</code> and the grain state's tilt, <code>src/ECS/Systems/Implementations/HandPlacement.cpp</code>, <code>HandHolding.cpp</code></td>
+</tr>
+<tr>
+<td>Taking or losing a seed fades the hand's pose over 0.13 s; becoming ready or powering up does not</td>
+<td>done</td>
+<td>The 0.13 s state blend only on a change of the hand's state, <code>src/ECS/Systems/Implementations/HandSystem.cpp</code></td>
+</tr>
+<tr>
+<td>The seed's model shows only once the seed is ready</td>
+<td>partial</td>
+<td>The model is shown in the hand by the magic's "drawn in hand" flag (<code>ShowSeedMesh</code>, <code>src/ECS/Systems/Implementations/HandSpellSeed.cpp</code>), not tied to readiness</td>
+</tr>
+<tr>
+<td>The in-hand effect sits among the fingertips (at the hand point for water), starts as the seed enters, is drawn only once ready and is sized by the hand's distance and the seed's power</td>
+<td>partial</td>
+<td><code>hand_fx::CreateInHandEffect</code> / <code>UpdateInHandEffect</code> (<code>src/Magic/Hand/HandMagicFX.cpp</code>): drawn once ready, strength from the seed; it always sits at the hand's origin (the bone is not applied)</td>
+</tr>
+<tr>
+<td>Creature potions (phials) are held at the side of the hand</td>
+<td>done</td>
+<td>The seed record's hold type in <code>ComputeHoldParameters</code> (<code>HandHolding.cpp</code>)</td>
+</tr>
+<tr>
+<td>A holder effect (fire, lightning, heal, shield, storm, water, teleport) plays round a globe or a held seed of that kind</td>
+<td>partial</td>
+<td>Around globes and icons (<code>src/Worship/SpellSeedGraphic.cpp</code>); a held seed shows its in-hand effect instead</td>
+</tr>
+</tbody>
+</table>
+<h2 id="globes">Globes</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tapping a globe puts its miracle in the hand, fully charged and ready, with the bubble-pop sound at the hand; the globe goes</td>
+<td>done</td>
+<td><code>one_off::InterfaceTap</code> and <code>CreateSpellIntoHand</code>, <code>src/Magic/Core/OneOffSpellSeed.cpp</code> (bubble-pop sample at the hand)</td>
+</tr>
+<tr>
+<td>A globe shows its miracle's model or holder effect inside a transparent spinning sphere with a running glint</td>
+<td>done</td>
+<td>The orb faces the camera with its 4 by 4 glint (<code>one_off::UpdateFrames</code>) and the seed graphic inside (<code>src/Worship/SpellSeedGraphic.cpp</code>)</td>
+</tr>
+<tr>
+<td>An extreme globe has one coloured ring per power-up level, turning, in the player's colour (the local player's for a neutral globe)</td>
+<td>done</td>
+<td>The seed graphic's power-up bands in the owner's (or local player's) colour, <code>src/Worship/SpellSeedGraphic.cpp</code></td>
+</tr>
+<tr>
+<td>A globe's seed is made at the player's icon for that miracle when they have one (so it can be powered up and refunds there)</td>
+<td>done</td>
+<td><code>worship::player::FindBestSpellIconForSpellSeed</code> in <code>one_off::CreateSpellIntoHand</code> (<code>src/Magic/Core/OneOffSpellSeed.cpp</code>); a loose seed without an icon</td>
+</tr>
+<tr>
+<td>A creature judges a globe it finds by its owner: one belonging to another player can be stolen</td>
+<td>todo</td>
+<td>Nothing in the creature mind looks at globes</td>
+</tr>
+<tr>
+<td>A creature weighs a globe by its miracle: aggressive, compassionate, playful or health-restoring</td>
+<td>todo</td>
+<td>Nothing in the creature mind looks at globes</td>
+</tr>
+<tr>
+<td>Globes are saved and loaded with the game</td>
+<td>todo</td>
+<td>No game save system</td>
+</tr>
+</tbody>
+</table>
+<h2 id="power-ups-extreme-miracles">Power-ups (extreme miracles)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Drawing a power-up gesture over a ready, uncast icon seed raises it to the next level (fire, lightning, storm, heal, water, food, blast)</td>
+<td>done</td>
+<td><code>PowerUpGestures</code> in <code>src/Magic/Gestures/PowerUpSystem.cpp</code> with the worship icon provider (<code>src/Worship/GestureIconProvider.cpp</code>)</td>
+</tr>
+<tr>
+<td>A power-up waits for the icon to charge the extra; a scribble cancels the pending level</td>
+<td>done</td>
+<td><code>icon::SetChargingPowerUp</code> (<code>src/Worship/WorshipSpellIcon.cpp</code>); a scribble sets the pending level back (<code>PowerUpGestures</code>)</td>
+</tr>
+<tr>
+<td>Extreme versions use their own cast effect, in-hand effect, cost and strength</td>
+<td>done</td>
+<td><code>MagicInfoForPowerUpLevel</code> in <code>src/Magic/MagicTables.cpp</code>, used by <code>seed::MagicTypeOf</code></td>
+</tr>
+<tr>
+<td>Taking or powering up a seed flies five bands onto the hand, plays the band sound and the announcer names the level</td>
+<td>done</td>
+<td><code>seed::SetPowerUp</code> (<code>src/Magic/Core/SpellSeed.cpp</code>): <code>hand_fx::AddSpellToHandVisuals</code> with <code>G_SpellPowerUpBand</code> and the SpellDialogue level voice 10 to 12</td>
+</tr>
+<tr>
+<td>Bands spin round the hand, faster further up the arm; bracelets stay for each power-up after a delay; the hand glows in the player's colour</td>
+<td>partial</td>
+<td>Bands and delayed bracelets in <code>src/Magic/Hand/HandMagicFX.cpp</code>; the hand's glow is computed (<code>hand_fx::GetGlow</code>) but not drawn</td>
+</tr>
+<tr>
+<td>A tribe's power spins the tribe's name round the hand, rises as a column on casting, with the tribe's voice</td>
+<td>done</td>
+<td><code>src/Magic/TribalPowerSpin.cpp</code> run by <code>hand_fx</code> (<code>src/Magic/Hand/HandMagicFX.cpp</code>), started from the seed in the hand and let go or raised as a column by <code>FinishCast</code> (<code>src/Magic/Core/SpellSeed.cpp</code>) with the tribe's voice, drawn by <code>Renderer::DrawTribalPower</code>; tests <code>test/test_tribal_power_spin.cpp</code>, <code>test/test_hand_fx_tribal_power.cpp</code>. Only for a tribe whose power is above 1, which no tribe reaches in the vanilla game; the step runs in the magic loop rather than the frame's draw, and nothing is drawn inside the temple</td>
+</tr>
+</tbody>
+</table>
+<h2 id="dropping-and-cancelling">Dropping and cancelling</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A scribble drops the held seed with the shake sound (quiet) and the bands flying off; outside the power-up path it needs the hand in influence</td>
+<td>done</td>
+<td><code>ProcessPowerUpSystem</code> scribble (in influence) calls <code>RemoveHandSpellVisuals</code> and <code>ForceDropHeld</code> (<code>src/Magic/Gestures/PowerUpSystem.cpp</code>, <code>src/ECS/Systems/Implementations/HandSpellSeed.cpp</code>)</td>
+</tr>
+<tr>
+<td>A dropped seed gives its prayer power back to its worship site; a globe seed with no icon just vanishes</td>
+<td>done</td>
+<td><code>worship::ReturnSeedToItsSite</code> (<code>src/Worship/Worship.cpp</code>) from <code>ApplyForceDropHeld</code>; a seed without an icon is just deleted</td>
+</tr>
+<tr>
+<td>Putting a seed down on a dispenser, worship site or icon returns it there</td>
+<td>done</td>
+<td><code>worship::IsSeedReturnPoint</code> / <code>ApplySeedToObject</code> (<code>src/Worship/Worship.cpp</code>), <code>dispenser::ApplySeed</code> (<code>src/Worship/SpellDispenser.cpp</code>)</td>
+</tr>
+<tr>
+<td>Leaving the hand records the last miracle (for the repeat gesture), cancels the icon's charge and removes the bracelets</td>
+<td>done</td>
+<td><code>SeedLeftHand</code> in <code>src/ECS/Systems/Implementations/HandSpellSeed.cpp</code>: the last seed type, <code>worship::OnSeedOutOfHand</code> (the charge cancelled) and the bands removed</td>
+</tr>
+</tbody>
+</table>
+<h2 id="choosing-a-miracle-and-moving-with-it">Choosing a miracle and moving with it</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Choosing a miracle by gesture (spiral, or reverse spiral for creature spells, then the miracle's gesture, 30 s to finish) and repeating the last one (40 s)</td>
+<td>partial</td>
+<td>Spiral and reverse spiral open the selection (30 s timeout) and the R gesture repeats the last seed (<code>src/Magic/Gestures/PowerUpSystem.cpp</code>); the 40 s cap on the repeat is not found</td>
+</tr>
+<tr>
+<td>A thrown miracle leaves along the hand's smoothed velocity (four fifths of the way in a tenth of a second, speed mapped up to 200)</td>
+<td>done</td>
+<td>The grain state's smoothed hand velocity (<code>src/ECS/Systems/Implementations/HandHolding.cpp</code>) sent with the apply</td>
+</tr>
+<tr>
+<td>A miracle spins by how the hand's path turns sideways as it is cast</td>
+<td>done</td>
+<td>The grain state's sideways angular velocity (<code>HandHolding.cpp</code>), sent with the throw data</td>
+</tr>
+<tr>
+<td>The held miracle and globes are saved and restored with the game</td>
+<td>todo</td>
+<td>No game save system</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

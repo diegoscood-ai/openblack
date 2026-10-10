@@ -1,0 +1,707 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Challenge natives: objects, villagers and the world — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="here" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#challenge-natives-objects-villagers-and-the-world">Challenge natives: objects, villagers and the world</a><ul>
+<li><a href="#used-by-the-shipped-scripts">Used by the shipped scripts</a></li>
+<li><a href="#not-used-by-the-shipped-scripts">Not used by the shipped scripts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="challenge-natives-objects-villagers-and-the-world">Challenge natives: objects, villagers and the world</h1>
+<p>The challenge scripts' functions for objects in the world: finding, creating, moving and deleting them, their properties and script states, flocks, containers, fire, clicks and hits, special effects, mist, games and walking paths. The game has 464 of these functions in all; the language statement each comes from is shown in italics, and "called" counts are calls in the shipped <code>challenge.chl</code>. How the virtual machine runs them is in <a href="../engine/script_vm.html">../engine/script_vm.md</a>; what each challenge is about is in <a href="../story/index.html">../story/</a>.</p>
+<p><strong>Progress: 31/122 done, 18 partial — 33%</strong></p>
+<h2 id="used-by-the-shipped-scripts">Used by the shipped scripts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Whether the player has clicked an object: <em>‹object› clicked</em> (called 84 times in 37 scripts)</td>
+<td>done</td>
+<td><code>GameThingClicked</code> in <code>src/CHLApi.cpp</code>: whether the hand's last tapped object is the thing (<code>HandSystem::GetClickedObject</code>); a challenge scroll that saves is tapped again, but there are no save rooms</td>
+</tr>
+<tr>
+<td>Puts a villager, animal or other living thing into one of its script states (walking to a place, dancing, sitting and so on): <em>state ‹object› ‹state›</em> (called 893 times in 150 scripts)</td>
+<td>partial</td>
+<td><code>SetScriptState</code>: villagers and animals (and each member of a script container) through <code>ecs::script_held::SetLivingScriptState</code>; a creature logs "not implemented"</td>
+</tr>
+<tr>
+<td>Puts a living thing into a script state that takes a position: <em>state [state] [position] (a state statement that takes a position)</em> (called 20 times in 16 scripts)</td>
+<td>todo</td>
+<td><code>SetScriptStatePos</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Puts a living thing into a script state that takes a number with a fraction: <em>state [state] [number] (a state statement that takes a fraction)</em> (called 20 times in 16 scripts)</td>
+<td>todo</td>
+<td><code>SetScriptFloat</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Puts a living thing into a script state that takes a whole number: <em>state [state] [number] (a state statement that takes a whole number)</em> (called 862 times in 140 scripts)</td>
+<td>partial</td>
+<td><code>SetScriptUlong</code>: a villager's script clip and times (<code>ecs::villager::SetScriptAnimation</code>), also for a container's villagers; a creature logs "not implemented"</td>
+</tr>
+<tr>
+<td>Reads one of an object's properties (health, age, food, wood, altitude, belief, scale, speed and dozens more): <em>‹prop› of ‹object›</em> (called 1421 times in 257 scripts)</td>
+<td>partial</td>
+<td><code>GetProperty</code>: scale and age of villagers and animals, speed, flying, drowning, the built percentage, a highlight's height; the other properties, other things' scale and height and the creature's age log "not implemented"; <code>test/test_script_living_props.cpp</code></td>
+</tr>
+<tr>
+<td>Changes one of an object's properties: <em>‹prop› of ‹object› = ‹val›</em> (called 636 times in 175 scripts)</td>
+<td>partial</td>
+<td><code>SetProperty</code>: scale, speed and age of villagers and animals, a highlight's height and the built percentage; the other properties log "not implemented"</td>
+</tr>
+<tr>
+<td>Gives an object's position: <em>[ ‹obj id› ]</em> (called 4112 times in 351 scripts)</td>
+<td>partial</td>
+<td><code>GetPosition</code>: a thing's position, a flock's first member, a villager already at its destination gives the destination; the animals' destination case is not ported</td>
+</tr>
+<tr>
+<td>Moves an object to a position at once: <em>set ‹obj id› position to ‹position›</em> (called 127 times in 54 scripts)</td>
+<td>done</td>
+<td><code>SetPosition</code>: the thing put on the ground at once with no slide (<code>ecs::NotifyTeleported</code>); a living thing the script controls goes into its script state</td>
+</tr>
+<tr>
+<td>Finds an object of a kind at a position: <em>get ‹type› [‹subtype›] at ‹position› [excluding scripted]</em> (called 82 times in 43 scripts)</td>
+<td>done</td>
+<td><code>Call</code>: <code>FindForScript</code> in <code>src/CHLApi.cpp</code>, the nearest thing of the type and sub-type in the map cells (<code>ecs::map_cells::FindNearForScript</code>), a town by <code>GetNearestTown</code>; <code>test/test_town_get_town.cpp</code></td>
+</tr>
+<tr>
+<td>Creates an object of a kind (villager, animal, rock, building, toy, marker and so on) at a position: <em>marker ‹type› ‹subtype› at ‹position›</em> (called 1818 times in 264 scripts)</td>
+<td>partial</td>
+<td><code>Create</code>: <code>CreateScriptObject</code> makes markers, features, villagers, animals, rocks, mobile objects, trees, animated statics, the shark, puzzle games, weather things, one-shot spells, dispensers, scaffolds, timers and vortices; rewards, creatures, dead trees, stores, balls, totems and highlights are not made (<a href="../../map-loading.html#pending">map-loading</a>)</td>
+</tr>
+<tr>
+<td>Makes a living thing walk to a position, ending within a radius of it: <em>move ‹object› position to ‹position› [radius ‹radius›]</em> (called 528 times in 156 scripts)</td>
+<td>partial</td>
+<td><code>MoveGameThing</code>: villagers (<code>ecs::villager::SetupMoveToPos</code>), animals (<code>ecs::animal_ai::ScriptMoveTo</code>), flocks and other objects; a creature logs "not implemented"</td>
+</tr>
+<tr>
+<td>Turns an object to face a position: <em>set ‹object› focus to ‹position›</em> (called 601 times in 138 scripts)</td>
+<td>partial</td>
+<td><code>SetFocus</code>: villagers and animals snap their yaw (<code>ecs::living::SetFocus</code>), also a container's members; creatures and other objects log "not implemented"</td>
+</tr>
+<tr>
+<td>Creates an empty flock at a position: <em>flock at ‹position›</em> (called 29 times in 20 scripts)</td>
+<td>done</td>
+<td><code>FlockCreate</code>: <code>ecs::script_containers::CreateFlock</code> (<code>src/ECS/ScriptContainers.cpp</code>); <code>test/test_script_flocks.cpp</code></td>
+</tr>
+<tr>
+<td>Adds an animal or villager to a flock, optionally as its leader: <em>attach ‹obj› to ‹flock› [as leader]</em> (called 102 times in 43 scripts)</td>
+<td>done</td>
+<td><code>FlockAttach</code>: <code>ecs::script_containers::Attach</code>, as leader or not</td>
+</tr>
+<tr>
+<td>Takes a member out of a flock: <em>detach [‹obj›] from ‹flock›</em> (called 18 times in 10 scripts)</td>
+<td>done</td>
+<td><code>FlockDetach</code>: <code>ecs::script_containers::Detach</code></td>
+</tr>
+<tr>
+<td>Breaks a flock up: <em>disband ‹flock›</em> (called 9 times in 7 scripts)</td>
+<td>done</td>
+<td><code>FlockDisband</code>: <code>ecs::script_containers::Disband</code></td>
+</tr>
+<tr>
+<td>Gives how many things a flock, town or container holds: <em>size of ‹container›</em> (called 56 times in 19 scripts)</td>
+<td>done</td>
+<td><code>IdSize</code>: <code>ecs::script_containers::Size</code></td>
+</tr>
+<tr>
+<td>Whether an object is in a flock: <em>‹obj› in ‹flock›</em> (called 3 times in 2 scripts)</td>
+<td>todo</td>
+<td><code>FlockMember</code> logs "not implemented" and pushes false</td>
+</tr>
+<tr>
+<td>Gives the position of the player's hand in the world: <em>hand position</em> (called 11 times in 5 scripts)</td>
+<td>done</td>
+<td><code>GetHandPosition</code>: the player's hand's position</td>
+</tr>
+<tr>
+<td>Deletes an object, plainly, fading it away, exploding it or with the temple's explosion: <em>delete ‹obj› with fade/with explode/with temple explode</em> (called 376 times in 121 scripts)</td>
+<td>partial</td>
+<td><code>ObjectDelete</code>: modes 0 to 2 delete the thing and a container is disbanded; the fade ghost and the break-up are not drawn, and the creature's fizz, the temple heart and puzzle games log "not implemented"</td>
+</tr>
+<tr>
+<td>Finds an object of a kind within a radius of a position: <em>get ‹type› [‹subtype›] at ‹position› radius ‹radius› [excluding scripted]</em> (called 159 times in 70 scripts)</td>
+<td>done</td>
+<td><code>CallNear</code>: <code>FindForScript</code> with the radius and the distance check</td>
+</tr>
+<tr>
+<td>Starts a special effect (sparkles, smoke, explosions and so on) at a position for a time: <em>create special effect ‹effect› at ‹position› [time ‹duration›]</em> (called 132 times in 49 scripts)</td>
+<td>done</td>
+<td><code>SpecialEffectPosition</code>: <code>psys::manager::CreateSpotVisual</code> (<code>src/Particles/PSysManager.cpp</code>) for the time</td>
+</tr>
+<tr>
+<td>Starts a special effect on an object for a time: <em>create special effect ‹effect› on ‹target› [time ‹duration›]</em> (called 62 times in 17 scripts)</td>
+<td>done</td>
+<td><code>SpecialEffectObject</code>: a spot visual at the object's position, closed when the object goes</td>
+</tr>
+<tr>
+<td>Makes villagers perform a dance around a place for a time: <em>make ‹obj› dance ‹type› around ‹position› [time ‹duration›]</em> (called 2 times in 2 scripts)</td>
+<td>todo</td>
+<td><code>DanceCreate</code> logs "not implemented" and pushes 0</td>
+</tr>
+<tr>
+<td>Finds an object of a kind inside a town, flock or container: <em>get ‹type› [‹subtype›] in ‹container› [excluding scripted]</em> (called 24 times in 13 scripts)</td>
+<td>done</td>
+<td><code>CallIn</code>: <code>ecs::script_containers::Find</code> in a town, flock or container, handed to the script as a found thing</td>
+</tr>
+<tr>
+<td>Whether a living thing has finished the animation or state the script gave it: <em>‹obj› played</em> (called 319 times in 97 scripts)</td>
+<td>partial</td>
+<td><code>Played</code>: villagers (<code>ecs::villager::IsScriptAnimationComplete</code>) and puzzle games; animals and creatures log "not implemented" and give false</td>
+</tr>
+<tr>
+<td>Finds an object of a kind inside a town or container and within a radius of a position: <em>get ‹type› [‹subtype›] in ‹container› at ‹pos› radius ‹radius› [excluding scripted]</em> (called 3 times in 3 scripts)</td>
+<td>todo</td>
+<td><code>CallInNear</code> logs "not implemented" and pushes 0</td>
+</tr>
+<tr>
+<td>Makes a living thing play an animation instead of its state's own: <em>set ‹obj› anim ‹anim type›</em> (called 56 times in 21 scripts)</td>
+<td>partial</td>
+<td><code>OverrideStateAnimation</code>: villagers (<code>ecs::VillagerSetClip</code>) and animals (<code>ecs::SetAnimalAnim</code>); a creature logs "not implemented"; the remind record for the script is not ported</td>
+</tr>
+<tr>
+<td>Makes villagers around an object react to it (run away, gather round and so on) (unconfirmed): <em>attach reaction ‹object› ‹reaction›</em> (called once in 1 script)</td>
+<td>todo</td>
+<td><code>CreateReaction</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives the text of what the hand would do with an object: <em>get action text for ‹obj›</em> (called 2 times in 2 scripts)</td>
+<td>done</td>
+<td><code>GetActionTextForObject</code> pops nothing and always pushes help text 828, as the original</td>
+</tr>
+<tr>
+<td>Fills a town, flock or container with things of a kind: <em>populate ‹obj› with ‹quantity› ‹type› [‹subtype›]</em> (called 9 times in 8 scripts)</td>
+<td>todo</td>
+<td><code>PopulateContainer</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Throws an object off along a heading at a speed: <em>set ‹value› velocity heading ‹value› speed ‹value›</em> (called 3 times in 3 scripts)</td>
+<td>todo</td>
+<td><code>SetHeadingAndSpeed</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Whether an object is blown about by the wind: <em>enable/disable ‹object› affected by wind</em> (called 17 times in 10 scripts)</td>
+<td>todo</td>
+<td><code>SetAffectedByWind</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Finds an object of a kind inside a town or container but not near a position: <em>get ‹type› [‹subtype›] in ‹container› not near ‹pos› radius ‹radius› [excluding scripted]</em> (called once in 1 script)</td>
+<td>todo</td>
+<td><code>CallInNotNear</code> logs "not implemented" and pushes 0</td>
+</tr>
+<tr>
+<td>Gives the state a living thing is in: <em>state of ‹obj›</em> (called 2 times in 2 scripts)</td>
+<td>todo</td>
+<td><code>GetObjectState</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives the land's height at a position: <em>land height at ‹position›</em> (called 9 times in 4 scripts)</td>
+<td>done</td>
+<td><code>GetLandHeight</code>: <code>ecs::sea_cells::ScriptLandHeight</code>, -10 over the sea or off the map; <code>test/test_sea_cells.cpp</code></td>
+</tr>
+<tr>
+<td>Forgets the object the player last clicked: <em>clear clicked object</em> (called 43 times in 16 scripts)</td>
+<td>done</td>
+<td><code>ClearClickedObject</code>: <code>HandSystem::ClearClicked</code></td>
+</tr>
+<tr>
+<td>Hands an object back to the game after a script has controlled it (it goes back to its own life): <em>release ‹obj›</em> (called 216 times in 96 scripts)</td>
+<td>partial</td>
+<td><code>ReleaseFromScript</code>: <code>ecs::script_held::ReleaseFromScript</code> (<code>src/ECS/ScriptHeld.cpp</code>): villagers decide what to do (in the physics once out), animals wander, a flock's controlled members are released; a creature's and a ball's release and the music are not ported; <code>test/test_release_from_script.cpp</code></td>
+</tr>
+<tr>
+<td>Gives how many poisoned things a container holds: <em>poisoned size of ‹container›</em> (called once in 1 script)</td>
+<td>todo</td>
+<td><code>IdPoisonedSize</code> logs "not implemented" and pushes nought</td>
+</tr>
+<tr>
+<td>Whether an object is poisoned: <em>‹obj› poisoned</em> (called 2 times in 1 script)</td>
+<td>todo</td>
+<td><code>IsPoisoned</code> logs "not implemented" and pushes false</td>
+</tr>
+<tr>
+<td>Finds an object of a kind in a container that isn't poisoned: <em>get not poisoned ‹type› [‹subtype›] in ‹container› [excluding scripted]</em> (called once in 1 script)</td>
+<td>todo</td>
+<td><code>CallNotPoisonedIn</code> logs "not implemented" and pushes 0</td>
+</tr>
+<tr>
+<td>Whether the player can move an object: <em>enable/disable ‹obj› moveable</em> (called 97 times in 37 scripts)</td>
+<td>done</td>
+<td><code>SetIdMoveable</code>: <code>ecs::object_flags::SetMoveable</code></td>
+</tr>
+<tr>
+<td>Whether the player can pick an object up: <em>enable/disable ‹obj› pickup</em> (called 145 times in 55 scripts)</td>
+<td>done</td>
+<td><code>SetIdPickupable</code>: <code>ecs::object_flags::SetPickupable</code>, read by the hand</td>
+</tr>
+<tr>
+<td>Whether an object is on fire: <em>‹obj› on fire</em> (called 3 times in 2 scripts)</td>
+<td>done</td>
+<td><code>IsOnFire</code>: <code>magic::script::IsOnFire</code> (<code>src/Magic/Script/CHLFire.cpp</code>); <code>test/test_fire.cpp</code></td>
+</tr>
+<tr>
+<td>Whether there is fire within a radius of a position: <em>fire near ‹position› radius ‹radius›</em> (called 3 times in 3 scripts)</td>
+<td>done</td>
+<td><code>IsFireNear</code>: <code>magic::script::IsFireNear</code></td>
+</tr>
+<tr>
+<td>Poisons an object (food) or clears the poison: <em>enable/disable ‹obj› poisoned</em> (called 5 times in 1 script)</td>
+<td>todo</td>
+<td><code>SetPoisoned</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Sets an object's temperature (fire spreads by temperature): <em>set ‹obj› temperature ‹temperature›</em> (called 5 times in 3 scripts)</td>
+<td>done</td>
+<td><code>SetTemperature</code>: <code>magic::script::SetTemperature</code></td>
+</tr>
+<tr>
+<td>Sets an object on fire at a burning speed, or puts it out: <em>enable/disable ‹object› on fire ‹burn speed›</em> (called 36 times in 12 scripts)</td>
+<td>done</td>
+<td><code>SetOnFire</code>: <code>magic::script::SetOnFire</code></td>
+</tr>
+<tr>
+<td>Sends an object towards a target over a time: <em>set ‹obj› target ‹position› time ‹time›</em> (called 8 times in 8 scripts)</td>
+<td>todo</td>
+<td><code>SetTarget</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Makes a villager walk one of the paths laid in the land, forwards or backwards between two points: <em>set ‹object› forward/reverse walk path ‹camera enum› from ‹val from› to ‹val to›</em> (called 4 times in 2 scripts)</td>
+<td>partial</td>
+<td><code>WalkPath</code>: villagers walk a <code>camera.edt</code> track in their script state (<code>ecs::living::StartWalkPath</code>), mobile objects and the shark too (<code>ecs::StartMobileWalkPath</code>); animals and creatures log "not implemented"</td>
+</tr>
+<tr>
+<td>Whether an object is of a kind: <em>‹object› type ‹type› [‹subtype›]</em> (called 10 times in 9 scripts)</td>
+<td>todo</td>
+<td><code>IsOfType</code> logs "not implemented" and pushes false</td>
+</tr>
+<tr>
+<td>Forgets the object last hit: <em>clear hit object</em> (called 5 times in 3 scripts)</td>
+<td>todo</td>
+<td><code>ClearHitObject</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Whether an object has been hit: <em>‹object› hit</em> (called 5 times in 4 scripts)</td>
+<td>todo</td>
+<td><code>GameThingHit</code> logs "not implemented" and pushes false</td>
+</tr>
+<tr>
+<td>Gives the object a player's hand or a creature is holding: <em>get held by ‹value›</em> (called 24 times in 16 scripts)</td>
+<td>todo</td>
+<td><code>GetObjectHeld199</code> logs "not implemented" and pushes 0</td>
+</tr>
+<tr>
+<td>Lets a living thing's animation be sped up or slowed down: <em>enable/disable ‹creature› anim time modify</em> (called 2 times in 1 script)</td>
+<td>todo</td>
+<td><code>SetAnimationModify</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives the kind of an object: <em>get ‹object› type</em> (called once in 1 script)</td>
+<td>todo</td>
+<td><code>GameType</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives the sub-kind of an object (which animal, which building and so on): <em>get ‹object› sub type</em> (called 10 times in 9 scripts)</td>
+<td>todo</td>
+<td><code>GameSubType</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Creates an object of a kind at a position with an angle and a scale: <em>create with angle ‹angle› and scale ‹scale› ‹type› [‹subtype›] at ‹position›</em> (called 93 times in 29 scripts)</td>
+<td>partial</td>
+<td><code>CreateWithAngleAndScale</code>: <code>CreateScriptObject</code> with the angle in degrees and the scale; the same kinds as create are missing</td>
+</tr>
+<tr>
+<td>Turns an object (a dispenser, a gate and so on) on or off: <em>enable/disable ‹object› active</em> (called 26 times in 22 scripts)</td>
+<td>partial</td>
+<td><code>SetActive</code>: highlights, spell dispensers and scaffolds (an active one forces its building); other things log "not implemented"</td>
+</tr>
+<tr>
+<td>Whether an object still exists: <em>‹obj id› exists</em> (called 388 times in 145 scripts)</td>
+<td>partial</td>
+<td><code>ThingValid</code>: whether the entity still exists; the original asks its scripts' table, and our entity ids can be reused by a later thing</td>
+</tr>
+<tr>
+<td>Stops villagers reacting to an object in one way (unconfirmed): <em>detach reaction ‹object› ‹reaction›</em> (called once in 1 script)</td>
+<td>todo</td>
+<td><code>RemoveReactionOfType</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives how much of its animation a living thing has played: <em>get ‹object› played percentage</em> (called 2 times in 1 script)</td>
+<td>todo</td>
+<td><code>PlayedPercentage</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Creates a patch of mist of a colour, size and transparency: <em>create mist at ‹pos› scale ‹scale› red ‹r› green ‹g› blue ‹b› transparency ‹transparency› height ratio ‹height ratio›</em> (called once in 1 script)</td>
+<td>todo</td>
+<td><code>CreateMist</code> logs "not implemented" (the land script's mists are made, see <a href="../../map-loading.html#map-mist-create_mist">map-loading</a>)</td>
+</tr>
+<tr>
+<td>Fades mist from one size and transparency to another over a time: <em>set ‹mist› fade start scale ‹start scale› end scale ‹end scale› start transparency ‹start transparency› end transparency ‹end transparency› time ‹duration›</em> (called once in 1 script)</td>
+<td>todo</td>
+<td><code>SetMistFade</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives the object a player's hand or a creature is holding (second form): <em>get held by ‹creature›</em> (called 4 times in 2 scripts)</td>
+<td>todo</td>
+<td><code>GetObjectHeld273</code> logs "not implemented" and pushes 0</td>
+</tr>
+<tr>
+<td>Draws an object in full detail however far away it is: <em>enable/disable ‹object› high graphics detail</em> (called 333 times in 66 scripts)</td>
+<td>done</td>
+<td><code>SetHighGraphicsDetail</code>: <code>ecs::super_villager::SetHighGraphicsDetail</code> swaps in the high-detail family mesh with its eyes, drawn in game; <code>test/test_super_villager_eyes.cpp</code></td>
+</tr>
+<tr>
+<td>Turns a villager into a skeleton or back: <em>enable/disable ‹object› skeleton</em> (called 9 times in 6 scripts)</td>
+<td>todo</td>
+<td><code>SetSkeleton</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives a spot visual (a glow or mark) a target position: <em>add ‹object› target at ‹position›</em> (called 6 times in 3 scripts)</td>
+<td>todo</td>
+<td><code>AddSpotVisualTargetPos</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives a spot visual a target object: <em>add ‹object› target on ‹target›</em> (called 7 times in 6 scripts)</td>
+<td>todo</td>
+<td><code>AddSpotVisualTargetObject</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Makes an object impossible to destroy, or not: <em>enable/disable ‹object› indestructible</em> (called 98 times in 42 scripts)</td>
+<td>partial</td>
+<td><code>SetIndestructable</code>: sets or clears the <code>Indestructible</code> component; a script container's own handling is not ported</td>
+</tr>
+<tr>
+<td>Turns a living thing to keep looking at an object: <em>set ‹object› focus on ‹target›</em> (called 2 times in 1 script)</td>
+<td>todo</td>
+<td><code>SetFocusOnObject</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Lets a living thing stop looking at an object: <em>release ‹creature› focus</em> (called 4 times in 3 scripts)</td>
+<td>todo</td>
+<td><code>ReleaseObjectFocus</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Whether an immersion (force feedback) effect exists: <em>immersion exists</em> (called 2 times in 2 scripts)</td>
+<td>todo</td>
+<td><code>ImmersionExists</code> logs "not implemented" and pushes false</td>
+</tr>
+<tr>
+<td>Opens or closes an object (a chest, a gate, a phone box): <em>open/close ‹object›</em> (called 12 times in 6 scripts)</td>
+<td>todo</td>
+<td><code>SetOpenClose</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Finds a living thing of a kind in a state within a radius: <em>get ‹type› [‹subtype›] in state ‹state› at ‹position› radius ‹radius› [excluding scripted]</em> (called once in 1 script)</td>
+<td>todo</td>
+<td><code>CallNearInState</code> logs "not implemented" and pushes 0</td>
+</tr>
+<tr>
+<td>Gives an object's information bits (unconfirmed): <em>get ‹object› info bits</em> (called once in 1 script)</td>
+<td>todo</td>
+<td><code>ObjectInfoBits</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Whether fire hurts an object: <em>enable/disable ‹object› hurt by fire</em> (called 44 times in 15 scripts)</td>
+<td>done</td>
+<td><code>SetHurtByFire</code>: <code>magic::script::SetHurtByFire</code></td>
+</tr>
+<tr>
+<td>Starts a special effect made for the game's cut scenes: <em>start jc special ‹feature›</em> (called 10 times in 2 scripts)</td>
+<td>partial</td>
+<td><code>PlayJcSpecial</code>: the intro specials 0, 1, 2, 4 and 5 (<code>ecs::intro_special::Play</code>), the missionaries' boat (6) and the camera bookmarks on and off (14, 15); the script graphics object (3) logs "not implemented"; <code>test/test_intro_special.cpp</code></td>
+</tr>
+<tr>
+<td>Whether an object is locked in an interaction: <em>‹object› locked interaction</em> (called 5 times in 4 scripts)</td>
+<td>todo</td>
+<td><code>IsLockedInteraction</code> logs "not implemented" and pushes false</td>
+</tr>
+<tr>
+<td>Turns a cut-scene special effect on an object on or off: <em>enable/disable jc special ‹feature› on ‹target›</em> (called 35 times in 8 scripts)</td>
+<td>done</td>
+<td><code>ThingJcSpecial</code>: <code>ecs::super_villager::ThingJcSpecial</code>, the family's cinematic orders</td>
+</tr>
+<tr>
+<td>Whether a villager is male: <em>‹object› is male</em> (called once in 1 script)</td>
+<td>todo</td>
+<td><code>SexIsMale</code> logs "not implemented" and pushes false</td>
+</tr>
+<tr>
+<td>Whether an object is active: <em>‹object› active</em> (called once in 1 script)</td>
+<td>todo</td>
+<td><code>IsActive</code> logs "not implemented" and pushes false</td>
+</tr>
+<tr>
+<td>Finds a flying thing of a kind within a radius: <em>get ‹type› [‹subtype›] flying at ‹position› radius ‹radius› [excluding scripted]</em> (called 2 times in 1 script)</td>
+<td>todo</td>
+<td><code>CallFlying</code> logs "not implemented" and pushes 0</td>
+</tr>
+<tr>
+<td>Fades an object in over a time: <em>set ‹object› fade in [time ‹time›]</em> (called once in 1 script)</td>
+<td>todo</td>
+<td><code>SetObjectFadeIn</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives the hand's state (empty, holding, casting and so on): <em>get hand state</em> (called 4 times in 4 scripts)</td>
+<td>done</td>
+<td><code>GetHandState</code>: the hand's interface state of the last turn (<code>HandSystem::GetInterfaceHandState</code>)</td>
+</tr>
+<tr>
+<td>Gives the object the player last clicked: <em>get object clicked</em> (called once in 1 script)</td>
+<td>todo</td>
+<td><code>GetObjectClicked</code> logs "not implemented" and pushes 0</td>
+</tr>
+<tr>
+<td>Whether an object can be set on fire: <em>enable/disable ‹object› set on fire</em> (called 17 times in 7 scripts)</td>
+<td>done</td>
+<td><code>SetSetOnFire</code>: <code>magic::script::SetSetOnFire</code></td>
+</tr>
+<tr>
+<td>Makes a villager carry an object: <em>set ‹object› carrying ‹carried obj›</em> (called 5 times in 3 scripts)</td>
+<td>todo</td>
+<td><code>SetObjectCarrying</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Finds a dead thing within a radius of a position: <em>get dead at ‹position› radius ‹radius›</em> (called once in 1 script)</td>
+<td>todo</td>
+<td><code>GetDeadLiving</code> logs "not implemented" and pushes 0</td>
+</tr>
+<tr>
+<td>Gives the first thing in a container: <em>get first in ‹container›</em> (called 2 times in 2 scripts)</td>
+<td>todo</td>
+<td><code>GetFirstInContainer</code> logs "not implemented" and pushes 0</td>
+</tr>
+<tr>
+<td>Gives the next thing in a container: <em>get next in ‹container› after ‹after›</em> (called 2 times in 2 scripts)</td>
+<td>todo</td>
+<td><code>GetNextInContainer</code> logs "not implemented" and pushes 0</td>
+</tr>
+</tbody>
+</table>
+<h2 id="not-used-by-the-shipped-scripts">Not used by the shipped scripts</h2>
+<p>The game has these but no shipped script calls them; mods and fan-made challenges can.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gives the object a player or creature last dropped: <em>get dropped by ‹creature›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>GetObjectDropped</code> logs "not implemented" and pushes 0</td>
+</tr>
+<tr>
+<td>Forgets the object a player or creature last dropped: <em>clear dropped by ‹creature›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>ClearDroppedByObject</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Stops villagers reacting to an object (unconfirmed): <em>detach reaction ‹object›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>RemoveReaction</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives where an object is heading: <em>destination of ‹obj›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>GetObjectDestination</code> logs "not implemented" and pushes a zero position</td>
+</tr>
+<tr>
+<td>Forgets the position the player last clicked: <em>clear clicked position</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>ClearClickedPosition</code>: <code>HandSystem::ClearClickedPosition</code></td>
+</tr>
+<tr>
+<td>Whether the player has clicked near a position: <em>‹value› clicked radius ‹value›</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>PositionClicked</code>: <code>HandSystem::PositionClicked</code>, the last clicked land point within the radius</td>
+</tr>
+<tr>
+<td>Gives the object under the hand: <em>get object hand is over</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>GetObjectHandIsOver</code> logs "not implemented" and pushes 0</td>
+</tr>
+<tr>
+<td>Finds a poisoned object of a kind in a container: <em>get poisoned ‹type› [‹subtype›] in ‹container› [excluding scripted]</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>CallPoisonedIn</code> logs "not implemented" and pushes 0</td>
+</tr>
+<tr>
+<td>Gives how far along its path a walker is: <em>get ‹object› walk path percentage</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>GetWalkPathPercentage</code>: <code>ecs::living::GetWalkPathPercentage</code> for a living thing, 1 for anything else</td>
+</tr>
+<tr>
+<td>Gives the slowest speed in a flock: <em>get slowest speed in ‹flock›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>GetSlowestSpeed</code> logs "not implemented" and pushes nought</td>
+</tr>
+<tr>
+<td>Gives the arena (unused in the shipped scripts) (unconfirmed): <em>get the arena (no statement in the language)</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>GetArena</code> logs "not implemented" and pushes 0</td>
+</tr>
+<tr>
+<td>Gives the football pitch in a town: <em>get football pitch in ‹town›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>GetFootballPitch</code> logs "not implemented" and pushes 0</td>
+</tr>
+<tr>
+<td>Stops all the games in a town: <em>stop all games for ‹value›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>StopAllGames</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Puts a villager into a game (football) for the home or away side: <em>attach ‹value› to game ‹value› for home/away team</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>AttachToGame</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Takes a villager out of a game's side: <em>detach ‹value› in game ‹value› from home/away team</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>DetachFromGame</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Takes the player out of a game's side: <em>detach player from game ‹value› from home/away team</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>DetachUndefinedFromGame</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Makes an object answer only to scripts: <em>enable/disable ‹value› only for scripts</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>SetOnlyForScripts</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Starts a match with a referee: <em>start ‹value› with ‹value› as referee</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>StartMatchWithReferee</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives the size of a side in a game: <em>get size of ‹value› home/away team</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>GameTeamSize</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives the object last hit: <em>get hit object</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>GetHitObject</code> logs "not implemented" and pushes 0</td>
+</tr>
+<tr>
+<td>Gives the object that did the hitting: <em>get object which hit</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>GetObjectWhichHit</code> logs "not implemented" and pushes 0</td>
+</tr>
+<tr>
+<td>Gives how faded an object is: <em>get ‹object› fade</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>GetObjectFade</code> logs "not implemented" and pushes nought</td>
+</tr>
+<tr>
+<td>Whether a villager is a skeleton: <em>‹object› skeleton</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>IsSkeleton</code> logs "not implemented" and pushes false</td>
+</tr>
+<tr>
+<td>Keeps an object inside an area (unconfirmed): <em>confine an object (no statement in the language)</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>ConfinedObject</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Lets an object out of its area (unconfirmed): <em>release a confined object (no statement in the language)</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>ClearConfinedObject</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives the flock an object belongs to: <em>get ‹member› flock</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>GetObjectFlock</code> logs "not implemented" and pushes 0</td>
+</tr>
+<tr>
+<td>Whether a cut-scene special effect has finished: <em>jc special ‹feature› played</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>IsPlayingJcSpecial</code>: true, except special 13 (the pick-up clip, which never wraps)</td>
+</tr>
+<tr>
+<td>Whether a flock is within its limits: <em>‹object› within flock limits</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>FlockWithinLimits</code> logs "not implemented" and pushes false</td>
+</tr>
+<tr>
+<td>Clears an actor's mind (unconfirmed): <em>clear an actor's mind (no statement in the language)</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>ClearActorMind</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Starts an object over: <em>restart ‹object›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>RestartObject</code> logs "not implemented"</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

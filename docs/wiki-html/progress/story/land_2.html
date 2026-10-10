@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Land 2 — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="here" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#land-2">Land 2</a><ul>
+<li><a href="#arriving">Arriving</a></li>
+<li><a href="#khazars-lessons-gold">Khazar's lessons (gold)</a></li>
+<li><a href="#silver-scrolls">Silver scrolls</a></li>
+<li><a href="#the-end-of-the-land-gold">The end of the land (gold)</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="land-2">Land 2</h1>
+<p>Khazar's land: the player arrives through the vortex to find the friendly god Khazar and the hostile Lethys. Khazar
+teaches worship and miracles, the player wins over the land's towns, and Lethys ends the land by stealing the creature.</p>
+<p>Every silver scroll of the game, land by land, with scores: <a href="silver_scrolls.html">silver_scrolls.md</a>.</p>
+<p>How the player can lose a land, and the game over: <a href="losing_and_game_over.html">losing_and_game_over.md</a>.</p>
+<p><strong>Progress: 0/27 done, 0 partial — 0%</strong></p>
+<h2 id="arriving">Arriving</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land loads and its control script begins</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; <code>LandControlAll</code> runs <code>LandControl1</code> first whatever land is loaded (<code>Game.cpp</code>). The land script's contents: see ../scripts/land2_script.md</td>
+</tr>
+<tr>
+<td>The player's people come out of the vortex with the creature and found a new town</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; the arrival vortex's emission is ported (see <a href="portals.html">portals.md</a>), the script around it is not reached</td>
+</tr>
+<tr>
+<td>Khazar introduces himself, gives the first scaffold and the first one-shot miracles</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; Khazar's hand is a computer player, all of whose natives are stubs</td>
+</tr>
+<tr>
+<td>Lethys shows himself with a fake fireball attack and his computer player starts</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; the computer player natives are stubs</td>
+</tr>
+<tr>
+<td>The land's eleven towns are watched and the next challenges open as the player wins them over</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; the town ownership reads (<code>GetTownWithId</code>, owners) are stubs</td>
+</tr>
+<tr>
+<td>Khazar is the player's ally and Lethys an enemy god with his own temple and creature</td>
+<td>todo</td>
+<td>the rival gods' computer players and creatures are stubs (<code>LoadCreature</code>, all computer-player natives); see ../multiplayer/player_diplomacy.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="khazars-lessons-gold">Khazar's lessons (gold)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gold scroll: "Worship Site" — Khazar shows the player the worship site, raising and lowering the village totem, and how worshippers make prayer power</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; every step in <a href="gold_scrolls/worship_site.html">gold_scrolls/worship_site.md</a>: many natives are real, but it would hang at the first wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Gold scroll: "Impress Village" — Khazar teaches casting a miracle by gesture without going back to the temple, and impressing a village with it</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; every step in <a href="gold_scrolls/impress_village.html">gold_scrolls/impress_village.md</a>: the store reads and Khazar's hand are stubs</td>
+</tr>
+<tr>
+<td>Gold scroll: "Khazar's Fireball Challenge" — three huts as targets and fireball seeds to throw at them</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; every step in <a href="gold_scrolls/khazars_fireball_challenge.html">gold_scrolls/khazars_fireball_challenge.md</a>: Khazar's hand, the held object and building health are stubs or unhandled</td>
+</tr>
+<tr>
+<td>Gold scroll: "Khazar's Shield Challenge" — Khazar shows a Physical Shield at a lone hut on an island, hands over three shield seeds, and drops three boulders of his own on the hut the player has shielded</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; every step in <a href="gold_scrolls/khazars_shield_challenge.html">gold_scrolls/khazars_shield_challenge.md</a>: Khazar's hand, the hit test and building health are stubs or unhandled</td>
+</tr>
+<tr>
+<td>Khazar's lesson on influence: grow towards Lethys</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; covered in <a href="gold_scrolls/impress_village.html#khazars-lesson-on-influence">gold_scrolls/impress_village.md</a>; virtual influence (<code>SetVirtualInfluence</code>) is a stub</td>
+</tr>
+<tr>
+<td>Gold scroll: "The Workshop" — a man sent by Khazar shows the workshop and how scaffolds plan new buildings</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; every step in <a href="gold_scrolls/the_workshop.html">gold_scrolls/the_workshop.md</a>: the workshop's wood read (<code>GetResource</code>) is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="silver-scrolls">Silver scrolls</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Silver scroll: "The Sea" — a woman's children have swum out too far; save them (or don't)</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; every step in <a href="silver_scrolls/the_sea.html">silver_scrolls/the_sea.md</a></td>
+</tr>
+<tr>
+<td>Silver scroll: "The Beach Temple Puzzle" — move a flooding temple's rings up the beach column by column, a ring never on a smaller one</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; every step in <a href="silver_scrolls/the_beach_temple_puzzle.html">silver_scrolls/the_beach_temple_puzzle.md</a></td>
+</tr>
+<tr>
+<td>Silver scroll: "The Greedy Farmer" — a farmer's cows are stolen by children; what the player does to the thieves and the farmer sets the alignment</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; every step in <a href="silver_scrolls/the_greedy_farmer.html">silver_scrolls/the_greedy_farmer.md</a></td>
+</tr>
+<tr>
+<td>Silver scroll: "The Idol" — a man has built an idol to worship; burn it, or the people, or leave it</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; every step in <a href="silver_scrolls/the_idol.html">silver_scrolls/the_idol.md</a></td>
+</tr>
+<tr>
+<td>Silver scroll: "The Riddles" — a woman's riddles ask for things put in a stone ring ("something which howls at night", "something hot" …)</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; every step in <a href="silver_scrolls/the_riddles.html">silver_scrolls/the_riddles.md</a></td>
+</tr>
+<tr>
+<td>Silver scroll: "The Plague" — Lethys poisons a village; heal it and stop the plague spreading</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; every step in <a href="silver_scrolls/the_plague.html">silver_scrolls/the_plague.md</a></td>
+</tr>
+<tr>
+<td>Silver scroll: "The Sacrifice" — a tribe's altar turns anything laid on it into prayer power; what is sacrificed sets the alignment</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; every step in <a href="silver_scrolls/the_sacrifice.html">silver_scrolls/the_sacrifice.md</a></td>
+</tr>
+<tr>
+<td>Silver scroll (no title in the game's text): a spiritual healer in a village and what the player lets him do</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; every step in <a href="silver_scrolls/the_spiritual_healer.html">silver_scrolls/the_spiritual_healer.md</a></td>
+</tr>
+<tr>
+<td>Silver scroll: "The Slavers" — strangers who want wild animals for a circus are holding kidnapped villagers; a villager first warns of them</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; every step in <a href="silver_scrolls/the_slavers.html">silver_scrolls/the_slavers.md</a></td>
+</tr>
+<tr>
+<td>Silver scroll: "The Singing Stones" — stones that each have a voice; playing their melodies wakes the spirits of the ancients</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; every step in <a href="silver_scrolls/the_singing_stones_land_2.html">silver_scrolls/the_singing_stones_land_2.md</a></td>
+</tr>
+<tr>
+<td>A bronze puzzle of trees with a miracle dispenser as its prize</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; its rules and prize are in <a href="minigames.html">minigames.md</a> (Tree puzzles)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-end-of-the-land-gold">The end of the land (gold)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Khazar is killed by Nemesis</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; every step in <a href="gold_scrolls/nemesis_no.html">gold_scrolls/nemesis_no.md</a>: the trigger reads stubbed town ownership and the rival creatures are never made</td>
+</tr>
+<tr>
+<td>Gold scroll, the land's last: win or wipe out Lethys's three towns</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; every step in <a href="gold_scrolls/destroy_it.html">gold_scrolls/destroy_it.md</a>: the town counts are stubs</td>
+</tr>
+<tr>
+<td>Lethys takes the creature away through a vortex and the advisors despair</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; every step in <a href="gold_scrolls/lethys_has_taken_our_creature.html">gold_scrolls/lethys_has_taken_our_creature.md</a>: walking the creature by script and Lethys's hand are not done</td>
+</tr>
+<tr>
+<td>Gold scroll: leave through the vortex — the player follows Lethys into the third land</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; every step in <a href="gold_scrolls/leave_through_the_vortex_land_2.html">gold_scrolls/leave_through_the_vortex_land_2.md</a>, the vortex in <a href="portals.html">portals.md</a>; its trigger reads stubbed town totals</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

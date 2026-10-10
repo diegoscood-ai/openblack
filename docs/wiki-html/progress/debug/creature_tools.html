@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Creature tools — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="here" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#creature-tools">Creature tools</a><ul>
+<li><a href="#spawning-and-picking">Spawning and picking</a></li>
+<li><a href="#movement-and-actions">Movement and actions</a></li>
+<li><a href="#body-and-needs">Body and needs</a></li>
+<li><a href="#looks">Looks</a></li>
+<li><a href="#hands-leash-and-fights">Hands, leash and fights</a></li>
+<li><a href="#mind">Mind</a></li>
+<li><a href="#sound">Sound</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="creature-tools">Creature tools</h1>
+<p>The creature spawner: openblack's window for making creatures, looking inside them and telling them what to do. It
+stands on its own and is also hosted in the editor's inspector for a picked creature.</p>
+<p><strong>Progress: 26/29 done, 2 partial — 93%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../openblack-internals.html">openblack internals</a>.</p>
+<h2 id="spawning-and-picking">Spawning and picking</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Spawn a creature of any species with its body set up (size, alignment, fatness, strength, age), facing a way or at random</td>
+<td>done</td>
+<td><code>src/Debug/CreatureSpawner.cpp</code> "Spawn" tab (facing, or "Random")</td>
+</tr>
+<tr>
+<td>Put the body back to the species' defaults</td>
+<td>done</td>
+<td>"Species defaults" (<code>src/Debug/CreatureSpawner.cpp</code>)</td>
+</tr>
+<tr>
+<td>List the creatures on the land, pick one, remove one or all</td>
+<td>done</td>
+<td>"Creatures" tab ("Select", "Remove", "Remove all")</td>
+</tr>
+<tr>
+<td>The picked creature's tab, which the editor's inspector shows too</td>
+<td>done</td>
+<td>"Selected" tab; the editor's inspector has a Creature view (<code>src/Editor/Panels/InspectorPanel.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="movement-and-actions">Movement and actions</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Order it to walk or run to a point, flee from it or face it</td>
+<td>done</td>
+<td>the orders "Walk here", "Run here", "Flee from", "Face" (<code>src/Debug/CreatureSpawner.cpp</code>)</td>
+</tr>
+<tr>
+<td>Order it to pick up, throw at, knock down or point at a thing</td>
+<td>done</td>
+<td>the orders "Pick up", "Throw at", "Knock down", "Point at"</td>
+</tr>
+<tr>
+<td>Stop it, turn it to the camera, and show its route</td>
+<td>done</td>
+<td>"Stop", "Face the camera", "Show route"</td>
+</tr>
+<tr>
+<td>Pause its mind so the body is posed by hand</td>
+<td>done</td>
+<td>"Pause mind"</td>
+</tr>
+<tr>
+<td>Play any animation, gesture, sit, stand</td>
+<td>done</td>
+<td>"Play", "Gesture", "Sit down", "Stand up"</td>
+</tr>
+<tr>
+<td>Stroke or slap it as the hand would</td>
+<td>done</td>
+<td>"Stroke", "Slap"</td>
+</tr>
+<tr>
+<td>Show its hair, and its footprints, with the first of April smileys</td>
+<td>done</td>
+<td>"Show hair" (<code>src/Debug/CreatureSpawner.cpp</code>), "Show footprints" and "1 April" (<code>src/Debug/CreatureSpawnerFootprints.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="body-and-needs">Body and needs</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fill up, starve, tire out, parch or bloat it</td>
+<td>done</td>
+<td><code>src/Debug/CreatureSpawnerBody.cpp</code> ("Fill up", "Starve", "Tire out", "Parch", "Bloat")</td>
+</tr>
+<tr>
+<td>Have it sleep, wake, eat, drink, poo, puke or faint, or drop food in front of it</td>
+<td>done</td>
+<td><code>src/Debug/CreatureSpawnerBody.cpp</code> ("Sleep", "Wake", "Eat", "Drink", "Poo", "Puke", "Faint", "Drop food in front")</td>
+</tr>
+<tr>
+<td>Turn fainting from exhaustion on and off</td>
+<td>done</td>
+<td>"Creatures faint" (<code>src/Debug/CreatureSpawnerBody.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="looks">Looks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tattoos: pick a slot and colour, put it on or clear it</td>
+<td>done</td>
+<td><code>src/Debug/CreatureSpawnerAppearance.cpp</code> ("Set slot", "Put on", "Clear slot")</td>
+</tr>
+<tr>
+<td>Wounds, burns and blood anywhere on its body, healed a step at a time, with the heal effect</td>
+<td>done</td>
+<td><code>src/Debug/CreatureSpawnerAppearance.cpp</code> ("Add wound", "Add burn", "Add blood", "Heal a step", "Heal effect")</td>
+</tr>
+<tr>
+<td>Drawing switches: blending its seams and its shadows</td>
+<td>todo</td>
+<td>no switches for the seams or the shadows in our spawner</td>
+</tr>
+</tbody>
+</table>
+<h2 id="hands-leash-and-fights">Hands, leash and fights</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hold things in either hand; put down, toss, lob, eat, drop or look over what it holds</td>
+<td>done</td>
+<td><code>src/Debug/CreatureSpawnerHands.cpp</code></td>
+</tr>
+<tr>
+<td>Make it leashable, put the leash on or off, tie it to a thing or another creature, keep it home or let it roam</td>
+<td>done</td>
+<td><code>src/Debug/CreatureSpawnerLeash.cpp</code> ("Leashable", "Tie to nearest thing", "Tie to other creature", "Keep at home", "Let roam")</td>
+</tr>
+<tr>
+<td>Place leash posts at the hand and show the rope's points</td>
+<td>partial</td>
+<td>"Show rope points" (<code>src/Debug/CreatureSpawnerLeash.cpp</code>); no placing of leash posts</td>
+</tr>
+<tr>
+<td>Start a fight between two creatures, or let them fight by themselves; knock out, kill or bring round</td>
+<td>done</td>
+<td><code>src/Debug/CreatureSpawnerFight.cpp</code> ("Start fight", "Fights by itself", "Knock out", "Kill for good", "Bring round")</td>
+</tr>
+<tr>
+<td>Block and special moves on command, and the camera watching the fight</td>
+<td>done</td>
+<td>"Block", "Special", "Camera watches" (<code>src/Debug/CreatureSpawnerFight.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="mind">Mind</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Open a mind file through a file dialog, start a fresh mind, save the mind back</td>
+<td>partial</td>
+<td>the mind files of the game's folder are listed to load or spawn from, and "Fresh mind" (<code>src/Debug/CreatureSpawnerMindFiles.cpp</code>); no file dialog and no saving the mind back</td>
+</tr>
+<tr>
+<td>Load one of the game's own mind files</td>
+<td>done</td>
+<td>the game's own minds listed (<code>src/Debug/CreatureSpawnerMindFiles.cpp</code>)</td>
+</tr>
+<tr>
+<td>See and change its desires and likes, opinions of actions, decision trees and attitudes</td>
+<td>done</td>
+<td><code>src/Debug/CreatureSpawnerMind.cpp</code></td>
+</tr>
+<tr>
+<td>Teach it by rewarding or punishing, clear what it has learnt</td>
+<td>done</td>
+<td>"Stroke", "Slap", "Clear learning" (<code>src/Debug/CreatureSpawnerMind.cpp</code>)</td>
+</tr>
+<tr>
+<td>Show it a skill or a miracle to copy, cast or do it near</td>
+<td>done</td>
+<td>"Show it", "Cast it near", "Do it near" (<code>src/Debug/CreatureSpawnerMind.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="sound">Sound</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mute creatures, or other players' creatures' voices</td>
+<td>done</td>
+<td>"Mute creatures", "Other players' creatures' voices" (<code>src/Debug/CreatureSpawnerAudio.cpp</code>)</td>
+</tr>
+<tr>
+<td>Play each animation's sounds</td>
+<td>done</td>
+<td>"Play" per sound (<code>src/Debug/CreatureSpawnerAudio.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

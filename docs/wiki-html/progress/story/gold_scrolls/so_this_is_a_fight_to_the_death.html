@@ -1,0 +1,640 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>So this is a fight to the death — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#so-this-is-a-fight-to-the-death">So this is a fight to the death</a><ul>
+<li><a href="#where-it-sits-in-the-land">Where it sits in the land</a></li>
+<li><a href="#nemesiss-last-stand-before-the-fight">Nemesis's last stand (before the fight)</a></li>
+<li><a href="#the-mirror-creature-introduction">The mirror creature (introduction)</a></li>
+<li><a href="#the-fight">The fight</a></li>
+<li><a href="#nemesiss-farewell-success">Nemesis's farewell (success)</a></li>
+<li><a href="#into-the-volcano">Into the volcano</a></li>
+<li><a href="#nemesiss-temple-falls">Nemesis's temple falls</a></li>
+<li><a href="#the-credits">The credits</a></li>
+<li><a href="#advisors-music-and-sounds">Advisors, music and sounds</a></li>
+<li><a href="#script-quirks">Script quirks</a></li>
+<li><a href="#unused-and-cut-parts">Unused and cut parts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="so-this-is-a-fight-to-the-death">So this is a fight to the death</h1>
+<p>The last gold scroll of the game: once Nemesis has lost every town of the fifth land he makes a mirror image of the
+player's creature and the two creatures fight. Winning it leads straight into the end of the game: Nemesis's farewell
+threat, the creature's walk into the volcano, the fall of Nemesis's temple, the creature's return and the closing
+credits with the crowd of the story's characters. The ending as a whole is summarised in <a href="../ending.html">ending.md</a>; this
+file is the quest step by step.</p>
+<p><strong>Land:</strong> 5 · <strong>Giver:</strong> Nemesis (the land's control script, once all his towns are taken) · <strong>Script:</strong> TheBigFightMain (TheBigFight), with EndOfGameCreatureSequenceGoToVolcano (FinalCreatureSequence), NemesisCitadelDestroyed (TheBigFight) and VillageWavingSequence (LandControl5) · <strong>Reward:</strong> the end of the game; no object or miracle · <strong>Repeatable:</strong> no (the fight can be retried until won)</p>
+<p>Sources: the land's control script and the fight, volcano and credits scripts (the original source text, matching the
+compiled <code>challenge.chl</code>), the game's text table (<code>Scripts/InfoScript2.txt</code>) and the game's data files. openblack is
+judged on this tree: the story's top script always runs the first land's control script first and the map-loading
+command (<code>LoadMap</code> in <code>src/CHLApi.cpp</code>) has an empty body, so the fifth land's scripts never run; on top of that, 24 of
+the 78 commands these scripts use only log "not implemented". Rows are todo unless the notes say otherwise. The curse
+and the shielded village before this are in <a href="i_have_a_surprise_for_you.html">i_have_a_surprise_for_you.md</a> and
+<a href="nemesis_shielded_village.html">nemesis_shielded_village.md</a>.</p>
+<p><strong>Progress: 0/77 done, 0 partial — 0%</strong></p>
+<h2 id="where-it-sits-in-the-land">Where it sits in the land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The quest is the last step of the fifth land's control script: after the curse is lifted the script loops until the player owns Nemesis's own town, then stops every other script of the land and runs the fight, the volcano walk, the temple's fall and the credits one after another</td>
+<td>todo</td>
+<td>the land never runs: <code>LOAD_MAP</code> is empty; <code>StopAllScriptsInFilesExcluding</code> itself works</td>
+</tr>
+<tr>
+<td>It is logged in the story's log as a gold quest under the title "So this is a fight to the death" (a Nemesis line); the log entry is made at 0 when the mirror creature appears and set to 1 when it is beaten</td>
+<td>todo</td>
+<td><code>Snapshot</code> and <code>UpdateSnapshot</code> are stubs</td>
+</tr>
+<tr>
+<td>The log title is borrowed from a cut Nemesis speech ("My dream was to be the only god. … So this is a fight to the death") that is not in the shipped scripts, so the line is never heard in the game; the log's reminder is the same line</td>
+<td>todo</td>
+<td>the same script; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The scroll has no highlight: nothing has to be clicked, the fight begins by itself</td>
+<td>todo</td>
+<td>the same script; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Nothing comes after it: it is the game's last quest</td>
+<td>n/a</td>
+<td>story order: curse lifted, Nemesis's last town, this</td>
+</tr>
+</tbody>
+</table>
+<h2 id="nemesiss-last-stand-before-the-fight">Nemesis's last stand (before the fight)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>After the curse is lifted, Nemesis's last village defends itself (burning meteors, a physical shield) and his blast barrages hit the player's villages and temple every 15 seconds; his last village can only be won while he holds no other village, with the advisors' retaken and "we can conquer" lines</td>
+<td>todo</td>
+<td>see <a href="nemesis_shielded_village.html#nemesiss-last-village">nemesis_shielded_village.md</a>; the town capture reads are stubs</td>
+</tr>
+<tr>
+<td>Owning Nemesis's last town ends the last stand: every other script of the land is stopped and the fight begins</td>
+<td>todo</td>
+<td>the town capture reads are stubs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-mirror-creature-introduction">The mirror creature (introduction)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nemesis's hand is moved over the arena by his temple and his own creature is put in the arena facing it</td>
+<td>todo</td>
+<td><code>SetComputerPlayerPosition</code> is a stub and Nemesis's creature is never made (<code>LoadCreature</code> is a stub); <code>SetPosition</code> is real</td>
+</tr>
+<tr>
+<td>A cut scene begins with Nemesis's music</td>
+<td>todo</td>
+<td><code>StartMusic</code> is real (<code>src/Audio/Services/GameMusic</code>); never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The camera flies 16 seconds from near Nemesis's last town towards the arena</td>
+<td>todo</td>
+<td><code>SetCameraPosition</code>, <code>MoveCameraPosition</code>, <code>MoveCameraFocus</code> are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Both advisors come out; the evil advisor cheers: "Unbelievable! We did it! Oh yeah!" and "We have all his towns! He has no power! We've won!"; both go home</td>
+<td>todo</td>
+<td><code>SpiritEject</code>, <code>SpiritHome</code>, <code>RunText</code> are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The player's creature is put by the arena facing the camera; Nemesis speaks: "You are indeed a worthy opponent." and "But stop celebrating. I am not finished yet."</td>
+<td>todo</td>
+<td><code>SetPosition</code> on the player's creature and <code>RunText</code> are real; turning it (<code>SetFocus</code>) is not done for creatures; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The creature plays its sad animation; a slow 20-second shot on it while Nemesis says "Call that a Creature?" and "It's not worthy of the name."</td>
+<td>todo</td>
+<td>creature animations by script are not done</td>
+</tr>
+<tr>
+<td>A 20-second shot towards his temple: "THIS is a Creature. And I will make him the opposite image of yours."; his hand rises</td>
+<td>todo</td>
+<td>Nemesis's creature is never made; the camera and text are real</td>
+</tr>
+<tr>
+<td>Glittering smoke and sparkle rings spiral around Nemesis's creature (two rings 15 out, turning 20 degrees a step and rising and falling up to 16) until the fight starts</td>
+<td>todo</td>
+<td><code>SpecialEffectPosition</code> is real, but Nemesis's creature is never made</td>
+</tr>
+<tr>
+<td>His creature plays its angry animation, is made invisible by a creature spell and plays its summoning animation</td>
+<td>todo</td>
+<td>Nemesis's creature is never made</td>
+</tr>
+<tr>
+<td>A new creature of the same species as the player's is loaded with Nemesis's creature mind file (<code>Scripts/CreatureMind/NemesisCreature</code>) as Nemesis's, named "Mirror", fading in over 6 seconds and auto-scaled</td>
+<td>todo</td>
+<td><code>LoadCreature</code> and <code>SetCreatureName</code> are stubs</td>
+</tr>
+<tr>
+<td>Its alignment is the opposite of the player's creature, pushed to the extreme: fully evil if the player's creature is good, fully good otherwise (a creature of exactly neutral alignment gets a fully good mirror)</td>
+<td>todo</td>
+<td>the mirror is never made; <code>SetAlignment</code> itself is real</td>
+</tr>
+<tr>
+<td>It is fully grown, the same size as the player's creature, at full strength and knows every action</td>
+<td>todo</td>
+<td>the mirror is never made and <code>CreatureLearnEverything</code> is a stub</td>
+</tr>
+<tr>
+<td>After 6 seconds Nemesis's old creature fades away and is deleted; the mirror plays its summoning animation and the gold scroll is logged</td>
+<td>todo</td>
+<td>the mirror is never made; the log is a stub</td>
+</tr>
+<tr>
+<td>The player's creature walks to its mark and taunts; the camera rises over the arena in 10 seconds; the music stops and the cut scene ends</td>
+<td>todo</td>
+<td>walking and animating a creature by script are not done</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-fight">The fight</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The fight starts only when the player's creature is within 300 of the arena; both creatures are then forced to fight each other</td>
+<td>todo</td>
+<td><code>CreatureDoAction</code> is a stub; fighting itself: <a href="../../creature/fighting.html">fighting.md</a></td>
+</tr>
+<tr>
+<td>The player fights it as any creature fight</td>
+<td>todo</td>
+<td>there is no opponent; see <a href="../../creature/fighting.html">fighting.md</a></td>
+</tr>
+<tr>
+<td>Nemesis cheats: whenever the mirror's fight health drops below half, a level-two heal spell is cast on it and its fight health and health go back to full, then the script waits 10 seconds; at most four times per bout</td>
+<td>todo</td>
+<td>there is no opponent and fight health is not a handled property</td>
+</tr>
+<tr>
+<td>When the fight ends the creature with the higher fight health wins</td>
+<td>todo</td>
+<td><code>IsFighting</code> is a stub</td>
+</tr>
+<tr>
+<td>Winning: the mirror dies for good and the scroll is set to 1</td>
+<td>todo</td>
+<td>there is no opponent</td>
+</tr>
+<tr>
+<td>Losing: the player's creature's health is set to nothing and it is put in the dead state; Nemesis's creature slowly heals between fights (1% every 6 seconds, up to 10 minutes from empty to full, stopping if it fights)</td>
+<td>todo</td>
+<td>creature health and states by script are not done</td>
+</tr>
+<tr>
+<td>Losing cut scene: the camera turns to the mirror, which summons; Nemesis says "Your weakness is clear." and "You do not have what it takes!"; a one-second fade to black; the mirror is put back in the arena and the player's creature at the edge of the arena facing it; fade in; the evil advisor: "Boss. Come on. Give it another go!"</td>
+<td>todo</td>
+<td><code>SetFade</code> and <code>SetFadeIn</code> are real, but the mirror is never made</td>
+</tr>
+<tr>
+<td>After losing the fight can be retried at once: walking the creature back within 300 of the arena starts a new bout with four fresh heals</td>
+<td>todo</td>
+<td>there is no opponent</td>
+</tr>
+<tr>
+<td>Losing the fight does not lose the game; the land can still be lost in the usual ways (see <a href="../losing_and_game_over.html">../losing_and_game_over.md</a>)</td>
+<td>todo</td>
+<td>see <a href="../losing_and_game_over.html">../losing_and_game_over.md</a>; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>How the player's creature recovers from the dead state before the next bout is not said by the script</td>
+<td>todo</td>
+<td>undetermined, and creature states by script are not done</td>
+</tr>
+</tbody>
+</table>
+<h2 id="nemesiss-farewell-success">Nemesis's farewell (success)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A cut scene with Nemesis's music: his hand rises over the arena, the creature turns to the camera and plays its happy animation; 5 seconds later a high shot over the land</td>
+<td>todo</td>
+<td><code>StartMusic</code> is real; the creature's animation and Nemesis's hand are stubs</td>
+</tr>
+<tr>
+<td>Nemesis: "It's not over yet!", "You have defeated me in this land but I have learned much from this struggle.", "I will rise again from the ashes of this defeat stronger than you can possibly imagine." and "There are many, many lands in this world and they will soon follow in the way of Nemesis."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The camera drifts 30 seconds towards the volcano; both advisors come out</td>
+<td>todo</td>
+<td>real camera and advisor natives; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Evil: "This is pointless! It could go on forever if we don't stop it now." Good: "Remember, we can use the power of the creeds to destroy Nemesis forever." and "Fusing the three creeds will confirm our superiority and leave no hiding place for him." Evil: "Three creeds? But we've only got two!" Good: "No the third is within OUR creature, you fool." Evil: "Of course, why didn't I think of that?" Good: "Hmm." and "You need to lead our creature into the volcano. The searing heat will do the rest." Evil: "But just a minute, doesn't that mean our creature might die?" and "Well, its up to you boss." Good: "Do you want to risk our noble creature to rule as you see fit?" Evil: "Or just let Nemesis spread his influence throughout the world again?"</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The mirror's body is moved far across the land; the advisors go home, the music stops and control returns</td>
+<td>todo</td>
+<td>the mirror is never made</td>
+</tr>
+<tr>
+<td>The game waits until the player brings the creature within 50 of the causeway's start below the volcano; the leash is then let go and the mirror is deleted</td>
+<td>todo</td>
+<td><code>DetachObjectLeash</code> and the distance wait are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>This is the "choice": there is no other way on; a player who never leads the creature there simply goes on playing the land</td>
+<td>todo</td>
+<td>the same script; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="into-the-volcano">Into the volcano</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A cut scene with Nemesis's music: the creature is put at the causeway's start facing the volcano's top; the camera pans behind it over 10 seconds</td>
+<td>todo</td>
+<td><code>StartMusic</code> and <code>SetPosition</code> are real; turning the creature is not done; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>It walks halfway along the causeway; the screen rumbles (sound and an 8-second camera shake of radius 800) and the creature looks up at the top</td>
+<td>todo</td>
+<td><code>ShakeCamera</code> and <code>PlaySoundEffect</code> are real, but walking the creature by script is not done</td>
+</tr>
+<tr>
+<td>It walks up to near the top, then to the top, the camera following in two moves (8 and 14 seconds)</td>
+<td>todo</td>
+<td>walking the creature by script is not done</td>
+</tr>
+<tr>
+<td>At the top a fixed shot: the creature plays a special scripted animation (the creeds fusing), and after 3 seconds the game drops to half speed</td>
+<td>todo</td>
+<td><code>SetAnimationModify</code> is a stub</td>
+</tr>
+<tr>
+<td>The creed sound plays; the camera watches the creeds appear in two shots; another rumble with a 16-second shake</td>
+<td>todo</td>
+<td><code>PlaySoundEffect</code> and <code>ShakeCamera</code> are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The music stops; at 80% through the animation the creature's frozen moan is heard and the creature's end-sequence music starts</td>
+<td>todo</td>
+<td><code>StartMusic</code> is real, but <code>PlayedPercentage</code> is a stub</td>
+</tr>
+<tr>
+<td>At 90% the game's sound effects are switched off and the falling film plays: the creature falling into the volcano</td>
+<td>todo</td>
+<td>the film plays through our Bink decoder (<code>SetAviSequence</code>, <code>src/Video</code>), but it is reached at 90% of a stubbed animation read (<code>PlayedPercentage</code>); see <a href="../../video/bink_videos.html">../../video/bink_videos.md</a></td>
+</tr>
+<tr>
+<td>After the film, sound and normal speed return and the creature is moved to the far side of the land, out of sight</td>
+<td>todo</td>
+<td><code>SetGameSound</code> and <code>SetPosition</code> are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>If the player has no creature at this point the whole walk is skipped</td>
+<td>todo</td>
+<td><code>CallPlayerCreature</code> is real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="nemesiss-temple-falls">Nemesis's temple falls</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A cut scene with Nemesis's music fades in on his temple; his hand flies to his temple at speed 50 while the camera follows in 20- and 12-second moves</td>
+<td>todo</td>
+<td>music and fade are real; Nemesis's hand is a computer-player stub</td>
+</tr>
+<tr>
+<td>A shot from high above the temple; 3 seconds later rings of beam explosions circle it (four points 15 out, turning 10 degrees a step)</td>
+<td>todo</td>
+<td><code>SpecialEffectPosition</code> is real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>6 seconds later the temple explodes; a 20-second sweep over the ruins; 20 seconds after the first, a second temple explosion, and Nemesis's creature is deleted</td>
+<td>todo</td>
+<td><code>ObjectDelete</code> of a citadel heart only logs "not implemented"</td>
+</tr>
+<tr>
+<td>Both advisors: Good "Our noble friend, gone! But can you feel the difference?" Evil "I can't feel even a trace of Nemesis' influence." Good "Everything is clear. You're the one true God, now."</td>
+<td>todo</td>
+<td>advisors and texts are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The creature reappears, burnt, lying near the Greek town: it is put in the dying state at a tenth of its health, with four smoke clouds (scale 7, for 25, 15, 10 and 30 seconds)</td>
+<td>todo</td>
+<td>creature health and states by script are not done; <code>SpecialEffectPosition</code> is real</td>
+</tr>
+<tr>
+<td>The screen rumbles (sound and a 2-second shake); Good: "Crikey! What was that?"; a 10-second shot on the creature; Evil: "Hang on, I recognise that smell." Good: "He's back! He doesn't look too hot though." Evil: "Maybe we can fix him up?"</td>
+<td>todo</td>
+<td><code>PlaySoundEffect</code>, <code>ShakeCamera</code> and texts are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The advisors leave, the music stops and the player gets control back: the game waits until the creature's health is above 80%</td>
+<td>todo</td>
+<td>the creature's health is not a handled property</td>
+</tr>
+<tr>
+<td>Once healed, the glows of the creeds on both of the creature's hands are taken away</td>
+<td>todo</td>
+<td><code>SetCreatureCreedProperties</code> is a stub; see ../../creature/creature_tattoos.md</td>
+</tr>
+<tr>
+<td>5 seconds later a last cut scene with the epic music: the creature looks at the camera, summons, the camera circles it for 20 seconds, it plays its happy animation, then kneels to pray while the camera rises and everything fades to black over 10 seconds</td>
+<td>todo</td>
+<td><code>StartMusic</code> is real; the creature's animations by script are not done</td>
+</tr>
+<tr>
+<td>Nemesis's hand is switched off for good</td>
+<td>todo</td>
+<td><code>EnableDisableComputerPlayer</code> is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-credits">The credits</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The credits run as one cut scene with the sound effects switched off and the outro music</td>
+<td>todo</td>
+<td><code>StartMusic</code> with the outro bank and <code>SetGameSound</code> are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>They are 17 windows, alternately on the left and right of the screen (across 0.1 or 0.5, 0.2 down, 0.4 wide, 0.6 high), each opening over half a second and fading in over 2 seconds on a little scene somewhere on the land</td>
+<td>todo</td>
+<td><code>SetClippingWindow</code> and <code>ClearClippingWindow</code> are stubs</td>
+</tr>
+<tr>
+<td>In each window the job title is written from the text table and the names are written as plain text (white, fading in over 2 seconds), held 10 seconds, faded out over 2; the window then fades to black and closes</td>
+<td>todo</td>
+<td><code>GameDrawText</code>, <code>FadeAllDrawText</code> and <code>SetDrawTextColour</code> are stubs</td>
+</tr>
+<tr>
+<td>Testing for Lionhead runs over five pages in one window and Testing for EA over three; between pages the text fades out and the next page fades in</td>
+<td>todo</td>
+<td>the drawn text natives are stubs</td>
+</tr>
+<tr>
+<td>Each window has its own time of day (noon, 4 pm, or 11 pm for the ark) with the clock stopped</td>
+<td>todo</td>
+<td><code>SetGameTime</code> and <code>GameTimeOnOff</code> are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The scenes are the story's people: three crusaders sitting in council ("Black &amp; White", "Designed and Created by Lionhead Studios Ltd."; the Magic Dragon's crusaders, see <a href="../silver_scrolls/the_magic_dragon.html">../silver_scrolls/the_magic_dragon.md</a>), an impressed Greek farmer (Game Programming), a nomad dancing with an Aztec housewife (3D Programming), a crusader looking for something (Art), an Aztec housewife at the volcano (Animation, Script &amp; Dialogue, Sound &amp; Music), an ogre (Internet, Library &amp; Tools; Scenario &amp; Level Design), a Shaolin monk sitting (Gameplay &amp; Testing), a fisherman (Lionhead Studios Ltd., PR), two Africans talking (Lead Instrumentalist, Musicians), an engineer on the volcano (Voice Characterisation, Additional Art), a priest and priestess praying (Testing for Lionhead), a Greek woman mourning among shepherds (Production for EA), the creature trainer swinging his legs on a pier (Testing for EA), the ark at night (Marketing and Legal for EA), a sculptor at work (Localisation for EA), a hippy chopping at a giant magic mushroom (For Electronic Arts) and the Pied Piper dancing (Special Thanks To)</td>
+<td>todo</td>
+<td><code>CREATE</code> makes villagers, features and animals now (<code>CreateScriptObject</code>); the creature in a scene is not made; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Each scene's people are made with high graphics detail and deleted when its window closes</td>
+<td>todo</td>
+<td><code>SetHighGraphicsDetail</code> (<code>ecs::super_villager</code>) and <code>ObjectDelete</code> are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The last scene: the story's characters gather and applaud, 30 of them — the monk, the idol builder, the hermit, the hippy, the priest and priestess, the marauder, the engineer, a footballer, the nomad, the Aztec leader, the creature trainer, the sailor, the breeder, the healer, the sculptor, the crusader, a Norse mother and father, and ten villagers of the land's tribes</td>
+<td>todo</td>
+<td><code>CREATE</code> makes villagers and their animations are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Fireworks go off at four spots for five minutes; sound effects come back; the view fades in</td>
+<td>todo</td>
+<td><code>SpecialEffectPosition</code> and <code>SetGameSound</code> are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Each person starts clapping or cheering a tenth of a second after the last; the camera moves through the crowd for 30 seconds</td>
+<td>todo</td>
+<td>villager animations and the camera are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>After 15 seconds a small boy (age 8, three-quarters size) skips in to his mother; they hug, then both cheer</td>
+<td>todo</td>
+<td><code>CREATE</code> of a child, the age and scale for villagers are handled; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>10 seconds later the scene holds until the player presses the space bar</td>
+<td>todo</td>
+<td><code>KeyDown</code> is a stub, so the scene would hold for ever</td>
+</tr>
+<tr>
+<td>Everyone is released, the music stops and the cut scene ends; the land's control script then sleeps for 50,000 seconds, so the player is left in the fifth land with no more story</td>
+<td>todo</td>
+<td><code>ReleaseFromScript</code> and <code>StopMusic</code> are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="advisors-music-and-sounds">Advisors, music and sounds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The advisors only speak in the cut scenes listed above; there is no reminder nagging during the fight (the log's reminder line is the title line)</td>
+<td>todo</td>
+<td>the same script; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Music: Nemesis's piece for the mirror's making, the farewell, the volcano walk and the temple's fall; the creature's end-sequence piece at the top of the volcano; the second epic for the creature's return; the outro for the credits</td>
+<td>todo</td>
+<td>all named in <code>src/Audio/Services/GameMusic</code> and <code>StartMusic</code> / <code>StopMusic</code> are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Sounds: two screen rumbles on the volcano and one when the creature returns, the creed sound at the top, the creature's frozen moan</td>
+<td>todo</td>
+<td><code>PlaySoundEffect</code> is real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-quirks">Script quirks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The "retaken" warning is given the first time any other town is Nemesis's after the curse lifts, even if he never took it back; the "we can conquer" line is only heard after such a warning</td>
+<td>todo</td>
+<td>the town owner reads are stubs</td>
+</tr>
+<tr>
+<td>The Pied Piper of the closing crowd is never made: his spot, focus and clapping are set but no villager is created for him, so he does not appear (he does appear in the last credit window)</td>
+<td>todo</td>
+<td>the same script; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The hippy in the crowd is never given high graphics detail, unlike everyone else</td>
+<td>todo</td>
+<td>the same script; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The winner is decided by comparing fight health once the fight ends, however it ended</td>
+<td>todo</td>
+<td>there is no opponent and fight health is not handled</td>
+</tr>
+<tr>
+<td>A source comment asks for the invisibility spell on Nemesis's old creature to be put back once fixed; in the shipped scripts it is cast</td>
+<td>todo</td>
+<td>the same script; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="unused-and-cut-parts">Unused and cut parts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>An earlier mirror fight ("Creature Mirror Fight") is compiled into the game but nothing starts it (only its single-quest test launcher): Nemesis's hand flies around the player's creature, he says "Your Creature has proved itself many times. But can it beat its true self?", makes a copy of the creature next to it with the opposite alignment, only anger as a desire (at half) and fully grown, and says "This is your Creature if you'd been the god you should have been." and "Watch and weep as it shows its superior strength and intellect."</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>In it the advisors cling to the screen edges and say "We'll give it a pummelling!" (evil) and "Er, yes. I hope so." (good); the fight starts when the creatures are within 50; winning: "We did it! Did you see that? Oh yeah! The crowd goes wild!" and the copy is deleted; losing: "We're losing. Stop and let our Creature heal." and "Come on! Crush him!"</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>A cut speech by Nemesis over a monsoon storm at 4:30 pm ("My dream was to be the only god.", "To have the whole of Eden worship me.", "But you stand in opposition.", "So this is a fight to the death") is not compiled into the game; its last line is used as this quest's log title</td>
+<td>n/a</td>
+<td>not in the shipped <code>challenge.chl</code></td>
+</tr>
+<tr>
+<td>A script for Nemesis's battle tactics is compiled but never started</td>
+<td>n/a</td>
+<td>see <a href="../ending.html">ending.md</a></td>
+</tr>
+<tr>
+<td>A commented-out line would have made the mirror from the player's creature directly instead of loading Nemesis's mind file; a commented-out step would have grown a tree after the temple's fall; a commented-out script would have pushed the creature's alignment to an extreme during its return</td>
+<td>n/a</td>
+<td>comments in the source only</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

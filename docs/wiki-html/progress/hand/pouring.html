@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Holding a miracle and pouring — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="here" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#holding-a-miracle-and-pouring">Holding a miracle and pouring</a><ul>
+<li><a href="#holding-a-miracle">Holding a miracle</a></li>
+<li><a href="#pours-of-the-sprinkling-miracles">Pours of the sprinkling miracles</a></li>
+<li><a href="#pours-onto-a-creature">Pours onto a creature</a></li>
+<li><a href="#other-players">Other players</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="holding-a-miracle-and-pouring">Holding a miracle and pouring</h1>
+<p>While the hand holds a miracle's seed it has a state of its own: it is placed like a hand holding something, measures its
+own movement for the throw, takes the hold the miracle asks for, and can be lifted and tipped by a timed pour as the
+food, wood and water miracles sprinkle from it, or as a creature miracle pours onto a creature. What each miracle does is
+in <a href="../miracles/index.html">../miracles/</a>.</p>
+<p><strong>Progress: 18/23 done, 2 partial — 83%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../hand-and-interface.html">The hand and the interface</a>.</p>
+<h2 id="holding-a-miracle">Holding a miracle</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Holding a seed, the hand is placed as a holding hand is, under the cursor</td>
+<td>done</td>
+<td><code>HandSystem::Place</code> (the holding branch, <code>HandPlacement.cpp</code>): the hand's model origin is the grip point under the cursor</td>
+</tr>
+<tr>
+<td>Each frame the hand's velocity is measured from how far it moved, for the throw and the spin</td>
+<td>done</td>
+<td>The grain state's update in <code>HandHolding.cpp</code>, with <code>magic::FilterHandVelocity</code> and <code>magic::StepHandSpin</code> (<code>src/Magic/HandMotion.cpp</code>): smoothed velocity and sideways acceleration, for the throw and the spin; test <code>HandMotion.TheHandsMovementGetsFourFifthsOfTheWayInATenthOfASecond</code></td>
+</tr>
+<tr>
+<td>The miracle's hold picks the animation: from above, the idle hand, the horn-shaped hold or from the side</td>
+<td>partial</td>
+<td><code>HandSystem::ComputeHoldParameters</code> takes the seed info's hold type, but <code>HandSystem::Update</code> only plays Chold_above or Chold_side (the horn and grain holds fall to Chold_side; Chorn is not used)</td>
+</tr>
+<tr>
+<td>A seed not yet ready is held as one not yet ready, until it is</td>
+<td>done</td>
+<td><code>ComputeHoldParameters</code>: the MAGIC hold until the seed is ready (Cwiggle held at half its length, <code>HandSystem::Update</code>)</td>
+</tr>
+<tr>
+<td>The hand rises by how it holds, measured to the land under it</td>
+<td>done</td>
+<td><code>HandSystem::Place</code>: ABOVE 0.2, MAGIC 3.2 x the hand's scale, the others max(lowering, 1.9) above the ground point</td>
+</tr>
+<tr>
+<td>The cursor running ahead sways the hand up to three tenths of a radian</td>
+<td>done</td>
+<td><code>HandSystem::HeldSway</code> (<code>HandHolding.cpp</code>) with <code>magic::hand_hold::CursorSway</code> (<code>src/Magic/HandHoldPose.cpp</code>): up to 0.3 rad from the smoothed mouse lag, clamped to 80 pixels; test <code>HandHoldPose.TheCursorRunningAheadSwaysTheHandUpToThreeTenthsOfARadian</code></td>
+</tr>
+<tr>
+<td>The hand rolls back about the line to the camera</td>
+<td>done</td>
+<td><code>HeldSway</code> with the grain state's tilt (<code>hand_grain::Tilt</code>) about the hand-to-camera axis (<code>magic::hand_hold::HeldUp</code>); test <code>HandHoldPose.TheHandRollsBackAboutTheLineToTheCamera</code></td>
+</tr>
+<tr>
+<td>Upright, the seed takes the hand's turn; for a right hand it is turned half round</td>
+<td>partial</td>
+<td>The held object takes the hand's matrix; our hand is drawn unmirrored, so the right hand's half turn and a seed's own turn are not ported (hand-and-interface.md, Pending)</td>
+</tr>
+<tr>
+<td>Taking a seed fades the drawn hand over 0.13 seconds</td>
+<td>done</td>
+<td>The change to the GRAIN state starts the 0.13 s state blend (<code>HandCrossFade</code>, <code>src/3D/HandCrossFade.h</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="pours-of-the-sprinkling-miracles">Pours of the sprinkling miracles</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The pour follows a natural cubic spline through four points, flat at both ends</td>
+<td>done</td>
+<td><code>magic::CubicSpline</code> through <code>magic::k_PourKeyPoints</code> (<code>src/Magic/HandMotion.cpp</code>), natural at both ends; tests <code>FoodWood.grainSplineKeyPoints</code> (<code>test/test_food_wood.cpp</code>), <code>HandMotion.ANaturalSplinePassesThroughItsPointsWithoutBendingAtTheEnds</code></td>
+</tr>
+<tr>
+<td>The curve rises from rest, swells to almost twice its points' height in the middle and comes back to rest</td>
+<td>done</td>
+<td>Same spline, peak 1.61 times its points; tests <code>FoodWood.grainSplineKeyPoints</code>, <code>HandMotion.ThePoursCurveIsFlatAtBothEndsAndSwellsToAlmostTwiceItsPoints</code></td>
+</tr>
+<tr>
+<td>Food and wood pour over four seconds, raising the hand by 10 and tipping it by 1.07 radians at the points, over and over</td>
+<td>done</td>
+<td><code>hand_grain::Start</code> (<code>magic::StartPour</code>, <code>src/Magic/HandMotion.cpp</code>) from the sprinkle rule (<code>src/Particles/Rules/Sprinkle.cpp</code>) with the spell file's values (SF_Food, SF_Wood), looping; test <code>HandMotion.FoodAndWoodLiftTheHandOverFourSecondsAndStartOver</code></td>
+</tr>
+<tr>
+<td>Food and wood keep the hand where the pour began, so everything lands in one place</td>
+<td>done</td>
+<td><code>hand_grain::ClampedPosition</code> (<code>magic::PinnedHand</code>), used by <code>HandSystem::Place</code>; test <code>HandMotion.APourThatClampsTheHandKeepsItWhereItBegan</code></td>
+</tr>
+<tr>
+<td>Water pours over eight seconds, raising the hand by 8 without tipping it, and the hand stays free to move</td>
+<td>done</td>
+<td>The same rule with the water spell file's values (ClampHand 0, so the hand follows the cursor)</td>
+</tr>
+<tr>
+<td>The pour is stepped each game turn and drawn between turns</td>
+<td>done</td>
+<td><code>hand_grain::GameTurnUpdate</code> (<code>magic::StepPour</code>) from <code>src/Magic/MagicLoop.cpp</code>; <code>hand_grain::Height</code> and <code>Tilt</code> interpolate by the turn fraction (<code>magic::PourPoseAt</code>)</td>
+</tr>
+<tr>
+<td>A pour that doesn't loop stops at its end</td>
+<td>done</td>
+<td><code>magic::StepPour</code> stops it past t = 1 when not looping; tests <code>FoodWood.grainRaiseLoopsOverTotalTime</code>, <code>HandMotion.APourThatDoesntLoopStops</code></td>
+</tr>
+<tr>
+<td>Stopping the pour lets the hand back to rest over the next game turn</td>
+<td>done</td>
+<td><code>hand_grain::Stop</code> (<code>magic::StopPour</code>) zeroes the height and tilt; the drawn values ease to 0 over the next turn by the interpolation (<code>magic::PourPoseAt</code>)</td>
+</tr>
+<tr>
+<td>The pour stops when the miracle closes down</td>
+<td>done</td>
+<td><code>src/Magic/Core/Spell.cpp</code> calls <code>hand_grain::Stop</code> when the spell closes down</td>
+</tr>
+<tr>
+<td>The pour is drawn in the hand's pose: the lift raises the hand, the tip tips it forward</td>
+<td>done</td>
+<td><code>HandSystem::Place</code> adds <code>hand_grain::Height</code> to the grip, and <code>HeldSway</code> the tilt</td>
+</tr>
+</tbody>
+</table>
+<h2 id="pours-onto-a-creature">Pours onto a creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A creature miracle cast on a creature pours onto it once, over four seconds</td>
+<td>todo</td>
+<td>Only the sprinkle rule starts the grain state; nothing pours onto a creature</td>
+</tr>
+<tr>
+<td>It raises the hand by 0.4 of the creature's height and tips it by one radian</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>Only the local player's own hand pours</td>
+<td>done</td>
+<td>The sprinkle rule starts it only when <code>IsMyInterfaceCasting</code> (<code>src/Particles/Rules/Sprinkle.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="other-players">Other players</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pours started and ended are sent to the other players so their view of the hand pours too</td>
+<td>todo</td>
+<td>No multiplayer in our tree</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

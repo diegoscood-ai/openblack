@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Beliefs and opinions — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="here" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#beliefs-and-opinions">Beliefs and opinions</a><ul>
+<li><a href="#decision-trees">Decision trees</a></li>
+<li><a href="#what-it-knows-about-each-kind-of-thing">What it knows about each kind of thing</a></li>
+<li><a href="#opinions-of-actions">Opinions of actions</a></li>
+<li><a href="#how-it-feels-about-the-player">How it feels about the player</a></li>
+<li><a href="#how-it-feels-about-other-creatures">How it feels about other creatures</a></li>
+<li><a href="#its-thoughts">Its thoughts</a></li>
+<li><a href="#how-the-towns-feel-about-it">How the towns feel about it</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="beliefs-and-opinions">Beliefs and opinions</h1>
+<p>What a creature knows and thinks about the world: what each kind of thing is like and whether it is good to act on for
+each desire (its decision trees), its opinion of each action, how it feels about the player and about other creatures,
+and how the towns feel about it.</p>
+<p><strong>Progress: 17/56 done, 15 partial — 44%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../creature.html">The creature: groundwork, random streams and what is unknown</a>.</p>
+<h2 id="decision-trees">Decision trees</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>For each desire it keeps two decision trees: which things to act on, and which things to use doing so</td>
+<td>done</td>
+<td><code>creature_tree</code> in <code>src/Creature/CreatureDecisionTree.h</code>; <code>TreeKind</code> in <code>src/Creature/CreatureMindModel.h</code>; used by <code>CreatureMindSystem</code> (<code>CreatureMindLearning.cpp</code>)</td>
+</tr>
+<tr>
+<td>Each tree learns from the newest sixteen examples of things acted on and the feedback for them</td>
+<td>done</td>
+<td><code>creature_tree::AddEpisode</code> through <code>creature_mind_model::Learn</code> in <code>CreatureMindSystem::LearnTurn</code>; test <code>CreatureDecisionTree.KeepsTheNewestSixteenExamples</code></td>
+</tr>
+<tr>
+<td>Feedback is sorted into eleven steps from -1 to 1</td>
+<td>done</td>
+<td><code>creature_tree::BucketOf</code>; test <code>CreatureDecisionTree.BucketsFeedbackByTheFirstStepWithinAQuarter</code></td>
+</tr>
+<tr>
+<td>The tree is grown again from scratch after each new example, testing at each step the attribute that best separates the feedback</td>
+<td>done</td>
+<td><code>creature_tree::Build</code>, <code>Gain</code>, <code>Entropy</code> (<code>src/Creature/CreatureDecisionTree.cpp</code>); tests <code>CreatureDecisionTree.GainPicksTheAttributeThatSeparatesFeedback</code>, <code>CreatureDecisionTree.BuildsAndEvaluates</code></td>
+</tr>
+<tr>
+<td>A tree with no examples knows nothing, and a thing it knows nothing about is worth a little</td>
+<td>done</td>
+<td>tests <code>CreatureDecisionTree.EmptyTreeKnowsNothing</code>, <code>CreatureDecisionTree.UsefulnessFromUtility</code></td>
+</tr>
+<tr>
+<td>Each desire's trees may only test the attributes the game's tables allow it</td>
+<td>done</td>
+<td><code>tables-&gt;attributes</code> (<code>creature_mind_tables</code>) passed to every <code>Learn</code> in <code>CreatureMindLearning.cpp</code></td>
+</tr>
+<tr>
+<td>The trees decide which food it eats first, and which thing it picks for every plan</td>
+<td>done</td>
+<td><code>mind_detail::FoodUsefulness</code> (food, in <code>NearestFood</code>) and <code>Usefulness</code> for plans, in <code>CreatureMindLearning.cpp</code> and <code>CreatureMindSystem.cpp</code></td>
+</tr>
+<tr>
+<td>The trees are saved in and restored from the mind file</td>
+<td>partial</td>
+<td>restored: a creature made from a mind file takes its trees up (<code>CreatureMindSystem::TakeUpFile</code>, <code>creature_mind_model::FromFile</code>, <code>RebuildTrees</code>); <code>CreatureMindSystem::SaveMind</code> writes them but nothing in the game calls it; test <code>CreatureMindModel.LearningRebuildsTrees</code></td>
+</tr>
+<tr>
+<td>The trees can be read as text, as the game's own mind viewer shows them</td>
+<td>partial</td>
+<td><code>creature_tree::Describe</code>, only shown in the debug Creature spawner (<code>Debug/CreatureSpawnerMind.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-it-knows-about-each-kind-of-thing">What it knows about each kind of thing</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every thing has seven common attributes: whose it is, natural or made, alive or not, which player, whether stronger than the creature, which species, and its kind</td>
+<td>done</td>
+<td><code>mind_detail::BeliefOf</code> in <code>CreatureMindLearning.cpp</code>; test <code>CreatureDecisionTree.SlotsFollowTheKindOfThing</code></td>
+</tr>
+<tr>
+<td>Villagers: sex, job, alive, on fire, tribe</td>
+<td>partial</td>
+<td><code>BeliefOf</code>: sex, job, alive and tribe are set; on fire is always no, and a villager is always nobody's rather than its town's player's</td>
+</tr>
+<tr>
+<td>Other creatures: stronger than it, species, height, the miracles they know, what they carry, their dominant desire</td>
+<td>partial</td>
+<td><code>BeliefOf</code>: stronger, species, height, carrying and dominant desire are set; the miracles a creature knows are always read as none</td>
+</tr>
+<tr>
+<td>Homes: their kind, alive, on fire, being built</td>
+<td>partial</td>
+<td><code>BeliefOf</code>: kind and alive are set; on fire and being built are always no</td>
+</tr>
+<tr>
+<td>Trees, features, and loose objects</td>
+<td>done</td>
+<td><code>BeliefOf</code> (trees, features, mobile objects and pots)</td>
+</tr>
+<tr>
+<td>The temple</td>
+<td>partial</td>
+<td><code>BeliefOf</code> knows the temple as the creature's own player's; the temple's parts give no belief</td>
+</tr>
+<tr>
+<td>Towns: their belief in the gods, what they need most, their size</td>
+<td>todo</td>
+<td>towns give no belief in <code>BeliefOf</code></td>
+</tr>
+<tr>
+<td>Forests: their size</td>
+<td>todo</td>
+<td>forests give no belief</td>
+</tr>
+<tr>
+<td>Flocks of animals</td>
+<td>todo</td>
+<td>flocks give no belief</td>
+</tr>
+<tr>
+<td>Single animals</td>
+<td>partial</td>
+<td><code>BeliefOf</code> gives an animal its owner and whether it is alive, nothing of its species; test file <code>test/creature/test_creature_animal_food.cpp</code></td>
+</tr>
+<tr>
+<td>Fields</td>
+<td>todo</td>
+<td>fields give no belief</td>
+</tr>
+<tr>
+<td>Miracles and spell seeds</td>
+<td>todo</td>
+<td>miracles and spell seeds give no belief</td>
+</tr>
+<tr>
+<td>The place and situation it acts in (its context)</td>
+<td>todo</td>
+<td>no context is kept</td>
+</tr>
+<tr>
+<td>It remembers what it believes about particular things it has met, not just their kind</td>
+<td>partial</td>
+<td>beliefs are worked out afresh each time from the thing (<code>BeliefOf</code>); no list per thing is kept</td>
+</tr>
+<tr>
+<td>It weighs how edible, how damaged, how dangerous, how interesting and how impressed a thing is</td>
+<td>partial</td>
+<td>food value (<code>CreatureObjectActionSystem::FoodValueOf</code>) and interest by kind (<code>creature_look</code>) exist; damage, danger and impressedness are not weighed</td>
+</tr>
+<tr>
+<td>It weighs how useful a thing is for a nice or a nasty purpose</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A script teaches it a distinction about a kind of thing</td>
+<td>todo</td>
+<td>CREATURE_LEARN_DISTINCTION_ABOUT_ACTIVITY_OBJECT is a <code>NotImplemented</code> stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="opinions-of-actions">Opinions of actions</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It has an opinion of every action, from -1 to 1, which the player's feedback changes</td>
+<td>done</td>
+<td><code>creature_learning::OpinionAfter</code> from <code>CreatureMindSystem::LearnFromFeedback</code>; test <code>CreatureLearning.OpinionsAndFeedbackStrength</code></td>
+</tr>
+<tr>
+<td>Opinions break ties between actions for a desire</td>
+<td>done</td>
+<td><code>creature_planner</code> in <code>CreatureMindSystem::PlanTurn</code>; test <code>CreaturePlanner.OpinionBreaksTies</code></td>
+</tr>
+<tr>
+<td>It remembers how long since it last did each action</td>
+<td>done</td>
+<td><code>Learnt::turnsSinceDone</code> (<code>src/Creature/CreatureMindModel.h</code>), counted up each turn in <code>CreatureMindSystem::ProcessTurn</code></td>
+</tr>
+<tr>
+<td>It counts how often it did each action</td>
+<td>todo</td>
+<td>CREATURE_GET_NUM_TIMES_ACTION_PERFORMED and CREATURE_INITIALISE_NUM_TIMES_PERFORMED_ACTION are <code>NotImplemented</code> stubs in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>It has a skill at each action, which rises with practice</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-it-feels-about-the-player">How it feels about the player</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It has an attitude to the player, from hating to loving, moved by strokes and slaps</td>
+<td>partial</td>
+<td><code>creature_feedback::AttitudeAfter</code> in <code>CreatureMindSystem::ReceiveFeedback</code> (mostly what it was, nudged by the feedback; unconfirmed against the game)</td>
+</tr>
+<tr>
+<td>A poor attitude makes it want to run away from the player</td>
+<td>partial</td>
+<td><code>ReadSource</code> (<code>k_RunAwayFromPlayer</code>) in <code>CreatureMindSystem.cpp</code> (unconfirmed)</td>
+</tr>
+<tr>
+<td>Its attitude shows on its face when it reflects on the player</td>
+<td>done</td>
+<td><code>creature_face</code> (smile or sad, by <code>attitudeToPlayer</code>); see <a href="face_eyes_hair.html">face, eyes and hair</a></td>
+</tr>
+<tr>
+<td>It judges how abusive the player is</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It judges how neglectful the player is</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It remembers whether the player has been nasty to it</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It keeps the most recent feedback the player gave it</td>
+<td>done</td>
+<td><code>CreatureMindState::lastFeedback</code>, set in <code>CreatureMindSystem::ReceiveFeedback</code>; the hand's sum in <code>CreatureHandSystem::GetLastFeedbackSum</code></td>
+</tr>
+<tr>
+<td>It guesses what the player wants from what it sees the player do, and that guess fades</td>
+<td>todo</td>
+<td>not in our tree: the player-desire events (<code>creature_mimic::EmpathiseWithTownDesire</code>) are published but nothing listens yet (<a href="../../creature.html#town-and-villager-hooks">creature.md</a>)</td>
+</tr>
+<tr>
+<td>It sees the player's deeds only within two thirds of a half turn either way, or in its own cell</td>
+<td>todo</td>
+<td>nothing models what the creature sees of the player's desires</td>
+</tr>
+<tr>
+<td>It is cross with the player and shows it</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It shows the player how nice it thinks he is</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Its opinion of its god shows in the Creature Cave</td>
+<td>done</td>
+<td><code>creature_cave</code> (<code>opinionOfGod</code>) from <code>CreatureCaveSystem</code>; test file <code>test/temple/test_creature_cave.cpp</code>; see <a href="creature_cave.html">creature cave</a></td>
+</tr>
+<tr>
+<td>Its attitude is saved in its mind file</td>
+<td>partial</td>
+<td>read from the file in <code>CreatureMindSystem::TakeUpFile</code>; <code>creature_mind_model::ToFile</code> writes it, but nothing in the game saves the mind</td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-it-feels-about-other-creatures">How it feels about other creatures</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It keeps how nice it thinks each creature it has met is, from -1 to 1</td>
+<td>done</td>
+<td><code>creature_learning::AttitudeTo</code>, <code>ChangeHowNice</code>, used in <code>CreatureMindSystem::LearnTurn</code>; test <code>CreatureLearning.AttitudesToCreatures</code></td>
+</tr>
+<tr>
+<td>How nice it thinks a creature is moves its desires towards being friends or angry with it</td>
+<td>partial</td>
+<td>only a leash to another creature changes the attitude (<code>mind.leash.attitudes</code> in <code>CreatureMindSystem::LearnTurn</code>); meeting or fighting does not</td>
+</tr>
+<tr>
+<td>It judges whether another creature seems friendly</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It judges whether another creature is the dominant one</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It judges how much stronger an opponent is, how much more life it has and how many dangerous miracles it knows</td>
+<td>todo</td>
+<td>see <a href="fighting.html">fighting</a></td>
+</tr>
+<tr>
+<td>It reacts to another creature only so often, by how it feels about it</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It shows a creature it hates it</td>
+<td>todo</td>
+<td>see <a href="friends_and_other_creatures.html">friends</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="its-thoughts">Its thoughts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It keeps its newest thoughts (what it learnt, what it saw the player do)</td>
+<td>done</td>
+<td><code>creature_mind_model::Think</code>, <code>k_MaxThoughts</code> (8), from <code>CreatureMindSystem::LearnTurn</code>; test <code>CreatureLearning.ThoughtsAndLikes</code></td>
+</tr>
+<tr>
+<td>It knows the thing it likes most, with its picture and name, for the Creature Cave</td>
+<td>partial</td>
+<td>the Cave's likes are per desire (<code>creature_learning</code>, <code>CreatureCave</code> <code>likes</code>), not a liked thing with its picture and name; see <a href="creature_cave.html">creature cave</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-the-towns-feel-about-it">How the towns feel about it</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Towns watch what a creature does with fear or respect, and change their view of it</td>
+<td>partial</td>
+<td><code>creature_object_actions::AttitudeTo</code> sets <code>CreatureTownAttitude</code> (fear 30 s, respect 10 s) on the creature in <code>CreatureObjectActionSystem</code>, one view for every town, and no town reads it yet; see <a href="town_actions.html">town actions</a> and <a href="../town/index.html">../town/</a></td>
+</tr>
+<tr>
+<td>A creature impresses villagers by what it does, which adds to belief</td>
+<td>todo</td>
+<td>towns do not count a creature's deeds; see <a href="town_actions.html">town actions</a> and <a href="../worship/index.html">../worship/</a></td>
+</tr>
+<tr>
+<td>The creature is told how a town feels about it</td>
+<td>todo</td>
+<td>see <a href="lessons_and_help.html">lessons and help</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

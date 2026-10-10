@@ -1,0 +1,723 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vortexes and the tornado: objects swallowed, carried and flung — Black &amp; White notes</title>
+<link rel="stylesheet" href="wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — how the original behaves</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Start here</h2>
+<a class="" href="README.html">Black &amp; White 1 notes for openblack</a>
+<h2>Engine</h2>
+<a class="" href="openblack-internals.html">openblack internals</a>
+<a class="" href="engine-loop.html">The engine loop: game turns and frames (original and openblack)</a>
+<a class="" href="engine-math.html">Coordinates, terrain, object size, game clock, matrices and Zoomer</a>
+<a class="" href="tooling.html">Tools and formats</a>
+<a class="" href="parity.html">Graphics engine parity: original versus openblack</a>
+<a class="" href="original-frame.html">The original B&amp;W frame (runblack.exe W120, D3D7, LH3D)</a>
+<h2>World</h2>
+<a class="" href="map-loading.html">Map loading and script functions</a>
+<a class="" href="land-script-save.html">Writing land-script lines: SaveObject and WriteCommand</a>
+<a class="" href="water.html">Water in the game</a>
+<a class="" href="trees.html">Trees and forests</a>
+<a class="" href="buildings.html">Buildings, building sites and towns (the building side)</a>
+<a class="" href="objects-and-resources.html">Objects and resources</a>
+<a class="" href="physics.html">Physics: thrown objects, collisions, damage and rocks that split</a>
+<h2>Life</h2>
+<a class="" href="villagers.html">Villagers: data, state machine and speed</a>
+<a class="" href="animals.html">Animals: AI, states and clips</a>
+<h2>Magic and weather</h2>
+<a class="" href="magic.html">Magic: the core of the miracles</a>
+<a class="" href="miracles.html">Miracles one by one</a>
+<a class="" href="particles.html">Particles (PSys)</a>
+<a class="" href="day-night-weather.html">Day, night and weather in the original</a>
+<a class="here" href="vortex.html">Vortexes and the tornado: objects swallowed, carried and flung</a>
+<h2>Hand and interface</h2>
+<a class="" href="hand-and-interface.html">The hand and the interface</a>
+<a class="" href="intro.html">The Land 1 intro and the tutorial&#x27;s script side</a>
+<a class="" href="script-camera.html">Script camera (GCamera and CameraModeScript)</a>
+<a class="" href="camera-tracks.html">Camera tracks (`Data\camera.edt`) and `WALK_PATH`</a>
+<h2>Presentation</h2>
+<a class="" href="rendering.html">World rendering: original versus openblack</a>
+<a class="" href="rendering-objects.html">Model rendering: original versus openblack</a>
+<a class="" href="animation.html">Skeletal animation (villagers and animals)</a>
+<a class="" href="audio.html">Audio: the engine, the banks, the music, the voices and the script</a>
+<a class="" href="video.html">Bink videos (.bik)</a>
+<h2>Data</h2>
+<a class="" href="mods.html">Modified data packs</a>
+<h2>Other</h2>
+<a class="" href="creature.html">The creature: groundwork, random streams and what is unknown</a>
+<h2>Progress</h2>
+<a class="" href="progress/INDEX.html">What our tree does, row by row</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#vortexes-and-the-tornado-objects-swallowed-carried-and-flung">Vortexes and the tornado: objects swallowed, carried and flung</a><ul>
+<li><a href="#the-vortex-objects-landscapevortex-magicvortexcpp-0x5fd2d00x600460">The vortex objects (LandscapeVortex, MagicVortex.cpp 0x5FD2D0..0x600460)</a></li>
+<li><a href="#states-and-fades">States and fades</a></li>
+<li><a href="#taking-objects-in-the-in-vortex">Taking objects in (the In vortex)</a></li>
+<li><a href="#bringing-them-out-the-out-vortex">Bringing them out (the Out vortex)</a></li>
+<li><a href="#the-land-under-a-vortex">The land under a vortex</a></li>
+<li><a href="#after-a-land-change">After a land change</a></li>
+<li><a href="#the-objects-a-particle-system-carries-tornado-and-vortex">The objects a particle system carries (tornado and vortex)</a></li>
+<li><a href="#drawing">Drawing</a><ul>
+<li><a href="#the-gvortexinfo-rows-infodat-0x8889c-stride-0x30-in-memory-0xd38248--type--0x40-fields-from-0x10">The GVortexInfo rows (info.dat 0x8889C, stride 0x30; in memory 0xD38248 + type × 0x40, fields from +0x10)</a></li>
+<li><a href="#creation-callvirtualfunctionsforcreation-0x5fee30">Creation (CallVirtualFunctionsForCreation 0x5FEE30)</a></li>
+<li><a href="#once-a-turn-fn_005ff4f0-from-fn_005ff330---psysglobalgameloopend-0x68f5b9">Once a turn (fn_005FF4F0, from fn_005FF330 &lt;- PSysGlobal::GameLoopEnd 0x68F5B9)</a></li>
+<li><a href="#once-a-frame-before-the-land-fn_005ffbb01-from-fn_005ff310---glandscapedraw-0x5e4e91">Once a frame, before the land (fn_005FFBB0(1), from fn_005FF310 &lt;- GLandscape::Draw 0x5E4E91)</a></li>
+<li><a href="#the-ground-decal-fn_005fea70-released-by-fn_005fe8b0">The ground decal (fn_005FEA70, released by fn_005FE8B0)</a></li>
+<li><a href="#the-z-sorted-part-landscapevortexdraw-0x5ffdc0-from-the-object-draw-list">The Z-sorted part (LandscapeVortex::Draw 0x5FFDC0, from the object draw list)</a></li>
+<li><a href="#deletion-tobedeleted-0x5fe8f0">Deletion (ToBeDeleted 0x5FE8F0)</a></li>
+<li><a href="#the-spell-files-dataspellszspellfilessf__txtzzz-all-present">The spell files (Data\Spells\ZSpellFiles\SF_*_txt.zzz, all present)</a></li>
+<li><a href="#random-draws">Random draws</a></li>
+</ul>
+</li>
+<li><a href="#what-is-ported-and-what-is-pending">What is ported and what is pending</a></li>
+<li><a href="#sources">Sources</a></li>
+<li><a href="#pending">Pending</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="vortexes-and-the-tornado-objects-swallowed-carried-and-flung">Vortexes and the tornado: objects swallowed, carried and flung</h1>
+<p>Code: <code>src/ECS/Vortex.{h,cpp}</code> and <code>src/ECS/Components/LandscapeVortex.h</code> (the vortex
+objects), <code>src/ECS/Physics/ParticleCarriedObjects.{h,cpp}</code> (was <code>PSysObjects</code>; what a particle system carries) and <code>src/Particles/Rules/Storm.cpp</code>
+(the tornado's rule). The tornado as a miracle (the storm spell, its funnel, dust and pick-up) is in
+<a href="miracles.html#the-tornado-ur_tornado-0x6d18b0-ctor-0x6d1680">miracles.md</a>; this page covers the objects.</p>
+<p>Progress: <a href="progress/miracles/tornado.html">Tornado</a>, <a href="progress/story/portals.html">Portals between lands</a> (what our tree does of it, row by row).</p>
+<ul>
+<li><a href="#the-vortex-objects-landscapevortex-magicvortexcpp-0x5fd2d00x600460">The vortex objects</a></li>
+<li><a href="#states-and-fades">States and fades</a></li>
+<li><a href="#taking-objects-in-the-in-vortex">Taking objects in</a></li>
+<li><a href="#bringing-them-out-the-out-vortex">Bringing them out</a></li>
+<li><a href="#the-land-under-a-vortex">The land under a vortex</a></li>
+<li><a href="#the-objects-a-particle-system-carries-tornado-and-vortex">The objects a particle system carries</a></li>
+<li><a href="#drawing">Drawing</a></li>
+<li><a href="#what-is-ported-and-what-is-pending">What is ported and what is pending</a>, <a href="#sources">Sources</a></li>
+<li><a href="#pending">Pending</a></li>
+</ul>
+<h2 id="the-vortex-objects-landscapevortex-magicvortexcpp-0x5fd2d00x600460">The vortex objects (LandscapeVortex, MagicVortex.cpp 0x5FD2D0..0x600460)</h2>
+<ul>
+<li>Three classes, made by <code>LandscapeVortex::Create(pos, type, 50.0)</code> 0x5FE6E0 from the CHL <code>CREATE Vortex</code> (GScript
+  0x6F171B): <strong>In</strong> (0x104 bytes, ctor 0x5FD7F0), <strong>Out</strong> (0x134, 0x5FDE20) and <strong>Volcano</strong> (0xEC, 0x5FD740). Any
+  other type makes nothing.</li>
+<li><code>CallVirtualFunctionsForCreation</code> 0x5FEE30 reads the type's <strong>GVortexInfo</strong> row (info.dat, table 0xD38248, stride
+  0x40; openblack <code>InfoConstants::vortex</code>):</li>
+<li>the initial state (info +0x20 -&gt; +0xE4);</li>
+<li>the mesh 0x230 scaled by <code>baseScale</code> (+0x28);</li>
+<li>up to four particle systems: ObjectMover +0x18 (the one that pulls objects), PreLandscape +0x10 (on the ground),
+    PostLandscape +0x14 and LightMap +0x1C;</li>
+<li>for the Volcano only, a looping sound (0xAC).
+  The <code>maxToCreate*</code> fields are not read: the Out's villager count is a literal 30 (fn_005FD480).</li>
+<li>CHL: <code>VORTEX_FADE_OUT</code> 257 (GScript 0x6FD8C0 -&gt; StartFadeOut 0x5FFFD0) and <code>VORTEX_PARAMETERS</code> 328 (0x6FE090:
+  SetTown 0x5FDFE0 and SetFlockParams 0x5FDFF0 of an Out: the town the arrivals join, where the arriving animals settle
+  and the flock's two word fields).</li>
+<li>The global list [0xD38220] (linked through +0x88) is walked once a frame (fn_005FF310 from GLandscape::Draw
+  0x5E4E91) and once a turn (fn_005FF330 from PSysGlobal::GameLoopEnd 0x68F5B9).</li>
+<li>A vortex cannot be picked up (ValidForPlaceInHand 0x5FF300 = 0) and is not an effect receiver. In the physics it is
+  never a flying body. Only the In is hit by thrown objects: InteractsWithPhysicsObjects 0x5FD8C0 = 1, no raise, row
+  13 of PhysicsConstants.</li>
+</ul>
+<h2 id="states-and-fades">States and fades</h2>
+<ul>
+<li>+0xE4 is <code>VortexStateType</code>: 0 Inactive, 1 Active, 2 FadeIn, 3 FadeOut. StartFadeIn fn_005FFFB0 and StartFadeOut
+  set the state and +0xB4 = the turn.</li>
+<li>The seconds in the state, <code>e</code> (fn_005FF920): <code>(turns since +0xB4 + the turn fraction) × ms per turn × 0.001</code>.</li>
+<li>The presence <code>f</code> (fn_005FFAD0):</li>
+<li>Inactive 0, Active 1;</li>
+<li>FadeIn: 0 for 2 s, then <code>smooth((e − 2) / 5)</code>;</li>
+<li>FadeOut: <code>smooth(1 − e / 5)</code> for 5 s, then 0;</li>
+<li>with <code>smooth(x) = (3 − 2x)·x·x</code>.</li>
+<li>The fade and land curves are fn_005FFAD0, fn_005FFAA0 and fn_005FF350; with the retail spline (every y 0) their
+  values are exact in float.</li>
+<li>Once a turn (fn_005FF4F0), after 7 s: a FadeIn becomes Active, and a FadeOut becomes Inactive and is deleted
+  (<code>ToBeDeleted</code>).</li>
+</ul>
+<h2 id="taking-objects-in-the-in-vortex">Taking objects in (the In vortex)</h2>
+<ul>
+<li><strong>Once a turn</strong>, only when Active (ProcessContentsOfVortex 0x5FDB60):</li>
+<li>a spiral walk of up to 9999 cells from the vortex, within Create's 50 m (+0xE8) on every 3rd turn and 25 m on
+    the others; the walk stops at the first cell farther than that;</li>
+<li>every object of each cell that <code>CanBeSuckedIntoVortex</code> (vt +0x640) is taken in at rest;</li>
+<li>a pile gives up to 1000 into a new pile, scaled <code>(rand(0.3)·0.4 + 0.3) × scale</code>, and that one is taken.</li>
+<li><strong>A thrown object that hits it</strong> (ReactToPhysicsImpact 0x5FD8E0) is taken in with its velocity and its body matrix.
+  This needs Active, <code>CanBeSuckedIntoVortex</code> and IN_PHYSICS.</li>
+<li>The take (fn_005FD9B0):</li>
+<li>a creature only fizzes, <code>SetFizz(1, 3, true)</code>, and only when closer than <code>Get2DRadius × 0.7</code>;</li>
+<li>anything else that <code>CanBecomeAPhysicsObject</code>, when the vortex has its ObjectMover particle system (+0x98,
+    0x5FDA33), becomes a <strong>VortexObjectInfo</strong>: the object, "from the physics",
+    velocity, matrix, the script-held flag, the vortex;</li>
+<li>the record is queued for the particle rule <code>UR_VortexAttract</code> 0x6D39C0. That rule turns each record into a
+    particle carrying the object on a spiral into the vortex.</li>
+<li>What arrives and is not script-held is <strong>written to <code>vortex.txt</code></strong> in the save folder (VortexSave, the In's +0xEC,
+  <code>obj-&gt;SaveObject</code> vt +0x82C, fn_0076FA00): see the next section.</li>
+</ul>
+<h2 id="bringing-them-out-the-out-vortex">Bringing them out (the Out vortex)</h2>
+<ul>
+<li>An In and an Out are <strong>not linked in memory</strong>. The In writes what it swallows to <code>vortex.txt</code> (VortexSave mode 0),
+  and the Out of the next land reads it back (mode 1, the land-script parser <code>LHScriptX::InitIfLevel</code> 0x7E7530).
+  That is how the villagers and objects taken on one island come out on the next.</li>
+<li>Once a turn (ProcessContentsOfVortex 0x5FE030), on even turns:</li>
+<li>it emits at a cell 16 m away at a random angle: the next object of the file, and when the file is empty
+    <strong>30 new villagers</strong>;</li>
+<li>the new villagers are of the town's tribe (type 7, Norse, without a town), half of them housewives and the rest a forester,
+    fisherman, farmer, shepherd or leader; every 5th one is a child of <code>rand(9) + 1</code> years, the others <code>rand(6) + 16</code>.
+  The statistics +0x118 / +0x120 / +0x124 count objects, food + wood and villagers.</li>
+<li>The hand-over (fn_005FE3B0):</li>
+<li>a villager:<ul>
+<li>joins the Out's town, and becomes a disciple 12 (FROM_VORTEX) when there is also a script flock;</li>
+<li>joins that flock (AddMember); when the flock is in a script, the villager becomes the script's too;</li>
+<li>is kept alive while thrown (SetLife(1.0));</li>
+</ul>
+</li>
+<li>an animal is pointed at the Out's animal Flock (Living::SetFlock), made at SetFlockParams' position:<ul>
+<li>the flock is made at the first arrival, with SetFlockParams' two numbers as its flock distance and domain radius;</li>
+<li>a new flock replaces it when its tail holds an animal of another kind;</li>
+<li>SetFlock does not add a member, so the flock stays empty and every animal joins it, whatever its kind;</li>
+<li>the animal also gets the Out's town (fn_00417C50);</li>
+</ul>
+</li>
+<li>anything but a Dove is then <strong>flung</strong> (fn_005FE5F0):<ul>
+<li><code>v = (sin a·B, C, −cos a·B)</code>, with <code>B = (rand(5) + 8)·s</code> and <code>C = (rand(5) + 10)·s</code>;</li>
+<li>spin <code>w = (−v.z, 0, v.x) / (height / 2)</code> in the body's axes (0x5FE691 reads v.z, 0x5FE6A3 v.x);</li>
+<li><code>InitialisePhysics</code> with the vortex as thrower: a real physics flight.</li>
+</ul>
+</li>
+</ul>
+<h2 id="the-land-under-a-vortex">The land under a vortex</h2>
+<ul>
+<li>An In or an Out (not the Volcano) <strong>flattens the 11 × 11 cells under it to their mean altitude</strong> as it fades in
+  (fn_005FF4F0, fn_005FF350):</li>
+<li>the cells' original altitudes are saved the first time;</li>
+<li>each turn the factor <code>q = 1 − (1 − f)²</code> grows;</li>
+<li>every cell becomes <code>round(alt0 + q·b)</code>, with <code>b = mean − alt0</code> within 50 m, blending to 0 at 56 m.</li>
+<li>The vortex's spline (5 keys at 0, 10, 30, 50, 58 m) has every height 0 in the retail data, so it adds nothing.</li>
+<li><code>q</code> only grows, because FadeOut takes it as 1: the land is <strong>not restored</strong> when the vortex goes.</li>
+</ul>
+<h2 id="after-a-land-change">After a land change</h2>
+<ul>
+<li>The only writer of a cell altitude, fn_00800DA0, has three callers: the vortex's flattening (0x5FF8F0 in
+  fn_005FF4F0), a restore of the saved altitudes (0x5FF2C5 in 0x5FF230, which nothing calls: the land is never
+  restored) and the temple's flattening (0x88293C in fn_00882730, the temple's InitTemple, 17 × 17 cells). None of
+  them walks the map cells, sends a notification or moves another object; no random draw in any of them. The temple
+  only re-takes its own melting (vt+0x1E8 <code>UpdateMelting</code> 0x8168F0, at 0x88296C) and bakes its outside (vt+0x208,
+  0x8829AF).</li>
+<li>So there is <strong>no re-seat step</strong>: an object follows the new land only if its draw reads the ground.</li>
+<li><strong>Follow at once</strong>, drawn at <code>GetAltitude(MapCoords) + altitude</code> every frame: every Living (<code>Living::Draw</code>
+    0x51AEC0 / <code>Villager::Draw</code> 0x51B940, <code>Animal::Draw</code> 0x51C310, <code>Dove::Draw</code>, <code>SpellWolf::Draw</code>, through
+    fn_0051AF00 0x51AFBF / 0x51AFF1 / 0x51B0D9); the wood and food piles (<code>PileWood::Draw</code> 0x51BD8F, <code>PileFood::Draw</code>
+    0x51C153: ground + sink offset); the spell icon 0x5197DA, <code>GBaseOnly</code> 0x609562, <code>MagicTeleport</code> 0x5FCCD3, the totem
+    0x51AC3C and its statue 0x738B63, the dispenser 0x722A21, the town artifact 0x51C9C3, the scaffold 0x6EA69A, the
+    fragment 0x76EC0F; physics objects in flight read the ground every turn (0x645CE7..).</li>
+<li><strong>Stay</strong> where they were, drawn at the y their 3D object was given when it was placed (<code>MultiMapFixed::Draw</code>
+    0x518090, <code>MobileObject::Draw</code> 0x518150): every abode, Feature, BigForest, AnimatedStatic, WorshipSite,
+    MobileStatic (rock, bonfire, dead or felled tree), pots and mobile objects at rest, trees (<code>Tree::Draw</code> 0x74AB00)
+    and fields. The morphable meshes' per-vertex melting (<code>UpdateMelting</code>) is a snapshot taken at creation.</li>
+<li>A tree is re-seated only as a side effect: when it grows (<code>Tree::Grow</code> 0x74A4CA..0x74A561, forest trees only) and
+    when the cursor is over it (the hand's draw collision writes <code>GetWorldMatrix</code> into its matrix, 0x5D58DC..0x5D58FB).</li>
+<li>Where it follows: <code>y = GetAltitude(x, z) + altitude</code>, at the object's own point, with <code>altitude = y − GetAltitude</code>
+  taken when the position was set (<code>MapCoords::Set</code> 0x603340).</li>
+<li><strong>openblack.</strong> The Transform holds the absolute y, so the things that follow are moved when the land changes:
+  <code>FlattenLand</code> (ECS/Vortex.cpp) and <code>FlattenLandUnderTemple</code> (CitadelArchetype.cpp) record the ground
+  (<code>GetHeightAt</code>) under every villager, animal and wood or food pile whose cell reads a corner of the flattened box,
+  rewrite the altitudes, rebuild the land, then publish <code>events::LandAltitudesChanged</code> with those grounds; its handler
+  (<code>ecs::land_reseat</code>) sets each one at <code>new ground + (y − old ground)</code> (a pile's sink base the same way), and leaves
+  the thing exactly where it was when its ground did not change bitwise. Buildings, trees, features, fields, rocks
+  and pots are not touched.</li>
+</ul>
+<h2 id="the-objects-a-particle-system-carries-tornado-and-vortex">The objects a particle system carries (tornado and vortex)</h2>
+<p><code>RenderParticleGameObject</code> (0x58 bytes, ctor 0x6C9E60) is what a particle holds. The physics part
+(<code>physics::particle_carried_objects</code>, was <code>psys_objects</code>):</p>
+<ul>
+<li><strong>Attach</strong> fn_006CA0E0: a flying object is not carried (the atom stays empty); otherwise <strong>Take</strong> fn_006CA060.</li>
+<li><strong>Take</strong>: the class's <code>InitialisePhysics</code> with <strong>add 0</strong>. The object leaves the map cells and is flagged
+  IN_PHYSICS without a body, and GameThing +0xA &amp; 0x10 ("carried") is set. A villager or an animal enters FLYING; a
+  villager first drops what it carries.</li>
+<li>While carried, the object is drawn at the particle's matrix (DrawAt 0x67B170).</li>
+<li><strong>Release</strong> fn_006C9EF0: angles from the particle's matrix, position on the ground under it, <code>EndPhysics(NULL)</code>
+  (back in the map), the carried bit cleared. No flight and no impact.</li>
+<li><strong>The tornado</strong> (UR_Tornado, miracles.md): when the particle dies, a living thing is released and dies
+  (<code>DestroyedByEffect</code>), and anything else is deleted (the tornado destroys what it carries).</li>
+<li><strong>The vortex</strong> (UR_VortexAttract): at the end of the spiral the object is released and, when the record says so,
+  flung out (above). Otherwise the In's file takes it.</li>
+<li>IN_PHYSICS (+0x24 &amp; 0x40) is set only by <code>Object::InitialisePhysics</code> 0x6374A5 and cleared by <code>RemoveObject</code> 0x646B56
+  and <code>EndPhysics</code> 0x6375B9. A resting proxy body never has it.</li>
+</ul>
+<h2 id="drawing">Drawing</h2>
+<p>Read in runblack.exe W120 on 2026-10-08. Five things are drawn: the Z box (mesh 560), the ground decal (a hole and a
+ring on the vortex's land block), the PreLandscape effect (before the land), the PostLandscape effect (in the
+Z-sorter) and the LightMap effect. All of them are set up in <code>CallVirtualFunctionsForCreation</code> 0x5FEE30. openblack has
+the three local effects, their steps and the decal's state (<code>ECS/Vortex.cpp</code>), the Z box and the decal's drawing in the
+main land, and the ground effect's funnels drawn before the land (<code>Graphics/RendererVortex.cpp</code>).</p>
+<h3 id="the-gvortexinfo-rows-infodat-0x8889c-stride-0x30-in-memory-0xd38248--type--0x40-fields-from-0x10">The GVortexInfo rows (info.dat 0x8889C, stride 0x30; in memory 0xD38248 + type × 0x40, fields from +0x10)</h3>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>PreLandscape +0x10</th>
+<th>PostLandscape +0x14</th>
+<th>ObjectMover +0x18</th>
+<th>LightMap +0x1C</th>
+<th>initial state +0x20</th>
+<th>fadeWhenDeleted +0x24</th>
+<th>baseScale +0x28</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0 In</td>
+<td>78 SF_LandscapeVortexInBefore</td>
+<td>79 SF_LandscapeVortexInAfter</td>
+<td>76 SF_LandscapeVortexObjectMover</td>
+<td>77 SF_LandscapeVortexLightMap</td>
+<td>2 FadeIn</td>
+<td>0</td>
+<td>0.28</td>
+</tr>
+<tr>
+<td>1 Out</td>
+<td>80 -&gt; SF_LandscapeVortexInBefore</td>
+<td>81 SF_LandscapeVortexOutAfter</td>
+<td>0 (none)</td>
+<td>77 SF_LandscapeVortexLightMap</td>
+<td>1 Active</td>
+<td>1</td>
+<td>0.28</td>
+</tr>
+<tr>
+<td>2 Volcano</td>
+<td>82 SF_LandscapeVolcanoBefore</td>
+<td>83 SF_LandscapeVolcanoAfter</td>
+<td>0 (none)</td>
+<td>84 SF_LandscapeVolcanoLightMap</td>
+<td>1 Active</td>
+<td>0</td>
+<td>0.75</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>The particle type -&gt; file table is filled in fn_0068EA00 (0x68ECDF..0x68ED5A, table [0xD4EBB0] + 4 × type). <strong>80 is
+  InBefore again</strong> (the same register, 0x68ED1F): there is no "OutBefore" file.</li>
+<li>SF_LandscapeVolcanoAfter and SF_LandscapeVolcanoLightMap have <code>InitiallyCreated</code> all 0, so they make no atom and draw
+  nothing.</li>
+</ul>
+<h3 id="creation-callvirtualfunctionsforcreation-0x5fee30">Creation (CallVirtualFunctionsForCreation 0x5FEE30)</h3>
+<ul>
+<li>Volcano only (fn_005FD410 == 2, 0x5FEE42): <code>SoundTag::Create(this, 0xAC, false, 2, -1, 0, 1, 1, 0)</code> (0x5FEE5A).</li>
+<li>Position +0xD4 = (x, GetAltitude + MapCoords y, z) (0x5FEE6D..0x5FEE99); state +0xE4 = info +0x20 (0x5FEEAB).</li>
+<li>Unless the object is UNAVAILABLE (+0xA &amp; 1, 0x5FEEBB), in this order:</li>
+<li>the Z box +0xAC (0x5FEEC8..0x5FEFA5): a static <code>LH3DObject::Create(0)</code> with mesh MeshPack[0x230] = 560
+    MSH_S_ZCHEATBOX at +0xD4 with <strong>y = 0</strong>, scaled by baseScale; the first primitive of its mesh gets material type
+    18 (Z only, alpha test), which edits the shared mesh;</li>
+<li>ObjectMover (info +0x18), only if +0x98 is empty: <code>GJPSysInterface::Create(NULL, type, +0xD4, (0,0,0), 1.0, NET 1)</code>
+    -&gt; +0x98, then SetPlayer(GetPlayer()) (0x5FEFB8..0x5FF002);</li>
+<li>PreLandscape (info +0x10): <code>PSysInterface::Create(NULL, type, (x, GetAltitude(x, z), z), (0,0,0), 1.0, NET 0)</code> -&gt;
+    +0x9C (0x5FF017..0x5FF0A6);</li>
+<li>PostLandscape (info +0x14): the same at +0xD4, NET 0 -&gt; +0xA0 (0x5FF0B3..0x5FF0EA);</li>
+<li>LightMap (info +0x1C): <code>GJPSysInterface::Create(..., +0xD4, (0,0,0), 1.0, NET 0)</code> -&gt; +0x94 (0x5FF0F7..0x5FF12E).</li>
+<li><code>PSysInterface::Create</code> 0x68E910 only forwards to <code>GJPSysInterface::Create</code> 0x68F2F0. Type 0 gives no effect
+  (0x68F2F5). The effect's +0xAC = (NET == 1) (0x68F3AE): the ObjectMover is synchronised, the other three are local.</li>
+<li>openblack (<code>vortex::Create</code>): Pre, Post and LightMap through <code>psys::manager::StartForSpell</code>, Local, Pre and Post
+  stepped per frame. The effects stand at (x, the land's height, z): the script's vectors have y = 0, so this is +0xD4.
+  The ObjectMover is <strong>not made</strong>: <code>TakeIn</code> uses it as the "+0x98 exists" gate (0x5FDA33). The original hands each record
+  to the effect (AddTarget_ vt +0x114, 0x5FDAB1), and <code>UR_VortexAttract</code> takes the object. Without that rule our queue
+  would take the same objects again every turn, so the ObjectMover comes with <code>UR_VortexAttract</code>.</li>
+</ul>
+<h3 id="once-a-turn-fn_005ff4f0-from-fn_005ff330---psysglobalgameloopend-0x68f5b9">Once a turn (fn_005FF4F0, from fn_005FF330 &lt;- PSysGlobal::GameLoopEnd 0x68F5B9)</h3>
+<p>In this order:
+1. the contents (vt +0x90C);
+2. the LightMap +0x94 <code>Process_(info)</code> (vt +0x100, the turn's ms [0xD01A38]);
+3. the ObjectMover +0x98 <code>Process_(info)</code>;
+4. the state change and the land (above).</p>
+<p>Both steps get the PSysProcessInfo {all 0, power +0x30 = 1.0, curl +0x34 = 0, enabled +0x38 = 1} (0x5FF512..0x5FF5EF).
+openblack: <code>vortex::ProcessAll</code> steps the LightMap after the contents, with the turn's length; the ObjectMover step is
+pending.</p>
+<h3 id="once-a-frame-before-the-land-fn_005ffbb01-from-fn_005ff310---glandscapedraw-0x5e4e91">Once a frame, before the land (fn_005FFBB0(1), from fn_005FF310 &lt;- GLandscape::Draw 0x5E4E91)</h3>
+<p>This is stage 4h of <a href="original-frame.html">original-frame.md</a>: after the sea (4g), before the land (4i, fn_007FF610 at
+0x5E4E96).
+1. The Z box +0xAC is drawn at once, whatever the state (vt +0x104 = fn_00815980: on-screen and distance test, then
+   DrawNow vt +0x108; 0x5FFBB6..0x5FFBC2).
+2. <code>f</code> = fn_005FFAD0 (the fade). Only when f differs from the last value +0x8C (-1.0 at construction, fn_005FE9D0
+   0x5FEA1F; an x87 equality test, 0x5FFBD3):
+   - +0x8C = f;
+   - if f != 0: the decal is made (fn_005FEA70; it does nothing while +0xA4 is set);
+   - if f == 0 and the decal exists: it is released (fn_005FE8B0);
+   - the Z material +0xA8's ALPHAREF byte (+4) = <code>min(ftol(f × 255), 235)</code>, an unsigned compare (0x5FFC1F..0x5FFC44).
+3. If f != 0 and +0x9C (PreLandscape) exists (0x5FFC47..0x5FFC64):
+   - with the argument set (always 1 here): <code>SetOrigin((x, GetAltitude(x, z) − ((0.3 − 2.5) × q + 2.5), z))</code>, q =
+     fn_005FFAA0: ground − 2.5 + 2.2 q (0x5FFD3E..0x5FFD7B, vt +0x124). GetAltitude 0x803090 reads the LH3DMapCoords
+     (ftol(x × 65536 × 0.1), ftol(z × 65536 × 0.1));
+   - <code>Process_(info, g_game_time_inc)</code> (vt +0xFC, the frame's game ms) with info {all 0, power = <strong>f</strong>, curl 0,
+     enabled 1} (0x5FFD81..0x5FFD95);
+   - <code>Draw_(1.0, true)</code> (vt +0x104 -&gt; fn_00679840: the Sorted path, fraction 1; 0x5FFDA3..0x5FFDAA). ZR_SurfRevol
+     surfaces are drawn there and then (particles.md, 0x67CBA0), so the PreLandscape funnels are drawn <strong>before the
+     land</strong>, after the Z box. At f == 0 the effect is neither stepped nor drawn.</p>
+<p>openblack, the box: <code>Renderer::DrawVortexBoxes</code> (<code>Graphics/RendererVortex.cpp</code>), called by <code>DrawPass</code> in the main view
+after the sea and before the land, for every <code>LandscapeVortex</code> (available or not: fn_005FF310 walks the whole list with
+no test). Mesh 560 from the mesh cache (<code>MeshId::SpellZCheatBox</code>), placed by <code>vortex_draw::ZBoxModel</code> (x, 0, z, the
+3x3 scaled by baseScale, not turned; <code>test_vortex</code> ZBoxModel), drawn in mode 18 (<code>render_modes::State(ChromaDepthOnly)</code>:
+depth written, blend ZERO / ONE, so no colour) with the primitive's own culling. The mode's alpha test is left out: the
+material's ALPHAREF is 0, so every pixel passes. The "Celestial" program draws it (plain L3D geometry placed by one
+model matrix).
+- The mesh-level <code>NoDraw</code> flag of 560 does not stop the draw (inferred, see Creation above): the only test of it is the
+  load-time pass at 0x80889C.
+- fn_00815980's distance test (0x815A23..0x815A47) skips an object farther than <code>radius × scale(+0x44) × 300</code> from the
+  camera. 560's radius is at least 90 (half the box's width), so that is at least 7.5 km for an In or Out (20 km for
+  the Volcano), more than a land's diagonal (about 7.2 km): <span class="state approx">inferred</span> never reached in play, so it is not ported. The
+  on-screen test is bgfx's clipping.
+- Only in the main view: the mirrored land (stage 4c) comes before 4h and draws no box.</p>
+<p>openblack, the effects: <code>vortex::UpdateGroundEffects</code>, from <code>magic::Update</code> before every other per-frame effect step there (the
+fire graphics, the hand's effects, the shields, the teleport stones). It sets the decal's state (<code>NextDecal</code>,
+<code>DecalAlphaRef</code>), then the PreLandscape's origin (<code>PreLandscapeHeight</code>) and its step with power f, for every vortex.
+<code>vortex::UpdateOverLandEffects</code>, after the teleport stones and before the falling spell, does the Post steps and the
+LightMap alphas (below).</p>
+<p>openblack, the ground effect's draw (<code>Graphics/RendererVortex.cpp</code>):
+- <code>Renderer::SplitVortexParticles</code>, at the end of the frame's PSys collects (<code>CollectFrameParticles</code>, main view with
+  the entities): for every <code>LandscapeVortex</code>, <code>vortex_draw::RoleOf</code> tells each collected effect apart
+  (<code>test_vortex</code> EffectRoles). A vortex shows while its <code>decal.made</code>, which <code>NextDecal</code> sets exactly while f != 0.
+  - The surfaces of a shown vortex's PreLandscape (a Sorted effect, as the original's <code>Draw_(1.0, true)</code>) leave the
+    at-once list for <code>groundSurfaces</code>.
+  - Its sprites, if any (the Volcano's steam and fire), stay in the Z-sorter: on the Sorted path the original
+    queues them as Z objects too.
+- <code>Renderer::DrawVortexGroundEffects</code>, right after <code>DrawVortexBoxes</code> (main view, with the land and the entities),
+  draws <code>groundSurfaces</code> in the walk's order through <code>DrawParticleSurface</code>. The solid funnel writes depth there, and
+  the land is drawn over both funnels except in the decal's hole.
+- <span class="state approx">approximate</span> With several vortices the original draws each vortex's box and then its funnels, one vortex after
+  the other. openblack draws every box, then every funnel; the two differ only where one vortex's box hides another's
+  funnels.
+- At f == 0 (0x5FFC47: no step and no draw) the PreLandscape effect is neither stepped (<code>UpdateGroundEffects</code>) nor
+  drawn: its surfaces, sprites and chains are dropped from the frame.</p>
+<h3 id="the-ground-decal-fn_005fea70-released-by-fn_005fe8b0">The ground decal (fn_005FEA70, released by fn_005FE8B0)</h3>
+<ul>
+<li>+0xA4 = <code>CreateMaterial(6, texture(fn_005FD4C0))</code>: mode 6 (SA/ISA, alpha = texture × diffuse, no Z write) with
+  <strong>S_VortexBaseMultiRing.raw</strong> (In, Out) or <strong>S_Volcano_Base.raw</strong> (Volcano) (table 0xBF3F5C).</li>
+<li>+0xA8 = <code>CreateMaterial(0x12, texture(fn_005FD4D0))</code>: mode 18 (Z only, alpha test) with <strong>S_VortexBaseAlphacopy.raw</strong>
+  (In, Out) or <strong>S_Volcano_Base_Alpha.raw</strong> (Volcano) (table 0xBF3F68).</li>
+<li>+0xB0 = the LandBlock holding the vortex's cell: <code>g_index_block[(ftol(x × 0.1) &gt;&gt; 4) × 32 + (ftol(z × 0.1) &gt;&gt; 4)]</code>,
+  none when either cell is outside 0..511 (0x5FEAA5..0x5FEB08). Without a block the decal stops after the materials.</li>
+<li>The block's <strong>+0x90C is its x corner and +0x910 its z corner</strong> (block index × 160): LH3DIsland::Create stores
+  [esp+0x18] × 160 at +0x90C (0x8043A5) and [esp+0x14] × 160 at +0x910 (0x8043B5), and files the block at
+  <code>g_index_block[[esp+0x18] × 32 + [esp+0x14]]</code> (0x8042CE..0x8042D1, 0x8043C7), the same index order as the decal's
+  (x first). So the decal pairs the land's u with z and its v with x, as openblack's land does (<code>vs_terrain</code>: u = local
+  z / 160, v = local x / 160).</li>
+<li>The block gets (0x5FECF8..0x5FED94): +0x94C = 3, +0x950 = the Z material, +0x954 = the ring material, and the same UV
+  matrix in +0x958 and +0x988 (fn_005FEDA0). The matrix is the identity × s, s = 1 / baseScale, with the translation
+  <code>m9 = ((b910 − z) × 0.00625) × s + 0.5</code> and <code>m11 = ((b90c − x) × 0.00625) × s + 0.5</code>, in float steps
+  (0x5FEB40..0x5FECF4). A vertex's (u, v) becomes (s u + m9, s v + m11): centred on the vortex, 160 × baseScale m
+  across (44.8 m for the In and Out, 120 m for the Volcano).</li>
+<li>Release: both materials' +8 = 0, +0xA4 = +0xA8 = 0, the block's +0x94C = 0 (fn_005FE8B0). Several vortices on one
+  block share its fields: the last one made there holds them, and the first one released clears the block's flags.</li>
+<li><strong>How the land draws it</strong> (x87 fn_00874AA0; the SSE fn_007A1800 reads the same field at 0x7A2D37, 0x7A32D5,
+  0x7A347F):</li>
+<li>+0x94C bit 0 (0x87535D): first fn_00878F70, a Z-only pass of the block's triangles in the Z material, each vertex's
+    (u, v) through the matrix and put back with its inverse afterwards (0x87907D). Then ZFUNC = EQUAL (render state
+    0x17 = 3) for the block's own pass, and back to LESSEQUAL (4) after it (0x875BB1..0x875BDD).</li>
+<li>+0x94C bit 1 (0x875BE8): fn_008790F0, the ring pass in the ring material. It rebuilds the block's vertices at its
+    LOD (+0x930) with the diffuse = the light table entry ([0xEDD90C]) of the cell's byte 3 and the specular = the
+    cell colour | 0xFF000000 (0x87915A..0x87917B), with no haze, and the UVs through the matrix +0x988. It is drawn
+    under ZFUNC EQUAL when bit 0 is also set (0x875BED..0x875C3C).</li>
+<li>Net effect (inferred from the states): the Z pass writes depth only where the mask's alpha &gt;= ALPHAREF (mode 18's
+    function writes ZWRITEENABLE 1 itself, 0x82E39D). The land under EQUAL is then drawn only there, so a <strong>hole</strong>
+    opens where the mask is below <code>f × 255</code> (capped at 235). Through it shows what was drawn before: the sky, the sea,
+    the Z box and the PreLandscape funnels. The ring is laid over the rest of the block in the land's light and does
+    not fade with f.</li>
+<li>It covers only the block holding the vortex's centre, so it is cut at that block's edge. The UVs clamp (no tiling:
+    material +5 bit 2 and g_b_need_tilling, 0x87901D). The mask's border is alpha 255 and the ring's 0, so nothing
+    shows outside.</li>
+<li>Texture alpha (256 × 256, row 128 every 16 px): Alphacopy 255,255,255,190,180,87,85,35,64,37,78,72,183,178,255,255
+    (min 16); Volcano_Base_Alpha 0 / 255 only (a hard disc); MultiRing / Volcano_Base 0,29,184,255...255,226,81. The
+    game cuts them to ARGB4444 when it loads them (as openblack's texture loader does).</li>
+<li><strong>The mirrored land</strong> (fn_007FF4F0, stage 4c) calls the same block function (0x7FF5C0) on the same blocks (the
+    transition blocks are copied whole, +0x94C included, 0x7FF593..0x7FF59F). Neither fn_00874AA0 nor its two decal
+    passes read the mirror flag [0xFA92DC], set around the mirrored land (0x7FF535, 0x7FF5FD); only the vertex
+    builders fn_00875C60 / fn_00876910 do. So the hole and the ring are drawn in the reflection too. There the land is
+    drawn with ZWRITEENABLE 0 (0x5E48C5), but the Z pass's mode 18 turns it on again (0x82E39D); (not traced) whether
+    anything in the block draw turns it off again for the mirrored blocks after it.</li>
+</ul>
+<p>openblack (<code>Graphics/RendererVortex.cpp</code>, <code>Graphics/VortexDraw.cpp</code>):
+- <code>CollectVortexDecals</code>, in the main view's land pass: every <code>LandscapeVortex</code> whose <code>decal.made</code> (C1's <code>NextDecal</code>)
+  gives its block (<code>vortex_draw::DecalBlock</code>: the cells truncated, none off the 512 cells), its UVs
+  (<code>vortex_draw::DecalUvTransform</code>, the float steps above), its <code>decal.alphaRef</code> and its textures from the resource
+  cache (<code>raw/&lt;mask&gt;a</code>, <code>raw/&lt;ring&gt;</code>, <code>raw/&lt;ring&gt;a</code>; <code>vortex_draw::DecalTexturesFor</code>). One decal per block: the first
+  vortex found holds it (approximate: the original keeps the last one made).
+- In <code>DrawPass</code>'s block loop, for that block only: <code>DrawVortexDecalMask</code> (program "VortexDecalMask" = <code>vs_terrain</code> +
+  <code>fs_vortex_mask</code>: mode 18's state, depth written where <code>round(alpha × 255) &gt;= ref</code>, discarded elsewhere), then the
+  block in its usual state with the depth test EQUAL, then <code>DrawVortexDecalRing</code> ("VortexDecalRing" = <code>vs_terrain</code> +
+  <code>fs_vortex_ring</code>: mode 6 under EQUAL, colour = ring × the land light × the pass's light scale + the cell colour,
+  alpha = the ring's, <code>u_hazeBlock</code> 0 for no haze), then the block's projected shadows as before. Both programs use the
+  land's own vertex program and the block's uniforms, so their depth is the block's to the bit. The textures are
+  clamped.
+- <span class="state approx">inferred</span> the light table entry's alpha is 255 (openblack's land light texture has 255 there), and the ring pass has
+  the land's SPECULARENABLE on.
+- The mirrored land in the reflection draws no decal yet (pending, see above).</p>
+<h3 id="the-z-sorted-part-landscapevortexdraw-0x5ffdc0-from-the-object-draw-list">The Z-sorted part (LandscapeVortex::Draw 0x5FFDC0, from the object draw list)</h3>
+<ul>
+<li><code>SendInvisibleDrawCollision(this, +0xD4, 0.7 × Get2DRadius)</code> (the hand's collision); the ObjectMover +0x98
+  <code>Draw_(true)</code> (vt +0x108); <code>AddDrawing</code> 0x5FFE10: <code>NewZObject(this, 0x5FFE70, |GetLHPoint(+0x14) − camera|²)</code>. The
+  vortex's own mesh 559 MSH_S_VORTEXCYLINDER (<code>GetMesh</code> 0x5FEE20) is never drawn: it only gives the radius.</li>
+<li><strong>What queues it.</strong> The object draw list fn_005E5CD0 (stage 4m) calls Draw (vt +0x610) for every available object of
+  <code>GLandscape::DrawObjects</code> (0x5E6067..0x5E6086). Draw queues the Z object with no on-screen test of its own, and sets
+  <code>g_b_last_on_screen</code> = 1 (0x5FFDFD), so the vortex is always "active". It is drawn again in the still-camera pass too
+  (0x5E60E2..0x5E610F, which redraws only the active ones). How the list is built, rebuilt and walked is in
+  <a href="original-frame.html#6-the-object-draw-list-stage-4m">original-frame.md</a>. Two corrections to what this page said
+  before: the turn trigger is "more than 10 turns since the last rebuild" (an unsigned <code>ja</code>, so every 11 turns with no
+  other trigger), and the vt +0x74 skip on the object's +0x40 is GetDontDraw, not a footpath link (+0x40 is the
+  Game3DObject).
+  So the Post step and the light-map alpha run only for a vortex in a visible block (or the global list) at the last
+  rebuild, which may be up to 10 turns old. openblack has no logic-side copy of that list or of the block culling (it is
+  in the renderer), so it steps them every frame (pending).</li>
+<li>The callback 0x5FFE70:</li>
+<li>if +0xA0 (PostLandscape) and f != 0: <code>Process_(info {power = f, enabled 1}, g_game_time_inc)</code>, then
+    <code>Draw_(1.0, true)</code>. Its origin stays at +0xD4;</li>
+<li>then, if +0x94 (LightMap): the effect's alpha byte (PSys3D +0x6C) = <code>ftol(L × 255)</code> with L = fn_005FF980, then
+    <code>Draw_(true)</code> (vt +0x108, the game's draw fraction g_game +0x205D64, 0x673700).</li>
+<li>fn_005FF980, the light map's L(e) (e = fn_005FF920, stored to a float at 0x5FF989):</li>
+<li>Inactive 0; Active 0.6 ([0x92D2DC]);</li>
+<li>FadeIn: <code>e / 2</code> while e &lt; 2; then <code>(0.6 − 1) c + 1</code> with c = (e − 2) / 5, set to 0 when not above 0 (<code>test ah,
+    0x41</code>) and to 1 when not below 1 (0x5FF9B7..0x5FFA1E);</li>
+<li>FadeOut (any other state): <code>(1 − 0.6)(e / 5) + 0.6</code> while e &lt; 5; then <code>1 − c</code> with c = (e − 5) / 2, kept to 0..1
+    the same way (0x5FFA20..0x5FFA95).
+  It is a flash to 1, then a rest at 0.6.</li>
+<li>openblack: at f == 0 (0x5FFE89) the PostLandscape effect is neither stepped nor drawn (<code>SplitVortexParticles</code>
+  drops it from the frame, as it does a hidden PreLandscape). Shown, its stars are drawn at once with the other Sorted
+  effects' surfaces, before the Z-sorter's drain. The original draws them inside the vortex's Z object, at its place
+  in the drain (pending).</li>
+<li>The light map's stamp follows the effect's alpha: the effect's collect multiplies every atom's alpha by it
+  (<code>Effect::CollectCollection</code>: alpha × global / 255 in float). The original scales the DrawData alpha byte by
+  <code>(global × alpha) &gt;&gt; 8</code> when the global byte is not 0xFF (fn_00679920, 0x679BC2..0x679BDF, the byte set from
+  PSys3D +0x6C by fn_00679860 0x679875). This is the generic particle collect: every effect with a global alpha
+  rounds this way (pending, Particles).</li>
+<li><strong>Precision.</strong> fn_005FF980, fn_005FFAA0, the height at 0x5FFD4E..0x5FFD73 and the two <code>× 255</code> run on the x87 under
+  the game's 24-bit precision control (<a href="engine-loop.html">engine-loop.md</a>), so every step rounds as a float step.
+  openblack computes them in float in the same order; <code>test_vortex</code> pins the bit patterns, e.g. the height at ground 0,
+  q 0.3 is 0xBFEB851E (in double it would be 0xBFEB851F). <code>ftol</code> truncates.</li>
+</ul>
+<h3 id="deletion-tobedeleted-0x5fe8f0">Deletion (ToBeDeleted 0x5FE8F0)</h3>
+<p>Unlinks the vortex, deletes the Z box (vt +4) and the four effects at once (vt +4 with 1: no CloseDown), releases the
+decal (fn_005FE8B0), then MobileStatic::ToBeDeleted. openblack: <code>vortex::OnDeleted</code> deletes the effects
+(<code>psys::manager::Delete</code>) and clears the decal. <code>ecs::ToBeDeleted</code> calls it for a <code>LandscapeVortex</code>, whether the
+deletion is at once or deferred (<code>test_vortex</code> VortexDeletion). A vortex found unavailable in <code>ProcessAll</code> or the frame
+updates loses them as well. A land change clears every effect (<code>psys::manager::Clear</code>).</p>
+<h3 id="the-spell-files-dataspellszspellfilessf__txtzzz-all-present">The spell files (Data\Spells\ZSpellFiles\SF_*_txt.zzz, all present)</h3>
+<ul>
+<li><strong>InBefore</strong> (the In's and the Out's PreLandscape):</li>
+<li>group 0 point (InitialScale 2, <code>SoundOfCreate SOUND_ACTION_VORTEX LOOPING SOFTRELEASE</code>);</li>
+<li>then group 2 point (InitialScale 40, FollowOrigin);</li>
+<li>then two funnels, <code>ZR_SurfRevol_AlphaFunnel</code> (TestFunnel, Scale 0.7, S_Teleport_Vortex_Texture.raw, additive, no
+    Z, ClampToLandscape 1) and <code>ZR_SurfRevol_Solid</code> (Scale 0.8, S_Teleport_Vortex_Texture01.raw, colour 120,120,120,
+    <strong>Z write</strong>, MaterialUseTextureAlpha 0).</li>
+<li><strong>InAfter</strong> / <strong>OutAfter</strong> (PostLandscape):</li>
+<li>group 0 point (OutAfter adds the same SOUND_ACTION_VORTEX loop);</li>
+<li>then group 2 point (InitialScale 40, <code>SetScale</code> = StrengthFloatProvider × 1, ForceConstantHeight 15);</li>
+<li>then <code>ZR_SurfRevol_Stars</code> (TestFunnelSpout, Scale 0.65, S_Teleport_Stars.raw, additive, <code>SetAtomAlpha</code> = strength
+    × 255, SpeedV <strong>+1 In / −1 Out</strong>).
+  The stars follow f through the power.</li>
+<li><strong>ZR_SurfRevol's material</strong> (<code>ModifyAtomCollection</code> 0x686370): <code>CreateMaterial(6, texture)</code> (0x6863EC), then
+  <code>GJUtils::SetMaterialProperties</code> 0x57E120 with the rule's {+0x3C UseAdditiveAlpha, +0x3D MaterialUpdateZBuffer,
+  +0x3E MaterialSetDoubleSided, +0x40 MaterialUseTextureAlpha} (DefineProperties 0x6B2E80). The ctor's defaults are
+  0, 0, 1, 1 (0x686231..0x68623F).</li>
+<li>The rules, in order: 4 -&gt; 6; UseTextureAlpha 0 -&gt; 3; additive -&gt; 13. With Z: 6 -&gt; 5, 13 -&gt; 12, 8 -&gt; 3, 16 -&gt; 9.
+    Without Z: 5 -&gt; 6, 12 -&gt; 13, 3 and 2 -&gt; 8, 9 -&gt; 16.</li>
+<li>So the Solid funnels (InBefore, VolcanoBefore: Z, UseTextureAlpha 0) are <strong>mode 3</strong>, and the alpha funnels and
+    the stars mode 13.</li>
+<li>Of the 132 spell files only those two Solid funnels set MaterialUseTextureAlpha 0. SF_TeleportVortex (6) and
+    SF_SpellDispenserVortex (13) keep their modes.</li>
+<li>The mode functions 3 (fn_0082D920) and 5 (fn_0082DD90) are the same code but for the mode cache's id: SA/ISA,
+    no alpha test, ZWRITEENABLE 1, COLOROP and ALPHAOP MODULATE(TEXTURE, DIFFUSE), the material's texture. So mode 3
+    draws as mode 5 does,
+    and it still honours the texture's alpha. openblack: <code>Surface::useTextureAlpha</code> (Particles/Rules/SurfRevol) goes
+    to <code>ModeFromProperties</code> in <code>DrawParticleSurface</code> (<code>test_vortex</code> FunnelMaterials: 3 and 5 give the same state).</li>
+<li><strong>LightMap</strong>: one <code>ParticleLightMapCreator</code> atom, <code>Teleport_Vortex_LightMap.raw</code> (12 × 12 × 3, ShiftX 6.78761, ShiftZ
+  8.60177).</li>
+<li><strong>ObjectMover</strong>: <code>UR_VortexAttract</code> and <code>AppearanceRuleTumble</code> on group 0.</li>
+<li><strong>VolcanoBefore</strong>: two fire funnels, a rock funnel, and two disc emitters (steam and fire sprites).</li>
+</ul>
+<h3 id="random-draws">Random draws</h3>
+<table>
+<thead>
+<tr>
+<th>Where</th>
+<th>Stream</th>
+<th>When</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Effect creation (fn_00673070 from 0x68F3EC)</td>
+<td>none: outside a step PSysRand is the 0 function</td>
+<td>creation</td>
+<td>0</td>
+</tr>
+<tr>
+<td>PreLandscape / PostLandscape steps</td>
+<td><strong>local</strong> (NET 0)</td>
+<td>every <strong>frame</strong> while f != 0, in the draw</td>
+<td>one <code>PSysRand(0x100)</code> per atom made (AtomCore::Create 0x673816), all in the first steps: InBefore 4, InAfter / OutAfter 3; VolcanoBefore the same plus its emitters' sprites every frame</td>
+</tr>
+<tr>
+<td>LightMap step</td>
+<td><strong>local</strong></td>
+<td>every turn</td>
+<td>1 when its atom is made; <code>LocalFloatRand(0)</code> × 3 at each draw makes no draw</td>
+</tr>
+<tr>
+<td>ObjectMover step</td>
+<td><strong>synchronised</strong> (NET 1)</td>
+<td>every turn</td>
+<td>only for taken objects (not made in openblack)</td>
+</tr>
+<tr>
+<td>CRT rand()</td>
+<td>none found in these paths</td>
+<td>-</td>
+<td>0</td>
+</tr>
+</tbody>
+</table>
+<p>The local seed is in the per-turn state hash, so a vortex's effects change the hash's random part. openblack steps
+Pre and Post in the logic frame update (as the teleport stone's vortex):
+- every Pre first, before the other per-frame effect steps, as stage 4h comes before the object draw, the hand and the
+  particles;
+- every Post afterwards, in list order. The original steps the Posts in Z-sorted order (by distance), interleaved with
+  any other Z object whose callback steps an effect.</p>
+<h2 id="what-is-ported-and-what-is-pending">What is ported and what is pending</h2>
+<blockquote>
+<p><strong>Code rules.</strong> The vortex state lives in ECS components (<code>LandscapeVortex</code>) and its systems are reached through
+Locator services; the info rows come through the resource caches; pure logic such as the fades is tested with
+fakes in <code>test/</code>; comments describe behaviour in plain English, with no decompiled names or addresses (those
+belong here). See <a href="../refactor/README.md">the conventions</a>.</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>Part</th>
+<th>State</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GVortexInfo, the three classes, Create (radius 50, scale 1), the state and fades, FadeIn -&gt; Active / FadeOut -&gt; delete at 7 s, the turn from GameLoopEnd</td>
+<td>ported (Vortex.cpp, MagicLoop.cpp)</td>
+</tr>
+<tr>
+<td>The land flattening (fn_005FF4F0 / fn_005FF350, the retail zero spline)</td>
+<td>ported (<code>SetCellAltitude</code> + <code>RebuildAltitudes</code>, as the citadel)</td>
+</tr>
+<tr>
+<td>VORTEX_FADE_OUT / VORTEX_PARAMETERS / CREATE Vortex</td>
+<td>ported (CHLApi.cpp)</td>
+</tr>
+<tr>
+<td>The In's take (spiral, ReactToPhysicsImpact, CanBeSuckedIntoVortex 0x639B60, the same-cell test, VortexObjectInfo)</td>
+<td>ported; (pending) the pile split (Storm.cpp's SplitPile to be shared)</td>
+</tr>
+<tr>
+<td>UR_VortexAttract (the spiral of the carried objects)</td>
+<td>pending (the PSys rules)</td>
+</tr>
+<tr>
+<td>particle_carried_objects Take / Release / Fling, the carried bit</td>
+<td>ported (ParticleCarriedObjects.cpp); the tornado's side is in Storm.cpp</td>
+</tr>
+<tr>
+<td>The Out's emission (the cell 16 m away, the file's objects, 30 new villagers), the hand-over to its town, the thrown list kept alive, the fade held while it emits, the fling</td>
+<td>ported</td>
+</tr>
+<tr>
+<td>The hand-over's flocks (the script flock, the animals' Flock)</td>
+<td>ported; (pending) the disciple FROM_VORTEX, the flock's info and player, the animal's town (they need the villager and animal APIs)</td>
+</tr>
+<tr>
+<td>VortexSave (<code>vortex.txt</code> between lands)</td>
+<td>the writers: <code>lhscriptx::WriteCommand</code> and the physics classes' SaveObject (<a href="land-script-save.html">land-script-save.md</a>); the reader: one line at a time through the land-script interpreter with the position offset and the last created object (Script's map state); (pending) the other classes' writers and the save folder</td>
+</tr>
+<tr>
+<td>Drawing: the PreLandscape, PostLandscape and LightMap effects (made, stepped, deleted), the light map's L(e), the decal's change detector and alpha reference, the ground effect's height</td>
+<td>ported (Vortex.cpp, MagicLoop.cpp; tested in <code>test_vortex</code>)</td>
+</tr>
+<tr>
+<td>Drawing: the Z box (mesh 560 at (x, 0, z) × baseScale, mode 18, after the sea and before the land, main view)</td>
+<td>ported (<code>Graphics/RendererVortex.cpp</code>, <code>Graphics/VortexDraw.cpp</code>; tested in <code>test_vortex</code>)</td>
+</tr>
+<tr>
+<td>Drawing: the decal's hole and ring on the vortex's block (mask, block under EQUAL, ring), in the main land</td>
+<td>ported (<code>Graphics/RendererVortex.cpp</code>, <code>fs_vortex_mask</code>, <code>fs_vortex_ring</code>; tested in <code>test_vortex</code>)</td>
+</tr>
+<tr>
+<td>Drawing: the PreLandscape funnels right after the boxes and before the land, Pre and Post undrawn while f == 0, the Solid funnel's mode 3 (MaterialUseTextureAlpha), the light map stamp following the effect's alpha</td>
+<td>ported (<code>Graphics/RendererVortex.cpp</code>, <code>Graphics/VortexDraw.cpp</code>, <code>Particles/Rules/SurfRevol.cpp</code>, <code>Graphics/RendererRevolvedSurface.cpp</code>; tested in <code>test_vortex</code>)</td>
+</tr>
+<tr>
+<td>Drawing: the decal in the mirrored land, the stars drawn at the vortex's Z object, the global alpha's rounding, the ObjectMover</td>
+<td>pending (the renderer, the particle rules)</td>
+</tr>
+<tr>
+<td>Save / Load of the vortex</td>
+<td>not ported (openblack has no saved games)</td>
+</tr>
+<tr>
+<td>The vortex that leaves a land</td>
+<td>the scripts open it with CHL <code>CREATE</code> of an In at a marker (<code>challenge.chl</code>: Land 1 <code>LeaveThroughVortexL1</code> at (1700.23, 11.40, 2520.18), once <code>OpenVortexL1</code> is set or at once when the creature guide is skipped; Land 2 at (1061.11, 147.79, 3597.97); Land 4 at (2060.18, 11.39, 2591.70); Land 3's script is given its place when it starts). Opening it is ported; going through it to the next land is not (<code>LeaveLandNow</code>, then <code>LandControlAll</code>'s <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>Debug window</td>
+<td>Debug &gt; Windows &gt; Vortices (<code>Debug/Vortices</code>, <code>VorticesModel</code>): the vortices on the land with fade out and delete, a new In / Out / Volcano at the hand or at a click, and each land's leaving vortex opened at the script's place</td>
+</tr>
+</tbody>
+</table>
+<h2 id="sources">Sources</h2>
+<ul>
+<li>runblack.exe W120: MagicVortex.cpp 0x5FD2D0..0x600460, VortexSave.cpp 0x76F840..0x7700B0, PSysTornado.cpp
+  (UR_VortexAttract 0x6D39C0, UR_Tornado 0x6D18B0), RenderParticleGameObject 0x6C9E60..0x6CA162.</li>
+</ul>
+<h2 id="pending">Pending<span class="state pending">pending</span></h2>
+<ul>
+<li>The drawn vortex (the Z box, the ground decal and its ring, the funnels) follows the addresses above, but its look has
+  not been compared with a shot of the retail game yet.</li>
+<li>The In's pile split (a pile gives up to 1000 into a new pile, which is taken), to be shared with the tornado's.</li>
+<li><code>UR_VortexAttract</code>: the spiral that carries the taken objects into the vortex.</li>
+<li>The hand-over: the disciple FROM_VORTEX, the flock's info and player, and the animal's town.</li>
+<li>VortexSave: the writers of the other classes, and the save folder.</li>
+<li>Drawing, the renderer's side:</li>
+<li>the decal's hole and ring in the mirrored land (the original draws them there too, and its Z pass turns the
+    mirrored land's Z writes back on; see "The ground decal");</li>
+<li>several vortices on one block: the last one made should hold the decal (openblack: the first one found);</li>
+<li>with several vortices, each one's box then its funnels, vortex by vortex (openblack: every box, then every
+    funnel);</li>
+<li>the PostLandscape stars drawn inside the vortex's Z object, at its place in the drain (openblack: at once with
+    the other Sorted surfaces, before the drain);</li>
+<li>the global alpha as <code>(global × alpha) &gt;&gt; 8</code> on the alpha byte (openblack: alpha × global / 255 in float, in the
+    generic particle collect, so for every effect with a global alpha).</li>
+<li>The ObjectMover, with <code>UR_VortexAttract</code> (a synchronised effect: a game-logic change).</li>
+<li>(not traced) the audio DLL's sample choice for SOUND_ACTION_VORTEX and the volcano's SoundTag 0xAC.</li>
+<li>The Post step and the light-map alpha only for a vortex in the land's object draw list (a visible block within
+  VanishObjectDist, or the global list, at the last rebuild: see "What queues it" above). This needs the logic-side
+  object draw list planned in <a href="original-frame.html#the-object-draw-list-what-openblack-needs">original-frame.md</a>;
+  openblack steps them every frame.</li>
+<li>Save / Load of the vortex (openblack has no saved games).</li>
+<li>After a land change (see above), deliberate differences of openblack:</li>
+<li>a re-seated villager or animal whose own turn came before the change is drawn sliding to its new height over the
+    rest of that turn (the draw goes from its position at the turn's start) instead of at once;</li>
+<li>the other classes that follow the land in the original (spell icon, GBaseOnly, MagicTeleport, totem and statue,
+    dispenser, town artifact, scaffold, fragment) are not re-seated;</li>
+<li>openblack's morphable meshes take the melting on the GPU at every draw, so a field or a morphable building
+    follows the new land, while the original's melting is frozen;</li>
+<li>the tree's re-seat when it grows or is under the cursor is not ported.</li>
+<li>After a land change: the creature's drawn height (<code>Creature::Draw</code> 0x517910 and <code>LH3DCreature</code> not traced); whether
+  footpaths are drawn in the retail game.</li>
+</ul>
+</main>
+<script src="search.js"></script>
+<script src="wiki.js"></script>
+</body>
+</html>

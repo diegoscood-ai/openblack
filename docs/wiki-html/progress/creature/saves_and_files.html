@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Creature saves and files — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="here" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#creature-saves-and-files">Creature saves and files</a><ul>
+<li><a href="#creature-mind-files">Creature mind files</a></li>
+<li><a href="#carrying-the-creature-on">Carrying the creature on</a></li>
+<li><a href="#saved-games">Saved games</a></li>
+<li><a href="#sharing-creatures">Sharing creatures</a></li>
+<li><a href="#network-and-skirmish">Network and skirmish</a></li>
+<li><a href="#debug-output">Debug output</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="creature-saves-and-files">Creature saves and files</h1>
+<p>A creature outlives any one game: its mind (everything it has learnt), its body and its tattoos are kept in creature
+files that belong to the player's profile, so the same creature can be carried from land to land and into new games,
+taken into skirmish and network games, and uploaded to the game's website. The game's own computer gods and skirmish
+opponents also come from creature files.</p>
+<p><strong>Progress: 14/37 done, 8 partial — 49%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../creature.html">The creature: groundwork, random streams and what is unknown</a>.</p>
+<h2 id="creature-mind-files">Creature mind files</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The mind is saved in its own file in the game's creature mind folder, named for the creature</td>
+<td>partial</td>
+<td>mind files are read from <code>Scripts/CreatureMind</code> (<code>resources::CreatureMindLoader</code>, <code>LOAD_MY_CREATURE</code> in <code>ECS/PlayerCreature.cpp</code>); the writer exists (<code>components/creaturemind</code> <code>MindFile</code>, test <code>CurrentVersionRoundTrips</code>) but nothing in the game or the debug window writes a creature's mind to disk</td>
+</tr>
+<tr>
+<td>A small companion file keeps the creature's physique beside its mind file</td>
+<td>todo</td>
+<td>the physique file is neither written nor read</td>
+</tr>
+<tr>
+<td>The file keeps the creature's species, name, the name it was saved as and the profile it belonged to, the last two lightly encrypted</td>
+<td>done</td>
+<td><code>components/creaturemind</code> <code>MindFile</code>; test <code>CreatureMindFile.EncryptionRoundTrips</code></td>
+</tr>
+<tr>
+<td>It keeps the 40 desires with their sources and thresholds</td>
+<td>done</td>
+<td><code>MindFile</code>, <code>src/Creature/CreatureMindModel</code>; test <code>CreatureMindFile.ReferenceSavesParseAndRoundTrip</code></td>
+</tr>
+<tr>
+<td>It keeps the examples its decision trees learnt from</td>
+<td>done</td>
+<td><code>MindFile</code>, <code>creature_mind_model</code> load in <code>src/Creature/CreatureMindModel.cpp</code>; test <code>CreatureMindFile.ModelKeepsAFileItWasLoadedFrom</code></td>
+</tr>
+<tr>
+<td>It keeps its opinion of each action, how often it has seen actions and miracles, and which it knows</td>
+<td>done</td>
+<td><code>MindFile</code></td>
+</tr>
+<tr>
+<td>It keeps how it sees the player, the desires it thinks the player has, and what towns want</td>
+<td>done</td>
+<td><code>MindFile</code> (kept; partly used, see <a href="beliefs_and_opinions.html">beliefs_and_opinions.md</a>)</td>
+</tr>
+<tr>
+<td>It keeps its alignment, stage of growing up, body (age, energy, poo, size and so on) and tattoos</td>
+<td>done</td>
+<td><code>src/Creature/CreatureMindFileBody</code>; tests <code>TakesTheBodyAFileKeeps</code>, <code>TattooWordsRoundTrip</code></td>
+</tr>
+<tr>
+<td>Every version from the earliest the game wrote to the newest (33) is read, each with its own fields</td>
+<td>done</td>
+<td>tests <code>CreatureMindFile.OlderVersionsLeaveOutTheirFields</code>, <code>ReferenceSavesParseAndRoundTrip</code> (the two shipped <code>.erc</code> files, skipped without the game's data)</td>
+</tr>
+<tr>
+<td>A file read and written again is the same byte for byte</td>
+<td>done</td>
+<td>tests <code>CreatureMindFile.CurrentVersionRoundTrips</code>, <code>KeepsTrailingBytes</code></td>
+</tr>
+<tr>
+<td>Files that aren't minds, or are newer than known, are refused, and the creature starts with a fresh mind of its species</td>
+<td>done</td>
+<td>test <code>CreatureMindFile.RejectsWhatIsNotAMind</code>, <code>CreatureMindLoaderTest.AFileWithNoSpeciesRowIsNotAMind</code>; <code>creature::CreatureMind::Loaded</code></td>
+</tr>
+<tr>
+<td>Files whose species row is unknown give no creature</td>
+<td>done</td>
+<td>test <code>UnknownSpeciesIsNoCreature</code>; <code>LOAD_MY_CREATURE</code> makes nothing then (test <code>PlayerCreature.NoCreatureIsLoadedWhenThePlayerHasOneOrTheFileGivesNone</code>)</td>
+</tr>
+<tr>
+<td>Values out of range in a file are kept within bounds</td>
+<td>done</td>
+<td><code>CreatureMindFileBody</code>; test <code>OutOfRangeValuesAreKeptInBounds</code></td>
+</tr>
+<tr>
+<td>A fresh mind is written as a current file</td>
+<td>done</td>
+<td>test <code>CreatureMindFile.FreshMindWritesACurrentFile</code></td>
+</tr>
+<tr>
+<td>Mind files are loaded once through the resource cache</td>
+<td>done</td>
+<td><code>resources::CreatureMindLoader</code> (<code>src/Resources/Loaders.cpp</code>), used by <code>LOAD_MY_CREATURE</code> and <code>CREATE_CREATURE_FROM_FILE</code>; tests <code>CreatureMindLoaderTest.*</code></td>
+</tr>
+<tr>
+<td>The game checks the mind and body loaded agree, and fixes or refuses them</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The game keeps a copy of the mind in memory to restore</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The game deletes a profile's creature files when the profile or creature is deleted</td>
+<td>todo</td>
+<td>no profiles</td>
+</tr>
+</tbody>
+</table>
+<h2 id="carrying-the-creature-on">Carrying the creature on</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature is saved as the profile's creature, so a new game can start with it</td>
+<td>partial</td>
+<td>the loading side works: <code>LOAD_MY_CREATURE</code> and <code>CURRENT_PROFILE_HAS_CREATURE</code> read the profile's file, which is the <code>--creature-file</code> setting (<code>ECS/PlayerCreature.cpp</code>; tests <code>PlayerCreature.*</code>, <code>ProfileCreatureTest.*</code>), and <code>IS_KEEPING_OLD_CREATURE</code> reads the land's skip flag; nothing ever saves the creature back</td>
+</tr>
+<tr>
+<td>Moving from one land to the next, the player's creature comes along as it was</td>
+<td>partial</td>
+<td>each land's <code>LOAD_MY_CREATURE</code> loads the profile's file again, so it comes back as the file left it, not as it was; see <a href="../story/portals.html#the-creature">../story/portals.md</a></td>
+</tr>
+<tr>
+<td>Scripts can load a creature from a file into the land</td>
+<td>partial</td>
+<td>land scripts' <code>CREATE_CREATURE_FROM_FILE</code> works (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>) and so does <code>LOAD_MY_CREATURE</code>; the challenge scripts' <code>LOAD_CREATURE</code> is a stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>Scripts can ask whether the profile has a creature file</td>
+<td>done</td>
+<td>(added) <code>CURRENT_PROFILE_HAS_CREATURE</code>: whether the profile's mind file exists in <code>Scripts/CreatureMind</code> (<code>player_creature::ProfileHasCreature</code>, <code>src/ECS/PlayerCreature.cpp</code>); tests <code>ProfileCreatureTest.*</code></td>
+</tr>
+<tr>
+<td>Scripts can wipe a creature's mind</td>
+<td>todo</td>
+<td><code>CLEAR_ACTOR_MIND</code> is a stub in <code>src/CHLApi.cpp</code>; the debug spawner can (<code>CreatureMindSystem::ClearLearning</code>)</td>
+</tr>
+<tr>
+<td>A saved creature can be spawned with its species, name, alignment, strength, size and tattoos</td>
+<td>partial</td>
+<td>only the debug spawner's saved-creature list (<code>src/Debug/CreatureSpawnerMindFiles.cpp</code>); in the game, <code>LOAD_MY_CREATURE</code> takes species, size, alignment and strength (<code>CreatureMindFileBody</code>)</td>
+</tr>
+<tr>
+<td>A mind can be loaded into an existing creature</td>
+<td>partial</td>
+<td><code>CreatureMindSystem::LoadMind</code>, only called from the debug spawner</td>
+</tr>
+</tbody>
+</table>
+<h2 id="saved-games">Saved games</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature, its mind, body, spells, leash and what it is doing are saved and loaded with the game</td>
+<td>todo</td>
+<td>no saved games; see <a href="../engine/index.html">../engine</a></td>
+</tr>
+<tr>
+<td>Loading a saved game puts the creature back mid-action</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="sharing-creatures">Sharing creatures</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The game makes a web page about the creature from a template: its name, age, alignment, health, energy and strength, with pictures</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The Creature Cave can take a picture of the creature for that page</td>
+<td>todo</td>
+<td>see <a href="creature_cave.html">creature_cave.md</a></td>
+</tr>
+<tr>
+<td>The creature upload tool sends a creature file to the game's website under the player's account</td>
+<td>n/a</td>
+<td>the service no longer exists</td>
+</tr>
+<tr>
+<td>A packed creature file is sent between machines</td>
+<td>todo</td>
+<td>no network play; see <a href="../multiplayer/index.html">../multiplayer</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="network-and-skirmish">Network and skirmish</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>In a network game each player brings their own creature from their profile</td>
+<td>todo</td>
+<td>see <a href="../multiplayer/index.html">../multiplayer</a>; a skirmish loads the profile's creature too: <a href="../multiplayer/skirmish.html">../multiplayer/skirmish.md</a></td>
+</tr>
+<tr>
+<td>A creature's state is added to the game's checksum, so the machines can tell when they drift apart</td>
+<td>todo</td>
+<td>no network checksum; the debug state hash used by our verification runs has a "creature" part (<code>player_creature::HashCreatures</code>, test <code>TheHashPartFollowsEachCreaturesFields</code>), which is not the game's</td>
+</tr>
+<tr>
+<td>Selecting another player's creature waits for the network to agree</td>
+<td>n/a</td>
+<td>covered under network play</td>
+</tr>
+<tr>
+<td>In skirmish, computer players' creatures load from the template minds</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A computer player balances its creature's knowledge to its difficulty</td>
+<td>todo</td>
+<td>unconfirmed: ../rival_gods/skirmish_opponents.md found no difficulty setting anywhere; needs checking what "difficulty" this reads</td>
+</tr>
+</tbody>
+</table>
+<h2 id="debug-output">Debug output</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The game can print a creature's information and statistics</td>
+<td>partial</td>
+<td>the debug spawner shows a creature's body, mind and needs (<code>src/Debug/CreatureSpawner*.cpp</code>); the game's own print-out isn't reproduced</td>
+</tr>
+<tr>
+<td>A land script command lists all creatures</td>
+<td>todo</td>
+<td><code>OUTPUT_CREATURES</code> throws "not implemented" (<code>src/LHScriptX/MapScriptCommands.cpp</code>)</td>
+</tr>
+<tr>
+<td>Cheats: learn everything, learn ordinary things, next stage of growing up, make it fight</td>
+<td>partial</td>
+<td>only the debug spawner: set the stage of growing up, clear learning, start fights; see <a href="development_phases.html">development_phases.md</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

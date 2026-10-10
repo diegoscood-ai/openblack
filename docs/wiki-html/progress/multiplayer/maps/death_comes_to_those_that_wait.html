@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Death Comes To Those That Wait — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="here" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#death-comes-to-those-that-wait">Death Comes To Those That Wait</a><ul>
+<li><a href="#where-it-comes-from">Where it comes from</a></li>
+<li><a href="#choosing-and-starting-it">Choosing and starting it</a></li>
+<li><a href="#the-land">The land</a></li>
+<li><a href="#your-start-player-one">Your start (player one)</a></li>
+<li><a href="#the-creatures-and-computer-gods">The creatures and computer gods</a></li>
+<li><a href="#neutral-towns">Neutral towns</a></li>
+<li><a href="#nature-and-features">Nature and features</a></li>
+<li><a href="#winning-and-losing">Winning and losing</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="death-comes-to-those-that-wait">Death Comes To Those That Wait</h1>
+<p>A fan-made four-corner land by "Fat Omen", reworked from Four Gods: you start rich, with nine powerful dispensers in an
+empty corner, but seven computer creatures begin together a short walk from your temple, among 22 neutral towns of
+every tribe, most with wonders. Its start line warns "Make your moves fast now or never!".</p>
+<p><strong>Players:</strong> 4 (two computer gods, plus creatures for four players with no temple) · <strong>Landscape:</strong> <code>Data/Landscape/Multi_Player/DCTTTW.lnd</code> · <strong>Script:</strong> <code>Scripts/Playgrounds/Death Comes To Those That Wait.txt</code> · <strong>Mode:</strong> skirmish</p>
+<p><strong>Progress: 14/33 done, 11 partial — 59%</strong></p>
+<p>What the script builds, object by object, is in
+<a href="../../scripts/playground_scripts.html#death-comes-to-those-that-wait-loading">playground_scripts.md</a> (its "Death Comes
+To Those That Wait" sections); this file covers the land as a player meets it. How skirmish is set up is in
+<a href="../skirmish.html">../skirmish.md</a>; the computer gods are in
+<a href="../../rival_gods/skirmish_opponents.html">../../rival_gods/skirmish_opponents.md</a>.</p>
+<p>openblack reads this script to its end, skipping its misspelt lines as the game does, so the land is built; the rows
+still todo are mostly about how a skirmish starts and ends.</p>
+<h2 id="where-it-comes-from">Where it comes from</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A fan's land, signed "By Fat Omen" in its title, built on Four Gods: the same land size, the same corner temples and home towns for players three and four, and the same spot for the computer creatures</td>
+<td>n/a</td>
+<td>history of the file; neither file is among those the game installs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="choosing-and-starting-it">Choosing and starting it</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The skirmish box lists it by its file name, "Death Comes To Those That Wait"</td>
+<td>partial</td>
+<td>the debug menu lists it by its start message title "Death Comes To Those That Wait -- By Fat Omen" with the warning as a tooltip (<code>src/Level.cpp</code>); no skirmish box</td>
+</tr>
+<tr>
+<td>The whole script loads, the game skipping lines it does not know</td>
+<td>partial</td>
+<td><code>Script::Load</code> logs and skips each unknown or misspelt line and goes on, as the game does, but it also skips the line missing its closing bracket, which the game reads (not checked against the file, which is not in our game folder)</td>
+</tr>
+<tr>
+<td>No story script runs on a skirmish land</td>
+<td>todo</td>
+<td>our tree starts the story's control script (<code>LandControlAll</code>) on the start land whatever it is, and leaves the story's scripts running when a land is opened from the debug menu</td>
+</tr>
+<tr>
+<td>The script gives no start point, so the camera starts zoomed onto your own temple</td>
+<td>todo</td>
+<td><code>FeatureScriptCommands::StartCameraPos</code> looks at the point given, here the land's corner (0, 0), off the land</td>
+</tr>
+<tr>
+<td>Its start message is the title and "Make your moves fast now or never!"</td>
+<td>todo</td>
+<td><code>START_GAME_MESSAGE</code> and <code>ADD_GAME_MESSAGE_LINE</code> are empty; only the debug land list reads them, for its title and tooltip (<code>src/Level.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-land">The land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A land the size of Four Gods' (about 1,900 by 1,750 paces) but raised and reshaped: hilly almost everywhere, mountains reaching the highest possible height, and only an eighth at sea level</td>
+<td>done</td>
+<td><code>Game::LoadLandscape</code></td>
+</tr>
+<tr>
+<td>One climate over the whole land: a mild 12 degrees, no rain and no wind</td>
+<td>done</td>
+<td><code>CREATE_WEATHER_CLIMATE</code> and its rain, temperature and wind (<code>magic::map_script</code>, <code>src/Magic/Script/MapScriptWeather.cpp</code>); see ../../weather/</td>
+</tr>
+<tr>
+<td>A day of 1,700 seconds with short nights (8.3%) and dawns and dusks (7%)</td>
+<td>done</td>
+<td><code>SET_NIGHTTIME</code> (<code>DayNightClock::SetCycleFromLand</code>)</td>
+</tr>
+<tr>
+<td>Six land balance settings, three more than the game's own lands set</td>
+<td>partial</td>
+<td><code>land_balance::Set</code> keeps all six; only numbers 4 (villagers' speed) and 5 (trees) are read (<code>src/LandBalance.h</code>)</td>
+</tr>
+<tr>
+<td>Towns project half their normal influence and gods their full influence</td>
+<td>done</td>
+<td><code>SET_TOWN_INFLUENCE_MULTIPLIER</code> and <code>SET_PLAYER_INFLUENCE_MULTIPLIER</code>, kept in the map script globals and read by <code>src/ECS/Influence</code></td>
+</tr>
+<tr>
+<td>The music follows the nearest town's tribe, here every one of the game's nine tribes</td>
+<td>done</td>
+<td><code>src/Audio/GameMusic.cpp</code>, by the nearest town's tribe (not checked against the file, which is not in our game folder)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="your-start-player-one">Your start (player one)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Your temple in a corner, beside an Aztec home town of nine houses, a graveyard, a crèche, a storehouse, a workshop, two fields and about 14 villagers</td>
+<td>done</td>
+<td>towns, buildings and villagers as in <a href="../../scripts/playground_scripts.html">playground_scripts.md</a></td>
+</tr>
+<tr>
+<td>A vast store: 5,000,000 food and 5,000,000 wood in the storehouse and 1,275,000 more wood in the workshop</td>
+<td>done</td>
+<td><code>AbodeArchetype</code> keeps the amounts</td>
+</tr>
+<tr>
+<td>Your town offers stronger heal, teleport, stronger food, stronger water, creature itchiness and wood</td>
+<td>partial</td>
+<td>belief set (<code>ecs::town_belief::SetBeliefInPlayer</code>) and the town holds its miracles (<code>magic::script::CreateNewTownSpell</code>); how far they reach its god's worship site icons is in <a href="../../miracles/dispensers_and_seeds.html">../../miracles/dispensers_and_seeds.md</a></td>
+</tr>
+<tr>
+<td>Nine Indian miracle dispensers belonging to your town but standing in the empty far corner where Four Gods' player two lived: the strongest beam explosion, lightning, storm and fire, flying and ground flocks, stronger heal, nature and stronger food</td>
+<td>done</td>
+<td><code>CREATE_SPELL_DISPENSER</code> (<code>magic::script::CreateSpellDispenser</code>)</td>
+</tr>
+<tr>
+<td>119 special villagers meant for every town are written with a misspelt command, so the game makes none of them</td>
+<td>done</td>
+<td>the reader logs the unknown command and skips each line, so none is made, as in the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-creatures-and-computer-gods">The creatures and computer gods</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Players three and four are computer gods with Celtic towns and temples in their corners, as in Four Gods</td>
+<td>partial</td>
+<td>the towns and temples are made (<code>TownArchetype</code>, <code>CitadelArchetype</code>); <code>TOGGLE_COMPUTER_PLAYER</code> adds the players, but no mind thinks for them</td>
+</tr>
+<tr>
+<td>Player three has a tortoise and player four a zebra from the generic computer creature mind</td>
+<td>partial</td>
+<td><code>CREATE_CREATURE_FROM_FILE</code> (<code>FeatureScriptCommands::CreateCreatureFromFile</code>, <code>CreatureArchetype</code>) with the mind loaded; it faces a fixed way and takes our starting size; nothing of its god steers it</td>
+</tr>
+<tr>
+<td>Players two, five, six and seven get a horse each from the same mind but no temple, no town and no computer god</td>
+<td>partial</td>
+<td><code>CREATE_CREATURE_FROM_FILE</code> (<code>FeatureScriptCommands::CreateCreatureFromFile</code>, <code>CreatureArchetype</code>) with the mind loaded; it faces a fixed way and takes our starting size; nothing of its god steers it; how the game drives a creature whose player has no god is not determined</td>
+</tr>
+<tr>
+<td>A fifth horse is given to "player eight", a name the game does not have (it knows players one to seven and neutral)</td>
+<td>todo</td>
+<td>our tree knows players one to seven and neutral too (<code>k_PlayerNamesStrs</code>, <code>src/Enums.h</code>); <code>CreateCreatureFromFile</code> does not check the name, so this creature gets a player number out of range; what the game does is not determined</td>
+</tr>
+<tr>
+<td>All seven creatures start on one spot about 500 paces from your temple: the danger the title warns of</td>
+<td>partial</td>
+<td>made where the script puts them; nothing of their gods steers them</td>
+</tr>
+<tr>
+<td>Each creature is sized to match your own</td>
+<td>todo</td>
+<td><code>SET_COMPUTER_PLAYER_CREATURE_LIKE</code> is empty</td>
+</tr>
+<tr>
+<td>Belief in players two, three and four is capped in every town (at 1, or at a half in one Egyptian town), yours not</td>
+<td>done</td>
+<td><code>SET_TOWN_BELIEF_CAP</code> (<code>ecs::town_belief::SetCap</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="neutral-towns">Neutral towns</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>22 neutral towns of all nine tribes (Norse, Greek, Indian, Japanese, African, Celtic, Egyptian, Tibetan, Aztec), twelve of them with a wonder</td>
+<td>done</td>
+<td><code>TownArchetype</code> and the buildings, wonders included (<code>AbodeArchetype</code>) (not checked against the file, which is not in our game folder)</td>
+</tr>
+<tr>
+<td>Two towns share the number 15 (a Greek town and the Tibetan town in the middle)</td>
+<td>todo</td>
+<td>what the game does is not determined; our tree's lookup (<code>ecs::town_queries::FindTownWithID</code>) takes the first town with that number, the players' towns before the neutral ones</td>
+</tr>
+<tr>
+<td>The Tibetan town in the middle has a graveyard, a football pitch, 21 houses, about 18 people, 20,000 food and 20,000 wood, and twelve more buildings planned (the Greek town given the same number has its own wonder)</td>
+<td>partial</td>
+<td>built with its stores, belief and planned buildings (<code>CreatePlannedAbode</code>); its pitch never plays: football is always off in multiplayer (<a href="../../town/football.html#the-add-on-and-its-switch">../../town/football.md</a>)</td>
+</tr>
+<tr>
+<td>The towns offer 102 miracles between them, from lightning and shields to the strongest storms and explosions</td>
+<td>partial</td>
+<td>the towns hold their miracles (<code>magic::script::CreateNewTownSpell</code>), but a town changing hands does not yet pass them on to the winner's worship site (<a href="../../miracles/dispensers_and_seeds.html">../../miracles/dispensers_and_seeds.md</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="nature-and-features">Nature and features</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2,163 trees in 40 forests, nine big forests and 86 fireflies</td>
+<td>partial</td>
+<td>trees, forests and big forests are made (<code>TreeArchetype</code>, <code>ecs::CreateForest</code>, <code>BigForestArchetype</code>); <code>CREATE_FIRE_FLY</code> is empty; every map gets the nightly top-up instead; see <a href="../../nature/fireflies.html">../../nature/fireflies.md</a></td>
+</tr>
+<tr>
+<td>1,219 animals in 159 flocks, among them 15 tigers, 9 tortoises, 2 lions, bats and swallows as well as farm animals, wolves and birds</td>
+<td>done</td>
+<td><code>CREATE_NEW_ANIMAL</code> (<code>AnimalArchetype</code>) and <code>CREATE_FLOCK</code>; how they behave is the animals' domain</td>
+</tr>
+<tr>
+<td>61 fields and 40 fish farms</td>
+<td>done</td>
+<td><code>FieldArchetype</code>, <code>FishFarmArchetype</code></td>
+</tr>
+<tr>
+<td>79 lanterns, twelve of them singing stone bases</td>
+<td>done</td>
+<td><code>StreetLanternArchetype</code> (<code>CREATE_STREET_LANTERN</code>), the singing stone bases included</td>
+</tr>
+</tbody>
+</table>
+<h2 id="winning-and-losing">Winning and losing</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land has no winning rule of its own; the skirmish's own rule applies</td>
+<td>todo</td>
+<td>not determined what ends a skirmish, and our tree ends none; see ../skirmish.md</td>
+</tr>
+<tr>
+<td>Losing while two or more gods are left shows "You have lost the game." with Watch Game (keep watching the other gods) and Leave Game (leave the skirmish)</td>
+<td>todo</td>
+<td>no end of game in our tree; see ../skirmish.md and <a href="../../story/losing_and_game_over.html">../../story/losing_and_game_over.md</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

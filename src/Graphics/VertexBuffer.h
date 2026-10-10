@@ -73,14 +73,26 @@ using VertexDecl = std::vector<VertexAttrib>;
 class VertexBuffer
 {
 public:
-	VertexBuffer(std::string name, const void* memory, VertexDecl decl) noexcept;
+	/// A dynamic buffer's vertices can be changed after, by Update
+	VertexBuffer(std::string name, const void* memory, VertexDecl decl, bool dynamic = false) noexcept;
+	VertexBuffer(const VertexBuffer&) = delete;
+	VertexBuffer& operator=(const VertexBuffer&) = delete;
 	~VertexBuffer() noexcept;
 
 	[[nodiscard]] uint32_t GetCount() const noexcept;
 	[[nodiscard]] uint32_t GetStrideBytes() const noexcept;
 	[[nodiscard]] uint32_t GetSizeInBytes() const noexcept;
 
+	/// Whether bgfx made the buffer; one it couldn't make isn't drawn
+	[[nodiscard]] bool IsValid() const noexcept;
 	void Bind() const;
+	/// Binds a run of the buffer's vertices
+	void Bind(uint32_t firstVertex, uint32_t count) const;
+	/// Binds the buffer as another vertex stream, read with its own layout: the attributes a draw takes from it
+	/// (a creature's variant meshes for the morphing body)
+	void BindStream(uint8_t stream, VertexLayoutHandle layout) const;
+	/// Replaces a dynamic buffer's vertices, from the start, with bgfx memory of as many or fewer
+	void Update(const void* memory) const;
 
 private:
 	std::string _name;
@@ -89,6 +101,8 @@ private:
 	uint32_t _strideBytes;
 	std::vector<uint32_t> _vertexDeclOffsets;
 	VertexBufferHandle _handle;
+	DynamicVertexBufferHandle _dynamicHandle;
+	bool _dynamic;
 	VertexLayoutHandle _layoutHandle;
 };
 

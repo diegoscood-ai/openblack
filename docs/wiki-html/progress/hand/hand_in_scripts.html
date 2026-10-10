@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hand in scripts — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="here" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#hand-in-scripts">Hand in scripts</a><ul>
+<li><a href="#where-the-hand-is-and-what-it-is-over">Where the hand is and what it is over</a></li>
+<li><a href="#what-the-hand-holds-clicks-and-drops">What the hand holds, clicks and drops</a></li>
+<li><a href="#the-interface-the-hand-may-use">The interface the hand may use</a></li>
+<li><a href="#highlights">Highlights</a></li>
+<li><a href="#the-creature-and-the-leash">The creature and the leash</a></li>
+<li><a href="#hand-demos">Hand demos</a></li>
+<li><a href="#force-feedback">Force feedback</a></li>
+<li><a href="#gestures-and-miracles-from-scripts">Gestures and miracles from scripts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="hand-in-scripts">Hand in scripts</h1>
+<p>Every command of the challenge scripts that reads or drives the god hand: where it is and what it is over, what it holds,
+clicks and drops, hand demos, highlights, force feedback, locking the creature in an interaction, and how much of the
+interface the hand may use. The script language itself is in <a href="../story/index.html">../story/</a>.</p>
+<p><strong>Progress: 19/39 done, 4 partial — 54%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../hand-and-interface.html">The hand and the interface</a>.</p>
+<h2 id="where-the-hand-is-and-what-it-is-over">Where the hand is and what it is over</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scripts read the hand's position, to test it near a thing or drop a marker there</td>
+<td>done</td>
+<td><code>GET_HAND_POSITION</code> in <code>src/CHLApi.cpp</code> (the hand's Transform)</td>
+</tr>
+<tr>
+<td>The position is that of the drawn hand, under the cursor</td>
+<td>partial</td>
+<td>Our <code>GET_HAND_POSITION</code> gives the drawn hand's Transform; the game gives the position the interface reports, the same outside drags (unconfirmed during drags)</td>
+</tr>
+<tr>
+<td>Scripts read the object the hand is over</td>
+<td>todo</td>
+<td><code>GET_OBJECT_HAND_IS_OVER</code> is a stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>Scripts read the hand's state: gripping, turning or zooming the land</td>
+<td>done</td>
+<td><code>GET_HAND_STATE</code> pushes the interface's hand state of the last turn (<code>HandSystemInterface::GetInterfaceHandState</code>: 20 gripping the land, and so on)</td>
+</tr>
+<tr>
+<td>Scripts read whether the player's hand is busy with a miracle charging, or that miracle</td>
+<td>done</td>
+<td><code>IS_SPELL_CHARGING</code>, <code>IS_THAT_SPELL_CHARGING</code> (<code>src/Magic/Script/CHLWorship.cpp</code>, <code>worship::player::AnySpellCharging</code>, <code>IsThatSpellCharging</code>)</td>
+</tr>
+<tr>
+<td>Scripts stop a player's miracle from charging</td>
+<td>done</td>
+<td><code>CLEAR_PLAYER_SPELL_CHARGING</code> -&gt; <code>worship::player::CancelAllSpellsCharging</code> (<code>src/Magic/Script/CHLWorship.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-the-hand-holds-clicks-and-drops">What the hand holds, clicks and drops</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scripts read the object the player's hand holds</td>
+<td>todo</td>
+<td>Both <code>GET_OBJECT_HELD</code> natives (199, 273) are stubs in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>Scripts test whether an object is in a creature's hand</td>
+<td>todo</td>
+<td><code>IN_CREATURE_HAND</code> is a stub</td>
+</tr>
+<tr>
+<td>Scripts read the last object the hand dropped, and clear it</td>
+<td>todo</td>
+<td><code>GET_OBJECT_DROPPED</code>, <code>CLEAR_DROPPED_BY_OBJECT</code> are stubs</td>
+</tr>
+<tr>
+<td>Scripts test whether an object was clicked, read it, and clear it</td>
+<td>partial</td>
+<td><code>GAME_THING_CLICKED</code> and <code>CLEAR_CLICKED_OBJECT</code> read and clear the hand's tap memory (<code>HandSystem::RememberTapped</code>, 15 s); <code>GET_OBJECT_CLICKED</code> is a stub</td>
+</tr>
+<tr>
+<td>Scripts test whether a place was clicked, and clear it</td>
+<td>done</td>
+<td><code>POSITION_CLICKED</code>, <code>CLEAR_CLICKED_POSITION</code> (<code>HandSystem::PositionClicked</code>, <code>ClearClickedPosition</code>)</td>
+</tr>
+<tr>
+<td>Scripts make an object one the hand may or may not pick up</td>
+<td>done</td>
+<td><code>SET_ID_PICKUPABLE</code> -&gt; <code>ecs::object_flags::SetPickupable</code>; the hand's press, grab and tap all check <code>object_flags::IsCannotBePickedUp</code>; test <code>test_hand_pick_reject</code></td>
+</tr>
+<tr>
+<td>Scripts read the town's totem, to watch the hand work it</td>
+<td>todo</td>
+<td><code>GET_TOTEM_STATUE</code> is a stub</td>
+</tr>
+<tr>
+<td>The last object picked up and dropped are forgotten when they are destroyed</td>
+<td>partial</td>
+<td>The tap memory forgets a destroyed object (<code>GAME_THING_CLICKED</code> checks it is still valid); nothing keeps the last object picked up or dropped</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-interface-the-hand-may-use">The interface the hand may use</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scripts set the interface level, which sets what the camera and hand may do and how far the hand reaches</td>
+<td>done</td>
+<td><code>SET_INTERFACE_INTERACTION</code> -&gt; <code>help::interface_interaction::Set</code> (<code>src/Help/InterfaceInteraction.cpp</code>): the interface flags, the camera features and the hand's reach (75 for JUST_GRAB, 1800 otherwise)</td>
+</tr>
+<tr>
+<td>The level also makes the tooltip of a held object come from elsewhere</td>
+<td>todo</td>
+<td>Not ported</td>
+</tr>
+<tr>
+<td>Scripts let the hand into the temple, or keep it out</td>
+<td>done</td>
+<td><code>SET_INTERFACE_CITADEL</code> -&gt; <code>worship::citadel::SetInterfaceCitadel</code>, read by the entrance's tap check</td>
+</tr>
+<tr>
+<td>Scripts turn the cinema bars on, which hide the hand and take the interface away</td>
+<td>done</td>
+<td><code>SET_WIDESCREEN</code> -&gt; <code>help::script_control::SetWideScreen</code> (<code>src/Help/ScriptControl.cpp</code>); see <a href="placement.html">placement.md</a></td>
+</tr>
+<tr>
+<td>Scripts ask whether the mouse has a wheel and how many buttons it has</td>
+<td>todo</td>
+<td><code>HAS_MOUSE_WHEEL</code>, <code>NUM_MOUSE_BUTTONS</code> are stubs (false and 0)</td>
+</tr>
+<tr>
+<td>Scripts ask whether a key is held</td>
+<td>todo</td>
+<td><code>KEY_DOWN</code> is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="highlights">Highlights</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scripts put a highlight (a challenge or silver scroll marker) at a place, for the hand to tap</td>
+<td>done</td>
+<td><code>CREATE_HIGHLIGHT</code> -&gt; <code>ecs::script_highlight::Create</code> (<code>src/ECS/ScriptHighlight.cpp</code>); see <a href="../story/index.html">../story/</a></td>
+</tr>
+<tr>
+<td>Scripts show or hide a highlight and set how it looks</td>
+<td>done</td>
+<td><code>SET_DRAW_HIGHLIGHT</code> (the camera control's draw highlight setting) and <code>HIGHLIGHT_PROPERTIES</code> (<code>script_highlight::SetScriptId</code>)</td>
+</tr>
+<tr>
+<td>Tapping a highlight marks it clicked for the script, with its chime</td>
+<td>done</td>
+<td><code>ecs::script_highlight::InterfaceTap</code>: marked activated, with the chime for a "Did you know?"; see <a href="clicking_and_activating.html">clicking_and_activating.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-creature-and-the-leash">The creature and the leash</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scripts tie a creature's leash to the hand, or untie it</td>
+<td>done</td>
+<td><code>ATTACH_OBJECT_LEASH_TO_HAND</code> -&gt; <code>creature_leash::script::AttachToHand</code></td>
+</tr>
+<tr>
+<td>Scripts read what the creature is interacting with</td>
+<td>todo</td>
+<td><code>CREATURE_INTERACTING_WITH</code> is a stub</td>
+</tr>
+<tr>
+<td>Scripts read how hard the hand has stroked or slapped the creature</td>
+<td>todo</td>
+<td><code>GET_INTERACTION_MAGNITUDE</code> is a stub; our tree keeps the sum (<code>CreatureHandSystem::GetFeedbackSum</code>)</td>
+</tr>
+<tr>
+<td>Scripts test whether the creature is locked in an interaction with the hand</td>
+<td>todo</td>
+<td><code>IS_LOCKED_INTERACTION</code> is a stub</td>
+</tr>
+<tr>
+<td>Scripts light glows on the creature's hands</td>
+<td>todo</td>
+<td><code>SET_CREATURE_CREED_PROPERTIES</code> is a stub; see <a href="hand_effects_and_glows.html">hand_effects_and_glows.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="hand-demos">Hand demos</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scripts start a recorded hand demo by name</td>
+<td>done</td>
+<td><code>PLAY_HAND_DEMO</code> -&gt; <code>hand_demo::Play</code> (<code>src/Input/HandDemo.cpp</code>): <code>Data/HandDemo/&lt;name&gt;.hnd</code> replayed through the real hand, the camera set from each record. The throwing demo is played by <a href="../story/silver_scrolls/throwing_stones.html">Throwing Stones</a>; the totem and miracle demos by <a href="../story/gold_scrolls/worship_site.html#the-miracle-hand-demo">Worship Site</a>, the gestures demo by <a href="../story/gold_scrolls/impress_village.html#the-gesture-hand-demo">Impress Village</a> and the influence demo by Khazar's lesson on influence (<a href="../story/gold_scrolls/impress_village.html#khazars-lesson-on-influence">impress_village.md</a>)</td>
+</tr>
+<tr>
+<td>A demo can be started with a pause on its triggers, or without moving the player's hand</td>
+<td>done</td>
+<td><code>PLAY_HAND_DEMO</code>'s wait-for-trigger and keep-hand arguments go to <code>hand_demo::Play</code> (without keep-hand the held object is dropped and the charging spells cancelled)</td>
+</tr>
+<tr>
+<td>Scripts wait until a demo has played</td>
+<td>done</td>
+<td><code>IS_PLAYING_HAND_DEMO</code> pushes the negation of <code>hand_demo::IsPlaying</code>, as the original</td>
+</tr>
+<tr>
+<td>Scripts wait for a demo's triggers, to talk over each step</td>
+<td>done</td>
+<td><code>HAND_DEMO_TRIGGER</code> -&gt; <code>hand_demo::ConsumeTrigger</code></td>
+</tr>
+<tr>
+<td>Scripts set which keys a demo shows being pressed</td>
+<td>done</td>
+<td><code>SET_HAND_DEMO_KEYS</code> does nothing, as the original's empty handler</td>
+</tr>
+<tr>
+<td>While a demo plays, the hand's camera hints come from the demo's recorded keys</td>
+<td>todo</td>
+<td>Not ported: the demo's camera tricon flags</td>
+</tr>
+</tbody>
+</table>
+<h2 id="force-feedback">Force feedback</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scripts ask whether a force-feedback mouse is plugged in</td>
+<td>partial</td>
+<td><code>IMMERSION_EXISTS</code> always pushes false; the only quest that needs one: <a href="../story/silver_scrolls/the_immersion_mushrooms.html">The Immersion Mushrooms</a></td>
+</tr>
+<tr>
+<td>Scripts start and stop a force-feedback effect, or stop them all</td>
+<td>todo</td>
+<td><code>START_IMMERSION</code>, <code>STOP_IMMERSION</code>, <code>STOP_ALL_IMMERSION</code> are stubs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="gestures-and-miracles-from-scripts">Gestures and miracles from scripts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scripts draw a gesture with the hand, as the tutorial does</td>
+<td>todo</td>
+<td><code>PLAY_GESTURE</code> is a stub; see <a href="../gesture/index.html">../gesture/</a></td>
+</tr>
+<tr>
+<td>Scripts give the player a miracle straight into the hand</td>
+<td>done</td>
+<td><code>CREATE</code> of a one-shot spell in the hand -&gt; <code>magic::script::CreateOneShotSpellInHand</code> -&gt; <code>magic::one_off::CreateSpellIntoHand</code> (<code>src/Magic/Script/CHLWorship.cpp</code>); see <a href="../miracles/index.html">../miracles/</a></td>
+</tr>
+<tr>
+<td>Scripts set a virtual influence that lets the hand act where the player has none</td>
+<td>todo</td>
+<td><code>SET_VIRTUAL_INFLUENCE</code> is a stub; see <a href="../worship/index.html">../worship/</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

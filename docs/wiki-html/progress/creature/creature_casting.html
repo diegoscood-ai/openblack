@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Creature casting — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="here" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#creature-casting">Creature casting</a><ul>
+<li><a href="#which-miracles-it-may-try">Which miracles it may try</a></li>
+<li><a href="#paying-for-it">Paying for it</a></li>
+<li><a href="#how-it-casts">How it casts</a></li>
+<li><a href="#choosing-a-miracle">Choosing a miracle</a></li>
+<li><a href="#one-off-miracles">One-off miracles</a></li>
+<li><a href="#telling-it-to-cast">Telling it to cast</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="creature-casting">Creature casting</h1>
+<p>A creature can cast the miracles it has learnt. It chooses a miracle the way it chooses any action, to satisfy a desire:
+lightning or a fireball when angry, a heal or food when kind, a spell on another creature when playful. It walks to a
+good distance, turns, may draw the miracle's gesture, then takes up its casting pose while the miracle flows from its
+hands. It pays with its own energy, not the player's prayer power, and a miracle it has only half learnt may fizzle.
+What each miracle does belongs to <a href="../miracles/index.html">../miracles/</a>; how miracles are learnt is in
+<a href="learning_by_observation.html">learning_by_observation.md</a>; casting in a fight is in <a href="fighting.html">fighting.md</a>.</p>
+<p><strong>Progress: 0/62 done, 3 partial — 2%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../creature.html">The creature: groundwork, random streams and what is unknown</a>.</p>
+<h2 id="which-miracles-it-may-try">Which miracles it may try</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It may try a miracle once it has seen it half the times it needs to learn it</td>
+<td>todo</td>
+<td>our tree counts the sightings of a miracle (<code>creature_watching::SeeMiracle</code>, see <a href="learning_by_observation.html">learning_by_observation.md</a>) but a creature never tries one: no creature casting in our tree</td>
+</tr>
+<tr>
+<td>A try short of all but one of the sightings it needs fizzles, and counts as one more sighting, so trying teaches it</td>
+<td>todo</td>
+<td>no creature casting in our tree</td>
+</tr>
+<tr>
+<td>A fizzled try shows a light bulb over its head</td>
+<td>todo</td>
+<td>no creature casting and no light bulb effect</td>
+</tr>
+<tr>
+<td>After a fizzle it is embarrassed, and one time in two sad as well</td>
+<td>todo</td>
+<td>no creature casting; the embarrassed animation exists (<code>CreatureLayers.cpp</code>) but nothing plays it for a fizzle</td>
+</tr>
+<tr>
+<td>It tries a power-up of a miracle only once grown past a stage</td>
+<td>todo</td>
+<td>no creature casting in our tree</td>
+</tr>
+<tr>
+<td>How skilled it is at a miracle can make it miss its aim</td>
+<td>todo</td>
+<td>not modelled</td>
+</tr>
+<tr>
+<td>Scripts can give it the most skill at a miracle</td>
+<td>todo</td>
+<td>not modelled</td>
+</tr>
+<tr>
+<td>It can't cast a miracle at something it can't be cast at; trying leaves it frustrated, wanting food above all</td>
+<td>todo</td>
+<td>the magic cast rules answer no for every creature (<code>src/Magic/CastRules.h</code>: creatures are not ported)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="paying-for-it">Paying for it</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A creature pays with its body: chants for its size and strength over the energy it has above a floor</td>
+<td>todo</td>
+<td>no creature casting; <code>SpellCreator</code> gives a creature 0 chants (<code>src/Magic/Core/SpellCreator.h</code>)</td>
+</tr>
+<tr>
+<td>Paying costs energy (by a share for the kind of miracle) and tires it, by no more than seven tenths at a time</td>
+<td>todo</td>
+<td>no creature casting in our tree</td>
+</tr>
+<tr>
+<td>It can't cast a miracle that would leave it too exhausted to pay for making it</td>
+<td>todo</td>
+<td>no creature casting in our tree</td>
+</tr>
+<tr>
+<td>A miracle that lasts keeps drawing on the creature while it runs</td>
+<td>todo</td>
+<td>a creature as a spell's creator is not ported (<code>src/Magic/Core/SpellCreator.h</code>)</td>
+</tr>
+<tr>
+<td>The player's prayer power is not spent on the creature's miracles</td>
+<td>todo</td>
+<td>no creature casting in our tree</td>
+</tr>
+<tr>
+<td>In a fight each miracle costs stamina, and it can't cast one it hasn't the stamina for</td>
+<td>todo</td>
+<td>a fight cast plays only its animation (<code>CreatureFightSystem</code>: the creature's miracles come later); stamina is never used up (<code>CreatureFight.h</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-it-casts">How it casts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>One time in five it first shows how it feels: angry before lightning, kind before a helpful miracle, playful before a spell on a creature</td>
+<td>todo</td>
+<td>no creature casting in our tree</td>
+</tr>
+<tr>
+<td>Lightning is cast from fifty away, backing off to ten more than its height</td>
+<td>todo</td>
+<td>no creature casting in our tree</td>
+</tr>
+<tr>
+<td>A helpful miracle is cast from twice its height; a spell on a creature from five times, backing off to twice</td>
+<td>todo</td>
+<td>no creature casting in our tree</td>
+</tr>
+<tr>
+<td>Getting away from the thing, it goes to the nearest clear area as wide as it is tall</td>
+<td>todo</td>
+<td>no creature casting in our tree</td>
+</tr>
+<tr>
+<td>It turns to face the thing, within an eighth of a turn</td>
+<td>todo</td>
+<td>no creature casting in our tree</td>
+</tr>
+<tr>
+<td>Going near gets stuck: it gives up and holds back that desire for a while</td>
+<td>todo</td>
+<td>no creature casting in our tree</td>
+</tr>
+<tr>
+<td>It draws the miracle's gesture in the air before casting</td>
+<td>todo</td>
+<td>no creature casting in our tree</td>
+</tr>
+<tr>
+<td>It takes up its casting pose: start, loop, end; the miracle is cast as the loop begins, held three seconds, and let go as the pose ends</td>
+<td>partial</td>
+<td>only in fights: the cast start, loop and end animations (<code>CreatureFight.h</code>, <code>k_StartCast</code> to <code>k_EndCast</code>) play in <code>CreatureFightSystem</code>, with no miracle made</td>
+</tr>
+<tr>
+<td>Water is cast with a scattering pose instead</td>
+<td>todo</td>
+<td>not modelled</td>
+</tr>
+<tr>
+<td>A move the body can't make gives up the rest of the casting</td>
+<td>todo</td>
+<td>no creature casting in our tree</td>
+</tr>
+<tr>
+<td>The miracle is as big as what it is cast at (a little bigger than its radius, a creature by its height, a fire miracle by the caster's height)</td>
+<td>todo</td>
+<td>no creature casting in our tree</td>
+</tr>
+<tr>
+<td>The miracle's effect flows from between the creature's hands towards what it is cast at, following its hands as it moves</td>
+<td>todo</td>
+<td>no creature casting in our tree</td>
+</tr>
+<tr>
+<td>Food, wood and water are cast from a point above the target, with a beam from each of its hands to that point</td>
+<td>partial</td>
+<td>the table's flag is read (<code>magic::IsCreatureCastFromAbove</code>, test <code>MagicTables.effectGetters</code>), shown in the debug Magic window only; no creature casts</td>
+</tr>
+<tr>
+<td>A miracle that lasts only while held, such as lightning, stops when it lets go</td>
+<td>todo</td>
+<td>no creature casting in our tree</td>
+</tr>
+<tr>
+<td>The miracle runs for the creatures' own time from the tables</td>
+<td>partial</td>
+<td><code>magic::GetTimerWhenCreatureCasting</code> reads the table; nothing calls it, as no creature casts</td>
+</tr>
+<tr>
+<td>Its town fears or respects it for what it casts</td>
+<td>todo</td>
+<td>no creature casting; see <a href="town_actions.html">town_actions.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="choosing-a-miracle">Choosing a miracle</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Angry, it casts lightning at something</td>
+<td>todo</td>
+<td>the planner weighs no miracle actions (<code>src/Creature/CreaturePlanActions.h</code>: miracles wait for the systems they need)</td>
+</tr>
+<tr>
+<td>Kind, it heals a villager hurt to seven tenths of its life or less</td>
+<td>todo</td>
+<td>not in the planner's actions (<code>CreaturePlanActions.h</code>)</td>
+</tr>
+<tr>
+<td>Playful or spiteful, it casts a spell on another creature: freeze, small, big, weak, strong, fat, thin, invisible, nice, angry, hungry, frightened, tired, ill, thirsty, itchy</td>
+<td>todo</td>
+<td>the spells' effects on a creature exist (<code>src/Creature/CreatureSpells.*</code>, <code>Magic/Spells/SpellCreature</code>, cast by the player), but a creature never casts one; see <a href="../miracles/index.html">../miracles/</a></td>
+</tr>
+<tr>
+<td>It casts a spell meant to amuse another creature</td>
+<td>todo</td>
+<td>no creature casting in our tree</td>
+</tr>
+<tr>
+<td>Angry, it casts a fireball or an explosion</td>
+<td>todo</td>
+<td>no creature casting in our tree</td>
+</tr>
+<tr>
+<td>It casts a lightning storm or a tornado</td>
+<td>todo</td>
+<td>no creature casting in our tree</td>
+</tr>
+<tr>
+<td>It casts the power-ups of lightning, fireball, explosion, food, heal and shield</td>
+<td>todo</td>
+<td>no creature casting in our tree</td>
+</tr>
+<tr>
+<td>It casts a miracle to impress villagers</td>
+<td>todo</td>
+<td>not modelled</td>
+</tr>
+<tr>
+<td>It casts food by a worship site, or into the storehouse</td>
+<td>todo</td>
+<td>the deeds exist for mimicry (<code>src/Creature/CreatureDeeds.h</code>) but no creature casting; see <a href="town_actions.html">town_actions.md</a></td>
+</tr>
+<tr>
+<td>It casts wood by a building site or the workshop</td>
+<td>todo</td>
+<td>no creature casting; see <a href="town_actions.html">town_actions.md</a></td>
+</tr>
+<tr>
+<td>It sprinkles water on crops or waters trees for a town</td>
+<td>todo</td>
+<td>no creature casting; see <a href="town_actions.html">town_actions.md</a></td>
+</tr>
+<tr>
+<td>It puts out a fire with water</td>
+<td>todo</td>
+<td>no creature casting; see <a href="town_actions.html">town_actions.md</a></td>
+</tr>
+<tr>
+<td>It casts a forest</td>
+<td>todo</td>
+<td>not modelled</td>
+</tr>
+<tr>
+<td>It shields a town, or casts a physical shield</td>
+<td>todo</td>
+<td>not modelled</td>
+</tr>
+<tr>
+<td>It looks for a town of its own that needs a miracle, and decides whether the nearest town should be helped or attacked</td>
+<td>todo</td>
+<td>not modelled</td>
+</tr>
+<tr>
+<td>It heals itself</td>
+<td>todo</td>
+<td>not modelled</td>
+</tr>
+<tr>
+<td>On fire, it puts the fire out on itself with water</td>
+<td>todo</td>
+<td>not modelled</td>
+</tr>
+<tr>
+<td>It casts teleport to travel to something, or explores and casts teleport</td>
+<td>todo</td>
+<td>not modelled; only villagers use the teleport stones in our tree (<code>VillagerTeleport.cpp</code>)</td>
+</tr>
+<tr>
+<td>It copies a miracle it saw its god cast</td>
+<td>todo</td>
+<td>not modelled; see <a href="learning_by_observation.html">learning_by_observation.md</a></td>
+</tr>
+<tr>
+<td>It shows a friend how to cast fireball, lightning, the storm, food or wood</td>
+<td>todo</td>
+<td>see <a href="friends_and_other_creatures.html">friends_and_other_creatures.md</a></td>
+</tr>
+<tr>
+<td>It casts warming or cooling spells, or cures illness, on a friend</td>
+<td>todo</td>
+<td>see <a href="friends_and_other_creatures.html">friends_and_other_creatures.md</a></td>
+</tr>
+<tr>
+<td>It swaps minds with another creature</td>
+<td>todo</td>
+<td>not modelled</td>
+</tr>
+</tbody>
+</table>
+<h2 id="one-off-miracles">One-off miracles</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Holding a one-off miracle, it casts it to attack</td>
+<td>todo</td>
+<td>not modelled</td>
+</tr>
+<tr>
+<td>Holding a one-off miracle, it casts it to help</td>
+<td>todo</td>
+<td>not modelled</td>
+</tr>
+<tr>
+<td>Holding a one-off miracle, it casts it in play</td>
+<td>todo</td>
+<td>not modelled</td>
+</tr>
+<tr>
+<td>Holding a one-off miracle, it casts it to restore its health</td>
+<td>todo</td>
+<td>not modelled</td>
+</tr>
+<tr>
+<td>It picks up a one-off miracle lying about and casts it, for any of those four</td>
+<td>todo</td>
+<td>not modelled</td>
+</tr>
+<tr>
+<td>The player can hand it a one-off miracle</td>
+<td>todo</td>
+<td>giving things to the creature isn't modelled; see <a href="object_actions.html">object_actions.md</a></td>
+</tr>
+<tr>
+<td>It steals miracles and miracle seeds</td>
+<td>todo</td>
+<td>not modelled</td>
+</tr>
+<tr>
+<td>Catching a fireball, it throws it back</td>
+<td>todo</td>
+<td>not modelled</td>
+</tr>
+</tbody>
+</table>
+<h2 id="telling-it-to-cast">Telling it to cast</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The debug tools and testbed can tell a creature to cast any miracle at something</td>
+<td>todo</td>
+<td>the debug spawner can only cast a miracle near a creature for it to watch (<code>CreatureSpawnerMind.cpp</code>, "Cast it near"), not have the creature cast; no testbed in our tree</td>
+</tr>
+<tr>
+<td>Scripts can make a creature cast a miracle</td>
+<td>todo</td>
+<td>the script functions that force creature actions are stubs in <code>src/CHLApi.cpp</code> (<code>CREATURE_DO_ACTION</code>, <code>SET_CREATURE_QUEUE_FIGHT_SPELL</code>)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

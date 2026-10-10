@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Release the Creature — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#release-the-creature">Release the Creature</a><ul>
+<li><a href="#is-it-in-the-game">Is it in the game?</a></li>
+<li><a href="#set-up">Set-up</a></li>
+<li><a href="#the-cut-scene">The cut scene</a></li>
+<li><a href="#freeing-the-creature">Freeing the creature</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="release-the-creature">Release the Creature</h1>
+<p>A cut gold-scroll story chapter in which the player's creature is found tied by its leash to a boulder in a prison on a
+hill, watched by a hostile creature, and the player frees it by hitting the boulder with thrown rocks. It was never
+compiled into the game and its title and dialogue were never written into the text table; the shipped third land frees
+the creature from Lethys's prison statues instead
+(<a href="so_you_couldnt_bear_to_be_without_your_creature.html">so_you_couldnt_bear_to_be_without_your_creature.md</a>).</p>
+<p><strong>Land:</strong> none (never started; an early form of the third land's creature rescue) · <strong>Giver:</strong> none (a cut scene when the camera finds the creature) · <strong>Script:</strong> ReleaseTheCreature · <strong>Reward:</strong> none (the creature itself) · <strong>Repeatable:</strong> no</p>
+<p><strong>Progress: 0/0 done, 0 partial — 0%</strong></p>
+<p>Sources: the script's source text and its single-quest test launcher, the compiler's challenge list and the game's
+text table. Every row is n/a: nothing in the shipped game can start it.</p>
+<h2 id="is-it-in-the-game">Is it in the game?</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The script is not among the files compiled into the shipped <code>challenge.chl</code></td>
+<td>n/a</td>
+<td>never started by the game: only its own (uncompiled) test launcher runs it</td>
+</tr>
+<tr>
+<td>Its challenge name keeps an entry in the compiler's list of challenges</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Its title (title number 22), its reminder and all seven of its "save your creature" lines are missing from the shipped text table and from the development build's text source, so it could not even be compiled against the shipped text</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The shipped third land's arrival script still has a commented-out log line with this same title and reminder, showing the chapter was folded into the third land's arrival</td>
+<td>n/a</td>
+<td>see <a href="so_you_couldnt_bear_to_be_without_your_creature.html">so_you_couldnt_bear_to_be_without_your_creature.md</a></td>
+</tr>
+<tr>
+<td>Its markers do not match a village on any shipped land closely (the nearest town to the prison is 110 away on the first land and 200 to 480 away on the others)</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>It waits on a "Wonder built" flag that is declared for every script but that no script, shipped or cut, ever sets, so even if started it would stop for good before its cut scene</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="set-up">Set-up</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The player's creature is moved into the prison on the hill; a boulder is made beside it at one and a half times size, which can't be picked up or moved, and the creature's leash is tied to the boulder</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The creature is made fully mature (marked in the source as something to remove) and made to look sad</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>An opposing creature is made beside the prison as a copy of the player's creature, but a cow, fully mature, wanting only to be angry (a note says it should become the opponent's real creature)</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Five half-size rocks are put around the opponent, which looks at the player's creature and then at each rock in turn without approaching</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Five rocks are put at a spot near the player's influence as ammunition; each one that is thrown away more than 20 from its spot is put back there and counted as used, and a lost one is made again, until the creature is freed</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Once the Wonder flag is set, an area of influence of radius 80 is made at the ammunition spot</td>
+<td>n/a</td>
+<td>never started by the game; the flag is never set</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-cut-scene">The cut scene</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It starts when the camera comes within 150 of the creature and the creature is on screen; both advisors step out</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The story log gets a gold scroll (title 22, reminder 21) at nothing done</td>
+<td>n/a</td>
+<td>never started by the game; neither text exists</td>
+</tr>
+<tr>
+<td>Seven lines are spoken in turn</td>
+<td>n/a</td>
+<td>never started by the game; their words were never written, so who speaks them is unknown</td>
+</tr>
+</tbody>
+</table>
+<h2 id="freeing-the-creature">Freeing the creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>When anything hits the boulder, it becomes movable and can be picked up, the leash is untied and the creature is free</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Until then the creature cycles between looking sad, looking at the opponent and standing idle</td>
+<td>n/a</td>
+<td>never started by the game; a mistake in the counting (the idle step waits for a count that is never reached) means it is sad once, looks at the opponent once and then stops changing</td>
+</tr>
+<tr>
+<td>Nothing marks the scroll complete or reports the rescue: the script just ends</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

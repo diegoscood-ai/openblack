@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hand physics — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="here" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#hand-physics">Hand physics</a><ul>
+<li><a href="#the-held-things-spring">The held thing's spring</a></li>
+<li><a href="#letting-go">Letting go</a></li>
+<li><a href="#strength">Strength</a></li>
+<li><a href="#the-hands-measured-motion">The hand's measured motion</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="hand-physics">Hand physics</h1>
+<p>How the hand's movement is turned into motion for what it holds: the spring that drags the hand (and what hangs from
+it) after the cursor, the speed it lets go with, the hand's strength, and how the hand's motion is measured for
+miracles. Pulling anchored things is in <a href="tug.html">tug.md</a>; the flight of thrown things is in <a href="../physics/index.html">../physics/</a>.</p>
+<p>openblack: the spring is in <code>HandPlacement.cpp</code> (<code>src/ECS/Systems/Implementations/</code>), run by
+<code>HandSystem</code>; the hand's measured motion is <code>src/Magic/HandMotion.cpp</code>. Tests: <code>test/hand/test_hand_motion.cpp</code>,
+<code>test/test_release_prediction.cpp</code>.</p>
+<p><strong>Progress: 16/21 done, 4 partial — 86%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../hand-and-interface.html">The hand and the interface</a>.</p>
+<h2 id="the-held-things-spring">The held thing's spring</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ready to throw, the hand doesn't move rigidly: a spring pulls it after its target, and the held thing hangs from it</td>
+<td>done</td>
+<td><code>HandPlacement.cpp</code>: the holding spring runs from the second press (IN THROW, <code>_releaseArmed</code>) and the hand is drawn at the spring's point</td>
+</tr>
+<tr>
+<td>The spring pulls with a stiffness of 260 per unit of stretch and is damped by 40 per unit of speed</td>
+<td>done</td>
+<td><code>HandPlacement.cpp</code>: v += (260 d - 40 v) x 0.01 each step</td>
+</tr>
+<tr>
+<td>It is stepped in fixed steps of 10 ms of game time, as many as the clock allows and at least one a frame, counting all the time held</td>
+<td>done</td>
+<td><code>HandPlacement.cpp</code>: 10 ms steps, at least one a frame, until they catch up with the holding clock (which counts every holding frame's game ms, spring or not)</td>
+</tr>
+<tr>
+<td>Its speed is capped at 124 units a second</td>
+<td>done</td>
+<td><code>HandPlacement.cpp</code>: the speed is capped at 124</td>
+</tr>
+<tr>
+<td>The spring takes hold only once the hand is ready to throw, starting on its target with no speed the frame after; a refused release turns it off again</td>
+<td>done</td>
+<td><code>HandPlacement.cpp</code>: the spring starts with zero velocity from the hand's last point at the second press; a refused release turns it off (<code>HandTurn.cpp</code>)</td>
+</tr>
+<tr>
+<td>Things that follow the hand directly, such as a miracle's seed, skip the spring</td>
+<td>done</td>
+<td><code>HandPlacement.cpp</code>: no spring for a spell seed (the grain state, <code>HandGrain.cpp</code>)</td>
+</tr>
+<tr>
+<td>The hand is drawn where the spring puts it, lifted by what it holds</td>
+<td>done</td>
+<td><code>HandPlacement.cpp</code>: the hand's Transform is the spring's point, at the grip height of the hold type; see <a href="holding.html">holding.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="letting-go">Letting go</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The spring's velocity at the moment of letting go is the throw's velocity</td>
+<td>done</td>
+<td><code>HandSystem::SendRelease(_handVelocity)</code>: the spring's velocity; <code>physics::from_hand</code> throws when its ground speed squared is over 4</td>
+</tr>
+<tr>
+<td>A thrown thing leaves without spin; 180 ms later, whatever was let go and still has a body gets a one-turn twist of 1.6 × mass × speed about the level axis across the hand's motion</td>
+<td>done</td>
+<td><code>HandTurn.cpp</code>: 180 ms after a release the release impulse packet; <code>physics::from_hand</code> adds the torque (1.6 x mass x speed) about the level axis across the hand's displacement (<code>src/ECS/Physics/FromHand.cpp</code>)</td>
+</tr>
+<tr>
+<td>The point a fifth of a second of velocity ahead of the held thing is worked out but not used: the throw starts from the held pose</td>
+<td>partial</td>
+<td>The release prediction runs (<code>PredictRelease</code>, tests <code>ReleasePrediction.*</code> in <code>test/test_release_prediction.cpp</code>), but setting the object from the release pose is pending (<code>FromHand.h</code>)</td>
+</tr>
+<tr>
+<td>The thing's turn as the hand held it is kept for its flight</td>
+<td>partial</td>
+<td>The thrown body starts from the held object's Transform; the release pose from the hand's angles is pending (<code>FromHand.h</code>)</td>
+</tr>
+<tr>
+<td>The hand's velocity, spin, position and angles are what other players receive to replay the throw</td>
+<td>partial</td>
+<td>The throw packet carries the velocity, the angular momentum, the position and the angles (<code>HandTurn.cpp</code>), applied at the next turn; there are no other players</td>
+</tr>
+</tbody>
+</table>
+<h2 id="strength">Strength</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hand's greatest pulling force is 600000 times one more than its strength, and nothing ever sets the strength above 0</td>
+<td>todo</td>
+<td>Not ported: our tug is approximate, a tree comes out once the hand has moved weight / 1000 sideways (<code>HandTrees.cpp</code>)</td>
+</tr>
+<tr>
+<td>The hand's size is kept between 0.05 and 2 times its standard size</td>
+<td>done</td>
+<td>Our hand has no size factor either (the hand's size is 1), so the clamp never matters</td>
+</tr>
+<tr>
+<td>How much the hand can pull free depends on the thing's weight against that force</td>
+<td>partial</td>
+<td><code>HandTrees.cpp</code>: the weight decides how far the hand must move before the tree comes out (approximate, not the game's force); see <a href="tug.html">tug.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-hands-measured-motion">The hand's measured motion</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hand's movement over each frame is smoothed into a velocity</td>
+<td>done</td>
+<td><code>HandHolding.cpp</code>: the grain state (a spell seed in the hand) smooths the hand's per-frame velocity with k = -10 ln(0.2) (<code>magic::FilterHandVelocity</code>, <code>src/Magic/HandMotion.cpp</code>); test <code>HandMotion.TheHandsMovementGetsFourFifthsOfTheWayInATenthOfASecond</code></td>
+</tr>
+<tr>
+<td>A miracle thrown from the hand (a fireball) leaves with that velocity</td>
+<td>done</td>
+<td>The grain state's velocity is the hand velocity the seed's cast and release take (<code>HandHolding.cpp</code>, <code>HandSpellSeed.cpp</code>); see <a href="../miracles/index.html">../miracles/</a></td>
+</tr>
+<tr>
+<td>Spinning the hand while holding a miracle gives it a spin from the hand's sideways acceleration</td>
+<td>done</td>
+<td><code>magic::StepHandSpin</code> (<code>src/Magic/HandMotion.cpp</code>) from <code>HandHolding.cpp</code>: the angular velocity (0, -(a_s / v_s), 0) from the smoothed sideways acceleration</td>
+</tr>
+<tr>
+<td>Below a small speed the hand is taken as still</td>
+<td>done</td>
+<td><code>magic::StepHandSpin</code>: no angular velocity at a speed of 0.0001 or less (<code>magic::k_HandStill</code>)</td>
+</tr>
+<tr>
+<td>A spring-smoothed copy of the cursor trails it, which leans the hand and tilts what it holds</td>
+<td>done</td>
+<td><code>HandSystem::Update</code>: the smoothed mouse (clamped to 80 px) leans the hand, and <code>HandSystem::HeldSway</code> tilts what it holds, up to 0.3 rad (<code>magic::hand_hold::CursorSway</code>)</td>
+</tr>
+<tr>
+<td>Fast hand movement blows smoke and bends trees</td>
+<td>done</td>
+<td><code>chimney_smoke::UpdateHandWind</code> (<code>src/ECS/ChimneySmoke.cpp</code>); trees bend from what the hand carries (<code>UpdateTreeBends</code>, <code>src/ECS/Trees.cpp</code>). Our wiki differs: the trees bend away from what the hand carries, not from the hand's own movement (<a href="../../trees.html#drawing">page</a>)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

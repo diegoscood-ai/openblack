@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Birds — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="here" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#birds">Birds</a><ul>
+<li><a href="#kinds-and-placing">Kinds and placing</a></li>
+<li><a href="#flying">Flying</a></li>
+<li><a href="#birds-and-the-world">Birds and the world</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="birds">Birds</h1>
+<p>The flying animals: crows, doves, swallows, pigeons, seagulls, bats and vultures, flying in flocks over the land, and
+the doves or bats that circle each temple. The flock miracle's doves and bats are in <code>../miracles/</code>.</p>
+<p><strong>Progress: 11/15 done, 2 partial — 80%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../animals.html">Animals: AI, states and clips</a>, <a href="../../animation.html">Skeletal animation (villagers and animals)</a>.</p>
+<h2 id="kinds-and-placing">Kinds and placing</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land scripts make flocks of birds and the birds in them</td>
+<td>done</td>
+<td>CREATE_FLOCK, CREATE_ANIMAL and CREATE_NEW_ANIMAL (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>, <code>src/ECS/Archetypes/AnimalArchetype.cpp</code>)</td>
+</tr>
+<tr>
+<td>Each kind has its own models, clips (fly, stand, eat, sleep, thrown, dead) and table values</td>
+<td>done</td>
+<td>the table values and each kind's clips, flapping or gliding at random (<code>BirdClip</code>, <code>src/ECS/AnimalAnimations.cpp</code>)</td>
+</tr>
+<tr>
+<td>A bird is born at a random age and sized for it</td>
+<td>done</td>
+<td>the random age and the scale for it (<code>src/ECS/AnimalAI.cpp</code>); <code>test/test_animal_age.cpp</code></td>
+</tr>
+<tr>
+<td>Doves circle a good player's temple, bats an evil one's, changing as the alignment changes (unconfirmed exact rule)</td>
+<td>todo</td>
+<td>the temple's dove and bat kinds are in the tables only</td>
+</tr>
+<tr>
+<td>Seagulls keep to the coast (unconfirmed)</td>
+<td>n/a</td>
+<td>Our wiki differs: every bird kind flies the same legs from where it is; nothing keeps seagulls to the coast (<a href="../../animals.html#birds-crow-dove-swallow-rock-dove-seagull-bat">animals</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="flying">Flying</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A flock's leader flies legs about where the flock lives, between its kind's inner radius and the flock's reach</td>
+<td>done</td>
+<td>the leader's legs of up to the domain radius from where it is (<code>src/ECS/AnimalBirds.cpp</code>)</td>
+</tr>
+<tr>
+<td>Followers fly to points near the leader, then keep a formation behind it by their place in the flock</td>
+<td>done</td>
+<td>the followers' point near the leader and their formation slot (<code>src/ECS/AnimalBirds.cpp</code>)</td>
+</tr>
+<tr>
+<td>Birds keep a height above the land within their kind's band, climbing slowly</td>
+<td>done</td>
+<td>the height band, the slow climb and never under 2 m (<code>src/ECS/AnimalBirds.cpp</code>)</td>
+</tr>
+<tr>
+<td>Birds turn by at most their kind's turn angle and bank into turns</td>
+<td>done</td>
+<td>the turn angle and the banking through the drawn matrix (<code>src/ECS/AnimalBirds.cpp</code>, <code>src/ECS/MobileDrawing.cpp</code>)</td>
+</tr>
+<tr>
+<td>Birds land to eat and to sleep, on the ground or on objects, and take off again</td>
+<td>n/a</td>
+<td>Our wiki differs: birds never land in this version of the original, as every bird's sleep value is 0 (<a href="../../animals.html#birds-crow-dove-swallow-rock-dove-seagull-bat">animals</a>)</td>
+</tr>
+<tr>
+<td>Flocks of the same kind can merge, and a small flock joins a larger one</td>
+<td>partial</td>
+<td>the flock merge is ported for the animals' interact decision (<code>LookForFlocksInSpiral</code>, <code>src/ECS/AnimalAI.cpp</code>); whether a bird flock reaches it was not checked</td>
+</tr>
+<tr>
+<td>Birds sleep at night</td>
+<td>n/a</td>
+<td>Our wiki differs: birds have no day and night; the bats fly by day (<a href="../../animals.html#birds-crow-dove-swallow-rock-dove-seagull-bat">animals</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="birds-and-the-world">Birds and the world</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Bats and vultures frighten creatures</td>
+<td>todo</td>
+<td>no creature fear of bats or vultures was found</td>
+</tr>
+<tr>
+<td>Birds look at and flee from miracles and the hand (unconfirmed which kinds)</td>
+<td>n/a</td>
+<td>Our wiki differs: birds take no reactions (<a href="../../animals.html#reactions">animals</a>)</td>
+</tr>
+<tr>
+<td>A bird killed falls out of the sky</td>
+<td>done</td>
+<td>a dying bird goes into the physics with its flight speed along its heading (<code>BirdDying</code>, <code>src/ECS/AnimalBirds.cpp</code>)</td>
+</tr>
+<tr>
+<td>A dead bird lies its time, then goes in a puff of grey smoke</td>
+<td>done</td>
+<td>the corpse's time and the carcass's smoke, as every animal (<code>src/ECS/AnimalAI.cpp</code>, <code>src/ECS/DisappearSmoke.cpp</code>)</td>
+</tr>
+<tr>
+<td>Tornadoes carry birds off</td>
+<td>done</td>
+<td>the tornado carries any animal (<code>src/Particles/Rules/Storm.cpp</code>)</td>
+</tr>
+<tr>
+<td>The hand can pick up birds the table allows, and throw them</td>
+<td>done</td>
+<td>the hand takes only what the table allows (<code>playerCanPickUp</code>). Our wiki differs: no bird's table entry allows it, so the hand never holds a bird (<a href="../../animals.html#birds-crow-dove-swallow-rock-dove-seagull-bat">animals</a>)</td>
+</tr>
+<tr>
+<td>The creature watches birds, and may catch and eat them (unconfirmed)</td>
+<td>partial</td>
+<td>the creature's eye is caught by animals; eating birds: see <code>../creature/</code></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

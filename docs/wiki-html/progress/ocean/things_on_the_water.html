@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Things on the water — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="here" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#things-on-the-water">Things on the water</a><ul>
+<li><a href="#rings-and-splashes">Rings and splashes</a></li>
+<li><a href="#light-on-the-water">Light on the water</a></li>
+<li><a href="#life-and-objects-at-sea">Life and objects at sea</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="things-on-the-water">Things on the water</h1>
+<p>What happens on and under the sea's surface: rings where things splash, the hand's light at night, fish, boats and
+nets, and what floats or sinks.</p>
+<p><strong>Progress: 16/19 done, 1 partial — 87%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../water.html">Water in the game</a>.</p>
+<h2 id="rings-and-splashes">Rings and splashes</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A ring of the smoke texture spreads and fades on the surface over 0.7 seconds where something splashes</td>
+<td>done</td>
+<td><code>src/ECS/WaterRings.cpp</code>, <code>Renderer::DrawWaterRings</code>; test <code>Water.ringTimingInSinglePrecision</code> (<code>test/test_water.cpp</code>)</td>
+</tr>
+<tr>
+<td>Rings are capped; when full a new one is not made</td>
+<td>done</td>
+<td>The 1024-ring pool (<code>src/ECS/WaterRings.h</code>)</td>
+</tr>
+<tr>
+<td>Rings keep the land's light of when they were made</td>
+<td>done</td>
+<td><code>ecs::AddWaterRing</code> fixes the colour; test <code>LandLightTable.RingColourFixedAtCreation</code></td>
+</tr>
+<tr>
+<td>Rings stop growing while the game is paused</td>
+<td>done</td>
+<td>The rings age with the game time (<code>src/ECS/WaterRings.cpp</code>)</td>
+</tr>
+<tr>
+<td>The hand splashes where it grips the land at the water</td>
+<td>done</td>
+<td><code>src/ECS/Systems/Implementations/HandFish.cpp</code>, from the grip (<code>HandPlacement.cpp</code>)</td>
+</tr>
+<tr>
+<td>Things thrown or dropped into the sea splash and ring</td>
+<td>done</td>
+<td>The water hit's ring, foam and sound (<code>src/ECS/Physics/CollisionSounds.cpp</code>) and the bobbing ripples (<code>src/ECS/Physics/PhysicsObjects.cpp</code>); see ../physics/</td>
+</tr>
+<tr>
+<td>Rain makes rings on the water</td>
+<td>todo</td>
+<td>Not in our tree; see ../weather/rain.md</td>
+</tr>
+<tr>
+<td>The water miracle splashes and ripples where it falls</td>
+<td>partial</td>
+<td>see ../miracles/water.md</td>
+</tr>
+<tr>
+<td>Big splashes of spray when something heavy lands in the sea</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="light-on-the-water">Light on the water</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>At night the hand's light glows warm on the water under it</td>
+<td>done</td>
+<td><code>src/Graphics/HandWaterGlow.cpp</code>; test <code>HandWaterGlow.WarmsThePaletteColourTowardsOrange</code></td>
+</tr>
+<tr>
+<td>The glow only shows where there is water near the hand and the hand's light is strong enough</td>
+<td>done</td>
+<td><code>src/Graphics/HandWaterGlow.cpp</code>; test <code>HandWaterGlow.ShowsOnlyNearWater</code></td>
+</tr>
+<tr>
+<td>Lightning lights the sea as it lights the land</td>
+<td>done</td>
+<td>The sea takes the light table's last entry, which the flash lifts (<code>LandLightTable::Build</code>), as our wiki describes (<a href="../../day-night-weather.html#climate">day-night-weather.md</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="life-and-objects-at-sea">Life and objects at sea</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Objects thrown into the sea float or sink</td>
+<td>done</td>
+<td><code>PhysicsBody::GroundAndWater</code>; see ../physics/water_physics.md</td>
+</tr>
+<tr>
+<td>Villagers thrown into the sea drown</td>
+<td>done</td>
+<td><code>src/ECS/VillagerDrowning.cpp</code>; see ../physics/water_physics.md</td>
+</tr>
+<tr>
+<td>Sharks swim off the coast and take what falls in</td>
+<td>done</td>
+<td><code>src/ECS/Sharks.cpp</code> (moved by the script's walk path, with their wake). Our wiki differs: the sharks have no AI and take nothing; the script moves them (<a href="../../water.html#sharks-class-whale">water.md</a>)</td>
+</tr>
+<tr>
+<td>Seagulls fly over the coast</td>
+<td>done</td>
+<td>The birds (<code>src/ECS/AnimalBirds.cpp</code>); see ../animal/</td>
+</tr>
+<tr>
+<td>Shoals of fish scatter round things in the water</td>
+<td>done</td>
+<td><code>src/ECS/FishShoals.cpp</code> (a splash scares them)</td>
+</tr>
+<tr>
+<td>Fishermen's nets and fish farms stand in the water, cut by the sea plane</td>
+<td>done</td>
+<td><code>src/ECS/FishFarms.cpp</code>, <code>DrawFishPlots</code> (<code>src/Graphics/RendererFishPlot.cpp</code>); see ../resources/ and ../building/</td>
+</tr>
+<tr>
+<td>A boat sits on the water where the story calls for one (unconfirmed which lands)</td>
+<td>done</td>
+<td>The missionaries' boat of Land 1 (<code>src/ECS/MissionaryBoat.cpp</code>, <code>src/Graphics/RendererBoat.cpp</code>); see ../story/</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

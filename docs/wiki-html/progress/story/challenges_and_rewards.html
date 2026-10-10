@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Challenges and rewards — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="here" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#challenges-and-rewards">Challenges and rewards</a><ul>
+<li><a href="#running-a-challenge">Running a challenge</a></li>
+<li><a href="#rewards">Rewards</a></li>
+<li><a href="#creature-swaps">Creature swaps</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="challenges-and-rewards">Challenges and rewards</h1>
+<p>How a challenge runs across the lands: it is found by its scroll, recorded when started and finished with how well it
+went and how good or evil the player was, and pays out a reward. The scrolls themselves are in
+../interface/scrolls_and_signs.md.</p>
+<p>Every silver scroll, land by land, is listed in <a href="silver_scrolls.html">silver_scrolls.md</a>; the shared creature swap is in
+<a href="silver_scrolls/creature_swaps.html">silver_scrolls/creature_swaps.md</a> and the breeder in
+<a href="silver_scrolls/the_creature_breeder.html">silver_scrolls/the_creature_breeder.md</a>.</p>
+<p><strong>Progress: 0/23 done, 5 partial — 11%</strong></p>
+<h2 id="running-a-challenge">Running a challenge</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A challenge starts when its scroll is tapped and the advisors announce it</td>
+<td>todo</td>
+<td>the scroll (<code>CreateHighlight</code>), the click (<code>GameThingClicked</code>) and <code>ChallengeHighlightNotify</code> with the advisors are real; most challenges are never reached (Land 1 stops at the creature gate, Lands 2-5 need <code>LOAD_MAP</code>); see ../interface/scrolls_and_signs.md</td>
+</tr>
+<tr>
+<td>Gold scrolls are the story and must be done; silver ones are optional</td>
+<td>todo</td>
+<td>gold and silver scrolls are highlights of their kind (<code>src/ECS/ScriptHighlight.cpp</code>); which ones the story must finish is the scripts', mostly never reached; every silver scroll: <a href="silver_scrolls.html">silver_scrolls.md</a></td>
+</tr>
+<tr>
+<td>Bronze "did you know" scrolls give tips and some hide puzzles</td>
+<td>partial</td>
+<td>the did-you-know scrolls are placed and read (<code>DidYouKnow</code> script, the bubble in <code>Help/HelpSystem</code>, <code>test/test_did_you_know_bubble.cpp</code>); the puzzles they hide are mostly on later lands</td>
+</tr>
+<tr>
+<td>A challenge can be set to wait until another is finished</td>
+<td>todo</td>
+<td>the scripts' own waits run in our script machine; most challenges are never reached; e.g. <a href="silver_scrolls/the_ogre.html">The Ogre</a> waits for the guide's fight lesson, and <a href="silver_scrolls/the_shaolin.html">The Shaolin</a>'s Wonder comes only if it was done before the creature's rescue</td>
+</tr>
+<tr>
+<td>A started challenge is recorded with a title, a reminder and a picture</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub in <code>src/CHLApi.cpp</code>: no challenge is recorded</td>
+</tr>
+<tr>
+<td>Its record is updated with how well it went (0 to 1) and the alignment it earned</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> is a stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>Tapping the scroll again replays the challenge's reminder</td>
+<td>partial</td>
+<td>the reminder scripts call only real natives; the challenge log behind it is not made (<code>Snapshot</code> stub); see ../interface/scrolls_and_signs.md</td>
+</tr>
+<tr>
+<td>The challenge room shows every recorded challenge</td>
+<td>todo</td>
+<td>the temple's rooms exist (<code>src/3D/TempleScrolls.cpp</code>, <code>src/3D/TempleSigns.cpp</code>), but no challenge is ever recorded; see ../temple/challenge_room.md</td>
+</tr>
+<tr>
+<td>A challenge can be replayed from the challenge room</td>
+<td>todo</td>
+<td>no recorded challenges; see ../temple/challenge_room.md</td>
+</tr>
+<tr>
+<td>What the player did in a challenge moves their alignment</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code>, which carries the alignment, is a stub; see ../worship/alignment.md</td>
+</tr>
+<tr>
+<td>Each time a challenge's record is updated, its alignment (−1 to 1) moves the player's alignment, scaled by a factor of the player's own</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> is a stub; the factor's value is not determined; seen in <a href="silver_scrolls/the_pied_piper.html">The Pied Piper</a> and <a href="silver_scrolls/the_sea.html">The Sea</a>; see ../worship/alignment.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="rewards">Rewards</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A reward chest falls from the sky with a trail of dust</td>
+<td>todo</td>
+<td><code>CreateReward</code> is a stub and our tree has no reward chest; e.g. the toy ball of <a href="silver_scrolls/throwing_stones.html">Throwing Stones</a></td>
+</tr>
+<tr>
+<td>A reward can appear in a town, or without falling</td>
+<td>todo</td>
+<td><code>CreateRewardInTown</code> and <code>CreateReward</code> are stubs in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>Opening a reward chest gives what it holds</td>
+<td>todo</td>
+<td>no reward chest in our tree; e.g. the large food reward of <a href="silver_scrolls/the_lost_flock.html">The Lost Flock</a></td>
+</tr>
+<tr>
+<td>The first reward is explained by the advisors</td>
+<td>todo</td>
+<td>the first-reward help scripts wait on <code>GetHelp</code>, a stub, and no chest is made</td>
+</tr>
+<tr>
+<td>A miracle dispenser as a reward, with how many charges and how often it refills</td>
+<td>partial</td>
+<td>a script can make a dispenser (<code>CREATE</code> of a spell dispenser, <code>magic::script::CreateSpellDispenser</code>, <code>src/Worship/SpellDispenser.cpp</code>); the reward script's help lines need <code>GetFirstHelp</code> and <code>GetLastHelp</code>, stubs; see ../miracles/dispensers_and_seeds.md, every dispenser reward in <a href="rewards.html">rewards.md</a></td>
+</tr>
+<tr>
+<td>One-shot miracle seeds as a reward</td>
+<td>partial</td>
+<td>a script can make a one-shot seed (<code>CREATE</code> of a one-shot spell, <code>magic::script::CreateOneShotSpell</code>); the chest that would hold one is not made (<code>CreateReward</code> stub); see ../miracles/dispensers_and_seeds.md</td>
+</tr>
+<tr>
+<td>A new creature to swap for</td>
+<td>todo</td>
+<td><code>SwapCreature</code> is a stub; see ../creature/; the shared offer: <a href="silver_scrolls/creature_swaps.html">creature_swaps.md</a>; e.g. the sheep of <a href="silver_scrolls/the_lost_flock.html">The Lost Flock</a>, the tortoise of <a href="silver_scrolls/the_fish_puzzle.html">The Fish Puzzle</a>, the wolf of <a href="silver_scrolls/the_treacherous_path.html">The Treacherous Path</a></td>
+</tr>
+<tr>
+<td>Gate stones and keys that open the way</td>
+<td>todo</td>
+<td>the gate stones are made by the Land 1 scripts, but the plinth reading (<code>ObjectInfoBits</code>) is a stub, so they never open the gate; see <a href="land_1.html">land_1.md</a></td>
+</tr>
+<tr>
+<td>Rewards are signposted with a bronze scroll</td>
+<td>partial</td>
+<td>the bronze scroll is a script highlight (<code>CreateHighlight</code>); no reward is made to sign; see ../interface/scrolls_and_signs.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creature-swaps">Creature swaps</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The breeder offers creatures; the player confirms with the Action button on the one they want</td>
+<td>todo</td>
+<td><code>SwapCreature</code> and the creature commands are stubs in <code>src/CHLApi.cpp</code>; see <a href="silver_scrolls/the_creature_breeder.html">the_creature_breeder.md</a></td>
+</tr>
+<tr>
+<td>The new creature keeps what the old one learnt</td>
+<td>todo</td>
+<td>no creature swap in our tree (unconfirmed which parts carry over)</td>
+</tr>
+<tr>
+<td>Swap to an ape, a cow, a brown bear and other species through the story</td>
+<td>todo</td>
+<td>no creature swap in our tree; the cut swap scrolls: <a href="silver_scrolls/creature_swaps.html#cut-swap-scrolls-never-in-the-game">creature_swaps.md</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

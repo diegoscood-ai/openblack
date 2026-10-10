@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Music — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="here" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#music">Music</a><ul>
+<li><a href="#choosing-what-plays">Choosing what plays</a></li>
+<li><a href="#tribes-music">Tribes' music</a></li>
+<li><a href="#situations">Situations</a></li>
+<li><a href="#script-music">Script music</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="music">Music</h1>
+<p>The game's music: each tribe's music in good, neutral and evil versions that follow the player's alignment over the
+land, the worship chants, the temple's music, fight music, and the pieces the story's scripts start.</p>
+<p><strong>Progress: 22/26 done, 2 partial — 88%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../audio.html">Audio: the engine, the banks, the music, the voices and the script</a>.</p>
+<h2 id="choosing-what-plays">Choosing what plays</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Once a game turn the music is picked: the temple's music inside the temple, else a script's music, else the land's</td>
+<td>done</td>
+<td><code>game_music::ProcessTurn</code> in <code>src/Audio/Services/GameMusic.cpp</code> (citadel, chant, thing, script, alignment, in that order); tests <code>GameMusicTest.*</code></td>
+</tr>
+<tr>
+<td>Over land, the music of the nearest town's tribe within 300 of the camera, or the last heard while still within 400</td>
+<td>done</td>
+<td><code>GameMusic::AlignmentMusicType</code> with the town from <code>src/ECS/AudioQueries.cpp</code>; tests <code>GameMusicTest.TribeMusicNearTowns</code>, <code>AlignmentMusic.TownTriggerOfTheGame</code></td>
+</tr>
+<tr>
+<td>Away from towns, the generic music of the player's alignment</td>
+<td>done</td>
+<td><code>src/Audio/Services/GameMusic.cpp</code>; test <code>GameMusicTest.AlignmentMusicGenericAt80WithFade</code></td>
+</tr>
+<tr>
+<td>Too high above the land no town is heard</td>
+<td>done</td>
+<td>the height test (under 400) in <code>GameMusic::AlignmentMusicType</code>; test <code>GameMusicTest.AlignmentMusicConditions</code></td>
+</tr>
+<tr>
+<td>The alignment is taken in seven steps and grouped into evil, neutral and good</td>
+<td>done</td>
+<td><code>src/Audio/Services/GameMusic.cpp</code> (discrete alignment and its table); test <code>AlignmentMusic.DiscreteAlignmentAndTables</code></td>
+</tr>
+<tr>
+<td>Changing between versions of the same music carries on in time</td>
+<td>done</td>
+<td>sync groups in <code>src/Audio/Engine/MusicEngine.cpp</code>; test <code>MusicEngineTest.SyncStartsOnTheSameChunkAndSample</code></td>
+</tr>
+<tr>
+<td>A piece that played to its end isn't picked again for a while</td>
+<td>done</td>
+<td><code>src/Audio/Services/GameMusic.cpp</code>; tests <code>GameMusicTest.SilenceAfterTheAlignmentTrackEnds</code>, <code>GameMusicTest.SilenceEndsWhenTheTypeChanges</code></td>
+</tr>
+<tr>
+<td>Each music group remembers where it got to and picks up from there</td>
+<td>done</td>
+<td>the saved positions per group in <code>src/Audio/Services/GameMusic.cpp</code>; test <code>GameMusicTest.AlignmentMusicFromTheSecondHalfLoopsOnce</code></td>
+</tr>
+<tr>
+<td>Scripts turn the alignment music off and on</td>
+<td>done</td>
+<td>ENABLE_DISABLE_ALIGNMENT_MUSIC in <code>src/CHLApi.cpp</code>, <code>src/Audio/Services/ScriptAudioState.cpp</code></td>
+</tr>
+<tr>
+<td>The music forgets what played when a new land loads</td>
+<td>done</td>
+<td><code>audio::ClearMap</code> from <code>Game::LoadMap</code>; test <code>GameMusicTest.ResetValues</code></td>
+</tr>
+<tr>
+<td>A music volume setting</td>
+<td>done</td>
+<td><code>EngineConfig::audioMusicMainVolume</code>, the options box slider (<code>src/Game.cpp</code>) and the Music debug window; not saved to disk yet</td>
+</tr>
+<tr>
+<td>The music fades out when stopped</td>
+<td>done</td>
+<td><code>src/Audio/Engine/MusicEngine.cpp</code>; tests <code>GameMusicTest.StopMusicFadesOut</code>, <code>MusicEngineTest.FadeOutTakes43And27Passes</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="tribes-music">Tribes' music</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Celtic, Aztec, Japanese, Indian, Egyptian, Greek and Tibetan town music, each good, neutral and evil</td>
+<td>done</td>
+<td><code>src/Audio/Services/GameMusic.cpp</code>, banks in <code>src/Audio/Game/BankTables.h</code>; test <code>GameMusicTest.TribeMusicNearTowns</code></td>
+</tr>
+<tr>
+<td>Generic good, neutral and evil music</td>
+<td>done</td>
+<td><code>src/Audio/Services/GameMusic.cpp</code>, <code>src/Audio/Game/BankTables.h</code></td>
+</tr>
+<tr>
+<td>Norse towns have no music of their own and play the Celtic music</td>
+<td>done</td>
+<td><code>src/Audio/Game/BankTables.h</code> (the Norse types point at the Celtic banks)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="situations">Situations</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The temple's music, of the player's alignment, inside the temple</td>
+<td>done</td>
+<td><code>GameMusic::ProcessCitadelMusic</code>; the temple interior answers <code>GameQueries::insideCitadel</code>; tests <code>GameMusicTest.CitadelMusicInsideTheCitadel</code>, <code>GameMusicTest.CitadelMusicWithoutItsBank</code></td>
+</tr>
+<tr>
+<td>Worship chants: each tribe's chant and its sung version while its people worship</td>
+<td>done</td>
+<td><code>GameMusic::ProcessChantMusic</code> with the nearest dancing worship site (<code>ChantSite</code> in <code>src/ECS/AudioQueries.cpp</code>); tests <code>ChantMusic.Table</code>, <code>GameMusicTest.ChantMusicAtTheDance</code></td>
+</tr>
+<tr>
+<td>Creature fight music, and the big fight's own music</td>
+<td>todo</td>
+<td>the fight branch is in <code>GameMusic::ProcessTurn</code>, but nothing registers <code>GameQueries::creatureFightMusic</code>; see ../creature/fighting.md</td>
+</tr>
+<tr>
+<td>Music while the creature dances</td>
+<td>todo</td>
+<td>the dance branch is in <code>GameMusic::ProcessTurn</code>, but nothing registers <code>GameQueries::creatureDanceMusic</code></td>
+</tr>
+<tr>
+<td>The creature's mood shapes the music</td>
+<td>n/a</td>
+<td>Our wiki differs: the original has no mood-driven music; what looks like a music mood controller is network packets (<a href="../../audio.html#intro-trailer-outro-videos-and-menu">audio</a>)</td>
+</tr>
+<tr>
+<td>Music attached to an object, heard by distance (the pied piper's tune)</td>
+<td>done</td>
+<td><code>src/Audio/Services/ThingMusic.cpp</code>, ATTACH_MUSIC, DETACH_MUSIC, MOVE_MUSIC in <code>src/CHLApi.cpp</code>; tests <code>GameMusicTest.PiperOfTheGame</code>, <code>GameMusicTest.ThingMusicPlays3DEveryTurnAndBlocksTheAlignment</code>, <code>ThingMusic.PlayPositionQuantised</code></td>
+</tr>
+<tr>
+<td>The intro and outro music</td>
+<td>partial</td>
+<td>the intro and outro pieces are started by the story scripts (START_MUSIC); the trailer music that plays with the pre-intro film is not played; see ../story/ending.md; the outro plays over the credits: <a href="../story/gold_scrolls/so_this_is_a_fight_to_the_death.html#the-credits">../story/gold_scrolls/so_this_is_a_fight_to_the_death.md</a></td>
+</tr>
+<tr>
+<td>Music from the CD's audio tracks</td>
+<td>n/a</td>
+<td>the game's own banks are used</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-music">Script music</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scripts start and stop a piece of music</td>
+<td>done</td>
+<td>START_MUSIC and STOP_MUSIC in <code>src/CHLApi.cpp</code>, <code>GameMusic::ScriptStartMusic</code>; test <code>GameMusicTest.ScriptMusicOfTheGame</code></td>
+</tr>
+<tr>
+<td>A script piece plays from its start until stopped</td>
+<td>done</td>
+<td><code>src/Audio/Services/GameMusic.cpp</code>; test <code>GameMusicTest.ScriptMusicPlaysOnce2DFromChunk1</code></td>
+</tr>
+<tr>
+<td>The story's pieces: the piper's tunes, the hermit, the missionaries, the intro, the singing stones, the welcome dance, creature chosen, funeral, creature guide, Khazar, Nemesis, twinkle, the whistles, Sleg the ogre, guardian stone, failure, gregorian, Christmas, circus, the epics and the creature's end sequence</td>
+<td>done</td>
+<td>every script music type in <code>src/Audio/Game/BankTables.h</code>; test <code>AudioTables.MusicBanks</code></td>
+</tr>
+<tr>
+<td>Scripts ask whether a piece has played, how far from it they are, and set where it plays from</td>
+<td>done</td>
+<td>MUSIC_PLAYED, LAST_MUSIC_LINE, GET_MUSIC_OBJ_DISTANCE, GET_MUSIC_ENUM_DISTANCE, SET_MUSIC_PLAY_POSITION, RESTART_MUSIC in <code>src/CHLApi.cpp</code>; tests <code>GameMusicTest.PlayDistance</code>, <code>GameMusicTest.MarkersSetTheLineAndTheBeats</code></td>
+</tr>
+<tr>
+<td>The missionaries' sing-along with a bouncing ball over the words</td>
+<td>partial</td>
+<td>the music's line markers are read (LAST_MUSIC_LINE, test <code>GameMusicTest.MarkersSetTheLineAndTheBeats</code>); no bouncing ball over the words; see voices_and_speech.md; the quest: <a href="../story/silver_scrolls/the_explorers.html">the_explorers.md</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

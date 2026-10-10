@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Sculptor (cut silver version) — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-sculptor-cut-silver-version">The Sculptor (cut silver version)</a><ul>
+<li><a href="#is-it-in-the-game">Is it in the game?</a></li>
+<li><a href="#the-introduction">The introduction</a></li>
+<li><a href="#the-rock">The rock</a></li>
+<li><a href="#carving">Carving</a></li>
+<li><a href="#hurting-the-sculptor">Hurting the sculptor</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-sculptor-cut-silver-version">The Sculptor (cut silver version)</h1>
+<p>An early, silver-scroll version of Land 1's sculptor: a sculptor offers to carve the missing creature-gate stone if the
+player brings him the right rock from the old hermit's quarry, then hammers at it for twenty minutes. The shipped game
+replaced it with the gold-scroll story quest of the same title (its own script, in Land 1's story; see
+<a href="../land_1.html">../land_1.md</a>); this version was never compiled.</p>
+<p><strong>Land:</strong> 1 (an early version of it; never started) · <strong>Giver:</strong> a Norse farmer, the sculptor, by his house · <strong>Script:</strong> CreatureRetrieve (file), TheSculptor (its main script) · <strong>Reward:</strong> a lightning bolt miracle seed from the sky, then the carved gate stone · <strong>Repeatable:</strong> no</p>
+<p><strong>Progress: 0/0 done, 0 partial — 0%</strong></p>
+<p>Sources: the script's source text, the shipped sculptor script that superseded it, the uncompiled early Land 1 control
+script, the land map scripts and the game's text table. Every row is n/a: the game never runs this version. Its
+behaviour as shipped belongs to the gold scroll (<a href="../gold_scrolls/the_sculptor.html">../gold_scrolls/the_sculptor.md</a>) and is
+out of this file's scope.</p>
+<h2 id="is-it-in-the-game">Is it in the game?</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>This file is not in the compiled challenge file</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The shipped Land 1 sculptor script defines scripts with the same names (the main script and the "rock returned" step, which takes one more argument there), and the shipped story calls those, never this file's</td>
+<td>n/a</td>
+<td>never started by the game: the compiled file only has the shipped versions</td>
+</tr>
+<tr>
+<td>The uncompiled early Land 1 control script asks to start a script by this file's name, but no script of that name exists (it is only a variable here), so even that early version could not start it</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>It used a silver scroll; the shipped quest uses a gold scroll and records itself as a story quest rather than a challenge</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The title "The Sculptor", the reminder and most of the sculptor's lines are in the text table (shared with the shipped quest); five advisor lines and one reminder of this version are missing</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>It calls the scroll's nag helper with one argument too many for the shipped helper</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Not reachable at all in the shipped game</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-introduction">The introduction</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A sculptor (a Norse farmer) is made by his house; a silver scroll appears over the house and the good advisor nags "There's someone who might need your attention, Leader."</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>On click, a cut scene: he walks out, the camera glides in (4 seconds) and the challenge record opens, reminder "We need to get a carveable stone for the sculptor from the Hermit's Quarry over here."</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The sculptor: "Holy one, I hear you're looking for a Gate Stone." then "I am a sculptor. If you provide me with the right rock I'll carve one for you."</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The camera flies a path to the quarry: "You'll find the rock I need in the Old Hermit's Quarry. Please bring it here."</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Both advisors then speak five lines while the camera flies a second, 15 second path back</td>
+<td>n/a</td>
+<td>never started by the game: lines missing from the text table</td>
+</tr>
+<tr>
+<td>He then wanders around his house (radius 6)</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-rock">The rock</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every 3 seconds, any ordinary rock within 30 of him is checked: he walks to it, says "Hmm. Actually this rock isn't right for carving. Try another." and it is removed</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The right rock (the quarry's gate-stone rock) put down within 30 of him, not held or flying: "Oh that's excellent. Exactly the right kind of rock to work with." the record goes to complete with full good alignment, "Thank you. Come back later and I'll have it finished."</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>A lightning bolt miracle seed then falls from the sky about 14 from him, with the reward camera swoop</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>He walks to the rock, faces it and hammers at it; the record is set back to half done and a 20 minute carving timer starts</td>
+<td>n/a</td>
+<td>never started by the game: the record goes from complete back to half, a quirk of this version</td>
+</tr>
+</tbody>
+</table>
+<h2 id="carving">Carving</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Picking the rock up while he works: "Hey! I haven't finished working on carving the Gate Stone yet!" and the timer pauses with the time left</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Putting it back within 30: "Thank you. Now, if you don't mind. I've got carving to do." he walks to it and hammers again, and the timer resumes</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>When the timer reaches its last second: the rock is replaced by the carved gate stone, "I've finished! It's ready to be placed with the others by the Gate." the record completes, he walks home and is removed</td>
+<td>n/a</td>
+<td>never started by the game: the check is for exactly one second left, which could be missed</td>
+</tr>
+</tbody>
+</table>
+<h2 id="hurting-the-sculptor">Hurting the sculptor</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Thrown with almost no life left: the camera follows him in flight at half game speed while he screams "Aaaaaarrrrrrrggggggghhhh!" and carving stops</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Killed: the good advisor points at him, "What a senseless waste of human life!", the evil advisor "Come on. Let's do another!", and the record closes with full evil alignment; the quest ends</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

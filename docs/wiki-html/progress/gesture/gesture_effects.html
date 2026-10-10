@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gesture trails and effects — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="here" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#gesture-trails-and-effects">Gesture trails and effects</a><ul>
+<li><a href="#a-recognised-gestures-trail">A recognised gesture's trail</a></li>
+<li><a href="#the-chain-behind-the-drawing-hand">The chain behind the drawing hand</a></li>
+<li><a href="#gestures-drawn-by-the-game">Gestures drawn by the game</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="gesture-trails-and-effects">Gesture trails and effects</h1>
+<p>What the player sees and hears when drawing gestures: the glowing chain behind the hand while it draws, and the trail
+of sparkles and light a recognised gesture leaves on the land in the player's colour. Also gestures drawn by scripts and
+the tutorial.</p>
+<p><strong>Progress: 21/24 done, 1 partial — 90%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../magic.html">Magic: the core of the miracles</a>.</p>
+<h2 id="a-recognised-gestures-trail">A recognised gesture's trail</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every recognised gesture except the scribble leaves a trail on the land</td>
+<td>done</td>
+<td><code>gestures::Success(true)</code> calls <code>psys::utility::GestureRecognised</code> (<code>src/Particles/Utility.cpp</code>); a scribble calls <code>Success(false)</code></td>
+</tr>
+<tr>
+<td>The trail needs at least two of the drawn points to lie on the land</td>
+<td>done</td>
+<td><code>utility::GestureRecognised</code> needs at least two samples (<code>src/Particles/Utility.cpp</code>)</td>
+</tr>
+<tr>
+<td>The trail is built from the points of the drawn path and from the gesture's ideal shape, fitted to where it was drawn on the screen and laid on the land under it</td>
+<td>done</td>
+<td><code>utility::GestureRecognised</code>: the stroke's land points and the ideal shape fitted to the matched box and resampled (<code>Utility.cpp</code>)</td>
+</tr>
+<tr>
+<td>Each gesture's ideal shape comes from its own path file in the game's data, the circle's for a gesture without one</td>
+<td>done</td>
+<td><code>src/Magic/Gestures/GestureShapes.cpp</code> (<code>PathSymbol&lt;n&gt;.cam</code> through the resource cache, else the circle's); tests <code>GestureShapeLoader.*</code></td>
+</tr>
+<tr>
+<td>Seen from a low camera, the shape is squashed up the screen until it is no more than twice as deep as wide</td>
+<td>done</td>
+<td><code>utility::GestureRecognised</code>: x 0.75, at most 15 times (<code>Utility.cpp</code>)</td>
+</tr>
+<tr>
+<td>Where the screen shows no land under the shape, its point is put a fixed distance from the camera</td>
+<td>done</td>
+<td>400 m along the ray (<code>Utility.cpp</code>)</td>
+</tr>
+<tr>
+<td>A recognition sound plays as the trail appears, without position for the player's own gestures</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Gesture.cpp</code> (the recognition sample in 2D for this computer's interface)</td>
+</tr>
+<tr>
+<td>Another player's gesture is heard from where their hand was</td>
+<td>n/a</td>
+<td>No network play</td>
+</tr>
+<tr>
+<td>Sparkles in the player's colour flow from the drawn path to the gesture's shape over about half a second</td>
+<td>done</td>
+<td>The <code>UR_GesturingRecognised</code> rule in <code>src/Particles/Rules/Gesture.cpp</code> (in the player's colour, over TimeToIdeal)</td>
+</tr>
+<tr>
+<td>The sparkles are sized by the length of the shape</td>
+<td>done</td>
+<td><code>Gesture.cpp</code>: the sprites' scale is the ideal's length / 100</td>
+</tr>
+<tr>
+<td>The shape is lifted towards a camera looking down on it</td>
+<td>done</td>
+<td><code>Gesture.cpp</code>: the ideal comes towards the camera (at most half way)</td>
+</tr>
+<tr>
+<td>The trail is revealed from both ends</td>
+<td>done</td>
+<td><code>Gesture.cpp</code>: alpha from the two ends</td>
+</tr>
+<tr>
+<td>The sparkles wiggle, each in its own way, then disperse and shrink away</td>
+<td>done</td>
+<td><code>Gesture.cpp</code>: value noise at shuffled phases (<code>src/Particles/Noise.cpp</code>), dispersal after DispersalTime</td>
+</tr>
+<tr>
+<td>After a couple of seconds the sparkles flash and the hand glows in the player's colour, both dying away</td>
+<td>partial</td>
+<td>The collection's alpha pulse is in <code>Gesture.cpp</code>; the hand's colour pulse is not ported</td>
+</tr>
+<tr>
+<td>A sheet of starry light rises along the shape and fades over its life</td>
+<td>done</td>
+<td><code>Gesture.cpp</code> starts the <code>particles::LightSheet</code> (<code>src/Particles/LightSheet.cpp</code>), the particle service moves it on every frame</td>
+</tr>
+<tr>
+<td>The sheet of light is drawn additively, from both sides, its stars sliding along it</td>
+<td>done</td>
+<td><code>particles::draw::AddLightSheets</code> (<code>src/Graphics/ParticleDrawFrame.cpp</code>), one Z object per sheet, drawn in one pass by <code>Renderer::DrawParticleSurface</code> (<code>src/Graphics/RendererRevolvedSurface.cpp</code>)</td>
+</tr>
+<tr>
+<td>Gestures drawn in quick succession each leave their own trail</td>
+<td>done</td>
+<td>Records queue in <code>utility::PendingRecognised</code> (<code>Utility.cpp</code>), one taken per step by the rule</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-chain-behind-the-drawing-hand">The chain behind the drawing hand</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A glowing chain follows the hand while it holds a miracle it can power up, or one a circle sizes</td>
+<td>done</td>
+<td><code>TrailWanted</code> in <code>src/Particles/Utility.cpp</code> (a held seed with the trail shown, or a circle-sized seed); <code>ZR_ChainGesture</code> in <code>src/Particles/Rules/Gesture.cpp</code>, drawn by <code>src/Graphics/RendererChain.cpp</code></td>
+</tr>
+<tr>
+<td>The chain also follows the hand while the miracle selection is open</td>
+<td>done</td>
+<td><code>TrailWanted</code>: the selection open with the hand ready (<code>Utility.cpp</code>)</td>
+</tr>
+<tr>
+<td>Its links are laid each time the hand has moved far enough, older links moving down the chain</td>
+<td>done</td>
+<td><code>ZR_ChainGesture</code> (<code>Gesture.cpp</code>): a joint every MinEmitDist, passed down the chain</td>
+</tr>
+<tr>
+<td>The chain is sized by the hand and by how far the hand is from the camera</td>
+<td>done</td>
+<td><code>TrailScale</code> in <code>Utility.cpp</code> (the hand's scale x the camera-distance table)</td>
+</tr>
+<tr>
+<td>When the hand stops gesturing the chain is left to fade and goes a few seconds later</td>
+<td>done</td>
+<td><code>ZR_ChainGesture</code>: emission stops and the head goes 5 s later</td>
+</tr>
+<tr>
+<td>Turning the chain on or off starts or stops a force-feedback effect</td>
+<td>n/a</td>
+<td>Force-feedback mice are not supported</td>
+</tr>
+</tbody>
+</table>
+<h2 id="gestures-drawn-by-the-game">Gestures drawn by the game</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scripts can draw a gesture's trail on the land as if the player had drawn it</td>
+<td>todo</td>
+<td><code>PLAY_GESTURE</code> is a stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>Tapping some objects draws a gesture's trail over them</td>
+<td>todo</td>
+<td>Nothing in our tree (unconfirmed which objects)</td>
+</tr>
+<tr>
+<td>The tutorial plays recorded hand demos in which the hand draws gestures for the player to copy</td>
+<td>done</td>
+<td><code>src/Input/HandDemo.cpp</code> (<code>PLAY_HAND_DEMO</code>, <code>IS_PLAYING_HAND_DEMO</code> in <code>src/CHLApi.cpp</code>) replays the recorded mouse through the real hand, so its gestures are sampled and recognised like the player's</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

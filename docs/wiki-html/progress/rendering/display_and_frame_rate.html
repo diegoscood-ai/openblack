@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Display and frame rate — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="here" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#display-and-frame-rate">Display and frame rate</a><ul>
+<li><a href="#window-and-device">Window and device</a></li>
+<li><a href="#picture-and-frame-rate">Picture and frame rate</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="display-and-frame-rate">Display and frame rate</h1>
+<p>The game's window and screen: resolution, full screen or windowed, the graphics device, picture settings, vertical sync
+and recovering when the device is lost. The game turn rate is in <a href="../engine/index.html">../engine/</a>; frame statistics and the
+debug wireframe are in <a href="../debug/index.html">../debug/</a>.</p>
+<p><strong>Progress: 4/8 done, 4 partial — 75%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../parity.html">Graphics engine parity: original versus openblack</a>, <a href="../../rendering.html">World rendering: original versus openblack</a>.</p>
+<h2 id="window-and-device">Window and device</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The player picks the screen resolution</td>
+<td>partial</td>
+<td><code>-W</code> and <code>-H</code> on the command line (0 by default: 85 % of the desktop, centred; <code>src/main.cpp</code>); no in-game list of modes</td>
+</tr>
+<tr>
+<td>Full screen or in a window</td>
+<td>done</td>
+<td><code>--window-mode</code> windowed, fullscreen or borderless (<code>src/main.cpp</code>)</td>
+</tr>
+<tr>
+<td>16 or 32 bit colour</td>
+<td>n/a</td>
+<td>modern displays are always 32 bit</td>
+</tr>
+<tr>
+<td>The picture is rebuilt at the new size when the window changes size</td>
+<td>done</td>
+<td><code>Renderer::Reset</code> called on a window resize from <code>src/Game.cpp</code></td>
+</tr>
+<tr>
+<td>The game behaves sensibly while minimised</td>
+<td>done</td>
+<td>on minimise and restore the audio is switched off and on (<code>audio::OnFocus</code> from <code>src/Game.cpp</code>) and the whole game waits until the restore, as the original (<code>src/Windowing/WindowAway.h</code>); switching to another window without minimising changes nothing</td>
+</tr>
+<tr>
+<td>The player picks the graphics device</td>
+<td>partial</td>
+<td><code>--backend-type</code> picks the backend; no choice of adapter</td>
+</tr>
+<tr>
+<td>Losing the graphics device (switching away, a driver reset) is recovered from, textures loaded again</td>
+<td>partial</td>
+<td>left to bgfx</td>
+</tr>
+<tr>
+<td>Anti-aliasing</td>
+<td>n/a</td>
+<td>the game has none; openblack's off-screen targets multisample where the format allows (<code>src/Graphics/FrameBuffer.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="picture-and-frame-rate">Picture and frame rate</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gamma or brightness setting</td>
+<td>n/a</td>
+<td>no gamma or brightness setting in openblack. Our wiki differs: the original has no gamma, post-processing or fog setting in its frame (<a href="../../parity.html">parity</a>)</td>
+</tr>
+<tr>
+<td>Taking a screenshot</td>
+<td>partial</td>
+<td><code>--screenshot-frame</code> and <code>--screenshot-path</code> take one at a frame; no key in game (unconfirmed the game has one)</td>
+</tr>
+<tr>
+<td>Vertical sync</td>
+<td>done</td>
+<td><code>--no-vsync</code> (on by default, as the original) (<code>src/main.cpp</code>, <code>EngineConfig</code>)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

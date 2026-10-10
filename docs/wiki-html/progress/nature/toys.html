@@ -1,0 +1,549 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Toys — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="here" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#toys">Toys</a><ul>
+<li><a href="#the-five-toys">The five toys</a></li>
+<li><a href="#where-toys-are-found">Where toys are found</a></li>
+<li><a href="#sizes">Sizes</a></li>
+<li><a href="#physics">Physics</a></li>
+<li><a href="#the-hand">The hand</a></li>
+<li><a href="#the-creature">The creature</a></li>
+<li><a href="#villagers">Villagers</a></li>
+<li><a href="#cut-and-unused">Cut and unused</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="toys">Toys</h1>
+<p>The playthings lying about the lands: the toy ball (the "beach ball" of the Ogre's reward), the bowling ball, the
+skittles, the dice and the cuddly toy (the tutorial's teddy bears). They are loose static objects the hand can pick up
+and throw, each with its own physics, which the creature plays with when it wants to play and learns to play with by
+watching the player. Toys mostly come from the land scripts and from reward chests. Where other files already cover a
+rule in full, the row here links to them.</p>
+<p>Each toy is a static object with one of five toy models, and the game tells toys apart by their model, not by their
+row in the tables. The villagers' football also counts as a toy ball wherever the game asks whether something is a toy
+or a ball. The toys' tables say a creature may not play with them, but the game never reads that column for statics:
+any static may be played with.</p>
+<p><strong>Progress: 35/65 done, 6 partial — 58%</strong></p>
+<h2 id="the-five-toys">The five toys</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Five toys, each its own model: a toy ball, a toy bowling ball, a cuddly toy, a die and a skittle</td>
+<td>done</td>
+<td><code>MobileStaticArchetype</code>; the five toy models in <code>src/3D/AllMeshes.cpp</code></td>
+</tr>
+<tr>
+<td>Anything with one of the five toy models counts as a toy, whatever its table row</td>
+<td>done</td>
+<td><code>PhysicsObjects::ConstantsType</code> takes the toy row by the model (<code>src/ECS/Physics/PhysicsObjects.cpp</code>)</td>
+</tr>
+<tr>
+<td>The villagers' football is a toy ball too: the creature may kick it about, play throwing games with it, it never hurts the creature, and the hand letting it go counts as playing with a toy</td>
+<td>todo</td>
+<td>No football in our tree (the ball's class is not ported); see <a href="../story/minigames.html">../story/minigames.md</a> and <a href="../town/football.html">../town/football.md</a></td>
+</tr>
+<tr>
+<td>Their table weights are: ball 100, skittle 250, cuddly toy 1000, die 1000, bowling ball 2000; the weight sets how loud a toy's knocks sound</td>
+<td>done</td>
+<td>The collision sound level uses the unscaled info weight (<code>CollisionSounds::AttemptToAddSoundEvent</code>); see <a href="../physics/throwing_and_landing.html">../physics/throwing_and_landing.md</a></td>
+</tr>
+<tr>
+<td>The ball and the bowling ball knock like solid stone, the die and the skittle like hollow wood, and the cuddly toy with the soft sound mushrooms make</td>
+<td>done</td>
+<td>The info's collision sound kind (<code>src/ECS/Physics/CollisionSounds.cpp</code>)</td>
+</tr>
+<tr>
+<td>The game's description texts name them "Toy ball", "Toy cuddly", "Toy skittle" and "Toy bowling ball"; the die has no text of its own and reuses the cuddly toy's, so it is described as "Toy cuddly"</td>
+<td>todo</td>
+<td>No object description texts in our tree</td>
+</tr>
+<tr>
+<td>Over the hand, a toy feels like fur on a force-feedback mouse</td>
+<td>todo</td>
+<td>No force feedback in our tree</td>
+</tr>
+<tr>
+<td>Fire warms toys and makes them glow, but never hurts them</td>
+<td>done</td>
+<td>Data-driven (no burn defence); see <a href="../physics/fire.html">../physics/fire.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="where-toys-are-found">Where toys are found</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The tutorial land holds 27 toys in two groups of skittles with bowling balls, and a few loose ones: six giant skittles (about 2.6 times normal size) with three bowling balls and two balls; ten normal skittles with two bowling balls; two dice and two more balls about the land</td>
+<td>done</td>
+<td><code>MobileStaticArchetype</code>; see <a href="../scripts/landT_script.html">../scripts/landT_script.md</a></td>
+</tr>
+<tr>
+<td>Land 1 has a cuddly toy and three tiny dice (a tenth to a sixth of normal size) lying together</td>
+<td>done</td>
+<td><code>MobileStaticArchetype</code>; see <a href="../scripts/land1_script.html">../scripts/land1_script.md</a></td>
+</tr>
+<tr>
+<td>The Firestorm map and a three-player map each have three cuddly toys</td>
+<td>done</td>
+<td>see <a href="../multiplayer/maps/firestorm.html">../multiplayer/maps/firestorm.md</a> and <a href="../scripts/playground_scripts.html">../scripts/playground_scripts.md</a></td>
+</tr>
+<tr>
+<td>Challenge scripts can make a toy at a place with an angle and a size</td>
+<td>done</td>
+<td>CHL CREATE of a mobile static (<code>src/CHLApi.cpp</code>)</td>
+</tr>
+<tr>
+<td>The tutorial's picking-up lesson makes five teddy bears on a hillside, makes any destroyed one again with a sparkle, and ends when all five are within 30 of the ditch</td>
+<td>todo</td>
+<td>see <a href="../story/tutorial_island.html">../story/tutorial_island.md</a></td>
+</tr>
+<tr>
+<td>A toy reward chest holds a ball, a cuddly toy or a die; opened, the toy appears where the chest stood, at normal size</td>
+<td>todo</td>
+<td><code>CreateReward</code> is a stub in <code>src/CHLApi.cpp</code>; see <a href="../story/rewards.html">../story/rewards.md</a></td>
+</tr>
+<tr>
+<td>Each toy chest has its good advisor line: "I say. A toy ball.", "Ah. How sweet. A cuddly thing.", "A die. Or is it a dice? No it's a die."</td>
+<td>todo</td>
+<td>see <a href="../story/rewards.html">../story/rewards.md</a></td>
+</tr>
+<tr>
+<td>Two silver scrolls give the toy ball: Throwing Stones, and The Ogre, whose evil advisor calls it a beach ball</td>
+<td>todo</td>
+<td>see <a href="../story/silver_scrolls/throwing_stones.html">../story/silver_scrolls/throwing_stones.md</a> and <a href="../story/silver_scrolls/the_ogre.html">../story/silver_scrolls/the_ogre.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="sizes">Sizes</h2>
+<p>Measured from the game's own models in its mesh pack, in the game's units (its metres: the units its land positions,
+distances and the creature's height are given in). Sizes are width × height × depth of each model's most detailed
+form at normal size; the people were measured standing in their model's resting pose. For comparison: a grown man
+villager stands 1.60 to 1.66 tall (three Celtic men and the footballer measured) and a woman 1.44 (one measured). A creature stands 15 × its size: a new creature is size 0.20 to 0.29
+(3 to 4.4 tall, the chimp smallest and the horse largest), size 1 is 15 tall, and a fully grown one at size 2 is 30
+tall. At normal size the toy ball is about a seventh of a size-1 creature's height, as a beach ball is to a person,
+and it is taller than a villager.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The toy ball is a sphere 2.15 across: 1.3 times a man's height, and half to two thirds of a new creature's height</td>
+<td>done</td>
+<td>The game's model at the script's size (<code>MobileStaticArchetype</code>)</td>
+</tr>
+<tr>
+<td>The bowling ball is a sphere 1.40 across, smaller than the toy ball, reaching a man's shoulder</td>
+<td>done</td>
+<td>Same</td>
+</tr>
+<tr>
+<td>The cuddly toy is 2.87 wide, 3.70 tall and 1.85 deep (its lower details reach 3.81 tall): over twice a man's height, as tall as a new creature</td>
+<td>done</td>
+<td>Same</td>
+</tr>
+<tr>
+<td>The die is a cube 2.78 on each side, 1.7 times a man's height</td>
+<td>done</td>
+<td>Same</td>
+</tr>
+<tr>
+<td>The skittle is 1.18 by 1.26 across and 3.11 tall, nearly twice a man's height</td>
+<td>done</td>
+<td>Same</td>
+</tr>
+<tr>
+<td>The villagers' football is a ball 0.37 across, under a quarter of a man's height; a second, identical ball model is also in the list</td>
+<td>todo</td>
+<td>No football in our tree; see <a href="../story/minigames.html">../story/minigames.md</a></td>
+</tr>
+<tr>
+<td>A land script's size multiplies the model's size</td>
+<td>done</td>
+<td>The scale passed to <code>MobileStaticArchetype::Create</code></td>
+</tr>
+<tr>
+<td>The tutorial's giant skittles (size 2.62 to 2.68) stand 8.1 to 8.3 tall; its giant bowling balls (sizes 1.84 and 2.62) are 2.6 and 3.7 across and its giant ball (size 2.5) 5.4 across; the other skittles (3.1 tall), bowling balls (1.4), balls (2.15) and dice (2.78) are at normal size</td>
+<td>done</td>
+<td><code>MobileStaticArchetype</code>; see <a href="../scripts/landT_script.html">../scripts/landT_script.md</a></td>
+</tr>
+<tr>
+<td>Land 1's cuddly toy (size 0.38) is 1.4 tall, villager height; its three dice (sizes 0.17, 0.17 and 0.11) are cubes 0.48 and 0.32 on a side</td>
+<td>done</td>
+<td><code>MobileStaticArchetype</code>; see <a href="../scripts/land1_script.html">../scripts/land1_script.md</a></td>
+</tr>
+<tr>
+<td>The tutorial's teddy bears and the Firestorm maps' cuddly toys are at normal size, 3.7 tall</td>
+<td>partial</td>
+<td>The maps' toys are placed; the tutorial's teddy lesson is not running (<a href="../story/tutorial_island.html">../story/tutorial_island.md</a>)</td>
+</tr>
+<tr>
+<td>A toy from a reward chest appears at normal size</td>
+<td>todo</td>
+<td><code>CreateReward</code> is a stub; see <a href="../story/rewards.html">../story/rewards.md</a></td>
+</tr>
+<tr>
+<td>The toys' table gives each toy a largest size of 3; whether the game ever enforces it was not traced (no shipped toy is placed bigger than 2.68)</td>
+<td>todo</td>
+<td>Not traced: no use of it was found</td>
+</tr>
+<tr>
+<td>The hand grips a toy by its own size: the ball, die and bowling ball are held from above with a grip as wide as three quarters of the toy's height, the cuddly toy and skittle from the side at the toy's flat radius (half its wider side), both times its placed size; a bigger toy is held in a wider grip</td>
+<td>partial</td>
+<td>The hand holds what it lifts by the object's box (<code>HandHolding.cpp</code>); the toys' own above or side grips are not checked</td>
+</tr>
+<tr>
+<td>No toy is too big for the hand: only rocks wider than 3.6 are refused, so even the 8-tall giant skittles can be picked up</td>
+<td>done</td>
+<td>Only rocks wider than 3.6 are refused (<code>Rocks::ValidForPlaceInHand</code>); see <a href="../hand/picking_up.html">../hand/picking_up.md</a></td>
+</tr>
+<tr>
+<td>Black &amp; White's model list has no separate bowling pin or toy-only bowling model: its skittle and toy bowling ball are the only bowling models (the bowling lane end and its model belong to Creature Isle)</td>
+<td>n/a</td>
+<td>nothing to make</td>
+</tr>
+<tr>
+<td>The "cheat box" model is a plain box 180 wide, 180 deep and 400 tall, all of it below the ground, with eight corners</td>
+<td>n/a</td>
+<td>not used by any shipped land; see <a href="../easter_eggs/unused_content.html">../easter_eggs/unused_content.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="physics">Physics</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each toy has its own material in the physics; a toy with any other model would be as heavy as a rock</td>
+<td>done</td>
+<td><code>PhysicsObjects::ConstantsType</code> (rows 14, 15, 16, 19, 20 by the model); see <a href="../physics/object_dynamics.html">../physics/object_dynamics.md</a></td>
+</tr>
+<tr>
+<td>The ball is very light (a tenth of water's density) and almost perfectly springy with hardly any damping, so it bounces high and long; air drag slows it quickly</td>
+<td>done</td>
+<td>Its row of <code>Data/PhysicsConstants.txt</code></td>
+</tr>
+<tr>
+<td>The bowling ball is the heaviest (density 2.04, just over a rock's), grips poorly and keeps its spin, so it rolls a long way</td>
+<td>done</td>
+<td>Its row of <code>Data/PhysicsConstants.txt</code></td>
+</tr>
+<tr>
+<td>The die lands dead (high damping), grips hard and keeps spinning, with no air drag</td>
+<td>done</td>
+<td>Its row of <code>Data/PhysicsConstants.txt</code></td>
+</tr>
+<tr>
+<td>The cuddly toy is soft: a tenth of the springiness of the others, so it hardly bounces</td>
+<td>done</td>
+<td>Its row of <code>Data/PhysicsConstants.txt</code></td>
+</tr>
+<tr>
+<td>The skittle grips well and stops turning quickly</td>
+<td>done</td>
+<td>Its row of <code>Data/PhysicsConstants.txt</code></td>
+</tr>
+<tr>
+<td>Toys always take part in collisions, so a thrown thing knocks a standing skittle or die</td>
+<td>done</td>
+<td>Mobile statics are obstacles (<code>PhysicsObjects::InteractsWithPhysicsObjects</code>)</td>
+</tr>
+<tr>
+<td>A knocked skittle falls over and lies where it stops; nothing stands skittles up again or counts them</td>
+<td>done</td>
+<td>The body's last pose is kept (<code>src/ECS/Physics/PhysicsObjects.cpp</code>)</td>
+</tr>
+<tr>
+<td>A die lands on whichever face the physics leaves up; nothing in the game reads the face</td>
+<td>done</td>
+<td>No face rule exists</td>
+</tr>
+<tr>
+<td>In the sea the ball floats for over a minute, the die, cuddly toy and skittle for about 15 seconds, and the bowling ball sinks at once; a sunk toy is gone once it is four of its sizes under</td>
+<td>done</td>
+<td>Follows from the materials and the soaking rate; see <a href="../physics/water_physics.html">../physics/water_physics.md</a></td>
+</tr>
+<tr>
+<td>Thrown, the bowling ball breaks buildings as a rock does; no other toy harms a building</td>
+<td>done</td>
+<td><code>Buildings::PhysicallyDestroysAbodes</code> (rows 3 and 20) and the building's reaction (<code>src/ECS/Physics/Buildings.cpp</code>); see <a href="../physics/impact_damage.html">../physics/impact_damage.md</a></td>
+</tr>
+<tr>
+<td>The bowling ball costs a physical shield prayer power by its momentum, as a rock does</td>
+<td>done</td>
+<td><code>map_shield::ReactToPhysicsImpact</code> (<code>src/Magic/Objects/MapShield.cpp</code>)</td>
+</tr>
+<tr>
+<td>A toy striking the creature never hurts it</td>
+<td>done</td>
+<td>Nothing thrown hurts the creature in our tree (no creature impact reaction); see <a href="../physics/impact_damage.html">../physics/impact_damage.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-hand">The hand</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hand picks up any toy</td>
+<td>done</td>
+<td>see <a href="../hand/picking_up.html">../hand/picking_up.md</a></td>
+</tr>
+<tr>
+<td>The cuddly toy and the skittle are held from the side; the ball, die and bowling ball from above</td>
+<td>partial</td>
+<td>The grip types are not checked per toy (<code>HandHolding.cpp</code>)</td>
+</tr>
+<tr>
+<td>Toys are thrown and put down like any loose object</td>
+<td>done</td>
+<td><code>src/ECS/Physics/FromHand.cpp</code>; see <a href="../hand/throwing.html">../hand/throwing.md</a></td>
+</tr>
+<tr>
+<td>A toy the player's hand lets go of, thrown or put down (not one a creature threw), makes the player's creature consider copying "play with a toy"</td>
+<td>todo</td>
+<td>Not reported (a TODO in <code>src/ECS/Physics/FromHand.cpp</code>)</td>
+</tr>
+<tr>
+<td>A toy put down gently near a town becomes one of its artefacts; toys count 0.0001 and the bowling ball 0.0002</td>
+<td>todo</td>
+<td>No town artefacts in our tree; see <a href="../town/artefacts.html">../town/artefacts.md</a></td>
+</tr>
+<tr>
+<td>A toy thrown into a land's exit vortex (or lying within its reach) is taken in, as any thing that can fly is, and comes out of the next land's arrival vortex as the same toy; a toy that is an artefact stays an artefact of the same god with the same worth</td>
+<td>partial</td>
+<td>The vortex takes in what can fly and writes the crossing file (<code>src/ECS/Vortex.cpp</code>, <code>VortexSave.cpp</code>); going to the next land is not ported (<a href="../../vortex.html#what-is-ported-and-what-is-pending">vortex.md</a>); see <a href="../story/portals.html#what-goes-in-kind-by-kind">../story/portals.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-creature">The creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Of the static objects, a creature can pick up only toys</td>
+<td>todo</td>
+<td><code>CreatureObjectActionSystem::CanPickUp</code> takes mobile objects, villagers, animals and food, no statics</td>
+</tr>
+<tr>
+<td>It never eats a toy and never uses one as a weapon to hurt something by throwing</td>
+<td>done</td>
+<td>The creature eats only food and throws only what it can pick up (<code>CreatureObjectActionSystem.cpp</code>)</td>
+</tr>
+<tr>
+<td>Toys catch its eye: it is more than twice as keen to look at a toy as at any other static (0.9 against 0.4)</td>
+<td>todo</td>
+<td>No per-object looking interest in our tree</td>
+</tr>
+<tr>
+<td>Kick a ball about (the toy ball or the football): two to four rounds of walking up to it, facing it and kicking it, each followed one time in four by pointing at it, else a short pause; half the time its happy animation at the end</td>
+<td>todo</td>
+<td>No such action uses a toy (<code>src/Creature/CreaturePlanActions.cpp</code>); see <a href="../creature/object_actions.html">../creature/object_actions.md</a></td>
+</tr>
+<tr>
+<td>Throw a toy at something: half the time its happy animation first, then picks up a toy, moves to a throwing spot its own height from the target, throws at it, and half the time is happy again</td>
+<td>todo</td>
+<td>The plan action throws any thing it can pick up; no toy</td>
+</tr>
+<tr>
+<td>Throw a die: picks it up unless it already holds it, throws it at a spot 1.2 times its own height off along both map axes, watches it fly, then is happy two times in three and sad one time in three, whatever face comes up</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>Stroke a cuddly toy: picks it up and strokes it in its hand</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>Take a toy home: a toy more than 50 from its home is carried to a random spot within 5 of home and put down, or one time in five tossed aside</td>
+<td>todo</td>
+<td>see <a href="../creature/home_and_pen.html">../creature/home_and_pen.md</a></td>
+</tr>
+<tr>
+<td>Play a throwing game with the player: picks up a toy and throws it at the hand, then is happy</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>Give a toy to a friend, and play throwing games with a friend using a toy</td>
+<td>todo</td>
+<td>see <a href="../creature/friends_and_other_creatures.html">../creature/friends_and_other_creatures.md</a></td>
+</tr>
+<tr>
+<td>Any static, toys included, may be thrown into the sea for fun</td>
+<td>todo</td>
+<td>see <a href="../creature/object_actions.html">../creature/object_actions.md</a></td>
+</tr>
+<tr>
+<td>These are the creature's ways to play: kicking a ball, throwing a toy at something, taking a toy home, stroking a toy and throwing a die are all on its list of things to do when it wants to play</td>
+<td>partial</td>
+<td>The plan actions exist for kicking and throwing at things, but none uses a toy; see <a href="../creature/desires.html">../creature/desires.md</a></td>
+</tr>
+<tr>
+<td>Copying the player playing with a toy: likely (0.9), needs no leash, first a look of noticing the playful deed, then one of: throw a die, stroke a toy, take a toy home, a throwing game with the player, throw it about, kick a ball; feeds the wish to play, about three times</td>
+<td>partial</td>
+<td>The deed is in the creature's table (<code>creature_watching::Deed::PlayWithToy</code>, <code>src/Creature/CreatureDeeds.h</code>); nothing reports it; see <a href="../creature/learning_by_observation.html">../creature/learning_by_observation.md</a></td>
+</tr>
+<tr>
+<td>Catching a toy thrown at it</td>
+<td>todo</td>
+<td>The catch hook of <code>PhysicsObjects::CheckAllCreaturesForCatching</code> is never set; see <a href="../physics/throwing_and_landing.html">../physics/throwing_and_landing.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="villagers">Villagers</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Villagers never go to play with a toy: the tables give toys the rocks' villager check with no wish to interact</td>
+<td>done</td>
+<td>Villagers do not seek toys in our tree</td>
+</tr>
+<tr>
+<td>A toy thrown over villagers is a flying object they watch and point at</td>
+<td>todo</td>
+<td>Villagers have no handler for the flying-object reaction; see <a href="../villager/reactions.html">../villager/reactions.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="cut-and-unused">Cut and unused</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A bowling game: ten villagers stand as pins in a triangle and a cow is the ball; each knocked-over villager scores, the game slows to half speed while anything is down, and all ten plus the cow make a strike ("You got a strike!")</td>
+<td>n/a</td>
+<td>a script source never compiled into the game's challenges; see <a href="../story/minigames.html">../story/minigames.md</a></td>
+</tr>
+<tr>
+<td>Cow bowling, the same game with its own wording</td>
+<td>n/a</td>
+<td>same; see <a href="../easter_eggs/unused_content.html">../easter_eggs/unused_content.md</a></td>
+</tr>
+<tr>
+<td>A bowling lane end, a bowling model and a skittle knock sound</td>
+<td>n/a</td>
+<td>only in Creature Isle's tables</td>
+</tr>
+<tr>
+<td>The Chimp Posse's die, teddy and ball, made at half size</td>
+<td>n/a</td>
+<td>never started by the game; see <a href="../story/silver_scrolls/chimp_posse.html">../story/silver_scrolls/chimp_posse.md</a></td>
+</tr>
+<tr>
+<td>The "cheat box" model</td>
+<td>n/a</td>
+<td>see <a href="../easter_eggs/unused_content.html">../easter_eggs/unused_content.md</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

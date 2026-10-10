@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The wonder and tribal powers — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="here" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-wonder-and-tribal-powers">The wonder and tribal powers</a><ul>
+<li><a href="#the-wonder">The wonder</a></li>
+<li><a href="#tribal-powers">Tribal powers</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-wonder-and-tribal-powers">The wonder and tribal powers</h1>
+<p>Each tribe can build a wonder, a huge building raised from scaffolds and wood like any other. A finished, working wonder adds
+its tribe's power (from the tribe table) to its owner's power for that tribe. Each miracle's table says which tribes'
+powers make it stronger or cheaper; the Indian power also speeds up villagers and the Aztec power raises worship.</p>
+<p><strong>Progress: 8/12 done, 3 partial — 79%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../buildings.html">Buildings, building sites and towns (the building side)</a>.</p>
+<h2 id="the-wonder">The wonder</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Wonders of every tribe are placed by the land scripts as buildings, sitting into the land</td>
+<td>done</td>
+<td><code>src/ECS/Archetypes/AbodeArchetype.cpp</code> (morphs with the terrain), the wonder part from <code>wonders::Create</code> (<code>src/ECS/Town/Wonders.cpp</code>)</td>
+</tr>
+<tr>
+<td>The town wants a wonder by its belief, once food, wood and abodes are seen to</td>
+<td>done</td>
+<td><code>DesireToBuildWonder</code> (<code>src/ECS/Town/TownDesire.cpp</code>); <code>test/test_town_desire.cpp</code></td>
+</tr>
+<tr>
+<td>A wonder is built from a big scaffold made at the workshop and much wood</td>
+<td>done</td>
+<td>seven joined scaffolds offer the wonder, with the scaffold's tribe (<code>src/ECS/Scaffolds.cpp</code>, <code>src/ECS/Town/ScaffoldPlans.cpp</code>); its site is built with wood like any other; See ../building/construction.md and <a href="../building/workshop_and_scaffolds.html">../building/workshop_and_scaffolds.md</a></td>
+</tr>
+<tr>
+<td>A finished, working wonder adds its tribe's power to its owner's power for that tribe</td>
+<td>done</td>
+<td>a built wonder adds its power to its owner's per-tribe wonder sum (<code>wonders::AddToPlayer</code>, <code>PlayerMagic::wonderPower</code>, <code>src/ECS/Town/Wonders.cpp</code>); see the row on each player's power below</td>
+</tr>
+<tr>
+<td>A destroyed or lost wonder takes the power away again</td>
+<td>partial</td>
+<td>deleting a wonder takes its power off (<code>wonders::RemoveFromPlayer</code>); a wonder whose town changes hands keeps it with the old owner</td>
+</tr>
+<tr>
+<td>A wonder's power level is set as the wonder is built and kept</td>
+<td>partial</td>
+<td>the scaffold sets the power from the town's wonder power when the building is made (<code>scaffolds</code>, <code>scaffold_plans::GetWonderPower</code>, <code>src/ECS/Town/ScaffoldPlans.cpp</code>), but the objects' artefact and impressive values it sums are not ported (0), so it is the 0.25 floor</td>
+</tr>
+<tr>
+<td>Villagers can shelter in a wonder</td>
+<td>todo</td>
+<td><code>GO_AND_HIDE_IN_NEARBY_BUILDING</code> is a TODO row of the state table</td>
+</tr>
+</tbody>
+</table>
+<h2 id="tribal-powers">Tribal powers</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each player keeps a power for each tribe, 1 until a wonder raises it</td>
+<td>done</td>
+<td><code>PlayerMagic::tribalPower</code>, 1 for every tribe (<code>src/ECS/Components/PlayerMagic.h</code>), read by the miracles. Our wiki differs: a wonder adds its power to a separate per-tribe wonder sum, whose reader was not found; the tribal power the miracles read is not raised by it (<a href="../../buildings.html#scaffolds-choosing-the-building-and-the-wonders-power">buildings</a>)</td>
+</tr>
+<tr>
+<td>Indian power: villagers move faster</td>
+<td>partial</td>
+<td>the villagers' speed has the wonder term, fixed at 1 (<code>src/ECS/VillagerSpeed.cpp</code>)</td>
+</tr>
+<tr>
+<td>Aztec power: worship sites chant more prayer power</td>
+<td>done</td>
+<td>the site's chants per dancer times the player's Aztec tribal power (<code>src/Worship/WorshipSite.cpp</code>)</td>
+</tr>
+<tr>
+<td>A miracle is made stronger or cheaper by the product of its caster's powers for the tribes its table marks</td>
+<td>done</td>
+<td><code>magic::GetTribalPower</code> (<code>src/Magic/Core/Spell.cpp</code>, <code>src/Magic/Core/Players.cpp</code>), cheaper through <code>divideCostsByTribalPower</code>; See ../miracles/</td>
+</tr>
+<tr>
+<td>Forest miracle's wood worth more by tribal power</td>
+<td>done</td>
+<td>the forest's wood value multiplier times the spell's tribal power (<code>components::MagicTree</code>, <code>src/Magic/Spells/SpellForest.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

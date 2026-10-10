@@ -9,9 +9,12 @@
 
 #pragma once
 
+#include <string_view>
 #include <vector>
 
 #include <LHVMTypes.h>
+
+#include "Help/ScriptControl.h"
 
 namespace openblack::chlapi
 {
@@ -35,5 +38,13 @@ private:
 
 	std::vector<lhvm::NativeFunction> _functionsTable;
 };
+
+/// The script VM as the game's script control asks it (task number, current task's script type, script type, stop
+/// tasks of a type, push, start script) on Locator::vm
+[[nodiscard]] help::script_control::Vm ScriptVm();
+
+/// Whether a script's source file is in a list as STOP_ALL_SCRIPTS_IN_FILES_EXCLUDING takes it: names apart by spaces,
+/// commas or tabs, compared without case
+[[nodiscard]] bool InScriptFileList(std::string_view list, std::string_view file);
 
 } // namespace openblack::chlapi

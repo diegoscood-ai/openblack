@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clans — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="here" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#clans">Clans</a><ul>
+<li><a href="#what-the-game-asks-the-servers-for">What the game asks the servers for</a></li>
+<li><a href="#protection-of-clan-scoring">Protection of clan scoring</a></li>
+<li><a href="#running-a-clan-on-the-web-site">Running a clan on the web site</a></li>
+<li><a href="#moderation">Moderation</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="clans">Clans</h1>
+<p>Clans of players who play internet games together: a team can play for a clan, which then scores instead of its
+players, brings its own creature from game to game, and shows its logo as the team's symbol. The game asks the online
+servers for all of it; the clans themselves were run on the game's web site.</p>
+<p><strong>Codebase: bwgame-service</strong> (<code>C:\projects\bwgame-service</code>), the stand-in for the game's online servers and web site,
+not openblack. Every "done" below is done there; paths in the notes are relative to that repository. What the game
+itself does with clans in a match is in <a href="multiplayer_rules.html">multiplayer_rules.md</a> (openblack).</p>
+<p><strong>Progress: 0/0 done, 0 partial — 0%</strong></p>
+<h2 id="what-the-game-asks-the-servers-for">What the game asks the servers for</h2>
+<p>Checked against the original game's requests and how it reads the replies.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The game lists the clans a player belongs to</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>; there: <code>online/services.py</code>, <code>tests/test_clans.py::test_game_clan_list_puts_the_first_joined_clan_first</code>); our tree has no online code</td>
+</tr>
+<tr>
+<td>Each clan in that list carries a yes/no flag</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>A player's details show their clan</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>The clan details: name, logo, and the lines "Clan Description:", "Clan Leader:", "Clan URL:" and "Credits"</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>The clan logo is a picture file the game loads, keeping a 64 by 64 shape in 16 shades</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>; there: <code>online/logo.py</code>, <code>docs/research/clan-logo.md</code>); our tree has no online code</td>
+</tr>
+<tr>
+<td>A team picking a clan gets the clan's creature</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>A clan with no creature yet tells the game to create one of the chosen type and name</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>; there: <code>tests/test_clans.py::test_clan_creature_numbers_are_the_games_table_rows</code>); our tree has no online code</td>
+</tr>
+<tr>
+<td>At the end of a clan game, the team leader's game uploads the clan creature</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>At the end of an internet game, the host reports the results and gets everyone's new points</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>; there: <code>online/services.py</code>); our tree has no online code</td>
+</tr>
+<tr>
+<td>A team playing for a clan scores for the clan instead of its players</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>Clan names and texts reach the game in its character set</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>The clan logo becomes the symbol of a team playing for the clan, over its towns and on its hand</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>); no clans in our tree; the symbol over towns is drawn from the <code>ChooseSymbol</code> sheet (<code>src/Particles/TownBelief.cpp</code>), never a clan logo</td>
+</tr>
+<tr>
+<td>The clan logo shows in the multiplayer screens' clan box</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>); no multiplayer screens in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="protection-of-clan-scoring">Protection of clan scoring</h2>
+<p>Not in the original as far as is known; the server's own rules, so that results can't be made up.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Results count only when sent with the password of an account that played in that game</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>; there: <code>tests/test_abuse.py::test_results_need_a_valid_password</code>, <code>test_results_only_from_a_player_of_that_game</code>); our tree has no online code</td>
+</tr>
+<tr>
+<td>A team scores for a clan only when all its players are members of it</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>; there: <code>tests/test_abuse.py::test_a_team_scores_for_a_clan_only_when_all_are_members</code>); our tree has no online code</td>
+</tr>
+<tr>
+<td>Oversized result reports are refused</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="running-a-clan-on-the-web-site">Running a clan on the web site</h2>
+<p>The original site's clan pages are lost; how they worked is unknown. This is bwgame-service's own design, built so the
+game's side above works. Tests in <code>tests/test_clans.py</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A signed-in player founds a clan and leads it</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>; there: <code>online/clans.py</code>, <code>web/views.py</code>); our tree has no online code</td>
+</tr>
+<tr>
+<td>A clan has one leader, officers and members</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>; there: <code>online/models.py</code>); our tree has no online code</td>
+</tr>
+<tr>
+<td>Each clan chooses who can join: anyone, by request, or by invitation only</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>Players ask to join; the leader or an officer approves or declines; the player can withdraw</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>The leader or an officer invites a player by name; the player accepts or declines; the invitation can be withdrawn</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>An invitation lets a player in whatever the clan's joining rule</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>The leader or an officer removes members; officers can't remove officers or the leader</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>Removed players can be banned from rejoining, asking or being invited, and the ban lifted</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>The leader makes members officers and back</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>The leader hands the leadership to a member, becoming an officer</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>A leader who leaves is followed by the longest-serving officer, else the longest-serving member</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>A clan whose last member leaves is disbanded</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>The leader disbands the clan, typing its name to confirm</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>The leader edits the name, motto, web site, joining rule, and the creature's type and name</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>The leader uploads a logo, shown on the site as the game will draw it</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>The leader removes the logo</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>The leader resets the clan creature, so the next clan game starts a new one</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>A player belongs to at most a few clans, and a clan has at most a set number of members</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>Founding clans, joining requests and clan changes are rate-limited</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>; there: <code>accounts/throttle.py</code>); our tree has no online code</td>
+</tr>
+<tr>
+<td>Clan names, mottos, web sites and creature names are checked for blocked words, reserved names and hidden characters</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>; there: <code>moderation/</code>); our tree has no online code</td>
+</tr>
+<tr>
+<td>The clan list shows each clan's logo, leader, members, joining rule and points</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>The ranking lists clans by points</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>Clan tags shown beside players' names</td>
+<td>n/a</td>
+<td>the game has no clan tags; a player could only type one into their own name</td>
+</tr>
+</tbody>
+</table>
+<h2 id="moderation">Moderation</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every new logo is put on the admins' review list (pictures aren't checked automatically)</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>Admins see and change a clan's members, requests, invitations and bans</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>Admins remove a clan's logo, or clear its motto, web site and creature name</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+<tr>
+<td>Clan text that matches a blocked word added later is hidden on the pages</td>
+<td>n/a</td>
+<td>Online service, not part of this codebase: it lives in bwgame-service (<code>C:\projects\bwgame-service</code>)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

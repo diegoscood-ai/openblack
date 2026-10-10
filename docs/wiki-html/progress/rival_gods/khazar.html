@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Khazar — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="here" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#khazar">Khazar</a><ul>
+<li><a href="#on-the-map">On the map</a></li>
+<li><a href="#his-creature">His creature</a></li>
+<li><a href="#arrival-on-the-land">Arrival on the land</a></li>
+<li><a href="#what-he-says">What he says</a></li>
+<li><a href="#his-death">His death</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="khazar">Khazar</h1>
+<p>The good rival god of the second land: the player's ally, who brought them through the vortex, gives them builders and
+scaffolds, comments on their deeds and is killed by Nemesis part-way through the land. He is the land's second player
+and is run by the computer player's mind, steered by the land's challenge scripts.</p>
+<p><strong>Progress: 5/46 done, 6 partial — 17%</strong></p>
+<p>See <a href="../story/land_2.html">../story/land_2.md</a> for the land's challenges, and <a href="ai.html">ai.md</a>, <a href="magic.html">magic.md</a>,
+<a href="towns_and_influence.html">towns_and_influence.md</a> and <a href="creatures.html">creatures.md</a> for how every computer god works.</p>
+<h2 id="on-the-map">On the map</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land script makes the second player a computer player</td>
+<td>partial</td>
+<td><code>TOGGLE_COMPUTER_PLAYER</code> adds the player (<code>FeatureScriptCommands::ToggleComputerPlayer</code>, <code>PlayerArchetype</code>), with no mind behind it</td>
+</tr>
+<tr>
+<td>His temple stands on his own side of the land, owned by him</td>
+<td>done</td>
+<td><code>CREATE_CITADEL</code> with its owner (<code>CitadelArchetype</code>)</td>
+</tr>
+<tr>
+<td>He has a Norse worship site beside his temple</td>
+<td>done</td>
+<td><code>CREATE_WORSHIP_SITE</code> (<code>magic::script::CreateWorshipSite</code>)</td>
+</tr>
+<tr>
+<td>He owns a Norse town with fire, nature, food and wood miracles</td>
+<td>partial</td>
+<td>the town and its owner are made (<code>TownArchetype</code>) and it holds its miracles (<code>magic::script::CreateNewTownSpell</code>); no god casts them</td>
+</tr>
+<tr>
+<td>He owns a Greek town with heal, teleport, physical shield and the itchy creature miracle</td>
+<td>partial</td>
+<td>the town and its owner are made (<code>TownArchetype</code>) and it holds its miracles (<code>magic::script::CreateNewTownSpell</code>); no god casts them</td>
+</tr>
+<tr>
+<td>Each of his towns starts believing 0.65 in him</td>
+<td>done</td>
+<td><code>SET_TOWN_BELIEF</code> (<code>ecs::town_belief::SetBeliefInPlayer</code>), read by the belief rules; see <a href="../town/belief_and_conversion.html">../town/belief_and_conversion.md</a></td>
+</tr>
+<tr>
+<td>Belief in him and in Lethys is capped at 0.75 in every town of the land</td>
+<td>done</td>
+<td><code>SET_TOWN_BELIEF_CAP</code> (<code>ecs::town_belief::SetCap</code>)</td>
+</tr>
+<tr>
+<td>His influence rings his temple and towns in his player colour</td>
+<td>done</td>
+<td>the influence of his temple and towns (<code>src/ECS/Influence</code>), drawn in his colour (<code>influence::k_CircleColours</code>); see <a href="../worship/influence.html">../worship/influence.md</a></td>
+</tr>
+<tr>
+<td>He is allied to the player at the full 100%, so the player can use his influence (unconfirmed what the alliance shares beyond that)</td>
+<td>todo</td>
+<td><code>SET_PLAYER_ALLY</code> is a stub; the story never reaches Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>His mind is told to expand his influence only a little (one fifth of full)</td>
+<td>todo</td>
+<td><code>SET_COMPUTER_PLAYER_PERSONALITY</code> is a stub; see <a href="ai.html">ai.md</a></td>
+</tr>
+<tr>
+<td>His attitude to Lethys is set to a quarter (kept doubled inside, as a half)</td>
+<td>todo</td>
+<td><code>SET_COMPUTER_PLAYER_ATTITUDE</code> is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="his-creature">His creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A tortoise loaded from his own mind file, set down near his temple</td>
+<td>todo</td>
+<td><code>LOAD_CREATURE</code> is a stub; see <a href="creatures.html">creatures.md</a></td>
+</tr>
+<tr>
+<td>It is named from the game's text (the script's note calls it Khalen)</td>
+<td>todo</td>
+<td><code>SET_CREATURE_NAME</code> is a stub</td>
+</tr>
+<tr>
+<td>It is made fully grown and drawn 1.2 times its auto-scaled size</td>
+<td>todo</td>
+<td><code>CREATURE_AUTOSCALE</code> is a stub and the creature is never loaded</td>
+</tr>
+<tr>
+<td>It knows every everyday skill and almost every miracle, all body values set to 0.2</td>
+<td>todo</td>
+<td>see <a href="creatures.html">creatures.md</a></td>
+</tr>
+<tr>
+<td>Once the player has a creature, it takes on the same alignment and is made friends with it</td>
+<td>todo</td>
+<td><code>CREATURE_FORCE_FRIENDS</code> is a stub</td>
+</tr>
+<tr>
+<td>While Nemesis kills Khazar, the script keeps his creature at full health until its own end</td>
+<td>todo</td>
+<td>the story never reaches Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="arrival-on-the-land">Arrival on the land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>His hand is put by his temple as the land opens, then flies to greet the player</td>
+<td>todo</td>
+<td><code>SET_COMPUTER_PLAYER_POSITION</code> and <code>MOVE_COMPUTER_PLAYER_POSITION</code> are stubs</td>
+</tr>
+<tr>
+<td>He introduces himself to his own music, then explains the threat from Lethys</td>
+<td>todo</td>
+<td>the music exists (<code>MUSIC_TYPE_SCRIPT_KHAZAR</code>, <code>src/Audio/Game/BankTables.h</code>), but the story never reaches Land 2 (<code>LOAD_MAP</code> is empty) and the scene needs his hand: the computer player natives are stubs in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>He places a town centre scaffold (size 5) from his workshop for the player, moving his hand at 40 then 150</td>
+<td>todo</td>
+<td>needs his hand: the computer player natives are stubs in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>Later he gives a storage pit (size 3) and more scaffolds</td>
+<td>todo</td>
+<td>needs his hand: the computer player natives are stubs in <code>src/CHLApi.cpp</code>; scaffolds: <a href="../building/workshop_and_scaffolds.html">../building/workshop_and_scaffolds.md</a></td>
+</tr>
+<tr>
+<td>He picks up a new villager by his hand and drops it at the player's town, where it becomes a builder disciple</td>
+<td>todo</td>
+<td>a forced "pick up and drop" action: <code>FORCE_COMPUTER_PLAYER_ACTION</code> is a stub</td>
+</tr>
+<tr>
+<td>He leaves food and wood one-shot miracles for the player</td>
+<td>partial</td>
+<td>dormant: scripts can make the one-shot seeds (CHL <code>CREATE</code>, see <a href="../miracles/dispensers_and_seeds.html">../miracles/dispensers_and_seeds.md</a>), but the story never reaches Land 2 (<code>LOAD_MAP</code> is empty) and the scene waits on his hand</td>
+</tr>
+<tr>
+<td>He pours wood on the player's storage pit four times, his wood icon topped up with enough prayer power for six</td>
+<td>todo</td>
+<td><code>GAME_SET_MANA</code> works, but the queued actions are stubs (<code>QUEUE_COMPUTER_PLAYER_ACTION</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-he-says">What he says</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>To speak, his hand flies to 10 metres in front of the camera at speed 350, rechecking every 0.3 seconds</td>
+<td>todo</td>
+<td>needs his hand: the computer player natives are stubs in <code>src/CHLApi.cpp</code>; <code>GET_FACING_CAMERA_POSITION</code> itself works</td>
+</tr>
+<tr>
+<td>If it isn't there after 10 seconds it is put there at once</td>
+<td>todo</td>
+<td>needs his hand: the computer player natives are stubs in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>His lines are shown as dialogue text and he is released back to his mind after</td>
+<td>todo</td>
+<td><code>RELEASE_COMPUTER_PLAYER</code> is a stub</td>
+</tr>
+<tr>
+<td>He stays quiet while another script is using him</td>
+<td>todo</td>
+<td>the story never reaches Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Every 20 minutes (the first after 10) he urges the player to build, or once gestures are learnt to take over the land</td>
+<td>todo</td>
+<td>the story never reaches Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>If the player attacked one of his two towns in the last 3 seconds he complains (one of eight lines), then waits 20 seconds; otherwise he checks again in 3</td>
+<td>todo</td>
+<td><code>GET_TIME_SINCE_OBJECT_ATTACKED</code> is a stub in our tree, and the story never reaches Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>When his raw influence at the camera beats the player's he comes over, at most once a minute</td>
+<td>todo</td>
+<td><code>GET_INFLUENCE</code> works (<code>magic::script::GetInfluence</code>), but coming over needs his hand: the computer player natives are stubs in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>Then half the time he says one of six "this is my land" lines, otherwise building or conquest advice</td>
+<td>todo</td>
+<td>the story never reaches Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>When the player wins one of Lethys's towns he praises them (one of four lines)</td>
+<td>todo</td>
+<td>the story never reaches Land 2 (<code>LOAD_MAP</code> is empty); see <a href="towns_and_influence.html">towns_and_influence.md</a></td>
+</tr>
+<tr>
+<td>When the player wins one of his towns he complains (one of eight lines)</td>
+<td>todo</td>
+<td>the story never reaches Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>When someone else wins one of his towns he laments it (one of four lines)</td>
+<td>todo</td>
+<td>the story never reaches Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>When the player wins a neutral town he congratulates them (one of six lines)</td>
+<td>todo</td>
+<td>the story never reaches Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>He takes part in the land's shield and fireball challenges</td>
+<td>todo</td>
+<td>the story never reaches Land 2 (<code>LOAD_MAP</code> is empty); see <a href="../story/land_2.html">../story/land_2.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="his-death">His death</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land checks every 9 seconds whether his death is due</td>
+<td>todo</td>
+<td>the story never reaches Land 2 (<code>LOAD_MAP</code> is empty); the whole death scene: <a href="../story/gold_scrolls/nemesis_no.html">../story/gold_scrolls/nemesis_no.md</a></td>
+</tr>
+<tr>
+<td>It is due once the player holds any of Lethys's three towns, or has more than five towns, or Khazar has none left, or Lethys has two or fewer</td>
+<td>todo</td>
+<td><code>GET_PLAYER_TOWN_TOTAL</code> is a stub</td>
+</tr>
+<tr>
+<td>It waits until Khazar isn't busy in another script</td>
+<td>todo</td>
+<td>the story never reaches Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Nemesis's music starts and black storm clouds gather over the vortex and his temple</td>
+<td>partial</td>
+<td>dormant: the music (<code>MUSIC_TYPE_SCRIPT_NEMESIS</code>) and the weather objects (CHL <code>CREATE</code> of a weather thing, <code>src/Magic/Script/CHLWeather.cpp</code>) exist, but the story never reaches Land 2 (<code>LOAD_MAP</code> is empty); see <a href="nemesis.html">nemesis.md</a></td>
+</tr>
+<tr>
+<td>Volleys of fireballs fall on four places in his land, curling left, straight and right</td>
+<td>partial</td>
+<td>dormant: <code>SPELL_AT_POS</code> casts them, as the neutral player, but the story never reaches Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>His temple explodes</td>
+<td>todo</td>
+<td>the temple's destruction is not in our tree (<code>ObjectDelete</code> of a citadel heart logs "not implemented")</td>
+</tr>
+<tr>
+<td>His creature is struck by an explosion from the cloud; Lethys's creature, made strong, comes to it, then both are taken away (Lethys's through the vortex)</td>
+<td>todo</td>
+<td>the story never reaches Land 2 (<code>LOAD_MAP</code> is empty); the vortex Nemesis opens at his death: <a href="../story/portals_per_land.html#land-2-khazars-death-and-lethyss-vortex">../story/portals_per_land.md</a></td>
+</tr>
+<tr>
+<td>He is switched off and his alliance with the player ends</td>
+<td>todo</td>
+<td><code>ENABLE_DISABLE_COMPUTER_PLAYER</code> and <code>SET_PLAYER_ALLY</code> are stubs</td>
+</tr>
+<tr>
+<td>The land's final scroll is offered</td>
+<td>todo</td>
+<td>the story never reaches Land 2 (<code>LOAD_MAP</code> is empty); see <a href="../story/land_2.html">../story/land_2.md</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

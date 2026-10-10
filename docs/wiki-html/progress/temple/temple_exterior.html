@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Temple exterior and entrance — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="here" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#temple-exterior-and-entrance">Temple exterior and entrance</a><ul>
+<li><a href="#its-look">Its look</a></li>
+<li><a href="#going-in-and-out">Going in and out</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="temple-exterior-and-entrance">Temple exterior and entrance</h1>
+<p>The player's temple on the island: built at the start of the story, it changes its look with the player's alignment and
+influence, and its entrance is the way inside.</p>
+<p><strong>Progress: 12/16 done, 3 partial — 84%</strong></p>
+<h2 id="its-look">Its look</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The temple's outside is one of three sizes by the player's share of influence, in five stages from evil to good</td>
+<td>done</td>
+<td><code>worship::citadel::Process</code> (<code>src/Worship/Citadel.cpp</code>) gives <code>TempleExteriorSystem::Step</code> the alignment target and twice the player's share of the influence (<code>influence::InfluencePower</code>, every slot); <code>src/3D/TempleExteriorMorph.cpp</code>; tests <code>TempleExteriorMorph.SizeTargetIsTwiceTheShareOfInfluence</code>, <code>TempleExteriorMorph.AlignmentTargetIsThePlayersFromZeroToJustShortOfOne</code></td>
+</tr>
+<tr>
+<td>Its mesh is blended from the four nearest of those meshes</td>
+<td>done</td>
+<td><code>TempleExteriorSystem::Blend</code>, <code>TempleExteriorMorph</code>; test <code>TempleExteriorMorph.BetweenStagesAndSizesItBlendsTheFour</code></td>
+</tr>
+<tr>
+<td>Its textures blend from evil to neutral to good</td>
+<td>done</td>
+<td><code>TempleExteriorSystem::BlendTexture</code>; test <code>TempleExteriorMorph.TexturesGoEvilToNeutralToGood</code></td>
+</tr>
+<tr>
+<td>The look moves a step a turn towards the player's alignment, the rest of the way when near</td>
+<td>done</td>
+<td><code>TempleExteriorMorph::Turn</code> from <code>worship::citadel::Process</code> each turn; tests <code>TempleExteriorMorph.ATurnStepsTowardTheTargetsAndBlendsPastThreeHundredths</code>, <code>TempleAlignmentMenu.theTurnsToGoAreTheGamesStepsOf0016</code></td>
+</tr>
+<tr>
+<td>Each player's temple follows its own player</td>
+<td>done</td>
+<td>one <code>components::TempleExterior</code> per heart, following its owner's alignment and influence (<code>worship::citadel::Process</code>); how a temple is damaged, destroyed and lost: <a href="../story/losing_and_game_over.html">../story/losing_and_game_over.md</a></td>
+</tr>
+<tr>
+<td>The first, unfinished temple of the opening, built by the villagers</td>
+<td>partial</td>
+<td>the plan (<code>CitadelArchetype::CreatePlanned</code>), its six-pile building site (<code>src/ECS/Town/BuildingSites.cpp</code>) and the heart drawn by its percent built (<code>worship::citadel::Process</code>) exist; whether Land 1's opening builds it as the original is not checked; see ../story/land_1.md and ../building/construction.md; a cut early draft of the opening at the temple: <a href="../story/silver_scrolls/see_the_citadel.html">see_the_citadel.md</a></td>
+</tr>
+<tr>
+<td>The temple has worship sites around it</td>
+<td>done</td>
+<td>six slots round the citadel in <code>src/Worship/Citadel.cpp</code> (never on Land 1, as the original); see ../worship/worship_sites.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="going-in-and-out">Going in and out</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The entrance is its own object at the temple's door</td>
+<td>done</td>
+<td><code>CitadelArchetype::CreateEntrance</code> (<code>components::CitadelEntrance</code>, <code>src/ECS/Archetypes/CitadelArchetype.cpp</code>), collided by the hand's pick through <code>worship::citadel::EntranceCollides</code></td>
+</tr>
+<tr>
+<td>The Action button on the entrance takes the player inside</td>
+<td>done</td>
+<td>the hand's tap on the entrance (<code>hand_tap::Register&lt;CitadelEntrance&gt;</code> in <code>CitadelArchetype.cpp</code>) calls <code>worship::citadel::EntranceTap</code>, which activates the temple interior; its tooltip is <code>worship::citadel::EntranceToolTipFor</code></td>
+</tr>
+<tr>
+<td>The camera flies to the entrance and in</td>
+<td>todo</td>
+<td><code>TempleInterior::Activate</code> cuts straight to the room's path in; see ../camera/temple_camera.md</td>
+</tr>
+<tr>
+<td>Scripts take the player in and out of the temple</td>
+<td>done</td>
+<td><code>ENTER_EXIT_CITADEL</code> (<code>EnterExitCitadel</code> in <code>src/CHLApi.cpp</code>)</td>
+</tr>
+<tr>
+<td>Scripts ask whether the player is inside the temple and where its entrance is</td>
+<td>partial</td>
+<td><code>INSIDE_TEMPLE</code> works (<code>game_clock::IsInsideCitadel</code>); <code>GET_TEMPLE_ENTRANCE_POSITION</code> is a stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>Leaving fades out to white and back on the island</td>
+<td>done</td>
+<td><code>TempleInterior::Deactivate</code> fades from white over a second (<code>FadeFrom</code>)</td>
+</tr>
+<tr>
+<td>Inside, the world is paused, its ambience fades out and the temple's music plays</td>
+<td>done</td>
+<td><code>TempleInterior::Activate</code> pauses the world (<code>game_clock::Pause</code>) and gives the pause back on leaving; the ambience is turned off and the citadel's music plays by alignment (<code>GameMusic::ProcessCitadelMusic</code>, <code>audio::ProcessCitadelTurn</code>); tests <code>GameMusicTest.CitadelMusicInsideTheCitadel</code>, <code>PausedTurnTimer.*</code></td>
+</tr>
+<tr>
+<td>Help is held back inside the temple</td>
+<td>partial</td>
+<td>inside, only the temple's help scripts run (<code>Game::ProcessTempleTurn</code>), and the help system runs on the temple's turns as our wiki says the original does; whether the world's help waits for the player to come out is not checked; see ../interface/help_system.md</td>
+</tr>
+<tr>
+<td>A key takes the player straight into a room (the creature's cave)</td>
+<td>done</td>
+<td>the room keys (<code>Game::ProcessTempleRoomKeys</code>: main room, creature room, challenge, save game, options, library) go in at that room; F5 alone shows the cave without a temple (<code>CreatureCaveSystem</code>); test <code>CreatureCaveSystemTest.WithoutATempleF5ShowsTheCaveOnItsOwn</code></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

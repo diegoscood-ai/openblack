@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Footpaths and roads — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="here" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#footpaths-and-roads">Footpaths and roads</a><ul>
+<li><a href="#laying-footpaths">Laying footpaths</a></li>
+<li><a href="#walking-the-footpaths">Walking the footpaths</a></li>
+<li><a href="#roads-seen-on-the-land">Roads seen on the land</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="footpaths-and-roads">Footpaths and roads</h1>
+<p>Footpaths are invisible routes the land's script lays between buildings and places. Villagers walk them to get about a
+town and between towns, and they bend round obstacles that block them. The worn paths and roads the player sees are
+painted into the land's texture and the buildings' footprints.</p>
+<p><strong>Progress: 4/12 done, 7 partial — 62%</strong></p>
+<h2 id="laying-footpaths">Laying footpaths</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's script makes footpaths and gives them their nodes in order</td>
+<td>done</td>
+<td><code>FeatureScriptCommands::CreateFootpath</code>, <code>CreateFootpathNode</code> (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>), <code>ecs::footpaths</code> (<code>src/ECS/Footpaths.cpp</code>)</td>
+</tr>
+<tr>
+<td>The land's script links footpaths to the building they serve</td>
+<td>todo</td>
+<td><code>FeatureScriptCommands::LinkFootpath</code> logs not implemented</td>
+</tr>
+<tr>
+<td>A building keeps the footpaths that lead from it and picks the nearest one towards a destination</td>
+<td>partial</td>
+<td>The link's nearest-path choice is ported (<code>src/ECS/Footpaths.cpp</code>; test <code>FootpathsTest.LinkPicksTheNearestFootpathAndItsDirection</code>) and a new abode gets its footpath to the storage pit (<code>footpaths::MakeAbodeFootpath</code> from <code>src/ECS/Abodes.cpp</code>); no villager asks for it yet</td>
+</tr>
+<tr>
+<td>Footpaths are saved and loaded with the game</td>
+<td>partial</td>
+<td>Read from the land's files (<code>src/Serializer/GameThingSerializer.cpp</code>, <code>footpaths::AttachLoadedLink</code>; test <code>FootpathsTest.LoadedLinkGoesToAPlanOrIsDeleted</code>); saving todo, see ../engine/</td>
+</tr>
+<tr>
+<td>Footpaths are drawn for debugging as lines</td>
+<td>n/a</td>
+<td>openblack-only (<code>RenderingSystemCommon.cpp</code>, the debug window's footpaths option)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="walking-the-footpaths">Walking the footpaths</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A villager going somewhere joins the nearest footpath when it helps, walks it node to node, and leaves it at the nearest node to the destination</td>
+<td>partial</td>
+<td><code>footpaths::UseFootpathIfNecessary</code> and <code>living_footpath::SetupMoveOnFootpath</code> are ported (<code>src/ECS/LivingFootpath.cpp</code>; tests <code>UseFootpathTest.*</code>), but nothing calls them and the walking state is not ported (<code>LivingActionSystem.cpp</code>); see ../villager/</td>
+</tr>
+<tr>
+<td>Footpaths can be walked either way</td>
+<td>partial</td>
+<td>The direction is kept (<code>LivingFootpath::reverse</code>), but no villager walks a footpath yet</td>
+</tr>
+<tr>
+<td>Each node keeps the villagers following it, so they move in file</td>
+<td>partial</td>
+<td><code>footpaths::AddOccupant</code> and <code>RemoveOccupant</code> (test <code>FootpathsTest.OccupantsHeadFirst</code>); dormant while nobody walks a footpath</td>
+</tr>
+<tr>
+<td>When something blocks a footpath (a dropped rock, a building), the path is sent round it and returns when it is cleared</td>
+<td>done</td>
+<td><code>footpaths::RerouteFootpathsAroundObstacle</code> and <code>StopReroutingAroundObstacle</code>, called when an obstacle enters or leaves the map cells (<code>src/ECS/MapCells.cpp</code>); tests <code>FootpathObstaclesTest.*</code></td>
+</tr>
+<tr>
+<td>New footpaths are made from the routes a creature or villager plans, over a few game turns</td>
+<td>partial</td>
+<td>A new abode's footpath is planned (<code>footpaths::GenerateRoutesBetween</code>); <code>ConvertCreaturePlanToFootpath</code> is ported (tests <code>FootpathRoutesTest.*</code>) but has no caller</td>
+</tr>
+<tr>
+<td>Hidden nodes can be skipped as a short cut</td>
+<td>partial</td>
+<td>The node walk steps over hidden nodes (<code>src/ECS/Footpaths.cpp</code>; test <code>FootpathsTest.NextNodeStepsOverHiddenNodes</code>); dormant while nobody walks a footpath</td>
+</tr>
+</tbody>
+</table>
+<h2 id="roads-seen-on-the-land">Roads seen on the land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Worn paths and roads are part of the land's painted texture</td>
+<td>done</td>
+<td><code>src/3D/BlockTexture.cpp</code> paints whatever the land's materials hold</td>
+</tr>
+<tr>
+<td>Buildings and civic pieces print their paved ground onto the land</td>
+<td>done</td>
+<td>footprints, see land_marks.md</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

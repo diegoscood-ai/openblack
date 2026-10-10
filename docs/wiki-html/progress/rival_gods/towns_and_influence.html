@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How a computer god wins and loses towns — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="here" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#how-a-computer-god-wins-and-loses-towns">How a computer god wins and loses towns</a><ul>
+<li><a href="#what-it-starts-with">What it starts with</a></li>
+<li><a href="#choosing-a-town">Choosing a town</a></li>
+<li><a href="#winning-towns">Winning towns</a></li>
+<li><a href="#destroying-and-defending">Destroying and defending</a></li>
+<li><a href="#looking-after-its-towns">Looking after its towns</a></li>
+<li><a href="#its-worshippers">Its worshippers</a></li>
+<li><a href="#story-rules">Story rules</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="how-a-computer-god-wins-and-loses-towns">How a computer god wins and loses towns</h1>
+<p>A computer god spreads its influence by winning towns the way a person does: impressing them, meeting their needs and
+attacking its rivals' towns; it looks after its own towns and worshippers so they keep believing and praying. The story
+lands add their own rules on top, holding some towns back until the right moment.</p>
+<p><strong>Progress: 8/42 done, 2 partial — 21%</strong></p>
+<p>See <a href="../town/belief_and_conversion.html">../town/belief_and_conversion.md</a> for belief and conversion,
+<a href="../worship/influence.html">../worship/influence.md</a> for influence and <a href="ai.html">ai.md</a> for how the god decides.</p>
+<h2 id="what-it-starts-with">What it starts with</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Land scripts give each god its towns, by owner name</td>
+<td>done</td>
+<td><code>CREATE_TOWN</code> (<code>FeatureScriptCommands::CreateTown</code>, <code>TownArchetype</code>, the town's owner)</td>
+</tr>
+<tr>
+<td>Land scripts give each god its temple</td>
+<td>done</td>
+<td><code>CREATE_CITADEL</code> (<code>CitadelArchetype</code>)</td>
+</tr>
+<tr>
+<td>Land scripts give each god worship sites by its temple, one per tribe</td>
+<td>done</td>
+<td><code>CREATE_WORSHIP_SITE</code> (<code>magic::script::CreateWorshipSite</code>)</td>
+</tr>
+<tr>
+<td>Land scripts set how much each town believes in each god, and the most it can</td>
+<td>done</td>
+<td><code>SET_TOWN_BELIEF</code> and <code>SET_TOWN_BELIEF_CAP</code> (<code>ecs::town_belief::SetBeliefInPlayer</code>, <code>SetCap</code>), read by the belief rules</td>
+</tr>
+<tr>
+<td>A god's influence covers its temple and its towns</td>
+<td>done</td>
+<td><code>src/ECS/Influence</code></td>
+</tr>
+<tr>
+<td>Its influence ring is drawn in its colour</td>
+<td>done</td>
+<td><code>influence::k_CircleColours</code> (<code>src/ECS/Influence/InfluenceCircles.cpp</code>), drawn by <code>src/Graphics/RendererInfluence.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="choosing-a-town">Choosing a town</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It finds the town it most wants to win, from every player's towns</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It judges how much it wants to win or destroy each town</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It finds which town of its own most needs defending, food, wood or people</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It notices which of its towns has just been attacked</td>
+<td>todo</td>
+<td>no computer god mind in our tree; a town remembers its last attacker (<code>Town::aggressor</code>), and <code>GET_TIME_SINCE_OBJECT_ATTACKED</code> is a stub</td>
+</tr>
+<tr>
+<td>It finds another town to take food or wood from</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="winning-towns">Winning towns</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>By sending its creature to impress the town</td>
+<td>todo</td>
+<td>no computer god mind in our tree; see <a href="creatures.html">creatures.md</a></td>
+</tr>
+<tr>
+<td>By throwing things near the town to impress it</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>By casting impressive miracles at it</td>
+<td>todo</td>
+<td>no computer god mind in our tree; see <a href="magic.html">magic.md</a></td>
+</tr>
+<tr>
+<td>By meeting its food needs: food miracles, fields, fish farms or food carried from another town to its storehouse</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>By meeting its wood needs (never chosen when expanding, see <a href="ai.html">ai.md</a>)</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>Belief it wins shows over the town in its colour, as the person's does</td>
+<td>partial</td>
+<td>the belief symbols over each town centre are drawn for every player in its colour (<code>psys::town_belief</code>, <code>src/Particles/TownBelief.cpp</code>), but no god wins belief; see <a href="../town/belief_and_conversion.html">../town/belief_and_conversion.md</a></td>
+</tr>
+<tr>
+<td>A town changes hands when its belief in the god passes what it needs</td>
+<td>done</td>
+<td>the same rule as for the person: <code>town_belief::Fold</code> and <code>town_belief::TakeOverTown</code> (<code>src/ECS/Town/TownBelief.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="destroying-and-defending">Destroying and defending</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It destroys a rival's town with miracles, with its creature, or by throwing things</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It defends its own town with its creature or with miracles</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It defends a town whose belief is under attack, with a miracle or by impressing it with its creature</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It puts out its burning buildings with water</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It sends its creature to help repair damaged buildings</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It shields buildings left unprotected</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="looking-after-its-towns">Looking after its towns</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It carries food and wood to the town that wants them most, or casts for them</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It sends workers and wood to building sites</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It places scaffolds from its workshop and combines small ones into bigger ones</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It fills its workshop with wood</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It makes breeder disciples to grow its towns</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It makes disciples to meet a town's needs</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It raises the town's totem (unconfirmed when)</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="its-worshippers">Its worshippers</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It takes villagers from its towns to the worship site when the site needs them</td>
+<td>todo</td>
+<td>no computer god mind in our tree; see <a href="../worship/worship_sites.html">../worship/worship_sites.md</a></td>
+</tr>
+<tr>
+<td>It feeds hungry worshippers: food on the site, or carried from fields, fish farms or other towns</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It rests tired worshippers by healing them at the site or taking them home</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="story-rules">Story rules</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>On the second land, a script checks each of eleven towns for a change of owner every tenth of a second and makes the gods react</td>
+<td>todo</td>
+<td>the story never reaches the land (<code>LOAD_MAP</code> is empty); see <a href="khazar.html">khazar.md</a> and <a href="lethys.html">lethys.md</a></td>
+</tr>
+<tr>
+<td>On the second land, both gods' towns can hold at most 0.75 belief in either god</td>
+<td>done</td>
+<td>Land 2's land script caps them (<code>SET_TOWN_BELIEF_CAP</code>, <code>ecs::town_belief::SetCap</code>) when the land is loaded</td>
+</tr>
+<tr>
+<td>On the third land, the player can't win Lethys's last town until their creature is free, then only once his lead is under 0.4</td>
+<td>todo</td>
+<td>the story never reaches the land (<code>LOAD_MAP</code> is empty); see <a href="lethys.html">lethys.md</a></td>
+</tr>
+<tr>
+<td>On the fifth land, Nemesis's home town can't be won while he holds any other town</td>
+<td>todo</td>
+<td>the story never reaches the land (<code>LOAD_MAP</code> is empty); see <a href="nemesis.html">nemesis.md</a></td>
+</tr>
+<tr>
+<td>On the fifth land, Nemesis's home town also counts as won if it shrinks to six or fewer (unconfirmed whether this script runs)</td>
+<td>todo</td>
+<td>the story never reaches the land (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Scripts count each player's towns to decide when gods die and vortexes open</td>
+<td>todo</td>
+<td><code>GET_PLAYER_TOWN_TOTAL</code> is a stub</td>
+</tr>
+<tr>
+<td>Scripts compare each player's influence at the camera to make gods react to trespassing</td>
+<td>partial</td>
+<td>dormant: <code>GET_INFLUENCE</code> works (<code>magic::script::GetInfluence</code>), but the story never reaches the land (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The person gets "virtual influence" on the third and fifth lands</td>
+<td>todo</td>
+<td><code>SET_VIRTUAL_INFLUENCE</code> is a stub; see <a href="../worship/influence.html">../worship/influence.md</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

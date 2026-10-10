@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Climates and seasons — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="here" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#climates-and-seasons">Climates and seasons</a><ul>
+<li><a href="#climates-from-the-lands-script">Climates from the land's script</a></li>
+<li><a href="#calendar-and-seasons">Calendar and seasons</a></li>
+<li><a href="#temperature">Temperature</a></li>
+<li><a href="#rain-desire-and-storm-breeding">Rain desire and storm breeding</a></li>
+<li><a href="#wind">Wind</a></li>
+<li><a href="#script-control">Script control</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="climates-and-seasons">Climates and seasons</h1>
+<p>Every land has a global climate over the whole map and a few local ones its script places (a cold mountain, a hot
+desert, a wet valley). Each climate has a temperature that follows the hour and the month, a wind that follows the
+season, and a desire to rain that builds day by day until it breeds a storm.</p>
+<p><strong>Progress: 27/29 done, 1 partial — 95%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../day-night-weather.html">Day, night and weather in the original</a>.</p>
+<h2 id="climates-from-the-lands-script">Climates from the land's script</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's script makes the global climate and local ones with a type, a centre and two radii</td>
+<td>done</td>
+<td><code>map_script::CreateWeatherClimate</code> (<code>src/Magic/Script/MapScriptWeather.cpp</code>) to <code>climate::Create</code> (<code>src/ECS/Weather/Climate.cpp</code>)</td>
+</tr>
+<tr>
+<td>The global climate covers the whole map with the first climate type, whatever the script says</td>
+<td>done</td>
+<td><code>climate::Create</code> (id 0 replaces the world climate and ignores the rest)</td>
+</tr>
+<tr>
+<td>The script sets each climate's rain desire, dry days, raining days and whether it is raining</td>
+<td>done</td>
+<td><code>climate::SetRain</code> (CREATE_WEATHER_CLIMATE_RAIN)</td>
+</tr>
+<tr>
+<td>The script sets each climate's temperature and target temperature</td>
+<td>done</td>
+<td><code>climate::SetTemperature</code> (CREATE_WEATHER_CLIMATE_TEMP)</td>
+</tr>
+<tr>
+<td>The script sets each climate's wind and its angle</td>
+<td>done</td>
+<td><code>climate::SetWind</code> (CREATE_WEATHER_CLIMATE_WIND)</td>
+</tr>
+<tr>
+<td>Climate types come from the game's info tables: storm cloud height, speed, lightning waits, overcast, most storms</td>
+<td>done</td>
+<td>The climate info rows of info.dat (<code>src/ECS/Weather/Climate.cpp</code>)</td>
+</tr>
+<tr>
+<td>Climates are saved and loaded with the game</td>
+<td>todo</td>
+<td>openblack has no saved games. See ../engine/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="calendar-and-seasons">Calendar and seasons</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A game year lasts 36000 turns, starting on 5 May 1998</td>
+<td>done</td>
+<td><code>calendar::GetDaysFromStart</code> (<code>src/ECS/Weather/Calendar.cpp</code>); test <code>WeatherCalendar.StartDateAndSeasons</code> (<code>test/test_weather.cpp</code>)</td>
+</tr>
+<tr>
+<td>The year has months and four seasons, spring, summer, autumn and winter, by day of the year</td>
+<td>done</td>
+<td><code>calendar::GetMonth</code>, <code>GetSeason</code></td>
+</tr>
+<tr>
+<td>Each climate's rain budget and desire start from the season's values</td>
+<td>done</td>
+<td><code>climate::Create</code> (a local climate from its info)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="temperature">Temperature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each climate's temperature steps towards a target for the hour of the day and the month</td>
+<td>done</td>
+<td><code>UpdateTemperature</code> and <code>TargetTemperature</code> (the hour and month tables) in <code>src/ECS/Weather/Climate.cpp</code></td>
+</tr>
+<tr>
+<td>The hour table is mapped onto the land's own dusk and dawn</td>
+<td>done</td>
+<td><code>RelativeHour</code> in <code>src/ECS/Weather/Climate.cpp</code></td>
+</tr>
+<tr>
+<td>Once at its target the temperature settles, where the game swings across it ten times a second</td>
+<td>done</td>
+<td>Our tree keeps the game's swing (<code>UpdateTemperature</code>); test <code>WeatherTest.TemperatureOscillatesAroundTheTarget</code></td>
+</tr>
+<tr>
+<td>Storms pull the temperature towards their own within their radius</td>
+<td>done</td>
+<td>The storm's part of the grid (<code>src/ECS/Weather/Storms.cpp</code>); test <code>WeatherTest.StormFadeAndCalcAtmos</code></td>
+</tr>
+<tr>
+<td>Rain turns to snow below freezing</td>
+<td>done</td>
+<td><code>climate::CreateStorm</code> (the snow share)</td>
+</tr>
+<tr>
+<td>The creature feels the temperature where it stands</td>
+<td>done</td>
+<td><code>CreaturePhysiologySystem.cpp</code> (<code>weather::GetTemperatureAt</code>); see ../creature/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="rain-desire-and-storm-breeding">Rain desire and storm breeding</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Once a game day each climate's desire to rain grows at random</td>
+<td>done</td>
+<td>The rain step in <code>src/ECS/Weather/Climate.cpp</code>; test <code>WeatherTest.RainDesireDrawsFromMinThenMax</code></td>
+</tr>
+<tr>
+<td>The monthly and hourly rain terms are 0, as the game never loads their table</td>
+<td>done</td>
+<td><code>src/ECS/Weather/Climate.cpp</code> (as the game)</td>
+</tr>
+<tr>
+<td>When the desire reaches 1 the climate makes a storm, if it has raining days left and room for another</td>
+<td>done</td>
+<td><code>climate::CreateStorm</code>; test <code>WeatherTest.ClimateStormAtFullDesire</code></td>
+</tr>
+<tr>
+<td>A local climate makes its storm near its middle; the global one anywhere on the island</td>
+<td>done</td>
+<td>The storm placement in <code>src/ECS/Weather/Climate.cpp</code></td>
+</tr>
+<tr>
+<td>A storm spot over water is tried again only when it is off the island, as in the game</td>
+<td>done</td>
+<td>The storm placement in <code>src/ECS/Weather/Climate.cpp</code></td>
+</tr>
+<tr>
+<td>Raining days count up while it rains and down while it is dry, capping how long it may rain</td>
+<td>done</td>
+<td><code>climate::ProcessAll</code></td>
+</tr>
+<tr>
+<td>Days since the last rain are counted</td>
+<td>done</td>
+<td><code>Climate::Rain::dryDays</code></td>
+</tr>
+<tr>
+<td>A storm leaving its climate (or the global one's storm entering a local climate) starts to clear and the climate wants a new one</td>
+<td>done</td>
+<td><code>climate::ProcessAll</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="wind">Wind</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A climate's wind lies between the season's extremes by how close it is to rain</td>
+<td>done</td>
+<td>The wind step in <code>src/ECS/Weather/Climate.cpp</code></td>
+</tr>
+<tr>
+<td>Storms drift with the wind where they are</td>
+<td>done</td>
+<td><code>climate::ProcessAll</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-control">Script control</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Challenge scripts pause and restart the whole climate system</td>
+<td>done</td>
+<td><code>script::PauseUnpauseClimateSystem</code> (<code>src/Magic/Script/CHLWeather.cpp</code>)</td>
+</tr>
+<tr>
+<td>Challenge scripts pause and restart storm creation</td>
+<td>done</td>
+<td><code>script::PauseUnpauseStormCreationInClimateSystem</code></td>
+</tr>
+<tr>
+<td>The weather detail option turns the weather system off</td>
+<td>partial</td>
+<td>The Weather detail key is not read (<code>detail_level::Level::weather</code>): the climates run and the rain is drawn at every level</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fireflies — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="here" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#fireflies">Fireflies</a><ul>
+<li><a href="#what-a-firefly-is">What a firefly is</a></li>
+<li><a href="#where-they-come-from">Where they come from</a></li>
+<li><a href="#night-and-day">Night and day</a></li>
+<li><a href="#flying-and-hovering">Flying and hovering</a></li>
+<li><a href="#catching-one">Catching one</a></li>
+<li><a href="#the-lands-reward-table">The land's reward table</a></li>
+<li><a href="#saving-and-editing">Saving and editing</a></li>
+<li><a href="#hints-in-the-game">Hints in the game</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="fireflies">Fireflies</h1>
+<p>Small glowing lights that leave the trees and rocks at nightfall, hover around the houses and street lights all night
+and hide again in the nearest tree or rock at dawn. By day they can't be seen; lifting a tree or rock with the hand while
+a firefly hides in it removes the firefly and leaves a one-shot miracle seed where it stood, drawn from the land's
+firefly reward table. This is the "miracles hidden under trees and rocks" players remember: no seed is ever placed under
+a tree; it comes from a hiding firefly (see <a href="../miracles/dispensers_and_seeds.html">../miracles/dispensers_and_seeds.md</a>).</p>
+<p>The game hints at it three ways: the Hermit on Land 1 saw "a firefly a-heading under that there rock at break of dawn"
+and the seed under his rock is a scripted version of it (<a href="../story/silver_scrolls/the_hermit.html">../story/silver_scrolls/the_hermit.md</a>);
+a Land 2 "did you know" scroll; and a tip of the day (rows below). The game keeps no statistic of fireflies caught, and
+neither the creature nor the villagers take any notice of them.</p>
+<p><strong>Progress: 39/43 done, 1 partial — 92%</strong></p>
+<h2 id="what-a-firefly-is">What a firefly is</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A firefly is a single small white glowing sprite, 0.3 m in size, from the game's third sprite sheet; it has no model of its own</td>
+<td>done</td>
+<td><code>src/ECS/FireFlies.cpp</code> (frame 37 of <code>S_SpriteSheet3</code>, half size 0.3, additive)</td>
+</tr>
+<tr>
+<td>It makes no sound, has no light of its own on the land, and takes no part in physics: nothing can hit it or push it</td>
+<td>done</td>
+<td><code>src/ECS/FireFlies.cpp</code>: a sprite only</td>
+</tr>
+<tr>
+<td>The game's object table lists it as a nice animal named "Firefly", with a bat model that is never drawn</td>
+<td>done</td>
+<td>Our tree draws only the sprite; the info row is in <code>src/Enums.h</code></td>
+</tr>
+<tr>
+<td>It is drawn only while out of its hiding place, and not at all beyond 300 m from the camera</td>
+<td>done</td>
+<td><code>ecs::UpdateFireFlies</code> (nothing asleep or past 300 m)</td>
+</tr>
+<tr>
+<td>Within 100 m it is drawn at about three-quarters opacity (190 of 255); further away it fades, by the square of the distance, to nothing at 300 m</td>
+<td>done</td>
+<td><code>ecs::UpdateFireFlies</code> (alpha 190, fading by the squared distance to 300 m)</td>
+</tr>
+<tr>
+<td>Its drawn place is blended between the last two game turns' places, so it moves smoothly between turns</td>
+<td>done</td>
+<td><code>ecs::UpdateFireFlies</code> (the turn fraction)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="where-they-come-from">Where they come from</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A land holds at most 50 fireflies</td>
+<td>done</td>
+<td><code>k_MaxFireFlies</code> in <code>src/ECS/FireFlies.cpp</code></td>
+</tr>
+<tr>
+<td>At the first nightfall after a land is loaded, and at each nightfall that follows a morning, the game makes new fireflies to bring the count back up to 50</td>
+<td>done</td>
+<td><code>ecs::ProcessFireFliesTurn</code> (the top-up, once a night, allowed again each morning), from <code>src/Game.cpp</code></td>
+</tr>
+<tr>
+<td>Each new firefly is hidden, by a coin toss, either in a random tree anywhere on the land or in a rock: a random place in the land's list of fixed objects, then the first rock from there (none from there makes nothing this time)</td>
+<td>done</td>
+<td><code>Spawn</code> in <code>src/ECS/FireFlies.cpp</code> (a random tree, or a random multi-map fixed object and then the first rock)</td>
+</tr>
+<tr>
+<td>Each firefly draws its own speed, between 0.6 and 1.4 times the normal, for its flights and its drifting, and random starting points for its drift</td>
+<td>done</td>
+<td><code>Create</code> in <code>src/ECS/FireFlies.cpp</code> (eight synced draws in the game's order)</td>
+</tr>
+<tr>
+<td>The land scripts can also place fireflies at a spot; the story lands place none and rely on the top-up</td>
+<td>todo</td>
+<td><code>FeatureScriptCommands::CreateFireFly</code> is an empty stub; see <a href="../scripts/land_script_commands.html">../scripts/land_script_commands.md</a></td>
+</tr>
+<tr>
+<td>Three Gods places 43, the demo map 38 and Death Comes To Those That Wait 86 (two lists of 43); most stand exactly on one of the map's trees (35 of 43, 26 of 38, but only 35 of 86 on Death Comes, whose lists partly repeat Three Gods' spots)</td>
+<td>todo</td>
+<td>CREATE_FIRE_FLY is not ported; see <a href="../multiplayer/maps/index.html">../multiplayer/maps/</a></td>
+</tr>
+<tr>
+<td>At nightfall a firefly whose spot no longer holds a tree or rock, or that shares its spot with another firefly, is removed instead of coming out</td>
+<td>done</td>
+<td><code>WakeOne</code> in <code>src/ECS/FireFlies.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="night-and-day">Night and day</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>In the evening, once the sky leaves dusk and starts to darken towards night, the fireflies come out, one each game turn</td>
+<td>done</td>
+<td><code>ecs::ProcessFireFliesTurn</code> (one a turn, by the sky type of the shown clock); see <a href="../sky/day_night_cycle.html">../sky/day_night_cycle.md</a></td>
+</tr>
+<tr>
+<td>In the morning, once the sky leaves dawn and starts to brighten towards day, they go back into hiding, one each game turn</td>
+<td>done</td>
+<td><code>ecs::ProcessFireFliesTurn</code> (<code>SleepOne</code>)</td>
+</tr>
+<tr>
+<td>Between those times (late morning to dusk, and the dark hours until dawn) nothing changes: hidden ones stay hidden and those out stay out</td>
+<td>done</td>
+<td><code>ecs::ProcessFireFliesTurn</code></td>
+</tr>
+<tr>
+<td>Only the shown time of day matters: weather, rain, season, the land's alignment and the date make no difference</td>
+<td>done</td>
+<td><code>ecs::ProcessFireFliesTurn</code> reads only the day and night clock</td>
+</tr>
+</tbody>
+</table>
+<h2 id="flying-and-hovering">Flying and hovering</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Coming out, a firefly flies to a house or street light within 300 m of its hiding place, roughly the nearest (it searches a random half of the ground squares around it and takes the nearest it finds), and hovers 2 m above its top</td>
+<td>done</td>
+<td><code>WakeOne</code> and the spiral search in <code>src/ECS/FireFlies.cpp</code> (each cell on a coin toss, its height plus 2)</td>
+</tr>
+<tr>
+<td>With no house or street light in reach, it hovers 15 m to one side of its hiding place, 4 m up</td>
+<td>done</td>
+<td><code>WakeOne</code> (15 m along x, altitude 4)</td>
+</tr>
+<tr>
+<td>A flight takes its length over 3 m a second times the firefly's own speed, never less than half a second, and eases in and out</td>
+<td>done</td>
+<td><code>StartFlight</code> (at least 0.5 s), eased in <code>ecs::ProcessFireFliesTurn</code></td>
+</tr>
+<tr>
+<td>Hovering, it drifts around its spot on a slow loop of 8 m (4 m up and down), turning 0.06 to 0.14 radians a second by its speed, with a quick loop of 1 m (half a metre up and down) on top turning 0.6 to 1.7 radians a second</td>
+<td>done</td>
+<td><code>ecs::UpdateFireFlies</code> (the two loops)</td>
+</tr>
+<tr>
+<td>The drift grows over the first fifth of the flight out and dies away over the last fifth of the flight home, so it rests still in its hiding place</td>
+<td>done</td>
+<td><code>ecs::UpdateFireFlies</code></td>
+</tr>
+<tr>
+<td>Going home, it hides in a tree or rock within 300 m of where it hovered, roughly the nearest; with none it settles on the ground 15 m to the side (and is removed at nightfall)</td>
+<td>done</td>
+<td><code>SleepOne</code> (the same search; none: 15 m along x on the ground)</td>
+</tr>
+<tr>
+<td>So fireflies gather in the trees and rocks next to houses and street lights; a tip of the day says "If you place rocks and trees next to houses they will attract fireflies more readily."</td>
+<td>done</td>
+<td>Follows from the searches; whether the tip of the day is shown is not confirmed</td>
+</tr>
+<tr>
+<td>They follow nothing: not the hand, the creature, villagers or the camera</td>
+<td>done</td>
+<td><code>src/ECS/FireFlies.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="catching-one">Catching one</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A firefly is never picked up or tapped itself; it is caught when the player's hand picks up the tree or rock it is hiding in, uprooting the tree or lifting the rock</td>
+<td>done</td>
+<td><code>fire_fly::OnPlacedInMagicHand</code> (<code>src/Worship/FireFlyReward.cpp</code>) from the hand's pick-up (<code>HandHolding.cpp</code>); see <a href="../hand/picking_up.html">../hand/picking_up.md</a></td>
+</tr>
+<tr>
+<td>It must sit exactly at that tree or rock's spot, so only one at rest counts: in practice from dawn until it is sent out after dusk; one already out hovering by a house is not caught</td>
+<td>done</td>
+<td><code>ecs::TakeFireFlyAt</code> (the same x and z)</td>
+</tr>
+<tr>
+<td>The firefly is removed and a one-shot miracle seed appears where the tree or rock stood, at full strength and at the power-up level of the miracle drawn</td>
+<td>done</td>
+<td><code>fire_fly::Reward</code> (<code>magic::one_off::Create</code> at the spot, strength 1, the magic's power-up level); see <a href="../miracles/dispensers_and_seeds.html">../miracles/dispensers_and_seeds.md</a></td>
+</tr>
+<tr>
+<td>One pick-up catches at most one firefly</td>
+<td>done</td>
+<td><code>ecs::TakeFireFlyAt</code></td>
+</tr>
+<tr>
+<td>The miracle is drawn by weight: each kind's chance is its weight over the sum of all weights; with every weight at zero the firefly is lost and nothing appears</td>
+<td>done</td>
+<td><code>fire_fly::Reward</code> (a synced draw over the running sums; nothing when they are 0)</td>
+</tr>
+<tr>
+<td>Only the god's hand catches them: the creature lifting a tree or rock, foresters felling, the tug shaking a tree, fire, or a tree knocked down never give a seed; the firefly that lost its home is removed at nightfall</td>
+<td>done</td>
+<td>Only the hand's pick-up calls <code>fire_fly::OnPlacedInMagicHand</code></td>
+</tr>
+<tr>
+<td>Any player's hand can catch them in a multiplayer game, and the fireflies' choices use the game's shared random numbers so every machine agrees</td>
+<td>partial</td>
+<td>The fireflies use the synced game random numbers; our tree has no multiplayer. See <a href="../multiplayer/index.html">../multiplayer/</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-lands-reward-table">The land's reward table</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every land starts with all weights at zero, then its script sets them one miracle at a time; a weight for a kind the game doesn't have is ignored</td>
+<td>done</td>
+<td><code>fire_fly::Reset</code> and <code>fire_fly::SetRewardProbability</code> (FIRE_FLY_SPELL_REWARD_PROB, <code>src/LHScriptX/FeatureScriptCommands.cpp</code>). Our wiki differs: a new land clears only the weights; the running sums the draw reads keep the last land's values until the script sets one (<a href="../../magic.html#dispensers-and-fireflies-worshipspelldispensercpp-worshipfireflyrewardcpp">magic.md</a>)</td>
+</tr>
+<tr>
+<td>Land 1: heal 20 of 26 (77%); fireball, lightning, forest, food, wood and water 1 each (about 4%)</td>
+<td>done</td>
+<td>Read from Land 1's script; <a href="../scripts/land1_script.html">../scripts/land1_script.md</a></td>
+</tr>
+<tr>
+<td>Land 2: fireball, lightning, heal, teleport, forest, food, storm, spiritual shield, physical shield, wood and water about 8% each; flying flock, and the creature's freeze, small, big, weak, strong, invisible, compassion, angry and itchy under 1% each; ground flock about 0.1%</td>
+<td>done</td>
+<td>Read from the land's script. Our wiki differs: only Land 1's script sets firefly rewards (<a href="../../magic.html#dispensers-and-fireflies-worshipspelldispensercpp-worshipfireflyrewardcpp">magic.md</a>); <a href="../scripts/land2_script.html">../scripts/land2_script.md</a></td>
+</tr>
+<tr>
+<td>Land 3: the same eleven at about 9% each and both flocks under 1%; no creature miracles</td>
+<td>done</td>
+<td>Read from the land's script. Our wiki differs: only Land 1's script sets firefly rewards (<a href="../../magic.html#dispensers-and-fireflies-worshipspelldispensercpp-worshipfireflyrewardcpp">magic.md</a>); <a href="../scripts/land3_script.html">../scripts/land3_script.md</a></td>
+</tr>
+<tr>
+<td>Land 4: the eleven, with stronger heal and stronger food, about 7% each; stronger fireball, lightning and water about 1.4%; strongest fireball and lightning and the storm with lightning about 0.7%; the nine creature miracles about 0.7% each; no flocks</td>
+<td>done</td>
+<td>Read from the land's script. Our wiki differs: only Land 1's script sets firefly rewards (<a href="../../magic.html#dispensers-and-fireflies-worshipspelldispensercpp-worshipfireflyrewardcpp">magic.md</a>); <a href="../scripts/land4_script.html">../scripts/land4_script.md</a></td>
+</tr>
+<tr>
+<td>Land 5: the eleven and stronger food about 6% each; both flocks about 3%; strongest fireball, stronger lightning, stronger heal and the nine creature miracles about 1.3%; stronger fireball, strongest lightning, the explosion miracle, the storm with lightning and the tornado about 0.6%</td>
+<td>done</td>
+<td>Read from the land's script. Our wiki differs: only Land 1's script sets firefly rewards (<a href="../../magic.html#dispensers-and-fireflies-worshipspelldispensercpp-worshipfireflyrewardcpp">magic.md</a>); <a href="../scripts/land5_script.html">../scripts/land5_script.md</a>; see <a href="../miracles/blast.html">../miracles/blast.md</a></td>
+</tr>
+<tr>
+<td>The tutorial land's weights are all zero, so a firefly caught there gives nothing</td>
+<td>done</td>
+<td>Read from the land's script; <a href="../scripts/landT_script.html">../scripts/landT_script.md</a></td>
+</tr>
+<tr>
+<td>No table ever names the fat, thin, hungry, frightened, tired, ill or thirsty creature miracles, so fireflies never give them</td>
+<td>done</td>
+<td>Data-driven; see <a href="../miracles/creature_spells.html">../miracles/creature_spells.md</a></td>
+</tr>
+<tr>
+<td>Skirmish: Two Gods and Four Gods share one table (fireball, lightning, heal, forest, food, storm, both shields, wood and water about 8% each, both flocks about 4%, teleport and the nine creature miracles about 1.5%, the explosion under 1%); Death Comes To Those That Wait ends with Land 2's table; Three Gods, Island Wars and Firestorm set every weight to zero, so their fireflies give nothing</td>
+<td>done</td>
+<td>Read from each map's script; see <a href="../multiplayer/maps/index.html">../multiplayer/maps/</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="saving-and-editing">Saving and editing</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A saved game keeps every firefly (its spot, whether it is out, hiding or flying, and its flight), the reward table, the limit of 50 and whether the next nightfall tops them up</td>
+<td>todo</td>
+<td>openblack has no saved games</td>
+</tr>
+<tr>
+<td>The land editor writes each firefly into the land's script as a placement at its spot</td>
+<td>n/a</td>
+<td>openblack has no land editor</td>
+</tr>
+</tbody>
+</table>
+<h2 id="hints-in-the-game">Hints in the game</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A Land 2 "did you know" scroll: "Fireflies can be seen at night. They hide under rocks during the day, and become rewards if you find them."</td>
+<td>done</td>
+<td>The did-you-know scrolls are read when tapped (<code>src/Help/Bubble.cpp</code>); see <a href="../interface/scrolls_and_signs.html">../interface/scrolls_and_signs.md</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

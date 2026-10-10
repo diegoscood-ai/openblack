@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Football — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="here" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#football">Football</a><ul>
+<li><a href="#the-add-on-and-its-switch">The add-on and its switch</a></li>
+<li><a href="#the-pitch">The pitch</a></li>
+<li><a href="#who-plays">Who plays</a></li>
+<li><a href="#the-match">The match</a></li>
+<li><a href="#spectators">Spectators</a></li>
+<li><a href="#the-player-and-the-creature">The player and the creature</a></li>
+<li><a href="#the-cup-final-and-the-footballers">The cup final and the footballers</a></li>
+<li><a href="#sounds-statistics-and-leftovers">Sounds, statistics and leftovers</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="football">Football</h1>
+<p>Lionhead's free Soccer Add-On for Black &amp; White (summer 2001) turns on football: towns can build a pitch from eight
+scaffolds, and relaxing villagers play five-a-side matches on it while others watch and do the Mexican wave. The code
+for all of it ships in the game. The add-on only switches it on.</p>
+<p><strong>Progress: 6/53 done, 5 partial — 16%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../buildings.html">Buildings, building sites and towns (the building side)</a>.</p>
+<h2 id="the-add-on-and-its-switch">The add-on and its switch</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Football is off unless the add-on has switched it on; the game checks once when a game starts</td>
+<td>partial</td>
+<td>football is fixed off, as in the original without the add-on: <code>k_FootballEnabled</code> is false in <code>src/ECS/Scaffolds.cpp</code> and <code>src/ECS/Town/BuildingSites.cpp</code>; there is no switch to turn it on</td>
+</tr>
+<tr>
+<td>The switch only works outside multiplayer: in a multiplayer game football stays off even when installed. Skirmish counts as single-player</td>
+<td>todo</td>
+<td>no switch, so no multiplayer rule either</td>
+</tr>
+<tr>
+<td>The switch is a binary value, <code>BWFeatureKey</code>, under <code>Software\Lionhead Studios Ltd\Black &amp; White\BWSetup</code> in the registry. It holds a list of 32-bit codes. Each code is a scrambled checksum of the feature's name minus the same checksum of the Windows product ID, so a code only works on the machine it was made for</td>
+<td>n/a</td>
+<td>copy protection tied to the Windows product ID. openblack should use a plain setting (row above). The product ID is read from the Windows 9x location, which is probably why the unofficial 1.42 patch (April 2019) lists "fixed addons like football mod not activating"</td>
+</tr>
+<tr>
+<td>The same switch turns on four other add-ons: an MP3 player, creature music moods, the creature dancing to the sound card's line-in, and a Pentium 4 option</td>
+<td>n/a</td>
+<td>not football; listed because they share the mechanism</td>
+</tr>
+<tr>
+<td>The switch first appears in patch 1.1. Version 1.00 has the football code but not the feature key, and press reports say the add-on needs patch 1.1</td>
+<td>n/a</td>
+<td>checked in the 1.00, 1.10 and 1.20 executables. How 1.00 treated football was not traced</td>
+</tr>
+<tr>
+<td>The download (about 1.1 MB, Lionhead, listed August 2001)</td>
+<td>n/a</td>
+<td>the installer is not in the game folder. The ball and goal model <code>Data\football.l3d</code> is dated 22 February 2001, so it is part of the base game. What the installer copies besides the registry code is undetermined</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-pitch">The pitch</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every tribe's pitch is the same: one model (not in the tribe's style), 6000 wood, 8 scaffolds, up to 6 builders, influence 20, impressiveness 0.0015</td>
+<td>done</td>
+<td>read from the abode info table like every building (<code>src/InfoConstants.h</code>, <code>src/ECS/Archetypes/AbodeArchetype.cpp</code>). A bigger pitch model and separate centre-circle, corner-flag and goal models exist, but no table uses them</td>
+</tr>
+<tr>
+<td>Scaffolds join up to 8 only with football on (7 otherwise), so only then can a pitch be offered</td>
+<td>partial</td>
+<td>the combine maximum takes the flag (<code>src/ECS/Scaffolds.cpp</code>), fixed off, so 7; see <a href="../building/workshop_and_scaffolds.html">../building/workshop_and_scaffolds.md</a></td>
+</tr>
+<tr>
+<td>A town wants a pitch only with football on, only when it has no pitch and none being built</td>
+<td>partial</td>
+<td>the pitch's desire to be built returns 0 with the flag off (<code>src/ECS/Town/BuildingSites.cpp</code>); the town's pitch lookup is not ported (<code>TownFootball</code> returns null); see <a href="town_desires.html">town_desires.md</a></td>
+</tr>
+<tr>
+<td>The building site's ring is a circle for a pitch</td>
+<td>done</td>
+<td><code>PosBuilderProcess</code> makes the circle for a pitch (<code>src/ECS/Town/BuildingSites.cpp</code>); see <a href="../building/construction.html">../building/construction.md</a></td>
+</tr>
+<tr>
+<td>Finishing a pitch does not set off the "new building" reaction other civic buildings do</td>
+<td>done</td>
+<td><code>abodes::Built</code> leaves out the citadel and the pitch where the new building reaction would start (<code>src/ECS/Abodes.cpp</code>); that reaction is not made for any building yet</td>
+</tr>
+<tr>
+<td>Villagers build it like any building. Its own "going to build the pitch" state does nothing</td>
+<td>done</td>
+<td>its building site is any building's (<code>src/ECS/Town/BuildingSites.cpp</code>); <code>MOVE_TO_FOOTBALL_PITCH_CONSTRUCTION</code> is an empty TODO row of the state table, as the original's does nothing; see <a href="../building/construction.html">../building/construction.md</a></td>
+</tr>
+<tr>
+<td>Scripts can place a pitch like any other building</td>
+<td>done</td>
+<td><code>CREATE_ABODE</code> through <code>src/ECS/Archetypes/AbodeArchetype.cpp</code>. One multiplayer map's Tibetan town has one</td>
+</tr>
+<tr>
+<td>The pitch drapes over the land</td>
+<td>done</td>
+<td><code>MorphWithTerrain</code> for the pitch (<code>src/ECS/Archetypes/AbodeArchetype.cpp</code>)</td>
+</tr>
+<tr>
+<td>Nothing collides with it, and the creature need not walk round it</td>
+<td>todo</td>
+<td>the pitch is an obstacle like any standing building: the per-type exceptions are missing from <code>PhysicsObjects::InteractsWithPhysicsObjects</code>; see <a href="../physics/collisions.html">../physics/collisions.md</a></td>
+</tr>
+<tr>
+<td>The pitch takes no damage: anything that would hurt it leaves its life full</td>
+<td>todo</td>
+<td>the pitch takes damage like any abode (<code>abodes::ReduceLife</code>, <code>src/ECS/Abodes.cpp</code>)</td>
+</tr>
+<tr>
+<td>Once built, it becomes the town's pitch (one per town) and makes its ball on the centre spot</td>
+<td>todo</td>
+<td>no pitch object or ball in our tree: the town turn's pitch step is not ported (<code>src/ECS/Town/TownProcess.cpp</code>)</td>
+</tr>
+<tr>
+<td>Whenever the pitch has no ball, it makes a new one on the centre spot</td>
+<td>todo</td>
+<td>no ball</td>
+</tr>
+<tr>
+<td>Its question-mark text says a game starts once it is built and nobody is worshipping; the tooltip says "Football Pitch"</td>
+<td>todo</td>
+<td>see <a href="../hand/pointing_and_tooltips.html">../hand/pointing_and_tooltips.md</a></td>
+</tr>
+<tr>
+<td>With football off, a pitch placed by a script never runs a match, but relaxing villagers can still go to it and wait there</td>
+<td>partial</td>
+<td>no match is ever run, as with football off; but relaxing villagers do not go to the pitch either: the relaxation pick counts no pitch (<code>src/ECS/Villager/VillagerSatisfy.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="who-plays">Who plays</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A villager taking up relaxation picks the most wanted of the town's pitch, its god's worship place and the town's artefacts</td>
+<td>todo</td>
+<td>the best of the three is always 0: none of them is ported (TODO in <code>src/ECS/Villager/VillagerSatisfy.cpp</code>); see <a href="../villager/play_and_gossip.html">../villager/play_and_gossip.md</a></td>
+</tr>
+<tr>
+<td>The pitch is wanted at 1.5 until the first match has ended. After a match it is not wanted for 3 minutes, then at a random 0 to 1</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Villagers under 15 never join. Nobody joins once both teams have five and there is a referee</td>
+<td>todo</td>
+<td>no matches: every football state is a TODO row of the villager state table (<code>src/ECS/Systems/Implementations/LivingActionSystem.cpp</code>)</td>
+</tr>
+<tr>
+<td>The first to arrive becomes the referee. Then the home team fills to five, then the away team, and the rest come to watch</td>
+<td>todo</td>
+<td>the referee is given no actions of his own</td>
+</tr>
+<tr>
+<td>Players walk to a random spot within 4 m of the centre and wait for kick-off</td>
+<td>todo</td>
+<td><code>FOOTBALL_WALK_TO_POSITION</code> and <code>FOOTBALL_WAIT_FOR_KICK_OFF</code> are TODO rows</td>
+</tr>
+<tr>
+<td>Town players wear their own clothes: there are no kits or tribe teams, just home and away</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Players and spectators stay in the town and its desires: every football state counts toward the town's playtime</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-match">The match</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The game counts time in turns of a tenth of a second. A match waits, plays, pauses after a goal, and can be stopped</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>With fewer than three a side, waiting players are sent away after 180 s</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>With three or more a side, after 30 s the ball is put on the centre spot (unless it is in flight). Kick-off comes once fewer than five players are still walking</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>At kick-off and every 15 s of play each side is re-ranked by distance to a goal. The first half attack, the rest defend and the last keeps goal, so five play 2-2-1 and three play 1-1-1</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>If a side has no players, or both have only one, the match goes back to waiting</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A town match stops once it has run 3 minutes and playtime and relaxation are no longer what the town wants most. Players and the first 40 spectators go home</td>
+<td>todo</td>
+<td>matches started by a script never stop this way</td>
+</tr>
+<tr>
+<td>A goal counts when the ball crosses a goal mouth taken from the goal model, and only after a kick has set it moving</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>After a goal the scorers celebrate and the others mourn for 7 s (70 turns), then play resumes. The pitch does not put the ball back itself; it is restarted as a dead ball</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The score is kept per side, but the tally and the creature's "my side scored" test credit the side the villagers mourn for. Only the debug text shows the tally</td>
+<td>todo</td>
+<td>reproduce as-is: celebrations follow the villagers' reading</td>
+</tr>
+<tr>
+<td>When the ball leaves the pitch, one side's first-listed player fetches it for a restart while the rest stand paused. The game compares the two sides' first players and sends the one further from the ball</td>
+<td>todo</td>
+<td>see ../villager/tools_and_carried_items.md for the carried ball</td>
+</tr>
+<tr>
+<td>The ball is removed if it goes more than 100 m from the pitch, into water, or more than 80 m away in a god's hand, and a new one appears on the centre spot</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Each kick launches the ball on an arc that lands on its target, with flight time = distance ÷ kick speed, under gravity 9.81</td>
+<td>todo</td>
+<td>kick speeds per role: <a href="../story/minigames.html">../story/minigames.md</a>. Ball bounce: <a href="../physics/object_dynamics.html">../physics/object_dynamics.md</a></td>
+</tr>
+<tr>
+<td>There are no fouls, throw-ins, corners, injuries or full-time whistle in a town match</td>
+<td>todo</td>
+<td>nothing in the rules hurts players. The creature's "foul" is below</td>
+</tr>
+<tr>
+<td>When a match ends the town gains belief: 0.01 times up to twice a measure of how long the match ran</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Leaving a match by any other state (picked up, scared, called away) takes a player off the team. A spectator who leaves keeps their wave place until they are gone</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="spectators">Spectators</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The first 40 spectators take places 9° apart all round the pitch, just outside it, scattered by up to 2 m. Later ones stand at random points round it</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>They watch the pitch before kick-off and the ball in play, picking one of three watching animations at random, and others after a goal</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Mexican wave: each turn the next of the 40 places, if filled and standing still, starts the wave. After all 40, the wave rests 256 turns (25.6 s), then goes round again</td>
+<td>todo</td>
+<td><code>FOOTBALL_MEXICAN_WAVE</code> is a TODO row</td>
+</tr>
+<tr>
+<td>A match impresses those watching (football has its own kind of impressiveness)</td>
+<td>todo</td>
+<td>see ../worship/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-player-and-the-creature">The player and the creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hand can pick up and throw the ball (it shows the ball's in-hand help) and pick up players</td>
+<td>todo</td>
+<td>no ball; see ../hand/</td>
+</tr>
+<tr>
+<td>The football is a toy ball for the creature: it may kick it about and it never hurts it</td>
+<td>todo</td>
+<td>see <a href="../nature/toys.html">../nature/toys.md</a></td>
+</tr>
+<tr>
+<td>The creature can act on a villager who is playing: pick up the ball (first, two times in three, a short gesture when its hand is empty) and throw it at the goal its side attacks. The kick-at-goal, clear and catch actions all do this</td>
+<td>todo</td>
+<td>see <a href="../creature/town_actions.html">../creature/town_actions.md</a></td>
+</tr>
+<tr>
+<td>It can stomp on the ball, and as "goalkeeper foul" stomp on the first-listed player of the other side</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It celebrates when its side has just scored and commiserates when the other side has. Creatures of even-numbered players are on the home side</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Its god throwing the football into the goal, or catching it, is a deed it can notice</td>
+<td>todo</td>
+<td>see <a href="../creature/learning_by_observation.html">../creature/learning_by_observation.md</a>. Where the game reports these was not found</td>
+</tr>
+<tr>
+<td>Miracles have no football effect of their own; players can be hurt or killed like anyone</td>
+<td>todo</td>
+<td>no matches or players; see ../miracles/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-cup-final-and-the-footballers">The cup final and the footballers</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Two special villagers: "Footballer Team 1" in a Norse kit and "Footballer Team 2" in a Celtic kit, belonging to no tribe</td>
+<td>partial</td>
+<td>the two villager numbers and their meshes are in the tables (<code>src/Enums.h</code>, <code>src/3D/AllMeshes.h</code>), so a script can make one like any villager; nothing special; see <a href="../villager/special_villagers.html">../villager/special_villagers.md</a></td>
+</tr>
+<tr>
+<td>Both appear in the shipped Land 5 end credits: a Celtic footballer among the ten waving villagers, and a Norse footballer in the special shepherd's place</td>
+<td>todo</td>
+<td>the credits script is compiled into the game. See <a href="../story/ending.html">../story/ending.md</a></td>
+</tr>
+<tr>
+<td>Cup final: seven Norse (away) and seven Celtic (home) footballers, five on and two subs, a referee and up to 15 fans from each town. The evil advisor says a crowd is forming</td>
+<td>n/a</td>
+<td>the challenge's script is not compiled into the shipped challenges. See <a href="../story/minigames.html">../story/minigames.md</a></td>
+</tr>
+<tr>
+<td>In the cup final, a player whose health runs out is replaced by a sub, with a cry, the camera following him and the advisor's line ("Hard tackle. Not a foul, though, I say.")</td>
+<td>n/a</td>
+<td>as above</td>
+</tr>
+<tr>
+<td>The cup final lasts 300 s or until one side loses all seven. With 30 s left the first Norse sub is set on fire and killed, so the Celts "cheat"</td>
+<td>n/a</td>
+<td>as above. No winner is declared; everyone is sent home</td>
+</tr>
+<tr>
+<td>Script commands to find a town's pitch, stop its games, keep it for scripts only, start a match with a chosen referee, and add or remove players (at most five a side)</td>
+<td>todo</td>
+<td>GET_FOOTBALL_PITCH, STOP_ALL_GAMES, START_MATCH_WITH_REFEREE, GAME_TEAM_SIZE and the rest are stubs (<code>src/CHLApi.cpp</code>); see <a href="../scripts/challenge_natives_objects_and_world.html">../scripts/challenge_natives_objects_and_world.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="sounds-statistics-and-leftovers">Sounds, statistics and leftovers</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The ball has its own collision sound, and kicks play the kick sound</td>
+<td>todo</td>
+<td>no ball; see ../villager/tools_and_carried_items.md and ../audio/</td>
+</tr>
+<tr>
+<td>The sound list names a referee's long and short whistle, a huge crowd and a goal sound, but no recordings by those names ship</td>
+<td>n/a</td>
+<td>no football music or chants exist</td>
+</tr>
+<tr>
+<td>The game counts no football statistics</td>
+<td>n/a</td>
+<td>the score lives only in the pitch and its debug text</td>
+</tr>
+<tr>
+<td>A debug view shows the match state and the score</td>
+<td>n/a</td>
+<td>developer only; see ../debug/</td>
+</tr>
+<tr>
+<td>An older pitch kind (with its own ball and place table) remains, but every villager hook it relies on is empty</td>
+<td>n/a</td>
+<td>no table or script makes one</td>
+</tr>
+<tr>
+<td>A "Miraculous soccer ball" miracle was cut: a creature-lesson line and a miracle-icon model remain</td>
+<td>n/a</td>
+<td>the shipped miracle list has none</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

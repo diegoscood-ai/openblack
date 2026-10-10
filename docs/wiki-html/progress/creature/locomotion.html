@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Creature locomotion — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="here" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#creature-locomotion">Creature locomotion</a><ul>
+<li><a href="#speed">Speed</a></li>
+<li><a href="#walking-and-running-on-the-body">Walking and running on the body</a></li>
+<li><a href="#routes">Routes</a></li>
+<li><a href="#going-places">Going places</a></li>
+<li><a href="#footprints">Footprints</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="creature-locomotion">Creature locomotion</h1>
+<p>How a creature gets about: it plans a route round what is in its way, walks or runs along it at a speed that suits its
+size, the slope and how tired it is, turns and steps off before setting out, and leaves footprints behind. It can wade
+through shallows but not deep sea, follow things, run away, travel by teleport, and be carried off by a tornado.</p>
+<p><strong>Progress: 33/50 done, 4 partial — 70%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../creature.html">The creature: groundwork, random streams and what is unknown</a>.</p>
+<h2 id="speed">Speed</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Walking is 8 and running 20 units a second for each unit of a size-based length; bigger creatures go faster</td>
+<td>done</td>
+<td><code>src/Creature/CreatureLocomotion</code>, used by <code>CreatureLocomotionSystem</code>; test <code>CreatureLocomotion.SpeedsGrowWithSize</code></td>
+</tr>
+<tr>
+<td>A creature is asked for a fraction of a little over its running speed</td>
+<td>done</td>
+<td>test <code>CreatureLocomotion.TargetSpeedIsAFractionOfALittleOverRunning</code></td>
+</tr>
+<tr>
+<td>It speeds up at twelve units a second each second</td>
+<td>done</td>
+<td>test <code>CreatureLocomotion.AcceleratesAtTwelveUnitsASecondEachSecond</code></td>
+</tr>
+<tr>
+<td>It brakes so as to stop in the distance left, and slows for corners</td>
+<td>done</td>
+<td>test <code>CreatureLocomotion.BrakesToStopInTheDistanceLeft</code></td>
+</tr>
+<tr>
+<td>Uphill is slower and downhill a little faster</td>
+<td>done</td>
+<td>test <code>CreatureLocomotion.UphillIsSlowerDownhillALittleFaster</code></td>
+</tr>
+<tr>
+<td>Exhausted, it only goes slowly</td>
+<td>done</td>
+<td>test <code>CreatureLocomotion.ExhaustedCreaturesGoSlowly</code></td>
+</tr>
+<tr>
+<td>Pulled on the leash it goes faster, up to twice its running pace</td>
+<td>done</td>
+<td><code>CreatureLocomotionSystem::LeadTo</code>; test <code>CreatureLocomotion.PullingTheLeashSpeedsItUp</code>; see <a href="leash.html">leash.md</a></td>
+</tr>
+<tr>
+<td>Frozen it can't move</td>
+<td>partial</td>
+<td>the freeze spell (<code>creature_spells</code>, <code>src/Magic/Spells/SpellCreature.cpp</code>) slows its animation to a stop (<code>CreatureAnimationSystem</code>) and the hand can't hold it, but the locomotion does not read it, so a walk goes on (see <a href="../miracles/index.html">../miracles</a>)</td>
+</tr>
+<tr>
+<td>Scripts can set a creature's speed (unconfirmed which functions)</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="walking-and-running-on-the-body">Walking and running on the body</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Below walking speed it blends standing and walking; above, walking and running, keeping in step</td>
+<td>done</td>
+<td>tests <code>CreatureLocomotion.SlowerThanWalkingBlendsStandAndWalk</code>, <code>FasterThanWalkingBlendsWalkAndRunInStep</code></td>
+</tr>
+<tr>
+<td>The distance covered drives the walk, so the feet keep to the ground</td>
+<td>done</td>
+<td><code>src/Creature/CreatureLocomotion</code> blend, played by <code>CreatureLocomotionSystem::Update</code></td>
+</tr>
+<tr>
+<td>Standing still moves no feet</td>
+<td>done</td>
+<td>test <code>CreatureLocomotion.StandingStillMovesNoFeet</code></td>
+</tr>
+<tr>
+<td>Before setting off it steps off sideways or back into a walk, walks straight on if nearly facing the way, or turns on the spot</td>
+<td>done</td>
+<td>test <code>CreatureLocomotion.StartsByStepWalkOrTurn</code>; <code>CreatureLocomotionSystem</code> steps off along the route</td>
+</tr>
+<tr>
+<td>Turns and steps blend the 0, 90 and 180 degree animations of a side for the angle</td>
+<td>done</td>
+<td>test <code>CreatureLocomotion.AnglesPickTheirPairOfAnimations</code></td>
+</tr>
+<tr>
+<td>At corners too sharp to walk round it stops and starts again</td>
+<td>partial</td>
+<td>our route follower rounds the corners into arcs, so <code>CreatureLocomotionSystem</code> never stops at one; the stop-and-start is only at the start of a walk</td>
+</tr>
+<tr>
+<td>Between game turns it is drawn moving smoothly</td>
+<td>done</td>
+<td><code>CreatureLocomotionSystem::Update</code> writes <code>CreatureDrawPose</code> (<code>creature_pose::BetweenTurns</code>); tests <code>CreaturePose.BetweenTurns*</code>, <code>CreatureLocomotionSystemTest.TheTransformMovesOnlyOnceATurn</code></td>
+</tr>
+<tr>
+<td>It faces down a slope to do some things (unconfirmed which)</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="routes">Routes</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land is a grid of 512 by 512 cells sorted once loaded: too steep and deep sea are blocked, shallows can be waded</td>
+<td>done</td>
+<td><code>land_avoid::Validate</code> (<code>src/3D/LandAvoid</code>), the creature's walkable mask built when the landscape opens (<code>Game.cpp</code>): steep cells and sea whose four corners are at altitude 0 are blocked, shallow water can be waded; tests <code>LandAvoidNearest.*</code></td>
+</tr>
+<tr>
+<td>Land cut off from the main part of the land is out of reach</td>
+<td>done</td>
+<td>the <code>land_avoid</code> flood fill marks it unreachable</td>
+</tr>
+<tr>
+<td>A creature stands clear of cells it can't walk on</td>
+<td>done</td>
+<td><code>land_avoid::IsPosValid</code> at radius 7.1 and <code>NearestValid</code>, used by <code>CreatureLocomotionSystem</code>; tests <code>LandAvoidNearest.*</code>, <code>CreatureLocomotionSystemTest.NowhereToStandIsAnInvalidDestination</code></td>
+</tr>
+<tr>
+<td>Things in the way are walked round as circles; big creatures walk through small trees and over low things</td>
+<td>partial</td>
+<td>our route planner (<code>src/RoutePlanner</code>, obstacles from <code>src/ECS/RoutePlanWorld.cpp</code>) walks round things as circles; trees are always avoided, so no creature walks through small trees; tests <code>RoutePlanWorldCreatureTest.*</code></td>
+</tr>
+<tr>
+<td>Villagers and animals are never walked round; other creatures only while they stand still; anything burning always</td>
+<td>partial</td>
+<td><code>CreatureMustAvoid</code> (<code>src/ECS/RoutePlanWorld.cpp</code>): villagers, animals and other creatures are never walked round, standing or not; a burning dead tree or forest always is; another player's shield is (test <code>RoutePlanWorldCreatureTest.AnotherPlayersShieldIsAvoided</code>)</td>
+</tr>
+<tr>
+<td>Routes are planned over a finer lattice a budget a turn, straightened where clear, and their corners rounded</td>
+<td>done</td>
+<td>the original's route planner and follower (<code>src/RoutePlanner</code>, <code>route_planner::RouteFollower</code>), a few search turns each game turn in <code>CreatureLocomotionSystem::ProcessTurn</code>, corners rounded into arcs; tests in <code>test/test_rplan.cpp</code>, <code>test/test_rplan_follow.cpp</code>, <code>RouteFollowerCreature.ContextAndRemainingLength</code>, <code>CreatureLocomotionSystemTest.AWalkIsPlannedFollowedAndEnded</code></td>
+</tr>
+<tr>
+<td>It goes round cliffs</td>
+<td>done</td>
+<td>the route planner's square check reads the walkable mask (<code>CheckSquareFunction</code> in <code>src/ECS/RoutePlanWorld.cpp</code>)</td>
+</tr>
+<tr>
+<td>With no way there it gives up, puzzled</td>
+<td>done</td>
+<td><code>CreatureLocomotionSystem::ProcessTurn</code>: a failed plan pulls the puzzled face and plays the confused animation</td>
+</tr>
+<tr>
+<td>It arrives anywhere on a ring about its destination</td>
+<td>done</td>
+<td>test <code>CreatureLocomotion.ArrivalRings</code></td>
+</tr>
+<tr>
+<td>A walk is given a time to arrive before it is given up</td>
+<td>todo</td>
+<td>no time limit found in <code>CreatureLocomotionSystem</code></td>
+</tr>
+<tr>
+<td>Stuck or trapped in an enclosed space, it tries to get out (unconfirmed how)</td>
+<td>todo</td>
+<td>see <a href="decision_making.html">decision_making.md</a></td>
+</tr>
+<tr>
+<td>It uses the land's footpaths (unconfirmed)</td>
+<td>todo</td>
+<td>the route planner can follow footpaths (<code>test/test_use_footpath.cpp</code>), but the creature's walks do not ask for them</td>
+</tr>
+<tr>
+<td>A villager or animal under its feet can be trodden on</td>
+<td>todo</td>
+<td>see <a href="object_actions.html">object_actions.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="going-places">Going places</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Walking or running to a point</td>
+<td>done</td>
+<td><code>CreatureLocomotionSystem::MoveTo</code>; test <code>CreatureLocomotionSystemTest.AWalkIsPlannedFollowedAndEnded</code></td>
+</tr>
+<tr>
+<td>Walking up to a thing, stopping short by both their sizes</td>
+<td>done</td>
+<td><code>CreatureLocomotionSystem::MoveToObject</code></td>
+</tr>
+<tr>
+<td>Following a thing as it moves, keeping within a distance</td>
+<td>done</td>
+<td><code>CreatureLocomotionSystem::Follow</code></td>
+</tr>
+<tr>
+<td>Running away from a point</td>
+<td>done</td>
+<td><code>CreatureLocomotionSystem::FleeFrom</code>; tests <code>CreatureLocomotion.RunsAwayFromTheThreat</code>, <code>CreatureLocomotionSystemTest.RunningAwayDrawsOnceFromTheSyncedStream</code></td>
+</tr>
+<tr>
+<td>Turning on the spot to face a point</td>
+<td>done</td>
+<td><code>CreatureLocomotionSystem::TurnToFace</code>; test <code>CreatureLocomotionSystemTest.TurnToFaceTurnsOnTheSpot</code></td>
+</tr>
+<tr>
+<td>Led on the leash to the hand</td>
+<td>done</td>
+<td><code>CreatureLocomotionSystem::LeadTo</code>, from <code>LeashSystem</code>; see <a href="leash.html">leash.md</a></td>
+</tr>
+<tr>
+<td>Following the hand, or keeping to the middle of the screen</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Walking to the beach, up a hill, along a ridge</td>
+<td>todo</td>
+<td>see <a href="idle_behaviour.html">idle_behaviour.md</a></td>
+</tr>
+<tr>
+<td>Travelling by teleport: walking to a stone and jumping to its partner</td>
+<td>todo</td>
+<td>the teleport miracle moves no creature; see <a href="../miracles/index.html">../miracles</a></td>
+</tr>
+<tr>
+<td>Carried off by a tornado, it faints where it lands</td>
+<td>todo</td>
+<td>the tornado (<code>src/Magic/Spells/SpellStormAndTornado.cpp</code>) takes no creature; see <a href="../miracles/index.html">../miracles</a></td>
+</tr>
+<tr>
+<td>Knocked over by a heavy blow or a falling thing, it falls and gets up again</td>
+<td>todo</td>
+<td>see <a href="../physics/index.html">../physics</a></td>
+</tr>
+<tr>
+<td>Moved by a script without walking</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Its position is sent to the other players in a network game</td>
+<td>todo</td>
+<td>see <a href="../multiplayer/index.html">../multiplayer</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="footprints">Footprints</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Only creatures leave footprints: a dark paw, hoof or hand on the land under the lower foot at each step</td>
+<td>done</td>
+<td><code>src/Creature/CreatureFootprints</code>, <code>FootprintSystem</code> (from <code>ECS/CreatureLoop.cpp</code>); tests <code>CreatureAudio.FootstepsLeavePrints</code>, <code>CreatureFootprints.LowerFootGetsThePrint</code>, <code>test/creature/test_footprint_system.cpp</code></td>
+</tr>
+<tr>
+<td>Each species has its own print</td>
+<td>done</td>
+<td>test <code>CreatureFootprints.SpeciesCells</code></td>
+</tr>
+<tr>
+<td>Prints are turned with the foot and sized by the creature; the left foot's is flipped</td>
+<td>done</td>
+<td>tests <code>CreatureFootprints.TurnedAndSizedPrint</code>, <code>LeftFootFlipsThePicture</code></td>
+</tr>
+<tr>
+<td>Prints fade in steps and are gone in about five seconds</td>
+<td>done</td>
+<td>tests <code>CreatureFootprints.FadesInStepsOfAtLeast200Ms</code>, <code>GoneInAboutFiveSeconds</code></td>
+</tr>
+<tr>
+<td>At most 256 prints at once; new ones are dropped until old ones fade</td>
+<td>done</td>
+<td>test <code>CreatureFootprints.FullTrailDropsNewPrints</code></td>
+</tr>
+<tr>
+<td>On the first of April every creature leaves a smiley face</td>
+<td>done</td>
+<td>test <code>CreatureFootprints.AprilFoolsSmileyKeepsTheSpeciesSize</code></td>
+</tr>
+<tr>
+<td>Footsteps sound by the ground under the foot</td>
+<td>done</td>
+<td><code>CreatureAudioSystem</code>, the ground from <code>ecs::sea_cells::GetSurfaceType</code>; see <a href="animation.html">animation.md</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

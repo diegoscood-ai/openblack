@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Town desires — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="here" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#town-desires">Town desires</a><ul>
+<li><a href="#working-out-the-desires">Working out the desires</a></li>
+<li><a href="#acting-on-the-desires">Acting on the desires</a></li>
+<li><a href="#desire-flags">Desire flags</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="town-desires">Town desires</h1>
+<p>Each town works out, every game turn, how much it wants each of seventeen things: food, wood, playtime, protection,
+mercy, abodes, civic buildings, worship supplies, children, building, rain, sun, repairs, workshop supplies, a wonder,
+relaxation and sleep. Idle villagers serve the most wanted. The storage pit shows the town's wants as flags.</p>
+<p><strong>Progress: 19/26 done, 2 partial — 77%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../buildings.html">Buildings, building sites and towns (the building side)</a>.</p>
+<h2 id="working-out-the-desires">Working out the desires</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The town counts its adults, children, abodes, room, civic buildings, disciples, food and wood each turn</td>
+<td>done</td>
+<td><code>town_stats::Compute</code> each town turn (<code>src/ECS/Town/TownStats.cpp</code>), food and wood carried and at building sites included; <code>test/test_town_stats.cpp</code></td>
+</tr>
+<tr>
+<td>Food wanted: what the town's people need for dinner against what it has</td>
+<td>done</td>
+<td><code>DesireForFood</code> (<code>src/ECS/Town/TownDesire.cpp</code>); <code>test/test_town_desire.cpp</code></td>
+</tr>
+<tr>
+<td>Wood wanted grows with the town's buildings past a number</td>
+<td>done</td>
+<td><code>DesireForWood</code> (<code>src/ECS/Town/TownDesire.cpp</code>); craftsmen: <a href="../building/workshop_and_scaffolds.html">../building/workshop_and_scaffolds.md</a></td>
+</tr>
+<tr>
+<td>Playtime wanted only after the game has run a while</td>
+<td>done</td>
+<td><code>DesireForPlaytime</code> (<code>src/ECS/Town/TownDesire.cpp</code>)</td>
+</tr>
+<tr>
+<td>Protection and mercy wanted from the town's memory of attacks</td>
+<td>partial</td>
+<td><code>DesireForProtection</code> and <code>DesireForMercy</code> read the town's inputs, which stay 0: the aggression slots are not ported (<code>src/ECS/Town/TownProcess.cpp</code>)</td>
+</tr>
+<tr>
+<td>Abodes wanted for the people without room</td>
+<td>done</td>
+<td><code>DesireForAbodes</code> (<code>src/ECS/Town/TownDesire.cpp</code>)</td>
+</tr>
+<tr>
+<td>Civic buildings wanted by population against the civic buildings it has</td>
+<td>done</td>
+<td><code>DesireForCivicBuildings</code> (<code>src/ECS/Town/TownDesire.cpp</code>); the pitch with football off: <a href="football.html">football.md</a></td>
+</tr>
+<tr>
+<td>Children wanted, less as food is wanted more</td>
+<td>done</td>
+<td><code>DesireForChildren</code> (<code>src/ECS/Town/TownDesire.cpp</code>)</td>
+</tr>
+<tr>
+<td>Building wanted from the town's building sites</td>
+<td>done</td>
+<td><code>DesireToBuild</code> from the town's building sites (<code>building_sites::DesireInputsOf</code>, <code>src/ECS/Town/BuildingSites.cpp</code>)</td>
+</tr>
+<tr>
+<td>Repairs wanted for damaged abodes not empty</td>
+<td>done</td>
+<td><code>DesireToRepair</code> (<code>src/ECS/Town/TownDesire.cpp</code>)</td>
+</tr>
+<tr>
+<td>Worship supplies, workshop supplies, rain and sun are never wanted, as in the game</td>
+<td>done</td>
+<td>their functions return 0 as the original's (<code>src/ECS/Town/TownDesire.cpp</code>)</td>
+</tr>
+<tr>
+<td>A wonder wanted by the town's belief, less while food, wood and abodes are wanted</td>
+<td>done</td>
+<td><code>DesireToBuildWonder</code> (<code>src/ECS/Town/TownDesire.cpp</code>)</td>
+</tr>
+<tr>
+<td>Relaxation comes up in the evening; sleep comes up at nightfall</td>
+<td>done</td>
+<td><code>DesireForRelaxation</code> and <code>DesireForSleep</code> by the day clock (<code>src/ECS/Town/TownDesire.cpp</code>)</td>
+</tr>
+<tr>
+<td>Each desire is scaled by the town's tribe</td>
+<td>done</td>
+<td>the tribe's scale per desire (<code>src/ECS/Town/TownDesire.cpp</code>)</td>
+</tr>
+<tr>
+<td>What villagers are already doing for a desire lowers it</td>
+<td>done</td>
+<td>the modification functions take off what the villagers already do for food, wood, building and the rest (<code>src/ECS/Town/TownDesire.cpp</code>)</td>
+</tr>
+<tr>
+<td>The desires are sorted most-wanted first, both as felt and after what is being done</td>
+<td>done</td>
+<td>the original's own sort (<code>town_desire::MsvcQsort</code>, <code>src/ECS/Town/TownDesire.cpp</code>)</td>
+</tr>
+<tr>
+<td>Every 50 turns the town works out how unhappy its people are</td>
+<td>done</td>
+<td><code>WarnVillagersUnhappy</code> every 50 turns (<code>src/ECS/Town/TownDesire.cpp</code>)</td>
+</tr>
+<tr>
+<td>The guidance read the town's biggest need</td>
+<td>done</td>
+<td>the help remarks read each town's sorted desires (<code>src/ECS/AudioQueries.cpp</code>); see ../story/ for the advisors</td>
+</tr>
+</tbody>
+</table>
+<h2 id="acting-on-the-desires">Acting on the desires</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>An idle villager offers itself to the desires in order until one takes it</td>
+<td>done</td>
+<td><code>town_desire::CheckVillagerNeededForTownDesire</code>, from the villager's decision (<code>src/ECS/Villager/VillagerDecide.cpp</code>)</td>
+</tr>
+<tr>
+<td>Each desire's job: fetch food, fetch wood, build abodes and civic buildings, build, repair, supply, play, relax, sleep</td>
+<td>partial</td>
+<td>food (fields, fishing), wood, abodes, civic buildings, building, repairs and sleep take villagers (<code>src/ECS/Villager/VillagerSatisfy.cpp</code>); the shepherd, supplies, playtime and relaxation are TODO and take none; see ../villager/daily_routine.md</td>
+</tr>
+<tr>
+<td>Scripts boost a desire, and can resort the order at once</td>
+<td>done</td>
+<td>TOWN_DESIRE_BOOST (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>) and SET_TOWN_DESIRE_BOOST with the re-sort (<code>town_desire::ScriptSetTownDesireBoost</code>, <code>src/CHLApi.cpp</code>)</td>
+</tr>
+<tr>
+<td>A town's needs shown at a place a script picks</td>
+<td>todo</td>
+<td>TOWN_NEEDS_POS is an empty stub (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="desire-flags">Desire flags</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The storage pit flies a flag for each thing the town wants, rising with how much it wants it</td>
+<td>todo</td>
+<td>no desire flags: the town turn's flag step is a TODO (<code>src/ECS/Town/TownProcess.cpp</code>)</td>
+</tr>
+<tr>
+<td>Each flag has a tooltip naming the desire</td>
+<td>todo</td>
+<td>See ../interface/</td>
+</tr>
+<tr>
+<td>The flags ripple in the wind</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Hovering a flag gives help about what the town wants</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

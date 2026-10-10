@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The sky dome — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="here" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-sky-dome">The sky dome</a><ul>
+<li><a href="#time-of-day">Time of day</a></li>
+<li><a href="#alignment">Alignment</a></li>
+<li><a href="#weather-on-the-sky">Weather on the sky</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-sky-dome">The sky dome</h1>
+<p>The sky is a dome of pictures: for each alignment (good, neutral, evil) one by day, one at dusk and one at night,
+blended for the time of day and mixed by the alignment the sky shows, then tinted by the weather.</p>
+<p><strong>Progress: 11/16 done, 1 partial — 72%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../day-night-weather.html">Day, night and weather in the original</a>, <a href="../../rendering.html">World rendering: original versus openblack</a>.</p>
+<h2 id="time-of-day">Time of day</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The sky type runs from 0 at night through 1 at dusk to 2 by day</td>
+<td>done</td>
+<td><code>DayNightClock</code> sky type (a0ce4593)</td>
+</tr>
+<tr>
+<td>The dome blends day into dusk, or dusk into night, by the sky type</td>
+<td>done</td>
+<td><code>src/3D/SkyDome.cpp</code>; <code>test/test_sky_dome.cpp</code></td>
+</tr>
+<tr>
+<td>The blend is rebuilt only once the sky has moved on far enough (a hysteresis of 0.03)</td>
+<td>done</td>
+<td>2fc53b3d; <code>src/3D/SkyDome.cpp</code></td>
+</tr>
+<tr>
+<td>It is then rebuilt a band of 32 rows a frame, top down</td>
+<td>done</td>
+<td><code>src/3D/SkyDome.cpp</code>; test</td>
+</tr>
+<tr>
+<td>After the clock jumps the whole dome is rebuilt at once</td>
+<td>done</td>
+<td><code>SkyDome</code> (SET_GAME_TIME)</td>
+</tr>
+<tr>
+<td>Texels blend in whole steps of the pictures' 5-bit channels</td>
+<td>done</td>
+<td><code>src/3D/SkyDome.cpp</code>; test</td>
+</tr>
+<tr>
+<td>The blend is done on the GPU rather than on the CPU as the game does</td>
+<td>partial</td>
+<td><code>shaders/fs_sky_dome.sc</code>; same picture, different method</td>
+</tr>
+</tbody>
+</table>
+<h2 id="alignment">Alignment</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each alignment has its own dome; the sky mixes the two nearest by the alignment it shows</td>
+<td>done</td>
+<td><code>src/3D/SkyDome.cpp</code></td>
+</tr>
+<tr>
+<td>The alignment's opacity is cut to 255ths</td>
+<td>done</td>
+<td>2fc53b3d</td>
+</tr>
+<tr>
+<td>The sky turns towards the alignment at the camera over time, none while paused</td>
+<td>done</td>
+<td><code>AlignmentSystem</code> (<code>src/ECS/Systems/AlignmentSystemInterface.h</code>)</td>
+</tr>
+<tr>
+<td>A <strong>good</strong> sky is darkened, up to 90 (d = ftol(((1 - X/2) - 0.6) x 225), X the sky alignment 0 good to 2 evil), with the weather detail option on. Differs from raffclar's reading (an evil sky darkened): <code>DrawSky</code> 0x5E21F1..0x5E2220, <code>LH3DAtmos::Update3D</code> 0x835A2D..0x835A78; see bw1-notes day-night-weather.md, the dome's draw</td>
+<td>done</td>
+<td><code>sky_dome::Darkness</code> fed X (M06)</td>
+</tr>
+<tr>
+<td>Inside the temple the sky dome is still drawn (seen through its openings), without the sun</td>
+<td>partial</td>
+<td>openblack draws the dome in the temple but also the sun; see sun_and_moon.md and ../temple/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="weather-on-the-sky">Weather on the sky</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>An overcast turns the dome towards the haze's colour, with the fog detail option on</td>
+<td>done</td>
+<td>cfb5f43d; <code>src/3D/SkyDome.cpp</code></td>
+</tr>
+<tr>
+<td>A flash of lightning turns the dome towards white</td>
+<td>done</td>
+<td>cfb5f43d</td>
+</tr>
+<tr>
+<td>The sky is drawn first, before the scene, and in the sea's reflection</td>
+<td>done</td>
+<td><code>RenderPass::Sky</code>, <code>RenderPass::ReflectionSky</code> (f0f3549b)</td>
+</tr>
+<tr>
+<td>Stars are part of the night pictures, with no separate star field</td>
+<td>done</td>
+<td>the night domes carry them (unconfirmed that the game adds none of its own)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

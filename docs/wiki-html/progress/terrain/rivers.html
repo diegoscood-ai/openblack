@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rivers and lakes — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="here" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#rivers-and-lakes">Rivers and lakes</a><ul>
+<li><a href="#laying-the-rivers">Laying the rivers</a></li>
+<li><a href="#water-in-rivers-and-lakes">Water in rivers and lakes</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="rivers-and-lakes">Rivers and lakes</h1>
+<p>Rivers are laid by the land's script as a chain of points. Along each stretch a channel cuts the land so the water
+underneath shows, and a bed is blended into the land's colour. Lakes are low land below sea level that shows the same
+water.</p>
+<p><strong>Progress: 13/18 done, 4 partial — 83%</strong></p>
+<h2 id="laying-the-rivers">Laying the rivers</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's script makes each river and gives it its points in order</td>
+<td>done</td>
+<td><code>FeatureScriptCommands::CreateStream</code>, <code>CreateStreamPoint</code>; <code>src/ECS/Components/Stream.h</code></td>
+</tr>
+<tr>
+<td>A river runs from each point to the next, never from the last back to the first</td>
+<td>done</td>
+<td><code>Stream::points</code> in script order, <code>ecs::CreateRiverFootprints</code> (<code>src/ECS/Rivers.cpp</code>)</td>
+</tr>
+<tr>
+<td>Each stretch has a channel mesh, turned and stretched to reach the next point</td>
+<td>done</td>
+<td><code>ecs::CreateRiverFootprints</code> (turned to the segment, stretched by its length / 30)</td>
+</tr>
+<tr>
+<td>The channel clears the land's alpha so the water drawn underneath shows as the river</td>
+<td>done</td>
+<td><code>RenderPass::LandAlpha</code>, <code>assets/shaders/fs_land_alpha.sc</code>, <code>assets/shaders/fs_terrain.sc</code></td>
+</tr>
+<tr>
+<td>Each stretch has a bed mesh blended into the land's colour, as a building's footprint is</td>
+<td>done</td>
+<td>The river bed in the footprint pass (<code>src/Graphics/Renderer.cpp</code>)</td>
+</tr>
+<tr>
+<td>Rivers look the same in the sea's reflection</td>
+<td>partial</td>
+<td>The land alpha is applied to the mirrored land; not checked against the game</td>
+</tr>
+<tr>
+<td>Rivers are drawn for debugging as lines between their points</td>
+<td>n/a</td>
+<td>openblack-only (<code>RenderingSystemCommon::PrepareDraw</code>, its streams option)</td>
+</tr>
+<tr>
+<td>Rivers are saved and loaded with the game, with their points</td>
+<td>todo</td>
+<td>See ../engine/ (saving)</td>
+</tr>
+<tr>
+<td>The game can find the nearest point of a river to a position</td>
+<td>done</td>
+<td><code>NearestStreamPos</code> and <code>FindNearestStreamPosTo</code> (<code>src/ECS/WaterQueries.cpp</code>), used by the search for drinking water</td>
+</tr>
+</tbody>
+</table>
+<h2 id="water-in-rivers-and-lakes">Water in rivers and lakes</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The water in a river or lake is the sea, with its rows, ripple and colour, seen through the land</td>
+<td>done</td>
+<td>see ../ocean/sea_surface.md</td>
+</tr>
+<tr>
+<td>Lakes are land below sea level, drawn flat with the water showing</td>
+<td>done</td>
+<td><code>LandIslandInterface::GetDrawnHeightAt</code>, the coast alpha (<code>src/3D/CoastAlpha.cpp</code>)</td>
+</tr>
+<tr>
+<td>Running water is heard near rivers</td>
+<td>done</td>
+<td>Cell ambient sound type 9 (<code>src/Audio/Services/SoundMap.cpp</code>); see ../audio/</td>
+</tr>
+<tr>
+<td>Still fresh water is heard near lakes</td>
+<td>done</td>
+<td>Cell ambient sound type 2 (<code>src/Audio/Services/SoundMap.cpp</code>)</td>
+</tr>
+<tr>
+<td>Fires near or in water go out; a fireball over water steams</td>
+<td>done</td>
+<td><code>src/ECS/Fire/FireEffect.cpp</code> (water and coast cells), <code>src/ECS/Fire/FireGraphic.cpp</code>; see ../physics/</td>
+</tr>
+<tr>
+<td>Trees and forests don't grow in water</td>
+<td>partial</td>
+<td>The forest's new trees take any free point (<code>src/ECS/Trees.cpp</code>). Our wiki differs: read literally, the original counts a water cell as free for a new tree (<a href="../../trees.html#growth-treeprocess-0x74a290-treegrow-0x74a3f0">trees.md</a>)</td>
+</tr>
+<tr>
+<td>A creature wades in shallow water and avoids deep water</td>
+<td>done</td>
+<td><code>CreatureLocomotionSystem.cpp</code>; see ../creature/</td>
+</tr>
+<tr>
+<td>Villagers and creatures can drown or swim in deep water</td>
+<td>partial</td>
+<td>Villagers drown (<code>src/ECS/VillagerDrowning.cpp</code>); creatures do not. See ../villager/ and ../physics/</td>
+</tr>
+<tr>
+<td>Waterfalls pour with spray and sound where the land's script places them</td>
+<td>done</td>
+<td><code>FeatureScriptCommands::CreateWaterfall</code> makes nothing, and the Land 3 waterfall is <code>src/ECS/DesignedScenery.cpp</code>. Our wiki differs: the script's waterfall object is empty in the original, it neither draws nor sounds (<a href="../../water.html#fixed-scenery-per-land-land-3-waterfall-land-4-ark-and-dinosaur">water.md</a>)</td>
+</tr>
+<tr>
+<td>Splashes and rings on rivers and lakes where things fall in</td>
+<td>partial</td>
+<td>see ../ocean/things_on_the_water.md</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

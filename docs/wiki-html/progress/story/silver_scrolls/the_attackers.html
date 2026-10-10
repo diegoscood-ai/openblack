@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Attackers — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-attackers">The Attackers</a><ul>
+<li><a href="#is-it-in-the-game">Is it in the game?</a></li>
+<li><a href="#the-marauders-arrive">The marauders arrive</a></li>
+<li><a href="#feeding-the-marauders">Feeding the marauders</a></li>
+<li><a href="#raid-one-the-cattle">Raid one: the cattle</a></li>
+<li><a href="#between-raids">Between raids</a></li>
+<li><a href="#raid-two-the-store">Raid two: the store</a></li>
+<li><a href="#the-farmer-begs-for-help">The farmer begs for help</a></li>
+<li><a href="#raid-three-the-crèche">Raid three: the crèche</a></li>
+<li><a href="#after-the-raids">After the raids</a></li>
+<li><a href="#all-dead-and-the-reward">All dead and the reward</a></li>
+<li><a href="#bugs-and-quirks">Bugs and quirks</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-attackers">The Attackers</h1>
+<p>A cut raid challenge: a band of ten marauders camps by a bonfire outside a Norse village and raids it three times,
+first driving off a herd of cattle, then robbing the village store, then setting fire to the crèche, eating their
+plunder at camp between raids. The player can kill them or keep them fed; a villager who begs for help promises a
+fireball miracle seed if the marauders are wiped out. It was never compiled into the game.</p>
+<p><strong>Land:</strong> 2 most likely (never started) · <strong>Giver:</strong> a Norse farmer from a house by the store (only if no marauder has been killed by the time of the third raid) · <strong>Script:</strong> Marauder · <strong>Reward:</strong> a fireball miracle seed, only if the farmer begged and every marauder is then dead · <strong>Repeatable:</strong> no</p>
+<p><strong>Progress: 0/0 done, 0 partial — 0%</strong></p>
+<p>Sources: the script's source text and its single-quest test launcher, the script compiler's project and quest menu
+lists, the land map scripts, the shared notify, reminder and reward scripts, and the game's text table. Every row is
+n/a: the game never runs this quest. To restore it openblack would need, besides the usual dialogue, camera and
+challenge record commands, villager and animal flocks, food stores and resources, dances, building fire and
+anti-influence areas, some of which (dances and reading a store's resources among them) are still stubs in
+<code>src/CHLApi.cpp</code> (its <code>Create</code> makes villagers and animals, so the marauders and the cattle would appear).</p>
+<h2 id="is-it-in-the-game">Is it in the game?</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Not in the compiled challenge file: it is missing from the compiler's project list, and no land's control script or challenge list starts it</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Only its single-quest test launcher starts it; the developers' quest menu compiles that launcher together with Land 2's setup script</td>
+<td>n/a</td>
+<td>never started by the game: the launcher is not compiled into the shipped game either</td>
+</tr>
+<tr>
+<td>The launcher itself builds a storage pit, a crèche and a house at the quest's spots, marks them fully built and fills the storage pit with 10,000 food and 10,000 wood, so no shipped land has these buildings ready</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Its spots sit 60 to 100 from Land 2's town 0, a Norse town site that starts with no buildings, and the marauder camp is near that town's fish farms; no shipped land has a building within 15 of any of its spots</td>
+<td>n/a</td>
+<td>never started by the game: checked against every <code>Land&lt;N&gt;.txt</code>; Land 2 is the best fit (Norse, and the test menu pairs it with Land 2's setup) but not certain</td>
+</tr>
+<tr>
+<td>Its title "The Attackers" and its reminders exist in the text table, and so do all its spoken lines except the three in the cut opening scene</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>There is no silver scroll: the line that makes the scroll over the farmer's house is commented out, so where the script waits for "the scroll" it really waits for the house itself to be clicked</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Not reachable at all in the shipped game</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-marauders-arrive">The marauders arrive</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>An area of anti-influence, radius 30, is placed on the marauders' camp, so the player's hand has no power there</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>A bonfire is made at the camp</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The script waits until the camp is out of view, then makes ten marauders there, each one fleeing from objects thrown at it, gathered in a flock (inner and outer radius 10)</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>A food store is made at the camp, about 20 from the bonfire</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>A herd of five cattle is made in a flock (inner 5, outer 10) about 180 from the camp and 170 west of the village buildings</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The marauders set off for the cattle at speed 0.5</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The challenge record opens as "The Attackers", success and alignment 0, reminder "Cattle are missing and those Marauders are responsible."</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>A cut opening scene is commented out: the Norse farmer would have come out of his house, pointed towards the camp and said two lines (neither is in the text table), with the camera following the marauders</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="feeding-the-marauders">Feeding the marauders</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>All through the quest, every 2 seconds while any marauder lives: any food store within 50 of the camp that the script didn't make is emptied into the camp's store</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Any cow within 40 of the camp that the script didn't make is killed and adds 500 food to the camp's store</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Either way, the good advisor says "This food should keep the Marauders quiet for a while.", at most once every 30 seconds</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>If the camp's store has gone, a new one is made at the camp</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="raid-one-the-cattle">Raid one: the cattle</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>When the marauders are within 30 of the herd, the herd moves onto them</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Once the camera is within 100 of the marauders and looking at them, the good advisor points at them: "These folk are stealing our cattle! Something must be done!"</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The marauders head home at speed 0.5, the herd following at 0.4; the record's reminder is set again to the cattle line</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Every 4 seconds while the herd keeps up (within 30) the marauders are sent on again; if the herd falls behind they stop and wait until it is within 10</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Every 5 seconds the script looks for a cow more than 75 from the herd; one found before the marauders get home is taken out of the herd and walks back to the herd's starting spot, joining a rescued herd there (inner 5, outer 30)</td>
+<td>n/a</td>
+<td>never started by the game: this is how the player saves cattle, by carrying or scaring a cow away from the herd</td>
+</tr>
+<tr>
+<td>When the marauders are within 30 of the camp, the herd is led in; one cow at a time walks to the camp's store at 0.4 and, once within 20, or dead, or picked up, or thrown, is killed and fades away, adding 100 food to the camp's store</td>
+<td>n/a</td>
+<td>never started by the game: a comment says 300 food per cow; a cow the player is holding is killed in the hand</td>
+</tr>
+<tr>
+<td>The raid is called off at once if two marauders are killed (fewer than nine left) or the herd is empty: the marauders go home and the herd goes back to its starting spot</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="between-raids">Between raids</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>After a raid, if the camp's store holds more than 100 food, the marauders stay at camp: one is put at the camp and the band dances round it (a 30-second dance)</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Meanwhile one marauder at a time walks to a spot by the store, faces it, eats 100 food and rejoins the band, then waits 30 seconds</td>
+<td>n/a</td>
+<td>never started by the game: so each 100 food buys a little over 30 seconds of peace</td>
+</tr>
+<tr>
+<td>When the store is down to 100 or less, the dance stops and the next raid begins</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="raid-two-the-store">Raid two: the store</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The marauders walk at 0.5 to a spot beside the village storage pit and wait until within 15 of it</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Once the camera is within 100 and the pit is in view, the evil advisor points: "Argh! These godless thieves are attacking the Village Store. I say kill every last one of them!" and the good advisor answers "No don't kill them. They're just hungry. That's all."</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>500 food is taken from the storage pit; after 2 seconds the raid is over</td>
+<td>n/a</td>
+<td>never started by the game: the header comment says this raid destroys the storage pit, but the script only takes food</td>
+</tr>
+<tr>
+<td>The raid ends early if two marauders are killed during it</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The record's reminder becomes "Food's been stolen from the Village Store. The Marauders are to blame."; the marauders go home</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>If two or more died in this raid, the evil advisor: "The marauding band have retreated. We've given them a good pasting!"</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>500 food is added to the camp's store, then the band waits 40 seconds (a comment says this was lowered for testing)</td>
+<td>n/a</td>
+<td>never started by the game: the 500 is added even when the raid was cut short before anything was taken</td>
+</tr>
+<tr>
+<td>If the camp has more than 100 food, the band dances and eats again as above</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-farmer-begs-for-help">The farmer begs for help</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Only if all ten marauders are still alive at this point</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The good advisor points at the farmer's house: "The man who asked for your help needs to speak with you, Leader."</td>
+<td>n/a</td>
+<td>never started by the game: nobody has asked yet, since the opening scene where he would have was cut</td>
+</tr>
+<tr>
+<td>It then waits until the house is clicked; the evil advisor would nag "A Silver Reward Scroll. Let's see what it's all about." every 30 seconds while the camera is within 100, but the nag hangs on a scroll that is never made</td>
+<td>n/a</td>
+<td>never started by the game: whether the nag ever fires with no scroll can't be told from the source</td>
+</tr>
+<tr>
+<td>A Norse farmer comes out of the house and walks to a spot in front of it; the camera glides to 10 above and 10 off him over 4 seconds</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The record is set again (success 0) and the player's alignment drops by 0.4</td>
+<td>n/a</td>
+<td>never started by the game: the player is marked down for having let the raids happen</td>
+</tr>
+<tr>
+<td>The farmer: "Please help us, massive one. We'll reward you!"</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>After 2 seconds the camera returns (3 seconds) and the farmer is released</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="raid-three-the-crèche">Raid three: the crèche</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Whether or not the farmer begged, the marauders walk at 0.5 to the crèche and wait until within 15 (or all dead)</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The good advisor points: "Now they're attacking the crèche! If I wasn't so good I'd go down there and pull out their innards!"</td>
+<td>n/a</td>
+<td>never started by the game: said even if every marauder is dead by then</td>
+</tr>
+<tr>
+<td>After 3 seconds, five sparkles appear around and above the crèche for 10 seconds; after 2 more the crèche is set on fire</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The raid ends early if two marauders are killed during it, before the fire</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The record's reminder becomes "People have been taken from the Village. Those outrageous Marauders did it!"; the marauders go home</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>If two or more died in this raid: good advisor "They took losses in that last raid. If they've got sense they'll leave us alone now.", evil advisor "It was glorious to see."</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="after-the-raids">After the raids</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>From now on the band loops for ever: eat at camp while it has more than 100 food, then raid the storage pit for another 500 food and carry it home</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>These later raids have no advisor lines and don't change the record</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The loop only ends when every marauder is dead; there is no timer, no failure and no other way out</td>
+<td>n/a</td>
+<td>never started by the game: a player who keeps them fed never finishes the challenge</td>
+</tr>
+</tbody>
+</table>
+<h2 id="all-dead-and-the-reward">All dead and the reward</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>When the last marauder dies: "Sweet. The marauders are all dead."</td>
+<td>n/a</td>
+<td>never started by the game: the good advisor is brought out for a line voiced by the evil advisor</td>
+</tr>
+<tr>
+<td>If the farmer did not beg (a marauder was killed before the third raid), the record closes as a success with no reward</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>If he did, it waits for his house to be clicked again (the same scroll-less nag as before)</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The farmer walks out again; the camera glides to 10 above and 10 off his spot over 3 seconds; he faces the camera and prays once</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The player's alignment rises by 0.2 and the record closes as a success with alignment -0.2</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The farmer: "Oh thank you, invisible one. We will worship harder for you." then "We humbly offer you this. You know, just to say thanks."</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>A fireball miracle seed falls from the sky beside him, with no reward camera; the reward help shows when it is clicked</td>
+<td>n/a</td>
+<td>never started by the game: the shared reward script, run without its camera</td>
+</tr>
+<tr>
+<td>After 2 seconds the camera returns over 4 seconds; the farmer is left in the script's control (a comment wonders whether to make him homeless)</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Last of all the record is closed again with alignment 0, overwriting the alignment just set</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="bugs-and-quirks">Bugs and quirks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every closing record uses the reminder "Do you want to swap your Creature with one from this person?", which belongs to the swap quests</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The reward only comes to a player who killed none of the band before the third raid and then all of it afterwards; killing them early, the advisors' first suggestion, gives nothing</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The header comment (three raids, retreat after two deaths, storage pit and crèche destroyed) is copied word for word into "Food for Thought"'s source</td>
+<td>n/a</td>
+<td>never started by the game: see <a href="./food_for_thought.html">food_for_thought.md</a></td>
+</tr>
+<tr>
+<td>Marauders also appear, unrelated, as a single villager in one of Land 5's cut scenes</td>
+<td>n/a</td>
+<td>never started by the game: not this quest</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

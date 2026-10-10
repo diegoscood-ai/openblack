@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Teleport — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="here" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#teleport">Teleport</a><ul>
+<li><a href="#the-stone">The stone</a></li>
+<li><a href="#who-travels">Who travels</a></li>
+<li><a href="#the-jump">The jump</a></li>
+<li><a href="#hand-and-worship">Hand and worship</a></li>
+<li><a href="#saving">Saving</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="teleport">Teleport</h1>
+<p>Each teleport cast leaves a stone with a swirling pool on the ground. A player's stones form a network: villagers and
+the creature walking past one jump to the stone that leaves them nearest their goal when it saves enough walking, and a
+villager dropped on a stone jumps at once. There is no camera or hand travel through stones.</p>
+<p><strong>Progress: 22/29 done, 5 partial — 84%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../miracles.html">Miracles one by one</a>.</p>
+<h2 id="the-stone">The stone</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each cast makes one stone at the cast point, owned by the caster; there is no power-up</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellTeleport.cpp</code> (<code>InitWithPos</code>: the stone onto the spell's object list), <code>src/Magic/Objects/MagicTeleport.cpp</code> (<code>Create</code>, the player's stone list)</td>
+</tr>
+<tr>
+<td>A stone can't be cast within 6 m of buildings, fields, features, rocks, dead trees, forests, the temple, miracle dispensers or other stones</td>
+<td>partial</td>
+<td><code>src/Magic/CastRules.cpp</code> with <code>teleport::AnyMultiCellStaticNear</code> (<code>MagicTeleport.cpp</code>, <code>map_cells::IsMultiCellStaticClass</code>): worship sites, totems, spell icons, fish farms and the temple count; the football pitch and the other citadel parts have no class yet</td>
+</tr>
+<tr>
+<td>The pool is a land-textured disc in the owner's colour at the middle, fading at the rim and slowly turning</td>
+<td>partial</td>
+<td><code>src/Particles/Rules/SurfRevol.cpp</code>, <code>src/Graphics/RendererRevolvedSurface.cpp</code>; <code>test/test_teleport.cpp</code> (SurfRevol suites); drawn without the original's lighting, so dimmer</td>
+</tr>
+<tr>
+<td>A humming loop plays at each stone while it stands</td>
+<td>done</td>
+<td>data-driven particle sound of SF_TeleportVortex (<code>src/Particles/Rules/Sound.cpp</code>, <code>src/Audio/Services/SpellSounds.cpp</code>)</td>
+</tr>
+<tr>
+<td>The hum fades out softly when the stone goes</td>
+<td>done</td>
+<td><code>src/Audio/Services/SpellSounds.cpp</code> (the soft release flag of the pool's sound)</td>
+</tr>
+<tr>
+<td>In the hand the seed is a spinning sparkle in the player's colour</td>
+<td>done</td>
+<td>the seed's in-hand effect (<code>src/Magic/Hand/HandMagicFX.cpp</code>, <code>src/Particles/Rules/HandFollow.cpp</code>); not checked in game</td>
+</tr>
+<tr>
+<td>The stone lives while its prayer power lasts (one a turn), and costs to create as the game's tables say</td>
+<td>done</td>
+<td><code>src/Magic/Core/Chants.cpp</code> (one a turn from the initial chants, no player timer), effect tables in <code>src/Magic/MagicTables.cpp</code></td>
+</tr>
+<tr>
+<td>When the miracle ends the stone, its pool and its reaction go</td>
+<td>done</td>
+<td><code>SpellTeleport.cpp</code> (<code>TeleportCloseDown</code> sets the stone dying), <code>teleport::ToBeDeleted</code> (<code>MagicTeleport.cpp</code>: reactions, effect, list)</td>
+</tr>
+<tr>
+<td>New buildings can't be placed on a stone</td>
+<td>done</td>
+<td>stones are multi-cell statics in their map cells, which the placement test refuses (<code>src/ECS/Town/TownPlacement.cpp</code>)</td>
+</tr>
+<tr>
+<td>A stone can't be burned, picked up, thrown or used by the creature</td>
+<td>partial</td>
+<td>not thrown and not used by the creature; the hand picks the pool up when its spell has a seed (<code>HandSystem::ValidForPlaceInHand</code> and <code>SeedToPlaceInHand</code>, <code>src/ECS/Systems/Implementations/HandSystem.cpp</code>), the seed going back to the hand; no explicit rule keeps fire or miracle effects off a stone. Our wiki differs: the original lets the hand pick up a pool whose spell has a seed (<a href="../../miracles.html#the-hand-and-the-stones-faithful">miracles</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="who-travels">Who travels</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Villagers and the creature of the stone's player walking within reach of a stone may react; animals never</td>
+<td>partial</td>
+<td>villagers: <code>src/ECS/Systems/Implementations/VillagerTeleport.cpp</code> (<code>ReactToTeleportPriority</code>); the creature's teleport reaction is not ported; animals take none. Our wiki differs: the reaction is spread only once, when the stone is made, so only those already moving then react (<a href="../../miracles.html#who-uses-a-stone">miracles</a>)</td>
+</tr>
+<tr>
+<td>They turn aside only when going via the stones beats the walk by enough (walk more than 1.2 times the stone route)</td>
+<td>done</td>
+<td><code>teleport::ShouldLivingThingReact</code> (<code>MagicTeleport.cpp</code>, the 1.2 rule); <code>test/test_teleport.cpp</code> (WorthTheDetour)</td>
+</tr>
+<tr>
+<td>Taking up the stone competes with any other reaction they hold, by the reaction table's priority</td>
+<td>done</td>
+<td><code>src/ECS/Systems/Implementations/VillagerReactions.cpp</code> (priority and switching), <code>VillagerTeleport.cpp</code></td>
+</tr>
+<tr>
+<td>A villager heading off to decide what to do never turns aside</td>
+<td>done</td>
+<td>follows from the reaction contest (<code>VillagerReactions.cpp</code>)</td>
+</tr>
+<tr>
+<td>Slow villagers walk to the stone, fast ones run, by the game's speed threshold</td>
+<td>done</td>
+<td><code>villager_teleport::SetupReactToTeleport</code> (state 201 or, strictly faster than the speed threshold, 251)</td>
+</tr>
+<tr>
+<td>A villager re-checks each turn whether it has reached the stone</td>
+<td>done</td>
+<td><code>villager_teleport::GoToTeleportReaction</code> (<code>VillagerTeleport.cpp</code>)</td>
+</tr>
+<tr>
+<td>Walkers stop being travellers once they leave, give up or jump</td>
+<td>done</td>
+<td><code>teleport::ProcessPlayers</code> (<code>MagicTeleport.cpp</code>, the player turn's traveller pruning)</td>
+</tr>
+<tr>
+<td>Leaving the stone's reaction also takes a villager off its town's list of those on the way to worship</td>
+<td>done</td>
+<td><code>villager_teleport::ExitReactToTeleport</code> (<code>VillagerTeleport.cpp</code>) clears the on-the-way flags</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-jump">The jump</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The traveller comes out of the player's stone that leaves it nearest its goal; newer stones win ties</td>
+<td>done</td>
+<td><code>teleport::ChooseTarget</code> (<code>MagicTeleport.cpp</code>); <code>test/test_teleport.cpp</code> (ChooseTargetTakesTheBiggestSaving)</td>
+</tr>
+<tr>
+<td>Distances are measured with the game's own approximate distance</td>
+<td>done</td>
+<td><code>teleport::FastDistance</code>; <code>test/test_teleport.cpp</code> (FastDistanceIsMaxPlusHalfMin)</td>
+</tr>
+<tr>
+<td>Yellow sparkles appear where the traveller leaves and at the stone it arrives at</td>
+<td>done</td>
+<td><code>MagicTeleport.cpp</code> (spot visual 14 at both ends, <code>psys::manager::CreateSpotVisual</code>)</td>
+</tr>
+<tr>
+<td>A villager is moved at once, with a "go" sound where it leaves and an "arrive" sound where it lands</td>
+<td>done</td>
+<td><code>MagicTeleport.cpp</code> (the go and arrive samples through <code>audio::tags::CreateAtMapCoords</code>), <code>villager_teleport::LandAt</code></td>
+</tr>
+<tr>
+<td>Each jump gives back prayer power for the walking saved (less with tribal power) and tops the miracle up from the store</td>
+<td>done</td>
+<td><code>MagicTeleport.cpp</code> (<code>PayFor</code> of minus the saving x costPerKilometer x 0.001, forced); <code>test/test_teleport.cpp</code> (JumpCostSign, NegativePayForAddsChants)</td>
+</tr>
+<tr>
+<td>The creature walks to within 5 m of the stone, fades out over 20 turns, moves, plays the arrive sound and fades back in, then walks on to its goal</td>
+<td>todo</td>
+<td>the creature's teleport reaction and move by teleport are not ported</td>
+</tr>
+<tr>
+<td>Each jump is a miracle event with no damage or alignment effect</td>
+<td>done</td>
+<td><code>MagicTeleport.cpp</code> (a point spell event at the stone)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="hand-and-worship">Hand and worship</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A villager dropped on a stone of the dropping player, who owns more than one stone, decides where it is going and jumps at once</td>
+<td>done</td>
+<td><code>src/ECS/Systems/Implementations/HandApplyToObject.cpp</code> (a held villager applied to a stone), <code>villager_teleport::LandAt</code></td>
+</tr>
+<tr>
+<td>Worshippers going to a far worship site are routed through the stones</td>
+<td>done</td>
+<td><code>src/ECS/Systems/Implementations/VillagerWorship.cpp</code> (<code>CanIGetToTheWorshipSite</code>, <code>teleport::FindRouteStone</code>); <code>test/test_teleport.cpp</code> (RouteStone, RouteStoneBothEndsAreLookedForApart)</td>
+</tr>
+<tr>
+<td>A creature casting teleport gets a shorter-lived stone than the player's</td>
+<td>partial</td>
+<td>the creature timer is read from the tables (<code>src/Magic/MagicTables.cpp</code>), but creatures do not cast player miracles in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="saving">Saving</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Stones and their travellers are kept in a saved game</td>
+<td>todo</td>
+<td>openblack has no game saving</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

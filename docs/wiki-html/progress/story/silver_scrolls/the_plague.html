@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Plague — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-plague">The Plague</a><ul>
+<li><a href="#how-it-appears">How it appears</a></li>
+<li><a href="#the-poisoning">The poisoning</a></li>
+<li><a href="#the-introduction">The introduction</a></li>
+<li><a href="#what-the-player-must-do">What the player must do</a></li>
+<li><a href="#comments-while-it-runs">Comments while it runs</a></li>
+<li><a href="#success">Success</a></li>
+<li><a href="#failure">Failure</a></li>
+<li><a href="#reward">Reward</a></li>
+<li><a href="#aftermath">Aftermath</a></li>
+<li><a href="#creature-involvement">Creature involvement</a></li>
+<li><a href="#script-quirks-and-unused-parts">Script quirks and unused parts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-plague">The Plague</h1>
+<p>A land 2 silver scroll: soon after the player owns the Indian village beside Lethys's side of the land, Lethys's hand
+hovers over its village store, and when the scroll is opened the whole village and its store turn out to be poisoned.
+The player must find the source (the store's rotten food), get rid of it and heal the sick before half the village
+dies. The land as a whole is in <a href="../land_2.html">../land_2.md</a>, the land's control script in
+<a href="../../scripts/land2_script.html">../../scripts/land2_script.md</a>, the script program in
+<a href="../../scripts/challenge_scripts.html">../../scripts/challenge_scripts.md</a>. How poison works in general (spreading,
+symptoms, a toadstool poisoning a store, healing, emptying a pile) is in
+<a href="../../resources/poison_and_mushrooms.html">../../resources/poison_and_mushrooms.md</a>; this file only covers what the
+quest does with it.</p>
+<p><strong>Land:</strong> 2 · <strong>Giver:</strong> a sick Indian trader at a hut of the plagued Indian village (Town2), the evil advisor points the scroll out · <strong>Script:</strong> Plague · <strong>Reward:</strong> the level 1 lightning bolt miracle enabled at the village · <strong>Repeatable:</strong> no</p>
+<p>Sources: the quest's script source (<code>Plague.txt</code>) and its trigger in the land's control script (<code>LandControl2.txt</code>),
+both checked against the PC game's compiled <code>challenge.chl</code> (argument orders, the snapshot values and the shape of the
+Lethys wait); the game's English text table for every line and its speaker; the executable (read only) for what
+poisoning a town, a store and a villager does. openblack's state is judged on this tree: of the 63 script functions the
+quest and the scripts it starts need, 13 only log "not implemented" in <code>src/CHLApi.cpp</code> (among them the poison commands,
+the computer player's hand and the challenge log), and the land's control script never runs (see the first row of
+<a href="../land_2.html">../land_2.md</a>), so the quest never appears; every row is todo unless the notes say otherwise.</p>
+<p><strong>Progress: 0/56 done, 5 partial — 4%</strong></p>
+<h2 id="how-it-appears">How it appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's control script starts the plague check for Town2 (the Indian village, id 10) at the start of the land, alongside the other towns' quest checks</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs (<a href="../../scripts/land2_script.html">../../scripts/land2_script.md</a>)</td>
+</tr>
+<tr>
+<td>The check waits until Town2 belongs to the player and the worship site at the player's own home altar spot (the spot the worship lesson and the "spruce up your worship site" signpost use, also the spot the Sacrifice check watches) is completely built; then it waits 5 more minutes and starts the quest</td>
+<td>todo</td>
+<td><code>CallNear</code> is real; <code>GetProperty</code> partly ported; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>While the worship site doesn't exist yet the check looks again every 33 seconds; while Town2 isn't the player's, or the site exists but is unfinished, it loops without any wait</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; quirk of the source; the compiled program is the same</td>
+</tr>
+<tr>
+<td>The quest first waits (every 5 seconds) until the trader's hut and the village store both exist at their spots</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>If Lethys is still on the land, the quest waits for his computer player to be free (not in another script), pauses his AI and flies his hand at speed 200, keeping its height, to just above the plagued village's store</td>
+<td>todo</td>
+<td><code>ComputerPlayerReady</code>, <code>EnableDisableComputerPlayer</code>, <code>MoveComputerPlayerPosition</code> are stubs; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Lethys's hand stays there while a 30-second timer runs; the timer was started when the quest began, before waiting for Lethys and flying his hand, so the hover can be much shorter than 30 seconds</td>
+<td>todo</td>
+<td><code>CreateTimer</code>, <code>GetTimerTimeRemaining</code> are real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>If the player's camera comes within 200 of the store with it on screen during the hover, the evil advisor steps out, points at the store and says "Hey. Lethys is doing something over that Village, Boss." and the hover ends at once; it also ends if Lethys leaves the land</td>
+<td>todo</td>
+<td><code>SpiritEject</code>, <code>SpiritPointPos</code>, <code>RunText</code> are real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Lethys's AI is then let go. Nothing visible is cast: his hand only hovers, and the poisoning itself is done by the quest script later</td>
+<td>todo</td>
+<td><code>ReleaseComputerPlayer</code> is a stub; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>A silver scroll appears 6 above the trader's hut</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> is real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Until the scroll or the hut is clicked, whenever the camera is within 100 of the scroll with it on screen, the evil advisor steps out, points at it and says "There's a Silver Reward Scroll down here, Boss.", at most every 30 seconds</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; the shared scroll-notice script; see <a href="../challenges_and_rewards.html">../challenges_and_rewards.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-poisoning">The poisoning</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Clicking the scroll adds 5,000 food to the village store</td>
+<td>todo</td>
+<td><code>AddResource</code> is real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Every villager then in the village is poisoned at once (poisoning a town poisons each of its members)</td>
+<td>todo</td>
+<td><code>SetPoisoned</code> is a stub (our living things carry a <code>Poisoned</code> mark, <code>ecs::life::SetPoisoned</code> in <code>src/ECS/Life.cpp</code>, but no script sets it); the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Half the village's size at that moment is remembered as the death line for failure</td>
+<td>todo</td>
+<td><code>IdSize</code> is real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>After the introduction the store is poisoned: its food pile is marked poisoned (its wood is not)</td>
+<td>todo</td>
+<td><code>SetPoisoned</code> is a stub; a store's poisoned state exists (<code>object_resources::IsPoisoned</code>, <code>src/ECS/ObjectResources.cpp</code>); the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; see <a href="../../resources/stores_and_piles.html">../../resources/stores_and_piles.md</a></td>
+</tr>
+<tr>
+<td>The spread: a villager who takes food from a poisoned store becomes poisoned, so healed villagers fall sick again when they next eat from the store</td>
+<td>partial</td>
+<td>the engine side works: taking food from a poisoned store poisons the villager (<code>GetResourceFrom</code>, <code>src/ECS/Villager/VillagerResources.cpp</code>); the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; see <a href="../../resources/food.html">../../resources/food.md</a></td>
+</tr>
+<tr>
+<td>A poisoned villager regains no life by sleeping at home, and after eating while poisoned shows that it is poisoned instead of carrying on</td>
+<td>partial</td>
+<td>no healing sleep while poisoned (<code>src/ECS/Villager/VillagerHome.cpp</code>) and the poison's life loss (<code>ecs::life::ProcessPoison</code>) are ported; the shown-poisoned step not checked; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; see <a href="../../villager/daily_routine.html">../../villager/daily_routine.md</a></td>
+</tr>
+<tr>
+<td>Poisoned villagers can't work or pray, per the trader's complaint</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; the claim is the dialogue's; undetermined beyond the eating and resting rules above</td>
+</tr>
+<tr>
+<td>A "dead flock" is made at the village (inner 5, outer 20) but never used</td>
+<td>todo</td>
+<td><code>FlockCreate</code>, <code>ChangeInnerOuterProperties</code> are real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-introduction">The introduction</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A cut scene starts with the creature guide's music; an Indian trader comes out of the hut in high detail and walks to a spot in front of it, while the camera glides over (4 seconds) and turns to the hut (3 seconds)</td>
+<td>partial</td>
+<td><code>START_MUSIC</code> works (<code>src/Audio/GameMusic.cpp</code>); villager CREATE, high detail and the camera moves are real too; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>One second after he arrives he faces the camera and plays his poisoned animation once</td>
+<td>todo</td>
+<td><code>SET_FOCUS</code> and <code>SET_SCRIPT_STATE</code> work on villagers; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Evil advisor: "What's got into him?" as the camera closes in on him over 8 seconds; the advisor goes home and the dialogue closes</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The challenge is recorded in the player's challenge log: title "The Plague", success 0, alignment 0, reminder spoken by the good advisor: "The tribe has been struck down by poison. Do something!" (the snapshot stores the challenge with its title and the reminder script the log replays)</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; see <a href="../challenges_and_rewards.html">../challenges_and_rewards.md</a></td>
+</tr>
+<tr>
+<td>When his animation ends he faces the camera again and plays a despairing stand twice: "We've been poisoned! We can't work, we can't pray and we can't worship you. Please help us!"</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The camera glides back to where the player had it over 14 seconds; both advisors step out</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Good advisor: "We should stop this plague from spreading." then "Let's find the source of this sickness and heal the ill."</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Both advisors go home; once the camera is back the trader is poisoned and let go to live in the village, high detail and music end</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-the-player-must-do">What the player must do</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Empty the village store of food (all of it: the 5,000 added plus whatever it had), or get rid of the store altogether; either counts as removing the poison's source</td>
+<td>todo</td>
+<td><code>GetResource</code> is a stub; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Heal the sick with the heal miracle</td>
+<td>partial</td>
+<td>the heal miracle cures poison (<code>src/Magic/Core/SpellEvent.cpp</code>); the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; see <a href="../../miracles/heal.html">../../miracles/heal.md</a></td>
+</tr>
+<tr>
+<td>Win when the source is gone and no more than a quarter of the village's current people are still poisoned, with at least one person left</td>
+<td>todo</td>
+<td><code>IdSize</code> is real; <code>IdPoisonedSize</code> is a stub; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Lose when the village falls below half the size it had at the poisoning, before winning</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The quest has no time limit; it waits for one of these outcomes</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="comments-while-it-runs">Comments while it runs</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The first time anyone in the village is not poisoned (normally the first one healed), the good advisor: "You healed one. That's good." That villager is remembered</td>
+<td>todo</td>
+<td><code>CallNotPoisonedIn</code> is a stub; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>If that remembered villager falls sick again, a man's voice: "Godly being, stop healing and find the source of the sickness!"; the log is updated to success 0, alignment 0.4, reminder (good advisor): "Perhaps you should stop healing and find out the cause of the illness." Once only</td>
+<td>todo</td>
+<td><code>IsPoisoned</code>, <code>UpdateSnapshot</code> are stubs; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>While the store still has food, the first time the hand holds poisoned food (a handful taken from the store), the good advisor: "Ugh. That food looks rancid." Once only</td>
+<td>todo</td>
+<td><code>GetObjectHeld</code>, <code>IsOfType</code> are stubs; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; see <a href="../../hand/multi_pickup.html">../../hand/multi_pickup.md</a></td>
+</tr>
+<tr>
+<td>When the store is empty (or gone), the good advisor: "The poison's source is the Village Store. We can heal them now."; the log is updated to success 0.5, alignment 0.3, reminder (good advisor): "You got rid of the poison but the people need to be healed." This also stops the "You healed one" line from ever playing</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The first time, after the store is empty, anyone in the village is unpoisoned, the log is updated to success 0.75, alignment 0.3, with the reminder "Lovely. The poison's source is gone and the people you heal will survive."; then good advisor: "You're healing more now, Leader. Excellent." and "Lovely. The poison's source is gone and the people you heal will survive."; evil advisor: "And those survivors can get a little worship done."</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="success">Success</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>On winning, the quest waits until the camera is within 100 of the spot in front of the trader's hut with it on screen</td>
+<td>todo</td>
+<td><code>GameThingFieldOfView</code>, <code>PosFieldOfView</code> are real; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>A new trader comes out of the hut to the spot; a cut scene closes the camera on him (3 seconds, focus 2), he faces the camera and prays three times</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The log is updated to success 1, alignment 0.4, with the reminder (good advisor) "The sick people aren't getting any better."</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; the same reminder as the failure ending, which reads oddly after a win</td>
+</tr>
+<tr>
+<td>Trader: "Praise be to you, godliness! We're going to make it! Although we've suffered, our faith has endured!"; two seconds later he is let go</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="failure">Failure</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>On losing (under half the people left), the quest waits until the camera is within 100 of the spot in front of the hut with it on screen</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>A trader comes out of the hut to the spot; the camera closes in (3 seconds, focus 2); one second after he arrives he faces the camera</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>The log is updated to success 1 (the challenge is over), alignment −0.4, with the reminder (good advisor) "The sick people aren't getting any better."</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Trader: "Call yourself a greater power? You did nothing and now we're almost wiped out! The survivors won't forget this!"; a second later the camera returns to where the player had it and he is let go</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>If everyone in the village has died, the good advisor steps out, points at the spot and says "Take people from your other Village. Everyone here has died." and "But you'll need to cure this Plague, though, Leader."</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; in practice this comes right after the failure scene, since an empty village is also below half; the trader is still made at the hut</td>
+</tr>
+<tr>
+<td>There is no other way to fail or abandon it: the village staying sick, or leaving it alone, only leads to the failure above as people die</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="reward">Reward</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>On success the lightning bolt (level 1) miracle is enabled at the village's worship site (the town found within 100 of the village centre)</td>
+<td>partial</td>
+<td><code>SET_MAGIC_IN_OBJECT</code> puts a miracle in a town (<code>src/Magic/Script/CHLWorship.cpp</code>); the lightning miracle exists; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; see <a href="../../miracles/lightning.html">../../miracles/lightning.md</a></td>
+</tr>
+<tr>
+<td>A cut scene pans the camera to the village centre (5 seconds, focus 2); evil advisor: "Lightning Bolt. A nifty item, I feel."</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>A failure gives no reward</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="aftermath">Aftermath</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>After either ending, if the village has fewer than 10 people, the evil advisor steps out, points at the spot by the hut and says "There aren't many people here, Boss. Take some from your other Village."</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Then the store's poison is cleared and every villager still in the village is cured at once, whichever way it ended</td>
+<td>todo</td>
+<td><code>SetPoisoned</code> is a stub; the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Villagers who died stay dead; the village keeps whatever it lost</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creature-involvement">Creature involvement</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The quest gives the creature no part; it may empty the store (eating its food or taking it) or heal villagers like the player, since only the outcome is checked</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; creature eating poisoned food: <a href="../../creature/feeding_and_thrown_things.html">../../creature/feeding_and_thrown_things.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-quirks-and-unused-parts">Script quirks and unused parts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The quest's main loop has no wait of its own: it checks every condition continuously</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; as compiled</td>
+</tr>
+<tr>
+<td>Several variables are set up and never used: five "first victim" slots, a "dead person", the dead flock, Lethys's position, a "bodge rock" (commented out) and a global "plague intro triggered"</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs; leftovers from an earlier design</td>
+</tr>
+<tr>
+<td>Comments in the source quote earlier wordings: "You're healing more now, Leader. Fantastic." (shipped: "Excellent."), and the trader's thanks once read "our faith and your genius have endured"</td>
+<td>todo</td>
+<td>the quest never starts: LOAD_MAP is not ported, so Land 2's control script never runs</td>
+</tr>
+<tr>
+<td>Three advisor lines exist in the text table but no script says them, an argument over helping: evil "This is ridiculous. If they give us power, we can act."; good "The people are all sick, though. Let's try to help them."; evil "No. The strong will survive. That's nature. Nice and evil."</td>
+<td>n/a</td>
+<td>unused text; there is no plague line numbered 15</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

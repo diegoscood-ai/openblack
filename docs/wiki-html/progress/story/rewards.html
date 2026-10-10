@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rewards — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="here" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#rewards">Rewards</a><ul>
+<li><a href="#giving-a-reward">Giving a reward</a></li>
+<li><a href="#the-chest">The chest</a></li>
+<li><a href="#what-a-chest-can-hold">What a chest can hold</a></li>
+<li><a href="#miracle-rewards">Miracle rewards</a></li>
+<li><a href="#reward-progress">Reward progress</a></li>
+<li><a href="#fireflies-reward-chances">Fireflies' reward chances</a></li>
+<li><a href="#help-text-about-rewards">Help text about rewards</a></li>
+<li><a href="#rewards-by-land">Rewards by land</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="rewards">Rewards</h1>
+<p>Everything the game hands the player for finishing a challenge or a puzzle: the reward chest that falls from the sky
+or simply appears, what is inside it (miracle seeds, miracle power-ups, food, wood, belief, toys, special objects), the
+game's own list of which miracle to give next, the fireflies' reward chances in the land scripts, and the advisors'
+lines about rewards. What each land's challenges give is in <a href="land_1.html">land_1.md</a> to <a href="land_5.html">land_5.md</a>; how
+challenges run and creature swaps are in <a href="challenges_and_rewards.html">challenges_and_rewards.md</a>; dispensers and
+one-shot globes themselves are in <a href="../miracles/dispensers_and_seeds.html">../miracles/dispensers_and_seeds.md</a>.</p>
+<p><strong>Progress: 3/56 done, 11 partial — 15%</strong></p>
+<h2 id="giving-a-reward">Giving a reward</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A challenge script gives a reward chest of one of 60 kinds at a place; any other kind is refused with a script error and no chest</td>
+<td>todo</td>
+<td><code>CreateReward</code> is a stub in <code>src/CHLApi.cpp</code> (it logs "not implemented" and returns nothing); <code>CREATE</code> of a reward is not implemented either</td>
+</tr>
+<tr>
+<td>A reward can also be given "in a town": the town then receives what is inside (its miracles, its belief, its scaffolds) instead of the player alone</td>
+<td>todo</td>
+<td><code>CreateRewardInTown</code> is a stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>The chest always belongs to the local player, whoever's challenge gave it</td>
+<td>todo</td>
+<td>no reward chest in our tree</td>
+</tr>
+<tr>
+<td>The script chooses whether the chest falls from the sky or just appears on the ground</td>
+<td>todo</td>
+<td>no reward chest in our tree (<code>CreateReward</code> stub)</td>
+</tr>
+<tr>
+<td>A falling reward can come with a short film: the camera swings to one of two random views of the spot (from 80 m up and 60 m back, or from 15 m up and 15 m back, over 4 s), looks 150 m up the sky as the chest drops, follows it down over 4 s and then settles 25 m up and 30 m back, following the chest</td>
+<td>todo</td>
+<td>the script camera natives are real (<code>MoveCameraPosition</code>, <code>FocusFollow</code>), but the reward scripts' chest is never made (<code>CreateReward</code> stub)</td>
+</tr>
+<tr>
+<td>A reward given outside a film does not wait for the player; the variant used before a fly-past waits for the chest to be opened before the script goes on</td>
+<td>todo</td>
+<td>the reward scripts call <code>CreateReward</code> and <code>CreateRewardInTown</code>, both stubs</td>
+</tr>
+<tr>
+<td>A miracle dispenser can be the reward instead of a chest: it is built where the script says, with its miracle, angle and refill time, and switched on</td>
+<td>todo</td>
+<td><code>CREATE</code> of a spell dispenser is real (<code>magic::script::CreateSpellDispenser</code>, <code>src/Worship/SpellDispenser.cpp</code>) and <code>GiveSpellDispenserReward</code> calls it; its help lines need <code>GetFirstHelp</code> and <code>GetLastHelp</code> (stubs); the quests that give one are mostly never reached; see ../miracles/dispensers_and_seeds.md; dispenser rewards: <a href="silver_scrolls/the_singing_stones.html">The Singing Stones</a> (food), <a href="silver_scrolls/the_hermit.html">The Hermit</a> and <a href="silver_scrolls/the_explorers.html">The Explorers</a> (water), <a href="silver_scrolls/the_saviour.html">The Saviour</a> (strength), <a href="silver_scrolls/the_immersion_mushrooms.html">The Immersion Mushrooms</a> (compassion), <a href="silver_scrolls/the_ogre.html">The Ogre</a> (heal), <a href="silver_scrolls/the_pied_piper.html">The Pied Piper</a> (heal or lightning), <a href="silver_scrolls/the_sea.html">The Sea</a> (big), <a href="silver_scrolls/the_slavers.html">The Slavers</a> (wolf pack), <a href="silver_scrolls/the_magic_dragon.html">The Magic Dragon</a> (flying flock)</td>
+</tr>
+<tr>
+<td>The shared dispenser-reward script means to set the refill time only when one is given, but tests the game clock instead, so it always sets the refill time to the value passed, usually 0</td>
+<td>partial</td>
+<td>the script's own test runs as written in our script machine (<code>GiveSpellDispenserReward</code>); what a refill time of 0 does to our dispenser is not checked; see <a href="silver_scrolls/the_singing_stones.html">The Singing Stones</a> and <a href="silver_scrolls/the_sea.html">The Sea</a></td>
+</tr>
+<tr>
+<td>A dispenser reward plays the reward sting and flies the camera to the dispenser (to a view 21.5 m to the side and 14 m up, over 4 s)</td>
+<td>partial</td>
+<td><code>GiveSpellDispenserReward</code> plays the sting with <code>PlaySoundEffect</code> and flies the camera with the script camera natives, all real; not reached in game so far</td>
+</tr>
+<tr>
+<td>Some challenges give a creature to swap for, an enabled miracle power-up for a town, or simply belief, instead of a chest</td>
+<td>todo</td>
+<td><code>SwapCreature</code> is a stub, and the town power-ups and belief rewards go through the reward natives (stubs); see <a href="challenges_and_rewards.html">challenges_and_rewards.md</a> and the land files; creatures: <a href="silver_scrolls/creature_swaps.html">creature_swaps.md</a> (e.g. the tortoise of <a href="silver_scrolls/the_fish_puzzle.html">The Fish Puzzle</a>, the wolf of <a href="silver_scrolls/the_treacherous_path.html">The Treacherous Path</a>, the sheep of <a href="silver_scrolls/the_lost_flock.html">The Lost Flock</a>); power-ups for a town: fireball from <a href="silver_scrolls/the_idol.html">The Idol</a> and <a href="silver_scrolls/stanley_the_wolf.html">Stanley The Wolf</a>, lightning from <a href="silver_scrolls/the_greedy_farmer.html">The Greedy Farmer</a> and <a href="silver_scrolls/the_plague.html">The Plague</a>; a healing temple from <a href="silver_scrolls/the_beach_temple_puzzle.html">The Beach Temple Puzzle</a>; a Wonder begun from <a href="silver_scrolls/the_shaolin.html">The Shaolin</a></td>
+</tr>
+<tr>
+<td>Rewards are saved and loaded with the game (whether opened, the town they belong to, what they hold)</td>
+<td>todo</td>
+<td>openblack has no saved games; see ../engine/saving_and_loading.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-chest">The chest</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The chest is a closed wooden chest model; once opened it is swapped for an animated chest whose lid opens</td>
+<td>todo</td>
+<td>no chest object in our tree; the models are listed in <code>src/3D/AllMeshes.h</code> (<code>U_Chest</code>, <code>U_ChestTop</code>)</td>
+</tr>
+<tr>
+<td>A cloud of 27 sparkles hangs round the chest, scattered within 2 m sideways and up to 2 m above it, each with a random frame, size and brightness</td>
+<td>todo</td>
+<td>no reward chest in our tree</td>
+</tr>
+<tr>
+<td>A falling chest drops straight down at a steady 50 m per unit of time from its starting height (the starting height and the time unit are unconfirmed)</td>
+<td>todo</td>
+<td>no reward chest in our tree</td>
+</tr>
+<tr>
+<td>When it reaches the ground it thumps down with its own landing sound and a small camera shake, and only then can it be opened</td>
+<td>todo</td>
+<td>no reward chest in our tree (the falling, landing sound and shake are not ported here)</td>
+</tr>
+<tr>
+<td>The chest can't be picked up by the hand or thrown</td>
+<td>todo</td>
+<td>no reward chest in our tree</td>
+</tr>
+<tr>
+<td>Only the player it belongs to can open it, and only once</td>
+<td>todo</td>
+<td>no reward chest in our tree</td>
+</tr>
+<tr>
+<td>Hovering over it shows the chest's own tooltip rather than the usual one (unconfirmed wording)</td>
+<td>todo</td>
+<td>no reward chest in our tree; see ../interface/tooltips.md</td>
+</tr>
+<tr>
+<td>Opening it is a click of the Action button on it: it plays a tap sound, then two opening sounds, and the lid opens</td>
+<td>todo</td>
+<td>no reward chest in our tree; the opening sound is named (<code>G_OpenChest</code> in <code>src/Audio/Device/Sound.h</code>) but nothing plays it; see ../hand/ for clicking</td>
+</tr>
+<tr>
+<td>An opened chest stays a short while and then is removed with its sparkles (the exact delay is unconfirmed)</td>
+<td>todo</td>
+<td>no reward chest in our tree</td>
+</tr>
+<tr>
+<td>The chest exploding into pieces has its own model in the game's mesh pack (when it is used is unconfirmed)</td>
+<td>todo</td>
+<td>the model is listed in <code>src/3D/AllMeshes.h</code> (<code>RewardChestExplode</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-a-chest-can-hold">What a chest can hold</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The game's reward table has 60 kinds, each naming the seed, gesture, power-up, help text, belief, object and scaffold it gives</td>
+<td>partial</td>
+<td>the table is read into <code>GRewardInfo</code> (<code>InfoConstants::reward</code>, <code>src/InfoConstants.h</code>); nothing uses it</td>
+</tr>
+<tr>
+<td>Food in three sizes: opening adds a pile of food on the spot</td>
+<td>todo</td>
+<td>no reward chest in our tree; e.g. the large food reward of <a href="silver_scrolls/the_lost_flock.html">The Lost Flock</a></td>
+</tr>
+<tr>
+<td>Wood in three sizes: opening adds a pile of wood on the spot</td>
+<td>todo</td>
+<td>no reward chest in our tree</td>
+</tr>
+<tr>
+<td>Belief in three sizes: with a town, the town gains that much belief for the player and a sparkle plays on the chest for 20 turns; without a town it gives nothing</td>
+<td>todo</td>
+<td>no reward chest in our tree</td>
+</tr>
+<tr>
+<td>A miracle seed (fireball, lightning, explosion, heal, teleport, food, storm, spiritual shield, physical shield, wood, skeleton, water, flying and ground flocks, and the creature spells: freeze, small, big, weak, strong, fat, thin, invisible, compassion, angry, hungry, frightened, tired, ill, thirsty, itchy)</td>
+<td>todo</td>
+<td>no reward chest in our tree; see "Miracle rewards" below; e.g. the heal chests of <a href="silver_scrolls/the_sacrifice.html">The Sacrifice</a> and <a href="silver_scrolls/swap_to_brown_bear.html">Swap To Brown Bear</a>, the itchy seed of <a href="silver_scrolls/the_heavenly_fire.html">The Heavenly Fire</a>, the water reward of <a href="silver_scrolls/the_hermit.html">The Hermit</a></td>
+</tr>
+<tr>
+<td>A miracle power-up (heal, fireball, lightning, explosion, storm, shield and skeleton levels)</td>
+<td>todo</td>
+<td>no reward chest in our tree</td>
+</tr>
+<tr>
+<td>Toys for the creature: a ball, a cuddly toy and a die</td>
+<td>todo</td>
+<td>no reward chest in our tree; the toy models are in <code>src/3D/AllMeshes.h</code>; see ../creature/object_actions.md; e.g. the toy ball of <a href="silver_scrolls/throwing_stones.html">Throwing Stones</a> and the beach ball of <a href="silver_scrolls/the_ogre.html">The Ogre</a>; the toys themselves: <a href="../nature/toys.html">../nature/toys.md</a></td>
+</tr>
+<tr>
+<td>Special objects: a singing stone, an idol or a weeping stone</td>
+<td>todo</td>
+<td>no reward chest in our tree; see ../nature/one_shot_features.md</td>
+</tr>
+<tr>
+<td>A scaffold: with a town that has a workshop, a scaffold is made for it, already marked as a full one</td>
+<td>todo</td>
+<td>no reward chest in our tree (scaffolds themselves exist, <code>src/ECS/Scaffolds.h</code>); see <a href="../building/workshop_and_scaffolds.html">../building/workshop_and_scaffolds.md</a></td>
+</tr>
+<tr>
+<td>The "next miracle" reward picks the miracle by the reward progress (below)</td>
+<td>todo</td>
+<td>no reward chest in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="miracle-rewards">Miracle rewards</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>If the player can't cast the miracle yet and the chest is in a town, the town learns the miracle for good and its icon appears there (at 0.8 size)</td>
+<td>todo</td>
+<td>no reward chest in our tree (the town's miracle icons exist: <code>src/Worship/TownCentreSpellIcon.cpp</code>); see ../miracles/dispensers_and_seeds.md</td>
+</tr>
+<tr>
+<td>If the player can't cast it and there is no town, a one-shot globe of that miracle appears 2 m above the chest</td>
+<td>partial</td>
+<td>one-shot globes exist (<code>magic::one_off::Create</code>, also from the fireflies); no chest makes them</td>
+</tr>
+<tr>
+<td>If the player already has the miracle, the next power-up level the player lacks is given instead (to the town if there is one, otherwise to the player), with the miracle's gesture shown on the ground beside the chest</td>
+<td>todo</td>
+<td>no reward chest in our tree</td>
+</tr>
+<tr>
+<td>If the player already has every level of it, a one-shot globe of the miracle is given instead</td>
+<td>todo</td>
+<td>no reward chest in our tree</td>
+</tr>
+<tr>
+<td>A power-up reward with no seed just shows its gesture on the ground</td>
+<td>todo</td>
+<td>no reward chest in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="reward-progress">Reward progress</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The game keeps two ordered lists of 30 miracles each, one for good players and one for evil, and each entry says on which of the six lands it may be given</td>
+<td>partial</td>
+<td>read into <code>rewardProgressGood</code> and <code>rewardProgressEvil</code> (<code>src/InfoConstants.h</code>); nothing uses them</td>
+</tr>
+<tr>
+<td>The "next miracle" reward first looks for a town of the player's to give it to, if none was given</td>
+<td>todo</td>
+<td>no reward chest in our tree</td>
+</tr>
+<tr>
+<td>It gives the next miracle the player's progress calls for; when there is none left it draws at random from the good list if the player is good, the evil list if evil, a coin toss if exactly neutral, repeating until it finds an entry allowed on the current land, and gives it as a one-shot globe</td>
+<td>todo</td>
+<td>no reward chest in our tree; which list is good and which evil is unconfirmed; see ../worship/alignment.md</td>
+</tr>
+<tr>
+<td>What each of the 30 entries holds per land</td>
+<td>todo</td>
+<td>not yet read out of the game's data</td>
+</tr>
+</tbody>
+</table>
+<h2 id="fireflies-reward-chances">Fireflies' reward chances</h2>
+<p>The land scripts list, for every miracle, a chance that a firefly gives it as a one-shot globe. The values are weights
+read in order; how a firefly turns them into a reward is unconfirmed. Fireflies themselves are in
+<a href="../nature/one_shot_features.html">../nature/one_shot_features.md</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each land script lists a firefly reward chance for each of 42 miracles and power-ups</td>
+<td>done</td>
+<td><code>FireFlySpellRewardProb</code> (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>) stores each chance (<code>worship::fire_fly::SetRewardProbability</code>, <code>src/Worship/FireFlyReward.cpp</code>); picking up an object a firefly sleeps on rolls a one-shot miracle</td>
+</tr>
+<tr>
+<td>Land 1: fireball, lightning, forest, food, wood and water at 1 each, heal at 20; everything else 0</td>
+<td>done</td>
+<td>read from <code>Land1.txt</code> by <code>FireFlySpellRewardProb</code> and used by <code>worship::fire_fly::Reward</code></td>
+</tr>
+<tr>
+<td>Land 2: fireball, lightning, heal, teleport, forest, food, storm, both shields, wood and water at 1; flying flock 0.1, ground flock 0.01; each creature spell (freeze, small, big, weak, strong, invisible, compassion, angry, itchy) 0.1</td>
+<td>partial</td>
+<td>read and used when <code>Land2.txt</code> is loaded directly (<code>--start-level</code>); the story never gets there (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Land 3: as land 2's plain miracles at 1, both flocks 0.1, every creature spell 0</td>
+<td>partial</td>
+<td>read and used when <code>Land3.txt</code> is loaded directly; the story never gets there</td>
+</tr>
+<tr>
+<td>Land 4: the land 3 plain miracles at 1, plus fireball power-ups 0.2 and 0.1, lightning power-ups 0.2 and 0.1, heal and food power-ups 1, storm power-up 0.1, water power-up 0.2; flocks 0; each creature spell 0.1</td>
+<td>partial</td>
+<td>read and used when <code>Land4.txt</code> is loaded directly; the story never gets there</td>
+</tr>
+<tr>
+<td>Land 5: plain miracles at 1, fireball power-ups 0.1 and 0.2, lightning power-ups 0.2 and 0.1, explosion 0.1, heal power-up 0.2, food power-up 1, storm power-ups 0.1 and 0.1, both flocks 0.5, each creature spell 0.2</td>
+<td>partial</td>
+<td>read and used when <code>Land5.txt</code> is loaded directly; the story never gets there</td>
+</tr>
+<tr>
+<td>The tutorial land gives fireflies no rewards (every chance 0)</td>
+<td>partial</td>
+<td>read and used when <code>LandT.txt</code> is loaded directly; the tutorial's own control script is not started</td>
+</tr>
+<tr>
+<td>Fireflies come out at night and hide by day, so firefly rewards come only at night</td>
+<td>done</td>
+<td>the fireflies come out at visual night and go back by day (<code>src/ECS/FireFlies.cpp</code>), so their rewards come only at night; see ../nature/one_shot_features.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="help-text-about-rewards">Help text about rewards</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The game counts the rewards given; the very first one gets its own lines: an advisor wonders what is in the chest, the other says to click the Action button on it</td>
+<td>todo</td>
+<td>the first-reward scripts call <code>GetHelp</code> (a stub) and need a chest (<code>CreateReward</code> stub); see <a href="advisors.html">advisors.md</a></td>
+</tr>
+<tr>
+<td>When the first chest is opened, the reward's own help line is spoken, then "now click on the contents to activate them"</td>
+<td>todo</td>
+<td><code>GetHelp</code> is a stub in <code>src/CHLApi.cpp</code>, and no chest is made</td>
+</tr>
+<tr>
+<td>Every later chest, once clicked, has its reward's help line spoken in one line if the dialogue is free</td>
+<td>todo</td>
+<td>no reward chest in our tree</td>
+</tr>
+<tr>
+<td>Each kind of reward has its help line (food, wood, forest, storm and its gestures, teleport, both shields, heal, heal many, fireball and its gestures, a "question" line, and forty more numbered ones)</td>
+<td>todo</td>
+<td>no reward chest in our tree</td>
+</tr>
+<tr>
+<td>The first dispenser reward: an advisor explains miracle dispensers, a "did you know" scroll about miracles is placed, a signpost is put up beside the dispenser and the advisor points at it</td>
+<td>partial</td>
+<td><code>GiveSpellDispenserReward</code> calls real natives for the advisor, the did-you-know scroll and the signpost (<code>CreateHighlight</code>, <code>SpiritEject</code>, <code>SpiritPointPos</code>); not reached in game so far; see ../interface/scrolls_and_signs.md</td>
+</tr>
+<tr>
+<td>Later dispenser rewards get a one-line "another dispenser" remark, then the dispenser's first-to-last help lines</td>
+<td>todo</td>
+<td><code>GetFirstHelp</code> and <code>GetLastHelp</code> are stubs in <code>src/CHLApi.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="rewards-by-land">Rewards by land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>What each land's gold and silver scrolls give</td>
+<td>todo</td>
+<td>the rewards are not made (<code>CreateReward</code> stub); see <a href="land_1.html">land_1.md</a>, <a href="land_2.html">land_2.md</a>, <a href="land_3.html">land_3.md</a>, <a href="land_4.html">land_4.md</a>, <a href="land_5.html">land_5.md</a>; every silver scroll and its reward: <a href="silver_scrolls.html">silver_scrolls.md</a></td>
+</tr>
+<tr>
+<td>What the puzzles and games give (dispensers, seeds, toys, creatures, power-ups)</td>
+<td>todo</td>
+<td>the puzzles and games mostly need stub natives; see <a href="minigames.html">minigames.md</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thrown villagers, animals and the creature — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="here" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#thrown-villagers-animals-and-the-creature">Thrown villagers, animals and the creature</a><ul>
+<li><a href="#being-let-go">Being let go</a></li>
+<li><a href="#flying">Flying</a></li>
+<li><a href="#landing-and-getting-up">Landing and getting up</a></li>
+<li><a href="#dying-from-a-fall">Dying from a fall</a></li>
+<li><a href="#reactions-of-others">Reactions of others</a></li>
+<li><a href="#the-creature">The creature</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="thrown-villagers-animals-and-the-creature">Thrown villagers, animals and the creature</h1>
+<p>Villagers and animals as physical bodies: how they fly when thrown or knocked, land in one of three poses, get up, or die
+from the fall; and why the creature never flies. Picking them up and holding them is in <a href="../hand/picking_up.html">../hand/picking_up.md</a> and <a href="../hand/holding.html">../hand/holding.md</a>, damage
+from hits in <a href="impact_damage.html">impact_damage.md</a>, drowning in <a href="water_physics.html">water_physics.md</a>, and the creature's
+falls in fights in <a href="../creature/fighting.html">../creature/fighting.md</a>.</p>
+<p>What a villager carries, and the log it lets fall when it is launched, is in <a href="../villager/tools_and_carried_items.html">../villager/tools_and_carried_items.md</a>.</p>
+<p>openblack: villagers and animals fly in the game's physics with their own 12-point bodies
+(<code>SetUpLivingBody</code>, <code>src/ECS/Physics/PhysicsObjects.cpp</code>). A villager thrown, dropped or knocked enters FLYING; on landing it takes the
+game's posture and heading, plays its landing (or dies of the fall, or drowns on water) and decides afresh
+(<code>src/ECS/LivingPhysics.cpp</code>); animals land, die of the fall and move their flock's home
+(<code>src/ECS/LivingPhysics.cpp</code>, <code>src/ECS/AnimalAI.cpp</code>); the creature is struck but not hurt (a stand-in ball body,
+<code>src/ECS/CreaturePhysics.cpp</code>). Tests: <code>test/test_living_landing.cpp</code>. The creature's catching, its hurt and its sway
+aren't ported.</p>
+<p><strong>Progress: 18/24 done, 4 partial — 83%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../physics.html">Physics: thrown objects, collisions, damage and rocks that split</a>.</p>
+<h2 id="being-let-go">Being let go</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A villager or animal put down gently on ground that is not too steep stands where it is put, without flying, and goes to its landed state</td>
+<td>done</td>
+<td><code>from_hand::InitialisePhysicsFromHand</code> takes it out of the physics at once and its end of physics runs to LANDED (<code>src/ECS/LivingPhysics.cpp</code>)</td>
+</tr>
+<tr>
+<td>A thrown villager or animal goes into its flying state and plays its kind's thrown animation (villagers: thrown, thrown dead, thrown by a vortex; each animal kind its own)</td>
+<td>partial</td>
+<td>FLYING with the thrown or thrown-dead clip (<code>src/ECS/VillagerAnimations.cpp</code>) and each animal kind's thrown clip (<code>src/ECS/AnimalAnimations.cpp</code>); the vortex clip is not used</td>
+</tr>
+<tr>
+<td>A thrown villager drops what it was carrying, which flies on separately with the same speed and hits no other object</td>
+<td>done</td>
+<td><code>villager::CreateDroppedResource</code> (from <code>FromHand.cpp</code> and <code>ECS/LivingPhysics.cpp</code>) with <code>PhysicsObjects::AddDroppedObject</code> and no object collisions</td>
+</tr>
+<tr>
+<td>Animals taken from a flock leave it for a flock of their own; on landing, that flock's home moves to where they came down</td>
+<td>done</td>
+<td><code>animal_ai::PlaceInHand</code> takes it off its flock; on landing the flock centres where it fell, predators recompute their lair (<code>src/ECS/AnimalAI.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="flying">Flying</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Their bodies are simple 12-point shapes (head, waist and feet) with twice the air drag of objects</td>
+<td>done</td>
+<td><code>SetUpLivingBody</code> in <code>src/ECS/Physics/PhysicsObjects.cpp</code> (drag x 2)</td>
+</tr>
+<tr>
+<td>Villagers are heavy and grippy (density just under water's, the highest friction); animals are lighter and slide more</td>
+<td>done</td>
+<td>Constants rows 7 and 8 (<code>PhysicsObjects::ConstantsType</code>, <code>Data/PhysicsConstants.txt</code>)</td>
+</tr>
+<tr>
+<td>They tumble only from what they hit and the hand's twist after release</td>
+<td>done</td>
+<td><code>PhysicsBody</code> contacts and the release twist in <code>src/ECS/Physics/FromHand.cpp</code></td>
+</tr>
+<tr>
+<td>A villager or animal hit by a flying object while standing is knocked into flight</td>
+<td>done</td>
+<td><code>Result::Pushed</code> and the class's <code>initialisePhysicsKnocked</code> (<code>src/ECS/LivingPhysics.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="landing-and-getting-up">Landing and getting up</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>They land on their back, on their front or on their feet, by which way their body leans sideways at the end of the flight</td>
+<td>done</td>
+<td><code>VillagerEndPhysics</code>, <code>AnimalEndPhysics</code> from the turn-start rows; tests <code>LivingLanding.VillagerPoseThresholds</code>, <code>AnimalLandTypeIsReversed</code></td>
+</tr>
+<tr>
+<td>On landing they are stood up facing the way they were heading, on the ground</td>
+<td>done</td>
+<td><code>src/ECS/LivingPhysics.cpp</code> (the heading into <code>SetYAngle</code>); tests <code>LivingLanding.VillagerSetYAngle</code>, <code>ObjectYAngle</code></td>
+</tr>
+<tr>
+<td>They then play a landing animation (each animal kind its own) and get up to decide what to do next</td>
+<td>done</td>
+<td>The landed clips by land type (<code>VillagerLandedClip</code>, the animal kinds' clips), then they decide (<code>villager::Landed</code>, <code>AnimalAI.cpp</code>)</td>
+</tr>
+<tr>
+<td>Nothing special happens to a breeder that lands: it decides afresh what to do</td>
+<td>done</td>
+<td>It decides afresh after its landing (<code>src/ECS/LivingPhysics.cpp</code>)</td>
+</tr>
+<tr>
+<td>One that lands on water starts drowning instead</td>
+<td>done</td>
+<td>A villager in a water cell goes to DROWNING (<code>VillagerEndPhysics</code>, <code>src/ECS/VillagerDrowning.cpp</code>). Our wiki differs: animals have no drowning state; in the sea they sink and are deleted (<a href="../../animals.html#hand-flight-and-death">animals.md</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="dying-from-a-fall">Dying from a fall</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hits harder than 2 G hurt them; how much is in <a href="impact_damage.html">impact_damage.md</a></td>
+<td>done</td>
+<td><code>LivingReactToPhysicsImpact</code> (<code>src/ECS/LivingPhysics.cpp</code>); see <a href="impact_damage.html">impact_damage.md</a></td>
+</tr>
+<tr>
+<td>A villager whose life runs out in the air dies only when it lands, killed by the player who threw it</td>
+<td>partial</td>
+<td>It dies where it lands (<code>VillagerEndPhysics</code>); the impact damage does not keep the thrower's player</td>
+</tr>
+<tr>
+<td>A villager's corpse that is thrown lands dead again</td>
+<td>done</td>
+<td><code>VillagerEndPhysics</code> (an already dead one goes back to its dead state)</td>
+</tr>
+<tr>
+<td>An animal whose life runs out in the air starts dying when it lands</td>
+<td>done</td>
+<td><code>AnimalEndPhysics</code> to <code>animal_ai</code> dying</td>
+</tr>
+</tbody>
+</table>
+<h2 id="reactions-of-others">Reactions of others</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Villagers nearby point at or run from things flying by (the game never uses its watch state for this)</td>
+<td>todo</td>
+<td>The flying-object reaction is spread (<code>animal_ai::SpreadFlyingObjectReaction</code>), but villagers have no handler for it</td>
+</tr>
+<tr>
+<td>The creature watches flying objects and may learn from the player's throwing of people</td>
+<td>todo</td>
+<td>The catch hook of <code>PhysicsObjects::CheckAllCreaturesForCatching</code> is never set and no throw of people teaches the creature</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-creature">The creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature is never a physics body that moves: the hand can't throw it and hits never send it flying</td>
+<td>done</td>
+<td><code>PhysicsObjects::CanBecomeAPhysicsObject</code> is false for a creature; its body is static (<code>src/ECS/CreaturePhysics.cpp</code>)</td>
+</tr>
+<tr>
+<td>It is an obstacle: thrown things bounce off it and hurt it</td>
+<td>partial</td>
+<td>Thrown things bounce off a stand-in ball body (<code>creature_physics::SetUpBody</code>); they do not hurt it</td>
+</tr>
+<tr>
+<td>Its falls in fights (recoils and being knocked out) are animations, not physics</td>
+<td>partial</td>
+<td><code>src/ECS/Systems/Implementations/CreatureFightSystem.cpp</code>; see <a href="../creature/fighting.html">../creature/fighting.md</a></td>
+</tr>
+<tr>
+<td>No physics path makes the creature fall over: its falls belong to its fights and animations</td>
+<td>done</td>
+<td>The creature's body is static: nothing in the physics moves it. See <a href="../creature/fighting.html">../creature/fighting.md</a></td>
+</tr>
+<tr>
+<td>Miracle animals (wolves, bats, doves) have their own thrown and landed animations; the puzzle challenge's living pieces never fly</td>
+<td>done</td>
+<td>Each kind's clips (<code>src/ECS/AnimalAnimations.cpp</code>); animals whose info forbids it cannot be picked up (<code>animal_ai</code> <code>playerCanPickUp</code>)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Land 1 script — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="here" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#land-1-script">Land 1 script</a><ul>
+<li><a href="#loading-the-land">Loading the land</a></li>
+<li><a href="#set-up">Set-up</a></li>
+<li><a href="#towns">Towns</a></li>
+<li><a href="#buildings">Buildings</a></li>
+<li><a href="#people">People</a></li>
+<li><a href="#nature">Nature</a></li>
+<li><a href="#food">Food</a></li>
+<li><a href="#animals">Animals</a></li>
+<li><a href="#objects">Objects</a></li>
+<li><a href="#water-and-paths">Water and paths</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="land-1-script">Land 1 script</h1>
+<p><code>Scripts/Land1.txt</code> builds the first land of the story: the player's starting town, the neutral villages around it, the creature's gate with its three totems, the Pied Piper's cave and the magic mushrooms, scattered rocks and fences, and its climates and streams. This file counts what the script makes and whether openblack makes it; the challenges played there are the story domain's (<a href="../story/index.html">../story/</a>), and the scripts that run them are in <a href="challenge_scripts.html">challenge_scripts.md</a>.</p>
+<p><strong>Progress: 63/67 done, 4 partial — 97%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../intro.html">The Land 1 intro and the tutorial's script side</a>.</p>
+<h2 id="loading-the-land">Loading the land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The script loads from its first line to its last in openblack</td>
+<td>done</td>
+<td>checked by reading it the way <code>Script.cpp</code> does: every line is a known command with the right arguments, so no line is skipped</td>
+</tr>
+<tr>
+<td>The land's footpath file is loaded with it</td>
+<td>done</td>
+<td><code>Game::LoadMap</code> (the land's <code>.fot</code>)</td>
+</tr>
+<tr>
+<td>Loading the land starts the story's control script, which runs Land 1's challenges</td>
+<td>partial</td>
+<td><code>Game.cpp</code> starts <code>LandControlAll</code> at a new game whatever land was loaded; of Land 1's challenge scripts many now call only working functions, see challenge_scripts.md</td>
+</tr>
+<tr>
+<td>The land is where a new game starts (from the map script)</td>
+<td>partial</td>
+<td>openblack starts on <code>Land1.txt</code> by default (<code>--start-level</code>) without reading the map script</td>
+</tr>
+</tbody>
+</table>
+<h2 id="set-up">Set-up</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Loads the landscape <code>Land1.lnd</code></td>
+<td>done</td>
+<td><code>Game::LoadLandscape</code></td>
+</tr>
+<tr>
+<td>Is land number 1 of the story</td>
+<td>done</td>
+<td>kept in the map script globals (<code>SET_LAND_NUMBER</code>)</td>
+</tr>
+<tr>
+<td>Starts the camera looking at "1441.56,2081.76"</td>
+<td>done</td>
+<td><code>FeatureScriptCommands::StartCameraPos</code></td>
+</tr>
+<tr>
+<td>Scales the towns' influence by 1</td>
+<td>done</td>
+<td>kept in the map script globals and read by <code>src/ECS/Influence</code></td>
+</tr>
+<tr>
+<td>Scales the players' influence by 1</td>
+<td>done</td>
+<td>kept in the map script globals and read by <code>src/ECS/Influence</code></td>
+</tr>
+<tr>
+<td>Creates 4 climates and sets rain, temperature and wind 4, 4 and 4 times</td>
+<td>done</td>
+<td><code>magic::map_script::CreateWeatherClimate</code> and its rain, temperature and wind (<code>src/Magic/Script/MapScriptWeather.cpp</code>); see ../weather/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="towns">Towns</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Creates 6 towns (norse 2, celtic 2, japanese 1, aztec 1); owners: neutral 5, player one 1</td>
+<td>done</td>
+<td><code>TownArchetype</code> (<code>CREATE_TOWN</code>)</td>
+</tr>
+<tr>
+<td>Sets 6 towns' belief in a player</td>
+<td>done</td>
+<td><code>ecs::town_belief::SetBeliefInPlayer</code> (<code>SET_TOWN_BELIEF</code>)</td>
+</tr>
+<tr>
+<td>Leaves 4 towns uninhabitable (ruins and empty villages)</td>
+<td>done</td>
+<td>the town's uninhabitable flag (<code>SET_TOWN_UNINHABITABLE</code>), read by <code>src/ECS/Town/AbodeVillagers.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="buildings">Buildings</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>11 houses (style A) (Norse 4, Celtic 3, Aztec 3, Japanese 1)</td>
+<td>done</td>
+<td><code>AbodeArchetype</code> (<code>CREATE_ABODE</code>)</td>
+</tr>
+<tr>
+<td>7 houses (style C) (Aztec 4, Norse 3)</td>
+<td>done</td>
+<td><code>AbodeArchetype</code> (<code>CREATE_ABODE</code>)</td>
+</tr>
+<tr>
+<td>3 houses (style E) (Norse 2, Celtic 1)</td>
+<td>done</td>
+<td><code>AbodeArchetype</code> (<code>CREATE_ABODE</code>)</td>
+</tr>
+<tr>
+<td>3 houses (style F) (Norse 3)</td>
+<td>done</td>
+<td><code>AbodeArchetype</code> (<code>CREATE_ABODE</code>)</td>
+</tr>
+<tr>
+<td>3 houses (style D) (Aztec 2, Norse 1)</td>
+<td>done</td>
+<td><code>AbodeArchetype</code> (<code>CREATE_ABODE</code>)</td>
+</tr>
+<tr>
+<td>3 houses (style B) (Aztec 2, Norse 1)</td>
+<td>done</td>
+<td><code>AbodeArchetype</code> (<code>CREATE_ABODE</code>)</td>
+</tr>
+<tr>
+<td>2 graveyards (Norse 1, Aztec 1)</td>
+<td>done</td>
+<td><code>AbodeArchetype</code> (<code>CREATE_ABODE</code>)</td>
+</tr>
+<tr>
+<td>2 storehouses (Norse 1, Aztec 1)</td>
+<td>done</td>
+<td><code>AbodeArchetype</code> (<code>CREATE_ABODE</code>)</td>
+</tr>
+<tr>
+<td>2 crèches (Norse 1, Aztec 1)</td>
+<td>done</td>
+<td><code>AbodeArchetype</code> (<code>CREATE_ABODE</code>)</td>
+</tr>
+<tr>
+<td>2 village centres (Norse 1, Aztec 1)</td>
+<td>done</td>
+<td><code>AbodeArchetype</code> made the town's centre, with its worship share (<code>CREATE_TOWN_CENTRE</code>)</td>
+</tr>
+<tr>
+<td>6 planned buildings for towns to build later (houses (style A) 3, wonders 2, houses (style D) 1)</td>
+<td>done</td>
+<td><code>FeatureScriptCommands::CreatePlannedAbode</code> (<code>CREATE_PLANNED_ABODE</code>): the town's planned list, never drawn, read by the building sites</td>
+</tr>
+<tr>
+<td>The player's planned temple (built when the player arrives)</td>
+<td>done</td>
+<td><code>CitadelArchetype::CreatePlan</code> (<code>CREATE_PLANNED_CITADEL</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="people">People</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>26 foresters living in their houses</td>
+<td>done</td>
+<td><code>VillagerArchetype</code> through <code>CreateVillagerAtAbode</code> (<code>CREATE_VILLAGER_POS</code>)</td>
+</tr>
+<tr>
+<td>26 housewives living in their houses</td>
+<td>done</td>
+<td><code>VillagerArchetype</code> through <code>CreateVillagerAtAbode</code> (<code>CREATE_VILLAGER_POS</code>)</td>
+</tr>
+<tr>
+<td>2 fishermen living in their houses</td>
+<td>done</td>
+<td><code>VillagerArchetype</code> through <code>CreateVillagerAtAbode</code> (<code>CREATE_VILLAGER_POS</code>)</td>
+</tr>
+<tr>
+<td>1 shepherd living in their houses</td>
+<td>done</td>
+<td><code>VillagerArchetype</code> through <code>CreateVillagerAtAbode</code> (<code>CREATE_VILLAGER_POS</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="nature">Nature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1395 trees and bushes (Bush 378, ConiferA 206, PalmB 194, Conifer 116, Pine 113, Palm 108, Birch 77, Beech 73, Oak 38, BushB 36, PalmA 16, OakA 11, Olive 10, PalmC 10, BushA 6, Burnt 3)</td>
+<td>done</td>
+<td><code>TreeArchetype</code> (<code>CREATE_NEW_TREE</code>)</td>
+</tr>
+<tr>
+<td>3 dead trees</td>
+<td>done</td>
+<td><code>DeadTreeArchetype</code> (<code>CREATE_DEAD_TREE</code>) with its life and three angles</td>
+</tr>
+<tr>
+<td>3 big forest models</td>
+<td>done</td>
+<td><code>BigForestArchetype</code> (<code>CREATE_NEW_BIG_FOREST</code>)</td>
+</tr>
+<tr>
+<td>9 × feature "Aztec Statue Feature"</td>
+<td>done</td>
+<td><code>FeatureArchetype</code> (<code>CREATE_NEW_FEATURE</code>)</td>
+</tr>
+<tr>
+<td>3 × feature "Fat Pilar Lime"</td>
+<td>done</td>
+<td><code>FeatureArchetype</code> (<code>CREATE_NEW_FEATURE</code>)</td>
+</tr>
+<tr>
+<td>2 × feature "Pilar2 Lime"</td>
+<td>done</td>
+<td><code>FeatureArchetype</code> (<code>CREATE_NEW_FEATURE</code>)</td>
+</tr>
+<tr>
+<td>2 × feature "Pilar3 Lime"</td>
+<td>done</td>
+<td><code>FeatureArchetype</code> (<code>CREATE_NEW_FEATURE</code>)</td>
+</tr>
+<tr>
+<td>2 × feature "Spikey Pilar Lime"</td>
+<td>done</td>
+<td><code>FeatureArchetype</code> (<code>CREATE_NEW_FEATURE</code>)</td>
+</tr>
+<tr>
+<td>17 patches of mist</td>
+<td>done</td>
+<td><code>MistArchetype</code> (<code>CREATE_MIST</code>)</td>
+</tr>
+<tr>
+<td>Sets 42 firefly miracle reward chances</td>
+<td>done</td>
+<td>kept in the map globals' reward table (<code>FIRE_FLY_SPELL_REWARD_PROB</code>); heal 77%, fireball, lightning, forest, food, wood and water about 4% each; see <a href="../nature/fireflies.html">../nature/fireflies.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="food">Food</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>19 fields (Wheat 18, Corn 1)</td>
+<td>done</td>
+<td><code>FieldArchetype</code> (<code>CREATE_NEW_TOWN_FIELD</code>)</td>
+</tr>
+<tr>
+<td>13 fish farms</td>
+<td>done</td>
+<td><code>FishFarmArchetype</code> (<code>CREATE_TOWN_FISH_FARM</code>)</td>
+</tr>
+<tr>
+<td>4 pots (MagicWood 4)</td>
+<td>done</td>
+<td><code>PotArchetype</code> (<code>CREATE_POT</code>)</td>
+</tr>
+<tr>
+<td>47 drinking places</td>
+<td>partial</td>
+<td>a <code>DrinkWaypoint</code> is kept (<code>CREATE_DRINK_WAYPOINT</code>); nothing reads it yet</td>
+</tr>
+</tbody>
+</table>
+<h2 id="animals">Animals</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>40 × dove</td>
+<td>done</td>
+<td><code>AnimalArchetype</code> (<code>CREATE_NEW_ANIMAL</code>), with its flock and town; how it behaves is the animals' domain</td>
+</tr>
+<tr>
+<td>22 × seagull</td>
+<td>done</td>
+<td><code>AnimalArchetype</code> (<code>CREATE_NEW_ANIMAL</code>), with its flock and town; how it behaves is the animals' domain</td>
+</tr>
+<tr>
+<td>14 × swallow</td>
+<td>done</td>
+<td><code>AnimalArchetype</code> (<code>CREATE_NEW_ANIMAL</code>), with its flock and town; how it behaves is the animals' domain</td>
+</tr>
+<tr>
+<td>12 × horse</td>
+<td>done</td>
+<td><code>AnimalArchetype</code> (<code>CREATE_NEW_ANIMAL</code>), with its flock and town; how it behaves is the animals' domain</td>
+</tr>
+<tr>
+<td>10 × cow</td>
+<td>done</td>
+<td><code>AnimalArchetype</code> (<code>CREATE_NEW_ANIMAL</code>), with its flock and town; how it behaves is the animals' domain</td>
+</tr>
+<tr>
+<td>7 × pig</td>
+<td>done</td>
+<td><code>AnimalArchetype</code> (<code>CREATE_NEW_ANIMAL</code>), with its flock and town; how it behaves is the animals' domain</td>
+</tr>
+<tr>
+<td>6 × tortoise</td>
+<td>done</td>
+<td><code>AnimalArchetype</code> (<code>CREATE_NEW_ANIMAL</code>), with its flock and town; how it behaves is the animals' domain</td>
+</tr>
+<tr>
+<td>5 × bat</td>
+<td>done</td>
+<td><code>AnimalArchetype</code> (<code>CREATE_NEW_ANIMAL</code>), with its flock and town; how it behaves is the animals' domain</td>
+</tr>
+<tr>
+<td>16 flocks</td>
+<td>done</td>
+<td><code>FeatureScriptCommands::CreateFlock</code> (<code>CREATE_FLOCK</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="objects">Objects</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>132 × rocks and boulders (Rock 70, Boulder3Lime 20, Boulder1Lime 19, LongrockLimestone 6, RockLimestone 5, SharprockLimestone 5, Boulder2Lime 5, Boulder1Sand 1, Boulder3Chalk 1)</td>
+<td>done</td>
+<td><code>MobileStaticArchetype</code> (<code>CREATE_MOBILE_STATIC</code>)</td>
+</tr>
+<tr>
+<td>102 × fences (CeltFenceTall 64, CeltFenceShort 38)</td>
+<td>done</td>
+<td><code>MobileStaticArchetype</code> (<code>CREATE_MOBILE_STATIC</code>)</td>
+</tr>
+<tr>
+<td>4 × toys (ToyDie 3, ToyCuddly 1)</td>
+<td>done</td>
+<td><code>MobileStaticArchetype</code> (<code>CREATE_MOBILE_STATIC</code>)</td>
+</tr>
+<tr>
+<td>3 × gate totems (GateTotemBlank 1, GateTotemTiger 1, GateTotemApe 1)</td>
+<td>done</td>
+<td><code>MobileStaticArchetype</code> (<code>CREATE_MOBILE_STATIC</code>)</td>
+</tr>
+<tr>
+<td>36 × MagicMushroom (can be picked up)</td>
+<td>done</td>
+<td><code>MobileObjectArchetype</code> (<code>CREATE_MOBILEOBJECT</code>)</td>
+</tr>
+<tr>
+<td>9 × Toadstool (can be picked up)</td>
+<td>done</td>
+<td><code>MobileObjectArchetype</code> (<code>CREATE_MOBILEOBJECT</code>)</td>
+</tr>
+<tr>
+<td>4 × EgyptBarrel (can be picked up)</td>
+<td>done</td>
+<td><code>MobileObjectArchetype</code> (<code>CREATE_MOBILEOBJECT</code>)</td>
+</tr>
+<tr>
+<td>2 × Champi (can be picked up)</td>
+<td>done</td>
+<td><code>MobileObjectArchetype</code> (<code>CREATE_MOBILEOBJECT</code>)</td>
+</tr>
+<tr>
+<td>2 × Piper Cave Entrance (animated)</td>
+<td>done</td>
+<td><code>AnimatedStaticArchetype</code> (<code>CREATE_ANIMATED_STATIC</code>)</td>
+</tr>
+<tr>
+<td>1 × Norse Gate (animated)</td>
+<td>done</td>
+<td><code>AnimatedStaticArchetype</code> (<code>CREATE_ANIMATED_STATIC</code>)</td>
+</tr>
+<tr>
+<td>1 × Gate Stone Plinth (animated)</td>
+<td>done</td>
+<td><code>AnimatedStaticArchetype</code> (<code>CREATE_ANIMATED_STATIC</code>)</td>
+</tr>
+<tr>
+<td>12 lanterns (StreetLantern 8, CountryLantern 4)</td>
+<td>done</td>
+<td><code>StreetLanternArchetype</code> (<code>CREATE_STREET_LANTERN</code>)</td>
+</tr>
+<tr>
+<td>2 bonfires</td>
+<td>done</td>
+<td><code>BonfireArchetype</code> (<code>CREATE_BONFIRE</code>); the temperature is not used on creation, as in the original</td>
+</tr>
+</tbody>
+</table>
+<h2 id="water-and-paths">Water and paths</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>11 streams through 187 points</td>
+<td>done</td>
+<td>the streams and their points are kept and the rivers built from them after the last line (<code>ecs::CreateRiverFootprints</code>)</td>
+</tr>
+<tr>
+<td>3 arenas</td>
+<td>partial</td>
+<td>an <code>Arena</code> is kept (<code>CREATE_ARENA</code>); the creature fights that use it are not wired into the game</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hidden keys and cheats — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="here" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#hidden-keys-and-cheats">Hidden keys and cheats</a><ul>
+<li><a href="#keys-outside-the-bindings">Keys outside the bindings</a></li>
+<li><a href="#developer-key-menus-left-in-the-program">Developer key menus left in the program</a></li>
+<li><a href="#cheats-compiled-out-of-the-release">Cheats compiled out of the release</a></li>
+<li><a href="#the-online-lobby">The online lobby</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="hidden-keys-and-cheats">Hidden keys and cheats</h1>
+<p>Keys the game reacts to that are not in its list of bindable actions, the developers' own key menus and cheats that were
+left in the program but cut off from the player, and what remains of cheating in the online lobby. The ordinary,
+rebindable keys are owned by <a href="../interface/key_bindings.html">../interface/key_bindings.md</a>; camera bookmarks on the
+number keys by <a href="../camera/places_and_bookmarks.html">../camera/places_and_bookmarks.md</a>. Date-based surprises (special
+days, the night voices, real weather, villagers named from the address book) are in <a href="../pc_integration/index.html">../pc_integration/</a>.</p>
+<p><strong>Progress: 0/5 done, 1 partial — 10%</strong></p>
+<h2 id="keys-outside-the-bindings">Keys outside the bindings</h2>
+<p>These are tested only after a key has failed to match any bindable action, so rebinding an action onto one of them
+hides it.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Ctrl+Alt+T</strong> saves a "creature snapshot": a file <code>creaturesnapshot.csn</code> in the current profile's folder, then plays a confirmation sound and a force-feedback jolt on a force-feedback mouse</td>
+<td>todo</td>
+<td>not in our tree; works in single player and online alike in the game</td>
+</tr>
+<tr>
+<td>The snapshot holds the camera's position and focus, the time of day and the sky it gives, the camera lens, whether the game is online (and the online game's name), then for each of up to eight human players who has a creature: their online player record, the creature's body and size, its head size, its colours, its whole 3D state, and the animation it is playing with its frame</td>
+<td>todo</td>
+<td>not in our tree; nothing in the game reads the file back</td>
+</tr>
+<tr>
+<td><strong>R</strong> (when unbound) repeats the last miracle, if the hand is free to take it</td>
+<td>todo</td>
+<td>no keyboard miracle keys in our tree (unconfirmed which of R and M is which in the game)</td>
+</tr>
+<tr>
+<td><strong>M</strong> (when unbound) starts choosing a miracle with the keyboard, if the hand is free to take it</td>
+<td>todo</td>
+<td>see the row above</td>
+</tr>
+<tr>
+<td><strong>P</strong> with no Shift, Ctrl or Alt held pauses and unpauses the game</td>
+<td>partial</td>
+<td>P pauses and unpauses (<code>game_clock::Pause</code>, <code>src/Game.cpp</code>), but also with Shift, Ctrl or Alt held</td>
+</tr>
+<tr>
+<td>There are no typed cheat codes: the game keeps a buffer of typed keys, but it only replays them, one by one, into the normal key handling each frame; nothing matches sequences</td>
+<td>n/a</td>
+<td>checked in the key-buffer handling; nothing to port</td>
+</tr>
+</tbody>
+</table>
+<h2 id="developer-key-menus-left-in-the-program">Developer key menus left in the program</h2>
+<p>Four developers had their own debug key menus, each with a help page. The code is still in the released program, but
+nothing calls it: no pointer to it and no call to it exists anywhere in the executable, so no profile name, switch or
+key reaches it.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Jeremy's menu, H for its help page: K "Switch QuickClick Interface", C "Cheat", I "SlowDown Game", O "SpeedUp Game", M "Advance Night Time", F "Generating Footpaths", R "Free Move in Slow Motion", W "Divers (Help My Current Test)", Z "Go As Fast As Possible"</td>
+<td>n/a</td>
+<td>unreachable in the release; each key prints a "Jeremy - ..." message</td>
+</tr>
+<tr>
+<td>What Jeremy's keys actually do in the release code: R toggles a free-movement flag, C sets it on, Z toggles "as fast as possible", and W (despite its label) toggles a spell cheat for the local player; I, O, M and F only print their message, because the routine they pass on to is empty; K does nothing</td>
+<td>n/a</td>
+<td>unreachable</td>
+</tr>
+<tr>
+<td>Tim's menu: "O - Force an Out of Sync" (forces a multiplayer desynchronisation for testing)</td>
+<td>n/a</td>
+<td>only its help text is left; unreachable</td>
+</tr>
+<tr>
+<td>George's menu: Shift+P reloads the weather system, W shows weather information</td>
+<td>n/a</td>
+<td>unreachable</td>
+</tr>
+<tr>
+<td>Tom's menu: F generates the footpaths of every land in turn (lands 1 to 5, the three multiplayer maps and the Two, Three and Four Gods playgrounds), W turns on the wall-hugging (path-finding) debug view</td>
+<td>n/a</td>
+<td>unreachable</td>
+</tr>
+<tr>
+<td>Nine named key layouts: "Default Key Config", "Jeremy Key Config", "Mark Webley Key Config", "Giles Key Config", "Jean-Claude Key Config", "Daniel's Key Config mofo, dont mess", "George Backer Conifg", "Tim's Conifg" and "TBL's Conifg" (sic)</td>
+<td>n/a</td>
+<td>the table of names is never read</td>
+</tr>
+</tbody>
+</table>
+<h2 id="cheats-compiled-out-of-the-release">Cheats compiled out of the release</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The interface's own cheat routine is empty in the released program</td>
+<td>n/a</td>
+<td>nothing to port</td>
+</tr>
+<tr>
+<td>Creature cheats: learn everything, learn ordinary things, go to the next stage of growing up, make it fight, clear its help timers, and agree to every request</td>
+<td>n/a</td>
+<td>present in the program but no key or command reaches them in the release (unconfirmed for every build); openblack's debug spawner does similar things, see <a href="../creature/saves_and_files.html">../creature/saves_and_files.md</a></td>
+</tr>
+<tr>
+<td>Player, worship site and temple cheats, and a cheat that hands a town to a player</td>
+<td>n/a</td>
+<td>present but unreachable (unconfirmed for every build); see <a href="../worship/prayer_power.html">../worship/prayer_power.md</a> and <a href="../town/belief_and_conversion.html">../town/belief_and_conversion.md</a></td>
+</tr>
+<tr>
+<td>The computer gods' "find any old ..." helpers let them pick any town, field, tree, villager, creature or miracle anywhere, without having to know about it</td>
+<td>n/a</td>
+<td>part of the computer god, not a player cheat; see <a href="../rival_gods/ai.html">../rival_gods/ai.md</a> (unconfirmed which of them the rival gods use)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-online-lobby">The online lobby</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>In the internet lobby, a player whose name cannot be read is listed as "Cheater"</td>
+<td>n/a</td>
+<td>the lobby service is gone; see <a href="../multiplayer/index.html">../multiplayer/</a></td>
+</tr>
+<tr>
+<td>A hidden setting, "LeetLamer", in the game's setup registry key is read each time the list of internet game channels is built and passed on with every channel</td>
+<td>n/a</td>
+<td>what it changes is unconfirmed; the lobby service is gone</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

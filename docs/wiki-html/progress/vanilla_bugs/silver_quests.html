@@ -1,0 +1,645 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vanilla bugs: silver quests — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="here" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#vanilla-bugs-silver-quests">Vanilla bugs: silver quests</a><ul>
+<li><a href="#soft-locks-and-lost-progress">Soft-locks and lost progress</a></li>
+<li><a href="#wrong-outcomes">Wrong outcomes</a></li>
+<li><a href="#missing-or-wrong-feedback">Missing or wrong feedback</a></li>
+<li><a href="#data-and-text-errors">Data and text errors</a></li>
+<li><a href="#harmless">Harmless</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="vanilla-bugs-silver-quests">Vanilla bugs: silver quests</h1>
+<p>Bugs in the original game's silver-scroll quest scripts on Lands 1 to 5, and in the shared scripts they use (the
+creature swap offer). Quests the game never starts are included only under Harmless, where the bug is a plain mistake in
+their script. Text-table typos in quest lines are in <a href="interface_and_text.html">interface_and_text.md</a>; the miracle
+dispenser reward helper is in <a href="miracles.html">miracles.md</a>.</p>
+<p><strong>Bugs: 71 (soft-locks and lost progress: 5)</strong></p>
+<h2 id="soft-locks-and-lost-progress">Soft-locks and lost progress</h2>
+<table>
+<thead>
+<tr>
+<th>Bug</th>
+<th>What the player sees</th>
+<th>Evidence</th>
+<th>Found in</th>
+<th>openblack</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The Lost Flock's five-sheep reward only fires when the flock is exactly the shepherd and five sheep</td>
+<td>If two sheep join at the same moment and the count jumps past six, no reward or later line ever comes and the quest can't be finished (only the guide's storm closes it)</td>
+<td><code>TheLostFlock</code>: the test is "flock size equals 6" (checked in the script source)</td>
+<td><a href="../story/silver_scrolls/the_lost_flock.html">the_lost_flock.md</a></td>
+<td>undecided (never reached in this tree yet: right after the introduction the script takes the shepherd for dead, since <code>GET_PROPERTY</code> has no health and answers 0)</td>
+</tr>
+<tr>
+<td>The Sea orders each rescued son to walk home once and never again</td>
+<td>A son dropped on dry land somewhere he can't walk home from never counts as home, holding the quest open until the player carries him home</td>
+<td>Read from <code>Baywatch</code></td>
+<td><a href="../story/silver_scrolls/the_sea.html">the_sea.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The Shaolin monk's Wonder gift is checked for only once</td>
+<td>If the guru's quest is finished after the second prison statue falls and its village is won, the reward is lost for good</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_shaolin.html">the_shaolin.md</a></td>
+<td>undecided (never reached in this tree yet: Land 3 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>Throwing Stones only records the quest from the scroll click</td>
+<td>Knocking the boulder off before clicking the scroll forfeits the toy ball reward and the quest is never recorded</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/throwing_stones.html">throwing_stones.md</a></td>
+<td>undecided (the script runs with the same check, but this tree gives no record or toy ball either way: <code>SNAPSHOT</code> and <code>CREATE_REWARD</code> are stubs)</td>
+</tr>
+<tr>
+<td>A quest's creature swap records only the new species, while the breeder records both</td>
+<td>A creature swapped away through a quest is never offered back at the creature breeder</td>
+<td>The breeder's swap and the quests' shared swap script differ</td>
+<td><a href="../story/silver_scrolls/the_creature_breeder.html">the_creature_breeder.md</a></td>
+<td>undecided (no creature is ever swapped in this tree yet: <code>SWAP_CREATURE</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="wrong-outcomes">Wrong outcomes</h2>
+<table>
+<thead>
+<tr>
+<th>Bug</th>
+<th>What the player sees</th>
+<th>Evidence</th>
+<th>Found in</th>
+<th>openblack</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The Lost Flock's ten-sheep ending also needs an exact count</td>
+<td>One sheep too many at the same moment skips it; one dead sheep makes it impossible unless another sheep wanders in, since only ten exist for the quest</td>
+<td><code>TheLostFlock</code>: "flock size equals 11" (checked in the script source)</td>
+<td><a href="../story/silver_scrolls/the_lost_flock.html">the_lost_flock.md</a></td>
+<td>undecided (never reached in this tree yet: right after the introduction the script takes the shepherd for dead, since <code>GET_PROPERTY</code> has no health and answers 0)</td>
+</tr>
+<tr>
+<td>The Idol charges the alignment for killing its maker both when he dies and again in the closing scene</td>
+<td>Killing the maker before the idol burns costs 0.6 twice and the sad line is heard twice</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_idol.html">the_idol.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The Idol counts any worshipper who leaves the flock as killed (undetermined whether they can leave other than by dying)</td>
+<td>Possibly kills counted that didn't happen</td>
+<td>The count is the flock size</td>
+<td><a href="../story/silver_scrolls/the_idol.html">the_idol.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The Hermit's alignment for impressing him depends on the seed not having been found yet</td>
+<td>Finding the seed first, then impressing him, gives alignment 0 instead of +0.4</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_hermit.html">the_hermit.md</a></td>
+<td>undecided (never reached in this tree yet: the creature never gets to impress the hermit)</td>
+</tr>
+<tr>
+<td>The Hermit's hut check doesn't ask who did the damage</td>
+<td>Any damage to the hut, even fire spreading from elsewhere, counts as the player's</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_hermit.html">the_hermit.md</a></td>
+<td>undecided (this tree reads the hut's health wrong: <code>GET_PROPERTY</code> has no health and answers 0)</td>
+</tr>
+<tr>
+<td>The Fish Puzzle marks its scroll done before checking whether the boy lived</td>
+<td>Killing the boy still completes the scroll</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_fish_puzzle.html">the_fish_puzzle.md</a></td>
+<td>undecided (never reached in this tree yet: Land 4 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The Heavenly Fire judges the villager toll on the town's net head count</td>
+<td>Babies born during the attack hide deaths</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_heavenly_fire.html">the_heavenly_fire.md</a></td>
+<td>undecided (never reached in this tree yet: Land 5 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The Sacrifice scores sacrificing the priest at +1, the same as sparing everyone (may be intended)</td>
+<td>Sacrificing the priest is rated better than killing him any other way (+0.5)</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_sacrifice.html">the_sacrifice.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The Sacrifice's reward goes to a village with id 12, neither the family's nor the player's home</td>
+<td>The reward appears at a third village</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_sacrifice.html">the_sacrifice.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The Saviour counts a man as saved once rescued, even if he is killed before the quest ends</td>
+<td>A dead man counts as saved</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_saviour.html">the_saviour.md</a></td>
+<td>undecided (the tally goes wrong in this tree anyway: <code>GET_PROPERTY</code> has no health and answers 0, and the creature cannot carry the men yet)</td>
+</tr>
+<tr>
+<td>The Saviour counts the men one second after the five minutes end</td>
+<td>A man still held by the creature at that moment counts as murdered</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_saviour.html">the_saviour.md</a></td>
+<td>undecided (the tally goes wrong in this tree anyway: <code>GET_PROPERTY</code> has no health and answers 0, and the creature cannot carry the men yet)</td>
+</tr>
+<tr>
+<td>The Land 2 Singing Stones' tune checkers read the 14 tap slots as a ring</td>
+<td>A tune may run across the newest-to-oldest join (e.g. White Christmas's last notes, six other taps, then its first notes), and any rotation of Twinkle is accepted</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_singing_stones_land_2.html">the_singing_stones_land_2.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The Land 2 Singing Stones count an empty slot as a stone numbered 0</td>
+<td>After a wipe, a 13-tap run can be accepted around the still-empty slot</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_singing_stones_land_2.html">the_singing_stones_land_2.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The Slavers never mark themselves finished after war is declared by theft</td>
+<td>Later thefts replay "It's war, then!" and start another march; a killed slaver starts a third; the pen still trades; the slavers keep being sent back to camp while marching</td>
+<td>Read from the quest script (undetermined how the engine settles a slaver given both orders)</td>
+<td><a href="../story/silver_scrolls/the_slavers.html">the_slavers.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The Slavers reset the kill count to zero when each new attack arrives</td>
+<td>Kills from an earlier attack stop counting</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_slavers.html">the_slavers.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The Slavers' win is only checked after a trade</td>
+<td>If the last slaves are stolen instead of bought, the quest waits for another animal brought to the pen, paid or not, before the finale</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_slavers.html">the_slavers.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The Slavers' animal kind counts are shared and rise with every animal brought</td>
+<td>After a theft recount, the paid-for limit applies only to animals still in the flock</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_slavers.html">the_slavers.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The spiritual healer's "picked up" check only runs between children, not while he is taking one</td>
+<td>A child already being taken still dies even with the healer in the hand</td>
+<td>Script-machine rule as openblack runs it (a script waiting on a called script doesn't run its own checks); not separately confirmed in the original</td>
+<td><a href="../story/silver_scrolls/the_spiritual_healer.html">the_spiritual_healer.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>Banishing the healer for good stops his rounds but not his age-keeping script</td>
+<td>Far away in his new village he keeps calling "While my heart beats you will all never age!" every 3 minutes and keeps resetting the old village's ages</td>
+<td>The age script only ends on his death</td>
+<td><a href="../story/silver_scrolls/the_spiritual_healer.html">the_spiritual_healer.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The healer's banishment lines that add him to the other village and let him go are inside the camera scene's branch</td>
+<td>Banished while off camera, he is neither added to the village nor released from the script</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_spiritual_healer.html">the_spiritual_healer.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The man left behind when Morg is driven out is created with no health</td>
+<td>He dies on the spot</td>
+<td>Read from <code>BlindWoman</code></td>
+<td><a href="../story/silver_scrolls/the_treacherous_path.html">the_treacherous_path.md</a></td>
+<td>undecided (never reached in this tree yet: Land 4 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The Greedy Farmer's grazing wait re-draws its random part on every check</td>
+<td>The wait ends a little after 5 minutes instead of anywhere from 5 to 10</td>
+<td>The compiled wait calls the random function each pass</td>
+<td><a href="../story/silver_scrolls/the_greedy_farmer.html">the_greedy_farmer.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native; this tree's script machine would reproduce it)</td>
+</tr>
+<tr>
+<td>A rejuvenated child is let go near the Rejuvenator's hut, so the next search can pick it again (undetermined whether the search returns children)</td>
+<td>"They're not old enough. Hardly worth the bother." and a pause of up to 20 seconds</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_rejuvenator.html">the_rejuvenator.md</a></td>
+<td>undecided (never reached in this tree yet: Land 3 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="missing-or-wrong-feedback">Missing or wrong feedback</h2>
+<table>
+<thead>
+<tr>
+<th>Bug</th>
+<th>What the player sees</th>
+<th>Evidence</th>
+<th>Found in</th>
+<th>openblack</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The Japanese stranger's films swap two of the curse's Wonders</td>
+<td>He says the Greek Wonder turns the creature's alignment and the Tibetan one shrinks it; the curse does the opposite (his Aztec warning is right)</td>
+<td>Land 5 hands the curse the Aztec, Greek and Tibetan Wonders as strength, size and alignment (curse order checked in the script source)</td>
+<td><a href="../story/silver_scrolls/the_japanese_traitor.html">the_japanese_traitor.md</a>, <a href="../story/gold_scrolls/i_have_a_surprise_for_you.html">i_have_a_surprise_for_you.md</a></td>
+<td>undecided (never reached in this tree yet: Land 5 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>Swap To Brown Bear sets its step counter past the first pile's hint just before the trail loop starts</td>
+<td>"We really should clean up this mess. Someone could step in it." never plays</td>
+<td>A dead branch, the same in the compiled program</td>
+<td><a href="../story/silver_scrolls/swap_to_brown_bear.html">swap_to_brown_bear.md</a></td>
+<td>undecided (never reached in this tree yet: Land 5 needs <code>LOAD_MAP</code>, an empty native; the progress file says to keep it)</td>
+</tr>
+<tr>
+<td>The breeder's second cut scene compares the old and current species against the wrong values (it looks meant for "never swapped")</td>
+<td>The advisors' swap chat almost never plays</td>
+<td>Read from the breeder script</td>
+<td><a href="../story/silver_scrolls/the_creature_breeder.html">the_creature_breeder.md</a></td>
+<td>undecided (never in this tree yet: the breeder shows no creature, so the scene never plays; the progress file says to keep it)</td>
+</tr>
+<tr>
+<td>A quest's creature swap offer never ends</td>
+<td>The offered creature keeps its silver scroll for the rest of the land, even after the player has swapped</td>
+<td>The shared swap script loops for ever</td>
+<td><a href="../story/silver_scrolls/creature_swaps.html">creature_swaps.md</a></td>
+<td>undecided (no creature is ever offered in this tree yet: <code>SWAP_CREATURE</code> and <code>IS_CREATURE_AVAILABLE</code> are stubs; the progress file says to keep it)</td>
+</tr>
+<tr>
+<td>When The Explorers time out, the timeout stops the main script before it can mark itself finished</td>
+<td>The guide keeps suggesting the Explorers' scroll</td>
+<td>The timeout stops every script in the file but the sailor check</td>
+<td><a href="../story/silver_scrolls/the_explorers.html">the_explorers.md</a></td>
+<td>undecided (never reached in this tree yet: the sailors are taken for dead after the first verse, since <code>GET_PROPERTY</code> has no health and answers 0)</td>
+</tr>
+<tr>
+<td>The Explorers' horse branch says the closing line by mistake</td>
+<td>Bringing a horse first gets "Thanks for all this meat." then "We need more meat, though." instead of a horse line</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_explorers.html">the_explorers.md</a></td>
+<td>undecided (never reached in this tree yet: the sailors are taken for dead after the first verse, since <code>GET_PROPERTY</code> has no health and answers 0)</td>
+</tr>
+<tr>
+<td>The Explorers Again switch the sailors to high detail before creating them</td>
+<td>The sailors are drawn as normal villagers</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_explorers_again.html">the_explorers_again.md</a></td>
+<td>undecided (never reached in this tree yet: Land 5 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The Heavenly Fire doesn't watch the warning shot for a catch</td>
+<td>Catching it is never praised</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_heavenly_fire.html">the_heavenly_fire.md</a></td>
+<td>undecided (never reached in this tree yet: Land 5 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The Heavenly Fire's fifth volley reuses the line written as the new first one ("there's some left"; the volley lines are marked "TEST" in the source)</td>
+<td>The fifth volley says the attack is ending</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_heavenly_fire.html">the_heavenly_fire.md</a></td>
+<td>undecided (never reached in this tree yet: Land 5 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The Pied Piper's good ending and eaten ending have no camera work ("cinema needed" was never filled in)</td>
+<td>The lines play in widescreen with the camera wherever it was</td>
+<td>Read from <code>PiedPiper</code></td>
+<td><a href="../story/silver_scrolls/the_pied_piper.html">the_pied_piper.md</a></td>
+<td>undecided (never reached in this tree yet: no child is ever taken, <code>CALL_IN_NEAR</code> is a stub)</td>
+</tr>
+<tr>
+<td>The Land 1 Singing Stones give the finished scroll the "some really don't sound right" reminder</td>
+<td>Replaying the completed entry gives a reminder about wrong stones</td>
+<td>A slip in <code>SingingStoneCircle</code></td>
+<td><a href="../story/silver_scrolls/the_singing_stones.html">the_singing_stones.md</a></td>
+<td>undecided (the scroll log is a stub in this tree: <code>SNAPSHOT</code> and <code>UPDATE_SNAPSHOT</code>)</td>
+</tr>
+<tr>
+<td>Once the holders have been filled with right stones only, the Land 1 "filled" check stops for good</td>
+<td>Wrong stones put in afterwards are never commented on</td>
+<td>Read from <code>SingingStoneCircle</code></td>
+<td><a href="../story/silver_scrolls/the_singing_stones.html">the_singing_stones.md</a></td>
+<td>reproduced (with the fourth SkipBox answer the same script runs on real natives; not checked in game)</td>
+</tr>
+<tr>
+<td>All three wrong singing stones play the first sour note, though "bad stone 2" and "bad stone 3" exist in the sound list</td>
+<td>The three wrong stones sound the same</td>
+<td><code>SingingStoneCircle</code> plays the first sour note for all three (checked in the script source)</td>
+<td><a href="../story/silver_scrolls/the_singing_stones.html">the_singing_stones.md</a></td>
+<td>reproduced (the same script plays the same sample; <code>PLAY_SOUND_EFFECT</code> works; not checked in game)</td>
+</tr>
+<tr>
+<td>The Slavers' warning scenes record success 0, 0.1 or 0.2</td>
+<td>They overwrite the progress earned by trading</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_slavers.html">the_slavers.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The Slavers' dead-animal line isn't waited for</td>
+<td>The beam starts while "That animal's dead. It's useless! Get out of here!" is still on screen</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_slavers.html">the_slavers.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The Sea's dead-mother beach ending plays the "Aaahhh!" in the woman's voice</td>
+<td>The dead mother screams</td>
+<td>Read from <code>Baywatch</code></td>
+<td><a href="../story/silver_scrolls/the_sea.html">the_sea.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>At the Treacherous Path's third point the good advisor is brought out, but the script stops and sends home the evil one</td>
+<td>The good advisor stays pointing until the dialogue ends</td>
+<td>Read from <code>BlindWoman</code></td>
+<td><a href="../story/silver_scrolls/the_treacherous_path.html">the_treacherous_path.md</a></td>
+<td>undecided (never reached in this tree yet: Land 4 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>After a fourth death by removal (not just killing), the Treacherous Path's closing camera is aimed at the woman</td>
+<td>The camera points at someone who no longer exists</td>
+<td>Read from <code>BlindWoman</code></td>
+<td><a href="../story/silver_scrolls/the_treacherous_path.html">the_treacherous_path.md</a></td>
+<td>undecided (never reached in this tree yet: Land 4 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The Greedy Farmer's "Nice one" is triggered by any boy leaving the gang</td>
+<td>Praise for a boy who left for some other reason than death</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_greedy_farmer.html">the_greedy_farmer.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>One of the Magic Dragon's four followers (the second) is never told to stand up before walking to the rally point</td>
+<td>He walks off from sitting, unlike the other three</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_magic_dragon.html">the_magic_dragon.md</a></td>
+<td>undecided (never reached in this tree yet: Land 5 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>During the Hermit's hut branch his "return home" walks are switched off and never switched on again</td>
+<td>He stops going home</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_hermit.html">the_hermit.md</a></td>
+<td>undecided (never reached in this tree yet: the hut branch needs the hut's health, which <code>GET_PROPERTY</code> answers 0)</td>
+</tr>
+<tr>
+<td>The Shaolin guru uses the same line whether the player was caught following him or merely lost him</td>
+<td>After being merely lost, he still says "You followed me earlier."</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_shaolin.html">the_shaolin.md</a></td>
+<td>undecided (never reached in this tree yet: Land 3 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>After Throwing Stones is won, the fisherman only goes home if his hut is at full health</td>
+<td>If the hut is damaged but still above three quarters, he never goes home and keeps watching throws</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/throwing_stones.html">throwing_stones.md</a></td>
+<td>undecided (this tree reads the hut's health wrong from the start: <code>GET_PROPERTY</code> has no health and answers 0)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="data-and-text-errors">Data and text errors</h2>
+<table>
+<thead>
+<tr>
+<th>Bug</th>
+<th>What the player sees</th>
+<th>Evidence</th>
+<th>Found in</th>
+<th>openblack</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Two of the Fish Puzzle boy's instruction lines were meant for another voice (per the source notes) but are the boy's own lines in the text table</td>
+<td>They play in the boy's voice</td>
+<td>Source notes against the text table</td>
+<td><a href="../story/silver_scrolls/the_fish_puzzle.html">the_fish_puzzle.md</a></td>
+<td>undecided (never reached in this tree yet: Land 4 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The Greedy Farmer's first idle loop is given a count of −11 where the later one uses −1</td>
+<td>Undetermined</td>
+<td>Apparently a typo in the script</td>
+<td><a href="../story/silver_scrolls/the_greedy_farmer.html">the_greedy_farmer.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="harmless">Harmless</h2>
+<table>
+<thead>
+<tr>
+<th>Bug</th>
+<th>What the player sees</th>
+<th>Evidence</th>
+<th>Found in</th>
+<th>openblack</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The Idol's second walker's death test checks whether the walker itself is "2" instead of its killed flag</td>
+<td>nothing visible: the walker slot is never 2</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_idol.html">the_idol.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The Immersion Mushrooms' right-mushroom branch stops a child's crying sound that is never started</td>
+<td>nothing visible</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_immersion_mushrooms.html">the_immersion_mushrooms.md</a></td>
+<td>undecided (the quest never runs in this tree: <code>IMMERSION_EXISTS</code> is a stub that answers no, as for a player without a force-feedback mouse)</td>
+</tr>
+<tr>
+<td>The evil advisor's wrong-mushroom line ends with "stop pointing" though he never points</td>
+<td>nothing visible</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_immersion_mushrooms.html">the_immersion_mushrooms.md</a></td>
+<td>undecided (the quest never runs in this tree: <code>IMMERSION_EXISTS</code> is a stub that answers no, as for a player without a force-feedback mouse)</td>
+</tr>
+<tr>
+<td>Two of The Sea's endings record the log with "snapshot challenge" again instead of "update snapshot"</td>
+<td>nothing visible: the game treats it as an update with a new picture</td>
+<td>Read from <code>Baywatch</code></td>
+<td><a href="../story/silver_scrolls/the_sea.html">the_sea.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The Greedy Farmer's scare ending writes a second, new snapshot instead of updating the first</td>
+<td>nothing visible beyond a new picture</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_greedy_farmer.html">the_greedy_farmer.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The Sea's beach ending checks each son's health, but it can only start with all five swimming</td>
+<td>nothing visible: dead checks</td>
+<td>Read from <code>Baywatch</code></td>
+<td><a href="../story/silver_scrolls/the_sea.html">the_sea.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The Sacrifice waits for a line to be read after its record line, though none is showing</td>
+<td>nothing visible</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_sacrifice.html">the_sacrifice.md</a></td>
+<td>undecided (never reached in this tree yet: Land 2 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>Stanley the Wolf watches for the man's death, but he is indestructible and the engine won't set such a thing's life to 0.01 or below</td>
+<td>nothing visible: his death lines and the "no reward" branch can never run, so the prize always comes</td>
+<td>The engine's life setter refuses indestructible things</td>
+<td><a href="../story/silver_scrolls/stanley_the_wolf.html">stanley_the_wolf.md</a>, <a href="../story/minigames.html">minigames.md</a></td>
+<td>undecided (never reached in this tree yet: Land 5 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The Pied Piper's thirty-children failure checks a "piper dead" flag that nothing sets</td>
+<td>nothing visible: the piper can't die except in endings that finish the quest first</td>
+<td>Read from <code>PiedPiper</code></td>
+<td><a href="../story/silver_scrolls/the_pied_piper.html">the_pied_piper.md</a></td>
+<td>undecided (never reached in this tree yet: no child is ever taken, <code>CALL_IN_NEAR</code> is a stub)</td>
+</tr>
+<tr>
+<td>The Explorers Again look up the storage pit, graveyard and Wonder at each other's places</td>
+<td>nothing visible: all of them are only set built</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_explorers_again.html">the_explorers_again.md</a></td>
+<td>undecided (never reached in this tree yet: Land 5 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>The Shaolin quest's main script waits after success for the guru at the temple to stop existing, which normally never happens</td>
+<td>nothing visible: the script never ends</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_shaolin.html">the_shaolin.md</a></td>
+<td>undecided (never reached in this tree yet: Land 3 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>Each Throwing Stones practice round adds another small avoid-area at the pillar and never removes the old ones</td>
+<td>nothing visible</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/throwing_stones.html">throwing_stones.md</a></td>
+<td>undecided (never reached in this tree yet: the practice rounds need <code>MAP_SCRIPT_FUNCTION</code>, a stub)</td>
+</tr>
+<tr>
+<td>The Japanese stranger's day remark doesn't stop the advisor pointing and she is never sent home</td>
+<td>nothing visible: ending the dialogue puts her away</td>
+<td>Read from the quest script</td>
+<td><a href="../story/silver_scrolls/the_japanese_traitor.html">the_japanese_traitor.md</a></td>
+<td>undecided (never reached in this tree yet: Land 5 needs <code>LOAD_MAP</code>, an empty native)</td>
+</tr>
+<tr>
+<td>Chimp Posse's revenge loops until a flag that nothing sets (never started by the game)</td>
+<td>nothing visible: the quest is never started</td>
+<td>Read from the unused script</td>
+<td><a href="../story/silver_scrolls/chimp_posse.html">chimp_posse.md</a></td>
+<td>reproduced (the game never starts the quest, nor does this tree)</td>
+</tr>
+<tr>
+<td>Landslide's good advisor points at the three buried men before they are created, and neither ending closes the challenge record (never started by the game)</td>
+<td>nothing visible: the quest is never started</td>
+<td>Read from the unused script</td>
+<td><a href="../story/silver_scrolls/landslide.html">landslide.md</a></td>
+<td>reproduced (the game never starts the quest, nor does this tree)</td>
+</tr>
+<tr>
+<td>Swap To Cow still runs the swap offer with no creature when the creature is already a cow (never started by the game)</td>
+<td>nothing visible: the quest is never started</td>
+<td>Read from the unused script</td>
+<td><a href="../story/silver_scrolls/swap_to_cow.html">swap_to_cow.md</a>, <a href="../story/silver_scrolls/creature_swaps.html">creature_swaps.md</a></td>
+<td>reproduced (the game never starts the quest, nor does this tree)</td>
+</tr>
+<tr>
+<td>The Attackers' closing records use the swap quests' reminder "Do you want to swap your Creature with one from this person?" (never started by the game)</td>
+<td>nothing visible: the quest is never started</td>
+<td>Read from the unused script</td>
+<td><a href="../story/silver_scrolls/the_attackers.html">the_attackers.md</a></td>
+<td>reproduced (the game never starts the quest, nor does this tree)</td>
+</tr>
+<tr>
+<td>The Miracle Stones' "reached the house" check has no guard, so its +0.1 alignment repeats every pass (never started by the game)</td>
+<td>nothing visible: the quest is never started</td>
+<td>Read from the unused script</td>
+<td><a href="../story/silver_scrolls/the_miracle_stones.html">the_miracle_stones.md</a></td>
+<td>reproduced (the game never starts the quest, nor does this tree)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

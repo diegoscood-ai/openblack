@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hand animations — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="here" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#hand-animations">Hand animations</a><ul>
+<li><a href="#how-they-play">How they play</a></li>
+<li><a href="#the-standard-set">The standard set</a></li>
+<li><a href="#on-a-creature">On a creature</a></li>
+<li><a href="#moving-the-camera">Moving the camera</a></li>
+<li><a href="#set-animations">Set animations</a></li>
+<li><a href="#special-holds">Special holds</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="hand-animations">Hand animations</h1>
+<p>Every animation of the god hand and when the game plays it. The animations are in the hand's animation file, named by the
+hand spec: each cycle is followed by two lean ranges (sideways, and back and forth) that the trailing cursor blends in.
+Some slots in the spec are spare and never used.</p>
+<p><strong>Progress: 19/35 done, 5 partial — 61%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../hand-and-interface.html">The hand and the interface</a>.</p>
+<h2 id="how-they-play">How they play</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The animations are loaded from the hand's animation file, laid out by the hand spec</td>
+<td>done</td>
+<td><code>HandSystem::LoadAnimations</code> -&gt; <code>HandAnimator::Load</code> (<code>src/3D/HandAnimator.cpp</code>): <code>Data/CTR/hh.HBN</code> laid out by <code>hndspec5.txt</code>, through the blob cache; no test in our tree</td>
+</tr>
+<tr>
+<td>Looping cycles run on by the frame's milliseconds, wrapping at their length</td>
+<td>done</td>
+<td><code>HandAnimator::Sample</code>: a looping clip wraps at its length; <code>HandAnimator::Update</code> advances by the frame's ms</td>
+</tr>
+<tr>
+<td>Each state keeps its own cycle time; the camera state's restarts whenever it is entered</td>
+<td>partial</td>
+<td><code>HandAnimator</code> has one clip time, restarted at every clip change (<code>HandAnimator::Play</code>), not one per state</td>
+</tr>
+<tr>
+<td>A cycle's sideways lean range is blended in by the trailing cursor's sideways gap, clamped to 80 pixels</td>
+<td>done</td>
+<td><code>HandSystem::Update</code>: lag = clamp(smoothed x - mouse x, -80, 80) / 80, sampled from the <code>L*_lr</code> layer (<code>HandAnimator::ApplyMotion</code>)</td>
+</tr>
+<tr>
+<td>Its back-and-forth lean range is blended in by the vertical gap</td>
+<td>done</td>
+<td><code>HandSystem::Update</code>: clamp(mouse y - smoothed y, -80, 80) for the <code>L*_fb</code> layer</td>
+</tr>
+<tr>
+<td>A lean smaller than a ten-thousandth is left out</td>
+<td>done</td>
+<td><code>HandSystem::Update</code>: a lag of 0.0001 or less (or a smoothed y that small) is left out</td>
+</tr>
+<tr>
+<td>Moving the camera, the sideways lean goes the other way</td>
+<td>done</td>
+<td><code>HandSystem::Update</code>: while gripping the land the sideways lag is mouse x - smoothed x</td>
+</tr>
+<tr>
+<td>Changing animation blends from the last pose over 0.13 seconds</td>
+<td>done</td>
+<td><code>HandCrossFade</code> (<code>src/3D/HandCrossFade.h</code>, the hand system's <code>_stateBlend</code>): 0.13 s, linear, in world space, only at a change of the hand's state; test <code>HandCrossFade.FadesAtAnEvenPaceOverATenthAndAThirdOfASecond</code>. Our wiki differs: the original blends only when the hand's state changes; a change of clip inside a state is not blended (<a href="../../hand-and-interface.html#the-hands-clip-handstatenormal">page</a>)</td>
+</tr>
+<tr>
+<td>Holding something takes a still frame of a hold, picked by how big the thing is for the hand, without leaning</td>
+<td>partial</td>
+<td><code>HandSystem::Update</code>: <code>Chold_above</code> / <code>Chold_side</code> held at a frame set by the hold radius against the hand's size, for every held object; the hold's lean layers are still applied when the file has them</td>
+</tr>
+<tr>
+<td>A right hand plays the same animations on the mirrored mesh</td>
+<td>todo</td>
+<td>Our hand is drawn unmirrored and has no left-handed mode (<code>HandSystem::Initialize</code> notes it as pending)</td>
+</tr>
+<tr>
+<td>The bones keep their lengths, and the palm stays at rest in the standing pose</td>
+<td>done</td>
+<td><code>HandAnimator</code> applies rotations on the bind skeleton, the layers rotation-only (translation only for <code>Cgrip</code>); no test in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-standard-set">The standard set</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Wiggle: the idle fingers, hovering over land, sea or sky</td>
+<td>done</td>
+<td><code>HandSystem::Update</code>: <code>Cwiggle</code> by default, with nothing under the cursor</td>
+</tr>
+<tr>
+<td>Wiggle in the temple, all the time</td>
+<td>done</td>
+<td><code>HandSystem::Update</code> runs inside the temple too (the CITADEL state); see <a href="temple_hand.html">temple_hand.md</a></td>
+</tr>
+<tr>
+<td>Wiggle while holding a miracle whose hold is the idle hand</td>
+<td>done</td>
+<td><code>HandSystem::Update</code>: a spell seed before it is ready (MAGIC hold) holds <code>Cwiggle</code> at half its length</td>
+</tr>
+<tr>
+<td>Wiggle while held to a creature but not touching its body</td>
+<td>partial</td>
+<td>Our hand keeps the normal state's rule over a creature: <code>Cstroke</code> while the creature is under the cursor, not the wiggle</td>
+</tr>
+<tr>
+<td>Point</td>
+<td>todo</td>
+<td>Loaded but never chosen (unconfirmed when the game plays it)</td>
+</tr>
+<tr>
+<td>Hold from above: holding things and miracles of that hold</td>
+<td>done</td>
+<td><code>HandSystem::Update</code>: <code>Chold_above</code> for the ABOVE hold type (<code>HandHolding.cpp</code> picks the hold type per class)</td>
+</tr>
+<tr>
+<td>Hold from the side: holding things and miracles of the three side holds, and holding a totem</td>
+<td>partial</td>
+<td><code>Chold_side</code> for the SIDE, TREE and VILLAGER holds of held objects and seeds; no totem (see <a href="totem.html">totem.md</a>)</td>
+</tr>
+<tr>
+<td>Can pick up, fingers open: over a miracle's worship icon</td>
+<td>done</td>
+<td><code>HandSystem::Update</code>: <code>Ccan_pickup</code> over a spell icon, and over anything when the interface hand state is 9 (can pick up)</td>
+</tr>
+<tr>
+<td>Hold fingers: over a leash, held still at its first frame, or half way through while the leash is being taken</td>
+<td>todo</td>
+<td>Not ported (the leash pick)</td>
+</tr>
+<tr>
+<td>The two spare slots of the standard set</td>
+<td>n/a</td>
+<td>empty in the game's file</td>
+</tr>
+</tbody>
+</table>
+<h2 id="on-a-creature">On a creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Stroke: the hand's feeling cycle, played hovering over any object</td>
+<td>done</td>
+<td><code>HandSystem::Update</code>: <code>Cstroke</code> over any object with a mesh (or a temple's entrance) when the hand state is not 9</td>
+</tr>
+<tr>
+<td>Tickle: the caress played while the hand rests on a creature's body, the cycle the creature state starts in</td>
+<td>partial</td>
+<td>Our hand plays <code>Cstroke</code> on the creature's body, not the tickle cycle; the creature state's own clip is not traced</td>
+</tr>
+<tr>
+<td>The caress only plays once the hand has rested on the body a second</td>
+<td>todo</td>
+<td>The hand has no caress clip; the 1 s rest only times the creature's stroke reaction (<code>creature_feedback::k_StrokeHoldMs</code>)</td>
+</tr>
+<tr>
+<td>Slap: played once the hand sweeps across the creature faster than 3.25 times the creature's size a second</td>
+<td>todo</td>
+<td>The slap is classed (<code>creature_feedback::ClassifySlap</code>) but the hand never plays a slap clip: nothing reads the pose's slapping flag</td>
+</tr>
+<tr>
+<td>Punch</td>
+<td>todo</td>
+<td>Loaded but never chosen (unconfirmed when the game plays it)</td>
+</tr>
+<tr>
+<td>The spare slots of the reward and punishment sets</td>
+<td>n/a</td>
+<td>empty in the game's file</td>
+</tr>
+</tbody>
+</table>
+<h2 id="moving-the-camera">Moving the camera</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Grip: gripping and panning the land</td>
+<td>done</td>
+<td><code>HandSystem::Update</code>: <code>Cgrip</code> while gripping the land, with the layers' translation; see <a href="navigation.html">navigation.md</a></td>
+</tr>
+<tr>
+<td>Rotate: turning by the edge, and offered at the sides and bottom</td>
+<td>todo</td>
+<td>Not ported: <code>HandSystem::Update</code> notes the camera's rotate and pitch clips as not ported</td>
+</tr>
+<tr>
+<td>Pitch: tilting, and offered at the top</td>
+<td>todo</td>
+<td>Not ported, as above</td>
+</tr>
+<tr>
+<td>Zoom: only reachable through a camera hint the game never sets, so in effect unused</td>
+<td>done</td>
+<td>Never chosen in our tree either, as in the game</td>
+</tr>
+<tr>
+<td>The spare slot of the camera set</td>
+<td>n/a</td>
+<td>empty in the game's file</td>
+</tr>
+</tbody>
+</table>
+<h2 id="set-animations">Set animations</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tap house: played once where the hand is when it knocks on a house's roof, then the hand goes back to its state</td>
+<td>done</td>
+<td><code>abodes::InterfaceTap</code> -&gt; <code>HandSystem::StartFixedPosAnimation("Ctap_house")</code>: the play-anim state plays it once, then back to NORMAL</td>
+</tr>
+<tr>
+<td>Knocking also plays one of nine knocking sounds in turn</td>
+<td>done</td>
+<td><code>abodes::InterfaceTap</code>: InGame sample 110 plus the knock counter (0..8); see <a href="hand_sounds.html">hand_sounds.md</a></td>
+</tr>
+<tr>
+<td>While a set animation plays, the hand stays upright at the place it started</td>
+<td>done</td>
+<td><code>HandPlacement.cpp</code>: in the play-anim state the hand is pinned at the animation's point with the world up</td>
+</tr>
+<tr>
+<td>Beckon</td>
+<td>todo</td>
+<td>Loaded but never chosen (unconfirmed when the game plays it)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="special-holds">Special holds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Horn: the horn-shaped hold of some miracles</td>
+<td>todo</td>
+<td><code>Chorn</code> is loaded but never played: <code>HandSystem::Update</code> always passes no special hold</td>
+</tr>
+<tr>
+<td>The hold the spec lists after the horn</td>
+<td>todo</td>
+<td>Loaded but never chosen (unconfirmed what the game uses it for)</td>
+</tr>
+<tr>
+<td>The spare slot of the special holds</td>
+<td>n/a</td>
+<td>empty in the game's file</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

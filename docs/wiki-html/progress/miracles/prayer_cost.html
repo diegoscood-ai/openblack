@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prayer power cost — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="here" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#prayer-power-cost">Prayer power cost</a><ul>
+<li><a href="#who-pays">Who pays</a></li>
+<li><a href="#charging-a-seed">Charging a seed</a></li>
+<li><a href="#a-miracles-prayer-while-it-lives">A miracle's prayer while it lives</a></li>
+<li><a href="#tribal-power-and-display">Tribal power and display</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="prayer-power-cost">Prayer power cost</h1>
+<p>What each miracle costs in prayer power: charging the seed, the prayer it starts with, the upkeep each turn and per
+event, refills from whoever cast it, and how tribal power changes the cost and strength. How worshippers make prayer
+power is in <a href="../worship/index.html">../worship/</a>.</p>
+<p><strong>Progress: 23/25 done, 0 partial — 92%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../miracles.html">Miracles one by one</a>.</p>
+<h2 id="who-pays">Who pays</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A miracle from an icon is paid and topped up from its worship site's store</td>
+<td>done</td>
+<td><code>creator::MaintainSpell</code> (<code>src/Magic/Core/SpellCreator.cpp</code>) asks <code>worship::icon::MaintainSpell</code>, which takes from the icon's site (<code>site::MaintainSpell</code>, <code>src/Worship/WorshipSite.cpp</code>) or, without a site, from the icon's own store. Only on lands whose scripts make worship sites (none on Land 1)</td>
+</tr>
+<tr>
+<td>A player's miracle cast from a globe or dispenser seed with no icon gets no refill at all</td>
+<td>done</td>
+<td><code>creator::MaintainSpell</code>: a player other than the neutral one gives 0; test <code>SpellChants.lightningPlayerLivesOnItsInitialChants</code></td>
+</tr>
+<tr>
+<td>The neutral player (scripts) gives all a miracle needs; a player with no store gives nothing</td>
+<td>done</td>
+<td><code>creator::MaintainSpell</code> (the neutral player gives the whole amount, any other player 0); test <code>SpellChants.lightningNeutralPlayerRefills</code></td>
+</tr>
+<tr>
+<td>A creature's miracle uses its player's tribal power</td>
+<td>done</td>
+<td><code>magic::AllocSpell</code> (<code>src/Magic/Core/Spell.cpp</code>) gives the spell its creator's player, and <code>GetTribalPower</code> uses that player's. The creature's own energy cost is in <a href="creature_spells.html">creature_spells.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="charging-a-seed">Charging a seed</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A globe's seed comes fully charged for free</td>
+<td>done</td>
+<td><code>one_off::CreateSpellIntoHand</code> (<code>src/Magic/Core/OneOffSpellSeed.cpp</code>) fills the seed's store with its whole need</td>
+</tr>
+<tr>
+<td>An icon charges its seed up to the miracle's cost to create (base and each power-up level have their own)</td>
+<td>done</td>
+<td><code>site::ProcessSpellIcons</code> shares the site's spare prayer among the charging icons, <code>icon::AddToChantStore</code> caps it at the level's cost (<code>src/Worship/WorshipSite.cpp</code>, <code>WorshipSpellIcon.cpp</code>); test <code>WorshipTest.ChantStoreKeepsTheExcessQuirk</code>. Only where worship sites exist</td>
+</tr>
+<tr>
+<td>A seed's power is how much of its need it holds, at most full</td>
+<td>done</td>
+<td><code>seed::GetPower</code> (<code>src/Magic/Core/SpellSeed.cpp</code>)</td>
+</tr>
+<tr>
+<td>A power-up's extra cost is charged by the icon and any surplus is refunded to the site</td>
+<td>done</td>
+<td><code>seed::SetPowerUp</code> gives a charge above the new level's cost back to the icon's site battery (<code>src/Magic/Core/SpellSeed.cpp</code>); the icon charges the new level through <code>icon::SetChargingPowerUp</code></td>
+</tr>
+<tr>
+<td>Only a seed made at an icon is topped up and refunds to its icon</td>
+<td>done</td>
+<td>Only a seed whose creator is a worship icon is maintained by it (<code>creator::MaintainSpell</code>) and refunds to it (to the icon's site battery: <code>worship::ReturnSeedToItsSite</code>, <code>src/Worship/Worship.cpp</code>); a loose seed's charge is lost</td>
+</tr>
+<tr>
+<td>A dropped or scribbled-away seed returns what it holds to its worship site</td>
+<td>done</td>
+<td><code>HandSystem::ApplyForceDropHeld</code> (<code>src/ECS/Systems/Implementations/HandSpellSeed.cpp</code>) calls <code>worship::ReturnSeedToItsSite</code>, which adds the store to the site's battery and deletes the seed</td>
+</tr>
+<tr>
+<td>Scripts ask how much prayer power a miracle needs</td>
+<td>done</td>
+<td><code>GET_MANA_FOR_SPELL</code>: <code>magic::script::GetManaForSpell</code> (<code>src/Magic/Script/CHLSpells.cpp</code>), the magic's cost to create</td>
+</tr>
+</tbody>
+</table>
+<h2 id="a-miracles-prayer-while-it-lives">A miracle's prayer while it lives</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A cast miracle starts with its initial prayer times the seed's multiplier</td>
+<td>done</td>
+<td><code>PrepareCast</code> in <code>src/Magic/Core/SpellSeed.cpp</code> (initial chants and the player timer both times the seed's multiplier)</td>
+</tr>
+<tr>
+<td>Its safe level is five seconds of upkeep, at most its initial prayer and at least one event's cost</td>
+<td>done</td>
+<td><code>chants::GetChantSafetyLevel</code> (<code>src/Magic/Core/Chants.cpp</code>) over the rule <code>magic::GetChantSafetyLevel</code> (<code>src/Magic/SpellChants.cpp</code>); tests <code>SpellChants.lightningSafetyLevel</code>, <code>SpellChantRules.safetyLevelIsFiveSecondsOfUpkeep</code></td>
+</tr>
+<tr>
+<td>Forest and the shields keep their initial prayer as the safe level</td>
+<td>done</td>
+<td><code>chants::GetChantSafetyLevel</code> with <code>IsMaintainedSpell</code>, over <code>src/Magic/SpellChants.cpp</code>; tests <code>SpellChants.shieldIsMaintained</code>, <code>SpellChantRules.maintainedShield</code></td>
+</tr>
+<tr>
+<td>A recharged miracle refills its shortfall from its caster each turn</td>
+<td>done</td>
+<td><code>chants::Recharge</code> in <code>base::CoreProcess</code> (<code>src/Magic/Core/Spell.cpp</code>) and the refill inside <code>chants::PayFor</code>, over <code>magic::Recharge</code> and <code>magic::PayFor</code> (<code>src/Magic/SpellChants.cpp</code>); tests <code>SpellChants.lightningNeutralPlayerRefills</code>, <code>SpellChantRules.refillingCasterHoldsTheSafetyLevel</code></td>
+</tr>
+<tr>
+<td>Each turn it pays its upkeep (at least 1), and each event its event cost</td>
+<td>done</td>
+<td><code>chants::PayForOneTurn</code> (an upkeep of 0 pays nothing) and <code>chants::PayForOneEvent</code> (<code>src/Magic/Core/Chants.cpp</code>), over the rules in <code>src/Magic/SpellChants.cpp</code>; tests <code>SpellChants.lightningEventCost</code>, <code>SpellChantRules.eventCost</code></td>
+</tr>
+<tr>
+<td>Teleport and the shields divide their costs by the tribal power</td>
+<td>done</td>
+<td><code>chants::PayFor</code> with <code>divideCostsByTribalPower</code>, over <code>src/Magic/SpellChants.cpp</code>; tests <code>SpellChants.shieldDividesByTribalPower</code>, <code>SpellChantRules.tribalPowerDividesCost</code></td>
+</tr>
+<tr>
+<td>Its strength is how full it is times tribal power, the seed's power and its multiplier; at nothing it ends</td>
+<td>done</td>
+<td><code>chants::GetSpellStrength</code> over <code>magic::GetSpellStrength</code> (<code>src/Magic/SpellChants.cpp</code>), and <code>base::CoreProcess</code> closes the spell at strength 0; tests <code>SpellChants.strengthEdges</code>, <code>SpellChantRules.strengthEdges</code></td>
+</tr>
+<tr>
+<td>A held miracle's prayer runs down with its upkeep while held</td>
+<td>done</td>
+<td><code>ProcessMaintainRequest</code> (<code>src/Magic/Core/Spell.cpp</code>) pays every live spell's upkeep, the ones held in the hand included</td>
+</tr>
+<tr>
+<td>Food and wood pay per unit dropped (the first drop brings more), even when it falls in water, and are never refilled</td>
+<td>done</td>
+<td><code>magic::ResourceEvent</code> and the per-event <code>chants::PayFor</code> in <code>src/Magic/Spells/SpellResource.cpp</code>; see <a href="food.html">food.md</a>, <a href="wood.html">wood.md</a></td>
+</tr>
+<tr>
+<td>Pressing food or wood again needs enough prayer left for a first drop</td>
+<td>done</td>
+<td><code>magic::HasEnoughChantsForResourceRecast</code> (<code>src/Magic/Spells/SpellResource.cpp</code>)</td>
+</tr>
+<tr>
+<td>The miracle table's costs per miracle and level (initial, create, per event, per turn, per shield hit) come from the game's data</td>
+<td>done</td>
+<td><code>src/Magic/MagicTables.cpp</code>; tests <code>SpellChants.realInfoDat</code>, <code>MagicTables.realInfoDat</code> (with the game's data)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="tribal-power-and-display">Tribal power and display</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tribal power is the product of the miracle's tribes' powers, kept between 0.5 and 100</td>
+<td>done</td>
+<td><code>magic::GetTribalPower</code> (<code>src/Magic/MagicTables.cpp</code>); test <code>MagicTables.tribalPower</code></td>
+</tr>
+<tr>
+<td>A player's tribal powers grow from the tribes worshipping them</td>
+<td>todo</td>
+<td>Nothing writes <code>PlayerMagic::tribalPower</code> (<code>src/ECS/Components/PlayerMagic.h</code>): every tribe counts 1.0. Our wiki differs: it notes <span class="state approx">inferred</span> that nothing in the original writes them either (<a href="../../villagers.html#home-food-sleep-homeless-and-age">villagers</a>)</td>
+</tr>
+<tr>
+<td>Spending prayer sends motes of light from the caster to the miracle, one per 100 prayer power, when the caster has a worship site</td>
+<td>todo</td>
+<td>the chant rules report each payment to the caster (<code>SpellCasterInterface::OnChantsSpent</code>, <code>src/Magic/SpellChants.h</code>) and <code>chants::Context::createSpellPoint</code> takes it, but <code>ChantContextOf</code> (<code>src/Magic/Core/Spell.cpp</code>) never sets it and nothing draws the motes; see <a href="../rendering/light_beams.html">../rendering/light_beams.md</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

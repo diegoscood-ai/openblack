@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Miracle gestures — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="here" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#miracle-gestures">Miracle gestures</a><ul>
+<li><a href="#sizing-with-a-circle">Sizing with a circle</a></li>
+<li><a href="#powering-up-the-miracle-in-the-hand">Powering up the miracle in the hand</a></li>
+<li><a href="#calling-up-a-miracle-by-gesture">Calling up a miracle by gesture</a></li>
+<li><a href="#other-rules">Other rules</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="miracle-gestures">Miracle gestures</h1>
+<p>Gestures are how the player works with miracles: a spiral calls up the miracle selection and the miracle's own gesture
+brings it into the hand, a circle sizes a storm or a shield, and each miracle's power-up gestures make it stronger. The
+miracles themselves, and what they do once cast, are in <a href="../miracles/index.html">../miracles/</a>.</p>
+<p><strong>Progress: 19/25 done, 2 partial — 80%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../magic.html">Magic: the core of the miracles</a>.</p>
+<h2 id="sizing-with-a-circle">Sizing with a circle</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A circle is waited for while the hand holds a miracle sized by a circle (the storms, the tornado, the two shields) and the Action button is held</td>
+<td>done</td>
+<td><code>ProcessPowerUpSystem</code> step (a) in <code>src/Magic/Gestures/PowerUpSystem.cpp</code> (a held seed with a <code>sizingGesture</code>, the action press latched)</td>
+</tr>
+<tr>
+<td>The circle is waited for whether or not the miracle in the hand is ready to cast yet</td>
+<td>done</td>
+<td>Step (a) does not test whether the seed is ready</td>
+</tr>
+<tr>
+<td>The circle's middle on the land and its size across the land are handed to the miracle, which is cast there at that size</td>
+<td>done</td>
+<td>The circle's point and size go into the cast (<code>circlePending</code> in the hand's apply, <code>src/ECS/Systems/Implementations/HandSpellSeed.cpp</code>)</td>
+</tr>
+<tr>
+<td>Once drawn, the circle is remembered for five seconds of game time and no new circle is waited for meanwhile</td>
+<td>done</td>
+<td><code>k_CircleLife</code> 5 s and <code>circlePending</code> in <code>PowerUpSystem.cpp</code> (game time, not while paused)</td>
+</tr>
+<tr>
+<td>Releasing a circle-sized miracle with no circle remembered fails, with the failure sound</td>
+<td>done</td>
+<td><code>HandSpellSeed.cpp</code>: a sized seed with no circle goes to <code>FailApply</code> (<code>G_SpellCastFailure</code> and the failed-apply effect)</td>
+</tr>
+<tr>
+<td>Starting the power-up system forgets a remembered circle</td>
+<td>done</td>
+<td><code>TrySetupPowerUpGestures</code> clears the pending circle (<code>PowerUpSystem.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="powering-up-the-miracle-in-the-hand">Powering up the miracle in the hand</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each miracle has up to three power-up gestures (spiral, inverse spiral and others), read from the game's tables</td>
+<td>done</td>
+<td><code>GSpellSeedInfo::powerUpGestures</code> (<code>src/InfoConstants.h</code>), read by <code>TrySetupPowerUpGestures</code></td>
+</tr>
+<tr>
+<td>Power-up gestures are only waited for while the hand holds a ready, uncast miracle made at one of the player's worship icons</td>
+<td>done</td>
+<td><code>HoldingChargingSeed</code> (ready, not cast, from an icon) in <code>PowerUpSystem.cpp</code>; the worship icons are in <code>src/Worship</code>, so this works on lands with worship sites (none on Land 1, as in the original)</td>
+</tr>
+<tr>
+<td>Every power-up level's gesture is waited for except the level already asked for</td>
+<td>done</td>
+<td><code>PowerUpGestures</code> skips <code>currentPowerUpGesture</code>; a level needs the player to have its magic and the icon to offer it (<code>PowerUpAvailable</code>)</td>
+</tr>
+<tr>
+<td>Drawing a power-up gesture asks the worship icon for the extra power; the level only changes once the icon has charged it, and any surplus goes back to the site</td>
+<td>done</td>
+<td><code>SetPowerUpCharge</code> makes the icon charge that level (<code>src/Worship/GestureIconProvider.cpp</code>, <code>src/Worship/WorshipSpellIcon.cpp</code>); the seed's <code>SetPowerUp</code> sends a surplus back to the site (<code>src/Magic/Core/SpellSeed.cpp</code>)</td>
+</tr>
+<tr>
+<td>A help message is given when a power-up is asked for</td>
+<td>done</td>
+<td>Help event 18 is counted in the help profile (<code>src/Help/HelpProfile.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="calling-up-a-miracle-by-gesture">Calling up a miracle by gesture</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>With nothing in the hand, a spiral opens the miracle selection for the player's own miracles</td>
+<td>done</td>
+<td><code>ProcessPowerUpSystem</code> step (c) and <code>Selection::Open</code>, with the worship icons as the <code>IconProvider</code> (<code>src/Worship/GestureIconProvider.cpp</code>); test <code>Gestures.selectionWithFakeIcon</code>. Only where worship sites exist</td>
+</tr>
+<tr>
+<td>An inverse spiral opens the selection for miracles meant for the creature</td>
+<td>done</td>
+<td>Step (c), category <code>selectionSystemGestureCreature</code></td>
+</tr>
+<tr>
+<td>With the selection open, drawing a miracle's own gesture brings that miracle from its worship site into the hand</td>
+<td>done</td>
+<td><code>Selection::Stage</code> then <code>IconProvider::RequestSpell</code>, which charges the best icon (<code>src/Worship/PlayerSpellIcons.cpp</code>); test <code>Gestures.selectionWithFakeIcon</code> (FORK_RIGHT requests seed 4)</td>
+</tr>
+<tr>
+<td>The selection only offers miracles the player has and whose worship site can supply them</td>
+<td>done</td>
+<td><code>ForEachRequestableIcon</code> and <code>IconValidForRequest</code> (<code>icon::ValidForRequestSpell</code> in <code>src/Worship/WorshipSpellIcon.cpp</code>)</td>
+</tr>
+<tr>
+<td>The selection closes by itself after 30 seconds</td>
+<td>done</td>
+<td><code>Selection::Stage</code> with <code>selectionSystemTimeOut</code> from the tables</td>
+</tr>
+<tr>
+<td>A scribble closes the selection</td>
+<td>done</td>
+<td><code>Selection::Stage</code> (help event 21)</td>
+</tr>
+<tr>
+<td>Drawing an R repeats the last miracle called up, if within 40 seconds</td>
+<td>partial</td>
+<td>Step (d) with <code>CanRepeat</code> and <code>RepeatLastSpell</code> (<code>src/Worship/PlayerSpellIcons.cpp</code>); the 40 s cap is not applied (our wiki has not found who reads it)</td>
+</tr>
+<tr>
+<td>A key opens the miracle selection, and another repeats the last miracle, as the gestures do</td>
+<td>todo</td>
+<td>No key bindings for the selection or the repeat (<code>src/Input/BindableActions.h</code>)</td>
+</tr>
+<tr>
+<td>A miracle called up only becomes active in the hand after a short delay (1.5 seconds)</td>
+<td>done</td>
+<td><code>delayBeforeSeedActive</code> in <code>seed::ProcessInHand</code> (<code>src/Magic/Core/SpellSeed.cpp</code>)</td>
+</tr>
+<tr>
+<td>While the selection is open the gestures that can be drawn are shown as icons on the screen</td>
+<td>todo</td>
+<td>The <code>LookingFor</code> table is filled each pass (<code>PowerUpSystem.cpp</code>) but the HUD gesture icons are not drawn</td>
+</tr>
+<tr>
+<td>The tutorial counts when the selection is opened and when a miracle is called up by gesture, to know the player has learnt it</td>
+<td>done</td>
+<td>Help events 15, 16 and 17 are counted in the help profile (<code>src/Help/HelpProfile.cpp</code>), which the scripts read through the help event functions in <code>src/CHLApi.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="other-rules">Other rules</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A miracle's gestures only work inside the player's influence</td>
+<td>partial</td>
+<td>Only the shake-out tests the influence (<code>HandStatus::inInfluence</code>); the selection tests that the hand is ready, not the influence</td>
+</tr>
+<tr>
+<td>Every recognised gesture starts a force-feedback effect on supporting mice</td>
+<td>n/a</td>
+<td>Force-feedback mice are not supported (the immersion calls are not ported)</td>
+</tr>
+<tr>
+<td>The game counts the gestures each player has drawn for its statistics</td>
+<td>todo</td>
+<td>No game statistics</td>
+</tr>
+<tr>
+<td>Rival gods controlled by the computer call up miracles by gesture or from their icons too</td>
+<td>todo</td>
+<td>No computer players</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

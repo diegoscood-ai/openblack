@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Level of detail — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="here" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#level-of-detail">Level of detail</a><ul>
+<li><a href="#detail-levels">Detail levels</a></li>
+<li><a href="#models-by-distance-and-level">Models by distance and level</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="level-of-detail">Level of detail</h1>
+<p>The game's graphics detail levels and what they switch on, and how models and objects get simpler or stop being drawn
+with distance. The land's own detail by distance is in <a href="../terrain/index.html">../terrain/</a>; distance haze is in
+<a href="render_pipeline.html">render_pipeline.md</a>.</p>
+<p><strong>Progress: 6/12 done, 4 partial — 67%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../parity.html">Graphics engine parity: original versus openblack</a>, <a href="../../rendering.html">World rendering: original versus openblack</a>.</p>
+<h2 id="detail-levels">Detail levels</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Seven detail levels, 0 to 6, 4 by default; level 5 is the player's custom one</td>
+<td>done</td>
+<td><code>src/Graphics/DetailLevel.h</code> (<code>k_Levels</code>), <code>--detail-level</code> in <code>src/main.cpp</code>; test <code>test/graphics/test_detail_level.cpp</code></td>
+</tr>
+<tr>
+<td>The sea's texture repeats more finely at higher levels, and is a still square at level 0</td>
+<td>done</td>
+<td><code>DetailLevel::SeaPeriod</code>, <code>src/Graphics/RendererSea.cpp</code>, <code>src/Graphics/SeaRows.h</code>; test <code>test/test_sea_rows.cpp</code></td>
+</tr>
+<tr>
+<td>Clouds are shown from level 3 up</td>
+<td>done</td>
+<td><code>detail_level::Clouds</code> read by <code>src/Graphics/Renderer.cpp</code> and <code>src/ECS/Weather/StormClouds.cpp</code></td>
+</tr>
+<tr>
+<td>Cloud shadows have their own detail switch</td>
+<td>partial</td>
+<td>openblack ties cloud shadows to the clouds' switch (<code>DetailLevel.h</code>)</td>
+</tr>
+<tr>
+<td>The fog setting by level</td>
+<td>done</td>
+<td><code>detail_level::Fog</code> turns the distance haze on from level 3 (<code>src/Graphics/Haze.cpp</code>)</td>
+</tr>
+<tr>
+<td>The weather (rain and falling snow) is on only from level 3 up</td>
+<td>partial</td>
+<td>the levels carry the weather and rain splash settings (<code>DetailLevel.h</code>) but nothing reads them: the rain is drawn at every level (<code>src/Graphics/RendererRain.cpp</code>); no falling snow is drawn</td>
+</tr>
+<tr>
+<td>The temple's outside has its own detail level</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The player picks custom detail settings in the options</td>
+<td>partial</td>
+<td>the options box steps through the levels (<code>src/Gui/GameMenu.cpp</code>) but changes nothing yet; <code>--detail-level</code> sets it at start; no custom per-setting choices; see <a href="../interface/index.html">../interface/</a></td>
+</tr>
+<tr>
+<td>The detail settings are remembered between games</td>
+<td>todo</td>
+<td>no settings file; see <a href="../engine/index.html">../engine/</a></td>
+</tr>
+<tr>
+<td>Low resolution textures for slower machines</td>
+<td>partial</td>
+<td>the level's high texture flag exists (<code>DetailLevel.h</code>) but only sets the static shadows' strength (<code>Renderer.cpp</code>); the landscape textures are always full size</td>
+</tr>
+</tbody>
+</table>
+<h2 id="models-by-distance-and-level">Models by distance and level</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Objects, villagers and animals use simpler meshes at lower detail levels</td>
+<td>n/a</td>
+<td>openblack always draws the most detailed meshes. Our wiki differs: in this version of the original the level of detail loading is disabled, so models always draw their first level (<a href="../../rendering-objects.html#villager-blobs-object-reflections-and-lod">rendering-objects</a>)</td>
+</tr>
+<tr>
+<td>A model's parts are picked by its level of detail mask</td>
+<td>done</td>
+<td>the parts of the first level are drawn, as the original does with its level of detail loading disabled (<code>Renderer.cpp</code> submesh drawing)</td>
+</tr>
+<tr>
+<td>Objects beyond a distance stop being drawn</td>
+<td>n/a</td>
+<td>openblack draws everything. Our wiki differs: the original never fades or hides models by distance and has no far plane (<a href="../../parity.html">parity</a>)</td>
+</tr>
+<tr>
+<td>Objects off screen are skipped</td>
+<td>n/a</td>
+<td>openblack leaves this to the GPU; it only affects speed</td>
+</tr>
+<tr>
+<td>How far the camera can see before the world is cut off</td>
+<td>done</td>
+<td>far plane <code>EngineConfig::cameraFarClip</code>, the near plane from the camera's height as the original (<code>src/Camera/NearClipping.h</code>); the original has no far plane, so the picture is the same (<a href="../../parity.html">parity</a>)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

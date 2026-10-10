@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rocks and features — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="here" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#rocks-and-features">Rocks and features</a><ul>
+<li><a href="#rocks">Rocks</a></li>
+<li><a href="#features">Features</a></li>
+<li><a href="#animated-scenery">Animated scenery</a></li>
+<li><a href="#loose-objects">Loose objects</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="rocks-and-features">Rocks and features</h1>
+<p>The fixed and loose scenery on the land: rocks and boulders of each land's stone, pillars and spikes, ruins and
+monuments, gates, and the small things the land scripts scatter.</p>
+<p><strong>Progress: 12/19 done, 4 partial — 74%</strong></p>
+<h2 id="rocks">Rocks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land scripts place rocks and boulders (flat, long, sharp, square and round) in chalk, limestone, sandstone and volcanic stone</td>
+<td>done</td>
+<td><code>MobileStaticArchetype</code> (<code>src/ECS/Archetypes/MobileStaticArchetype.cpp</code>)</td>
+</tr>
+<tr>
+<td>Rocks can be picked up by the hand and thrown</td>
+<td>done</td>
+<td><code>Rocks::ValidForPlaceInHand</code> (2D radius up to 3.6, <code>src/ECS/Rocks.cpp</code>), thrown into the physics (<code>src/ECS/Physics/FromHand.cpp</code>); see ../hand/</td>
+</tr>
+<tr>
+<td>A thrown rock tumbles, lands and hurts what it hits</td>
+<td>done</td>
+<td><code>src/ECS/Physics/PhysicsObjects.cpp</code> and the impact reactions; see ../physics/</td>
+</tr>
+<tr>
+<td>A rock hit hard enough splits in two</td>
+<td>done</td>
+<td><code>Rocks::SplitInTwo</code> from the impact and <code>Rocks::Tap</code> from the hand (<code>HandSystem.cpp</code>); the creature's blow does not split them; detail in <a href="rocks_splitting_and_heat.html">rocks_splitting_and_heat.md</a></td>
+</tr>
+<tr>
+<td>The creature picks up rocks, throws them and attacks with them</td>
+<td>partial</td>
+<td>The creature's object actions pick up and throw what it may lift (<code>CreatureObjectActionSystem.cpp</code>); attacking with rocks is not checked; see ../creature/</td>
+</tr>
+<tr>
+<td>Footpaths go round rocks</td>
+<td>done</td>
+<td>An obstacle entering the map cells sends the footpaths round it (<code>footpaths::RerouteFootpathsAroundObstacle</code> from <code>src/ECS/MapCells.cpp</code>); see ../terrain/footpaths.md</td>
+</tr>
+<tr>
+<td>Challenge scripts make rocks</td>
+<td>done</td>
+<td>CHL CREATE of a mobile static makes a rock (<code>src/CHLApi.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="features">Features</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land scripts place features: pillars and spikes in each stone, temples, statues, pyramids, the needle, the acropolis, the mine, the ark and its dock and wreck, the whale, craters, tombstones</td>
+<td>done</td>
+<td><code>FeatureArchetype</code> (<code>src/ECS/Archetypes/FeatureArchetype.cpp</code>)</td>
+</tr>
+<tr>
+<td>Features with a physics shape are solid</td>
+<td>todo</td>
+<td>Features are not among the obstacles of <code>PhysicsObjects::InteractsWithPhysicsObjects</code>, so thrown things pass through them; our wiki counts multi-map fixed objects as obstacles (<a href="../../physics.html#manager-physicsobjectgameturnupdate-0x644fc0">physics.md</a>)</td>
+</tr>
+<tr>
+<td>Planned features are built up over time (unconfirmed which)</td>
+<td>done</td>
+<td><code>src/ECS/FeatureBuild.cpp</code> (BUILT_PERCENTAGE: the Land 1 ark's dry dock drawn partly built)</td>
+</tr>
+<tr>
+<td>Features catch fire and burn</td>
+<td>done</td>
+<td>Fire receivers by their info (combustion 2000, <code>src/ECS/Fire/FireObjectTraits.cpp</code>)</td>
+</tr>
+<tr>
+<td>Features cast shadows</td>
+<td>done</td>
+<td>The static shadows of fixed objects (<code>RenderPass::StaticShadow</code>)</td>
+</tr>
+<tr>
+<td>Mushrooms and toadstools the creature can eat (magic mushrooms change it)</td>
+<td>todo</td>
+<td>see <a href="../resources/poison_and_mushrooms.html">../resources/poison_and_mushrooms.md</a> and ../creature/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="animated-scenery">Animated scenery</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land scripts place animated scenery: gates and land transitions</td>
+<td>done</td>
+<td><code>AnimatedStaticArchetype</code> places them and they play their info's clip (<code>src/ECS/Archetypes/AnimatedStaticArchetype.cpp</code>)</td>
+</tr>
+<tr>
+<td>Gates open when enough gate stones are laid (unconfirmed exact rule)</td>
+<td>todo</td>
+<td>see ../story/</td>
+</tr>
+<tr>
+<td>Gate totems (ape, cow, tiger, blank) stand by the creature gates</td>
+<td>partial</td>
+<td>Placed as scenery only</td>
+</tr>
+</tbody>
+</table>
+<h2 id="loose-objects">Loose objects</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fences, lanterns, barrels and other loose objects placed by the land scripts</td>
+<td>done</td>
+<td><code>MobileObjectArchetype</code>, <code>MobileStaticArchetype</code></td>
+</tr>
+<tr>
+<td>Loose objects can be picked up, thrown and broken</td>
+<td>partial</td>
+<td>Picked up and thrown into the physics (<code>src/ECS/Physics/FromHand.cpp</code>); a thrown fence goes into a wood store; breaking them is not ported; see ../physics/</td>
+</tr>
+<tr>
+<td>Some loose objects crush new buildings or block them (unconfirmed which)</td>
+<td>partial</td>
+<td>A scaffold set down clears the things in its way (<code>DestroyThingsInWay</code> in <code>src/ECS/Scaffolds.cpp</code>); which objects block a building is not confirmed</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

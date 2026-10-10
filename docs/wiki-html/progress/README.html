@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>openblack progress — Black &amp; White notes</title>
+<link rel="stylesheet" href="../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="here" href="../progress/README.html">About the progress notes</a>
+<a class="" href="../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../progress/animal/index.html">animal</a>
+<a class="" href="../progress/audio/index.html">audio</a>
+<a class="" href="../progress/building/index.html">building</a>
+<a class="" href="../progress/camera/index.html">camera</a>
+<a class="" href="../progress/creature/index.html">creature</a>
+<a class="" href="../progress/debug/index.html">debug</a>
+<a class="" href="../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../progress/engine/index.html">engine</a>
+<a class="" href="../progress/gesture/index.html">gesture</a>
+<a class="" href="../progress/hand/index.html">hand</a>
+<a class="" href="../progress/interface/index.html">interface</a>
+<a class="" href="../progress/miracles/index.html">miracles</a>
+<a class="" href="../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../progress/nature/index.html">nature</a>
+<a class="" href="../progress/ocean/index.html">ocean</a>
+<a class="" href="../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../progress/physics/index.html">physics</a>
+<a class="" href="../progress/rendering/index.html">rendering</a>
+<a class="" href="../progress/resources/index.html">resources</a>
+<a class="" href="../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../progress/scripts/index.html">scripts</a>
+<a class="" href="../progress/sky/index.html">sky</a>
+<a class="" href="../progress/story/index.html">story</a>
+<a class="" href="../progress/temple/index.html">temple</a>
+<a class="" href="../progress/terrain/index.html">terrain</a>
+<a class="" href="../progress/town/index.html">town</a>
+<a class="" href="../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../progress/video/index.html">video</a>
+<a class="" href="../progress/villager/index.html">villager</a>
+<a class="" href="../progress/weather/index.html">weather</a>
+<a class="" href="../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#openblack-progress">openblack progress</a><ul>
+<li><a href="#status">Status</a></li>
+<li><a href="#file-format">File format</a></li>
+<li><a href="#domains">Domains</a></li>
+<li><a href="#tools">Tools</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="openblack-progress">openblack progress</h1>
+<blockquote>
+<p>These notes were written by raffclar (<a href="https://github.com/raffclar/openblack">raffclar/openblack</a>) and given to
+this fork. Their statuses are re-marked for this tree: what this tree's code does, not his branch.</p>
+</blockquote>
+<p>How much of Black &amp; White (2001) openblack does, domain by domain. Each folder is one domain of the game; each file in
+it is one feature, broken down into everything the original game does for that feature, so it can be ticked off.</p>
+<p>Measured against this fork's <code>local/hand-hbn</code> at <code>b51e3431</code>; raffclar first measured them against his
+<code>miracles-rework</code> at <code>40d5d371</code>. Update a row's status in the same
+change that does the work.</p>
+<h2 id="status">Status</h2>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>done</strong></td>
+<td>Works as the original game does, checked against it</td>
+</tr>
+<tr>
+<td><strong>partial</strong></td>
+<td>Some of it works, or it works but differs from the original (the notes say how)</td>
+</tr>
+<tr>
+<td><strong>todo</strong></td>
+<td>Not started</td>
+</tr>
+<tr>
+<td><strong>n/a</strong></td>
+<td>Not applicable to openblack (the notes say why)</td>
+</tr>
+</tbody>
+</table>
+<p>A file's score counts done as 1, partial as ½, todo as 0, and leaves n/a out.</p>
+<h2 id="file-format">File format</h2>
+<pre><code class="language-markdown"># &lt;Feature&gt;
+
+&lt;One or two sentences: what the feature is in the game.&gt;
+
+**Progress: &lt;done&gt;/&lt;total&gt; done, &lt;partial&gt; partial — &lt;score&gt;%**
+
+## &lt;Part of the feature&gt;
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| &lt;one thing the game does, in plain words&gt; | done | `src/...` (system or file); test name if any |
+</code></pre>
+<ul>
+<li>One row per behaviour a player could notice, or a rule the game follows, not one row per class.</li>
+<li>Notes say where openblack does it (paths under <code>src/</code>), or what is missing.</li>
+<li>Plain English: no addresses, no decompiled or internal names of the original.</li>
+<li>A file about work done in another codebase says so under its title, e.g. <code>**Codebase: bwgame-service**
+  (C:\projects\bwgame-service)</code> for the online servers and web site, and its notes start with that codebase's name
+  (<code>bwgame-service: online/clans.py</code>). Its rows count in the scores like any other.</li>
+</ul>
+<h2 id="domains">Domains</h2>
+<p>See <a href="INDEX.html">INDEX.md</a> for every file and its score.</p>
+<p>Bugs in the original game that the research has found are logged, unscored, in <a href="vanilla_bugs/README.html">vanilla_bugs/</a>.</p>
+<h2 id="tools">Tools</h2>
+<ul>
+<li><code>python docs/progress/tools/progress_score.py &lt;file&gt;...</code> rewrites each file's Progress line from its rows.</li>
+<li><code>python docs/progress/tools/progress_index_regen.py docs/progress</code> regenerates <code>INDEX.md</code>, sub-folders included.</li>
+<li><code>python docs/progress/tools/vanilla_bugs_count.py docs/progress/vanilla_bugs</code> rewrites the bug files' count lines.</li>
+</ul>
+</main>
+<script>window.WIKI_ROOT = "../";</script>
+<script src="../search.js"></script>
+<script src="../progress/progress.js"></script>
+</body>
+</html>

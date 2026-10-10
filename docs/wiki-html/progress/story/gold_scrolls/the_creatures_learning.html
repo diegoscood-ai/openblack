@@ -1,0 +1,1002 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Creature&#x27;s Learning — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-creatures-learning">The Creature's Learning</a><ul>
+<li><a href="#where-it-sits-in-the-story">Where it sits in the story</a></li>
+<li><a href="#skipping-the-lessons">Skipping the lessons</a></li>
+<li><a href="#how-the-trainer-calls-the-player">How the trainer calls the player</a></li>
+<li><a href="#reminders">Reminders</a></li>
+<li><a href="#lesson-1-the-new-home">Lesson 1: the new home</a></li>
+<li><a href="#lesson-2-learning-to-eat">Lesson 2: learning to eat</a></li>
+<li><a href="#lesson-3-punishment">Lesson 3: punishment</a></li>
+<li><a href="#lesson-4-the-leash-of-learning">Lesson 4: the Leash of Learning</a></li>
+<li><a href="#lesson-5-tying-the-leash">Lesson 5: tying the leash</a></li>
+<li><a href="#the-trainers-exit-and-aftermath">The trainer's exit and aftermath</a></li>
+<li><a href="#failing-and-soft-locks">Failing and soft locks</a></li>
+<li><a href="#script-quirks">Script quirks</a></li>
+<li><a href="#music-sound-and-voices">Music, sound and voices</a></li>
+<li><a href="#saves-and-other-modes">Saves and other modes</a></li>
+<li><a href="#unused-material">Unused material</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-creatures-learning">The Creature's Learning</h1>
+<p>The first half of the first land's creature story: once the creature is chosen, Sable the creature trainer comes out of
+the temple four times to teach the player to look after it — its new home and stroking, feeding it, slapping it, the
+Leash of Learning (pulling it and making it pick up a cow) and tying the leash to a tree, where she also shows the
+Leashes of Aggression and Compassion before saying farewell. The same gold scroll then carries on with the big creature
+that wanders the valley; that half is in <a href="../creature_guide.html">creature_guide.md</a>.</p>
+<p><strong>Land:</strong> 1 · <strong>Giver:</strong> Sable the creature trainer, at the creature pen by the temple · <strong>Script:</strong> CreatureDevelopment (CreatureDevSeeHome, CreatureDevLearnToEat, CreatureDevPunishment, CreatureDevLeashIntro, CreatureDevLeashAttachToHouse) · <strong>Reward:</strong> none (the lessons hand over the three leashes) · <strong>Repeatable:</strong> no</p>
+<p>Sources: the lessons' script source (checked against the shipped compiled program), the land's control script and the
+game's text table. openblack is judged on this tree: the land's control script never gets this far (see
+<a href="../../scripts/land1_script.html">../../scripts/land1_script.md</a>), and 13 of the 87 commands the lessons use — among them
+the creature's actions and desires, the held object and the challenge log — only log "not implemented" in
+<code>src/CHLApi.cpp</code>. The rest work: making the trainer, the scroll, the dialogue, the camera moves, the leash questions and
+the leash-granting developer functions, drawing the leash, setting the game time, music, fades and the
+moveable/pick-up/indestructible flags. Rows are todo unless the notes say otherwise.</p>
+<p><strong>Progress: 2/136 done, 4 partial — 3%</strong></p>
+<h2 id="where-it-sits-in-the-story">Where it sits in the story</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The lessons are a gold scroll (a story highlight) titled "The Creature's Learning", the same title the guide's chapters use after them</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> is real (<code>src/ECS/ScriptHighlight</code>); the log (<code>Snapshot</code>, <code>UpdateSnapshot</code>) is a stub; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>They start once the creature is chosen (<a href="choose_your_creature.html">Choose Your Creature</a>) and the breeder, explorers and the guide's wandering have been started</td>
+<td>todo</td>
+<td>never reached: a no-skip game stops at Choose Your Creature's gate stones; the creature is never chosen (see <a href="choose_your_creature.html">Choose Your Creature</a>)</td>
+</tr>
+<tr>
+<td>The land's control script runs them one after another, each waiting for the last: the new home, eating, punishment, then the leash introduction, then tying the leash</td>
+<td>todo</td>
+<td><code>LandControl1</code> runs them in order (plain script); never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>Between lessons, other quests start: after punishment the immersion mushrooms and the singing stones; after the leash introduction the hermit; after tying the leash the lost flock is wanted and the saviour waits for the creature to grow</td>
+<td>partial</td>
+<td><code>LandControl1</code> starts them in order; each then needs its own natives. See <a href="../silver_scrolls/the_immersion_mushrooms.html">the_immersion_mushrooms.md</a>, <a href="../silver_scrolls/the_singing_stones.html">the_singing_stones.md</a>, <a href="../silver_scrolls/the_hermit.html">the_hermit.md</a>, <a href="../silver_scrolls/the_lost_flock.html">the_lost_flock.md</a>, <a href="../silver_scrolls/the_saviour.html">the_saviour.md</a></td>
+</tr>
+<tr>
+<td>What comes next: the guide's meeting starts straight after the last lesson</td>
+<td>todo</td>
+<td>the guide's meeting needs a script-made guide creature (<code>CREATE</code> of a creature is not done); see <a href="../creature_guide.html">creature_guide.md</a></td>
+</tr>
+<tr>
+<td>The scroll's progress mark rises by lesson: 0 for the new home, 0.08 eating, 0.15 punishment, 0.23 the leash, 0.31 tying the leash; the guide's chapters carry on from 0.5</td>
+<td>todo</td>
+<td><code>Snapshot</code> and <code>UpdateSnapshot</code> are stubs</td>
+</tr>
+<tr>
+<td>A quiet pause follows each lesson before the next trainer visit: 31 seconds after the new home, 61 after eating, 61 after punishment, 31 after the leash introduction</td>
+<td>todo</td>
+<td>plain script waits; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>Each lesson after the first switches the creature's own development script on while it runs and off when it ends</td>
+<td>todo</td>
+<td><code>CreatureInDevScript</code> is real (<code>Creature::inDevScript</code>); never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>A file loaded with the lessons marks the temple's entrance, where the trainer comes and goes</td>
+<td>todo</td>
+<td>the marker comes from the script's own <code>CREATE</code> calls (real); never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+</tbody>
+</table>
+<h2 id="skipping-the-lessons">Skipping the lessons</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A new game that skips the creature guide still runs the new-home step, but only as a wake-up camera at the pen with a two-second fade in; no trainer, no scroll</td>
+<td>done</td>
+<td>with the third and fourth SkipBox answers <code>CreatureDevSeeHome</code> takes its skip branch in our game: dawn (<code>SetGameTime</code>), the camera snap onto the pen and <code>SetFadeIn</code> (2 s), all real; see <a href="../../../map-loading.html#skipping-the-tutorial-skipbox-and-can_skip_tutorial">../../../bw1-notes/map-loading.md</a></td>
+</tr>
+<tr>
+<td>The creature is put in its pen and that becomes its home</td>
+<td>partial</td>
+<td><code>SetPosition</code> and <code>SetCreatureHome</code> are real (<code>LeashSystemInterface::SetHome</code>) on the player's creature, which exists only with the fourth answer (<code>LoadMyCreature</code>); turning it with <code>SetFocus</code> is not done for creatures</td>
+</tr>
+<tr>
+<td>The other lessons are skipped: the creature is made fully mature at once, given the Leash of Learning and the other two leashes, its development script switched off and released</td>
+<td>done</td>
+<td><code>LandControl1</code> sets the stage (<code>SetCreatureDevStage</code> 13), grants the three leashes (<code>DevFunction</code> 2 and 3), clears <code>CreatureInDevScript</code> and releases it (<code>ReleaseFromScript</code>); see <a href="../../../creature.html#the-players-creature">../../../bw1-notes/creature.md</a>. Only with the fourth answer is there a creature</td>
+</tr>
+<tr>
+<td>The quests that start between lessons still start as usual</td>
+<td>partial</td>
+<td><code>LandControl1</code> starts them; each stops on its own missing natives</td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-the-trainer-calls-the-player">How the trainer calls the player</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The trainer (a special villager) walks slowly (speed 0.3) out of the temple to her spot by the pen; while teaching she can't be moved, picked up or hurt</td>
+<td>todo</td>
+<td><code>CREATE</code> makes the trainer (a villager), <code>MoveGameThing</code> on villagers and the three flags are real; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>A gold scroll stands over the pen, raised six above the ground</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> and the height through <code>SetProperty</code> (YPos) are real; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>Until it is clicked she faces the camera and beckons, then points and talks, in turn</td>
+<td>todo</td>
+<td>villager animations and <code>SetFocus</code> on villagers are real; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>Every 40 seconds, or every 12 when the camera is more than 30 from the scroll, the player's creature points the scroll out</td>
+<td>todo</td>
+<td>this <code>DevFunction</code> value is not handled; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>When the camera is near the scroll (within 200 for the eating lesson, 100 for the others) and it is on screen, the evil advisor steps out every 30 seconds, points at it and says "Hey. Sable the Creature Trainer is trying to attract our attention."</td>
+<td>todo</td>
+<td>the notify script calls real natives (<code>SpiritEject</code>, <code>RunText</code>); never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>Clicking the scroll or the trainer starts the lesson</td>
+<td>todo</td>
+<td><code>GameThingClicked</code> is real; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The first lesson needs no click: it starts as a cut scene</td>
+<td>todo</td>
+<td>plain script; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+</tbody>
+</table>
+<h2 id="reminders">Reminders</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Clicking the active scroll again repeats its reminder; an advisor line is said by the advisor who owns it, stepping out to say it, and a trainer line by the trainer's voice</td>
+<td>partial</td>
+<td>the shared reminder calls real natives; the reminder texts come from the stubbed log</td>
+</tr>
+<tr>
+<td>While the player must do something with the creature, a nag repeats its line every 30 seconds — only while the camera is within 150 of the creature, the creature is on screen and the player isn't holding it; the good advisor steps out, points at it, says it and goes home</td>
+<td>todo</td>
+<td>real field-of-view, distance and advisor natives; the held read (property 9) is not handled; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+</tbody>
+</table>
+<h2 id="lesson-1-the-new-home">Lesson 1: the new home</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It is set to just before sunrise and game time runs</td>
+<td>todo</td>
+<td><code>SetGameTime</code> and <code>GameTimeOnOff</code> are real; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>A did-you-know sign by the pen: "This is your Creature's home. He feels safe here and when he rests he'll grow in size faster…"</td>
+<td>todo</td>
+<td><code>DidYouKnow</code> and <code>CreateHighlight</code> are real; never reached: a no-skip game stops at Choose Your Creature's gate stones. See <a href="../../creature/home_and_pen.html">../../creature/home_and_pen.md</a></td>
+</tr>
+<tr>
+<td>The creature is put at its first stage of growing up</td>
+<td>todo</td>
+<td><code>SetCreatureDevStage</code> is real on the player's creature; never reached: a no-skip game stops at Choose Your Creature's gate stones. See <a href="../../creature/development_phases.html">../../creature/development_phases.md</a></td>
+</tr>
+<tr>
+<td>The creature is put in the pen, which becomes its home, and it faces the camera</td>
+<td>todo</td>
+<td><code>SetCreatureHome</code> is real, but turning the creature (<code>SetFocus</code>) and moving it (<code>MoveGameThing</code>) are not done for creatures</td>
+</tr>
+<tr>
+<td>A cut scene opens with the guide's music; the creature is made exhausted and put to sleep</td>
+<td>todo</td>
+<td><code>StartMusic</code> is real; the creature's exhaustion (property) and its sleep (<code>SetScriptState</code> on a creature) are not done</td>
+</tr>
+<tr>
+<td>After six seconds the picture fades in over five seconds on a sunrise view of the pen, which pans up over seven seconds</td>
+<td>todo</td>
+<td><code>SetFadeIn</code> and the camera moves are real; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The camera cuts to the pen as the creature wakes and moves in on the trainer</td>
+<td>todo</td>
+<td>the creature's wake-up is a creature script state, not done</td>
+</tr>
+<tr>
+<td>The scroll is logged at 0 with the reminder "Hold down the Action Button over the Creature to zoom in on him." (trainer)</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>The creature points at the camera; the trainer: "This is your Creature's new home." The creature yawns tiredly and loses its tiredness</td>
+<td>todo</td>
+<td><code>CreatureDoAction</code> is a stub; the trainer's line is real</td>
+</tr>
+<tr>
+<td>The camera turns to the creature, which looks frightened; trainer: "He's small at the moment but look after him and one day he'll be big and powerful."</td>
+<td>todo</td>
+<td>creature animations by script (<code>OverrideStateAnimation</code> on a creature) are not done</td>
+</tr>
+<tr>
+<td>It cries; the camera goes back to the trainer: "He isn't comfortable in his new home yet. In fact he's a little frightened." — the creature looks frightened again</td>
+<td>todo</td>
+<td>creature animations by script are not done</td>
+</tr>
+<tr>
+<td>"You can stroke him to reassure him." The creature looks sad and the camera rises; the music stops</td>
+<td>todo</td>
+<td>creature animations by script are not done</td>
+</tr>
+<tr>
+<td>The reminder becomes "Click and hold the Action Button, then move your hand to stroke him."</td>
+<td>todo</td>
+<td>the reminder goes through the stubbed log</td>
+</tr>
+<tr>
+<td>The creature is left wanting only to be sad; the trainer says the same line again</td>
+<td>todo</td>
+<td><code>SetCreatureOnlyDesire</code> is a stub</td>
+</tr>
+<tr>
+<td>The good advisor nags "Let's click on the Creature so we can stroke him."</td>
+<td>todo</td>
+<td>the advisor nag is real; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The player must take hold of the creature (zoom in on it) and keep hold for two seconds; letting go sooner gets "Holy One, you're clicking and letting go too quickly." the first time and "I humbly suggest you click and hold the mouse button for longer." after that</td>
+<td>todo</td>
+<td><code>IsLockedInteraction</code> (holding the creature) is a stub</td>
+</tr>
+<tr>
+<td>Then: "Now stroke him by holding the Action Button and moving your hand over him gently." and "Stroking tells him you approve of him and it makes him happy."</td>
+<td>todo</td>
+<td>real text natives; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The player has two minutes to stroke or slap; the good advisor nags "Click on the Creature and stroke him some more."</td>
+<td>todo</td>
+<td><code>GetInteractionMagnitude</code> is a stub that always answers no feedback</td>
+</tr>
+<tr>
+<td>A slap: the creature looks sad, the trainer is unimpressed: "Hey, remember he's only little."; a stroke: it looks happy, she is impressed: "Excellent. See how he likes that? He feels much better now."; neither: no comment, the lesson goes on</td>
+<td>todo</td>
+<td>the slap or stroke read is a stub; see <a href="../../creature/learning_from_feedback.html">../../creature/learning_from_feedback.md</a></td>
+</tr>
+<tr>
+<td>The creature is let go; the trainer walks back to the temple: "I'll leave you two alone for a while. I'll return later to teach you more."</td>
+<td>todo</td>
+<td><code>ReleaseFromScript</code>, villager moves and texts are real; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The scroll goes; she fades away at the temple entrance</td>
+<td>todo</td>
+<td><code>ObjectDelete</code> of the scroll and the villager are real; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+</tbody>
+</table>
+<h2 id="lesson-2-learning-to-eat">Lesson 2: learning to eat</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature moves to the stage of taking things from the player and eating them, and its energy is set to nothing (starving)</td>
+<td>todo</td>
+<td><code>SetCreatureDevStage</code> is real, but energy is not a property <code>SetProperty</code> handles</td>
+</tr>
+<tr>
+<td>The trainer comes out under a new scroll and calls the player as above</td>
+<td>todo</td>
+<td>real villager and highlight natives; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The scroll is logged at 0.08: "You need to give your Creature something to eat to move to the next stage." (good advisor)</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>A cut scene: the creature walks to a spot in front of the pen; the camera moves in; it looks at the camera and acts hungry</td>
+<td>todo</td>
+<td>moving the creature by script (<code>MoveGameThing</code> on a creature) is not done</td>
+</tr>
+<tr>
+<td>Trainer: "Your Creature is getting hungry." then "I suggest you find him something to eat."; the camera turns to the creature, which acts hungry again</td>
+<td>todo</td>
+<td>the creature's hungry animation (<code>CreatureDoAction</code>) is a stub; the lines are real</td>
+</tr>
+<tr>
+<td>"Choose carefully though - some things are better for him than others."; the camera goes back to where the player had it</td>
+<td>todo</td>
+<td>real text and camera natives; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>A did-you-know sign: "If you want your Creature to eat something, rub his tummy straight after you give it to him. He'll eat it even if he's not hungry."</td>
+<td>todo</td>
+<td><code>DidYouKnow</code> is real; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The reminder becomes "I suggest you go and get the Creature some food." (good advisor)</td>
+<td>todo</td>
+<td>the reminder goes through the stubbed log</td>
+</tr>
+<tr>
+<td>While the player looks for food, the advisors comment on what the hand is over (within 5.5): a pig — evil: "Hey. What about some meat? Pork chops? He'd love them!" (again after 3 minutes at most)</td>
+<td>todo</td>
+<td><code>CheckForCommentOnFoodItems</code> uses real natives (hand position, <code>CallNear</code>, <code>RunText</code>); never reached: a no-skip game stops at Choose Your Creature's gate stones. See <a href="../../creature/feeding_and_thrown_things.html">../../creature/feeding_and_thrown_things.md</a></td>
+</tr>
+<tr>
+<td>A food store — good: "Now that sounds tasty. Corn from the fields." (every 190 seconds at most)</td>
+<td>todo</td>
+<td>real natives; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>A cow — evil: "What about some beef steak? Meat-eaters are more aggressive, after all." (every 190 seconds at most)</td>
+<td>todo</td>
+<td>real natives; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>A villager, only shortly after a pig or cow comment — evil: "Ooh. That would be deeply evil. Yeah." for a child under 11, else "Eating people? Yep. That's evil, all right."</td>
+<td>todo</td>
+<td>real natives; the age read is handled for villagers; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The village's storage pit (hand within 15.5) — good: "Why not take some grain from the Village Store to feed the Creature?"</td>
+<td>todo</td>
+<td>real natives; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>Scripted objects are never commented on</td>
+<td>todo</td>
+<td>the same script; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>As soon as the hand holds anything within 50 of the creature the comments stop; reminder "Give him the food by keeping your hand in front of him and holding the Action Button." and the good advisor says nearly the same line</td>
+<td>todo</td>
+<td><code>GetObjectHeld</code> is a stub</td>
+</tr>
+<tr>
+<td>The creature is starved again and kept wanting only food, its energy held where it is, until it eats once — something alive, something after looking it over, something from the hand or from a magic food pile</td>
+<td>todo</td>
+<td><code>SetCreatureOnlyDesire</code> and <code>GetActionCount</code> are stubs; see <a href="../../creature/feeding_and_thrown_things.html">../../creature/feeding_and_thrown_things.md</a></td>
+</tr>
+<tr>
+<td>There is no time limit; whatever it eats is accepted, good or evil</td>
+<td>todo</td>
+<td>the eating test (<code>GetActionCount</code>) is a stub</td>
+</tr>
+<tr>
+<td>A cut scene: the good advisor points at it: "He seemed to like that."; the camera turns to the trainer: "Try feeding him some more. I'll be back later."</td>
+<td>todo</td>
+<td>real advisor, camera and text natives; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>She walks back into the temple and fades away; the scroll goes; the creature's energy is filled up</td>
+<td>todo</td>
+<td>the trainer leaves (real), but the creature's energy is not a handled property</td>
+</tr>
+</tbody>
+</table>
+<h2 id="lesson-3-punishment">Lesson 3: punishment</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature moves to the punishment stage; from here on slaps and strokes teach it lessons</td>
+<td>todo</td>
+<td><code>SetCreatureDevStage</code> is real; never reached: a no-skip game stops at Choose Your Creature's gate stones. See <a href="../../creature/development_phases.html">../../creature/development_phases.md</a></td>
+</tr>
+<tr>
+<td>The trainer comes out under a new scroll; the scroll is logged at 0.15: "You must punish your Creature to move on. Click on him with the Action Button." (good advisor)</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> is a stub; the trainer and scroll are real</td>
+</tr>
+<tr>
+<td>The creature walks to its spot; the cut scene moves the camera beside the pen and the creature looks at the camera</td>
+<td>todo</td>
+<td>moving and turning the creature by script are not done</td>
+</tr>
+<tr>
+<td>For this scene the trainer can be moved and picked up</td>
+<td>todo</td>
+<td>the flags are real; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>She beckons, turns to the creature and points: "Your Creature already has his own personality." as the camera turns to it</td>
+<td>todo</td>
+<td>real villager, camera and text natives; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>A tiny rock (1% of its size, so all but invisible) is made by the pen</td>
+<td>todo</td>
+<td><code>CreateWithAngleAndScale</code> is real; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>A two-shot of creature and trainer: it acts happy twice; "But you can alter and shape it by… hey what's going on?" as the creature is made to pick her up and hurl her at the rock</td>
+<td>todo</td>
+<td><code>CreatureDoAction</code> (the forced throw) is a stub</td>
+</tr>
+<tr>
+<td>A second after she is flying: "Aiee!"</td>
+<td>todo</td>
+<td>follows from the forced throw, a stub</td>
+</tr>
+<tr>
+<td>The creature is put back in place: "Punish your Creature to stop him doing things like that."; it looks at the camera, asks for attention and acts happy while she walks back to her spot</td>
+<td>todo</td>
+<td>moving the creature and its animations by script are not done</td>
+</tr>
+<tr>
+<td>The camera goes back to the player; she is made fixed and unhurtable again, faces the creature and shakes her fist</td>
+<td>todo</td>
+<td>real villager and camera natives; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The creature's record of the player's feedback is cleared</td>
+<td>todo</td>
+<td>this <code>DevFunction</code> value is not handled</td>
+</tr>
+<tr>
+<td>Every two seconds: when the player has hold of the creature, "Now slap him by moving your hand quickly from side to side across him." (once per hold); when not, "Hold down the Action Button over the Creature to zoom in on him." at most once a minute</td>
+<td>todo</td>
+<td><code>IsLockedInteraction</code> is a stub</td>
+</tr>
+<tr>
+<td>The lesson waits, with no time limit, for any slap or stroke</td>
+<td>todo</td>
+<td><code>GetInteractionMagnitude</code> is a stub</td>
+</tr>
+<tr>
+<td>A slap: she shakes her fist: "Thanks. He won't try that again in a hurry." then "I'll come back soon to explain more about your wondrous, slightly headstrong beast."</td>
+<td>todo</td>
+<td>the slap test is a stub; see <a href="../../creature/learning_from_feedback.html">../../creature/learning_from_feedback.md</a></td>
+</tr>
+<tr>
+<td>A stroke: she is impressed: "Oh, you want to encourage him to do things like that, do you?" then shakes her fist: "Well, it's up to you. I will return when your Creature is behaving a bit better." — she comes back for the next lesson all the same</td>
+<td>todo</td>
+<td>the stroke test is a stub</td>
+</tr>
+<tr>
+<td>She walks back into the temple and fades away; the scroll goes</td>
+<td>todo</td>
+<td>real villager and highlight natives; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+</tbody>
+</table>
+<h2 id="lesson-4-the-leash-of-learning">Lesson 4: the Leash of Learning</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A palm tree is planted east of the pen; it can't be moved, picked up, hurt or burned</td>
+<td>todo</td>
+<td><code>CREATE</code> of a tree is real (<code>CreateScriptObject</code>), and the four flags are real; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The trainer comes out under a new scroll; the scroll is logged at 0.23: "Click the Action Button on the Leash." (good advisor)</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>The creature walks to its spot and is put at the leash stage, so it can't be leashed before the lesson</td>
+<td>todo</td>
+<td><code>SetCreatureDevStage</code> is real, but moving the creature by script is not done</td>
+</tr>
+<tr>
+<td>A cut scene looks down on the leash post at the pen: "It's time to take him for a walk."; she points at the leash as it is switched on</td>
+<td>todo</td>
+<td><code>DevFunction</code> 2 switches the Leash of Learning on (see <a href="../../creature/leash.html">../../creature/leash.md</a>); never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>"This is the Leash of Learning." (the good advisor points at it) and "Please click on it and I'll show you how to use it with your Creature."</td>
+<td>todo</td>
+<td>real advisor and text natives; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The lesson waits until the player holds the Leash of Learning</td>
+<td>todo</td>
+<td><code>GetObjectLeashType</code> is real; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>"Good! Now click on your Creature."; reminder "Now click the Action Button on the Creature to attach the Leash to him." (trainer); she points at the creature</td>
+<td>todo</td>
+<td>real text natives; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The lesson waits until the creature is on the leash</td>
+<td>todo</td>
+<td><code>IsLeashed</code> is real; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>A did-you-know sign on the leash: "Shake your hand when you've got the Leash and you'll release it. You can Leash your Creature to any object by double-clicking…"</td>
+<td>todo</td>
+<td><code>DidYouKnow</code> is real; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>A cut scene with the leash drawn: she is impressed: "Now you've got some direct control of the little beast!"</td>
+<td>todo</td>
+<td><code>SetDrawLeash</code> is real; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>She beckons; the camera turns to her: "You can pull the Creature about with the Leash."</td>
+<td>todo</td>
+<td>real villager, camera and text natives; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The camera turns to the tree: "You see that tree over there?"; a target sparkle marks it for 30 seconds and the good advisor steps out and points at it</td>
+<td>todo</td>
+<td><code>SpecialEffectObject</code> and the advisor natives are real; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>"Try pulling your Creature towards it. Click the Action Button on the ground to hurry him up."; reminder "Now walk your Creature over to the tree over there." (good advisor)</td>
+<td>todo</td>
+<td>real text natives; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>She walks (speed 0.5) to the tree and beckons the creature from there</td>
+<td>todo</td>
+<td>villager moves are real; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The good advisor nags "Click the Action Button on the ground to get him to move faster."</td>
+<td>todo</td>
+<td>the advisor nag is real; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>As the creature nears the tree the good advisor calls out once each: "Yes." within 40, "Yes." within 30, "You've got it. Very well done!" within 20; "No." once if it gets 10 further away than it started</td>
+<td>todo</td>
+<td>distance reads and advisor lines are real; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The step ends when the creature is on the leash within 20 of the tree and she has reached it</td>
+<td>todo</td>
+<td>real natives; see <a href="../../creature/leash.html">../../creature/leash.md</a>; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>A cut scene at the tree: "Excellent! Well done."; then "Did you know that you can use a Leash to make your Creature interact with objects?"</td>
+<td>todo</td>
+<td>real camera and text natives; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>A cow appears south of the tree; it can't be hurt, moved or picked up; "Try getting him to pick up that cow over there." with a sparkle on it and the camera on it</td>
+<td>todo</td>
+<td><code>CREATE</code> of an animal is real and the flags are; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>"Move your hand with the Leash over the cow." and "Then click the Action Button."; reminder "Click the Action Button on the cow to get the Creature to interact with it." (good advisor), which also becomes the nag</td>
+<td>todo</td>
+<td>real text natives; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The creature is kept wanting only to look at things</td>
+<td>todo</td>
+<td><code>SetCreatureOnlyDesire</code> is a stub</td>
+</tr>
+<tr>
+<td>Once the hand comes within 10 of the cow it can be picked up; the step ends when the creature holds it</td>
+<td>todo</td>
+<td>the creature-holds-it test needs <code>GetObjectHeld</code> (a stub)</td>
+</tr>
+<tr>
+<td>If the player picks the cow up with the hand it vanishes and a new one appears in its place</td>
+<td>todo</td>
+<td>the hand-held test needs <code>GetObjectHeld</code> (a stub)</td>
+</tr>
+<tr>
+<td>A cut scene at the tree: "Well done. You see! The Leash is very useful.", "Why not take him for a walk? It'll do him good." and "You can drop the Leash by shaking your hand left and right quickly."</td>
+<td>todo</td>
+<td>real camera and text natives; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The trainer and the scroll vanish there and then, and the cow fades away if it is still there</td>
+<td>todo</td>
+<td><code>ObjectDelete</code> is real; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+</tbody>
+</table>
+<h2 id="lesson-5-tying-the-leash">Lesson 5: tying the leash</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature is put at the stage of tying the leash; the trainer appears by the tree, fixed and unhurtable</td>
+<td>todo</td>
+<td><code>SetCreatureDevStage</code> and the trainer's flags are real; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>Two gold scrolls: one over the tree (raised 12) and one at the pen (raised 6); clicking either, or the trainer, starts the lesson</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> and <code>GameThingClicked</code> are real; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The scroll is logged at 0.31: "Attach your Creature to that sparkly tree." (good advisor)</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>A cut scene at the tree with the leash drawn: "There's more to learn about Leashes."</td>
+<td>todo</td>
+<td><code>SetDrawLeash</code>, camera and text natives are real; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>A sparkle on the tree for 30 seconds: "I didn't tell you that you can attach the Leash to objects." then, looking at her hand, "Try Leashing the Creature to this tree!"</td>
+<td>todo</td>
+<td><code>SpecialEffectObject</code> and texts are real; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The camera goes back: "With the Leash attached to your hand, move it over the tree."</td>
+<td>todo</td>
+<td>real text natives; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The good advisor nags "With the Leash attached to your Creature, double-click on the tree."; with the hand within 10 of the tree, the trainer: "Double-click the Action Button to attach the Leash." at most every 30 seconds</td>
+<td>todo</td>
+<td>real advisor and distance natives; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The step ends when the creature is tied to that tree; the creature moves on to the good-and-evil-leash stage</td>
+<td>todo</td>
+<td><code>IsLeashedToObject</code> and <code>SetCreatureDevStage</code> are real (see <a href="../../creature/leash.html">../../creature/leash.md</a>); never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>A cut scene at the tree: "Good. The Leash is very useful. Your Creature is tied to the tree now. He'll interact with whatever he's Leashed to, as well." then "If you click on a Leash when the Creature's attached to something you can adjust its length."</td>
+<td>todo</td>
+<td>real camera and text natives; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The other two leashes are switched on: "There are two other Leashes for you here."</td>
+<td>todo</td>
+<td><code>DevFunction</code> 3 grants them; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The camera looks at each by the pen: "This is the Leash of Aggression." "It encourages your Creature to get angry." then "This is the fluffy Leash of Compassion " "It makes your Creature behave nicely."</td>
+<td>todo</td>
+<td>real camera and text natives; see <a href="../../creature/leash.html">../../creature/leash.md</a>; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>A did-you-know sign on the leash's length by the tree</td>
+<td>todo</td>
+<td><code>DidYouKnow</code> is real; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>Back at the tree: "Why not experiment with these Leashes? They're powerful tools." and "I'll bid you farewell. You now know as much about Creatures as I do."</td>
+<td>todo</td>
+<td>real text natives; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The guide's music starts as the camera closes in over 15 seconds: "One thing remains. Legends tell of an ancient Creature somewhere on this land." and, looking around, "I've heard him but I've never seen him. He hides from us humans. But he has great knowledge, I think."</td>
+<td>todo</td>
+<td><code>StartMusic</code> and the camera are real; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The camera goes back and the music stops; the good advisor appears, points at the leash sign: "There are advanced techniques for using the Leash. Find them on this signpost."</td>
+<td>todo</td>
+<td>real advisor and music natives; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>A did-you-know sign on the pen and the leashes</td>
+<td>todo</td>
+<td><code>DidYouKnow</code> is real; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-trainers-exit-and-aftermath">The trainer's exit and aftermath</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>After the last lesson the trainer doesn't go back to the temple: she joins the player's Norse village, walks to it (giving up after 30 seconds) and becomes an ordinary villager who can be moved, picked up and hurt</td>
+<td>todo</td>
+<td>rejoining the village (<code>AttachToGame</code>) is a stub</td>
+</tr>
+<tr>
+<td>The village store's food is cut down to 1000</td>
+<td>todo</td>
+<td><code>GetResource</code> and <code>RemoveResource</code> are stubs</td>
+</tr>
+<tr>
+<td>The creature keeps its home in the pen, the three leashes and the stage reached</td>
+<td>todo</td>
+<td>the home, leashes and stage are real on the player's creature; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The scroll stays on at 0.31 until the guide's meeting moves it on</td>
+<td>todo</td>
+<td>the log is a stub</td>
+</tr>
+<tr>
+<td>The two scrolls of the last lesson are never removed by the script (undetermined whether they stay visible: the scroll commands are not researched past being clicked)</td>
+<td>todo</td>
+<td>the same script; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+</tbody>
+</table>
+<h2 id="failing-and-soft-locks">Failing and soft locks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No lesson can be failed: each waits, with no time limit, for the one thing it asks (holding the creature, any slap or stroke, eating once, holding the rope, leashing, reaching the tree, the cow, the tie) — only the stroking step after the first hold has a two-minute limit</td>
+<td>todo</td>
+<td>the same script; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>Killing or losing the creature isn't handled; every step that waits on the creature would then wait for ever (undetermined whether the game can lose the creature here at all)</td>
+<td>todo</td>
+<td>the same script; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The trainer can't be hurt while she teaches, so she can't stall the lessons</td>
+<td>todo</td>
+<td><code>SetIndestructable</code> is real; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The story can't go on until the last lesson ends, as the guide's meeting waits for it</td>
+<td>todo</td>
+<td>the guide's meeting needs a script-made guide creature (not done)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-quirks">Script quirks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>In the cow step the near-the-cow "Yes." calls reuse the flags already set while walking to the tree, so they almost never play; only "No." can</td>
+<td>todo</td>
+<td>the same script; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>In the cow step a check turns the trainer to the camera if she is at a spot in the north village, where she never is</td>
+<td>todo</td>
+<td>the same script; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The thing the leash is tied to is called a house in the script but is the palm tree planted in the leash lesson</td>
+<td>todo</td>
+<td>the same script; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The punishment step's one-minute timer is never used</td>
+<td>todo</td>
+<td>the same script; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+</tbody>
+</table>
+<h2 id="music-sound-and-voices">Music, sound and voices</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The guide's theme plays over the first scene and the trainer's farewell</td>
+<td>todo</td>
+<td><code>StartMusic</code> and <code>StopMusic</code> are real (<code>src/Audio/Services/GameMusic</code>); never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The trainer speaks in her own narrator voice; the advisors in theirs</td>
+<td>todo</td>
+<td>the advisors' and narrators' texts are real (<code>RunText</code>, <code>src/Help</code>); see <a href="../advisors.html">../advisors.md</a>; never reached: a no-skip game stops at Choose Your Creature's gate stones</td>
+</tr>
+<tr>
+<td>The creature's moods are played as animations: tired, frightened, crying, sad, happy, hungry, look-at-me</td>
+<td>todo</td>
+<td>creature animations by script (<code>CreatureDoAction</code>, <code>OverrideStateAnimation</code> on a creature) are not done; see <a href="../../creature/animation.html">../../creature/animation.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="saves-and-other-modes">Saves and other modes</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A saved game keeps the lesson reached, the trainer and the scroll</td>
+<td>todo</td>
+<td>openblack has no saved games</td>
+</tr>
+<tr>
+<td>The lessons are only in the first land of the story, not in skirmish, multiplayer or the Creature Isle</td>
+<td>n/a</td>
+<td>nothing to do beyond the story itself</td>
+</tr>
+</tbody>
+</table>
+<h2 id="unused-material">Unused material</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A compiled but never started good-and-evil leash lesson: back at the pen the trainer shows the fluffy Leash of Compassion and the spiky Leash of Aggression, a dying farmer appears, the player leads the creature to him on either leash; "That's it! I can break the curse now!", "I have nothing more to teach you.", "He's all yours. Now it's up to you." and she walks off to join the village (scroll at 0.92)</td>
+<td>n/a</td>
+<td>nothing runs it</td>
+</tr>
+<tr>
+<td>A compiled script that runs the five lessons in a row, started only by a commented-out line of the land's control script and an unshipped test launcher</td>
+<td>n/a</td>
+<td>nothing runs it</td>
+</tr>
+<tr>
+<td>Older, shorter drafts of the five lessons as separate files, with placeholder lines typed into the script and a man as trainer</td>
+<td>n/a</td>
+<td>not in the game's program</td>
+</tr>
+<tr>
+<td>An unshipped lesson where the creature needs to relieve itself and is led to a spot ("Er, Mighty One? Your Creature needs to relieve himself.", advisors' bowel jokes), and a leash version of it</td>
+<td>n/a</td>
+<td>not in the game's program</td>
+</tr>
+<tr>
+<td>An unshipped thirst lesson: nothing to drink at home, so the creature is leashed and dragged to water ("I think your Creature is thirsty, powerful one."), and a leash version of it</td>
+<td>n/a</td>
+<td>not in the game's program</td>
+</tr>
+<tr>
+<td>An unshipped anger lesson: villagers crowd the creature, it gets angry, and stroking or slapping changes how easily it angers ("Remember, punishment and reward is the path to having the Creature you want.")</td>
+<td>n/a</td>
+<td>not in the game's program</td>
+</tr>
+<tr>
+<td>Unshipped leash drafts: tying the leash to an object (with the three leashes explained), tying it to a walking villager so the creature follows and learns from them, pulling to a tree and picking up a cow</td>
+<td>n/a</td>
+<td>not in the game's program</td>
+</tr>
+<tr>
+<td>A misnamed "learn to play" file that holds a draft of the guide's help-a-town lesson</td>
+<td>n/a</td>
+<td>the guide's unshipped lessons are listed in <a href="../creature_guide.html">creature_guide.md</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sprites and billboards — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="here" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#sprites-and-billboards">Sprites and billboards</a><ul>
+<li><a href="#sprites-in-the-world">Sprites in the world</a></li>
+<li><a href="#glows-of-lights">Glows of lights</a></li>
+<li><a href="#text-and-symbols-in-the-world">Text and symbols in the world</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="sprites-and-billboards">Sprites and billboards</h1>
+<p>Flat textured pictures drawn in the world rather than models: camera-facing sprites, sprites lying in their own plane,
+the glows of lights and lanterns, and text laid out in the world. Particle sprites are in <a href="particles.html">particles.md</a>;
+the moon and sun in <a href="../sky/index.html">../sky/</a>; the influence ring in <a href="../worship/index.html">../worship/</a>.</p>
+<p><strong>Progress: 10/12 done, 0 partial — 83%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../parity.html">Graphics engine parity: original versus openblack</a>, <a href="../../rendering.html">World rendering: original versus openblack</a>.</p>
+<h2 id="sprites-in-the-world">Sprites in the world</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sprites turn to face the camera</td>
+<td>done</td>
+<td><code>src/ECS/Components/Sprite.h</code>, <code>src/3D/Billboard.cpp</code>; test <code>test/test_billboard.cpp</code></td>
+</tr>
+<tr>
+<td>Sprites lie in their own plane, as their placement turns them</td>
+<td>done</td>
+<td><code>billboard</code> horizontal quads (<code>src/3D/Billboard.cpp</code>); test <code>Billboard.horizontalQuadIsRyOfTheAngle</code></td>
+</tr>
+<tr>
+<td>A sprite either adds light to what is behind it, like a glow, or blends over it by its alpha</td>
+<td>done</td>
+<td><code>Sprite.h</code> render modes</td>
+</tr>
+<tr>
+<td>A colour texture takes its alpha from its companion alpha file; a texture without one is a single channel that is both alpha and brightness</td>
+<td>done</td>
+<td>the texture and its alpha file paired at load time (<code>Texture2DLoader</code> in <code>src/Resources/Loaders.cpp</code>, <code>argb4444::PackRaw</code>)</td>
+</tr>
+<tr>
+<td>Sprites take their place among everything else that blends, farthest first</td>
+<td>done</td>
+<td><code>src/Graphics/ZSort.cpp</code>; test <code>test/test_zsorter.cpp</code></td>
+</tr>
+<tr>
+<td>Animated billboards running on their own frame clocks</td>
+<td>done</td>
+<td><code>src/3D/FrameAnim.cpp</code> (frame-animated textures on their own clocks); test <code>test/test_frame_anim.cpp</code></td>
+</tr>
+<tr>
+<td>Distant trees drawn as flat stand-ins</td>
+<td>n/a</td>
+<td>the game draws its trees as models (unconfirmed that it has no stand-ins)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="glows-of-lights">Glows of lights</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A light from the light files glows as two sprites added over each other from the atmosphere texture, the second half as strong and whiter</td>
+<td>done</td>
+<td><code>src/3D/Light.cpp</code>, <code>src/ECS/Archetypes/GlowArchetype.cpp</code></td>
+</tr>
+<tr>
+<td>Glows of lights set in walls (the temple's windows) lie flat against the wall instead of facing the camera</td>
+<td>done</td>
+<td>glows with their own axes (<code>AppendGlowQuad</code> in <code>src/Graphics/LightBeams.cpp</code>, the temple's windows)</td>
+</tr>
+<tr>
+<td>Village lanterns and campfires burn with two flames and a glow, the flames playing the fire's frames backwards on one clock and flickering in size</td>
+<td>done</td>
+<td><code>src/3D/NightLights.cpp</code> (the lantern flames and glow)</td>
+</tr>
+<tr>
+<td>Plain glows the game draws at points in the world</td>
+<td>todo</td>
+<td>the game has a glow manager drawing glows and white glows at points (unconfirmed what uses them)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="text-and-symbols-in-the-world">Text and symbols in the world</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Text laid out in the world, letter by letter from the font, along a frame</td>
+<td>done</td>
+<td><code>src/3D/OrientedText.cpp</code> (the temple's signs and scrolls); see <a href="../temple/index.html">../temple/</a></td>
+</tr>
+<tr>
+<td>A player's symbol drawn into textures in the player's colour</td>
+<td>todo</td>
+<td>the game draws player symbols into textures (unconfirmed where they show)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

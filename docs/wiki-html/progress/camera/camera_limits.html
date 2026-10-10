@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Camera limits and collision — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="here" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#camera-limits-and-collision">Camera limits and collision</a><ul>
+<li><a href="#bounds">Bounds</a></li>
+<li><a href="#collision">Collision</a></li>
+<li><a href="#zones">Zones</a></li>
+<li><a href="#drawing-distance">Drawing distance</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="camera-limits-and-collision">Camera limits and collision</h1>
+<p>Where the world's camera is allowed to go: how high and how far out, how close to the land and sea, how far it may tilt,
+the zones a land keeps it out of or inside, and how near it draws.</p>
+<p><strong>Progress: 4/15 done, 8 partial — 53%</strong></p>
+<h2 id="bounds">Bounds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The camera keeps within a disc around the island and is pushed back when it strays outside</td>
+<td>done</td>
+<td><code>Camera::UpdateZoomers</code> pulls a position destination more than 3500 from the centre back to it in 3 s, in every mode but the temple's (<code>script_camera::k_DiscRadiusSquared</code>); <code>ScriptCamera.DiscOfTheWorld</code> (<code>test/test_script_camera.cpp</code>). The player model also clamps to a 5120 disc (<code>DefaultWorldCameraModel::ConstrainDisc</code>)</td>
+</tr>
+<tr>
+<td>The camera never rises above a ceiling height</td>
+<td>partial</td>
+<td>the 30 000 ceiling (<code>k_MaxAltitude</code>) only bounds the arc-ball tilt step in <code>DefaultWorldCameraModel::ComputeDistanceFromBoundY</code>; nothing stops the camera rising past it</td>
+</tr>
+<tr>
+<td>The camera floats at least a little above the land or sea under it</td>
+<td>partial</td>
+<td>the player model keeps 3 over the land (<code>ConstrainAltitude</code>, <code>k_FloatingHeight</code>), matching the recorded runs of <code>test/camera/test_camera.cpp</code>; the drawn camera's 1 m clearance (<code>script_camera::DrawnCamera</code>) only applies while a script drives. Not checked on steep land</td>
+</tr>
+<tr>
+<td>The camera's tilt is kept between looking slightly up and nearly straight down</td>
+<td>done</td>
+<td>pitch clamp in <code>DefaultWorldCameraModel::TiltZoom</code>; recorded runs <code>TiltUpDown</code>, <code>TiltDownZoomOut</code> (<code>test/camera/scenarios</code>)</td>
+</tr>
+<tr>
+<td>What the camera looks at is kept on the land rather than drifting off over the sea</td>
+<td>partial</td>
+<td>the focus is put on the land under the screen centre in <code>DefaultWorldCameraModel::UpdateModeCartesian</code>; not checked away from that mode</td>
+</tr>
+<tr>
+<td>The focus is kept within a set distance of the camera</td>
+<td>todo</td>
+<td>not in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="collision">Collision</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Moving the camera stops short of land in its way</td>
+<td>partial</td>
+<td><code>camera_pan::StopShort</code> (<code>src/Camera/CameraPan.cpp</code>; <code>CameraPan.StopsThreeShortOfLandInItsWay</code>) is not wired into the camera yet</td>
+</tr>
+<tr>
+<td>A move that goes down meets the sea and stops there</td>
+<td>partial</td>
+<td><code>CameraPan.TheSeaIsMetGoingDownNearTheCamera</code> pins the pure rule; not wired into the camera yet</td>
+</tr>
+<tr>
+<td>Zooming or turning into a hill does not put the camera inside it</td>
+<td>partial</td>
+<td><code>DefaultWorldCameraModel::ConstrainCamera</code> re-floats the camera after each frame; not compared with the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="zones">Zones</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A land can have exclusion domes the camera cannot enter, and the camera is eased out of one it strays into</td>
+<td>partial</td>
+<td><code>SET_CAMERA_ZONE</code> reads the zone's exclusions (<code>player_camera::SetCameraZone</code>, <code>src/Camera/PlayerCameraScript.cpp</code>; tests in <code>test/test_script_camera_dual.cpp</code>), but the player camera does not keep out of them yet</td>
+</tr>
+<tr>
+<td>Scripts can set an inclusion zone that keeps the camera inside an area, as the first land's tutorial does in stages</td>
+<td>partial</td>
+<td><code>SET_CAMERA_ZONE</code> loads the inclusion polygon and <code>player_camera::InsideInclusion</code> tests it, but the player camera does not use it yet; <code>GET_INCLUSION_DISTANCE</code> stays at its start value</td>
+</tr>
+<tr>
+<td>Clearing a land's zones as a new land loads</td>
+<td>todo</td>
+<td><code>player_camera::Reset</code> has no caller: the zone is not cleared when a land loads</td>
+</tr>
+</tbody>
+</table>
+<h2 id="drawing-distance">Drawing distance</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The near plane comes in close to the ground and goes out with height, so land and objects aren't cut away</td>
+<td>done</td>
+<td>the near plane is 0.3 + 0.16 x the height over the land, 0.3 to 3.5, made again on a change over 0.01 (<code>src/Game.cpp</code>, camera update); the same rule as <code>near_clipping::NearPlane</code> (<code>NearClipping.FollowsTheHeightOverTheLand</code>, <code>IsTheGamesExpressionToTheBit</code>)</td>
+</tr>
+<tr>
+<td>Scripts and camera paths can bring the near plane right in for close shots</td>
+<td>todo</td>
+<td><code>SET_GRAPHICS_CLIPPING</code> is a stub in <code>src/CHLApi.cpp</code>; <code>near_clipping::k_Close</code> (<code>NearClipping.ScriptsCanClipClose</code>) is unused</td>
+</tr>
+<tr>
+<td>The world camera's field of view is the game's default lens</td>
+<td>done</td>
+<td>70 degrees (<code>config.cameraXFov</code>, <code>script_camera::k_DefaultFov</code>), as our wiki says the game sets it at start (<a href="../../script-camera.html#gcamera-and-its-zoomers">script camera</a>)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

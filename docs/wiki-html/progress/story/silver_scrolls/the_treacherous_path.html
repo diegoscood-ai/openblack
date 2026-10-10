@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Treacherous Path — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-treacherous-path">The Treacherous Path</a><ul>
+<li><a href="#morg-the-boulder-throwing-ogre">Morg, the boulder-throwing ogre</a></li>
+<li><a href="#how-it-appears">How it appears</a></li>
+<li><a href="#the-introduction">The introduction</a></li>
+<li><a href="#her-journey">Her journey</a></li>
+<li><a href="#potions-when-she-is-hurt">Potions: when she is hurt</a></li>
+<li><a href="#endings">Endings</a></li>
+<li><a href="#the-reward-swapping-to-the-wolf">The reward: swapping to the wolf</a></li>
+<li><a href="#quirks-and-bugs">Quirks and bugs</a></li>
+<li><a href="#unused-and-cut">Unused and cut</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-treacherous-path">The Treacherous Path</h1>
+<p>A silver scroll on the fourth land. A woman (the "blind woman" of the scripts) must carry a healing potion along a
+dangerous mountain path to her dying brother in another village. Wolves, a forest fire and a boulder-throwing ogre named
+Morg lie on the way; she has three potions to bring herself back, but each one she uses is one fewer for her brother.
+If she arrives with a potion left, the brother is healed and gives the player a wolf creature to swap for.</p>
+<p><strong>Land:</strong> 4 · <strong>Giver:</strong> the woman at her hut in the Aztec village · <strong>Script:</strong> BlindWoman · <strong>Reward:</strong> a wolf creature to swap for, offered for as long as the land lasts (only if the brother is healed) · <strong>Repeatable:</strong> no</p>
+<p>The land as a whole is in <a href="../land_4.html">../land_4.md</a>, the script program in
+<a href="../../scripts/challenge_scripts.html">../../scripts/challenge_scripts.md</a>; the woman is also listed in
+<a href="../../villager/special_villagers.html">../../villager/special_villagers.md</a>.</p>
+<p>Sources: the land's challenge script source (checked against the PC game's compiled <code>challenge.chl</code>), the game's text
+table (<code>Scripts/InfoScript2.txt</code>) and the executable. openblack is judged on this tree: of the 81 script functions the
+quest and the scripts it starts call, 8 only log "not implemented" in <code>src/CHLApi.cpp</code>, a script cannot make a creature
+(<code>CreateScriptObject</code> makes no creatures), and Land 4's control script never runs (the land-loading command does
+nothing), so neither the woman nor Morg ever exists and every row below is todo unless the notes say otherwise.</p>
+<p><strong>Progress: 0/60 done, 8 partial — 7%</strong></p>
+<h2 id="morg-the-boulder-throwing-ogre">Morg, the boulder-throwing ogre</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>As soon as the land's control script starts the quest (in the background, at the land's start), an ogre creature is made on a ridge above the path, modelled on the player's creature at 0.9 of its strength and size, then shrunk to half scale, named "Morg" and made fully evil</td>
+<td>todo</td>
+<td><code>CreatureCreateRelativeToCreature</code> and <code>SetCreatureName</code> are stubs; <code>LandControl4</code> never runs: <code>LOAD_MAP</code> is empty (<a href="../../../map-loading.html#pending">map-loading</a>); see <a href="../../scripts/land4_script.html">../../scripts/land4_script.md</a></td>
+</tr>
+<tr>
+<td>Morg works from the land's start, long before the scroll appears: every 10 seconds he throws a small boulder (a rock at 0.3 scale made beside him) at his target</td>
+<td>partial</td>
+<td>making a rock works (<code>CreateWithAngleAndScale</code>), but Morg does not exist and the throw (<code>CreatureDoAction</code>) is a stub</td>
+</tr>
+<tr>
+<td>His target: the player's creature if it is within 75 of him; otherwise the woman, once her quest has begun and she was last seen within 50 of a grassy patch on the path; otherwise a sheep on that patch</td>
+<td>todo</td>
+<td>the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A boulder that does not land within 15 of him is deleted instead of thrown; thrown boulders stay 20 seconds once they come to rest, then shrink away over about 20 seconds and go</td>
+<td>todo</td>
+<td><code>ObjectDelete</code> works; no throws</td>
+</tr>
+<tr>
+<td>If he wanders more than 30 from his ridge he walks back (up to 25 seconds)</td>
+<td>todo</td>
+<td><code>MoveGameThing</code> is not ported for creatures</td>
+</tr>
+<tr>
+<td>Whenever the camera is within 75 of him he mutters, at most once a minute: "Sheeps keep me awake with baaings at night!"</td>
+<td>todo</td>
+<td><code>GetTimerTimeRemaining</code>, <code>SetTimerTime</code> and <code>GamePlaySaySoundEffect</code> work; Morg is never made</td>
+</tr>
+<tr>
+<td>If the player's creature comes within 50 of him, he grows (in steps of 0.1) to the creature's size, both creatures are made to stare at each other, and Morg starts a fight with the creature</td>
+<td>todo</td>
+<td><code>CreatureDoAction</code>, <code>IsFighting</code> and <code>CreatureAutoscale</code> are stubs</td>
+</tr>
+<tr>
+<td>The script waits up to 45 seconds for the fight to start, then until it ends</td>
+<td>todo</td>
+<td><code>IsFighting</code> is a stub</td>
+</tr>
+<tr>
+<td>If Morg ends the fight with less fighting health than the creature, he is driven out: five sparkles burst where he stood, he vanishes, and an Aztec farmer is made in his place, who is given no health and so dies at once; Morg never returns</td>
+<td>todo</td>
+<td>the fight result reads are stubs</td>
+</tr>
+<tr>
+<td>If Morg wins (or the fight never starts), he walks back to his ridge, heals 1% every 6 seconds between fights (full health in 10 minutes), and 20 seconds later shrinks back down to half scale</td>
+<td>todo</td>
+<td>the shared fight-healing script; creature natives are stubs</td>
+</tr>
+<tr>
+<td>The player's creature is released back to the player after either result</td>
+<td>todo</td>
+<td><code>ReleaseFromScript</code> works; never reached</td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-it-appears">How it appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The scroll appears only once the player owns the Aztec village of this land</td>
+<td>todo</td>
+<td>reading a town's owner (<code>GetProperty</code> player) is not ported</td>
+</tr>
+<tr>
+<td>A silver scroll appears above the woman's hut in the Aztec village, raised 10 off the ground</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> and the height property work; the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>While the scroll is unclicked, whenever the camera is within 100 of it and it is on screen, the good advisor steps out every 30 seconds or more, points at it and says "Look. Something for you to do here."</td>
+<td>todo</td>
+<td>the shared notify script's natives work; the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The woman does not exist until the scroll is clicked</td>
+<td>todo</td>
+<td>the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-introduction">The introduction</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Clicking the scroll makes the woman (an Aztec housewife) at her hut; she cannot be picked up</td>
+<td>partial</td>
+<td>the pick-up flag works (<code>SetIdPickupable</code>) and <code>Create</code> makes villagers; the scene never runs</td>
+</tr>
+<tr>
+<td>A pack of eight wolves is made on the path (gathering within 5, roaming up to 15), and a flock of eight sheep on the grassy patch below Morg</td>
+<td>todo</td>
+<td><code>FlockCreate</code> and <code>ChangeInnerOuterProperties</code> work, <code>PopulateContainer</code> is a stub</td>
+</tr>
+<tr>
+<td>A cinematic (letterbox) with generic script music: the woman, in high detail, walks to a spot by her hut while the camera glides to look at her over three seconds; she faces the camera</td>
+<td>partial</td>
+<td>the letterbox, the music, the camera glides and high detail work (<code>SetWidescreen</code>, <code>StartMusic</code>); the cinematic never runs</td>
+</tr>
+<tr>
+<td>The scroll is entered in the challenge log as "The Treacherous Path", not yet done, with the good advisor's reminder "Help the sister reach her brother."</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>She plays a gossiping animation. Woman: "Holy One, I must take this healing potion to my brother in the Village."</td>
+<td>todo</td>
+<td>the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The camera moves to the start of a recorded camera path and flies along the route she must take</td>
+<td>todo</td>
+<td><code>ConvertCameraPosition</code> and <code>RunCameraPath</code> work; the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Woman: "But I've got to travel along this treacherous path."</td>
+<td>todo</td>
+<td>the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Woman: "Please watch over me. I'd be so grateful."</td>
+<td>todo</td>
+<td>the source notes the spoken line was recorded without "me"; the text has it</td>
+</tr>
+<tr>
+<td>The screen fades to black and back in on the woman; the music stops and the cinematic ends</td>
+<td>partial</td>
+<td>fades, camera cuts and stopping the music work; the scene is never reached</td>
+</tr>
+</tbody>
+</table>
+<h2 id="her-journey">Her journey</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>She cannot be hurt while she walks round her fence and to the start of the path; then she walks a recorded path all the way to her brother's village and can be hurt from then on</td>
+<td>partial</td>
+<td>the indestructible flag works (<code>SetIndestructable</code>) and <code>WalkPath</code> works for villagers (<code>src/ECS/LivingWalkPath.cpp</code>); the journey never starts</td>
+</tr>
+<tr>
+<td>Every 2 seconds the quest checks on her</td>
+<td>todo</td>
+<td>the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Near the first point of the path: good advisor, pointing at her, "Argh! The woman's heading straight for that pack of wolves!" and "We must save her, Leader."</td>
+<td>todo</td>
+<td>the wolves are never made (<code>PopulateContainer</code> stub); undetermined how readily wolves attack people</td>
+</tr>
+<tr>
+<td>Near the second point: three birch trees in a wood beside the path are set alight (each made again first if it was gone or moved more than 5 from its place); evil advisor, pointing at her, "Now this is neat. The healing sister's walking into a forest fire." and "Get over there, Boss. This I gotta see."</td>
+<td>partial</td>
+<td>setting a thing alight works (<code>SetOnFire</code>) and <code>Create</code> makes trees; the script never runs</td>
+</tr>
+<tr>
+<td>Near the third point: the good advisor points at Morg, "There's a bizarre creature causing mayhem over there.", then at her, "Our sister with the healing potions is heading for him. We must act!"</td>
+<td>todo</td>
+<td>the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>When she reaches the edge of her brother's village she walks into his house and the journey is over</td>
+<td>todo</td>
+<td>the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="potions-when-she-is-hurt">Potions: when she is hurt</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>If her health falls to 5% or less (her health is then set to nothing), or she stops existing, she has "died"</td>
+<td>todo</td>
+<td>the health property (<code>GetProperty</code>, <code>SetProperty</code>) is not ported</td>
+</tr>
+<tr>
+<td>She has three potions to bring herself back. After each of the first three deaths, two seconds later a cinematic fades to black: any body is faded away and she is made again by her hut, gossiping, with the camera on her</td>
+<td>todo</td>
+<td>needs the health read; <code>ObjectDelete</code> with fade works</td>
+</tr>
+<tr>
+<td>First death: "Holy One, I've had to use one of my healing potions to restore my own health.", "I only have two left, and I need one of those to cure my brother.", "Please watch over me on my journey."</td>
+<td>todo</td>
+<td>needs the health read</td>
+</tr>
+<tr>
+<td>Second death: "I've had to use another potion.", "I have one left, and my brother needs that.", "Please try to ensure I come to no harm."</td>
+<td>todo</td>
+<td>needs the health read</td>
+</tr>
+<tr>
+<td>Third death: "Oh no! I've got no potions left. I'm now going to see my brother on his death bed!", "If I get there at all, that is."</td>
+<td>todo</td>
+<td>needs the health read</td>
+</tr>
+<tr>
+<td>The screen fades back to where the camera was, and she sets off on the whole journey again from her hut</td>
+<td>todo</td>
+<td>needs the health read</td>
+</tr>
+<tr>
+<td>A fourth death ends the quest in failure</td>
+<td>todo</td>
+<td>needs the health read</td>
+</tr>
+</tbody>
+</table>
+<h2 id="endings">Endings</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Arriving with a potion left (fewer than three deaths): a cinematic with epic script music fades to the brother's house; the brother (an Aztec farmer) limps out injured, very slowly, and stands in despair as she comes up to him</td>
+<td>partial</td>
+<td>the music works (<code>StartMusic</code>); the rest is never reached</td>
+</tr>
+<tr>
+<td>Woman: "Thank you for looking after me during my journey." and "I can now heal my brother."</td>
+<td>todo</td>
+<td>the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>She points at him and casts a first-level heal miracle on him from where she stands (for 3 seconds); his health is set to full</td>
+<td>partial</td>
+<td>casting a miracle from a script works (<code>SpellAtPos</code>, <code>src/Magic/Script/CHLSpells.cpp</code>), but there is no woman or brother; setting his health is not ported</td>
+</tr>
+<tr>
+<td>The scroll is marked done in the challenge log (success 1, alignment unchanged)</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>He shrugs, she runs to him and they hug; then both face the camera</td>
+<td>todo</td>
+<td>the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Brother: "Thanks for helping my sister. We promise to worship you forever."</td>
+<td>todo</td>
+<td>the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A wolf creature is made beside the house, made to stand idle and face the camera. Brother: "Please accept this special Wolf as a token of our gratitude."</td>
+<td>todo</td>
+<td>CHL <code>Create</code> makes no creatures</td>
+</tr>
+<tr>
+<td>Good advisor, pointing at the wolf: "Ah, they shouldn't have!"; evil advisor: "The Wolf is neat but I'd have preferred it if we'd killed someone."</td>
+<td>todo</td>
+<td>the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Afterwards the two walk into the house, and once the brother is off screen both join the Aztec village of this land as ordinary villagers; the woman can now be picked up</td>
+<td>todo</td>
+<td><code>FlockAttach</code> works; attaching to a town not checked; the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Arriving with no potion (after three deaths): the brother crawls out and dies; she mourns. The scroll is still marked done</td>
+<td>todo</td>
+<td>needs the health read</td>
+</tr>
+<tr>
+<td>Woman: "No! My brother's passed away!" and "I got here, but I have no more heal potions."</td>
+<td>todo</td>
+<td>needs the health read</td>
+</tr>
+<tr>
+<td>Evil advisor, pointing at the brother: "Oh this is too neat. Feel the suffering!" and "Let's make it a job well done. Kill the woman."; good advisor: "No! Her life's already ruined. Leave her!" and "You've done enough harm already. Oh unhappy day."</td>
+<td>todo</td>
+<td>needs the health read</td>
+</tr>
+<tr>
+<td>She walks away in despair into the house and joins the village; the brother's body is removed once off screen</td>
+<td>todo</td>
+<td>needs the health read</td>
+</tr>
+<tr>
+<td>Dying a fourth time: the camera moves (or fades) to her body. Evil advisor, pointing: "Oh yeah! The do-gooding healer woman is pushing up the daisies." and "Her brother's finished."</td>
+<td>todo</td>
+<td>needs the health read</td>
+</tr>
+<tr>
+<td>The screen fades to the brother's house; he crawls out and dies there. The scroll is still marked done</td>
+<td>todo</td>
+<td>needs the health read</td>
+</tr>
+<tr>
+<td>Evil advisor, pointing at him: "I told you so! Look! Ha ha!"; good advisor: "This is not funny. Cruelty is so unbecoming." The body is removed once off screen</td>
+<td>todo</td>
+<td>needs the health read</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-reward-swapping-to-the-wolf">The reward: swapping to the wolf</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The wolf is offered with the same swap as every story creature: a silver scroll over its head, the evil advisor's "Swap your Creature with this one if you want.", the good advisor's confirmation, a two-creature camera for the swap, and the old creature left in its place to swap back for ever</td>
+<td>todo</td>
+<td>the shared swap script, see <a href="creature_swaps.html">creature_swaps.md</a>; described in full in <a href="the_fish_puzzle.html#the-reward-swapping-to-the-turtle">the_fish_puzzle.md</a>; <code>SwapCreature</code> is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="quirks-and-bugs">Quirks and bugs</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every ending marks the scroll as done, even her death or her brother's; only the wolf depends on her arriving with a potion</td>
+<td>todo</td>
+<td><code>Snapshot</code> stub</td>
+</tr>
+<tr>
+<td>The scroll itself is never removed by the quest</td>
+<td>todo</td>
+<td>undetermined whether marking it done removes it</td>
+</tr>
+<tr>
+<td>At the third point the good advisor is brought out but the script stops and sends home the evil one, so the good advisor stays pointing until the dialogue ends</td>
+<td>todo</td>
+<td>the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The man left when Morg is driven out is made with no health and dies on the spot</td>
+<td>todo</td>
+<td>the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>After a fourth death by being removed entirely (not just killed), the closing camera is aimed at a woman who no longer exists</td>
+<td>todo</td>
+<td>the quest never starts: no Land 4 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Morg throws at sheep for the whole land, from its start, whether or not the quest is ever taken</td>
+<td>todo</td>
+<td>Morg is never made</td>
+</tr>
+</tbody>
+</table>
+<h2 id="unused-and-cut">Unused and cut</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Morg was once to cast enlarge and strength miracles on himself before fighting; the lines are commented out</td>
+<td>n/a</td>
+<td>cut; the growth is done by scaling instead</td>
+</tr>
+<tr>
+<td>A fourth tree by the path is looked up but never set alight; a brother's reward spot and reward object are declared but never used; an earlier wolf-pack spot is commented out</td>
+<td>n/a</td>
+<td>cut</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

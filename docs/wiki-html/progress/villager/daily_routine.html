@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Villager daily routine — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="here" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#villager-daily-routine">Villager daily routine</a><ul>
+<li><a href="#deciding-what-to-do">Deciding what to do</a></li>
+<li><a href="#home-and-sleep">Home and sleep</a></li>
+<li><a href="#food-and-dinner">Food and dinner</a></li>
+<li><a href="#idle-time">Idle time</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="villager-daily-routine">Villager daily routine</h1>
+<p>What a villager does when nobody is directing it: it offers itself to what its town wants most, sees to its own hunger
+and tiredness, goes home at night and sleeps, and fills idle time by sitting out or wandering.</p>
+<p><strong>Progress: 28/36 done, 8 partial — 89%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../villagers.html">Villagers: data, state machine and speed</a>.</p>
+<h2 id="deciding-what-to-do">Deciding what to do</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every villager runs a state machine, one state a turn, with a state it is heading for</td>
+<td>partial</td>
+<td>the state table (<code>k_VillagerStateTable</code>, <code>src/ECS/Systems/Implementations/LivingActionSystem.cpp</code>): 98 of the 255 states have their functions, the other 157 are TODO rows that log</td>
+</tr>
+<tr>
+<td>Entering and leaving states runs their entry and exit rules and transition animations</td>
+<td>done</td>
+<td>the top-state change runs the exit, entry and validate functions and the into and out-of clips (<code>villager::SetTopState</code>, <code>src/ECS/Villager/VillagerCore.cpp</code>; <code>src/ECS/VillagerAnimations.cpp</code>); <code>test/test_villager_core.cpp</code></td>
+</tr>
+<tr>
+<td>An idle villager decides what to do: what its town wants most that it can serve, past its own trigger</td>
+<td>done</td>
+<td><code>DECIDE_WHAT_TO_DO</code> (<code>src/ECS/Villager/VillagerDecide.cpp</code>) and <code>town_desire::CheckVillagerNeededForTownDesire</code>; <code>test/test_villager_decide.cpp</code></td>
+</tr>
+<tr>
+<td>Children can serve only some desires</td>
+<td>done</td>
+<td>the child column of the desire table (<code>src/ECS/Town/TownDesire.cpp</code>) and the child's own decision (<code>src/ECS/Villager/VillagerDecide.cpp</code>)</td>
+</tr>
+<tr>
+<td>A villager's own hunger and life press it before the town's wants</td>
+<td>done</td>
+<td>the own desires (food and life against the trigger) are served before the town's (<code>src/ECS/Villager/VillagerDecide.cpp</code>)</td>
+</tr>
+<tr>
+<td>The town's desires a villager can take up: food, wood, abodes, civic buildings, build, repair, workshop, worship supplies, playtime, relaxation, sleep</td>
+<td>partial</td>
+<td>food, wood, abodes, civic buildings, building, repairs and sleep take villagers (<code>src/ECS/Villager/VillagerSatisfy.cpp</code>); the workshop, worship supplies, playtime and relaxation are TODO and take none</td>
+</tr>
+<tr>
+<td>Villagers pause between decisions</td>
+<td>done</td>
+<td><code>PAUSE_FOR_A_SECOND</code> and <code>WAIT_FOR_COUNTER</code> between decisions, with their clips (<code>src/ECS/Villager/VillagerCore.cpp</code>)</td>
+</tr>
+<tr>
+<td>The moving speed of each state, slowed by loads and wounds, quickened by needs, belief, magic food and emergencies</td>
+<td>partial</td>
+<td><code>src/ECS/VillagerSpeed.cpp</code> (<code>SetVillagerStateSpeed</code>): loads, wounds, needs and the emergency; the belief and wonder terms are fixed at 1 and nothing gives the magic food speed-up</td>
+</tr>
+<tr>
+<td>Villagers walk round buildings and obstacles to their goal</td>
+<td>done</td>
+<td>the walk with wall hugging (<code>src/ECS/MobileWalkPaths.cpp</code>, <code>components::WallHug</code>); <code>test/mobile_wall_hug/test_mobile_wall_hug.cpp</code></td>
+</tr>
+<tr>
+<td>Villagers keep to footpaths between buildings</td>
+<td>partial</td>
+<td>a walk takes a footpath when one serves (<code>living_footpath</code>, <code>src/ECS/LivingFootpath.cpp</code>), but <code>MOVE_ON_PATH</code> only walks to the first node and stops (a TODO row); See ../terrain/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="home-and-sleep">Home and sleep</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>At night the town wants sleep, and villagers go home</td>
+<td>done</td>
+<td><code>DesireForSleep</code> by the day clock (<code>src/ECS/Town/TownDesire.cpp</code>) and <code>GO_HOME</code> (<code>src/ECS/Villager/VillagerHome.cpp</code>)</td>
+</tr>
+<tr>
+<td>Villagers walk to their abode's door and go in, and are not drawn while inside</td>
+<td>done</td>
+<td>the walk to the door (<code>abode_queries::GetArrivePos</code>) and in (<code>ARRIVES_HOME</code>, <code>AT_HOME</code>, <code>src/ECS/Villager/VillagerHome.cpp</code>); <code>test/test_villager_home.cpp</code></td>
+</tr>
+<tr>
+<td>Inside, villagers go to bed and sleep while the town wants sleep, longer when hurt</td>
+<td>done</td>
+<td><code>GOTO_BED_AT_HOME</code> and <code>SLEEPING_AT_HOME</code> (<code>src/ECS/Villager/VillagerHome.cpp</code>)</td>
+</tr>
+<tr>
+<td>Villagers wake in the morning and come out</td>
+<td>done</td>
+<td><code>WAKE_UP_AT_HOME</code> (<code>src/ECS/Villager/VillagerHome.cpp</code>)</td>
+</tr>
+<tr>
+<td>Windows light up and chimneys smoke while someone is in</td>
+<td>done</td>
+<td>See ../building/abodes.md</td>
+</tr>
+<tr>
+<td>Now and then an idle villager just goes home</td>
+<td>done</td>
+<td>the idle branch's go home (<code>src/ECS/Villager/VillagerDecide.cpp</code>, <code>src/ECS/Villager/VillagerHome.cpp</code>)</td>
+</tr>
+<tr>
+<td>Home checks: hunger at home, illness at home, needs at home</td>
+<td>done</td>
+<td><code>CheckNeedsAtHome</code> and the at-home checks (<code>src/ECS/Villager/VillagerHome.cpp</code>)</td>
+</tr>
+<tr>
+<td>A villager whose home is destroyed becomes homeless</td>
+<td>done</td>
+<td>the destroyed abode's villagers are made homeless and go on the town's homeless list (<code>abode_villagers::RemoveAllVillagersFromAbode</code>, <code>MakeHomeless</code>, <code>src/ECS/Villager/VillagerHome.cpp</code>)</td>
+</tr>
+<tr>
+<td>Homeless villagers move into an abode with room when one is built</td>
+<td>done</td>
+<td><code>CheckHomelessMoveIntoAbode</code> (<code>src/ECS/Villager/VillagerHome.cpp</code>)</td>
+</tr>
+<tr>
+<td>Homeless villagers eat their dinner outside and sleep in a tent by a tree</td>
+<td>partial</td>
+<td>the homeless sleep in a tent (<code>SLEEP_IN_TENT</code>, <code>src/ECS/Villager/VillagerHome.cpp</code>); <code>HOMELESS_EAT_DINNER</code> is a TODO row</td>
+</tr>
+<tr>
+<td>Vagrants with no town wander until they find one to join</td>
+<td>done</td>
+<td><code>VAGRANT_START</code> and the vagrants list (<code>src/ECS/Villager/VillagerHome.cpp</code>, <code>town_villagers::Vagrants</code>)</td>
+</tr>
+<tr>
+<td>Villagers move house when their abode is too crowded or another suits better</td>
+<td>done</td>
+<td><code>CheckNeedNewAbode</code> and the town's shuffle (<code>src/ECS/Villager/VillagerHome.cpp</code>, <code>town_villagers::ShuffleVillagersAroundAbodes</code>)</td>
+</tr>
+<tr>
+<td>A villager tapped on its abode goes home or comes out</td>
+<td>done</td>
+<td><code>villager::SetStateWhenTappedOnAbode</code> (<code>src/ECS/Villager/VillagerEmergency.cpp</code>): those inside come out; <code>test/test_villager_repair.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="food-and-dinner">Food and dinner</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Villagers get hungry over time</td>
+<td>done</td>
+<td>the hunger check drops the villager's food over the turns (<code>src/ECS/Villager/VillagerFood.cpp</code>); <code>test/test_villager_food.cpp</code></td>
+</tr>
+<tr>
+<td>Hungry villagers go and eat: at home, from the storage pit, or outside</td>
+<td>done</td>
+<td><code>ChangeStateToFindFoodToEat</code>: at home, from the storage pit or what it carries (<code>src/ECS/Villager/VillagerFood.cpp</code>)</td>
+</tr>
+<tr>
+<td>Housewives fetch food from the storage pit, make dinner, serve it and clear it away</td>
+<td>n/a</td>
+<td>the housewife's states are TODO rows. Our wiki differs: the housewife's day (fetching food, cooking, serving and clearing dinner, housework, gossip) is dead code in this version of the original (<a href="../../villagers.html#pregnancy-and-births">villagers</a>); See jobs.md</td>
+</tr>
+<tr>
+<td>Villagers sit down to dinner at home, waiting for it when the housewife is late</td>
+<td>n/a</td>
+<td><code>SITS_DOWN_TO_DINNER</code> and <code>WAIT_FOR_DINNER</code> are TODO rows. Our wiki differs: the housewife's meal call, which makes villagers wait for dinner, is dead code in this version of the original (<a href="../../villagers.html#pregnancy-and-births">villagers</a>)</td>
+</tr>
+<tr>
+<td>A meal takes the villager's meal amount of food from the abode</td>
+<td>done</td>
+<td><code>GetFoodFromHome</code> takes the meal's amount from the abode (<code>src/ECS/Villager/VillagerFood.cpp</code>)</td>
+</tr>
+<tr>
+<td>Hungry adults walk slower</td>
+<td>done</td>
+<td><code>src/ECS/VillagerSpeed.cpp</code>, reading the villager's food</td>
+</tr>
+<tr>
+<td>Starving villagers lose life and lie weak on the ground</td>
+<td>partial</td>
+<td>a hungry villager loses life (<code>src/ECS/Villager/VillagerFood.cpp</code>); <code>WEAK_ON_GROUND</code> is a TODO row</td>
+</tr>
+<tr>
+<td>Food poisoned by the player harms those who eat it</td>
+<td>done</td>
+<td>poisoned food makes the eater lose life and show it (<code>SHOW_POISONED</code>, <code>src/ECS/Villager/VillagerFood.cpp</code>); see <a href="../resources/poison_and_mushrooms.html">../resources/poison_and_mushrooms.md</a>; Lethys poisons a village's food in <a href="../story/silver_scrolls/the_plague.html">The Plague</a></td>
+</tr>
+<tr>
+<td>Magic food speeds up those who eat it for a while</td>
+<td>partial</td>
+<td>the speed rule and its countdown (<code>src/ECS/VillagerSpeed.cpp</code>, <code>ProcessFoodSpeedup</code>); eating never sets it</td>
+</tr>
+<tr>
+<td>Villagers pick up food they find and are interested in</td>
+<td>done</td>
+<td>the food reaction (<code>GOTO_FOOD_REACTION</code>, <code>ARRIVES_AT_FOOD_REACTION</code>, <code>src/ECS/Systems/Implementations/VillagerResourceReactions.cpp</code>); <code>test/test_villager_reactions.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="idle-time">Idle time</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>With nothing to do, villagers wander near their town</td>
+<td>done</td>
+<td>the idle branch (<code>NOTHING_TO_DO</code> and the chill-out walks, <code>src/ECS/Villager/VillagerDecide.cpp</code>)</td>
+</tr>
+<tr>
+<td>They sit and chill out outside their home or about the town in the evening</td>
+<td>done</td>
+<td><code>GO_AND_CHILLOUT_OUTSIDE_HOME</code>, <code>SIT_AND_CHILLOUT</code> and <code>GO_AND_CHILLOUT_IN_TOWN</code> (<code>src/ECS/Villager/VillagerDecide.cpp</code>)</td>
+</tr>
+<tr>
+<td>Villagers notice interesting things nearby (animals, trees, rocks, pots, the ball, fields, abodes, other villagers) and interact</td>
+<td>partial</td>
+<td>the checks on abodes, fields and fish farms are ported (<code>CHECK_INTERACT_WITH_ABODE</code>, <code>_FIELD</code>, <code>_FISH_FARM</code>); those on animals, trees, rocks, pots, the ball, worship sites and other villagers are TODO rows</td>
+</tr>
+<tr>
+<td>Villagers pause for a second now and then</td>
+<td>done</td>
+<td><code>PAUSE_FOR_A_SECOND</code> (<code>src/ECS/Villager/VillagerCore.cpp</code>)</td>
+</tr>
+<tr>
+<td>Villagers yawn, stretch and play idle animations</td>
+<td>done</td>
+<td>each state's clip, the into and out-of clips and the hard-coded idle clips (<code>src/ECS/VillagerAnimations.cpp</code>, <code>src/ECS/VillagerAnimationTable.h</code>); <code>test/test_villager_draw_golden.cpp</code></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

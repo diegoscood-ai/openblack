@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vanilla bugs: interface and text — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="here" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#vanilla-bugs-interface-and-text">Vanilla bugs: interface and text</a><ul>
+<li><a href="#missing-or-wrong-feedback">Missing or wrong feedback</a></li>
+<li><a href="#data-and-text-errors">Data and text errors</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="vanilla-bugs-interface-and-text">Vanilla bugs: interface and text</h1>
+<p>Bugs in the original game's interface, help and advisor code, and errors in its text tables and data files that are not
+specific to one land script. Lines are quoted as the shipped English text table has them.</p>
+<p><strong>Bugs: 11 (soft-locks and lost progress: 0)</strong></p>
+<h2 id="missing-or-wrong-feedback">Missing or wrong feedback</h2>
+<table>
+<thead>
+<tr>
+<th>Bug</th>
+<th>What the player sees</th>
+<th>Evidence</th>
+<th>Found in</th>
+<th>openblack</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The advisors' camera lesson only ever answers "yes" when the player turns or tilts the camera</td>
+<td>The advisors never say "no" for a wrong turn</td>
+<td>Read from the advisor code (ported on Diego's bw-clean branch, which keeps the slip)</td>
+<td><a href="../story/advisors.html">advisors.md</a></td>
+<td>reproduced (<code>Audio/Services/Confirmation.h</code>: the good advisor's yes, never a no; the lessons after the hand-over are not checked in game)</td>
+</tr>
+<tr>
+<td>The hand's "catch" help message is tested after the caught thing has already left the physics, so the pick-up message is always chosen</td>
+<td>The catch help never appears; the first pick-up's help does</td>
+<td>Read from the executable</td>
+<td><a href="../hand/picking_up.html">picking_up.md</a></td>
+<td>reproduced (<code>HandSystem::PickUp</code> triggers the pick-up help, never the catch)</td>
+</tr>
+<tr>
+<td>A fourth target in the creature cave has a tooltip saying it zooms in, but clicking it does nothing</td>
+<td>A tooltip that promises a zoom that never comes</td>
+<td>Read from the cave's targets</td>
+<td><a href="../creature/creature_cave.html">creature_cave.md</a></td>
+<td>reproduced (<code>CreatureCaveTargets</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="data-and-text-errors">Data and text errors</h2>
+<table>
+<thead>
+<tr>
+<th>Bug</th>
+<th>What the player sees</th>
+<th>Evidence</th>
+<th>Found in</th>
+<th>openblack</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The beach temple scroll line reads "There's someone is this little temple. He definitely wants something."</td>
+<td>The typo in the dialogue text</td>
+<td>The English text table</td>
+<td><a href="../story/silver_scrolls/the_beach_temple_puzzle.html">the_beach_temple_puzzle.md</a></td>
+<td>undecided (the shipped text table is read unchanged, but the quest that says it never runs in this tree yet: Land 2 needs <code>LOAD_MAP</code>)</td>
+</tr>
+<tr>
+<td>The evil advisor's line reads "On no. It's those crazy missionaries again."</td>
+<td>The typo in the dialogue text</td>
+<td>The English text table</td>
+<td><a href="../story/silver_scrolls/the_explorers_again.html">the_explorers_again.md</a></td>
+<td>undecided (the shipped text table is read unchanged, but the quest that says it never runs in this tree yet: Land 5 needs <code>LOAD_MAP</code>)</td>
+</tr>
+<tr>
+<td>A sailor's line reads "We're travelled far and done much in your name."</td>
+<td>The typo in the dialogue text</td>
+<td>The English text table</td>
+<td><a href="../story/silver_scrolls/the_explorers_again.html">the_explorers_again.md</a></td>
+<td>undecided (the shipped text table is read unchanged, but the quest that says it never runs in this tree yet: Land 5 needs <code>LOAD_MAP</code>)</td>
+</tr>
+<tr>
+<td>Khazar's line reads "Come with me. I have a set up an area where you can learn more."</td>
+<td>The typo in the dialogue text</td>
+<td>The English text table</td>
+<td><a href="../story/gold_scrolls/khazars_fireball_challenge.html">khazars_fireball_challenge.md</a></td>
+<td>undecided (the shipped text table is read unchanged, but the quest that says it never runs in this tree yet: Land 2 needs <code>LOAD_MAP</code>)</td>
+</tr>
+<tr>
+<td>The Sea's failure line reads "Er, lordly one. You're gave it a good go. Thank you for trying."</td>
+<td>nothing visible: no script uses the line</td>
+<td>The English text table</td>
+<td><a href="../story/silver_scrolls/the_sea.html">the_sea.md</a></td>
+<td>reproduced (the shipped text table is read unchanged and no script says the line)</td>
+</tr>
+<tr>
+<td>Two of the narrators the info scripts use (the guide and the monk) aren't among the narrator numbers the script declares</td>
+<td>Undetermined which voice the game gives them</td>
+<td>The info script data</td>
+<td><a href="../scripts/info_scripts.html">info_scripts.md</a></td>
+<td>undecided (this tree gives them an undeclared narrator, <code>helptext::k_NarratorUndeclared</code>; which voice the game gives them is not known)</td>
+</tr>
+<tr>
+<td>Three of the developers' key layout names are spelt "Conifg" ("George Backer Conifg", "Tim's Conifg", "TBL's Conifg")</td>
+<td>nothing visible: the table of names is never read</td>
+<td>Strings in the executable</td>
+<td><a href="../easter_eggs/hidden_keys_and_cheats.html">hidden_keys_and_cheats.md</a></td>
+<td>undecided (not in this tree: it has no such table)</td>
+</tr>
+<tr>
+<td>An internal error message is spelt "Wierd - this bitstring (11b) is reserved."</td>
+<td>nothing visible: shown only on an internal error</td>
+<td>Strings in the executable</td>
+<td><a href="../easter_eggs/developer_jokes.html">developer_jokes.md</a></td>
+<td>undecided (not in this tree: it has no such message)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

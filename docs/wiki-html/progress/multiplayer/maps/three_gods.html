@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Three Gods — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="here" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#three-gods">Three Gods</a><ul>
+<li><a href="#choosing-and-starting-it">Choosing and starting it</a></li>
+<li><a href="#the-land">The land</a></li>
+<li><a href="#the-three-starts">The three starts</a></li>
+<li><a href="#the-computer-gods">The computer gods</a></li>
+<li><a href="#neutral-towns-and-the-middle">Neutral towns and the middle</a></li>
+<li><a href="#nature-and-features">Nature and features</a></li>
+<li><a href="#winning-and-losing">Winning and losing</a></li>
+<li><a href="#online-as-king-of-the-hill">Online as "King of the hill"</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="three-gods">Three Gods</h1>
+<p>Three gods around a central mountain: you and two computer gods each start with a home town and three neutral towns
+of your own tribe nearby, and a rich Tibetan town with a wonder sits in the middle. Each home lies under its own
+climate, one of them freezing. Online the same land is the three-player map "King of the hill".</p>
+<p><strong>Players:</strong> 3 · <strong>Landscape:</strong> <code>Data/Landscape/Multi_Player/MPM_3P_1.lnd</code> · <strong>Script:</strong> <code>Scripts/Playgrounds/ThreeGods.txt</code> · <strong>Mode:</strong> both</p>
+<p><strong>Progress: 19/40 done, 7 partial — 56%</strong></p>
+<p>What the script builds, object by object, is in
+<a href="../../scripts/playground_scripts.html#three-gods-loading">playground_scripts.md</a> (its "Three Gods" sections); this file
+covers the land as a player meets it. How skirmish is set up is in <a href="../skirmish.html">../skirmish.md</a>; the computer gods
+themselves are in <a href="../../rival_gods/skirmish_opponents.html">../../rival_gods/skirmish_opponents.md</a>.</p>
+<h2 id="choosing-and-starting-it">Choosing and starting it</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The skirmish box lists it under the game's own line "Defeat two gods to control this realm." rather than its file name</td>
+<td>partial</td>
+<td>the debug menu's "Playground Islands" lists it by its start message title, or by its file name when it has none (<code>src/Level.cpp</code>, <code>src/Debug/Gui.cpp</code>); no skirmish box</td>
+</tr>
+<tr>
+<td>Starting it clears the current land, resets the scripts and loads this script and its landscape</td>
+<td>partial</td>
+<td><code>Game::LoadMap</code> loads it from the debug menu; see the next row</td>
+</tr>
+<tr>
+<td>No story script runs on a skirmish land</td>
+<td>todo</td>
+<td>our tree starts the story's control script (<code>LandControlAll</code>) on the start land whatever it is, and leaves the story's scripts running when a land is opened from the debug menu</td>
+</tr>
+<tr>
+<td>The camera starts looking at player three's home town, not yours (the script's start point is that town's centre)</td>
+<td>done</td>
+<td><code>START_CAMERA_POS</code> (<code>FeatureScriptCommands::StartCameraPos</code>)</td>
+</tr>
+<tr>
+<td>The land's title "Three Gods" and its line "Battle three gods for this realm" are its start message (the line miscounts: there are two other gods)</td>
+<td>todo</td>
+<td><code>START_GAME_MESSAGE</code> and <code>ADD_GAME_MESSAGE_LINE</code> are empty; only the debug land list reads them, for its title and tooltip (<code>src/Level.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-land">The land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A land about 1,900 by 1,750 paces built around a central mountain that reaches the highest height a land can have, with a fifth of it at sea level round the edges</td>
+<td>done</td>
+<td><code>Game::LoadLandscape</code></td>
+</tr>
+<tr>
+<td>Three local climates: your home lies in a freezing, windy one (about -35 degrees), player three's in a cold, windy one (about 7 degrees), both set to be raining from the start, and player two's in a warm one (about 24 degrees) that starts dry</td>
+<td>done</td>
+<td><code>CREATE_WEATHER_CLIMATE</code> and its rain, temperature and wind (<code>magic::map_script</code>, <code>src/Magic/Script/MapScriptWeather.cpp</code>); see ../../weather/</td>
+</tr>
+<tr>
+<td>Two storms are already blowing at the start, one in your cold climate and one in player three's</td>
+<td>done</td>
+<td><code>CREATE_WEATHER_CLIMATE</code> and its rain, temperature and wind (<code>magic::map_script</code>, <code>src/Magic/Script/MapScriptWeather.cpp</code>); see ../../weather/</td>
+</tr>
+<tr>
+<td>Short days and long nights: a day of 1,000 seconds with 23% night and 17% dawn and dusk</td>
+<td>done</td>
+<td><code>SET_NIGHTTIME</code> (<code>DayNightClock::SetCycleFromLand</code>)</td>
+</tr>
+<tr>
+<td>The music follows the nearest town's tribe: Norse around you, Japanese around player two, Celtic around player three, Tibetan in the middle</td>
+<td>done</td>
+<td><code>src/Audio/GameMusic.cpp</code>; see ../../audio/music.md</td>
+</tr>
+<tr>
+<td>Towns project 0.4 of their normal influence and gods 0.7 of theirs, so all three start further apart in reach</td>
+<td>done</td>
+<td><code>SET_TOWN_INFLUENCE_MULTIPLIER</code> and <code>SET_PLAYER_INFLUENCE_MULTIPLIER</code>, kept in the map script globals and read by <code>src/ECS/Influence</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-three-starts">The three starts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>You (player one) start with a temple and a Norse home town: seven houses, a crèche, a storehouse, a workshop, six fields and about 20 villagers</td>
+<td>done</td>
+<td>towns, buildings and villagers as in <a href="../../scripts/playground_scripts.html">playground_scripts.md</a></td>
+</tr>
+<tr>
+<td>Player two starts the same with a Japanese town, player three with a Celtic town</td>
+<td>done</td>
+<td>as above</td>
+</tr>
+<tr>
+<td>Each home town's store starts with about 3,600 to 4,000 food and wood, and no worship sites, dispensers or one-shot miracles are placed: everything else is won from towns</td>
+<td>done</td>
+<td><code>AbodeArchetype</code> keeps the amounts</td>
+</tr>
+<tr>
+<td>Each home town believes in its god at 1.5 and offers heal, teleport and water</td>
+<td>partial</td>
+<td>belief set (<code>ecs::town_belief::SetBeliefInPlayer</code>) and the town holds its miracles (<code>magic::script::CreateNewTownSpell</code>); how far they reach its god's worship site icons is in <a href="../../miracles/dispensers_and_seeds.html">../../miracles/dispensers_and_seeds.md</a></td>
+</tr>
+<tr>
+<td>Each home town has four to six buildings planned for its people to build</td>
+<td>done</td>
+<td><code>CREATE_PLANNED_ABODE</code> (<code>FeatureScriptCommands::CreatePlannedAbode</code>): the town's planned list, read by the building sites</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-computer-gods">The computer gods</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Computer gods are switched on for players two and three</td>
+<td>partial</td>
+<td><code>TOGGLE_COMPUTER_PLAYER</code> adds the player (<code>FeatureScriptCommands::ToggleComputerPlayer</code>, <code>PlayerArchetype</code>); no mind thinks for it (see ../skirmish.md)</td>
+</tr>
+<tr>
+<td>Player two has a lion and player three a horse, both from the generic computer creature mind, standing on their temples</td>
+<td>partial</td>
+<td><code>CREATE_CREATURE_FROM_FILE</code> (<code>FeatureScriptCommands::CreateCreatureFromFile</code>, <code>CreatureArchetype</code>) with the mind loaded; it faces a fixed way and takes our starting size; nothing of its god steers it</td>
+</tr>
+<tr>
+<td>Both creatures are sized to match your own</td>
+<td>todo</td>
+<td><code>SET_COMPUTER_PLAYER_CREATURE_LIKE</code> is empty</td>
+</tr>
+<tr>
+<td>No personalities are loaded, so both play with the default personality</td>
+<td>todo</td>
+<td>no computer god mind in our tree; see ../../rival_gods/ai.md</td>
+</tr>
+<tr>
+<td>Every town's belief in either computer god is capped at 1, their own home towns included, while yours is not, a handicap in your favour</td>
+<td>done</td>
+<td><code>SET_TOWN_BELIEF_CAP</code> (<code>ecs::town_belief::SetCap</code>, <code>src/ECS/Town/TownBelief.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="neutral-towns-and-the-middle">Neutral towns and the middle</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each god has three neutral towns of its own tribe nearby, laid out alike: one offering shield and physical shield, one storm, flying flock, creature freeze and creature weakness, and a farther fishing town offering fire and lightning</td>
+<td>partial</td>
+<td>towns, houses, villagers and fish farms are built; the towns hold their miracles (<code>magic::script::CreateNewTownSpell</code>), but a town changing hands does not yet pass them on to the winner's worship site (<a href="../../miracles/dispensers_and_seeds.html">../../miracles/dispensers_and_seeds.md</a>)</td>
+</tr>
+<tr>
+<td>The Tibetan town in the middle has a wonder, a graveyard, nine houses, twelve fields and 20,000 food and 20,000 wood, believes in nobody at 1.5, and offers lightning, stronger lightning, beam explosion, storm and the strongest storm</td>
+<td>partial</td>
+<td>built with its stores and belief; the towns hold their miracles (<code>magic::script::CreateNewTownSpell</code>), but a town changing hands does not yet pass them on to the winner's worship site (<a href="../../miracles/dispensers_and_seeds.html">../../miracles/dispensers_and_seeds.md</a>)</td>
+</tr>
+<tr>
+<td>The Tibetan town has twelve more buildings planned, including a wonder</td>
+<td>done</td>
+<td><code>CREATE_PLANNED_ABODE</code> (<code>FeatureScriptCommands::CreatePlannedAbode</code>): the town's planned list, read by the building sites</td>
+</tr>
+<tr>
+<td>Six people stand in towns without a house</td>
+<td>done</td>
+<td><code>CREATE_TOWN_VILLAGER</code> (<code>CreateVillagerInTown</code>, <code>src/LHScriptX/VillagerCommands.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="nature-and-features">Nature and features</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>684 trees (beech, conifers, palms, oaks, birches, olives, pines) and six big forests</td>
+<td>done</td>
+<td><code>TreeArchetype</code>, <code>BigForestArchetype</code></td>
+</tr>
+<tr>
+<td>The trees belong to 19 forests that foresters fell and replant</td>
+<td>done</td>
+<td><code>CREATE_FOREST</code> (<code>ecs::CreateForest</code>): the forest the trees after it belong to</td>
+</tr>
+<tr>
+<td>43 fireflies</td>
+<td>todo</td>
+<td><code>CREATE_FIRE_FLY</code> is empty; every map gets the nightly top-up instead; see <a href="../../nature/fireflies.html">../../nature/fireflies.md</a>; every reward weight is zero on this map, so catching one gives nothing</td>
+</tr>
+<tr>
+<td>374 animals in 71 flocks, mostly sheep (192), with pigs, pigeons, cows, gulls, crows and doves</td>
+<td>done</td>
+<td><code>CREATE_NEW_ANIMAL</code> (<code>AnimalArchetype</code>) and <code>CREATE_FLOCK</code>; how they behave is the animals' domain</td>
+</tr>
+<tr>
+<td>82 fenced wheat fields, 18 fish farms and one magic wood pot</td>
+<td>done</td>
+<td><code>FieldArchetype</code>, <code>FishFarmArchetype</code>, <code>PotArchetype</code></td>
+</tr>
+<tr>
+<td>Limestone rocks and boulders and 48 street lanterns</td>
+<td>done</td>
+<td><code>MobileStaticArchetype</code>, <code>StreetLanternArchetype</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="winning-and-losing">Winning and losing</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land has no winning rule of its own; the skirmish's own rule applies</td>
+<td>todo</td>
+<td>not determined what ends a skirmish, and our tree ends none; see ../skirmish.md</td>
+</tr>
+<tr>
+<td>Losing while two or more gods are left shows "You have lost the game." with Watch Game (keep watching the other gods) and Leave Game (leave the skirmish)</td>
+<td>todo</td>
+<td>no end of game in our tree; see ../skirmish.md and <a href="../../story/losing_and_game_over.html">../../story/losing_and_game_over.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="online-as-king-of-the-hill">Online as "King of the hill"</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Offered online as "King of the hill - 3 players", described as "3 Player map designed to test your godly powers. Try to take over the neutral towns to build up your holy powerbase, and destroy the other deities!", with a thumbnail</td>
+<td>todo</td>
+<td>our tree has no network play; see ../network_play.md</td>
+</tr>
+<tr>
+<td>The online map file holds its own script and this same landscape; the game unpacks both, loads them and deletes them</td>
+<td>todo</td>
+<td>our tree does not read online map files</td>
+</tr>
+<tr>
+<td>Online no god is a computer god and the script makes no creatures: each person brings their own</td>
+<td>todo</td>
+<td>our tree has no network play; see ../network_play.md</td>
+</tr>
+<tr>
+<td>Online every town's belief is capped evenly for all three gods (2 in the three home towns, 1 elsewhere)</td>
+<td>todo</td>
+<td>our tree has no network play; see ../network_play.md; the caps themselves work (<code>ecs::town_belief::SetCap</code>)</td>
+</tr>
+<tr>
+<td>Online the neutral Japanese storm town has a gathering point for worshippers</td>
+<td>todo</td>
+<td>our tree has no network play; see ../network_play.md; the gathering points themselves work (<code>SET_TOWN_CONGREGATION_POS</code>)</td>
+</tr>
+<tr>
+<td>Online the camera always starts on your own temple</td>
+<td>todo</td>
+<td>our tree has no network play; see ../network_play.md</td>
+</tr>
+<tr>
+<td>The winning conditions offered for it start at 5,000 food, 5,000 wood, 1,600 belief and up to 12 towns taken</td>
+<td>todo</td>
+<td>see ../multiplayer_rules.md</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

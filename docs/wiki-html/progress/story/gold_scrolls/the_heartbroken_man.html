@@ -1,0 +1,644 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Heartbroken Man — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-heartbroken-man">The Heartbroken Man</a><ul>
+<li><a href="#where-it-sits-in-the-land">Where it sits in the land</a></li>
+<li><a href="#how-it-appears">How it appears</a></li>
+<li><a href="#the-introduction">The introduction</a></li>
+<li><a href="#keiko-in-the-aztec-village">Keiko in the Aztec village</a></li>
+<li><a href="#what-the-player-must-do">What the player must do</a></li>
+<li><a href="#reunited-the-good-ending">Reunited (the good ending)</a></li>
+<li><a href="#keiko-killed-the-evil-ending">Keiko killed (the evil ending)</a></li>
+<li><a href="#adam-killed-the-other-ending">Adam killed (the other ending)</a></li>
+<li><a href="#the-guardian-stone-breaks">The Guardian Stone breaks</a></li>
+<li><a href="#what-it-unlocks-next">What it unlocks next</a></li>
+<li><a href="#soft-locks-and-failure">Soft-locks and failure</a></li>
+<li><a href="#creature">Creature</a></li>
+<li><a href="#unused-or-cut">Unused or cut</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-heartbroken-man">The Heartbroken Man</h1>
+<p>The gold scroll on the fourth land that frees the third of Nemesis's Guardian Stones, the one that keeps the land in
+darkness. A woman asks the player to bring Keiko, kidnapped by Nemesis to the Aztec village, back to her husband Adam,
+the lonely old man who keeps the stone on a mountain top. Reuniting them, killing him or killing her all free the stone;
+the three endings differ in what is said and in the alignment the challenge log records.</p>
+<p><strong>Land:</strong> 4 · <strong>Giver:</strong> a woman at a hut below Adam's mountain (the scroll is beside her) · <strong>Script:</strong> Land4Nomad (in
+Land4Meteorites) · <strong>Reward:</strong> the darkness Guardian Stone is destroyed and the sky turns back to day; influence around the
+hut (killing Adam) or Adam's hut (reuniting them) · <strong>Repeatable:</strong> no</p>
+<p>The land as a whole is in <a href="../land_4.html">../land_4.md</a>; the other two stones are <a href="the_totem_puzzle.html">The Totem Puzzle</a>
+and <a href="the_defending_ogres.html">The Defending Ogres</a>; what happens once all three are broken is in
+<a href="undead_village.html">Undead Village</a> and <a href="leave_through_the_vortex_land_4.html">leave_through_the_vortex_land_4.md</a>.</p>
+<p>Sources: the land's challenge scripts (the original source text, which matches the shipped <code>challenge.chl</code>), the game's
+text table (<code>Scripts/InfoScript2.txt</code>) for every spoken line and its voice. openblack's state is judged on this tree:
+openblack starts the story's top script, which always runs the first land's control script first; the map-loading
+command (<code>LoadMap</code> in <code>src/CHLApi.cpp</code>) has an empty body and the first land's script stalls long before its end, so the
+fourth land's control script, and this quest, never run. Rows are partial only where every command they need works in
+openblack; they still never happen in play.</p>
+<p><strong>Progress: 0/76 done, 0 partial — 0%</strong></p>
+<h2 id="where-it-sits-in-the-land">Where it sits in the land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's control script starts the quest in the background as soon as the land begins, together with the other two stone quests</td>
+<td>todo</td>
+<td><code>LandControl4</code> never runs (see <a href="../../scripts/land4_script.html">../../scripts/land4_script.md</a>); <code>LOAD_MAP</code> is empty</td>
+</tr>
+<tr>
+<td>From the start of the land a small Guardian Stone (a meteor at a third of its size, raised 2 off the ground) sits near Adam's hut on the mountain, smoking: a bonfire effect 25 times normal size that lasts the whole land</td>
+<td>todo</td>
+<td><code>CREATE</code> makes the meteor and its flags are real (<code>SetIndestructable</code>, <code>SetIdMoveable</code>, <code>SetIdPickupable</code>); the height (YPos) is handled, the scale through <code>SetProperty</code> is not for a mobile static; <code>SpecialEffectPosition</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The quest itself waits until the elder of the Japanese village has finished his introduction to <a href="the_totem_puzzle.html">The Totem Puzzle</a>, which itself waits until the player owns, destroys or empties the Japanese village</td>
+<td>todo</td>
+<td>plain script flag; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The man who explains Nemesis's curse earlier describes this stone: "The third Stone was given to a lonely old man." "Who worships only Nemesis."</td>
+<td>todo</td>
+<td>his scene is covered with <a href="the_defending_ogres.html">The Defending Ogres</a>; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Breaking this stone is one of the three conditions the land waits for before the Undead Village and the way out open</td>
+<td>todo</td>
+<td>plain script flags; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-it-appears">How it appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A gold scroll appears by the woman's hut, on the lowland west of Adam's mountain, and its challenge is made the current one</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>While the scroll is not clicked, whenever the camera is within 100 of it and looking at it, at most every 30 seconds the good advisor steps out, points at it and says "Your godly attention is required here, Leader."</td>
+<td>todo</td>
+<td>the notify script calls real natives (<code>SpiritEject</code>, <code>SpiritPointPos</code>, <code>RunText</code>); never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Clicking the scroll (or its spot) starts the introduction and turns the scroll active</td>
+<td>todo</td>
+<td><code>GameThingClicked</code> is real and <code>SetActive</code> handles highlights; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The scroll is never removed by the script: it stays where it is after the quest is over</td>
+<td>todo</td>
+<td>the same script; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-introduction">The introduction</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A woman (an Aztec housewife) is made at her hut and Adam (a nomad) at his house on the mountain, facing a spot by the door and mourning on an endless loop</td>
+<td>todo</td>
+<td><code>CREATE</code> makes villagers; <code>SetFocus</code> and the animations on villagers are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>A cut scene begins with the generic script music (number 3)</td>
+<td>todo</td>
+<td><code>StartMusic</code> and <code>StartCameraControl</code> are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The woman (drawn in high detail) walks out of her hut while the camera glides over 6 seconds to look at her from beside the scroll</td>
+<td>todo</td>
+<td><code>MoveGameThing</code>, <code>MoveCameraPosition</code>, <code>MoveCameraFocus</code> and <code>SetHighGraphicsDetail</code> are real for villagers; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>When she has arrived and the camera has stopped, she turns to the camera and gossips (three loops of her talking gesture)</td>
+<td>todo</td>
+<td>villager animations are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The woman: "At last! Someone to hear my prayers!"</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The screen fades to black over 2 seconds, the camera cuts to Adam's door on the mountain and fades back in over 2</td>
+<td>todo</td>
+<td><code>SetFade</code>, <code>SetFadeIn</code>, <code>SetCameraPosition</code>, <code>SetCameraFocus</code> and <code>EndDialogue</code> are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The challenge log records the quest: title "The Heartbroken Man", progress 0, alignment 0, with the reminder: the good advisor saying "Find Keiko in the Aztec Village and reunite her with Adam."</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>The woman (heard over Adam mourning): "My neighbour, Adam is a soul in torment."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The camera drifts round the mountain top for 10 seconds while she goes on: "Keiko, his wife has been kidnapped and taken to the Aztec Village by Nemesis."</td>
+<td>todo</td>
+<td>real camera and text natives; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>"Before he left he made sure she stays alive only while Adam's faith in him remains."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The camera turns to look down at the woman for 4 seconds, then flies back to her in 6 to 7 seconds; she gossips again: "Please help them by rescuing Keiko and reuniting her with Adam."</td>
+<td>todo</td>
+<td>real camera, villager and text natives; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The camera closes on her over 5 seconds as she walks back into her hut</td>
+<td>todo</td>
+<td>real camera and villager natives; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The evil advisor steps out: "Hey, Boss. Wasn't he the lonely guy with the Guardian Stone?" then "Let's kill him!"</td>
+<td>todo</td>
+<td><code>SpiritEject</code> and <code>RunText</code> are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The music stops and the cut scene ends</td>
+<td>todo</td>
+<td><code>StopMusic</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Keiko (an Aztec housewife) is made at the edge of the Aztec village and the woman who told the story is removed</td>
+<td>todo</td>
+<td><code>CREATE</code> and <code>ObjectDelete</code> of villagers are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="keiko-in-the-aztec-village">Keiko in the Aztec village</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Keiko walks at a tenth of normal speed round three spots by the village: at the first she sits down, sits for four loops and stands; at the second she inspects something; at the third she mourns (into, three loops, out of); then back to the first</td>
+<td>todo</td>
+<td><code>MoveGameThing</code>, the speed and the animations are real for villagers; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>She walks between the spots with despairing walks</td>
+<td>todo</td>
+<td><code>OverrideStateAnimation</code> on villagers is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Picked up by the hand, thrown, or held by the creature, she is watched: once she is put down again more than 100 from her second spot, she is put straight back there, but only when nobody is holding her, she is not flying and the camera is not looking at her</td>
+<td>todo</td>
+<td><code>SetPosition</code> is real, but the held read (property 9) is not handled and <code>InCreatureHand</code> is a stub</td>
+</tr>
+<tr>
+<td>So the player can carry her anywhere, but she must be kept in view, or she is snapped back to her village</td>
+<td>todo</td>
+<td>follows from the held reads, which are not handled</td>
+</tr>
+<tr>
+<td>The script sets no condition on reaching her; whether the hand can pick her up depends on the game's usual influence rule, which the script does not touch</td>
+<td>todo</td>
+<td>the same script; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-the-player-must-do">What the player must do</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Bring Keiko to within 50 of Adam: the first time she gets that close, Adam walks out of his house to a spot by his door and waves for attention on an endless loop, and the player's influence is made in a circle of 50 around him</td>
+<td>todo</td>
+<td><code>MoveGameThing</code> and <code>InfluenceObject</code> are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Once Adam is out, the reunion starts when Keiko is within 50 of him and neither of them is held by the hand or the creature or flying through the air</td>
+<td>todo</td>
+<td>the held read (property 9) is not handled and <code>InCreatureHand</code> is a stub</td>
+</tr>
+<tr>
+<td>The quest has no timer and no distance limit other than these: it waits as long as the player likes</td>
+<td>todo</td>
+<td>the same script; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Killing Keiko (or anything that removes her) ends the quest the evil way</td>
+<td>todo</td>
+<td>the health read (property 1) is not handled by <code>GetProperty</code></td>
+</tr>
+<tr>
+<td>Killing Adam (or anything that removes him) ends the quest the other way</td>
+<td>todo</td>
+<td>the health read (property 1) is not handled by <code>GetProperty</code></td>
+</tr>
+<tr>
+<td>Whichever comes first wins: the script checks Keiko's death, then Adam's death, then the reunion, in that order, every time round</td>
+<td>todo</td>
+<td>the death checks read health, not handled</td>
+</tr>
+</tbody>
+</table>
+<h2 id="reunited-the-good-ending">Reunited (the good ending)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Keiko's walk and its watcher stop; neither of them can be picked up any more</td>
+<td>todo</td>
+<td><code>StopScript</code> and <code>SetIdPickupable</code> are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The screen fades to black over a second; the epic script music (number 4) starts; the two are set face to face by Adam's door, drawn in high detail, with the camera close on them; it fades in after 2 seconds</td>
+<td>todo</td>
+<td>fade, <code>SetPosition</code>, the camera, music, <code>SetFocus</code> and <code>SetHighGraphicsDetail</code> are real for villagers; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>After a second they both dance</td>
+<td>todo</td>
+<td>villager animations are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The challenge log records it complete: progress 1, alignment +0.8</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub; see <a href="../challenges_and_rewards.html">../challenges_and_rewards.md</a></td>
+</tr>
+<tr>
+<td>When the dance ends they hug, then both turn to the camera</td>
+<td>todo</td>
+<td>villager animations and <code>SetFocus</code> are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Adam, gossiping: "Oh how can I ever, ever thank you!"; half a second later Keiko joins in with her own gestures</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Keiko: "We're together again! I can't believe it."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Adam: "You are a magnificent god! I have a reason to live!"</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>They walk slowly (Adam at a fifth of normal speed, Keiko at 0.15) to the door and into the house while the camera pulls back over 6 seconds; the screen fades to black and the music stops</td>
+<td>todo</td>
+<td>villager moves and the camera are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="keiko-killed-the-evil-ending">Keiko killed (the evil ending)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Keiko's walk stops; after 2 seconds the screen fades to black over a second</td>
+<td>todo</td>
+<td><code>StopScript</code> and the fade are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>A cut scene: Adam is set by his door facing the camera, in high detail, mourning; it fades in after 2 seconds</td>
+<td>todo</td>
+<td>real villager, detail and fade natives; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The challenge log records it complete: progress 1, alignment -0.8</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>Adam: "You've killed my soulmate!"</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>"Nemesis promised to protect her. He has failed!"</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>"Take the Stone. I've got no faith left in anything."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The screen fades to black</td>
+<td>todo</td>
+<td><code>SetFade</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="adam-killed-the-other-ending">Adam killed (the other ending)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Keiko's walk stops; after 2 seconds the screen fades to black</td>
+<td>todo</td>
+<td><code>StopScript</code> and the fade are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>A cut scene: the neighbour woman is made again at her spot by her hut, facing the camera, mourning for five loops; it fades in after 2 seconds</td>
+<td>todo</td>
+<td><code>CREATE</code> makes villagers; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The challenge log records it complete: progress 1, alignment 0 (neither good nor evil)</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>The woman: "My neighbour lies dead." then "You are as cruel as Nemesis. Are all gods like this?"</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The evil advisor steps out: "Boss, that guy's out of the way." then "And the Stone isn't under Nemesis' influence any longer." and goes home</td>
+<td>todo</td>
+<td><code>SpiritEject</code>, <code>SpiritHome</code> and <code>RunText</code> are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The screen fades to black; the player is given influence in a circle of 200 around the woman, which is never taken away; the woman is let go to live as a normal villager</td>
+<td>todo</td>
+<td><code>InfluenceObject</code> and <code>ReleaseFromScript</code> are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-guardian-stone-breaks">The Guardian Stone breaks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Whatever the ending, Adam and Keiko are both removed from the world, even after a happy reunion</td>
+<td>todo</td>
+<td><code>ObjectDelete</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>A cut scene: the camera is set looking at the stone by the hut and fades in after 2 seconds</td>
+<td>todo</td>
+<td>camera cut and fade are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>After a reunion the good advisor points at the stone: "Look! The newfound faith of this man has freed the Guardian Stone."</td>
+<td>todo</td>
+<td>advisors and texts are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>After either killing the evil advisor points at it: "Ha! Killing. It's the answer to everything. Eh, beardy?" then "Never underestimate death. And fear. And agony."</td>
+<td>todo</td>
+<td>advisors and texts are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>A second later the Guardian Stones music starts; the camera shakes within 300 of the stone (amplitude 0.1, 5 seconds) and follows the stone as it rises, a tenth at a time, to 20 off the ground</td>
+<td>todo</td>
+<td><code>ShakeCamera</code>, <code>FocusFollow</code>, <code>StartMusic</code> and the height (YPos) are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>A bang and a flash (6 seconds each) go off at the stone, it is destroyed with an explosion and the stone-explosion sound plays</td>
+<td>todo</td>
+<td><code>SpecialEffectPosition</code> and <code>PlaySoundEffect</code> are real, but which <code>ObjectDelete</code> mode the stone uses was not checked</td>
+</tr>
+<tr>
+<td>After 2 seconds the screen fades, the camera cuts to look at the sky over the home village and fades in</td>
+<td>todo</td>
+<td>fade and camera cut are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The day comes back: game time is switched on again and moved to noon over 200</td>
+<td>todo</td>
+<td><code>GameTimeOnOff</code> and <code>MoveGameTime</code> are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>After 10 seconds both advisors step out. Good: "The sky! It's turning back to normal!" Evil: "Personally I liked it better before."</td>
+<td>todo</td>
+<td>advisors and texts are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>3 seconds later they go home; the screen fades, the camera goes back to where it was before the scene and fades in</td>
+<td>todo</td>
+<td><code>GetCameraPosition</code> and <code>CREATE</code> of a marker are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The darkness stone counts as broken; the music stops and the smoke over the stone is removed</td>
+<td>todo</td>
+<td>plain script flag, <code>StopMusic</code> and <code>ObjectDelete</code> are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-it-unlocks-next">What it unlocks next</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The darkness the land has been in since the start lifts: the land's darkness effect, which held the clock at dusk, lets time run again as soon as this stone breaks</td>
+<td>todo</td>
+<td>the clock natives are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>If the Ogre has not been beaten yet, the gold scroll of <a href="the_defending_ogres.html">The Defending Ogres</a> is put up over the Ogre's valley (active, 10 off the ground)</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> is real; see <a href="the_defending_ogres.html">The Defending Ogres</a>; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>With the fire and lightning stones also broken, the land moves on to the <a href="undead_village.html">Undead Village</a></td>
+<td>todo</td>
+<td>plain script flags; see <a href="undead_village.html">undead_village.md</a>; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="soft-locks-and-failure">Soft-locks and failure</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The quest cannot be failed: every way it ends breaks the stone</td>
+<td>todo</td>
+<td>the same script; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>It cannot soft-lock while either villager can die: the player can always kill Adam or Keiko (by hand, miracle or creature)</td>
+<td>todo</td>
+<td>the death checks read health (property 1), not handled</td>
+</tr>
+<tr>
+<td>It cannot start until the Japanese village has been taken, destroyed or emptied, because it waits for the bell-tower elder's introduction</td>
+<td>todo</td>
+<td>plain script flag; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creature">Creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature can carry Keiko: while she is in its hand she is not snapped back, and the reunion waits until it has put her down</td>
+<td>todo</td>
+<td><code>InCreatureHand</code> is a stub</td>
+</tr>
+<tr>
+<td>The creature killing either of them (eating or attacking) ends the quest like the player killing them</td>
+<td>todo</td>
+<td>the health read is not handled</td>
+</tr>
+</tbody>
+</table>
+<h2 id="unused-or-cut">Unused or cut</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>An early draft of the lines survives in the source comments: Adam was "Knobbo", Keiko his "girlfriend", and the woman was simply his friend and neighbour</td>
+<td>n/a</td>
+<td>comments only</td>
+</tr>
+<tr>
+<td>A test launcher (not compiled into the game) runs this quest on its own by setting the start flag</td>
+<td>n/a</td>
+<td>never in the shipped <code>challenge.chl</code></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

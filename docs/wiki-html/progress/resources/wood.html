@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wood — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="here" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#wood">Wood</a><ul>
+<li><a href="#where-wood-comes-from">Where wood comes from</a></li>
+<li><a href="#storing-and-using-wood">Storing and using wood</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="wood">Wood</h1>
+<p>What the towns build and repair with. Foresters fell trees and carry the logs to the store; the player can pull up trees
+or pour the wood miracle; builders take wood from the store to building sites and the workshop.</p>
+<p><strong>Progress: 13/17 done, 2 partial — 82%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../objects-and-resources.html">Objects and resources</a>.</p>
+<h2 id="where-wood-comes-from">Where wood comes from</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Foresters fell trees of the town's forests and carry the logs to the store</td>
+<td>done</td>
+<td><code>FORESTER_GOTO_FOREST</code>, <code>FORESTER_CHOPS_TREE</code> (<code>src/ECS/Villager/VillagerForester.cpp</code>); test <code>test/test_villager_forester.cpp</code>; see <code>../villager/</code></td>
+</tr>
+<tr>
+<td>A tree gives wood by its kind and size</td>
+<td>done</td>
+<td><code>ecs::TreeWoodValue</code> (<code>src/ECS/Trees.cpp</code>): the info table's wood value by the tree's life and scale</td>
+</tr>
+<tr>
+<td>A tree a forest miracle grew gives more wood, by its caster's tribal power</td>
+<td>done</td>
+<td>the multiplier kept on the tree (<code>magic_tree</code>, <code>Tree::woodValueMultiplier</code>) is read by <code>ecs::TreeWoodValue</code>, so felling it gives more</td>
+</tr>
+<tr>
+<td>Big forests give wood without being used up (unconfirmed)</td>
+<td>done</td>
+<td><code>ecs::BigForestRemoveWood</code> (<code>src/ECS/Trees.cpp</code>). Our wiki differs: a big forest's wood goes down by what is taken, and with too little left the forest is deleted (<a href="../../trees.html#pick-up-rules-and-bigforest">trees</a>)</td>
+</tr>
+<tr>
+<td>Uprooted (dead) trees and felled trunks count as wood</td>
+<td>done</td>
+<td>a dead tree's wood by its kind and scale (<code>ecs::TreeWood</code>, <code>src/ECS/Trees.cpp</code>)</td>
+</tr>
+<tr>
+<td>A tree pulled up by the hand is held as branches or logs by its kind (evergreen, fruit, hardwood)</td>
+<td>todo</td>
+<td>the hand holds the uprooted tree itself (<code>HandHolding.cpp</code>); see <a href="resource_handling.html">handling</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="storing-and-using-wood">Storing and using wood</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land script gives each store its starting wood</td>
+<td>done</td>
+<td><code>AbodeArchetype</code> (CREATE_ABODE's wood amount)</td>
+</tr>
+<tr>
+<td>The store's wood shows as five piles that fill in turn</td>
+<td>done</td>
+<td>see <a href="stores_and_piles.html">stores and piles</a></td>
+</tr>
+<tr>
+<td>Builders carry wood from the store to building sites and scaffolds</td>
+<td>done</td>
+<td><code>src/ECS/Villager/VillagerBuild.cpp</code>; see <code>../building/</code></td>
+</tr>
+<tr>
+<td>The workshop takes wood to make scaffolds</td>
+<td>done</td>
+<td>the workshop takes its wood value per scaffold and makes one in a free slot (<code>src/ECS/Town/Workshops.cpp</code>); see <a href="../building/workshop_and_scaffolds.html">../building/workshop_and_scaffolds.md</a></td>
+</tr>
+<tr>
+<td>Damaged buildings are repaired with wood</td>
+<td>done</td>
+<td>the repair path of <code>src/ECS/Villager/VillagerBuild.cpp</code></td>
+</tr>
+<tr>
+<td>Wood poured near a workshop, building site or scaffold goes to it</td>
+<td>done</td>
+<td><code>pot_resource::AddResourceToPos</code> offers it to every store in reach, workshops and building sites included (<code>src/ECS/PotResource.cpp</code>, <code>src/ECS/ResourceStores.cpp</code>)</td>
+</tr>
+<tr>
+<td>A town short of wood raises its wood desire flag</td>
+<td>done</td>
+<td>the town's wood desire reads its store (<code>src/ECS/Town/TownDesire.cpp</code>); see <code>../town/</code></td>
+</tr>
+<tr>
+<td>Giving wood to a town that wants it impresses the town</td>
+<td>done</td>
+<td><code>DoResourceAdding</code> (<code>src/ECS/ObjectResources.cpp</code>)</td>
+</tr>
+<tr>
+<td>Wood poured on a store or by a building site teaches the creature to do the same</td>
+<td>partial</td>
+<td>the deed is worked out (<code>StoragePitStore::DoCreatureMimicAfterAddingResource</code>) but not passed on to the creature</td>
+</tr>
+<tr>
+<td>The creature carries wood and builds with it</td>
+<td>todo</td>
+<td>see <code>../creature/</code></td>
+</tr>
+<tr>
+<td>Scripts read, add and take a town's wood</td>
+<td>partial</td>
+<td>ADD_RESOURCE works (<code>src/CHLApi.cpp</code>); GET_RESOURCE and REMOVE_RESOURCE are stubs</td>
+</tr>
+</tbody>
+</table>
+<p>The food and wood miracles are in <code>../miracles/</code>.</p>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

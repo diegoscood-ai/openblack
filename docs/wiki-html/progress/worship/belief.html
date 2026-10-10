@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Belief and impressiveness — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="here" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#belief-and-impressiveness">Belief and impressiveness</a><ul>
+<li><a href="#being-impressed">Being impressed</a></li>
+<li><a href="#a-towns-belief">A town's belief</a></li>
+<li><a href="#scripts">Scripts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="belief-and-impressiveness">Belief and impressiveness</h1>
+<p>How much a town believes in each player. Villagers who see something impressive, kind or terrible, believe more in the
+god who did it; enough belief wins the town over (see <code>../town/</code> for conversion). Artefacts left in other players' towns win belief too: see <a href="../town/artefacts.html">../town/artefacts.md</a>.</p>
+<p><strong>Progress: 11/25 done, 3 partial — 50%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../magic.html">Magic: the core of the miracles</a>.</p>
+<h2 id="being-impressed">Being impressed</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A villager who sees something impressive gives its town belief in whoever did it, by how impressive it was, the land's balance and the villager's share of the town</td>
+<td>todo</td>
+<td>a villager's impression is not ported (TODO in <code>villager_reactions::AddReaction</code>, <code>src/ECS/Systems/Implementations/VillagerReactions.cpp</code>): today a town only gains belief from resources given to it</td>
+</tr>
+<tr>
+<td>Closer watchers are more impressed, along an S curve of distance</td>
+<td>todo</td>
+<td>the impression is not ported</td>
+</tr>
+<tr>
+<td>Food and wood impress by how much the town wants them</td>
+<td>done</td>
+<td>food or wood given to a town adds belief by how much its desire drops, more for a player that does not own it (<code>DoResourceAdding</code>, <code>src/ECS/ObjectResources.cpp</code> to <code>town_stores::AddToBelief</code>)</td>
+</tr>
+<tr>
+<td>Things that belong to no player impress no one</td>
+<td>todo</td>
+<td>the impression is not ported</td>
+</tr>
+<tr>
+<td>A town grows bored of seeing the same kind of thing; boredom wears off each town turn, times the land's lost-town scale</td>
+<td>partial</td>
+<td>the wear-off at each town turn, times the lost-town scale, is in <code>town_belief::Fold</code> (<code>src/ECS/Town/TownBelief.cpp</code>, test <code>TownBeliefTest.FoldBoredom</code>); nothing adds boredom yet, as impressions are not ported</td>
+</tr>
+<tr>
+<td>Creatures are impressed by their own god's and other creatures' deeds</td>
+<td>todo</td>
+<td>no creature impression; see <code>../creature/</code></td>
+</tr>
+<tr>
+<td>Villagers hiding indoors are still impressed by what they see</td>
+<td>todo</td>
+<td>the belief-only branch of the reaction spread is not ported (<code>src/ECS/Systems/Implementations/VillagerReactions.cpp</code>)</td>
+</tr>
+<tr>
+<td>Artefacts given to a town keep impressing it</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Throwing things into a town impresses it (and frightens it)</td>
+<td>todo</td>
+<td>see <code>../hand/</code></td>
+</tr>
+<tr>
+<td>The creature's impressive actions win belief for its god</td>
+<td>todo</td>
+<td>see <code>../creature/</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="a-towns-belief">A town's belief</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Belief gained waits until the town's turn, then is believed at once, times the town's belief scale</td>
+<td>done</td>
+<td><code>town_belief::Fold</code> from the town's process (<code>src/ECS/Town/TownProcess.cpp</code>), times the town's <code>beliefScale</code>; test <code>TownBeliefTest.FoldPending</code></td>
+</tr>
+<tr>
+<td>Belief in a player is capped (10 unless a script sets another cap)</td>
+<td>done</td>
+<td><code>town_belief::SetBelief</code> caps to the town's cap, 10 to start (<code>SET_TOWN_BELIEF_CAP</code> changes it); test <code>TownBeliefTest.SetBeliefClampsToCapOnly</code></td>
+</tr>
+<tr>
+<td>A symbol of the belief gained rises from the town centre in the player's colour</td>
+<td>partial</td>
+<td>the fold queues a belief sprite at the town centre in the player's colour (<code>town_belief::QueueBeliefSprite</code>) and the belief sprite effect is stepped (<code>src/Particles/Utility.cpp</code>), but nothing draws the queue</td>
+</tr>
+<tr>
+<td>Each town keeps a fading tally of the belief each player has lately won</td>
+<td>done</td>
+<td><code>recent</code> decays at each fold (test <code>TownBeliefTest.FoldRecentDecay</code>); the belief added in the period is cleared every ten turns (<code>town_belief::ProcessOncePerTurn</code>)</td>
+</tr>
+<tr>
+<td>Once claimed, a town's belief is reset by the claimed-town multiplier</td>
+<td>done</td>
+<td>the new owner's belief times the claimed-town multiplier (<code>town_belief::Fold</code>; test <code>TownBeliefTest.FoldConversion</code>)</td>
+</tr>
+<tr>
+<td>Losing a town lowers belief in that player elsewhere</td>
+<td>done</td>
+<td>the old owner's other towns times the lost-town multiplier and the lost-town scale (<code>town_belief::Fold</code>)</td>
+</tr>
+<tr>
+<td>A town's unmet desires cost its owner belief at each town turn, and the threshold for it falls back over time</td>
+<td>done</td>
+<td>(added) <code>town_belief::Fold</code> (<code>src/ECS/Town/TownBelief.cpp</code>), the town desire info's belief scale and decay; test <code>TownBeliefTest.FoldDesireCost</code></td>
+</tr>
+<tr>
+<td>Hurting a town lowers its belief in the player who did it (unconfirmed exact rule)</td>
+<td>todo</td>
+<td>a destructive effect only records the town's aggressor (<code>town_emergency::UpdateAggressor</code>, <code>src/ECS/Effects/EffectValues.cpp</code>); no belief is taken for it</td>
+</tr>
+<tr>
+<td>The belief a player needs to win a town grows with the belief other players have there</td>
+<td>done</td>
+<td>a town goes to whichever player it believes in most, against its owner's own belief (<code>town_belief::Fold</code>, test <code>TownBeliefTest.FoldConversion</code>); see <code>../town/</code></td>
+</tr>
+<tr>
+<td>A town nearly lost makes the help sprites warn the player</td>
+<td>done</td>
+<td><code>town_belief::CheckLosingBelief</code> every ten turns, not on Land 1; test <code>TownBeliefTest.LosingBelief</code></td>
+</tr>
+<tr>
+<td>A town's belief shows on its scroll and the town's status</td>
+<td>partial</td>
+<td>the players' belief symbols over each town centre (<code>src/Particles/TownBelief.cpp</code>); no scroll shows it; see <code>../interface/</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="scripts">Scripts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Land scripts set a town's starting belief in a player and its cap</td>
+<td>done</td>
+<td><code>SET_TOWN_BELIEF</code> and <code>SET_TOWN_BELIEF_CAP</code> (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>), read by the fold; test <code>TownBeliefTest.Scripts</code></td>
+</tr>
+<tr>
+<td>Land scripts set a town's belief scale</td>
+<td>done</td>
+<td><code>SET_TOWN_BALANCE_BELIEF_SCALE</code> sets the town's <code>beliefScale</code> (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>), which the fold multiplies by</td>
+</tr>
+<tr>
+<td>Challenge scripts read a player's belief in an object and set it</td>
+<td>todo</td>
+<td><code>BELIEF_FOR_PLAYER</code>, <code>SET_PLAYER_BELIEF</code> and <code>OBJECT_RELATIVE_BELIEF</code> are stubs in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>Challenge scripts scale how impressive an object is</td>
+<td>todo</td>
+<td><code>SET_OBJECT_BELIEF_SCALE</code> is a stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

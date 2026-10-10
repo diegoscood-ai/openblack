@@ -1,0 +1,663 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Sea — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-sea">The Sea</a><ul>
+<li><a href="#how-it-appears">How it appears</a></li>
+<li><a href="#the-children">The children</a></li>
+<li><a href="#the-introduction">The introduction</a></li>
+<li><a href="#what-the-player-must-do">What the player must do</a></li>
+<li><a href="#endings">Endings</a></li>
+<li><a href="#reward">Reward</a></li>
+<li><a href="#aftermath">Aftermath</a></li>
+<li><a href="#advisors">Advisors</a></li>
+<li><a href="#music-and-sounds">Music and sounds</a></li>
+<li><a href="#creature">Creature</a></li>
+<li><a href="#script-quirks">Script quirks</a></li>
+<li><a href="#unused-or-cut-parts">Unused or cut parts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-sea">The Sea</h1>
+<p>A land 2 silver scroll at a hut in the Indian town on the shore: a mother's five sons have swum out into the bay and
+won't come home. The player (in practice the creature, since the bay is shut to the player's hand) fetches them out of
+the water, carries the mother down to the beach to scare them home, or kills them; each ending sets its own
+alignment. The land as a whole is in <a href="../land_2.html">../land_2.md</a>, the land's control script in
+<a href="../../scripts/land2_script.html">../../scripts/land2_script.md</a>, the script program in
+<a href="../../scripts/challenge_scripts.html">../../scripts/challenge_scripts.md</a>.</p>
+<p><strong>Land:</strong> 2 · <strong>Giver:</strong> a mother (Indian housewife) at her hut in Town2 (the Indian town by the bay) · <strong>Script:</strong> Baywatch · <strong>Reward:</strong> a "Big" creature miracle dispenser, only if all five sons walk home alive · <strong>Repeatable:</strong> no</p>
+<p>Sources: the quest's script source (<code>Baywatch.txt</code>) and the land's control script, checked line by line against the
+compiled form in the shipped <code>challenge.chl</code>; the shared helpers it runs (the scroll notify loop, the standard reminder,
+the dispenser reward); the game's English text table; and the executable (read-only) for what a challenge log entry does
+with its success and alignment, and how the script's random numbers are drawn. openblack's state is judged on this tree:
+of the 64 script functions this quest and the scripts it starts need, 8 still only log "not implemented" in
+<code>src/CHLApi.cpp</code> (among them a villager's wandering place, the held-by-creature check and the challenge log), and the
+land's control script never runs (see <a href="../land_2.html">../land_2.md</a> row 1), so the quest never appears; every row below
+is todo unless the notes say otherwise.</p>
+<p><strong>Progress: 0/77 done, 3 partial — 2%</strong></p>
+<h2 id="how-it-appears">How it appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's control script starts a watcher for this quest along with the land's other challenge watchers</td>
+<td>todo</td>
+<td><code>LandControl2</code> never runs: <code>LOAD_MAP</code> is empty, so the story never reaches Land 2 (<a href="../../../map-loading.html#pending">map-loading</a>)</td>
+</tr>
+<tr>
+<td>The watcher waits 4 minutes, then checks whether both Town6 (the Indian town near Lethys's snowy edge, which has no challenge of its own) and Town2 (the Indian town where the scroll appears) belong to the player; if not, it waits another 4 minutes and checks again, for ever</td>
+<td>todo</td>
+<td>the town owner read (<code>GetProperty</code> player) is not ported; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Once both towns are the player's, the quest starts once and the watcher ends; nothing can start it a second time</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Before the scroll appears, the bay around the swimming spot is ringed with an anti-influence area of radius 30, so the player's hand has no influence there (and so can't reach the children directly)</td>
+<td>todo</td>
+<td><code>InfluencePosition</code> with the anti flag works (<code>src/Magic/Script/CHLInfluence.cpp</code>); the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A silver scroll appears on the ground at the mother's hut, at the hut's position on the cliff top above the bay (about 186 m inland of the swimming spot); its height isn't changed by the script</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> works (<code>src/ECS/ScriptHighlight.cpp</code>); the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>While the camera is within 100 of the scroll and the scroll is on screen, the evil advisor steps out, points at it and says "Hey. There's a job for you. Wanna do it?", at most once every 30 seconds and only when no film is playing</td>
+<td>todo</td>
+<td>the shared notify loop's natives work (<code>SpiritEject</code>, <code>SpiritPointPos</code>, <code>GameThingFieldOfView</code>, <code>RunText</code>, <code>DllGettime</code>); the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The quest waits until the scroll (or the hut spot) is clicked; the scroll is then switched on and the rest begins</td>
+<td>todo</td>
+<td><code>GameThingClicked</code> and <code>SetActive</code> on a highlight work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>No mother and no children exist until the scroll is clicked: the mother (an Indian housewife) is made at the hut, and five Indian farmer boys are made at five spots close together in the bay</td>
+<td>todo</td>
+<td><code>Create</code> makes villagers; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A log entry is recorded during the introduction (see below), not when the scroll appears</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-children">The children</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each son is made as a grown farmer and then set to age 11, so he looks like a child</td>
+<td>todo</td>
+<td>the age property works for villagers (<code>SetProperty</code>); the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Each son waits a random 1 to 4 seconds, then starts a looping swimming animation and turns to face a spot in the middle of the group</td>
+<td>todo</td>
+<td><code>SetScriptState</code>, <code>SetScriptUlong</code> and <code>SetFocus</code> work for villagers, <code>Random</code> works; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A count of children in the water starts at 5</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A son lifted out of the water by the player's hand or the creature's hand leaves the in-water count (once, however long he is held)</td>
+<td>todo</td>
+<td>the in-hand property (<code>GetProperty</code>) and <code>InCreatureHand</code> are stubs</td>
+</tr>
+<tr>
+<td>Each son's script waits until he is no longer held by either hand and no longer flying through the air before deciding what happened</td>
+<td>todo</td>
+<td>the in-hand property is not ported (flying is)</td>
+</tr>
+<tr>
+<td>Put down (or landing) alive on dry land (ground height above 0): he plays a lost-in-the-crowd animation once and says "All right I'm going home.", then walks back to the hut at half speed</td>
+<td>todo</td>
+<td><code>GetLandHeight</code>, the script animations, <code>RunText</code> and <code>MoveGameThing</code> work for villagers; never reached (held check stubs); the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Put down (or landing) alive in the water (ground height 0 or below): he stays where he is, starts swimming again and rejoins the in-water count</td>
+<td>todo</td>
+<td>needs the held check (stub)</td>
+</tr>
+<tr>
+<td>A son who reaches within 5 of the hut alive counts as home and his script ends; dropping him by the hut counts at once</td>
+<td>todo</td>
+<td><code>MoveGameThing</code> and <code>GetDistance</code> work for villagers; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A son's death is noticed whenever his health falls to 0 or below, wherever he is (swimming, walking home, after a throw); he counts as killed, leaves the in-water count if he was swimming, and his script ends</td>
+<td>todo</td>
+<td>the health property (<code>GetProperty</code>) is not ported</td>
+</tr>
+<tr>
+<td>The first son to die (only the first) brings out the evil advisor: "That'll teach the kids a lesson." and then the good advisor: "How savage! Killing such innocents!"</td>
+<td>todo</td>
+<td>needs the health read (not ported)</td>
+</tr>
+<tr>
+<td>Nothing in the script drowns the children or makes them tire: they swim until fetched or killed, and the quest never ends by time</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Whether a son eaten by the creature counts as killed (health read as 0) or is lost track of is undetermined</td>
+<td>todo</td>
+<td>depends on what the health read gives for an eaten (removed) villager; not checked</td>
+</tr>
+<tr>
+<td>Once a son is home, nothing more is watched for him: killing him later does not change the count</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-introduction">The introduction</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A film (widescreen) starts with the script music "generic 3"; the mother is drawn in high detail</td>
+<td>todo</td>
+<td><code>SetWidescreen</code>, <code>StartMusic</code>, <code>SetHighGraphicsDetail</code> work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The camera glides over 3 seconds to the hut while the mother walks at half speed to a spot about 12 m from it</td>
+<td>todo</td>
+<td><code>MoveCameraPosition</code>, <code>MoveCameraFocus</code>, <code>MoveGameThing</code> and the speed property work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>She plays a looking-for-something animation as the camera creeps in over 6 seconds</td>
+<td>todo</td>
+<td>the villager's script animation and the camera moves work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The mother: "My children have gone swimming, and they have not returned."</td>
+<td>todo</td>
+<td><code>RunText</code> works; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The dialogue closes and the camera cuts to a low view over the water looking at the children</td>
+<td>todo</td>
+<td><code>GameCloseDialogue</code>, <code>SetCameraPosition</code>, <code>SetCameraFocus</code> work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The challenge log entry is recorded here, titled "The Sea", success 0, alignment 0, its picture taken from this view of the swimming boys; its reminder is the good advisor: "This woman's children have not returned from swimming."</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>The mother (over the view of the boys): "I worry for their safety, and I'm too tired to find them." while the camera glides lower over the water for 6 seconds</td>
+<td>todo</td>
+<td><code>RunText</code> and the camera moves work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The camera cuts back to the hut and pulls up and back over 4 seconds (its aim over 3); the mother's speed drops to a fifth</td>
+<td>todo</td>
+<td>the camera natives and the speed property work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The high detail and the music stop, the film ends, and the mother wanders around her spot (within 6 of it)</td>
+<td>todo</td>
+<td><code>SetScriptStatePos</code> and <code>SetScriptFloat</code> are stubs; the two whole-number settings of the wander (4 and 20) are not determined</td>
+</tr>
+<tr>
+<td>From the end of the film, the children laugh: at the swimming spot, each time the script runs, a random one of seven child-laugh sounds plays with a chance of 1 in (250 ÷ swimmers + 1), so 1 in 51 with five swimming and rarer as fewer swim; the laughing stops for good once no child is in the water, even if one is later put back</td>
+<td>todo</td>
+<td><code>PlaySoundEffect</code> and <code>RandomUlong</code> work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-the-player-must-do">What the player must do</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The main watch starts 5 seconds after the film and runs until one of the endings below</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Bring each son out of the water and set him down on dry land so he walks home, or drop him straight by the hut; with the bay shut to the player's influence, the creature is the usual way to fetch them</td>
+<td>todo</td>
+<td>needs the held checks (stubs); the unused line "Let's get the Creature over there to scoop them out." shows that intent</td>
+</tr>
+<tr>
+<td>Or take the mother to the beach: while all five sons are still swimming, the mother within 40 of the swimming spot and held by neither the player nor the creature starts the beach ending</td>
+<td>todo</td>
+<td>needs the in-hand property and <code>InCreatureHand</code> (stubs)</td>
+</tr>
+<tr>
+<td>The beach ending is only open while every son is in the water: once any son has been taken out (and not put back) or killed, it can no longer happen</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Bringing the camera within 20 of the swimming spot with it on screen makes a son call out, once only: "We're having too much fun, we're not going anywhere."</td>
+<td>todo</td>
+<td><code>GameThingFieldOfView</code> and <code>RunText</code> work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="endings">Endings</h2>
+<p>Every ending records the challenge log's final state (success and alignment) for "The Sea". Updating an existing log
+entry applies the given alignment to the player's alignment (scaled by a per-player factor that is not determined
+here); success is kept between 0 and 1 and alignment between -1 and 1.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>All five sons home and the mother alive: a film at the hut; the mother: "Thank you for bringing back my loved ones."</td>
+<td>todo</td>
+<td>needs the sons home (held checks are stubs)</td>
+</tr>
+<tr>
+<td>…the reward dispenser is put down quietly (no reward sting, no advisor talk, no help) and the camera flies over 5 seconds (its aim over 2) to look at it; the log entry is recorded again with a new picture of the dispenser: success 1, alignment +1, same reminder</td>
+<td>todo</td>
+<td>the dispenser can be made (<code>Create</code>, <code>src/Worship/SpellDispenser.cpp</code>) but <code>Snapshot</code> is a stub and the ending is not reached</td>
+</tr>
+<tr>
+<td>Some sons home and the rest killed (one to four killed), no child left in the water, the mother alive: a film at the hut; log update success 1, alignment -0.2, no new picture; the mother: "I'll find where the others got to, I'm sure they'll be somewhere." No reward</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> stub; needs the health read</td>
+</tr>
+<tr>
+<td>All five sons killed and the mother alive: a film at the hut; log update success 1, alignment -0.6, no new picture; the mother: "So you couldn't find my loved ones. I'll have to search for myself."; then the evil advisor: "She'll be searching for a long time. Ha!" No reward</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> stub; needs the health read</td>
+</tr>
+<tr>
+<td>All five sons killed and the mother dead: no film, just dialogue; the evil advisor: "A whole family slaughtered. Nice going." The log is updated with the "details" form: success 1, alignment -1, title "The Sea", the current camera view passed but no new picture taken, and no reminder given</td>
+<td>todo</td>
+<td><code>UpdateSnapshotPicture</code> is a stub; the source comment quotes the line as "A whole family slaughtered, nice going!"; whether the old reminder is cleared by passing none is not determined</td>
+</tr>
+<tr>
+<td>Every son accounted for (home or killed, at least one home) but the mother dead: a film at the hut; log update success 1, alignment -0.8, no new picture; the good advisor: "Oh how terrible. Orphans." No reward</td>
+<td>todo</td>
+<td>needs the health read; <code>UpdateSnapshot</code> stub</td>
+</tr>
+<tr>
+<td>Beach ending, mother alive: a film at the beach; a son: "Quick, run! It's mom!"; the screen fades to black over 2 seconds</td>
+<td>todo</td>
+<td><code>SetFade</code> and <code>FadeFinished</code> work, but the beach ending needs the held checks (stubs)</td>
+</tr>
+<tr>
+<td>…in the dark the mother is put back at her spot and every son (all are alive, since all five were swimming) is put around her, each in an idle animation (two plain idles, a lost look, an unimpressed look); she turns to face the camera at the hut; fade in over 2 seconds</td>
+<td>todo</td>
+<td><code>SetPosition</code> and the villagers' script animations work; never reached</td>
+</tr>
+<tr>
+<td>…the mother: "Thank you for bringing back my loved ones."; the log entry is recorded again with a new picture of the family: success 1, alignment +0.8; the camera pulls up and back over 4 seconds</td>
+<td>todo</td>
+<td><code>Snapshot</code> stub; no reward is given on this ending</td>
+</tr>
+<tr>
+<td>Beach ending, mother dead (her body within 40 of the spot while all five swim): a film at the beach; the woman's voice: "Aaahhh!"; fade to black over 2 seconds</td>
+<td>todo</td>
+<td>needs the health read; the source comment writes it "AAaahhh !!!!"</td>
+</tr>
+<tr>
+<td>…her body is put back at her spot lying dead, and the five sons are put around her, each facing her: two inspecting her, one mourning, one overworked, one scared stiff; fade in; the log entry is recorded again with a new picture of this scene: success 1, alignment -0.5; the camera pulls up and back over 4 seconds</td>
+<td>todo</td>
+<td><code>Snapshot</code> stub; never reached</td>
+</tr>
+<tr>
+<td>The watch ends with the first ending reached; the children's scripts and the laughing are then stopped</td>
+<td>todo</td>
+<td><code>StopScript</code> works; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A quest with sons still in the water simply waits: there is no time limit, no failure ending and no way to abandon it</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="reward">Reward</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The reward is a miracle dispenser for the creature miracle "Big", built (as a Norse dispenser building) on the cliff top between the hut and the bay, about 74 m from the hut, turned 180°, and switched on</td>
+<td>partial</td>
+<td><code>CreateWithAngleAndScale</code> makes spell dispensers (<code>src/Worship/SpellDispenser.cpp</code>), <code>SetActive</code> works on them; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty); see <a href="../rewards.html">../rewards.md</a> and <a href="../../miracles/dispensers_and_seeds.html">../../miracles/dispensers_and_seeds.md</a></td>
+</tr>
+<tr>
+<td>The dispenser's refill time is set to 0 seconds (the helper always sets it, because it tests the game time rather than the given refill time)</td>
+<td>todo</td>
+<td><code>SetTimerTime</code> works; what a 0 refill time means for the dispenser is not determined; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>It is given quietly: no reward sting, no camera fly-to from the helper, no first-dispenser tip or signpost, no help lines, and it does not count towards the land's dispenser-reward tally</td>
+<td>todo</td>
+<td>the quest's own camera flies to it instead; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Only the all-home, mother-alive ending gives it; the equally good beach ending (+0.8) gives nothing</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="aftermath">Aftermath</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The mother and the surviving sons stay in the world</td>
+<td>todo</td>
+<td>they are never released from the script; whether they go back to normal village life is not determined</td>
+</tr>
+<tr>
+<td>The anti-influence ring over the bay and the scroll are never removed by the script</td>
+<td>todo</td>
+<td>whether the game removes them when the challenge ends is not determined</td>
+</tr>
+<tr>
+<td>The reward dispenser stays where it was put</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="advisors">Advisors</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The evil advisor brings the job to the player's notice (the scroll-notify line)</td>
+<td>todo</td>
+<td>the notify line's natives work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The log's reminder is the good advisor's "This woman's children have not returned from swimming."</td>
+<td>todo</td>
+<td>the shared reminder script's natives work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The first killing: evil "That'll teach the kids a lesson.", good "How savage! Killing such innocents!"</td>
+<td>todo</td>
+<td>needs the health read (not ported)</td>
+</tr>
+<tr>
+<td>All sons killed, mother alive: evil "She'll be searching for a long time. Ha!"; whole family dead: evil "A whole family slaughtered. Nice going."; orphans: good "Oh how terrible. Orphans."</td>
+<td>todo</td>
+<td>needs the health read (not ported)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="music-and-sounds">Music and sounds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The introduction plays the script music "generic 3" and stops it at its end</td>
+<td>partial</td>
+<td><code>StartMusic</code>/<code>StopMusic</code> work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The children's laughter (seven samples, from the script sound bank) is heard at the swimming spot while any child swims</td>
+<td>partial</td>
+<td><code>PlaySoundEffect</code> works (<code>src/Audio</code>); the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The endings have no music or sound of their own</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creature">Creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A son held in the creature's hand counts the same as one in the player's hand; where the creature puts him down decides whether he walks home or swims again</td>
+<td>todo</td>
+<td><code>InCreatureHand</code> is a stub</td>
+</tr>
+<tr>
+<td>The mother in the creature's hand does not start the beach ending until the creature lets go</td>
+<td>todo</td>
+<td><code>InCreatureHand</code> is a stub</td>
+</tr>
+<tr>
+<td>A son the creature kills counts as killed (whether eating counts is not determined, see above)</td>
+<td>todo</td>
+<td>needs the health read</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-quirks">Script quirks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The scroll-notify helper is called with four values (no notify distance), so it uses the shared 100</td>
+<td>todo</td>
+<td>the cut Big Fish quest calls it with five</td>
+</tr>
+<tr>
+<td>The all-home, mother-alive ending and the beach ending record the log with "snapshot challenge" a second time instead of "update snapshot"; the game treats it as an update with a new picture</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>The beach ending checks each son's health before gathering him, but it can only start with all five swimming, so all five are always alive there</td>
+<td>todo</td>
+<td>dead checks</td>
+</tr>
+<tr>
+<td>A son killed with others still swimming is not followed by any ending until every son is home or dead, so a single son left swimming holds the quest open for ever</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>If the mother dies with all five sons home, the orphans ending is used (alignment -0.8), not the thanks ending</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The "Aaahhh!" of the dead-mother beach ending is in the woman's voice although the mother is dead</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The main watch and the laughing loop have no wait, so they run every time scripts run</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A son dropped on dry land somewhere he can't walk home from never counts as home, which also holds the quest open</td>
+<td>todo</td>
+<td>the walk home is ordered once and never repeated</td>
+</tr>
+<tr>
+<td>The dispenser helper's refill check tests the game time instead of its refill argument, so the refill time is always set</td>
+<td>todo</td>
+<td>shared helper</td>
+</tr>
+<tr>
+<td>A testing script that sets up land 2 and runs this quest at once exists in the sources but is not in the shipped program</td>
+<td>todo</td>
+<td>not in the shipped program</td>
+</tr>
+</tbody>
+</table>
+<h2 id="unused-or-cut-parts">Unused or cut parts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The text table holds seventeen more lines of this quest that no script uses (numbers 4 to 14 and 16 to 21; 1 to 3 don't exist), from an earlier plan where the children were in danger in the water and the woman judged the player</td>
+<td>n/a</td>
+<td>cut content; listed for completeness</td>
+</tr>
+<tr>
+<td>Unused, on killing the woman: evil "You killed the woman, Boss. Now that is a cool, calculated action. I approve."; the woman: "You disgraceful, murdering overfiend. No true god would act like that. I'm repulsed."; evil "Oh this is priceless. They can't take a bit of evil."; good "If I wasn't stuck inside your head, I'd leave and become a ghost or something."</td>
+<td>n/a</td>
+<td>cut content</td>
+</tr>
+<tr>
+<td>Unused, on success: the woman: "What a stunning performance. I'm so, so grateful. And the kids will be pleased, too."; evil "Huh. Am I wasting my time pushing the evil point of view? Are you gonna listen to me?"</td>
+<td>n/a</td>
+<td>cut content</td>
+</tr>
+<tr>
+<td>Unused, on a cold result: the woman: "That was rather cold-hearted."; evil "Ooh, this girl is feisty. I like it."; good "Oh shut up and take your telling off like a man, demon."; evil "Who rattled your cage, you do-gooding nimrod?"</td>
+<td>n/a</td>
+<td>cut content</td>
+</tr>
+<tr>
+<td>Unused, on failing: the woman: "Er, lordly one. You're gave it a good go. Thank you for trying."</td>
+<td>n/a</td>
+<td>cut content (the typo is in the text table)</td>
+</tr>
+<tr>
+<td>Unused, spotting the children: good "Look! Look down there! Children are in trouble in the water!"; good "We're not too good at this sort of thing. Remember the fisherman we failed to save?"; evil "Great! I get to see more people drown. Pass the popcorn!"; good "We should be able to save them. We saved the fishermen before."; good "Let's get the Creature over there to scoop them out."; evil "You mean, let's get him over there for a salty snack!"</td>
+<td>n/a</td>
+<td>cut content; the fisherman lines refer back to an earlier fisherman rescue</td>
+</tr>
+<tr>
+<td>Line 15 of this quest is asked for by the cut Big Fish quest's scroll but is not in the text table</td>
+<td>n/a</td>
+<td>that quest belongs to the shared/unused list</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

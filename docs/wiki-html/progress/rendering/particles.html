@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Particles — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="here" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#particles">Particles</a><ul>
+<li><a href="#effect-files-and-the-engine">Effect files and the engine</a></li>
+<li><a href="#how-particles-look">How particles look</a></li>
+<li><a href="#drawing-order">Drawing order</a></li>
+<li><a href="#sounds-and-other-outputs">Sounds and other outputs</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="particles">Particles</h1>
+<p>The particle engine that draws the game's effects from its particle files: the groups and atoms, the rules that move
+them, the sprites, ribbons, beams, models, mists and light they are drawn as, and the order they are drawn in. What each
+miracle's effect looks like is in <a href="../miracles/index.html">../miracles/</a>; gesture trails in <a href="../gesture/index.html">../gesture/</a>.</p>
+<p><strong>Progress: 24/33 done, 4 partial — 79%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../particles.html">Particles (PSys)</a>, <a href="../../parity.html">Graphics engine parity: original versus openblack</a>, <a href="../../rendering.html">World rendering: original versus openblack</a>.</p>
+<h2 id="effect-files-and-the-engine">Effect files and the engine</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Effects are read from the game's particle files with their bitmaps</td>
+<td>done</td>
+<td>the file format by raffclar's <code>components/psys</code> (<code>ParticleFile</code>, <code>SplitCompressed</code>, <code>StackedBitmap</code> for the light maps, <code>EnumHeader</code> for the game's <code>.h</code> names), loaded through the resource caches by <code>src/Particles/PSysFile.cpp</code> and <code>src/Resources/Loaders.cpp</code>; tests <code>test/test_psys_file_loader.cpp</code>, <code>test/test_particle_file.cpp</code>, <code>test/test_particle_file_parity.cpp</code> (the same data as the former reader on every spell file, enum header and light map of the game)</td>
+</tr>
+<tr>
+<td>An effect's groups make collections of atoms, at its start or under each new atom, and a hierarchy group moves, turns and scales with its atom</td>
+<td>done</td>
+<td><code>src/Particles/PSys.cpp</code> (collections, hierarchies)</td>
+</tr>
+<tr>
+<td>Every rule the files name creates, moves, shapes, colours or ends particles</td>
+<td>partial</td>
+<td>the classes the miracles and script effects use are registered (<code>src/Particles/PSysRegistry.cpp</code>, <code>src/Particles/Rules/</code>); still missing: the mana path, the fork flicker, emitting from the parent atom, the object-referencing creator, the animated mesh creator, and the rest listed as not ported in our wiki</td>
+</tr>
+<tr>
+<td>Effects are started by type from the game's list of effects</td>
+<td>done</td>
+<td><code>src/Particles/ParticleTypes.cpp</code> (raffclar's table, <code>particles::ParticleTypeFile</code>), <code>src/Particles/PSysManager.cpp</code>; tests <code>MagicTables.particleTypeFiles</code>, <code>ParticleFileParity.particleTypeNames</code></td>
+</tr>
+<tr>
+<td>Effects are cleared when a new land loads</td>
+<td>done</td>
+<td><code>psys::manager::Clear</code> from <code>Game::LoadMap</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-particles-look">How particles look</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sprites face the camera, cut from cells of a sheet</td>
+<td>done</td>
+<td><code>Renderer::DrawParticleSprites</code> (<code>src/Graphics/RendererParticles.cpp</code>), the cell from the sprite flags, the frames by <code>frame_anim::ParticleFrameIndex</code></td>
+</tr>
+<tr>
+<td>Sprites lie flat on the ground, turned by their own heading</td>
+<td>done</td>
+<td>the horizontal sprite flag takes the origin and the heading (<code>src/Graphics/RendererParticles.cpp</code>)</td>
+</tr>
+<tr>
+<td>Some sprites are tinted by the colour of the land under them</td>
+<td>partial</td>
+<td>the particle meshes take the land's colour (<code>drawWithLandscapeColour</code> in <code>src/Particles/Creators/Mesh.cpp</code>); sprites do not</td>
+</tr>
+<tr>
+<td>Sprites are added over what is behind them or blended over it, writing depth or not, as their creator says</td>
+<td>done</td>
+<td>the creator's material, modes 13 or 6 (12 or 5 when it writes depth) in <code>src/Graphics/RendererParticles.cpp</code></td>
+</tr>
+<tr>
+<td>Ribbons run through chains of joints, their width turned to face the camera, meeting halfway at each joint</td>
+<td>done</td>
+<td><code>src/Particles/Creators/Chain.cpp</code>, <code>src/Graphics/RendererChain.cpp</code></td>
+</tr>
+<tr>
+<td>Beams</td>
+<td>done</td>
+<td>the beam chains (<code>src/Particles/Creators/Chain.cpp</code>), the explosion's beam (<code>src/Particles/Rules/Explosion.cpp</code>); test <code>test/test_explosion.cpp</code></td>
+</tr>
+<tr>
+<td>Models as particles: plain, with sliding or frame-playing textures, animated, or turned to face the camera and stretched</td>
+<td>partial</td>
+<td><code>src/Particles/Creators/Mesh.cpp</code> (plain, sliding and frame-playing textures, facing the camera); the animated mesh creator is not ported</td>
+</tr>
+<tr>
+<td>Models blended by volume and models whose texture rotates</td>
+<td>todo</td>
+<td>no creator for them</td>
+</tr>
+<tr>
+<td>Mists</td>
+<td>done</td>
+<td><code>src/Particles/Creators/Mist.cpp</code>, <code>src/Graphics/RendererMists.cpp</code>; test <code>test/test_mists.cpp</code></td>
+</tr>
+<tr>
+<td>Light maps stamped on the land's colours under atoms, playing through frames</td>
+<td>done</td>
+<td><code>src/Particles/Creators/LightMap.cpp</code> (stamped each frame into the land's cells)</td>
+</tr>
+<tr>
+<td>Shadow maps darkening the land under atoms, as a cloud's shadow does</td>
+<td>partial</td>
+<td>the mist creator's shadow map (<code>src/Particles/Creators/Mist.cpp</code>); not yet checked against the game</td>
+</tr>
+<tr>
+<td>The casting player's symbol</td>
+<td>done</td>
+<td><code>psys::TintWithPlayerColour</code> (<code>src/Particles/PSys.cpp</code>)</td>
+</tr>
+<tr>
+<td>Symbols of belief rising over worshippers</td>
+<td>done</td>
+<td>the town centre's belief symbols (<code>src/Particles/TownBelief.cpp</code>, test <code>test/test_town_belief.cpp</code>) and the belief sprite of the utility effects (<code>src/Particles/Utility.cpp</code>); see <a href="../worship/index.html">../worship/</a></td>
+</tr>
+<tr>
+<td>The mana path from a worship site</td>
+<td>todo</td>
+<td>its rule is missing; see <a href="../worship/index.html">../worship/</a></td>
+</tr>
+<tr>
+<td>Objects broken into flying pieces of their model</td>
+<td>done</td>
+<td><code>src/Particles/Rules/ExplodeObject.cpp</code>, the pieces drawn through <code>src/Graphics/WorldTriangles.cpp</code></td>
+</tr>
+<tr>
+<td>Surfaces of revolution: the swirl under a dispenser, the teleport's pool, vortices</td>
+<td>done</td>
+<td><code>src/Particles/Rules/SurfRevol.cpp</code>, <code>src/Graphics/RendererRevolvedSurface.cpp</code></td>
+</tr>
+<tr>
+<td>Sheets of light standing along a recognised gesture's trail</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Gesture.cpp</code></td>
+</tr>
+<tr>
+<td>Forked lightning</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Lightning.cpp</code>; test <code>test/test_lightning.cpp</code></td>
+</tr>
+<tr>
+<td>Glints sparkling on objects</td>
+<td>done</td>
+<td>the scrolls' glints effects (<code>SF_ScriptHighlightGlints*</code>) made and drawn sorted by <code>src/ECS/ScriptHighlight.cpp</code> through the particle engine</td>
+</tr>
+</tbody>
+</table>
+<h2 id="drawing-order">Drawing order</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Most effects are sorted piece by piece among everything else that blends, farthest first</td>
+<td>done</td>
+<td>the sorted draw path in the shared transparent queue (<code>src/Particles/PSys.h</code> <code>DrawPath</code>, <code>src/Graphics/ZSort.cpp</code>); tests <code>test/test_psys_sorted_queue.cpp</code>, <code>test/test_psys_draw_path.cpp</code></td>
+</tr>
+<tr>
+<td>A few spot visuals are drawn whole at their origin, in the order their collections hold them</td>
+<td>done</td>
+<td>the queued and immediate draw paths (<code>DrawPath::Queued</code>, <code>Immediate</code>); test <code>test/test_psys_draw_path.cpp</code></td>
+</tr>
+<tr>
+<td>The miracle in the hand is drawn just after the hand</td>
+<td>done</td>
+<td>the hand's effects collected apart and drawn after the hand (<code>Renderer.cpp</code>)</td>
+</tr>
+<tr>
+<td>Sprites sharing a sheet are drawn together</td>
+<td>done</td>
+<td>consecutive sprites with the same material go in one call (<code>src/Graphics/RendererParticles.cpp</code>)</td>
+</tr>
+<tr>
+<td>Effects show in the sea's reflection too</td>
+<td>todo</td>
+<td>only the main view draws the effects (<code>Renderer.cpp</code>); whether the original mirrors them in the sea is not in our wiki</td>
+</tr>
+</tbody>
+</table>
+<h2 id="sounds-and-other-outputs">Sounds and other outputs</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Particles play sounds that follow them, are heard late when far off as thunder is, and fade when let go</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Sound.cpp</code>, <code>src/Particles/SoundAction.cpp</code>, <code>src/Audio/Services/SpellSounds.cpp</code>; tests <code>SpellSounds.*</code>; see <a href="../audio/index.html">../audio/</a></td>
+</tr>
+<tr>
+<td>Glows lit by particles go once nothing lights them</td>
+<td>done</td>
+<td>the light map stamps are cleared and laid again every frame (<code>light_map_atoms</code>, <code>src/Particles/Creators/LightMap.cpp</code>)</td>
+</tr>
+<tr>
+<td>The effects of picking up and putting down several food or wood items at once</td>
+<td>todo</td>
+<td>the effect types exist (<code>src/Particles/ParticleTypes.cpp</code>) but their emitter rule is missing; see <a href="../hand/index.html">../hand/</a></td>
+</tr>
+<tr>
+<td>Effects are saved with the game and restored on load</td>
+<td>todo</td>
+<td>no save; see <a href="../engine/index.html">../engine/</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

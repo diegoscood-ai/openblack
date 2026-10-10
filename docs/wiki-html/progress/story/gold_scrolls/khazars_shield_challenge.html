@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Khazar&#x27;s Shield Challenge — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#khazars-shield-challenge">Khazar's Shield Challenge</a><ul>
+<li><a href="#where-it-sits-in-the-story">Where it sits in the story</a></li>
+<li><a href="#how-it-appears">How it appears</a></li>
+<li><a href="#the-introduction-and-khazars-demonstration">The introduction and Khazar's demonstration</a></li>
+<li><a href="#throwing-the-rocks">Throwing the rocks</a></li>
+<li><a href="#what-the-player-must-do">What the player must do</a></li>
+<li><a href="#khazars-attack-the-test">Khazar's attack (the test)</a></li>
+<li><a href="#success-and-failure">Success and failure</a></li>
+<li><a href="#reward">Reward</a></li>
+<li><a href="#aftermath">Aftermath</a></li>
+<li><a href="#advisors">Advisors</a></li>
+<li><a href="#music-and-sounds">Music and sounds</a></li>
+<li><a href="#creature">Creature</a></li>
+<li><a href="#script-quirks">Script quirks</a></li>
+<li><a href="#unused-or-cut-parts">Unused or cut parts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="khazars-shield-challenge">Khazar's Shield Challenge</h1>
+<p>A land 2 gold scroll and Khazar's lesson in defence: at a lone hut on a small island off the east shore Khazar casts a
+Physical Shield and lets the player throw rocks at it, then hands over three shield seeds; the player shields the hut,
+Khazar drops three boulders on it, and whatever happens the Physical Shield miracle is given to the player's village.
+It is started, together with <a href="khazars_fireball_challenge.html">Khazar's Fireball Challenge</a>, by the "Miracle Challenge"
+scroll Khazar leaves after the <a href="worship_site.html">Worship Site</a> lesson (that scroll and Khazar's tour are described in
+the fireball file). The land as a whole is in <a href="../land_2.html">../land_2.md</a>, the land's control script in
+<a href="../../scripts/land2_script.html">../../scripts/land2_script.md</a>, the script program in
+<a href="../../scripts/challenge_scripts.html">../../scripts/challenge_scripts.md</a>, the miracle itself in
+<a href="../../miracles/physical_shield.html">../../miracles/physical_shield.md</a>.</p>
+<p><strong>Land:</strong> 2 · <strong>Giver:</strong> Khazar (the friendly god), through a scroll on the island hut · <strong>Script:</strong> PhysicalShieldChallenge · <strong>Reward:</strong> the Physical Shield miracle at the player's home village's worship site, given whatever the result · <strong>Repeatable:</strong> no</p>
+<p>Sources: the quest's script source (<code>Land2ShieldChallenge.txt</code>), the scroll that starts it
+(<code>Land2FireballChallenge.txt</code>), the land's scroll-notify helper (<code>SetupLand2.txt</code>), the hand demo (<code>HandDemos.txt</code>) and
+the land's control script, checked against the compiled <code>challenge.chl</code>; the game's English text table; and the land's
+map script (<code>Scripts/Land2.txt</code>) for the hut. The attack on the hut is Khazar's own boulders, not Lethys's (the land
+file's summary row says Lethys). openblack's state is judged on this tree: of the 55 script functions this challenge
+needs, 9 still only log "not implemented" in <code>src/CHLApi.cpp</code> (among them Khazar's hand, the held object, hits on an
+object, aiming a rock and the challenge log), and the land's control script never runs in openblack (the land-loading
+function does nothing and the story always begins with Land 1's script), so the quest never appears; every row below is
+todo unless the notes say otherwise.</p>
+<p><strong>Progress: 0/61 done, 3 partial — 2%</strong></p>
+<h2 id="where-it-sits-in-the-story">Where it sits in the story</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Started only by clicking the "Miracle Challenge" scroll by the worship site, at the same moment as the fireball challenge; the two can be done in either order</td>
+<td>todo</td>
+<td>plain script; see <a href="khazars_fireball_challenge.html#the-miracle-challenge-scroll">khazars_fireball_challenge.md</a>; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>If Khazar has died before the Miracle Challenge scroll is clicked, this challenge is never started</td>
+<td>todo</td>
+<td>Khazar's death needs computer-player natives (stubs)</td>
+</tr>
+<tr>
+<td>Nothing in the land waits for it: no flag is set on completion</td>
+<td>todo</td>
+<td>the same script; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>What it unlocks: only the Physical Shield miracle at the home village's worship site; the same miracle also comes with Town2 (Khazar's Greek town at the start) and Lethys's home town when they are won</td>
+<td>todo</td>
+<td><code>Land2.txt</code> gives towns 2 and 5 a physical shield miracle and our map loading reads it; the challenge's own gift is never reached</td>
+</tr>
+<tr>
+<td>While it runs Khazar counts as busy, which holds back his death and so the end of the land (see Script quirks)</td>
+<td>todo</td>
+<td>Khazar's death needs computer-player natives (stubs)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-it-appears">How it appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hut is the single house of a tiny empty Norse village on an island, a neutral village the map makes uninhabitable for the challenge</td>
+<td>partial</td>
+<td>the house is made by our map loading (<code>AbodeArchetype</code>); the uninhabitable flag is not</td>
+</tr>
+<tr>
+<td>A gold scroll appears on the hut</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> is real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>While the camera is within 100 of the scroll and the scroll is on screen, the good advisor steps out, points at it and says "Here's one of Khazar's lessons. It's the Shield. We've got to try it, Leader.", at most once every 30 seconds and only outside films</td>
+<td>todo</td>
+<td>the notify loop calls real natives (<code>SpiritEject</code>, <code>SpiritPointPos</code>, <code>RunText</code>); never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The quest waits for the scroll or the hut to be clicked; the scroll is then switched to its active look</td>
+<td>todo</td>
+<td><code>GameThingClicked</code> is real and <code>SetActive</code> handles highlights; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>If Khazar dies before the click, the scroll is made active and nothing more happens</td>
+<td>todo</td>
+<td>Khazar's death needs computer-player natives (stubs)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-introduction-and-khazars-demonstration">The introduction and Khazar's demonstration</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>On the click Khazar counts as busy and his hand flies fast to a spot on the shore south-west of the hut</td>
+<td>todo</td>
+<td><code>MoveComputerPlayerPosition</code> is a stub, and the wait for his hand never ends (<code>ComputerPlayerReady</code>)</td>
+</tr>
+<tr>
+<td>A ring of influence of radius 40 is made round the hut, and the hut is mended to full health</td>
+<td>todo</td>
+<td><code>InfluencePosition</code> is real, but a building's health (property 1) is not handled by <code>SetProperty</code></td>
+</tr>
+<tr>
+<td>A film starts with Khazar's music; the camera moves in on the hut over 3 seconds</td>
+<td>todo</td>
+<td><code>StartMusic</code> and the camera moves are real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The log entry "Khazar's Shield Challenge" is recorded at 0 with the reminder "We need to throw stones at Khazar's Shield"</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>Khazar: "Soon you will need to protect your Villagers and their buildings."; the camera slides round over 6 seconds</td>
+<td>todo</td>
+<td><code>RunText</code> and the camera are real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Three rocks (0.7 scale) appear on the mainland about 80 m west of the hut, 2 m apart</td>
+<td>todo</td>
+<td><code>CreateWithAngleAndScale</code> makes rocks; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Khazar: "The Physical Shield protects against objects which are not of a spiritual nature." and "When you have the Miracle, this is how you cast a Shield."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Whatever the player is holding is deleted, so the hand is empty for the demo</td>
+<td>todo</td>
+<td>the held object comes from <code>GetObjectHeld</code> (a stub); <code>ObjectDelete</code> is real</td>
+</tr>
+<tr>
+<td>Khazar's shield hand demo: the camera frames the hut over 2 seconds and a shield miracle is put in the hand with seven times a normal shield's strength, "to deflect the 3 rocks"; Khazar: "You move the Hand to where you wish to start the Shield.", "Then you hold down the Action Button and trace the perimeter of the Shield. Like this.", "And the Shield appears." as the demo hand draws the circle and the shield goes up over the hut</td>
+<td>todo</td>
+<td><code>PlayHandDemo</code> is real, but putting a shield miracle in the hand with its strength needs <code>SetProperty</code> cases not handled</td>
+</tr>
+<tr>
+<td>The camera moves over 2 seconds to a spot by the rocks, aimed at the hut, and the player's control is cut down to the hand</td>
+<td>todo</td>
+<td><code>SetInterfaceInteraction</code> and the camera are real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>As the film ends Khazar says "Now throw these rocks at the hut and watch the Shield."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="throwing-the-rocks">Throwing the rocks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The quest finds the shield within 5 of the hut and waits until the shield is gone or hit, or 20 seconds pass</td>
+<td>todo</td>
+<td><code>GameThingHit</code> is a stub</td>
+</tr>
+<tr>
+<td>The shield stopping thrown rocks (and wearing down) is the miracle's normal behaviour</td>
+<td>partial</td>
+<td>the physical shield works in our tree (<a href="../../miracles/physical_shield.html">../../miracles/physical_shield.md</a>); the challenge never runs</td>
+</tr>
+<tr>
+<td>Full control comes back after the wait</td>
+<td>todo</td>
+<td><code>SetInterfaceInteraction</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>If the shield was hit or broke: a film, the camera rising over 6 seconds to look down at the hut; Khazar: "See? The hut is protected. But a strong enough attack will destroy the Shield." then "Now you can try. Shield the hut and I will attack it."</td>
+<td>todo</td>
+<td>real camera and text natives; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>If 20 seconds pass with no hit: Khazar says "The Shield deflects the rocks." (whether or not any rock was thrown) as the camera rises, then "Now you can try. Shield the hut and I will attack it."</td>
+<td>todo</td>
+<td>real camera and text natives; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-the-player-must-do">What the player must do</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Three Physical Shield one-shot seeds appear on the shore about 40 m south-west of the hut, 2 m apart, each with three times a normal shield's strength</td>
+<td>todo</td>
+<td><code>CREATE</code> of one-shot seeds is real (<code>magic::script::CreateOneShotSpell</code>), but their strength through <code>SetProperty</code> is not handled</td>
+</tr>
+<tr>
+<td>Khazar's demonstration shield is removed and the hut mended to full health again</td>
+<td>todo</td>
+<td><code>ObjectDelete</code> is real, but mending the hut needs health (property 1), not handled</td>
+</tr>
+<tr>
+<td>The player's control is cut down to the hand</td>
+<td>todo</td>
+<td><code>SetInterfaceInteraction</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The log entry moves to 0.3 with the new reminder "We need to cast a Shield over the hut on this island."</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>The quest waits until the player holds a shield seed or a shield stands within 5 of the hut; every 30 seconds (the first at once) the good advisor says "Tap the Shield Miracle and wait."</td>
+<td>todo</td>
+<td><code>GetObjectHeld</code> and <code>IsOfType</code> are stubs</td>
+</tr>
+<tr>
+<td>Lost seeds come back: about every sixth pass, a seed not held that is off screen or more than 12 m from the first seed's spot fades out and is made again at its own spot</td>
+<td>todo</td>
+<td>real field-of-view, distance, delete and create natives; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Once a seed is held, the evil advisor says "Hold the Action Button and draw a circle on the ground to place the Shield."</td>
+<td>todo</td>
+<td>follows from the in-hand check, a stub</td>
+</tr>
+<tr>
+<td>The player then gets one go: the quest waits 1 second, looks for a shield within 5 of the hut, and if there isn't one waits until the hand is empty and 3 seconds more, then moves on whether or not a shield was cast</td>
+<td>todo</td>
+<td>the empty-hand wait reads a stub</td>
+</tr>
+<tr>
+<td>A shield drawn so that its centre is within 5 of the hut counts; a shield beside the hut does not</td>
+<td>todo</td>
+<td><code>CallNear</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>If a shield is found, the good advisor steps out: "Hey! You've cast the Miracle! Marvellous!"</td>
+<td>todo</td>
+<td><code>SpiritEject</code> and <code>RunText</code> are real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Full control comes back</td>
+<td>todo</td>
+<td><code>SetInterfaceInteraction</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="khazars-attack-the-test">Khazar's attack (the test)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A film: the hut is mended to full health again and Khazar's hand rises to 20 m above the hut; the camera moves to the shore over 4 seconds, looking up at it</td>
+<td>todo</td>
+<td>mending the hut (health) is not handled and Khazar's hand is a stub</td>
+</tr>
+<tr>
+<td>Khazar: "The Shield is ready." (said whether or not the player cast one)</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Three boulders, each a random 0.6 to 0.8 scale, appear 50 m above the hut at random spots up to 25 m away and are each aimed to land on the hut within 2 seconds, half a second apart</td>
+<td>todo</td>
+<td><code>CreateWithAngleAndScale</code> makes the rocks, but aiming them (<code>SetTarget</code>) is a stub</td>
+</tr>
+<tr>
+<td>Three seconds later Khazar's hand goes back to the shore</td>
+<td>todo</td>
+<td>Khazar's hand is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="success-and-failure">Success and failure</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The camera closes on the hut over 3 seconds and the log entry is set to 1 either way</td>
+<td>todo</td>
+<td>the log is a stub; the camera is real</td>
+</tr>
+<tr>
+<td>If the hut is still at full health (any damage at all counts as a failure): Khazar says "The hut survived my onslaught. Well done.", "Different sized objects do different levels of damage to a Shield." and "It'll disappear after taking excessive damage as well."</td>
+<td>todo</td>
+<td>a building's health (property 1) is not handled by <code>GetProperty</code></td>
+</tr>
+<tr>
+<td>Otherwise: "You failed to Shield the hut. It is destroyed." and "It is no disaster this time. However you will need practice further."</td>
+<td>todo</td>
+<td>the result reads health (not handled)</td>
+</tr>
+<tr>
+<td>There is no retry and no penalty: both endings go on to the reward</td>
+<td>todo</td>
+<td>the same script; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="reward">Reward</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The camera pulls back over 4 seconds and the Physical Shield miracle is given to the player's home village, so its worship site can pray for it</td>
+<td>todo</td>
+<td><code>SetMagicInObject</code> is real, but the home town comes from <code>GetTownWithId</code> (a stub); see <a href="../../miracles/dispensers_and_seeds.html">../../miracles/dispensers_and_seeds.md</a></td>
+</tr>
+<tr>
+<td>Khazar: "I have given the knowledge of the Physical Shield Miracle to your Village." and "From now on your people can worship for this Miracle at your Worship Site."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The music stops, the film ends, Khazar is released and no longer busy, and any shield seeds left fade away</td>
+<td>todo</td>
+<td><code>StopMusic</code> and <code>ObjectDelete</code> are real; <code>ReleaseComputerPlayer</code> is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="aftermath">Aftermath</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hut stays as damaged as the boulders left it; the boulders and the three practice rocks stay on the land</td>
+<td>todo</td>
+<td>the same script; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The influence ring round the hut is never removed by the script (undetermined: whether it goes when the script ends)</td>
+<td>todo</td>
+<td>the same script; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="advisors">Advisors</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The good advisor owns the notification, the log reminders, the tap tip and the praise; the evil advisor gives the drawing tip</td>
+<td>todo</td>
+<td><code>SpiritEject</code> and <code>RunText</code> are real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Clicking the log entry speaks its current reminder through the good advisor, who steps out to say it</td>
+<td>partial</td>
+<td>the shared reminder calls real natives; the log entry is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="music-and-sounds">Music and sounds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Khazar's script music plays from the click until the reward</td>
+<td>todo</td>
+<td><code>StartMusic</code> and <code>StopMusic</code> are real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creature">Creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature plays no part; nothing in the scripts reacts to it (undetermined what happens if it picks up the seeds or rocks)</td>
+<td>todo</td>
+<td>the same script; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-quirks">Script quirks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The loop meant to give the player time and fresh seeds counts the remaining seeds into a total it never adds to, so it always believes the seeds are used up: the player gets exactly one attempt, ending 3 seconds after the hand is next empty</td>
+<td>todo</td>
+<td>the same script; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The third seed's respawn check is guarded by whether the first seed exists instead of the third (both waits), so with the first seed gone the third is never replaced, and with the first present a used third seed may be remade (undetermined which happens in the engine)</td>
+<td>todo</td>
+<td>the same script; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The seeds' spot is about 40.6 m from the hut, just outside the radius-40 influence ring, with one seed inside it and one outside (undetermined whether the player can reach all three without the home village's influence)</td>
+<td>todo</td>
+<td>the same script; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Holding any object (a villager, a rock) when the demonstration starts deletes it</td>
+<td>todo</td>
+<td>the held object comes from <code>GetObjectHeld</code> (a stub)</td>
+</tr>
+<tr>
+<td>Khazar counts as busy from the click to the reward; a challenge clicked and left half done (seeds never taken) keeps him busy, which holds back Khazar's death and so the rest of the land</td>
+<td>todo</td>
+<td>Khazar's death needs computer-player natives (stubs)</td>
+</tr>
+<tr>
+<td>The busy flag is shared with the fireball challenge and Khazar's other lessons, so whichever finishes first clears it while this one may still be running</td>
+<td>todo</td>
+<td>Khazar's death needs computer-player natives (stubs)</td>
+</tr>
+<tr>
+<td>Khazar's "The Shield is ready." is spoken even when no shield was cast</td>
+<td>todo</td>
+<td>the same script; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="unused-or-cut-parts">Unused or cut parts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hand demo's line "Make sure you join up with the start position." is cut; the script's comment says the speech was too slow for the demo</td>
+<td>n/a</td>
+<td>in the text table, commented out in the demo</td>
+</tr>
+<tr>
+<td>Unused retry lines in the text table: "I give you more Seeds to practice with.", "You were unsuccessful. Try again.", "Try recasting the Shield Miracle." and "Draw a circle with the Action Button pressed to mark the position and size of the Shield.", which fit the multi-attempt loop the shipped script never gives; two more entries are marked "NOT USED"</td>
+<td>n/a</td>
+<td>never spoken by the shipped script</td>
+</tr>
+<tr>
+<td>A commented-out timer that would have dropped the boulders after 30 seconds whatever the player did</td>
+<td>n/a</td>
+<td>left in the source as comments</td>
+</tr>
+<tr>
+<td>A commented-out final log update at the end</td>
+<td>n/a</td>
+<td>commented out</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

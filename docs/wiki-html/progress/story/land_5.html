@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Land 5 — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="here" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#land-5">Land 5</a><ul>
+<li><a href="#arriving">Arriving</a></li>
+<li><a href="#silver-scrolls">Silver scrolls</a></li>
+<li><a href="#the-end">The end</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="land-5">Land 5</h1>
+<p>Nemesis's land: Nemesis curses the creature, his towns defend themselves with shields, and the player takes his land town
+by town until the last fight between the creatures and the end of the game.</p>
+<p>Every silver scroll of the game, land by land, with scores: <a href="silver_scrolls.html">silver_scrolls.md</a>.</p>
+<p>How the player can lose a land, and the game over: <a href="losing_and_game_over.html">losing_and_game_over.md</a>.</p>
+<p><strong>Progress: 0/15 done, 0 partial — 0%</strong></p>
+<h2 id="arriving">Arriving</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land loads and its control script begins</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; <code>LandControlAll</code> runs <code>LandControl1</code> first whatever land is loaded (<code>Game.cpp</code>). The land script's contents: see ../scripts/land5_script.md</td>
+</tr>
+<tr>
+<td>Nemesis greets the player with "a surprise": the creature is cursed</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; full breakdown: <a href="gold_scrolls/i_have_a_surprise_for_you.html">gold_scrolls/i_have_a_surprise_for_you.md</a>: creature actions by script are stubs</td>
+</tr>
+<tr>
+<td>The curse warps the creature's strength, size and alignment</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; full breakdown: <a href="gold_scrolls/i_have_a_surprise_for_you.html">gold_scrolls/i_have_a_surprise_for_you.md</a>: a creature's strength and size are not handled by <code>SetProperty</code>; see ../creature/</td>
+</tr>
+<tr>
+<td>Lifting the curse in three steps puts the creature back as it was</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; full breakdown: <a href="gold_scrolls/i_have_a_surprise_for_you.html">gold_scrolls/i_have_a_surprise_for_you.md</a>: the village captures read stubs</td>
+</tr>
+<tr>
+<td>The volcano rumbles</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; the volcano vortex is ported (<code>ecs::vortex</code>, Volcano)</td>
+</tr>
+<tr>
+<td>Nemesis defends his last town himself</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; full breakdown: <a href="gold_scrolls/nemesis_shielded_village.html">gold_scrolls/nemesis_shielded_village.md</a>; the meteors, shields and blasts use real natives, the aim (<code>SetTarget</code>) is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="silver-scrolls">Silver scrolls</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Silver scroll: "The Magic Dragon" — crusaders want healing before they fight the dragon in its cave</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; full breakdown: <a href="silver_scrolls/the_magic_dragon.html">silver_scrolls/the_magic_dragon.md</a></td>
+</tr>
+<tr>
+<td>Silver scroll: "The Heavenly Fire" — meteors rain on a village; catch them before they hit</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; full breakdown: <a href="silver_scrolls/the_heavenly_fire.html">silver_scrolls/the_heavenly_fire.md</a>; burning rocks: see ../nature/rocks_splitting_and_heat.md</td>
+</tr>
+<tr>
+<td>Silver scroll: "Stanley The Wolf" — a blind wolf walks towards ringing bells; ring them to lead it to the sheep</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; full breakdown: <a href="silver_scrolls/stanley_the_wolf.html">silver_scrolls/stanley_the_wolf.md</a></td>
+</tr>
+<tr>
+<td>Silver scroll: "The Explorers Again" — the missionaries of the first land arrive in their boat</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; full breakdown: <a href="silver_scrolls/the_explorers_again.html">silver_scrolls/the_explorers_again.md</a>; it only starts if the ark sailed in <a href="silver_scrolls/the_explorers.html">The Explorers</a></td>
+</tr>
+<tr>
+<td>Silver scroll: "Swap To Brown Bear" — a stench in the forest; clearing what causes it offers a brown bear to swap for</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; full breakdown: <a href="silver_scrolls/swap_to_brown_bear.html">silver_scrolls/swap_to_brown_bear.md</a></td>
+</tr>
+<tr>
+<td>Silver scroll (no title in the game's text): someone hiding in the forest is plotting against a village</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; full breakdown: <a href="silver_scrolls/the_japanese_traitor.html">silver_scrolls/the_japanese_traitor.md</a></td>
+</tr>
+<tr>
+<td>Cut challenge: "Chimp Posse" — three chimp creatures on a hilltop have lost their ball to Nemesis's creature</td>
+<td>n/a</td>
+<td>never compiled into the game, no scroll and no reward: <a href="silver_scrolls/chimp_posse.html">silver_scrolls/chimp_posse.md</a></td>
+</tr>
+<tr>
+<td>A village behind Nemesis's spiritual shield must be broken through</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; full breakdown: <a href="gold_scrolls/nemesis_shielded_village.html">gold_scrolls/nemesis_shielded_village.md</a>: <code>BeliefForPlayer</code> and <code>SetMagicRadius</code> are stubs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-end">The end</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>All of Nemesis's towns are won and he says he is not finished</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; <a href="gold_scrolls/so_this_is_a_fight_to_the_death.html">gold_scrolls/so_this_is_a_fight_to_the_death.md</a>; see ending.md</td>
+</tr>
+<tr>
+<td>The big fight between the player's creature and Nemesis's</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; <a href="gold_scrolls/so_this_is_a_fight_to_the_death.html">gold_scrolls/so_this_is_a_fight_to_the_death.md</a>: the mirror creature is never made (<code>LoadCreature</code>); see ending.md and ../creature/fighting.md</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

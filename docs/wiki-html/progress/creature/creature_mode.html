@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Creature Mode and the status panel — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="here" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#creature-mode-and-the-status-panel">Creature Mode and the status panel</a><ul>
+<li><a href="#locking-onto-a-creature">Locking onto a creature</a></li>
+<li><a href="#the-follow-camera">The follow camera</a></li>
+<li><a href="#the-status-panel">The status panel</a></li>
+<li><a href="#passing-out">Passing out</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="creature-mode-and-the-status-panel">Creature Mode and the status panel</h1>
+<p>The camera can lock onto a creature and follow it about while the screen shows how damaged, hungry and tired it is.
+Hovering the hand over any creature brings up the same panel, with the reward the hand has given it so far. General
+camera controls are in <a href="../camera/index.html">../camera</a>.</p>
+<p><strong>Progress: 16/31 done, 11 partial — 69%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../creature.html">The creature: groundwork, random streams and what is unknown</a>.</p>
+<h2 id="locking-onto-a-creature">Locking onto a creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>C locks the camera onto the player's own creature, and pressed again gives the camera back</td>
+<td>done</td>
+<td><code>src/Creature/CreatureMode.*</code>, <code>CreatureModeSystem</code> (updated from <code>Game.cpp</code>, key <code>ZOOM_TO_CREATURE</code>); tests <code>CreatureMode.CreatureKeyLocksOntoYourCreatureAndLetsGo</code>, <code>CreatureModeSystemTest.CLocksOntoThePlayersCreatureAndLetsGoAgain</code></td>
+</tr>
+<tr>
+<td>Locked onto another god's creature, C moves over to the player's own</td>
+<td>done</td>
+<td><code>creature_mode::OnCreatureKey</code>; test <code>CreatureModeSystemTest.MovingOverToAnotherCreatureStillHandsThePlayersModelBack</code></td>
+</tr>
+<tr>
+<td>Double clicking a creature, anyone's, locks onto that one</td>
+<td>done</td>
+<td><code>CreatureModeSystem::ReadKeys</code> on the game's <code>DOUBLE_CLICK</code> action with the creature under the hand; tests <code>CreatureModeSystemTest.ADoubleClickOnACreatureLocksOntoItBeforeTheCameraMoves</code>, <code>ADoubleClickDoesNotLockOnWhenItsFlightIsNotAllowed</code></td>
+</tr>
+<tr>
+<td>A double click is a second press within half a second, inside a small box of the first, on the same creature</td>
+<td>partial</td>
+<td>our tree takes the double click from the input layer's <code>DOUBLE_CLICK</code> action; no own rule of half a second, a small box and the same creature is checked here</td>
+</tr>
+<tr>
+<td>The cursor keys alone, dragging the land, entering the temple, opening the editor or a script's cinema bars give the camera back</td>
+<td>done</td>
+<td><code>CreatureModeSystem::Update</code>; tests <code>CreatureModeSystemTest.TheCursorKeysAloneGiveTheCameraBack</code>, <code>OnlyAFreshGripOfTheLandGivesTheCameraBack</code>, <code>AScriptsCinemaBarsRefuseAndEndIt</code>, <code>CreatureFollow.CursorKeysAloneGiveTheCameraBack</code></td>
+</tr>
+<tr>
+<td>The camera is handed back exactly as the player left it</td>
+<td>done</td>
+<td><code>CreatureModeSystem</code> keeps the player's camera model; tests <code>CreatureModeSystemTest.EnterStartsFromWhereTheCameraIsHeadingAndLeaveHandsThePlayersModelBack</code>, <code>LeavingWhileAnotherHasTheCameraWaitsForItBack</code></td>
+</tr>
+<tr>
+<td>With no creature, C does nothing</td>
+<td>done</td>
+<td><code>creature_mode::OnCreatureKey</code>; test <code>CreatureModeSystemTest.WithoutALookupNoPlayerHasACreatureAndCDoesNothing</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-follow-camera">The follow camera</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The camera looks at the middle of the creature's body, by its height for its size</td>
+<td>done</td>
+<td><code>src/Camera/CreatureFollow.*</code>, <code>src/Camera/CreatureCameraModel.*</code>; tests <code>CreatureFollow.LooksAtTheMiddleOfTheCreature</code>, <code>CreatureMode.CreatureHeightGrowsWithSize</code>, <code>CreatureCameraModel.StartsOnTheCreaturesMiddleWithTheFollowsView</code></td>
+</tr>
+<tr>
+<td>It starts the creature's viewing distance away from afar, or about as close as it already is</td>
+<td>done</td>
+<td>tests <code>CreatureFollow.StartsAtTheViewingDistanceFromAfar</code>, <code>StaysAboutAsCloseWhenAlreadyClose</code></td>
+</tr>
+<tr>
+<td>It keeps between a least and a most distance and never lower than about 14 degrees above</td>
+<td>done</td>
+<td>test <code>CreatureFollow.KeepsWithinItsBounds</code>, <code>EasesAndKeepsWithinTheScriptCamerasBounds</code></td>
+</tr>
+<tr>
+<td>It eases after the creature, arriving in two seconds as it starts and one later</td>
+<td>done</td>
+<td>tests <code>CreatureFollow.EasesInTwoSecondsAtFirstAndOneLater</code>, <code>CreatureModeSystemTest.FollowsTheCreatureAsItMoves</code></td>
+</tr>
+<tr>
+<td>Shift and the cursor keys turn it round the creature and tilt it</td>
+<td>done</td>
+<td><code>CreatureCameraModel</code>; test <code>CreatureFollow.ShiftAndCursorKeysTurnAndTilt</code></td>
+</tr>
+<tr>
+<td>Ctrl and the cursor keys turn it and draw it in and out</td>
+<td>done</td>
+<td><code>CreatureCameraModel</code>; test <code>CreatureFollow.CtrlAndCursorKeysTurnAndZoom</code></td>
+</tr>
+<tr>
+<td>The mouse wheel draws it in and out, counted twice as the game does</td>
+<td>done</td>
+<td><code>CreatureCameraModel</code>; test <code>CreatureFollow.TheWheelZoomsTwice</code></td>
+</tr>
+<tr>
+<td>Ctrl and Shift together swing it round to where the land falls away, for a clear view, tilting towards about 22 degrees</td>
+<td>done</td>
+<td><code>CreatureCameraModel::ClearView</code>; tests <code>CreatureFollow.ClearViewKeepsTheHeadingOnLevelLand</code>, <code>ClearViewSwingsAwayFromAHill</code>, <code>ClearViewTiltsTowardsTwentyTwoDegrees</code>, <code>ClearingDistanceIsDrawnTowardsFiftyToAHundred</code></td>
+</tr>
+<tr>
+<td>A creature turning too fast for the camera is followed more loosely</td>
+<td>todo</td>
+<td>nothing in our tree (unconfirmed in the original)</td>
+</tr>
+<tr>
+<td>The camera follows the creature into a fight's view and back</td>
+<td>partial</td>
+<td><code>CreatureFightSystem</code> flies the camera to the arena's side and keeps the duel framed (not through Creature Mode); see <a href="fighting.html">fighting.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-status-panel">The status panel</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>With the hand over any creature, the left of the screen shows its damage, hunger and tiredness as bars</td>
+<td>partial</td>
+<td><code>src/Creature/CreatureStatusPanel.*</code> has the values and layout (test <code>CreatureStatusPanel.ShowsOnHover</code>), but dormant: only tests use it, nothing draws the panel in the game</td>
+</tr>
+<tr>
+<td>Below them, the reward the hand has given it so far, from "Bad Boy!" to "Good Boy!" or "No Reward"</td>
+<td>partial</td>
+<td><code>creature_panel</code> reward words (test <code>CreatureStatusPanel.RewardWords</code>); dormant, not drawn; see <a href="learning_from_feedback.html">learning_from_feedback.md</a></td>
+</tr>
+<tr>
+<td>Damage is life lost, hunger the energy missing, tiredness the exhaustion</td>
+<td>partial</td>
+<td>test <code>CreatureStatusPanel.ValuesComeFromTheBody</code>; dormant, only tests</td>
+</tr>
+<tr>
+<td>Values are clamped as the game does and shown as whole percentages cut short</td>
+<td>partial</td>
+<td>tests <code>CreatureStatusPanel.ValuesAreClampedAsTheGameDoes</code>, <code>PercentagesAreCutShort</code>; dormant, only tests</td>
+</tr>
+<tr>
+<td>Bars fill yellow; the reward bar fills from its middle, red for punishment and green for reward</td>
+<td>partial</td>
+<td>tests <code>CreatureStatusPanel.BarsFillAndColour</code>, <code>BarFillRunsInsideTheFrame</code>; dormant, not drawn</td>
+</tr>
+<tr>
+<td>The panel sits on a see-through black box fading to its right, laid out by the screen's size</td>
+<td>partial</td>
+<td>tests <code>CreatureStatusPanel.LayoutWithTheReward</code>, <code>LayoutFollowingACreature</code>; dormant, not drawn</td>
+</tr>
+<tr>
+<td>While the camera follows a creature, the panel shows its three bars near the top of the screen, without the reward</td>
+<td>partial</td>
+<td>test <code>CreatureStatusPanel.LayoutFollowingACreature</code>; dormant: Creature Mode does not draw it</td>
+</tr>
+<tr>
+<td>The labels and reward words come from the game's texts</td>
+<td>partial</td>
+<td><code>CreatureStatusPanel.h</code> names the text ids; dormant, not drawn</td>
+</tr>
+<tr>
+<td>The panel is drawn afresh each frame it is wanted, without fading in or out</td>
+<td>todo</td>
+<td>nothing draws the panel in our tree</td>
+</tr>
+<tr>
+<td>The hand's "Interact" tooltip shows over the player's own creature, awake</td>
+<td>partial</td>
+<td><code>creature_hand::ShowsInteractTip</code>, used by <code>HandToolTips.cpp</code>; test <code>CreatureHand.TheInteractTipIsForTheOwnCreatureOrAnotherInTheInfluence</code>. Ours also shows it over another player's creature in the influence, and whether it is awake is not checked (pending: a creature flag that skips it)</td>
+</tr>
+<tr>
+<td>Not shown inside the temple</td>
+<td>todo</td>
+<td>the panel is not shown anywhere yet</td>
+</tr>
+</tbody>
+</table>
+<h2 id="passing-out">Passing out</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A creature passes out when its damage, hunger or tiredness reaches 100%</td>
+<td>done</td>
+<td><code>CreaturePhysiologySystem</code> faints through <code>physiology::ShouldFaint</code>; tests <code>CreatureMode.PassesOutWhenAStatusReachesAHundredPercent</code>, <code>PassingOutAgreesWithTheBodysFainting</code></td>
+</tr>
+<tr>
+<td>It is carried to its pen to come round: the home it was given, else by its player's temple</td>
+<td>done</td>
+<td><code>CreatureFightSystem</code> (<code>HomeOf</code>, <code>creature_mode::PenOf</code>, the temple's pen point); test <code>CreatureMode.PenIsTheHomeThenTheTempleThenTheFallback</code>; see <a href="home_and_pen.html">home_and_pen.md</a></td>
+</tr>
+<tr>
+<td>The player is told their creature has fainted and been taken home</td>
+<td>todo</td>
+<td>no message in our tree; see <a href="lessons_and_help.html">lessons_and_help.md</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

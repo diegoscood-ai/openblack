@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reflections — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="here" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+
+<h1 id="reflections">Reflections</h1>
+<p>The sea mirrors the world above it: the sky and the land are drawn upside down through the sea level before the sea is
+blended over them, so islands, trees and buildings show in the water.</p>
+<p><strong>Progress: 12/12 done, 0 partial — 100%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../water.html">Water in the game</a>.</p>
+<h2 id="the-mirrored-world">The mirrored world</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The sky is drawn mirrored first, in its own pass</td>
+<td>done</td>
+<td>The sky stage of the reflection pass (<code>src/Graphics/Renderer.cpp</code>)</td>
+</tr>
+<tr>
+<td>The land is drawn mirrored from a camera reflected through the sea level</td>
+<td>done</td>
+<td>The reflection pass in <code>src/Graphics/Renderer.cpp</code> (<code>Camera::Reflect</code>)</td>
+</tr>
+<tr>
+<td>The mirrored land is lit at half the land's light</td>
+<td>done</td>
+<td><code>sea_pass::ForPass</code> (<code>src/Graphics/SeaPass.h</code>), <code>src/Graphics/Renderer.cpp</code></td>
+</tr>
+<tr>
+<td>The mirrored land has no small bump detail</td>
+<td>done</td>
+<td>The reflection pass drops the small bump (<code>sea_pass::SeaPassState::smallBump</code>)</td>
+</tr>
+<tr>
+<td>Only what stands above the sea is mirrored: models are cut at sea level</td>
+<td>done</td>
+<td>The reflection draws no models (<code>drawEntities</code> off), only the parts drawn under the water: the hand, what it holds, flying objects and the boat (<code>DrawUnderWater</code>, <code>DrawObjectReflections</code>). Our wiki differs: the original mirrors no models, only those few under-water draws (<a href="../../rendering.html#sea-skyraw--skyaraw">rendering.md</a>)</td>
+</tr>
+<tr>
+<td>Models in the reflection take half the land's light</td>
+<td>done</td>
+<td>No models are mirrored; the hand's under-water draw takes its fixed colour (<code>sea_pass::k_HandColour</code>). Our wiki differs: the reflection holds no models (<a href="../../rendering.html#sea-skyraw--skyaraw">rendering.md</a>)</td>
+</tr>
+<tr>
+<td>Translucent things (mists, clouds, the hand) blend in the reflection, farthest first</td>
+<td>done</td>
+<td>The reflection draws no sprites or mists (<code>drawSprites</code> off). Our wiki differs: the original's reflection has no models or sprites (<a href="../../rendering.html#sea-skyraw--skyaraw">rendering.md</a>)</td>
+</tr>
+<tr>
+<td>The game mirrors only the sky, the land and a few moving things; openblack mirrors everything</td>
+<td>done</td>
+<td>Our tree now mirrors as the game: the sky, the land (LandRef) and the under-water draws (<code>src/Graphics/Renderer.cpp</code>)</td>
+</tr>
+<tr>
+<td>The reflection target resizes with the view</td>
+<td>done</td>
+<td>The reflection target follows the main view's size (<code>Renderer::UpdateReflectionTarget</code>, <code>src/3D/OceanInterface.h</code>)</td>
+</tr>
+<tr>
+<td>Swimmers, sharks and fishing nets are cut by the sea plane</td>
+<td>done</td>
+<td><code>DrawCutBelowWater</code> (sharks), <code>DrawFishPlots</code> (nets) and the swimmers' cut in the reflection pass (<code>src/Graphics/Renderer.cpp</code>)</td>
+</tr>
+<tr>
+<td>The sun and moon do not show in the sea</td>
+<td>done</td>
+<td>The sun is not reflected; the moon is (<code>Renderer::DrawMoon</code> in the reflection pass). Our wiki differs: the original draws the moon's reflection, with its glow (<a href="../../rendering.html#sky-sun-moon-and-clouds-original">rendering.md</a>)</td>
+</tr>
+<tr>
+<td>The temple's pool reflects the room above it</td>
+<td>done</td>
+<td><code>DrawTempleReflection</code> (<code>src/Graphics/Renderer.cpp</code>), <code>assets/shaders/fs_reflection.sc</code>; see ../temple/</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include <string>
+#include <array>
 #include <unordered_map>
 
 #include "ECS/Systems/PlayerSystemInterface.h"
@@ -23,11 +23,32 @@ namespace openblack::ecs::systems
 class PlayerSystem final: public PlayerSystemInterface
 {
 public:
+	static constexpr size_t k_Players = static_cast<size_t>(PlayerNames::_COUNT);
+
 	void RegisterPlayers() override;
 	void AddPlayer(entt::entity playerEntity) override;
 	[[nodiscard]] entt::entity GetPlayer(PlayerNames playerName) const override;
+	/// There is one interface, the first player's: the game makes that player first on every land
+	[[nodiscard]] PlayerNames LocalPlayer() const override { return PlayerNames::PLAYER_ONE; }
+	void ClearPlayers() override;
+
+	[[nodiscard]] components::Alignment& Alignment(PlayerNames name) override;
+	[[nodiscard]] components::PlayerMagic& MagicWithoutEntity(PlayerNames name) override;
+	void ClearMagicWithoutEntity() override;
+	[[nodiscard]] components::InterfaceAlignment& InterfaceAlignmentWithoutEntity() override
+	{
+		return _interfaceAlignmentWithoutEntity;
+	}
+	[[nodiscard]] components::InfluenceCrossing& InfluenceCrossingWithoutEntity() override
+	{
+		return _influenceCrossingWithoutEntity;
+	}
 
 private:
 	std::unordered_map<PlayerNames, entt::entity> _players;
+	std::array<components::Alignment, k_Players> _alignment {};
+	std::array<components::PlayerMagic, k_Players> _magicWithoutEntity {};
+	components::InterfaceAlignment _interfaceAlignmentWithoutEntity {};
+	components::InfluenceCrossing _influenceCrossingWithoutEntity {};
 };
 } // namespace openblack::ecs::systems

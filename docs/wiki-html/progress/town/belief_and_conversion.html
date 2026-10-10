@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Town belief and conversion — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="here" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#town-belief-and-conversion">Town belief and conversion</a><ul>
+<li><a href="#belief">Belief</a></li>
+<li><a href="#conversion">Conversion</a></li>
+<li><a href="#influence-multipliers">Influence multipliers</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="town-belief-and-conversion">Town belief and conversion</h1>
+<p>Every town believes a little in each player. Impressive deeds near it raise its belief in their doer; once belief in a
+player passes what the town needs, the town is won over and becomes that player's, its influence and people with it.
+A town can be lost again if belief in its owner falls behind another's.</p>
+<p><strong>Progress: 13/25 done, 7 partial — 66%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../buildings.html">Buildings, building sites and towns (the building side)</a>.</p>
+<h2 id="belief">Belief</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A town keeps its belief in every player, starting with belief in the neutral player from the tables</td>
+<td>done</td>
+<td>the town's per-player block (<code>components::TownBelief</code>, <code>town_belief::Init</code>, <code>src/ECS/Town/TownBelief.cpp</code>), the neutral belief from the town info; <code>test/test_town_belief.cpp</code></td>
+</tr>
+<tr>
+<td>What its people are impressed by waits until the town's turn and is believed all at once, times the town's belief scale</td>
+<td>partial</td>
+<td>the town turn folds the pending belief times the town's belief scale (<code>town_belief::Fold</code>, from <code>src/ECS/Town/TownProcess.cpp</code>), but what villagers are impressed by feeds no belief yet (TODO in <code>villager_reactions::AddReaction</code>, <code>src/ECS/Systems/Implementations/VillagerReactions.cpp</code>)</td>
+</tr>
+<tr>
+<td>Belief in a player is capped, and scripts can set the cap</td>
+<td>done</td>
+<td>the cap, 10 at the start (<code>town_belief::SetBelief</code>, <code>SetCap</code>); SET_TOWN_BELIEF_CAP (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>)</td>
+</tr>
+<tr>
+<td>Scripts set a town's belief in a player</td>
+<td>done</td>
+<td>SET_TOWN_BELIEF sets the town's slot through <code>town_belief::SetBeliefInPlayer</code> (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>), the neutral player's own value included</td>
+</tr>
+<tr>
+<td>A symbol of belief gained rises from the town centre in the player's colour</td>
+<td>partial</td>
+<td>the fold queues a belief sprite in the player's colour at the town centre (<code>QueueBeliefSprite</code>, <code>src/ECS/Town/TownBelief.cpp</code>), but nothing draws the queue yet</td>
+</tr>
+<tr>
+<td>Towns grow bored of the same kind of deed seen again and again</td>
+<td>partial</td>
+<td>the fold steps every reaction's boredom multiplier (<code>town_belief::Fold</code>), but no impression reads it yet, as impressions feed no belief</td>
+</tr>
+<tr>
+<td>Recent belief given fades every turn</td>
+<td>done</td>
+<td>recent belief times the decay every fold (<code>town_belief::Fold</code>)</td>
+</tr>
+<tr>
+<td>Belief from miracles, from the creature, from artefacts, from scaffolds and buildings given, from disciples and missionaries</td>
+<td>partial</td>
+<td>only food and wood given by the hand to a town (<code>town_stores::AddToBelief</code> from <code>src/ECS/ObjectResources.cpp</code>); miracles, the creature, artefacts, scaffolds (TODO in <code>scaffolds::ImpressTowns</code>, <code>src/ECS/Scaffolds.cpp</code>) and disciples give none</td>
+</tr>
+<tr>
+<td>Taking a town's resources lowers its belief for a while</td>
+<td>done</td>
+<td>taking marks the turn (<code>town_stores::SetGameTurnResourceLastRemoved</code>) and giving that resource back earns less for 1000 turns (<code>GetGameTurnResourceLastRemovedModifier</code>, <code>src/ECS/Town/TownStores.cpp</code>, used in <code>src/ECS/ObjectResources.cpp</code>). Our wiki differs: taking lowers no belief at once; it cuts the belief later gifts of that resource earn, for up to 1000 turns (<a href="../../buildings.html#resources-held-by-objects">buildings</a>)</td>
+</tr>
+<tr>
+<td>A town believing in a player moves faster as the land's belief speed scale says</td>
+<td>partial</td>
+<td>the villagers' speed takes the land balance's speed scale (<code>src/ECS/VillagerSpeed.cpp</code>); the town's belief term is fixed at 1</td>
+</tr>
+<tr>
+<td>How impressed a town is shows over it (the belief bar or tooltip)</td>
+<td>partial</td>
+<td>the belief symbols over each town centre, sized by each player's belief (<code>psys::town_belief</code>, <code>src/Particles/TownBelief.cpp</code>); no belief tooltip on the town; See ../interface/</td>
+</tr>
+<tr>
+<td>Every ten turns the believers count for the tooltip</td>
+<td>done</td>
+<td>every ten turns the local player's believers gained go to the tooltip (<code>town_belief::ProcessOncePerTurn</code>, <code>events::TownBeliefToolTip</code>, from <code>src/Game.cpp</code>); the floating number by the hand is not drawn</td>
+</tr>
+</tbody>
+</table>
+<h2 id="conversion">Conversion</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each town needs a set amount of belief to be won over, by its size</td>
+<td>done</td>
+<td>the town goes to whichever player it believes in most (<code>town_belief::Fold</code>). Our wiki differs: there is no set amount by size; the town changes hands when another player's belief is the largest, a tie going to the higher player slot (<a href="../../buildings.html#the-towns-belief">buildings</a>)</td>
+</tr>
+<tr>
+<td>When belief in a player passes what is needed, the town becomes that player's</td>
+<td>done</td>
+<td>the fold's conversion and <code>town_belief::TakeOverTown</code> change the owner and the owner lists (<code>src/ECS/Town/TownBelief.cpp</code>)</td>
+</tr>
+<tr>
+<td>A won town celebrates, with fireworks and its villagers cheering</td>
+<td>todo</td>
+<td>the take-over's sound, fireworks and symbols are not ported (<code>TakeOverTown</code>)</td>
+</tr>
+<tr>
+<td>A won town joins its new owner's worship site and influence, and its spells go to the player</td>
+<td>partial</td>
+<td>the influence follows the new owner (<code>src/ECS/Influence/Influence.cpp</code> reads <code>Town::owner</code>); the worship site, the spells and the rest of the take-over are pending in <code>TakeOverTown</code>; See ../worship/</td>
+</tr>
+<tr>
+<td>The previous owner loses the town and its influence</td>
+<td>done</td>
+<td>the old owner's list and influence lose the town with the owner change (<code>town_belief::TakeOverTown</code>)</td>
+</tr>
+<tr>
+<td>Losing a town lowers belief elsewhere by the lost-town scale</td>
+<td>done</td>
+<td>on a conversion every town of the old owner keeps 0.9 of its belief times the lost-town scale (<code>town_belief::Fold</code>); SET_LOST_TOWN_SCALE (<code>land_balance::SetLostTownScale</code>, <code>src/LHScriptX/FeatureScriptCommands.cpp</code>)</td>
+</tr>
+<tr>
+<td>Claiming a town multiplies its belief by the claimed-town multiplier</td>
+<td>done</td>
+<td>the new owner's belief times the claimed-town multiplier on a conversion (<code>town_belief::Fold</code>)</td>
+</tr>
+<tr>
+<td>A town's attitude to each creature changes how its villagers react to it</td>
+<td>todo</td>
+<td>the villagers' creature reactions are TODO rows of the villager state table (<code>src/ECS/Systems/Implementations/LivingActionSystem.cpp</code>)</td>
+</tr>
+<tr>
+<td>The take-town cheat gives the player a town at once</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Scripts ask who owns a town and how much it believes</td>
+<td>todo</td>
+<td>BELIEF_FOR_PLAYER, OBJECT_RELATIVE_BELIEF and GET_PLAYER_TOWN_TOTAL are stubs (<code>src/CHLApi.cpp</code>); See ../story/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="influence-multipliers">Influence multipliers</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scripts scale every town's influence</td>
+<td>done</td>
+<td>SET_TOWN_INFLUENCE_MULTIPLIER (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>), read by <code>src/ECS/Influence</code>; see ../worship/</td>
+</tr>
+<tr>
+<td>Scripts scale one town's influence</td>
+<td>todo</td>
+<td>SET_A_TOWNS_INFLUENCE_MULTIPLIER only logs "not implemented" (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>)</td>
+</tr>
+<tr>
+<td>Scripts set the town's belief balance scale</td>
+<td>done</td>
+<td>SET_TOWN_BALANCE_BELIEF_SCALE sets the town's belief scale, used by the fold (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>, <code>town_belief::Fold</code>)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

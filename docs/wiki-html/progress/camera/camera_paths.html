@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Camera paths — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="here" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#camera-paths">Camera paths</a><ul>
+<li><a href="#miracle-camera-paths">Miracle camera paths</a></li>
+<li><a href="#path-playback">Path playback</a></li>
+<li><a href="#handing-the-camera-over">Handing the camera over</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="camera-paths">Camera paths</h1>
+<p>Recorded camera flights: the paths some miracles take their caster's camera along, the land's intro flight, the camera
+tracks of the camera library, and how the game's camera hands over from one kind of camera to another.</p>
+<p><strong>Progress: 4/18 done, 3 partial — 31%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../camera-tracks.html">Camera tracks (<code>Data\camera.edt</code>) and <code>WALK_PATH</code></a>.</p>
+<h2 id="miracle-camera-paths">Miracle camera paths</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A miracle's effect takes its caster's camera along a path placed at the miracle</td>
+<td>todo</td>
+<td>no miracle takes the camera along a path in our tree; <code>CameraPathSystem</code> (<code>src/ECS/Systems/Implementations/CameraPathSystem.cpp</code>) only plays <code>.cam</code> paths from the debug camera window</td>
+</tr>
+<tr>
+<td>The camera glides from where it is onto the path's start, then follows the path a little behind, sped up</td>
+<td>todo</td>
+<td><code>CameraPathSystem::Update</code> sets the camera on the path's samples, with no glide onto it and no lag</td>
+</tr>
+<tr>
+<td>The path lasts one play of its animation, or ends with its miracle</td>
+<td>todo</td>
+<td>no miracle path</td>
+</tr>
+<tr>
+<td>A movement key that would move the camera this frame, or gripping the land, takes the camera back at once</td>
+<td>partial</td>
+<td>the rule is <code>camera_path::TakesCameraBack</code> (<code>src/Camera/CameraPathControl.h</code>; <code>CameraPathControl.AMovementKeyTakesTheCameraBackOnlyWhenItWouldMoveIt</code>, <code>GrippingTheLandAlwaysTakesTheCameraBack</code> in <code>test/test_near_clipping.cpp</code>), not wired yet</td>
+</tr>
+<tr>
+<td>Turning, tilting and zooming don't take it back; meanwhile the player's other camera controls do nothing</td>
+<td>todo</td>
+<td>no miracle path holds the camera</td>
+</tr>
+<tr>
+<td>The hand stays free and drawn while a path has the camera</td>
+<td>todo</td>
+<td>no miracle path</td>
+</tr>
+<tr>
+<td>The near plane comes in close while a path has the camera</td>
+<td>todo</td>
+<td>no miracle path; the script close clipping is not wired either</td>
+</tr>
+<tr>
+<td>Other spells' camera paths (the tree goddess and teacher paths in the spell animations)</td>
+<td>todo</td>
+<td>not wired</td>
+</tr>
+<tr>
+<td>The falling spell's film takes the camera along its own recorded path</td>
+<td>done</td>
+<td>(added) <code>FallingSpell::UpdateCamera</code> (<code>src/Magic/Objects/FallingSpell.cpp</code>) reads <code>fall.cm2</code> and sets the camera from it while <code>SET_AVI_SEQUENCE</code> 2 plays (<a href="../../video.html#the-falling-spell-fallbik">video</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="path-playback">Path playback</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A path is sampled smoothly between its points and holds the last</td>
+<td>done</td>
+<td><code>CameraPath::SampleAt</code> (<code>src/3D/CameraPath.cpp</code>); <code>CameraPath.SamplesBetweenItsPointsAndHoldsTheLast</code> (<code>test/camera/test_temple_camera.cpp</code>)</td>
+</tr>
+<tr>
+<td>The camera glides to where it is sent on a smooth curve arriving at a set speed after a set time</td>
+<td>done</td>
+<td><code>Zoomer3</code> (<code>src/Common/Zoomer.h</code>), the game's zoomer; <code>TestCameraZoomers.ZoomerMatchesRecording</code> (<code>test/camera/test_camera.cpp</code>), <code>test/test_zoomer.cpp</code></td>
+</tr>
+<tr>
+<td>The land's intro flight over the island as a land begins</td>
+<td>todo</td>
+<td>not in our tree; <code>.cam</code> paths are only played from the debug camera window (<code>src/Debug/Camera.cpp</code>)</td>
+</tr>
+<tr>
+<td>The camera library's tracks: recorded flights with smooth curved segments that scripts play</td>
+<td>done</td>
+<td><code>Data/camera.edt</code> is read by <code>src/3D/CameraTracks.cpp</code> (resource loader in <code>src/Resources/Loaders.cpp</code>); <code>RUN_CAMERA_PATH</code> runs a track in the script camera (<code>script_camera::RunPath</code>); <code>test/camera/test_camera_segments.cpp</code></td>
+</tr>
+<tr>
+<td>Scripts can slow the camera down for slow motion</td>
+<td>todo</td>
+<td>not in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="handing-the-camera-over">Handing the camera over</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Other cameras (creature, temple, fight, path) take over from the player's and hand it back where they found it</td>
+<td>partial</td>
+<td><code>Camera::SetModel</code> swaps models (creature mode, temple, editor); the script camera starts from the player's zoomers and hands them back (<code>script_camera::BeginFrom</code>, <code>End</code>); no general stack of camera modes (approximate, as our wiki says)</td>
+</tr>
+<tr>
+<td>A camera that is no longer valid (its thing gone) gives way to the one before it</td>
+<td>partial</td>
+<td>the script's dual camera is dropped once a turn when its things are gone (<code>script_camera::Validate</code>, <code>CheckDualModes</code>) and Creature Mode lets go when the creature goes; nothing general</td>
+</tr>
+<tr>
+<td>Some cameras stop the player drawing gestures while they move</td>
+<td>todo</td>
+<td>no gesture drawing in the game yet (only the debug gesture window)</td>
+</tr>
+<tr>
+<td>The camera's state is kept in saved games</td>
+<td>todo</td>
+<td>no saved games; see <code>../engine/</code></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How a computer god uses miracles — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="here" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#how-a-computer-god-uses-miracles">How a computer god uses miracles</a><ul>
+<li><a href="#which-miracles-it-has">Which miracles it has</a></li>
+<li><a href="#choosing-a-miracle">Choosing a miracle</a></li>
+<li><a href="#casting">Casting</a></li>
+<li><a href="#miracles-the-scripts-cast-for-a-god">Miracles the scripts cast for a god</a></li>
+<li><a href="#what-it-remembers">What it remembers</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="how-a-computer-god-uses-miracles">How a computer god uses miracles</h1>
+<p>A computer god casts the miracles its towns and temple give it, as a person does: it picks the best miracle of a kind
+for the job, makes sure it has the prayer power, charges the icon if needed and casts it at the right place. The land
+scripts also cast miracles in a god's name, from where its hand is, for staged attacks.</p>
+<p><strong>Progress: 3/38 done, 9 partial — 20%</strong></p>
+<p>See <a href="../miracles/index.html">../miracles/</a> for each miracle, and <a href="ai.html">ai.md</a> for when a god wants to cast.</p>
+<h2 id="which-miracles-it-has">Which miracles it has</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A god has the miracles of the towns that believe in it, as the person does</td>
+<td>partial</td>
+<td>towns hold their miracles (<code>magic::script::CreateNewTownSpell</code>) and enable them for their owner (<code>PlayerMagic::remainder</code>, <code>src/ECS/Components/PlayerMagic.h</code>); no god uses them; see <a href="../worship/index.html">../worship/</a></td>
+</tr>
+<tr>
+<td>Its miracles sit as icons in its temple, charged from its prayer power</td>
+<td>todo</td>
+<td>worship sites are made for every player (<code>magic::script::CreateWorshipSite</code>), but nothing charges or takes a god's icons; see <a href="../miracles/casting_and_globes.html">../miracles/casting_and_globes.md</a></td>
+</tr>
+<tr>
+<td>It needs prayer power like any player</td>
+<td>todo</td>
+<td>each worship site keeps its prayer power, but nothing spends a god's</td>
+</tr>
+<tr>
+<td>It looks for an icon needing charge and charges it up when its worshippers can</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>Scripts can top up an icon's prayer power, as Khazar's is for six wood miracles</td>
+<td>done</td>
+<td><code>GAME_SET_MANA</code> (<code>magic::script::GameSetMana</code>, <code>src/Magic/Script/CHLWorship.cpp</code>) sets the worship site's prayer power</td>
+</tr>
+<tr>
+<td>Scripts ask how much prayer power a miracle costs</td>
+<td>done</td>
+<td><code>GET_MANA_FOR_SPELL</code> (<code>magic::script::GetManaForSpell</code>): the miracle's cost to create</td>
+</tr>
+</tbody>
+</table>
+<h2 id="choosing-a-miracle">Choosing a miracle</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It picks its best aggressive miracle for hurting a town or people</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It picks its best aggressive miracle against a creature</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It picks its best compassionate miracle</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It picks its best impressive miracle, and judges how well one would impress where it is cast</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It picks its best shield, judging whether a shield is possible at all</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>For each kind (food, heal, water, wood, shield, physical shield, aggressive, compassionate, impressive) it asks whether it has enough prayer power</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It weighs how well a miracle would work at a place before casting it there</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>A desire to cast is weighed with how long until the miracle is ready</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="casting">Casting</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It casts a miracle either from an icon or as if by gesture</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>Miracles can be cast in another player's name, belonging to them</td>
+<td>done</td>
+<td><code>magic::CastAtPos</code> and <code>magic::CastAtObject</code> take the casting player (<code>magic::creator::OfPlayer</code>); the debug miracle caster casts as any player (<code>src/Debug/MiraclesCaster.cpp</code>)</td>
+</tr>
+<tr>
+<td>A miracle a computer god casts is timed by its own timer from the miracle tables, not the person's</td>
+<td>partial</td>
+<td>the timer is read (<code>magic::GetTimerWhenComputerPlayerCasting</code>, <code>src/Magic/MagicTables.cpp</code>; shown in <code>src/Debug/Magic.cpp</code>), but nothing casts as a computer god</td>
+</tr>
+<tr>
+<td>Food on a town's storehouse, on a worship site, or on its starving creature</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>Wood on a building site, on the workshop, or on a storehouse</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>Water on a burning building</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>Heal at its worship site, and on its hurt creature</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>A shield over an unprotected building, a town object, or against a belief attack</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>A physical shield against things thrown at it</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>Aggressive miracles at a town it wants to destroy</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>Aggressive miracles at a creature it is attacking</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>Impressive miracles at a town it wants to win</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>Miracles to meet a town's needs (food, wood) to win it</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>A miracle on its own creature for a laugh (starts at weight 0)</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>A creature that sees a computer god's ordinary miracle reacts to it but doesn't learn it, unlike a person's</td>
+<td>todo</td>
+<td>no computer god mind in our tree; even the person's casts are not watched by creatures yet: <code>CreatureMindSystem::SeeMiracle</code> is only called by the debug spawner (see <a href="../creature/learning_by_observation.html">../creature/learning_by_observation.md</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="miracles-the-scripts-cast-for-a-god">Miracles the scripts cast for a god</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scripts cast a miracle from a god's hand position at a target, with radius, time and curl</td>
+<td>partial</td>
+<td><code>SPELL_AT_POS</code> (<code>magic::script::SpellAtPos</code>) casts it as the neutral player from the point given; the god's hand position is a stub that gives the origin, and the miracle belongs to no one</td>
+</tr>
+<tr>
+<td>Lethys's fake attacks on the second land: three level-two fireballs</td>
+<td>partial</td>
+<td>dormant: the scripts that do it never run, as the story never reaches that land (<code>LOAD_MAP</code> is empty); <code>SPELL_AT_POS</code> (<code>magic::script::SpellAtPos</code>) casts it as the neutral player from the point given; see <a href="lethys.html">lethys.md</a></td>
+</tr>
+<tr>
+<td>Nemesis's fireball volleys on Khazar's land from the vortex, curling left, straight and right</td>
+<td>partial</td>
+<td>dormant: the scripts that do it never run, as the story never reaches that land (<code>LOAD_MAP</code> is empty); <code>SPELL_AT_POS</code> (<code>magic::script::SpellAtPos</code>) casts it as the neutral player from the point given; see <a href="khazar.html">khazar.md</a></td>
+</tr>
+<tr>
+<td>Explosions on temples and wonders from a point above them</td>
+<td>partial</td>
+<td>dormant: the scripts that do it never run, as the story never reaches that land (<code>LOAD_MAP</code> is empty); <code>SPELL_AT_POS</code> (<code>magic::script::SpellAtPos</code>) casts it as the neutral player from the point given</td>
+</tr>
+<tr>
+<td>Nemesis's physical shield over his last town every 30 seconds</td>
+<td>partial</td>
+<td>dormant: the scripts that do it never run, as the story never reaches that land (<code>LOAD_MAP</code> is empty); <code>SPELL_AT_POS</code> (<code>magic::script::SpellAtPos</code>) casts it as the neutral player from the point given (a physical shield); see <a href="nemesis.html">nemesis.md</a></td>
+</tr>
+<tr>
+<td>A miracle on a creature (strength on Lethys's creature, invisibility on Nemesis's)</td>
+<td>partial</td>
+<td>dormant: the scripts that do it never run, as the story never reaches that land (<code>LOAD_MAP</code> is empty); <code>SPELL_AT_THING</code> casts on an object and the creature miracles exist (<a href="../miracles/creature_spells.html">../miracles/creature_spells.md</a>), but the gods' creatures are never loaded (<code>LOAD_CREATURE</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-it-remembers">What it remembers</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It records the miracles other players cast near it, by kind</td>
+<td>partial</td>
+<td>each player keeps its last cast and a count of casts by type (<code>PlayerMagic::lastCast</code>, <code>castCount</code>); no god reads them</td>
+</tr>
+<tr>
+<td>It reacts to a player casting at it by using its creature as a diversion</td>
+<td>todo</td>
+<td>no computer god mind in our tree</td>
+</tr>
+<tr>
+<td>It records the damage each player's miracles did to what is its own</td>
+<td>todo</td>
+<td>no record of the damage done by each player's miracles in our tree</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tutorial island (the Gods&#x27; Playground) — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="here" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#tutorial-island-the-gods-playground">Tutorial island (the Gods' Playground)</a><ul>
+<li><a href="#going-there-and-back">Going there and back</a></li>
+<li><a href="#the-island">The island</a></li>
+<li><a href="#running-the-lessons">Running the lessons</a></li>
+<li><a href="#lesson-1-moving-and-turning">Lesson 1: moving and turning</a></li>
+<li><a href="#lesson-2-tilting">Lesson 2: tilting</a></li>
+<li><a href="#lesson-3-everything-together">Lesson 3: everything together</a></li>
+<li><a href="#lesson-4-zooming">Lesson 4: zooming</a></li>
+<li><a href="#lesson-5-picking-up">Lesson 5: picking up</a></li>
+<li><a href="#lesson-6-double-clicking">Lesson 6: double clicking</a></li>
+<li><a href="#after-the-lessons">After the lessons</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="tutorial-island-the-gods-playground">Tutorial island (the Gods' Playground)</h1>
+<p>A separate small island, the Gods' Playground, where the Island Keeper walks the player through the controls in six
+lessons: dragging and turning, tilting, all of them together, zooming, picking things up and double clicking. It is not
+part of the story: the player goes there from the first land with F2, which the advisors suggest, and comes back with
+Escape. The story's own teaching, in the opening of the first land, is in tutorial.md.</p>
+<p>The game over cannot happen here, as the player has no temple: <a href="losing_and_game_over.html">losing_and_game_over.md</a>.</p>
+<p><strong>Progress: 0/53 done, 39 partial — 37%</strong></p>
+<h2 id="going-there-and-back">Going there and back</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The advisors tell the player about the Gods' Playground and that F2 takes them there</td>
+<td>todo</td>
+<td>the lines are in the land control scripts, which never get there; the advisors themselves work (see advisors.md)</td>
+</tr>
+<tr>
+<td>F2 asks "Are you sure you want to go to the Gods' Playground?"</td>
+<td>todo</td>
+<td>openblack has no F2 binding for it</td>
+</tr>
+<tr>
+<td>F2 does nothing in a multiplayer game, while a script holds the cinema bars, or when already there</td>
+<td>todo</td>
+<td>openblack has no F2 binding for it</td>
+</tr>
+<tr>
+<td>Yes: the game is quick-saved to a reserved slot, every script stops and the playground island loads</td>
+<td>todo</td>
+<td>no F2 trip and no saved games; see ../engine/saving_and_loading.md</td>
+</tr>
+<tr>
+<td>The island's own script starts and the interface is put back to normal</td>
+<td>todo</td>
+<td>never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code>; see ../scripts/landT_script.md</td>
+</tr>
+<tr>
+<td>No closes the question and play goes on</td>
+<td>todo</td>
+<td>no F2 question</td>
+</tr>
+<tr>
+<td>Escape stops the lesson running; Escape again asks "Are you sure you want to leave the Gods' Playground?"</td>
+<td>todo</td>
+<td>no F2 trip; <code>KeyDown</code> is a stub</td>
+</tr>
+<tr>
+<td>Leaving reloads the quick-saved game, putting the player back where they were ("back to Eden")</td>
+<td>todo</td>
+<td>no saved games</td>
+</tr>
+<tr>
+<td>The island can be loaded on its own</td>
+<td>partial</td>
+<td>the land loads from the debug menu's lands (<code>Game.cpp</code>), without its lessons</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-island">The island</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A small land of its own, numbered 6, with a mountain, a valley path, a ditch and an offshore islet</td>
+<td>partial</td>
+<td>the land loads (<code>Data/Landscape/LandT.lnd</code>); see ../scripts/landT_script.md</td>
+</tr>
+<tr>
+<td>Two of the player's towns (Japanese and Celtic) and a neutral Indian one, with houses, fish farms and fields</td>
+<td>partial</td>
+<td>loaded by the land script; see ../town/</td>
+</tr>
+<tr>
+<td>Hundreds of animals, trees, big forests, fireflies and lanterns</td>
+<td>partial</td>
+<td>see ../animal/, ../nature/</td>
+</tr>
+<tr>
+<td>The player's influence covers the island (a ring of radius 1000 at its middle)</td>
+<td>partial</td>
+<td><code>InfluencePosition</code> is real; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+<tr>
+<td>The Island Keeper, a monk who can't be picked up, moved or hurt</td>
+<td>partial</td>
+<td><code>CREATE</code> makes the monk (a villager) and the three flags are real; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+<tr>
+<td>A field of miracle dispensers, one for every miracle: the 25 player miracles in four rows and the 16 creature spells in two</td>
+<td>partial</td>
+<td><code>CREATE</code> of spell dispensers is real (<code>magic::script::CreateSpellDispenser</code>); see ../miracles/dispensers_and_seeds.md; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="running-the-lessons">Running the lessons</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The lessons run in order, each starting when the last is done</td>
+<td>partial</td>
+<td>plain script order in <code>LandControlT</code>; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+<tr>
+<td>Space restarts the lesson running</td>
+<td>todo</td>
+<td><code>KeyDown</code> is a stub</td>
+</tr>
+<tr>
+<td>Each lesson limits the interface to what it teaches</td>
+<td>partial</td>
+<td><code>SetInterfaceInteraction</code> is real; see ../hand/; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+<tr>
+<td>Each lesson's lines are said by the Island Keeper, and wait to be read</td>
+<td>partial</td>
+<td><code>RunText</code> and <code>TextRead</code> are real; see advisors.md; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+<tr>
+<td>A lesson that the player strays from has the Keeper call them back ("You are straying! Try and keep me in view!")</td>
+<td>partial</td>
+<td><code>GameThingFieldOfView</code> and the distances are real; the view test <code>GameThingCanViewCamera</code> is a stub; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+<tr>
+<td>Each line names the mouse button or key to press, as the player has bound it</td>
+<td>todo</td>
+<td><code>SetHandDemoKeys</code> is empty; see ../interface/key_bindings.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="lesson-1-moving-and-turning">Lesson 1: moving and turning</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The Keeper welcomes the player and sets off round the mountain, beckoning</td>
+<td>partial</td>
+<td>villager walks and animations are real; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+<tr>
+<td>Only grabbing and dragging the land works</td>
+<td>partial</td>
+<td><code>SetInterfaceInteraction</code> is real; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+<tr>
+<td>The player keeps up by grabbing the land and pulling it</td>
+<td>partial</td>
+<td>the player camera control itself: see ../camera/world_camera_controls.md; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+<tr>
+<td>The Keeper waits while he is out of view or more than 100 away</td>
+<td>todo</td>
+<td>the view test <code>GameThingCanViewCamera</code> is a stub</td>
+</tr>
+<tr>
+<td>Then turning: the hand at the screen's left edge shows the rotation arrows; holding the button and moving the mouse turns the view</td>
+<td>partial</td>
+<td>the player camera control itself: see ../camera/world_camera_controls.md; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+<tr>
+<td>Only turning and dragging work until the player has turned the view the way asked</td>
+<td>todo</td>
+<td>the rotation check <code>WithinRotation</code> is a stub</td>
+</tr>
+<tr>
+<td>The evil advisor reminds the player how to turn if they forget</td>
+<td>partial</td>
+<td>advisors and texts are real; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+<tr>
+<td>A timed round: follow the Keeper round the mountain in under five minutes; he stops if the player is more than 50 away or ahead of him</td>
+<td>partial</td>
+<td>timers and distances are real; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+<tr>
+<td>Too slow: "Oh. Bad luck" and the round starts again</td>
+<td>partial</td>
+<td><code>RunText</code> is real; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="lesson-2-tilting">Lesson 2: tilting</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The Keeper climbs a path and the player follows by tilting the view</td>
+<td>partial</td>
+<td>villager walks are real; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+<tr>
+<td>Only tilting works</td>
+<td>partial</td>
+<td><code>SetInterfaceInteraction</code> is real; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+<tr>
+<td>The hand at the screen's top edge shows the arrows; holding the button and moving the mouse tilts the view</td>
+<td>partial</td>
+<td>the player camera control itself: see ../camera/world_camera_controls.md; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+<tr>
+<td>Then the Keeper walks down again and the player keeps him in view</td>
+<td>partial</td>
+<td>villager walks and field-of-view are real; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+<tr>
+<td>Too slow or straying: the step starts again</td>
+<td>partial</td>
+<td>the same script; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="lesson-3-everything-together">Lesson 3: everything together</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The Keeper walks round a valley path and the player follows with every control</td>
+<td>partial</td>
+<td>villager walks are real; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+<tr>
+<td>He waits when out of view or too far</td>
+<td>todo</td>
+<td>the view test <code>GameThingCanViewCamera</code> is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="lesson-4-zooming">Lesson 4: zooming</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Holding both mouse buttons and moving the mouse zooms</td>
+<td>partial</td>
+<td>the player camera control itself: see ../camera/world_camera_controls.md; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+<tr>
+<td>The player zooms out to see the whole island, then back in</td>
+<td>partial</td>
+<td>the camera distance reads are real; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+<tr>
+<td>Two rocks are placed as marks to zoom between</td>
+<td>partial</td>
+<td><code>CREATE</code> makes rocks; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+<tr>
+<td>The keyboard and the mouse wheel zoom too</td>
+<td>todo</td>
+<td><code>HasMouseWheel</code> is a stub (answers no); the player camera control itself: see ../camera/world_camera_controls.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="lesson-5-picking-up">Lesson 5: picking up</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Five lost teddy bears to pick up and drop in a ditch</td>
+<td>partial</td>
+<td><code>CREATE</code> makes mobile objects; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+<tr>
+<td>Picking up: the hand over a bear, the Action button held and the mouse moved</td>
+<td>partial</td>
+<td>see ../hand/picking_up.md; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+<tr>
+<td>Dropping: the Action button again</td>
+<td>partial</td>
+<td>see ../hand/holding.md; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+<tr>
+<td>All five in the ditch ends the lesson</td>
+<td>partial</td>
+<td><code>CallNear</code> and the counts are real; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="lesson-6-double-clicking">Lesson 6: double clicking</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Double clicking the Move button somewhere flies the camera there</td>
+<td>partial</td>
+<td>the player camera control itself: see ../camera/world_camera_controls.md; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+<tr>
+<td>The player double clicks the islet offshore to fly there</td>
+<td>partial</td>
+<td>the camera position reads are real; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+<tr>
+<td>Getting there any other way: "Hey! You didn't double-click to get there!" and try again</td>
+<td>partial</td>
+<td>the same script; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+<tr>
+<td>Then double clicks the mountain top to fly back</td>
+<td>partial</td>
+<td>the camera position reads are real; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="after-the-lessons">After the lessons</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The Keeper says that was all and the player may stay and practise</td>
+<td>partial</td>
+<td><code>RunText</code> is real; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+<tr>
+<td>Six gold scrolls stand by the start, one per lesson; tapping one runs that lesson again</td>
+<td>partial</td>
+<td><code>CreateHighlight</code> and <code>GameThingClicked</code> are real; see ../interface/scrolls_and_signs.md; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+<tr>
+<td>The Keeper goes; each replay brings its own Keeper</td>
+<td>partial</td>
+<td>villager <code>CREATE</code> and <code>ObjectDelete</code> are real; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+<tr>
+<td>The miracle dispensers stay for practising miracles</td>
+<td>partial</td>
+<td>see ../miracles/dispensers_and_seeds.md; never started: our tree starts only <code>LandControlAll</code> (<code>Game.cpp</code>), never the island's <code>LandControlT</code></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

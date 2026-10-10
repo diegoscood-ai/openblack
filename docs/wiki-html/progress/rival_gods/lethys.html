@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lethys — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="here" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#lethys">Lethys</a><ul>
+<li><a href="#on-the-second-land">On the second land</a></li>
+<li><a href="#his-creature-on-the-second-land">His creature on the second land</a></li>
+<li><a href="#raids-and-taunts-on-the-second-land">Raids and taunts on the second land</a></li>
+<li><a href="#losing-the-second-land">Losing the second land</a></li>
+<li><a href="#on-the-third-land">On the third land</a></li>
+<li><a href="#the-captive-creature">The captive creature</a></li>
+<li><a href="#his-raids-on-the-third-land">His raids on the third land</a></li>
+<li><a href="#losing-the-third-land">Losing the third land</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="lethys">Lethys</h1>
+<p>The evil rival god of the second and third lands. On the second land he is the third player, raining fireballs and
+taunting the player while they win his towns; on the third he is the second player, holding the player's creature
+prisoner on Nemesis's behalf until the player frees it and takes his last town, when his temple is destroyed.</p>
+<p><strong>Progress: 6/50 done, 9 partial — 21%</strong></p>
+<p>See <a href="../story/land_2.html">../story/land_2.md</a> and <a href="../story/land_3.html">../story/land_3.md</a> for the lands' challenges, and
+<a href="ai.html">ai.md</a>, <a href="magic.html">magic.md</a>, <a href="towns_and_influence.html">towns_and_influence.md</a> and
+<a href="creatures.html">creatures.md</a> for how every computer god works.</p>
+<h2 id="on-the-second-land">On the second land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land script makes the third player a computer player</td>
+<td>partial</td>
+<td><code>TOGGLE_COMPUTER_PLAYER</code> adds the player (<code>PlayerArchetype</code>) with no mind behind it</td>
+</tr>
+<tr>
+<td>His temple and a Celtic worship site stand in the land's snowy corner, owned by him</td>
+<td>done</td>
+<td>the temple with its owner (<code>CitadelArchetype</code>) and the site (<code>magic::script::CreateWorshipSite</code>)</td>
+</tr>
+<tr>
+<td>He owns three Celtic towns: one with lightning, one with heal, and his home town with food, shield, physical shield and water</td>
+<td>partial</td>
+<td>the towns and owners are made (<code>TownArchetype</code>) and hold their miracles (<code>magic::script::CreateNewTownSpell</code>); no god casts them</td>
+</tr>
+<tr>
+<td>Each starts believing 0.65 in him, with belief in him and Khazar capped at 0.75</td>
+<td>done</td>
+<td><code>SET_TOWN_BELIEF</code> and <code>SET_TOWN_BELIEF_CAP</code> (<code>ecs::town_belief::SetBeliefInPlayer</code>, <code>SetCap</code>); see <a href="../town/belief_and_conversion.html">../town/belief_and_conversion.md</a></td>
+</tr>
+<tr>
+<td>His influence rings his temple and towns in his player colour</td>
+<td>done</td>
+<td>the influence of his temple and towns (<code>src/ECS/Influence</code>), drawn in his colour (<code>influence::k_CircleColours</code>)</td>
+</tr>
+<tr>
+<td>His mind is told to expand his influence only a little (one fifth of full)</td>
+<td>todo</td>
+<td><code>SET_COMPUTER_PLAYER_PERSONALITY</code> is a stub; see <a href="ai.html">ai.md</a></td>
+</tr>
+<tr>
+<td>His attitude to Khazar is set to a quarter</td>
+<td>todo</td>
+<td><code>SET_COMPUTER_PLAYER_ATTITUDE</code> is a stub</td>
+</tr>
+<tr>
+<td>Lethys and the player are not allies</td>
+<td>done</td>
+<td>no alliance exists in our tree, which matches</td>
+</tr>
+</tbody>
+</table>
+<h2 id="his-creature-on-the-second-land">His creature on the second land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A wolf loaded from his mind file near his temple, drawn 1.5 times its auto-scaled size</td>
+<td>todo</td>
+<td><code>LOAD_CREATURE</code> is a stub; see <a href="creatures.html">creatures.md</a></td>
+</tr>
+<tr>
+<td>Named from the game's text (the script's note calls it Laetes), fully grown, every skill and nearly every miracle known</td>
+<td>todo</td>
+<td><code>SET_CREATURE_NAME</code>, <code>CREATURE_AUTOSCALE</code> and <code>CREATURE_SET_KNOWS_ACTION</code> are stubs</td>
+</tr>
+<tr>
+<td>Once the player has a creature it takes the opposite alignment</td>
+<td>todo</td>
+<td>the creature is never loaded</td>
+</tr>
+<tr>
+<td>When Khazar dies, his creature is made strong, goes to Khazar's creature and leaves through the vortex</td>
+<td>todo</td>
+<td>the story never reaches Land 2 (<code>LOAD_MAP</code> is empty); see <a href="khazar.html">khazar.md</a>; the vortices: <a href="../story/portals_per_land.html#land-2-khazars-death-and-lethyss-vortex">../story/portals_per_land.md</a>; <a href="../story/gold_scrolls/nemesis_no.html#the-film-lethys-takes-the-creed">../story/gold_scrolls/nemesis_no.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="raids-and-taunts-on-the-second-land">Raids and taunts on the second land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>While the player arrives, his hand tours eight points of his land at speed 150, at a fixed height</td>
+<td>todo</td>
+<td>needs his hand: the computer player natives are stubs in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>Every 40 to 80 seconds (the first after 50) his hand flies to the first point and he fakes an attack</td>
+<td>todo</td>
+<td>the story never reaches Land 2 (<code>LOAD_MAP</code> is empty); needs his hand: the computer player natives are stubs in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>A fake attack is three level-two fireballs at one spot, 2, 5 and 2 seconds apart, thrown from his hand</td>
+<td>partial</td>
+<td>dormant: <code>SPELL_AT_POS</code> casts them, but from the land's origin (his hand's position is a stub) and as the neutral player; the story never reaches Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The tour stops and his mind takes over once the arrival ends</td>
+<td>todo</td>
+<td>the story never reaches Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>While he lives, whenever his influence at the camera beats the player's he comes to taunt them, at most once a minute</td>
+<td>todo</td>
+<td><code>GET_INFLUENCE</code> works (<code>magic::script::GetInfluence</code>), but coming over needs his hand: the computer player natives are stubs in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>His hand flies to 10 metres in front of the camera at speed 350, rechecking every 0.3 seconds, and is put there after 10 seconds</td>
+<td>todo</td>
+<td>needs his hand: the computer player natives are stubs in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>His taunts are spoken in his own voice (one of six) rather than shown as text</td>
+<td>todo</td>
+<td>the story never reaches Land 2 (<code>LOAD_MAP</code> is empty); spoken lines come from the extra sound bank</td>
+</tr>
+<tr>
+<td>He stays quiet while another script is using him</td>
+<td>todo</td>
+<td>the story never reaches Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>When the player wins one of his towns, Khazar praises it and 6 seconds later Lethys rages (one of four lines)</td>
+<td>todo</td>
+<td>the story never reaches Land 2 (<code>LOAD_MAP</code> is empty); see <a href="towns_and_influence.html">towns_and_influence.md</a></td>
+</tr>
+<tr>
+<td>When he wins one of the player's towns he gloats (one of four lines)</td>
+<td>todo</td>
+<td>the story never reaches Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="losing-the-second-land">Losing the second land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Taking any one of his three towns can bring about Khazar's death</td>
+<td>todo</td>
+<td>the story never reaches Land 2 (<code>LOAD_MAP</code> is empty); see <a href="khazar.html">khazar.md</a></td>
+</tr>
+<tr>
+<td>After Khazar's death, once two of his three towns are lost or he holds one or none, the vortex out of the land opens</td>
+<td>todo</td>
+<td>the story never reaches Land 2 (<code>LOAD_MAP</code> is empty); Lethys takes the player's creature through it: <a href="../story/gold_scrolls/lethys_has_taken_our_creature.html">../story/gold_scrolls/lethys_has_taken_our_creature.md</a></td>
+</tr>
+<tr>
+<td>Storm clouds gather over his temple: five monsoon clouds, 80 seconds, still and out of the wind</td>
+<td>partial</td>
+<td>dormant: the weather objects exist (CHL <code>CREATE</code> of a weather thing, <code>src/Magic/Script/CHLWeather.cpp</code>), but the story never reaches Land 2 (<code>LOAD_MAP</code> is empty); see <a href="../weather/index.html">../weather/</a></td>
+</tr>
+<tr>
+<td>When he holds no town and his temple is at a tenth of its health or less, the player can leave through the vortex</td>
+<td>todo</td>
+<td>the story never reaches Land 2 (<code>LOAD_MAP</code> is empty); the temple's heart keeps a life (<code>CitadelArchetype</code>, <code>ecs::life</code>)</td>
+</tr>
+<tr>
+<td>The final scroll counts how many of his towns remain</td>
+<td>todo</td>
+<td>the story never reaches Land 2 (<code>LOAD_MAP</code> is empty); see <a href="../story/land_2.html">../story/land_2.md</a>; <a href="../story/gold_scrolls/destroy_it.html">../story/gold_scrolls/destroy_it.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="on-the-third-land">On the third land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>He is the land's second player, a computer player</td>
+<td>partial</td>
+<td><code>TOGGLE_COMPUTER_PLAYER</code> adds the player (<code>PlayerArchetype</code>) with no mind behind it</td>
+</tr>
+<tr>
+<td>His temple stands on a plateau, with Egyptian and Tibetan worship sites</td>
+<td>done</td>
+<td>the temple with its owner and the sites (<code>magic::script::CreateWorshipSite</code>)</td>
+</tr>
+<tr>
+<td>His Tibetan town at the foot of the plateau has lightning, heal, food and storm, and believes 1.9 in him, capped at 2</td>
+<td>partial</td>
+<td>town, owner, belief and its cap are made (<code>SetBeliefInPlayer</code>, <code>SetCap</code>); it holds its miracles (<code>CreateNewTownSpell</code>), but no god casts them</td>
+</tr>
+<tr>
+<td>His Egyptian town has fire, teleport, shield and physical shield, and believes about 0.73 in him</td>
+<td>partial</td>
+<td>as above</td>
+</tr>
+<tr>
+<td>He is not allied to the player</td>
+<td>done</td>
+<td>matches: no alliance exists in our tree</td>
+</tr>
+<tr>
+<td>His mind ignores aggressive creatures and doesn't try to expand at all</td>
+<td>todo</td>
+<td>both set through <code>SET_COMPUTER_PLAYER_PERSONALITY</code>, a stub</td>
+</tr>
+<tr>
+<td>His wolf is loaded again on this land at 1.5 times size, opposite in alignment to the player's creature</td>
+<td>todo</td>
+<td><code>LOAD_CREATURE</code> is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-captive-creature">The captive creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Until the three prison statues are switched off, his creature stays by the prisoner and never tires</td>
+<td>todo</td>
+<td>the story never reaches Land 3 (<code>LOAD_MAP</code> is empty); see <a href="../story/land_3.html">../story/land_3.md</a>; <a href="../story/gold_scrolls/so_you_couldnt_bear_to_be_without_your_creature.html#the-prison">../story/gold_scrolls/so_you_couldnt_bear_to_be_without_your_creature.md</a></td>
+</tr>
+<tr>
+<td>If cattle are within 50 metres it stamps on one and eats it</td>
+<td>todo</td>
+<td>the story never reaches Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Within 75 metres of the player's creature it torments it in turn: a powered fireball, a powered lightning bolt, then an itchy spell, each at full energy, 3 seconds apart</td>
+<td>todo</td>
+<td>the story never reaches Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Further away it walks back to its post</td>
+<td>todo</td>
+<td>the story never reaches Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A frozen moan is heard from the prisoner every tenth round</td>
+<td>todo</td>
+<td>the story never reaches Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>When freed, it plays confused, frightened and angry four times over and both creatures can be leashed</td>
+<td>todo</td>
+<td>the story never reaches Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="his-raids-on-the-third-land">His raids on the third land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Five minutes in, unless freed already, a pack of 20 wolves gathers and walks at half speed towards an Indian town</td>
+<td>todo</td>
+<td>the story never reaches Land 3 (<code>LOAD_MAP</code> is empty); see <a href="../animal/index.html">../animal/</a>; <a href="../story/gold_scrolls/the_wolves_are_possessed.html">../story/gold_scrolls/the_wolves_are_possessed.md</a></td>
+</tr>
+<tr>
+<td>If a wolf reaches within 25 metres of the town, it loses faith: belief in Lethys rises by 1 and in the player is set to 0.3</td>
+<td>todo</td>
+<td><code>OBJECT_RELATIVE_BELIEF</code> and <code>SET_PLAYER_BELIEF</code> are stubs</td>
+</tr>
+<tr>
+<td>If the monk's quest is done, the monk appears and turns wolves into cows until 8 are left; the player must kill the rest before any reaches the town</td>
+<td>todo</td>
+<td>the story never reaches Land 3 (<code>LOAD_MAP</code> is empty); <a href="../story/gold_scrolls/the_wolves_are_possessed.html#the-monk-helps">../story/gold_scrolls/the_wolves_are_possessed.md</a></td>
+</tr>
+<tr>
+<td>His hand appears near a town, he boasts and throws three level-one fireballs at a beach campfire, setting sixteen fishermen alight</td>
+<td>partial</td>
+<td>dormant: the fireballs can be cast (<code>SPELL_AT_POS</code>); the hand and dialogue wait on stubs, and the story never reaches Land 3 (<code>LOAD_MAP</code> is empty); <a href="../story/gold_scrolls/fire_fire_im_on_fire.html">../story/gold_scrolls/fire_fire_im_on_fire.md</a></td>
+</tr>
+<tr>
+<td>The player is scored by how many burning fishermen they save: all 16 gives alignment +1, 6 to 15 nothing, 5 or fewer −0.8</td>
+<td>todo</td>
+<td>the story never reaches Land 3 (<code>LOAD_MAP</code> is empty); <a href="../story/gold_scrolls/fire_fire_im_on_fire.html">../story/gold_scrolls/fire_fire_im_on_fire.md</a>; see <a href="../story/land_3.html">../story/land_3.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="losing-the-third-land">Losing the third land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Until the creature is freed, the player's belief in his Tibetan town is pushed back by 1 every 10 seconds</td>
+<td>todo</td>
+<td>the story never reaches Land 3 (<code>LOAD_MAP</code> is empty); <code>OBJECT_RELATIVE_BELIEF</code> is a stub</td>
+</tr>
+<tr>
+<td>After that, the town can be won once his belief there leads the player's by less than 0.4</td>
+<td>todo</td>
+<td>the story never reaches Land 3 (<code>LOAD_MAP</code> is empty); <code>BELIEF_FOR_PLAYER</code> is a stub</td>
+</tr>
+<tr>
+<td>When the player wins it, his hand flies over his temple at speed 300 and the temple explodes, to Nemesis's music</td>
+<td>todo</td>
+<td>needs his hand: the computer player natives are stubs in <code>src/CHLApi.cpp</code>; <a href="../story/gold_scrolls/so_you_couldnt_bear_to_be_without_your_creature.html#sparing-or-finishing-lethys">../story/gold_scrolls/so_you_couldnt_bear_to_be_without_your_creature.md</a></td>
+</tr>
+<tr>
+<td>A level-one explosion falls on his temple from 150 metres above</td>
+<td>partial</td>
+<td>dormant: the explosion can be cast by script (<code>SPELL_AT_POS</code>), but the story never reaches Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>He is switched off for good</td>
+<td>todo</td>
+<td><code>ENABLE_DISABLE_COMPUTER_PLAYER</code> is a stub</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Help system — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="here" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#help-system">Help system</a><ul>
+<li><a href="#running-help">Running help</a></li>
+<li><a href="#what-triggers-help">What triggers help</a></li>
+<li><a href="#asking-for-help">Asking for help</a></li>
+<li><a href="#the-creatures-help">The creature's help</a></li>
+<li><a href="#tips">Tips</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="help-system">Help system</h1>
+<p>The help the game gives as it is played: the advisors' messages when something happens for the first time or goes
+wrong, the answers to the Help key, the creature's learning messages, alerts, banter and tips. Who the advisors are and
+how they look and fly is in ../story/; the words on screen are in <a href="on_screen_text.html">on_screen_text.md</a>.</p>
+<p><strong>Progress: 9/37 done, 10 partial — 38%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../hand-and-interface.html">The hand and the interface</a>.</p>
+<h2 id="running-help">Running help</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Help messages come in sets, and a set picks one of its messages at random</td>
+<td>done</td>
+<td>the set table, and mode 1 picks one text at random on the local stream (<code>src/Help/HelpMessageSets.cpp</code>, <code>message_sets::RunMessageSet</code>); run by the banter and the debug Consciences window (<code>src/Debug/Consciences.cpp</code>)</td>
+</tr>
+<tr>
+<td>A message is spoken by the good or evil advisor, or both in turn, with their voice and lip sync</td>
+<td>done</td>
+<td><code>help::HelpSystem::SayText</code> routes a text to the good or evil advisor by its narrator (<code>RouteOf</code>, <code>SpiritWhoTalks</code>); the advisors fly and speak with lip sync (<code>src/Help/Spirits.cpp</code>, <code>src/Help/SpiritsRuntime.cpp</code>, <code>src/Audio/Services/Advisor.cpp</code>); tests <code>HelpSystem.VoiceHooks</code>, <code>Spirits.*</code></td>
+</tr>
+<tr>
+<td>Only one message runs at a time; a new, more important one stops the running one, the advisor coughing or grumbling at the interruption</td>
+<td>done</td>
+<td>one text and one help script at a time: <code>script_control::StopHelpScriptsForNewHelp</code> stops the running help scripts, and a click cuts both advisors (<code>advisor::Interrupt</code>); tests <code>ScriptControl.*</code>. Our wiki differs: the original picks an interruption line but never says it, so the advisor is not heard grumbling (<a href="../../audio.html#how-it-works">audio</a>)</td>
+</tr>
+<tr>
+<td>A message waits until it has been read (by its length and the player's read speed) or clicked through before the next</td>
+<td>done</td>
+<td><code>HelpSystem::IsTextRead</code>: the click, the voice or the reading time from the word count and READ_SPEED; tests <code>HelpSystem.ReadingTimeWithoutVoice</code>, <code>HelpSystem.ReadWithVoice</code>, <code>HelpSystem.WithInteraction</code></td>
+</tr>
+<tr>
+<td>Messages already given are remembered so they are not repeated</td>
+<td>partial</td>
+<td>each set's sent turn and count are kept (<code>message_sets::MarkMessageSetSent</code>), so the banter does not repeat a set until all 25 are used (<code>GetRandomBanterSet</code>); the history of texts is kept (<code>HelpSystem::GetHistory</code>); the per-thing "already explained" memory is not ported</td>
+</tr>
+<tr>
+<td>The help level setting sets how much help is offered, none turning it off</td>
+<td>partial</td>
+<td>the help system's guidance level gates the remarks (<code>audio::guidance</code>, <code>HelpSystem::GetGuidanceLevel</code>) and level 0 turns HELP_SYSTEM_ON off, but the menu's Help level (<code>MenuSettings::helpLevel</code>) is not passed to it</td>
+</tr>
+<tr>
+<td>Land scripts turn the help system on and off, and ask whether it is on</td>
+<td>done</td>
+<td><code>HELP_SYSTEM_ON</code> and <code>SET_HELP_SYSTEM</code> in <code>src/CHLApi.cpp</code> read and set <code>HelpSystem::IsHelpSystemOn</code> / <code>SetHelpOn</code></td>
+</tr>
+<tr>
+<td>Help is held back while the player is inside the temple, and what was on screen comes back on leaving</td>
+<td>todo</td>
+<td>nothing puts the help text away on entering the temple</td>
+</tr>
+<tr>
+<td>Help can take the camera into widescreen bars while it speaks</td>
+<td>done</td>
+<td>the help scripts' SET_WIDESCREEN goes through <code>help::script_control</code> and the <code>wideScreen</code> hook to the bars (<code>ScreenFade::SetWideScreen</code> in <code>src/3D/ScreenFade.cpp</code>, <code>src/Game.cpp</code>); test <code>ScriptControl.SetWideScreen</code></td>
+</tr>
+<tr>
+<td>What help has been given and how often is kept with the player's profile</td>
+<td>partial</td>
+<td>the help record of 49 events is counted (<code>src/Help/HelpProfile.cpp</code>, <code>help_profile::Trigger</code>), but there are no profiles: it starts at 0 every run</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-triggers-help">What triggers help</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The first time the player holds each kind of thing (each animal, each miracle seed, food, wood, rocks, a tree, a villager, a scaffold, poo, a ball, fire)</td>
+<td>todo</td>
+<td>the help engine's "first time held" sets (the mode 2 sets in <code>src/Help/HelpMessageSets.cpp</code>) are in the table but nothing runs them</td>
+</tr>
+<tr>
+<td>The first time each miracle is cast, and when it is powered up</td>
+<td>todo</td>
+<td>the spell seeds count a help event on casting (<code>SpellSeed.cpp</code>, <code>help_profile::Event::CastSpell</code>) but no message is run</td>
+</tr>
+<tr>
+<td>The first time each miracle seed is seen</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Wonders: on first seeing one, and for each tribe's wonder</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Learning the controls: picking up by pulling, gestures on the ground, turning by the screen's sides, and the like, each praised once learnt</td>
+<td>todo</td>
+<td>the camera help's features and the help record's camera events are kept (<code>src/Camera/CameraHelp.cpp</code>, <code>help_profile::CameraHelpCallback</code>), but no praise or hint is run</td>
+</tr>
+<tr>
+<td>Looking at the sky, looking closely at the land, or bumping the camera against the land</td>
+<td>todo</td>
+<td><code>help_profile::ProcessSpecialTriggers</code> has the look-at-sky and look-at-land events, but the player camera does not give it the view (<code>Queries::playerCamera</code> unset), so they never come</td>
+</tr>
+<tr>
+<td>Villagers who don't believe, who aren't interested, vagrants, children, and each kind of disciple</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A challenge scroll lit up nearby</td>
+<td>partial</td>
+<td>a did-you-know sign's first tap runs "FirstDYKExplained" (<code>src/ECS/ScriptHighlight.cpp</code>); nothing points out a challenge scroll</td>
+</tr>
+<tr>
+<td>The village centre and the temple, the first times they are seen</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Town alerts: the store running low on food or wood, few people, unhappy villagers, worshippers dying</td>
+<td>done</td>
+<td><code>audio::guidance::WarnLowOnFood</code>, <code>WarnLowOnWood</code>, <code>WarnVillagersUnhappy</code> (from <code>src/ECS/Town/TownDesire.cpp</code>), <code>WarnLowOnPeople</code>, <code>WarnLosingVillagers</code>, <code>WarnWorshippersDying</code> (from <code>src/ECS/Villager/VillagerDeath.cpp</code>), <code>WarnLosingBelief</code> (<code>src/ECS/Town/TownBelief.cpp</code>); tests <code>GuidanceTest.*</code></td>
+</tr>
+<tr>
+<td>Battle alerts: the player's people or towns attacked, the creature attacked or fighting</td>
+<td>partial</td>
+<td><code>WarnTownUnderAttack</code>, <code>WarnCreatureUnderAttack</code>, <code>RemarkCreatureFight</code> and <code>PlayTownAttackRemark</code> exist in <code>src/Audio/Services/Guidance.cpp</code> but nothing calls them yet</td>
+</tr>
+<tr>
+<td>Remarks on the player's deeds: killing people, destroying buildings, being very good or very evil, acting against their alignment</td>
+<td>partial</td>
+<td><code>RemarkKillingPeople</code> (villager deaths), <code>RemarkGeneralGood</code> / <code>RemarkGeneralBad</code> (town belief) and <code>UpdateAlignmentRemarks</code> (<code>src/ECS/Effects/Alignment.cpp</code>) are wired; <code>RemarkBuildingDestroyed</code> and <code>RemarkAttackingTown</code> have no caller</td>
+</tr>
+<tr>
+<td>Remarks on the moon's phase and on the player not watching</td>
+<td>partial</td>
+<td><code>audio::guidance::RemarkOnMoonPhase</code> runs every turn (<code>guidance::ProcessGameTurn</code>); idle chatter after two minutes is the banter below; no other "not watching" remark found</td>
+</tr>
+<tr>
+<td>Banter: idle chatter between the advisors from 25 sets</td>
+<td>done</td>
+<td><code>message_sets::ProcessBanter</code>: after 120 s with no interface event (help record), a random banter set 1..25 not sent yet (<code>GetRandomBanterSet</code>), from <code>help::Process</code></td>
+</tr>
+<tr>
+<td>Reminders of what a challenge still needs</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="asking-for-help">Asking for help</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The Help key asks about what is in the hand, else what the hand is over, else the ground under it</td>
+<td>todo</td>
+<td>F1 toggles the renderer's debug view (<code>Game.cpp</code>); the Help action is not handled</td>
+</tr>
+<tr>
+<td>Each kind of thing has its own answer: villagers, animals and objects, buildings, the town centre, magic</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The ground answers by its kind: solid ground, deep or shallow water, and so on</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Help that teaches a control shows the key or mouse button to press, as the player has bound it</td>
+<td>partial</td>
+<td>help texts with $M codes are parsed (<code>HelpTextDisplay</code>) and tooltips and the did-you-know bubble draw the bound key or button (<code>help::input_prompt</code>, <code>Renderer::DrawKeyOrMouse</code>); the $M icon in a help text is not drawn</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-creatures-help">The creature's help</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tells the player what the creature wants now and why it failed at something</td>
+<td>todo</td>
+<td>the creature's mind exists (<code>src/Creature</code>) but no help message is run from it</td>
+</tr>
+<tr>
+<td>Tells the player when the creature has learnt, or nearly learnt, an action or a spell, or can't learn one yet</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Tells the player a desire or an opinion went up or down after a reward or a punishment</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Walks the player through the stages of the creature's life (meeting the guide, the leashes, eating, fighting, helping and impressing towns, punishment, growing up)</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Turned off by the creature help setting</td>
+<td>partial</td>
+<td>the menu's Creature help box is kept in <code>MenuSettings::creatureHelp</code> but nothing reads it, and there is no creature help to turn off</td>
+</tr>
+</tbody>
+</table>
+<h2 id="tips">Tips</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>"Did you know" texts, shown in the temple's library</td>
+<td>partial</td>
+<td>the library's scroll lists help texts (<code>src/3D/TempleScrolls.cpp</code>, <code>Content::LibraryDidYouKnow</code>); see ../temple/</td>
+</tr>
+<tr>
+<td>"Did you know" scrolls lit in the world, read by tapping them</td>
+<td>done</td>
+<td><code>ecs::script_highlight</code> did-you-know signs (CREATE_HIGHLIGHT row 1, <code>InterfaceTap</code>) open the help bubble (<code>src/Help/Bubble.cpp</code>, drawn by the renderer) and are marked read; tests <code>HelpSystem.BubbleOpensWithEachTappedSignsTextAndTheSameSignClosesIt</code>, <code>DidYouKnowBubble.*</code>, <code>ScriptHighlight.DidYouKnowReadLists</code></td>
+</tr>
+<tr>
+<td>Tips of the day</td>
+<td>todo</td>
+<td>(unconfirmed where the game shows them)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

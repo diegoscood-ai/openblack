@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leave Through the Vortex (Land 4) — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#leave-through-the-vortex-land-4">Leave Through the Vortex (Land 4)</a><ul>
+<li><a href="#where-it-sits-in-the-land">Where it sits in the land</a></li>
+<li><a href="#the-creed">The Creed</a></li>
+<li><a href="#the-rumbles-finding-the-vortex">The rumbles (finding the vortex)</a></li>
+<li><a href="#nemesis-opens-the-vortex">Nemesis opens the vortex</a></li>
+<li><a href="#the-scroll-and-leaving">The scroll and leaving</a></li>
+<li><a href="#creature">Creature</a></li>
+<li><a href="#soft-locks-and-failure">Soft-locks and failure</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="leave-through-the-vortex-land-4">Leave Through the Vortex (Land 4)</h1>
+<p>The last gold scroll of the fourth land. Once all three Guardian Stones are broken and the Undead Village's totems give up
+the second piece of the Creed, the creature takes it, the ground starts to rumble near a hidden spot, and Nemesis opens a
+vortex to his own realm and dares the player through. Clicking the gold scroll over the vortex ends the land and goes on
+to the fifth.</p>
+<p><strong>Land:</strong> 4 · <strong>Giver:</strong> Nemesis (the vortex west of the home village; the scroll hangs over it) · <strong>Script:</strong>
+LeaveThroughVortexL4, after CreatureGetsCreed (in Land4Meteorites) · <strong>Reward:</strong> the creature's second Creed piece; the way
+to the fifth land · <strong>Repeatable:</strong> no</p>
+<p>How a vortex works (what can be sent through, what crosses to the next land, the rumbles' numbers) is in
+<a href="../portals.html">../portals.md</a>; this file is the quest's flow. The land as a whole is in <a href="../land_4.html">../land_4.md</a>; the
+step before it is <a href="undead_village.html">Undead Village</a>; what follows is the fifth land (<a href="../land_5.html">../land_5.md</a>).</p>
+<p>Sources: the land's challenge scripts (the original source text, which matches the shipped <code>challenge.chl</code>) and the
+game's text table (<code>Scripts/InfoScript2.txt</code>). openblack's state is judged on this tree: the story's top script always
+runs the first land's control script first, the map-loading command (<code>LoadMap</code> in <code>src/CHLApi.cpp</code>) is empty and the
+first land stalls long before its end, so none of this runs. Rows are partial only where every command they need works
+in openblack.</p>
+<p><strong>Progress: 0/36 done, 2 partial — 3%</strong></p>
+<h2 id="where-it-sits-in-the-land">Where it sits in the land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's control script waits until the lightning, darkness and fire Guardian Stones are all broken (<a href="the_defending_ogres.html">The Defending Ogres</a>, <a href="the_heartbroken_man.html">The Heartbroken Man</a>, <a href="the_totem_puzzle.html">The Totem Puzzle</a>)</td>
+<td>todo</td>
+<td><code>LandControl4</code> itself calls no natives (it waits on script flags); never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native. See <a href="../../scripts/land4_script.html">../../scripts/land4_script.md</a></td>
+</tr>
+<tr>
+<td>It then runs the man's explanation of the Undead Village, then the creature's taking of the Creed, then this quest, each after the last has finished</td>
+<td>todo</td>
+<td>plain script order; the Creed scene needs <code>InCreatureHand</code> and <code>SetCreatureCreedProperties</code> (stubs); never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native. See <a href="undead_village.html">undead_village.md</a></td>
+</tr>
+<tr>
+<td>When this quest's script ends, the land's control script ends; the story's top script then stops every other script and loads the fifth land</td>
+<td>todo</td>
+<td><code>StopAllScriptsExcluding</code> works; <code>LOAD_MAP</code> is empty, so no fifth land</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-creed">The Creed</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Before the vortex, the creature collects the second Creed on the hill east of the home village (only the creature can take it), and the Creed scene ends with a rumble and the good advisor's "What was that?", which starts this quest</td>
+<td>todo</td>
+<td><code>CreatureGetsCreed</code> needs <code>InCreatureHand</code> and <code>SetCreatureCreedProperties</code> (stubs); see <a href="undead_village.html#the-creed">undead_village.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-rumbles-finding-the-vortex">The rumbles (finding the vortex)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No scroll yet: the ground rumbles from a hidden spot west of the home village, with a screen-rumble sound and a camera shake at every rumble</td>
+<td>todo</td>
+<td><code>LeaveThroughVortexL4</code> calls only real natives: <code>PlaySoundEffect</code>, <code>ShakeCamera</code> (<code>src/Camera/CameraShake</code>); never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native. See <a href="../portals.html">../portals.md</a></td>
+</tr>
+<tr>
+<td>The closer the camera is (within 500), the stronger (up to 3) and longer (up to 3 seconds) each shake; farther away the shake has no strength</td>
+<td>todo</td>
+<td><code>ShakeCamera</code> and the camera distance are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Rumbles start 30 seconds apart; once the camera has been within 500 they come a second sooner each time, down to 3 seconds</td>
+<td>todo</td>
+<td>plain script timing; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The vortex opens when the camera comes within 100 of the spot, or after five more rumbles at 3 seconds apart</td>
+<td>todo</td>
+<td>real natives (<code>GetCameraPosition</code>, <code>GetDistance</code>); never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The first time the camera is within 450, an advisor comments by the strength of that rumble: strong (1.5 to 2.5), the evil one pointing: "That was big. It came from over there."; middling (0.8 to 1.5), the good one pointing: "That was a mighty rumble. It came from here."; weak (0.3 to 0.8), the good one: "Did you feel that rumble, Leader? What could cause that?" then, pointing, "It seemed to come from over there."</td>
+<td>todo</td>
+<td><code>SpiritEject</code>, <code>SpiritPointPos</code>, <code>RunText</code> are real; the same script, so the same gaps; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Later, when the rumbles are 25 or 20 seconds apart and strong enough (above 0.8): the evil advisor, pointing: "Ooh. I got another rumble then. Boss."</td>
+<td>todo</td>
+<td>advisors and texts are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>At 15 or 10 seconds apart: the good advisor, pointing: "These rumblings seems to be getting faster, Leader."</td>
+<td>todo</td>
+<td>advisors and texts are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>At 5 seconds apart: the evil advisor, pointing: "The rumbling's really fast now, Boss."</td>
+<td>todo</td>
+<td>advisors and texts are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="nemesis-opens-the-vortex">Nemesis opens the vortex</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A cut scene: if the five rumbles opened it, the screen fades to black and the camera is set looking down at the spot from 50 across and 30 up, then fades in, and a second passes; if the camera came close, it instead rises 10 and turns to the spot over 3 seconds</td>
+<td>todo</td>
+<td><code>SetFade</code>, <code>SetCameraPosition</code>, <code>MoveCameraPosition</code> are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>An entry vortex is made at the spot</td>
+<td>todo</td>
+<td><code>CREATE</code> of a vortex is ported (<code>ecs::vortex::Create</code>); never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native. See <a href="../portals.html">../portals.md</a></td>
+</tr>
+<tr>
+<td>7 seconds later the camera drifts in close over 20 seconds while Nemesis speaks: "Ah yes. My adversary."</td>
+<td>todo</td>
+<td><code>MoveCameraPosition</code> and <code>RunText</code> are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>"You have the second part of the Creed. But it is useless unless you have three parts."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>"But I am still more powerful than you can possibly imagine."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>A slight shake (amplitude 0.03, radius 300, 10 seconds): "I have opened a Vortex to my realm."</td>
+<td>todo</td>
+<td><code>ShakeCamera</code> and <code>RunText</code> are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>"Come through. I invite you. For only you and I remain."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>"Come and face your destiny."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The camera pulls back over 6 seconds and the cut scene ends into a dialogue</td>
+<td>todo</td>
+<td>real camera and dialogue natives; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Evil advisor: "Yeah. Time to take on Nemesis. I've been waiting for this."</td>
+<td>todo</td>
+<td>advisors and texts are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Good advisor: "If we go through, there's no coming back. This is where we stand or fall."</td>
+<td>todo</td>
+<td>advisors and texts are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Evil: "Hey. You're right. Boss, are we ready for this? I mean we might die through there."</td>
+<td>todo</td>
+<td>advisors and texts are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Good: "We might. If we go through, we must be well prepared for what we face."</td>
+<td>todo</td>
+<td>advisors and texts are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Good: "And we should send plenty of food, wood and followers into the Vortex as well."</td>
+<td>todo</td>
+<td>advisors and texts are real; what crosses: <a href="../portals.html">../portals.md</a>; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Both go home</td>
+<td>todo</td>
+<td><code>SpiritHome</code> is real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-scroll-and-leaving">The scroll and leaving</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A gold scroll appears over the vortex, 20 off the ground</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> and the height through <code>SetProperty</code> (YPos) are real; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Until it is clicked, whenever the camera is within 100 and looking at it, at most every 30 seconds the evil advisor steps out, points at it and says "Boss, when you're ready, let's get ourselves to Nemesis' realm!"</td>
+<td>todo</td>
+<td>the shared notify script <code>ChallengeHighlightNotify</code> calls only real natives; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The player has as long as they like to throw food, wood and followers in before clicking</td>
+<td>todo</td>
+<td>the vortex takes things in (<code>ecs::vortex</code>), but nothing is carried to another land</td>
+</tr>
+<tr>
+<td>Clicking the scroll starts the leaving cut scene: the camera flies up to 250 above the vortex over 6 seconds, then dives into it over 3 seconds while the screen fades to black over 3</td>
+<td>todo</td>
+<td>real camera natives and <code>SetFade</code>; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The screen fades back in and the vortex counts as closed; the land is over</td>
+<td>partial</td>
+<td><code>SetFadeIn</code> works; the next land's arrival is not (see <a href="../portals.html">../portals.md</a>)</td>
+</tr>
+<tr>
+<td>No challenge-log entry is made for leaving: unlike the land's other gold scrolls, this one is never recorded</td>
+<td>todo</td>
+<td>the same script runs, so no entry either; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creature">Creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature must fetch the Creed itself; if it never picks it up the land cannot end</td>
+<td>todo</td>
+<td>the Creed pick-up by the creature needs <code>InCreatureHand</code> (a stub)</td>
+</tr>
+<tr>
+<td>Two leftover lines that would dim the creature's Creed glow and let it go at the end are commented out, so it keeps its full glow into the next land</td>
+<td>partial</td>
+<td>the same script runs; the Creed glow itself (<code>SetCreatureCreedProperties</code>) is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="soft-locks-and-failure">Soft-locks and failure</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The quest cannot be failed; the only ways to stall it are the creature never taking the Creed, or the player never clicking the scroll</td>
+<td>todo</td>
+<td>the same script runs; never reached: Land 4 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

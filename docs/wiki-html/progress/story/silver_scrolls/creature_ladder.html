@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Creature Ladder — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#creature-ladder">Creature Ladder</a><ul>
+<li><a href="#is-it-in-the-game">Is it in the game?</a></li>
+<li><a href="#the-statues">The statues</a></li>
+<li><a href="#each-rung">Each rung</a></li>
+<li><a href="#the-fight">The fight</a></li>
+<li><a href="#reward">Reward</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="creature-ladder">Creature Ladder</h1>
+<p>A cut fighting tournament: fifteen stone creature statues stand in a half circle around an arena, and each silver scroll
+there brings one statue to life as a copy of the player's own creature in another species, a little stronger each
+time, to be beaten in a fight. It was never compiled into the game, has no title or dialogue in the text table, and its
+reward (a "black belt" tattoo for the creature) was never written.</p>
+<p><strong>Land:</strong> none identified (never started) · <strong>Giver:</strong> a silver scroll over the arena · <strong>Script:</strong> CreatureLadder · <strong>Reward:</strong> none (an empty reward step, meant to be a tattoo) · <strong>Repeatable:</strong> no (each rung once; a lost fight is retried)</p>
+<p><strong>Progress: 0/0 done, 0 partial — 0%</strong></p>
+<p>Sources: the script's source text, the script compiler's project and quest menu lists, the land map scripts and the
+script grammar. Every row is n/a: the game never runs this quest. To restore it openblack would need, besides the usual
+scroll and camera commands, making a creature from another creature, creature fights and fight health, which are all
+stubs in <code>src/CHLApi.cpp</code>.</p>
+<h2 id="is-it-in-the-game">Is it in the game?</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Not in the compiled challenge file, and no land's control script, challenge list or the extra-menu list starts it</td>
+<td>n/a</td>
+<td>never started by the game: only listed in the developers' quest menu and project files, where it would run itself when compiled alone</td>
+</tr>
+<tr>
+<td>It runs itself at the top of its own file, the way single-quest test files do</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>No title, reminder or dialogue: the only line it uses is the shared "Your attention is required here."</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Its arena sits on open ground at sea level; the "citadel heart" it faces is not near any shipped land's citadel (the closest is Land 4's, about 150 away), so it can't be placed on a shipped land with confidence</td>
+<td>n/a</td>
+<td>never started by the game: checked against every <code>Land&lt;N&gt;.txt</code></td>
+</tr>
+<tr>
+<td>It uses real script commands of the shipped language (making a creature from a creature, stone creature icon features), so it would compile</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Not reachable at all in the shipped game</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-statues">The statues</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fifteen stone creature icons are placed on a half circle of radius 80 round the arena, 12 degrees apart, each facing the next; they can't be destroyed</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>From one end to the middle: sheep, cow, zebra, ape, wolf, leopard, polar bear, lion; from the other end back to the middle: ape, ape, horse, tortoise, ape, bear, tiger; sizes grow from 1 at the ends to 2.4 for the lion in the middle</td>
+<td>n/a</td>
+<td>never started by the game: the chimp, mandrill and gorilla statues use the ape's icon, there being no icon for them</td>
+</tr>
+<tr>
+<td>The comments list the rungs in a different order (sheep, chimp, cow, ape...) from the one the statues and levels actually use</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="each-rung">Each rung</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The rung waits until the player's creature is within 100 of the arena, then a silver scroll appears over it and the good advisor nags ("Your attention is required here.") until it is clicked</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>If the creature is within 90 when clicked, it is turned and walked to its starting spot on the west side of the arena</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Cut scene: the camera rises 50 above the player's side and looks at the rung's statue</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The opponent is made at the statue as a copy of the player's creature (its mind) but in the rung's species, fading in over 6 seconds, auto-scaled to 0.6, fully grown and taught everything</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The rungs go sheep, chimp, cow, ape, zebra, horse, mandrill, tortoise, wolf, gorilla, leopard, bear, polar bear, tiger, lion, alternating ends of the half circle towards the middle</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Strength rises by 0.066 a rung, from 0.066 for the sheep to 1 for the lion; odd rungs are fully good and even rungs fully evil</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The statue fades away and the opponent walks to its spot on the east side, the camera following; the two face each other if the player's creature is in place, otherwise the opponent faces the citadel</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The camera settles on a fight view over the arena</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-fight">The fight</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>While the player's creature is within 50 of the arena, the two are made to fight each other; the leash comes off</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>When neither is fighting any more, the one with more fight health wins</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Losing: the player's creature is knocked out, the camera pulls back, the opponent returns to its spot fully healed and the player's creature is moved to a spot outside the arena; the rung is fought again once the creature comes back within 50</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Winning: the opponent walks back to its statue's place, idles and prays, is frozen for 3 seconds, then an explosion miracle falls on it from above (radius 50) and it is removed; the camera returns to the fight view and the creature is released</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>There is no timer and no way to give up; the next rung starts as soon as one is won</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="reward">Reward</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>After the lion, a reward step meant to give "a unique tattoo" (a black belt) for the creature runs, but it is empty</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>No challenge record is ever opened or closed</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

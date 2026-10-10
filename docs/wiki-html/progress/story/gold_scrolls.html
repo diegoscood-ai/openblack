@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gold scrolls — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="here" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#gold-scrolls">Gold scrolls</a><ul>
+<li><a href="#where-things-stand-2026-10-08">Where things stand (2026-10-08)</a></li>
+<li><a href="#land-1">Land 1</a></li>
+<li><a href="#land-2">Land 2</a></li>
+<li><a href="#land-3">Land 3</a></li>
+<li><a href="#land-4">Land 4</a></li>
+<li><a href="#land-5">Land 5</a></li>
+<li><a href="#tutorial-island">Tutorial island</a></li>
+<li><a href="#cut-or-never-started">Cut or never started</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="gold-scrolls">Gold scrolls</h1>
+<p>The gold scrolls are the story: the quests the player must finish to move through the lands. Each one is started by its
+land's control script and logged in the story's challenge log. The optional quests are the silver scrolls
+(<a href="silver_scrolls.html">silver_scrolls.md</a>).</p>
+<p>This is an index, not a scored file. Each quest's own file in <a href="gold_scrolls/index.html">gold_scrolls/</a> holds its rows; until a
+quest has one, its only coverage is the single summary row in its land file.</p>
+<h2 id="where-things-stand-2026-10-08">Where things stand (2026-10-08)</h2>
+<ul>
+<li><strong>No gold quest runs to its end in openblack yet.</strong> Land 1's control script stops at Choose Your Creature's gate
+  stones (<code>ObjectInfoBits</code> is a stub) unless the creature training is skipped, no land's exit loads the next land and
+  the control scripts of Lands 2 to 5 never run (<code>LOAD_MAP</code> does nothing), and some commands the quests need (rewards,
+  creature control, the challenge log) are still stubs in <code>src/CHLApi.cpp</code>. See
+  <a href="silver_scrolls.html#known-openblack-blockers">silver_scrolls.md</a> for the blockers both kinds share.</li>
+<li><strong>Every gold quest now has its own file</strong> in <a href="gold_scrolls/index.html">gold_scrolls/</a> (32 files, cut quests included), plus <a href="creature_guide.html">creature_guide.md</a> for the guide's part of Land 1 and <a href="tutorial_island.html">tutorial_island.md</a> for the tutorial's six lessons. They score 0–53%: no quest is done.</li>
+<li>Losing (<a href="losing_and_game_over.html">losing_and_game_over.md</a>) and the land-to-land vortex (<a href="portals.html">portals.md</a>) have their own files. Bugs in the original quests are collected in <a href="../vanilla_bugs/index.html">../vanilla_bugs/</a>.</li>
+</ul>
+<p>Coverage: <strong>summary</strong> = only the land file's one row; <strong>file</strong> = its own quest file.</p>
+<h2 id="land-1">Land 1</h2>
+<table>
+<thead>
+<tr>
+<th>Quest</th>
+<th>Giver</th>
+<th>Reward</th>
+<th>What happens</th>
+<th>Coverage</th>
+<th>Score</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The Temple Is Finished (no title in the game)</td>
+<td>the two advisors, at the new temple</td>
+<td>none (it opens the way to the gold scrolls)</td>
+<td>The advisors show the finished temple's entrance, make the player go in and out, and show a stand-in gold scroll where Choose Your Creature's will appear</td>
+<td><a href="gold_scrolls/the_temple_is_finished.html">file</a>, 38 rows</td>
+<td>53%</td>
+</tr>
+<tr>
+<td>Choose Your Creature</td>
+<td>Sable, the creature trainer, at the creature gates</td>
+<td>the player's creature (cow, ape or tiger)</td>
+<td>Sable the trainer asks for three gate stones (tiger, ape, and the cow stone carved from a blank rock); the gates open, the cow, ape and tiger show off and the player picks one</td>
+<td><a href="gold_scrolls/choose_your_creature.html">file</a>, 94 rows</td>
+<td>27%</td>
+</tr>
+<tr>
+<td>The Lost Brother</td>
+<td>the brother's sister, a Norse housewife, at her house</td>
+<td>the ape gate stone</td>
+<td>A woman's feverish brother has wandered off; bringing him to her earns the ape gate stone (healing, smashing her house or killing either changes the ending and alignment)</td>
+<td><a href="gold_scrolls/the_lost_brother.html">file</a>, 73 rows</td>
+<td>29%</td>
+</tr>
+<tr>
+<td>The Sculptor</td>
+<td>the sculptor, outside his house</td>
+<td>the cow gate stone</td>
+<td>The uncarved rock from the quarry is carved by the village sculptor into the cow gate stone</td>
+<td><a href="gold_scrolls/the_sculptor.html">file</a>, 51 rows</td>
+<td>37%</td>
+</tr>
+<tr>
+<td>The Creature's Learning (the trainer)</td>
+<td>Sable, at the creature pen by the temple</td>
+<td>none (the lessons hand over the three leashes)</td>
+<td>Sable's five lessons: the new home and stroking, eating, punishment, the Leash of Learning, tying the leash with the aggression and compassion leashes</td>
+<td><a href="gold_scrolls/the_creatures_learning.html">file</a>, 145 rows</td>
+<td>3%</td>
+</tr>
+<tr>
+<td>The Creature's Learning (the guide)</td>
+<td>the guide, a huge creature wandering the valley</td>
+<td>none</td>
+<td>The guide meets the creature, teaches it to impress a village and to fight, and dies in the storm</td>
+<td><a href="creature_guide.html">file</a></td>
+<td>1%</td>
+</tr>
+<tr>
+<td>Leave Through the Vortex (no title in the game)</td>
+<td>the two advisors, at the vortex near the coast</td>
+<td>the way to the second land</td>
+<td>A golden light, then a vortex that swallows and returns a shepherd; the scroll over it dives the camera in and ends the land</td>
+<td><a href="gold_scrolls/leave_through_the_vortex_land_1.html">file</a>, 42 rows (vortex: <a href="portals.html">portals.md</a>)</td>
+<td>13%</td>
+</tr>
+</tbody>
+</table>
+<h2 id="land-2">Land 2</h2>
+<table>
+<thead>
+<tr>
+<th>Quest</th>
+<th>Giver</th>
+<th>Reward</th>
+<th>What happens</th>
+<th>Coverage</th>
+<th>Score</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Worship Site</td>
+<td>Khazar, at scrolls by the player's temple</td>
+<td>a builder disciple, and the worship site's grain, wood and water miracles</td>
+<td>A builder disciple raises the worship site, then Khazar teaches the totem and charging miracles; he places the workshop scaffold and the "Miracle Challenge" scroll</td>
+<td><a href="gold_scrolls/worship_site.html">file</a> (77 rows)</td>
+<td>1%</td>
+</tr>
+<tr>
+<td>The Workshop</td>
+<td>an engineer "sent by Khazar", at the workshop</td>
+<td>the Forest miracle; the engineer joins the village</td>
+<td>Give the workshop wood to make a scaffold, place it, house the homeless</td>
+<td><a href="gold_scrolls/the_workshop.html">file</a> (65 rows)</td>
+<td>1%</td>
+</tr>
+<tr>
+<td>Impress Village</td>
+<td>Khazar, at a scroll west of the home village</td>
+<td>none</td>
+<td>20 minutes after the worship lesson: a gesture demo and practice, then fill the nearest Norse village's emptied store (over 2,800 food); winning that village brings Khazar's lesson on influence (not a scroll, in the same file) and the land's last scroll</td>
+<td><a href="gold_scrolls/impress_village.html">file</a> (70 rows)</td>
+<td>1%</td>
+</tr>
+<tr>
+<td>Khazar's Fireball Challenge</td>
+<td>Khazar, through the "Miracle Challenge" scroll, then a scroll on the target huts</td>
+<td>the Fireball miracle at the home worship site</td>
+<td>Khazar's tour, then throw fire seeds at three target huts, up to three rounds</td>
+<td><a href="gold_scrolls/khazars_fireball_challenge.html">file</a> (73 rows)</td>
+<td>2%</td>
+</tr>
+<tr>
+<td>Khazar's Shield Challenge</td>
+<td>Khazar, at a scroll on an island hut</td>
+<td>the Physical Shield miracle at the home worship site</td>
+<td>A shield demo, then three shield seeds against Khazar's own three boulders (not a Lethys attack)</td>
+<td><a href="gold_scrolls/khazars_shield_challenge.html">file</a> (65 rows)</td>
+<td>2%</td>
+</tr>
+<tr>
+<td>Nemesis. No! (Khazar's death)</td>
+<td>none (a story film; Nemesis speaks)</td>
+<td>none</td>
+<td>No scroll, a logged story film: Nemesis burns Khazar's town, blows up his temple and kills his creature; Lethys's creature takes the Creed. Set off by the first town Lethys loses, the player's sixth town or Khazar losing his towns</td>
+<td><a href="gold_scrolls/nemesis_no.html">file</a> (66 rows)</td>
+<td>0%</td>
+</tr>
+<tr>
+<td>Destroy it! (the land's last scroll)</td>
+<td>the evil advisor, at a scroll on the shore</td>
+<td>none</td>
+<td>A fly-over of Lethys's three towns; the log tracks the share of them he has lost</td>
+<td><a href="gold_scrolls/destroy_it.html">file</a> (50 rows)</td>
+<td>1%</td>
+</tr>
+<tr>
+<td>Lethys has taken our Creature!</td>
+<td>none (a story film at Lethys's temple)</td>
+<td>none</td>
+<td>No gold scroll, a logged story film: Lethys walks the creature into his vortex; a silver "follow now" scroll gives about 10 seconds to follow straight to Land 3</td>
+<td><a href="gold_scrolls/lethys_has_taken_our_creature.html">file</a> (55 rows)</td>
+<td>0%</td>
+</tr>
+<tr>
+<td>Leave through the vortex</td>
+<td>the good advisor, at a scroll over the vortex</td>
+<td>none (the way to Land 3)</td>
+<td>Once Lethys has no towns and his temple is at a tenth of its health; no title, no log entry (vortex: <a href="portals.html">portals.md</a>)</td>
+<td><a href="gold_scrolls/leave_through_the_vortex_land_2.html">file</a> (29 rows)</td>
+<td>2%</td>
+</tr>
+</tbody>
+</table>
+<h2 id="land-3">Land 3</h2>
+<table>
+<thead>
+<tr>
+<th>Quest</th>
+<th>Giver</th>
+<th>Reward</th>
+<th>What happens</th>
+<th>Coverage</th>
+<th>Score</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>So You Couldn't Bear to Be Without Your Creature? (free the creature)</td>
+<td>the advisors, on arrival (no scroll)</td>
+<td>the creature back, the creed from Khazar's creature and the exit vortex</td>
+<td>Three prison pillars hold the creature, one per village; each village won sinks its pillar, each lost raises it; Lethys then begs, gives the creed and opens the vortex, and may be spared or finished</td>
+<td><a href="gold_scrolls/so_you_couldnt_bear_to_be_without_your_creature.html">file</a> (101 rows)</td>
+<td>0%</td>
+</tr>
+<tr>
+<td>The Wolves Are Possessed</td>
+<td>Lethys (a cut scene; no scroll)</td>
+<td>none</td>
+<td>Lethys's 20 possessed wolves attack the Indian village (after the second pillar); the monk turns all but 8 into cows if his quest is done; a log entry, no scroll, no reward</td>
+<td><a href="gold_scrolls/the_wolves_are_possessed.html">file</a> (28 rows)</td>
+<td>0%</td>
+</tr>
+<tr>
+<td>Fire! Fire! I'm on Fire!</td>
+<td>Lethys (a cut scene; no scroll)</td>
+<td>saved fishermen join the village; alignment +1 / 0 / −0.8 by how many are saved</td>
+<td>Lethys sets 16 fishermen alight (after the Japanese village is won first); put them out before they burn; the monk may give two water miracles</td>
+<td><a href="gold_scrolls/fire_fire_im_on_fire.html">file</a> (46 rows)</td>
+<td>0%</td>
+</tr>
+<tr>
+<td>Leave through the vortex</td>
+<td>Lethys opens the vortex; the evil advisor points out the scroll</td>
+<td>the way to Land 4</td>
+<td>Clicking the scroll dives into the vortex and ends the land (vortex: <a href="portals.html">portals.md</a>)</td>
+<td><a href="gold_scrolls/leave_through_the_vortex_land_3.html">file</a> (14 rows)</td>
+<td>4%</td>
+</tr>
+</tbody>
+</table>
+<h2 id="land-4">Land 4</h2>
+<p>The land's control script waits for the three Guardian Stones (lightning, darkness, fire), broken by the first three
+quests below in any order, then runs the Undead Village's scene, the Creed and the vortex.</p>
+<table>
+<thead>
+<tr>
+<th>Quest</th>
+<th>Giver</th>
+<th>Reward</th>
+<th>What happens</th>
+<th>Coverage</th>
+<th>Score</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The Defending Ogres</td>
+<td>a Japanese farmer at the player's temple (the story); Sleg in his lair (the fight)</td>
+<td>the lightning Guardian Stone breaks; the lightning and rain stop</td>
+<td>The land's opening (the ruined arrival, the three meteor curses, the town-building advice), then the farmer's story, which logs this scroll; Sleg the ogre fights the creature in his lair while his four gremlins attack it</td>
+<td><a href="gold_scrolls/the_defending_ogres.html">file</a>, 83 rows</td>
+<td>0%</td>
+</tr>
+<tr>
+<td>The Totem Puzzle</td>
+<td>the Japanese village's elder, at five bell towers</td>
+<td>the fire Guardian Stone breaks; the fireballs stop</td>
+<td>Once the village is owned, destroyed or emptied: a memory game, four rounds of 3, 5, 7 and 9 rings to click back with less time each round, retried freely</td>
+<td><a href="gold_scrolls/the_totem_puzzle.html">file</a>, 68 rows</td>
+<td>0%</td>
+</tr>
+<tr>
+<td>The Heartbroken Man</td>
+<td>a woman at a hut below Adam's mountain</td>
+<td>the darkness Guardian Stone breaks and time runs again; influence</td>
+<td>After the Totem Puzzle's introduction: bring Keiko from the Aztec village to Adam; reuniting them logs alignment +0.8, killing Keiko −0.8, killing Adam 0</td>
+<td><a href="gold_scrolls/the_heartbroken_man.html">file</a>, 78 rows</td>
+<td>0%</td>
+</tr>
+<tr>
+<td>Undead Village</td>
+<td>a man of the Japanese village, under a scroll at the village's edge</td>
+<td>the second Creed, which only the creature can pick up</td>
+<td>After all three stones are broken: Nemesis has cursed a town into skeletons; raising both sunken totems lifts it, and the freed man says the Creed lies in the Guide's body</td>
+<td><a href="gold_scrolls/undead_village.html">file</a>, 51 rows</td>
+<td>0%</td>
+</tr>
+<tr>
+<td>Leave Through the Vortex (no title in the game)</td>
+<td>Nemesis (the vortex west of the home village)</td>
+<td>the way to the fifth land</td>
+<td>After the Creed scene's rumble: rumbles grow near a hidden spot, Nemesis opens the vortex and dares the player; clicking its gold scroll dives in and ends the land; no log entry</td>
+<td><a href="gold_scrolls/leave_through_the_vortex_land_4.html">file</a>, 36 rows (vortex: <a href="portals.html">portals.md</a>)</td>
+<td>3%</td>
+</tr>
+</tbody>
+</table>
+<h2 id="land-5">Land 5</h2>
+<table>
+<thead>
+<tr>
+<th>Quest</th>
+<th>Giver</th>
+<th>Reward</th>
+<th>What happens</th>
+<th>Coverage</th>
+<th>Score</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>I have a surprise for you. (the curse)</td>
+<td>Nemesis, in the opening film; lifted by a crusader-dressed man at the healing place</td>
+<td>the creature restored to how it arrived, and a powered-up heal miracle dispenser</td>
+<td>No scroll, a logged story chapter: Nemesis curses the creature; his three Wonders sap its strength, size and alignment once a night; each Wonder village won adds a third towards lifting it</td>
+<td><a href="gold_scrolls/i_have_a_surprise_for_you.html">file</a>, 85 rows</td>
+<td>0%</td>
+</tr>
+<tr>
+<td>Nemesis's Shielded Village (no title, not logged)</td>
+<td>none (the evil advisor warns of the shield)</td>
+<td>none</td>
+<td>The Tibetan village's spiritual shield, held up by three stones and their worshippers, must fall before the village can be won (the curse's third step); also Nemesis's meteors and shields at his last village and his blast barrages after the cure; no scroll, no log entry</td>
+<td><a href="gold_scrolls/nemesis_shielded_village.html">file</a>, 51 rows</td>
+<td>0%</td>
+</tr>
+<tr>
+<td>So this is a fight to the death</td>
+<td>Nemesis (once all his towns are taken)</td>
+<td>the end of the game</td>
+<td>Winning Nemesis's last village logs this quest: his mirror creature is made and fought (retries allowed), his farewell, the creature walks into the volcano, his temple falls, the burnt creature must be healed, then the credits and the crowd scene (<a href="ending.html">ending.md</a>)</td>
+<td><a href="gold_scrolls/so_this_is_a_fight_to_the_death.html">file</a>, 83 rows</td>
+<td>0%</td>
+</tr>
+</tbody>
+</table>
+<h2 id="tutorial-island">Tutorial island</h2>
+<table>
+<thead>
+<tr>
+<th>Quest</th>
+<th>Giver</th>
+<th>Reward</th>
+<th>What happens</th>
+<th>Coverage</th>
+<th>Score</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The six lessons</td>
+<td>the Island Keeper</td>
+<td>none</td>
+<td>Six gold scrolls by the start, one per lesson; tapping one runs it again</td>
+<td><a href="tutorial_island.html">file</a></td>
+<td>37%</td>
+</tr>
+</tbody>
+</table>
+<h2 id="cut-or-never-started">Cut or never started</h2>
+<p>Gold quests that no land starts: never compiled into the shipped <code>challenge.chl</code>, or compiled but run by nothing. Their
+rows are n/a, so they don't score. The first land's unused trainer lessons (the good-and-evil leash lesson, which is
+compiled but never run, and the uncompiled leash, thirst and toilet drafts) are listed in the "Unused material" of
+<a href="gold_scrolls/the_creatures_learning.html">the_creatures_learning.md</a>; the cut opening at the temple, which carries a gold
+scroll, is in <a href="silver_scrolls/see_the_citadel.html">silver_scrolls/see_the_citadel.md</a>; the unused mirror-creature fight
+is in <a href="gold_scrolls/so_this_is_a_fight_to_the_death.html">so_this_is_a_fight_to_the_death.md</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Quest</th>
+<th>Giver</th>
+<th>Reward</th>
+<th>What happens</th>
+<th>Coverage</th>
+<th>Score</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The Madness</td>
+<td>none (a cut scene that starts by itself)</td>
+<td>none</td>
+<td>Land 5 by its markers: Nemesis makes the creature strong, flips its alignment and has it fireball a Japanese village's store and houses, then it is confined for 90 seconds; title and lines are in the text table; the shipped curse replaced it</td>
+<td><a href="gold_scrolls/the_madness.html">file</a>, 29 rows</td>
+<td>n/a</td>
+</tr>
+<tr>
+<td>Release the Creature (title missing)</td>
+<td>none (a cut scene when the camera finds the creature)</td>
+<td>none (the creature itself)</td>
+<td>The creature tied to a boulder in a hilltop prison, watched by a hostile cow creature; hitting the boulder with rocks frees it; no text was ever written, and it waits on a flag nothing sets; the shipped third land's rescue replaced it</td>
+<td><a href="gold_scrolls/release_the_creature.html">file</a>, 18 rows</td>
+<td>n/a</td>
+</tr>
+<tr>
+<td>The Ally Speaks (no title)</td>
+<td>none (its gold scroll is commented out)</td>
+<td>none</td>
+<td>A camera-path cut scene at the second land's player temple with fifteen unwritten lines; its gold scroll is commented out</td>
+<td><a href="gold_scrolls/the_ally_speaks.html">file</a>, 11 rows</td>
+<td>n/a</td>
+</tr>
+<tr>
+<td>Villager Catch (no title)</td>
+<td>a gold scroll over the town</td>
+<td>none (only the advisors' comments on the score)</td>
+<td>A god flings ten villagers out of a town one by one; catch them; the advisors rate the score; no text was ever written</td>
+<td><a href="gold_scrolls/villager_catch.html">file</a>, 20 rows</td>
+<td>n/a</td>
+</tr>
+<tr>
+<td>Choose Your Creature (BAFTA draft)</td>
+<td>the gold scroll at the creature gate</td>
+<td>the chosen creature</td>
+<td>A shortened draft that skips the gate-stone hunt, started only by an uncompiled demo control script</td>
+<td><a href="gold_scrolls/choose_your_creature_bafta_draft.html">file</a>, 18 rows</td>
+<td>n/a</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

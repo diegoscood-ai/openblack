@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stanley The Wolf — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#stanley-the-wolf">Stanley The Wolf</a><ul>
+<li><a href="#where-it-sits-in-the-land">Where it sits in the land</a></li>
+<li><a href="#set-up">Set-up</a></li>
+<li><a href="#how-it-appears-the-advisor-nag">How it appears (the advisor nag)</a></li>
+<li><a href="#the-introduction">The introduction</a></li>
+<li><a href="#playing-the-puzzle">Playing the puzzle</a></li>
+<li><a href="#the-mans-death-unreachable">The man's death (unreachable)</a></li>
+<li><a href="#success">Success</a></li>
+<li><a href="#the-reward">The reward</a></li>
+<li><a href="#script-quirks">Script quirks</a></li>
+<li><a href="#music-and-sounds">Music and sounds</a></li>
+<li><a href="#creature-involvement">Creature involvement</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="stanley-the-wolf">Stanley The Wolf</h1>
+<p>A silver scroll on the fifth land: a man sitting by a campfire asks the player to guide his blind wolf, Stanley, to a
+sheep inside a fenced grid by ringing bells round it (the land's tilt-maze puzzle). Solving it while the man lives wins
+a lion creature to swap for and the fireball's second and third levels for the player's home town. The land as a whole
+is in <a href="../land_5.html">../land_5.md</a>, the puzzle object itself in <a href="../minigames.html">../minigames.md</a> ("Lion maze"), the
+creature swap in <a href="../challenges_and_rewards.html">../challenges_and_rewards.md</a>.</p>
+<p><strong>Land:</strong> 5 · <strong>Giver:</strong> the wolf's owner, a man sitting by a campfire beside the puzzle · <strong>Script:</strong> LionPuzzle ·
+<strong>Reward:</strong> a lion creature offered for a swap, plus the fireball's level 2 and level 3 power-ups in the player's home
+town · <strong>Repeatable:</strong> no (the swap offer itself stays open for good)</p>
+<p>Sources: the quest's script source (checked against the decompiled shipped <code>challenge.chl</code>, where it is compiled), the
+land's control script, the shared notify, reminder, "did you know" and creature-swap scripts, the game's text table
+(<code>InfoScript2.txt</code>), the bw1-decomp source for the engine's death guard and the puzzle's animal types. openblack's state
+is judged on this tree: openblack starts the story's top script, which always begins with Land 1's control script, and
+the land-loading function does nothing, so Land 5's control script never runs and this quest never starts. Of the 62
+commands the quest needs, only 6 log "not implemented" in <code>src/CHLApi.cpp</code> (among them the creature's actions, the
+creature swap and the challenge log); a script can make the villager and the puzzle but not a creature
+(<code>CreateScriptObject</code> makes no creatures). Every row is todo unless the notes say otherwise.</p>
+<p><strong>Progress: 0/52 done, 4 partial — 4%</strong></p>
+<h2 id="where-it-sits-in-the-land">Where it sits in the land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Land 5's control script starts the quest in the background as soon as the land's opening (Nemesis's curse on the creature) has finished, before any other silver scroll of the land</td>
+<td>todo</td>
+<td><code>LandControl5</code> never runs: <code>LOAD_MAP</code> is empty, so the story never reaches Land 5 (<a href="../../../map-loading.html#pending">map-loading</a>); see <a href="../../scripts/land5_script.html">../../scripts/land5_script.md</a></td>
+</tr>
+<tr>
+<td>Nothing else needs to be done first: the puzzle, the man and his fire are there from the moment the land begins</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The quest's title is "Stanley The Wolf" (title text 30); the unused "Swap To Lion" scroll reuses the same title, but only this one ships</td>
+<td>todo</td>
+<td><code>Snapshot</code>, <code>UpdateSnapshot</code> are stubs (<code>UpdateSnapshotPicture</code> too)</td>
+</tr>
+<tr>
+<td>The scroll belongs to no story chain: no other script waits for it or reads its outcome</td>
+<td>todo</td>
+<td>checked across all the land's scripts; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="set-up">Set-up</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The tilt puzzle is placed at its site about 670 from the player's home town, at angle 0 and normal size</td>
+<td>todo</td>
+<td><code>CreateWithAngleAndScale</code> makes a puzzle game only as a bare record (<code>src/ECS/PuzzleGames.cpp</code>): only the fish puzzle has parts, so no tilt grid, bells, wolf or sheep (see <a href="../minigames.html">../minigames.md</a>)</td>
+</tr>
+<tr>
+<td>A man is made a few metres from the puzzle, facing out from it</td>
+<td>todo</td>
+<td><code>Create</code> makes villagers and <code>SetFocus</code> works for them; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>He cannot be hurt by fire, is indestructible and cannot be picked up</td>
+<td>partial</td>
+<td>the three flag commands work (<code>SetHurtByFire</code>, <code>SetIndestructable</code>, <code>SetIdPickupable</code> in <code>src/CHLApi.cpp</code>); the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>He sits down and stays sitting (a sitting loop kept going by a small helper that waits for each sit-down to finish)</td>
+<td>todo</td>
+<td><code>Played</code>, <code>SetScriptState</code>, <code>SetScriptUlong</code> work for villagers; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A bonfire is lit beside him</td>
+<td>partial</td>
+<td>the bonfire is a mobile static, which <code>CreateScriptObject</code> makes; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A silver challenge scroll is put over the puzzle</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> works (<code>src/ECS/ScriptHighlight.cpp</code>); the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-it-appears-the-advisor-nag">How it appears (the advisor nag)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>While the scroll is waiting, whenever the camera is within 100 of it and it is on screen, the good advisor steps out, points at it and says "Look. Something for you to do here.", at most once every 30 seconds and only when no other scene is playing</td>
+<td>todo</td>
+<td>the shared notify script's natives work (<code>SpiritEject</code>, <code>SpiritPointGameThing</code>, <code>RunText</code>, <code>GameThingFieldOfView</code>); the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The nag stops when the scroll is clicked, when the puzzle site itself is clicked, or when the quest says so</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The introduction starts when the scroll is clicked, or as soon as the player starts playing the puzzle (rings a bell) without clicking the scroll first</td>
+<td>todo</td>
+<td><code>GetObjectState</code> (the puzzle's state) is a stub</td>
+</tr>
+<tr>
+<td>The scroll is then switched to its opened look</td>
+<td>todo</td>
+<td><code>SetActive</code> on a highlight works; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Quirk: clicking the puzzle site (not the scroll) stops the nag but does not start the introduction; that still waits for a scroll click or a bell</td>
+<td>todo</td>
+<td>the quest's own wait checks only the scroll and the puzzle's state</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-introduction">The introduction</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A scene starts; the man is drawn in high detail, turns and stands up, and the camera closes in on him over 4 seconds (focus over 3)</td>
+<td>todo</td>
+<td><code>StartCameraControl</code>, <code>MoveCameraPosition</code>, <code>MoveCameraFocus</code>, <code>SetHighGraphicsDetail</code> work; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The camera's focus then drifts slowly over 6 seconds</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A "did you know" signpost is put at the corner of the fence next to the sheep: "Guide Stanley the wolf to his food, the sheep, by ringing the bell in the direction you want him to travel. He keeps going in that direction until something stops him. You can reset the puzzle by clicking on the corner bell." (filed under miscellaneous tips)</td>
+<td>todo</td>
+<td>the shared "did you know" script; the signpost is left in the world and the quest never removes it; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Half a second later the scroll is recorded with progress 0 and the reminder "This man needs help in feeding Stanley, his blind wolf." (spoken by the good advisor when the reminder is asked for)</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>The man gossips, then (man's voice): "Please help me. My wolf, Stanley, is blind and I need to get him to the sheep so he can eat it."</td>
+<td>todo</td>
+<td><code>RunText</code> and the villagers' script animations work; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The man: "Each time a bell rings, the wolf heads in that direction."</td>
+<td>todo</td>
+<td><code>RunText</code> works; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>He turns towards the bells and gestures as at a meeting: "You can help me get him to his food." while the camera moves round to look past the bells (position over 2 seconds, focus over 1)</td>
+<td>todo</td>
+<td><code>RunText</code>, <code>SetFocus</code> and the camera moves work; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>He sits back down and the camera rises high over the puzzle, looking down on the whole grid (position over 4 seconds, focus over 3)</td>
+<td>todo</td>
+<td>the camera moves work; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The scene ends straight into a dialogue: the evil advisor steps out: "Start ringing those bells, Boss." and goes home</td>
+<td>todo</td>
+<td><code>SpiritEject</code>, <code>RunText</code>, <code>SpiritHome</code> work; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="playing-the-puzzle">Playing the puzzle</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The player rings the bells round the grid; each sends the wolf sliding that way until something stops it; a corner bell resets the puzzle</td>
+<td>todo</td>
+<td>the tilt puzzle is not ported (<code>src/ECS/PuzzleGames.cpp</code> has only the fish puzzle's parts); the puzzle's own rules are in <a href="../minigames.html">../minigames.md</a> ("Lion maze")</td>
+</tr>
+<tr>
+<td>The animal in the maze is a wolf (the puzzle's moving animal is built on the wolf) and its target a sheep, matching the dialogue; the puzzle kind is the one other files call the lion maze</td>
+<td>todo</td>
+<td>the puzzle is not ported; engine evidence: the puzzle's moving piece is a wolf type, its target a sheep type (the engine's puzzle code)</td>
+</tr>
+<tr>
+<td>There is no time limit, no move count and no way to fail: the quest waits only for the puzzle to report it has been played to the end</td>
+<td>todo</td>
+<td><code>Played</code> on a puzzle answers only for the fish puzzle (<code>IsPuzzleGamePlayed</code>, <code>src/ECS/PuzzleGames.cpp</code>)</td>
+</tr>
+<tr>
+<td>The scroll's progress stays at 0 while the puzzle is played</td>
+<td>todo</td>
+<td><code>Snapshot</code> stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-mans-death-unreachable">The man's death (unreachable)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The script watches the man's life while the puzzle is played; if it reaches 0 the good advisor says "Oh no! The wolf fellow is dead!" (once)</td>
+<td>todo</td>
+<td>the health property (<code>GetProperty</code>) is not ported; unreachable in the game anyway: the man is indestructible and the engine refuses to set an indestructible thing's life to 0.01 or below (the engine's life setter)</td>
+</tr>
+<tr>
+<td>If he were dead when the puzzle is solved, the good advisor says "Hey. You've completed the puzzle." and "It's sad that you murdered the man who asked you to do it in the first place.", and there is no reward at all</td>
+<td>todo</td>
+<td>unreachable for the same reason; the lines exist in the text table</td>
+</tr>
+</tbody>
+</table>
+<h2 id="success">Success</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A lion creature is made beside the puzzle</td>
+<td>todo</td>
+<td><code>Create</code> does not make creatures</td>
+</tr>
+<tr>
+<td>A scene starts; the camera position before it is remembered (but never returned to); the man stands up and the camera closes in on him (position over 4 seconds, focus over 3)</td>
+<td>todo</td>
+<td>needs the puzzle to report played (not ported)</td>
+</tr>
+<tr>
+<td>The man and the lion turn to the camera; the man gossips: "Thank you, Mighty One."</td>
+<td>todo</td>
+<td>needs the puzzle and the lion</td>
+</tr>
+<tr>
+<td>He turns to the lion and points: "Please take this special Creature in gratitude."</td>
+<td>todo</td>
+<td>needs the puzzle and the lion</td>
+</tr>
+<tr>
+<td>The reward sting plays and the camera flies to the lion (position over 4 seconds, focus over 3)</td>
+<td>todo</td>
+<td><code>PlaySoundEffect</code> works; never reached</td>
+</tr>
+<tr>
+<td>The man sits down again, the lion looks at the camera, and a second later the scroll's progress becomes 1 (complete)</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> stub</td>
+</tr>
+<tr>
+<td>The lion waves at the player; the good advisor points at it: "He must want to become our Creature. Let's have him." and stops pointing</td>
+<td>todo</td>
+<td><code>CreatureDoAction</code> is a stub; <code>StopPointing</code> works</td>
+</tr>
+<tr>
+<td>The scene ends; the scroll stays on the land (the quest never deletes it)</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-reward">The reward</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The lion is offered as a creature swap through the shared swap script; it cannot be picked up</td>
+<td>todo</td>
+<td><code>SwapCreature</code> is a stub; see <a href="../challenges_and_rewards.html">../challenges_and_rewards.md</a></td>
+</tr>
+<tr>
+<td>A silver scroll hangs over the lion, which keeps looking at the camera; when the camera is within 100 and the lion is on screen, the evil advisor points at it: "Swap your Creature with this one if you want.", at most once a minute</td>
+<td>todo</td>
+<td>no lion (creatures are not made by <code>Create</code>)</td>
+</tr>
+<tr>
+<td>Clicking the scroll or the lion with the player's creature further than 50 away: evil advisor "You'll need to bring our Creature, Boss." and the offer waits again</td>
+<td>todo</td>
+<td>no lion</td>
+</tr>
+<tr>
+<td>With the creature within 50: the leash is taken off, the creature is walked to within 15 of the lion (given at most 5 seconds), and the two look each other over</td>
+<td>todo</td>
+<td>no lion; <code>CreatureDoAction</code> stub</td>
+</tr>
+<tr>
+<td>The good advisor asks every 30 seconds: "Are you sure you want a new Creature? Click the Action Button on the Creature you want to swap to if you are. Click your own Creature to cancel."; clicking the player's own creature, or 110 seconds passing, cancels</td>
+<td>todo</td>
+<td>no lion</td>
+</tr>
+<tr>
+<td>Clicking the lion swaps: a two-shot camera on both creatures, a success sparkle on each, both point at each other, the player's mind passes to the lion, the swap sound plays and the scene holds 3 seconds after both finish</td>
+<td>todo</td>
+<td><code>SwapCreature</code> is a stub</td>
+</tr>
+<tr>
+<td>After a swap: evil advisor "Great, Boss. If you want your old Creature back, just return here later."; the old creature stays as the one on offer, with a new scroll over it</td>
+<td>todo</td>
+<td><code>SwapCreature</code> is a stub</td>
+</tr>
+<tr>
+<td>The offer never ends: the swap script has a time limit worked out but never checks it, so the player can swap back and forth for the rest of the land</td>
+<td>todo</td>
+<td>quirk in the shared swap script</td>
+</tr>
+<tr>
+<td>Right after the scene (in parallel with the swap offer), the fireball's level 2 and level 3 power-ups are enabled at the player's home town</td>
+<td>partial</td>
+<td><code>SetMagicInObject</code> works (<code>src/Magic/Script/CHLWorship.cpp</code>) and the fireball works (<a href="../../miracles/fireball.html">../../miracles/fireball.md</a>); the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The evil advisor steps out, points at the home town: "Our Fireball's just got bigger."</td>
+<td>todo</td>
+<td><code>SpiritEject</code>, <code>SpiritPointPos</code>, <code>RunText</code> work; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-quirks">Script quirks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>After the fireball line the evil advisor is never told to stop pointing or go home; the dialogue's end is all that closes it</td>
+<td>todo</td>
+<td>undetermined whether ending the dialogue sends the advisor home by itself</td>
+</tr>
+<tr>
+<td>After the progress is set to 1 the script waits for any line on screen to be read, though it has said nothing since the man's last line</td>
+<td>todo</td>
+<td>harmless; undetermined whether the progress update itself puts any text up</td>
+</tr>
+<tr>
+<td>A commented-out second "complete" snapshot is left after the reward</td>
+<td>n/a</td>
+<td>not in the compiled script</td>
+</tr>
+</tbody>
+</table>
+<h2 id="music-and-sounds">Music and sounds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No music is started by the quest; the only sounds it plays are the reward sting at the lion and the creature-swap sound</td>
+<td>partial</td>
+<td><code>PlaySoundEffect</code> works; the bell sounds belong to the puzzle object, not ported; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creature-involvement">Creature involvement</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The player's creature plays no part in the puzzle; it matters only for the swap, where it must be within 50 of the lion</td>
+<td>todo</td>
+<td><code>SwapCreature</code> stub</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

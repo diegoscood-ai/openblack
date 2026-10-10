@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Villager Catch — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#villager-catch">Villager Catch</a><ul>
+<li><a href="#is-it-in-the-game">Is it in the game?</a></li>
+<li><a href="#how-it-appears">How it appears</a></li>
+<li><a href="#the-introduction">The introduction</a></li>
+<li><a href="#what-the-player-must-do">What the player must do</a></li>
+<li><a href="#the-result">The result</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="villager-catch">Villager Catch</h1>
+<p>A cut gold-scroll mini-game in which a hostile god flings ten villagers out of a town, one at a time, and the player
+must catch each in the hand before it lands. It was never compiled into the game and its lines were never written into
+the text table; it has no in-game title, so this file uses the script's own name.</p>
+<p><strong>Land:</strong> none (never started; its markers sit beside the player's home town on the second land) · <strong>Giver:</strong> a gold scroll over the town · <strong>Script:</strong> VillagerCatch · <strong>Reward:</strong> none (only advisors' comments on the score) · <strong>Repeatable:</strong> no</p>
+<p><strong>Progress: 0/0 done, 0 partial — 0%</strong></p>
+<p>Sources: the script's source text (whose comments give the intended English of most lines) and its single-quest test
+launcher, the compiler's challenge list, the game's text table and the land map scripts. Every row is n/a: nothing in
+the shipped game can start it.</p>
+<h2 id="is-it-in-the-game">Is it in the game?</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The script is not among the files compiled into the shipped <code>challenge.chl</code></td>
+<td>n/a</td>
+<td>never started by the game: only its own (uncompiled) test launcher runs it</td>
+</tr>
+<tr>
+<td>Its challenge name keeps an entry in the compiler's list of challenges</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>None of its 35 lines are in the shipped text table; the source's comments give the intended words of the main ones, and four "Nemesis comment required" notes show his lines were never written</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>It sets a "villager catch completed" flag "that the control script uses" (a comment credits another designer), but no land's control script, shipped or cut, reads it</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Its town marker is 67 from the player's home town on the second land (the Norse town); the source calls it Nemesis's town; no other land has a town within 230</td>
+<td>n/a</td>
+<td>never started by the game; which land it was meant for is not certain</td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-it-appears">How it appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A gold scroll is put over a point just north of the town as soon as the script starts</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The evil advisor's scroll prompt ("Whew! As if you ain't busy enough, here's something for you to do.") is commented out, so nothing points the scroll out</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>It starts when, checked once a second, the camera is within 100 of the town, the town is on screen and the hand is empty; the scroll does not need clicking</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-introduction">The introduction</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A cut scene: a line meant as "You want the souls in this town? Catch!" (by its wording the hostile god); the good advisor steps out: "Quick! Save them!" and goes home</td>
+<td>n/a</td>
+<td>never started by the game; words from the source's comments</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-the-player-must-do">What the player must do</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ten male villagers are thrown one at a time from a point in the town towards the scroll point, aimed 200 up, with a random spread of up to 10 either side and a speed between 100 and 150</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>After the first, each throw waits a random 1 to 8 seconds</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>For each throw a short cut scene puts the camera at a fixed spot and follows the flying villager for 3 seconds, while he shouts one of five random cries ("Help!")</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The script waits while he is flying; if the player catches him, it waits until he is put down, then a second, then follows him with the camera if he was thrown again until he lands</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>A caught villager who is still alive says one of five random thank-you lines and counts as saved; one who died says one of five random curses ("Argh, damn you!")</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>A villager who is not caught is not counted at all, and his fall is not watched</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-result">The result</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>None saved: the good advisor: "Tragic. You haven't caught a single person." then a line for Nemesis</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>One to four saved: evil: "You'll have to be faster than that."; good: "Oh this is terrible."; then a line for Nemesis</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Five to nine saved: good: "Impressive stuff."; evil: "All those saved people. Lovely."; then a line for Nemesis</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>All ten: the evil advisor: "OK. So you're a hotshot at catching. Whatever." then a line for Nemesis</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Nothing is logged, rewarded or marked complete beyond the completion flag; the gold scroll is never removed</td>
+<td>n/a</td>
+<td>never started by the game; no challenge log entry is ever made</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

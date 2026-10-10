@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Creature mind scripts — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="here" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#creature-mind-scripts">Creature mind scripts</a><ul>
+<li><a href="#the-shipped-mind-files">The shipped mind files</a></li>
+<li><a href="#rival-creatures-in-the-land-scripts">Rival creatures in the land scripts</a></li>
+<li><a href="#rival-creatures-in-the-story">Rival creatures in the story</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="creature-mind-scripts">Creature mind scripts</h1>
+<p><code>Scripts/CreatureMind/</code> holds the ready-made minds the game gives creatures it creates itself: the rival gods' creatures in
+the story and the computer players' creatures in the skirmish lands. A mind file is a whole creature's mind (its desires,
+what it has learnt, its opinions of actions, the miracles it knows and its body) saved in the same format as the player's
+own creature. The player's creature, saved between lands and in profiles, is the creature domain's
+(<a href="../creature/index.html">../creature/</a>); reading the format is <code>components/creaturemind</code> (<code>MindFile</code>).</p>
+<p><strong>Progress: 3/14 done, 6 partial — 43%</strong></p>
+<h2 id="the-shipped-mind-files">The shipped mind files</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ComputerControlledCreature</code> (5,748 bytes, format 30): a fully grown, trained mind with 40 desires, 80 decision trees, 322 action opinions, 6 actions and 5 miracles known; the skirmish lands give it to every computer player's creature (12 lines in five playground scripts, as horse, tortoise, zebra, leopard and lion)</td>
+<td>done</td>
+<td><code>components/creaturemind</code> reads it (<code>test/creature/test_creature_mind_file.cpp</code>); <code>CREATE_CREATURE_FROM_FILE</code> loads it through the resource cache (<code>Locator::resources</code>, creature minds)</td>
+</tr>
+<tr>
+<td><code>KhazarCreature</code>, <code>LethysCreature</code> and <code>NemesisCreature</code> are one and the same file (5,268 bytes, format 25, a fully grown mind with 313 action opinions and no miracles known); the story loads each for its rival god</td>
+<td>done</td>
+<td>read by <code>components/creaturemind</code></td>
+</tr>
+<tr>
+<td>The four older files (<code>CreatureDestroyOtherCreatures</code>, <code>CreatureDestroyTowns</code>, <code>CreatureImpressTowns</code>, <code>CreatureProtectTowns</code>, 54 to 130 KB) are in a format the shipped game can't load, and nothing names them</td>
+<td>n/a</td>
+<td>left over from development; our reader rejects them the same way</td>
+</tr>
+<tr>
+<td>A mind file is found by its name in the creature mind folder, without an extension</td>
+<td>done</td>
+<td>the creature mind path of the file system in <code>FeatureScriptCommands::CreateCreatureFromFile</code> and <code>ecs::player_creature::LoadMyCreature</code></td>
+</tr>
+<tr>
+<td>A name written in capitals in a land script (<code>COMPUTERCONTROLLEDCREATURE</code> in <em>Three Gods</em>) finds the same file, as file names on Windows ignore case</td>
+<td>partial</td>
+<td>works on Windows; <code>DefaultFileSystem::FindPath</code> looks names up with case, so on systems with case-sensitive file names it would not be found</td>
+</tr>
+</tbody>
+</table>
+<h2 id="rival-creatures-in-the-land-scripts">Rival creatures in the land scripts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A land script creates a rival god's creature of a species from a mind file at a place</td>
+<td>partial</td>
+<td><code>FeatureScriptCommands::CreateCreatureFromFile</code> makes a <code>CreatureArchetype</code> with the mind loaded; it faces a fixed way and takes our starting size and body for the species</td>
+</tr>
+<tr>
+<td>A rival creature is made to like a player (<code>SET_COMPUTER_PLAYER_CREATURE_LIKE</code>, 16 lines in five playgrounds, always liking the human player)</td>
+<td>todo</td>
+<td>the command is empty</td>
+</tr>
+<tr>
+<td>A rival creature then acts on its mind (wanders, eats, impresses or attacks towns)</td>
+<td>partial</td>
+<td><code>ecs::creature_loop::ProcessTurn</code> runs the creatures each turn from <code>Game.cpp</code>; how far the mind's decisions match the original is the creature domain's (see ../creature/)</td>
+</tr>
+<tr>
+<td><em>Island Wars</em> gives its three rivals the Nemesis mind as a leopard, a gorilla and a brown bear</td>
+<td>partial</td>
+<td>made as above</td>
+</tr>
+</tbody>
+</table>
+<h2 id="rival-creatures-in-the-story">Rival creatures in the story</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The story's set-up script loads the rival gods' creatures from their mind files: Khazar's as a tortoise, Lethys's as a wolf and Nemesis's as a lion, for their players at given places</td>
+<td>todo</td>
+<td><code>LoadCreature</code> in <code>src/CHLApi.cpp</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Each is then named, made fully grown, sized and taught what it needs (dozens of actions taught at once)</td>
+<td>todo</td>
+<td><code>SetCreatureName</code>, <code>CreatureSetKnowsAction</code>, <code>CreatureForceFriends</code> and <code>CreatureAutoscale</code> log "not implemented"</td>
+</tr>
+<tr>
+<td>A rival creature heals slowly between fights, from nothing to full in ten minutes</td>
+<td>partial</td>
+<td>the object property functions work for villagers and animals; a creature's properties and its healing are not ported</td>
+</tr>
+<tr>
+<td>In the final fight the last rival's creature is loaded as the same species as the player's</td>
+<td>todo</td>
+<td><code>LoadCreature</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>The player's own creature is loaded into each new land at a place (<code>load my_creature</code>)</td>
+<td>partial</td>
+<td><code>LoadMyCreature</code>: <code>ecs::player_creature::LoadMyCreature</code> loads the profile's mind file (<code>--creature-file</code>) at the land's place; saving the creature between lands is the creature domain's and not ported</td>
+</tr>
+<tr>
+<td>A creature can be made from another's mind as another species (the creature swaps at the breeder)</td>
+<td>todo</td>
+<td><code>SwapCreature</code> logs "not implemented"</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

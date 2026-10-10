@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The sea — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="here" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-sea">The sea</a><ul>
+<li><a href="#drawing-the-sea">Drawing the sea</a></li>
+<li><a href="#sounds-of-the-sea">Sounds of the sea</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-sea">The sea</h1>
+<p>The sea around every island: a textured surface drawn in rows across the screen, each row rippling on its own and
+fading with distance, coloured by the land's light, blended over the mirrored world beneath it.</p>
+<p><strong>Progress: 16/16 done, 0 partial — 100%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../water.html">Water in the game</a>.</p>
+<h2 id="drawing-the-sea">Drawing the sea</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The sea is a square 30000 units across at sea level about the middle of the map, reaching the horizon</td>
+<td>done</td>
+<td><code>sea::ComputeScreenRange</code> (<code>src/Graphics/SeaRows.cpp</code>); test <code>test/test_sea_rows.cpp</code></td>
+</tr>
+<tr>
+<td>The sea is drawn in screen rows two pixels apart, from where it meets the top of the screen down to the bottom</td>
+<td>done</td>
+<td><code>src/Graphics/SeaRows.cpp</code>, <code>src/Graphics/RendererSea.cpp</code>, <code>assets/shaders/fs_water.sc</code></td>
+</tr>
+<tr>
+<td>Every other row repeats the texture of the one before, so each texture line holds for two pixels then blends</td>
+<td>done</td>
+<td><code>assets/shaders/fs_water.sc</code></td>
+</tr>
+<tr>
+<td>Each row ripples along the view by its own step of a 16-step sine, close up only</td>
+<td>done</td>
+<td><code>assets/shaders/fs_water.sc</code> and the sea's uniforms (<code>src/Graphics/RendererSea.cpp</code>)</td>
+</tr>
+<tr>
+<td>The ripple moves on a step each frame</td>
+<td>done</td>
+<td>The sea's frame counter, only while the game runs (<code>src/Graphics/RendererSea.cpp</code>)</td>
+</tr>
+<tr>
+<td>The sea is fully opaque near and fades to 80 of 255 far away, showing what lies beneath</td>
+<td>done</td>
+<td><code>assets/shaders/fs_water.sc</code> (the row alpha)</td>
+</tr>
+<tr>
+<td>A first row that starts inside the screen is nearly clear, softening the horizon</td>
+<td>done</td>
+<td><code>src/Graphics/SeaRows.cpp</code> (the first row nearly clear)</td>
+</tr>
+<tr>
+<td>The sea's texture takes the land's light at full luminosity, so it darkens at night and reddens under an evil sky</td>
+<td>done</td>
+<td>The light table's last entry (<code>src/Graphics/RendererSea.cpp</code>, <code>assets/shaders/fs_water.sc</code>)</td>
+</tr>
+<tr>
+<td>The sea's texture repeats more finely at higher detail levels</td>
+<td>done</td>
+<td><code>detail_level::Level::waterTiling</code>, <code>Level::SeaPeriod</code> (<code>src/Graphics/DetailLevel.h</code>)</td>
+</tr>
+<tr>
+<td>At the lowest detail the sea is a still square, its texture repeated 50 times, fully opaque</td>
+<td>done</td>
+<td>The level 0 sea in <code>src/Graphics/RendererSea.cpp</code></td>
+</tr>
+<tr>
+<td>Ambient wind would drift the sea's texture</td>
+<td>n/a</td>
+<td>The game's ambient wind is always 0 in play, so the drift never shows; our tree keeps the drift code (<code>sea::Drift</code>)</td>
+</tr>
+<tr>
+<td>The sea is drawn after the land so the land's coast fades into it</td>
+<td>done</td>
+<td>The sea is drawn before the land, which blends over it (<code>src/Graphics/Renderer.cpp</code>). Our wiki differs: the original draws the sea first, then the land over it with its coast alpha (<a href="../../rendering.html#sea-skyraw--skyaraw">rendering.md</a>)</td>
+</tr>
+<tr>
+<td>The sea is not drawn inside the temple, which has its own pool</td>
+<td>done</td>
+<td>The temple pass draws no sea; see ../temple/</td>
+</tr>
+<tr>
+<td>The sea is hazed with distance like the land</td>
+<td>done</td>
+<td>The sea takes no haze, only its distance fade. Our wiki differs: the original's distance haze is not applied to the sea (<a href="../../rendering.html#distance-haze-original-fog-detail-levels-36">rendering.md</a>)</td>
+</tr>
+<tr>
+<td>The view under the sea is drawn at the size of the view</td>
+<td>done</td>
+<td>The reflection target follows the main view (<code>Renderer::UpdateReflectionTarget</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="sounds-of-the-sea">Sounds of the sea</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The sea is heard from cells of sea, louder by how much of the view is sea and by height</td>
+<td>done</td>
+<td><code>src/Audio/Services/SoundMap.cpp</code>; test <code>test/audio/test_sound_map.cpp</code>; see ../audio/</td>
+</tr>
+<tr>
+<td>Waves on the shore are heard on the coast</td>
+<td>done</td>
+<td>The coast ambient type (<code>src/Audio/Services/SoundMap.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

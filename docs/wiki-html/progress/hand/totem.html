@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Totem — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="here" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#totem">Totem</a><ul>
+<li><a href="#taking-hold">Taking hold</a></li>
+<li><a href="#sliding">Sliding</a></li>
+<li><a href="#letting-go">Letting go</a></li>
+<li><a href="#puzzle-totems">Puzzle totems</a></li>
+<li><a href="#others-working-totems">Others working totems</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="totem">Totem</h1>
+<p>Each village has a totem pole by its village centre. The player takes hold of the totem with the hand and slides it up
+or down to choose how many of the village's people worship rather than work. The hand locks onto the pole while the
+button is held. Worship itself is in <a href="../worship/index.html">../worship/</a>. Khazar teaches the totem on the second land, in
+<a href="../story/gold_scrolls/worship_site.html#khazars-lesson-on-worship">Worship Site</a>.</p>
+<p><strong>Progress: 0/26 done, 0 partial — 0%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../hand-and-interface.html">The hand and the interface</a>.</p>
+<h2 id="taking-hold">Taking hold</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Holding the Action button on a totem locks the hand onto it until the button is let go</td>
+<td>todo</td>
+<td>Not in our tree: the town centre's totem (<code>components::TotemStatue</code>, made by <code>AbodeArchetype</code>) is only drawn; the hand's TOTEM state exists in <code>HandSystem::RequiredHandState</code> but no press reaches it</td>
+</tr>
+<tr>
+<td>Only a totem of the player's own village can be worked</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>Only a totem that is ready to be used, and where the player may act, can be worked</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>Taking hold, the hand moves to the top of the pole, 0.7 of its size above the pole's base</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>The pointer is hidden and held at the hand's place on screen while the totem is held</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>The player's creature watches the player use the totem and may learn to do it</td>
+<td>todo</td>
+<td>Not in our tree; see <a href="../creature/index.html">../creature/</a></td>
+</tr>
+<tr>
+<td>Villagers and animals nearby react to the hand using the totem</td>
+<td>todo</td>
+<td>Not in our tree; see <a href="../villager/index.html">../villager/</a></td>
+</tr>
+<tr>
+<td>The totem's raise sound starts</td>
+<td>todo</td>
+<td>Not in our tree; see <a href="hand_sounds.html">hand_sounds.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="sliding">Sliding</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Moving the mouse up or down slides the pole by three times its size for each screen height moved</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>Sliding down stops when the hand would go below the ground</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>The pole slides between its top and a drop of 1.3 times its height</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>The village's share of worshippers follows how far the pole is down</td>
+<td>todo</td>
+<td>Not in our tree; the worship share is only set by scripts and town rules (<code>src/Worship/WorshipPercentage.cpp</code>); see <a href="../worship/index.html">../worship/</a></td>
+</tr>
+<tr>
+<td>The hand follows the top of the pole as it slides</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>Near the ground (below 2.5 units) the hand tips over towards the ground; higher up it lies at seven sixteenths of a turn</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>The hand faces away from the camera, half a turn from its heading</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>The hand holds the pole with its side hold, posed by how thick the pole is for the hand's size</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>The pointer stays pinned to the hand's place on screen as the pole slides</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="letting-go">Letting go</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Letting go leaves the pole where it is and frees the pointer</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>Where the pole was left is sent to the other players</td>
+<td>todo</td>
+<td>No multiplayer in our tree</td>
+</tr>
+<tr>
+<td>The raise sound ends</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="puzzle-totems">Puzzle totems</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The challenge puzzles have their own totems, which can be tapped</td>
+<td>todo</td>
+<td>The puzzle totems are not in our tree (hand-and-interface.md lists PuzzleTotem's tap as not ported)</td>
+</tr>
+<tr>
+<td>A puzzle totem slides by the mouse's movement divided by 1.5, between its top and its lowest</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>A puzzle totem slides in whole steps, sending each new step to the other players</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>Scripts set a puzzle totem's highest point</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="others-working-totems">Others working totems</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature raises and lowers totems itself</td>
+<td>todo</td>
+<td>Not in our tree; see <a href="../creature/index.html">../creature/</a></td>
+</tr>
+<tr>
+<td>Computer gods raise totems in their towns</td>
+<td>todo</td>
+<td>Not in our tree; see <a href="other_players_hands.html">other_players_hands.md</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

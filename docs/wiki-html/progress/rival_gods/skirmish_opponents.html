@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skirmish opponents — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="here" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#skirmish-opponents">Skirmish opponents</a><ul>
+<li><a href="#how-a-slot-gets-a-computer-god">How a slot gets a computer god</a></li>
+<li><a href="#the-skirmish-lands">The skirmish lands</a></li>
+<li><a href="#their-creatures">Their creatures</a></li>
+<li><a href="#temples-nobody-plays-network-games">Temples nobody plays (network games)</a></li>
+<li><a href="#their-hands">Their hands</a></li>
+<li><a href="#out-of-the-game">Out of the game</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="skirmish-opponents">Skirmish opponents</h1>
+<p>The nameless computer gods of the skirmish lands (the land scripts in <code>Scripts/Playgrounds</code>) and of any temple no
+person plays in a network game. They use the same computer player mind as the story's rival gods, with creatures from
+the game's generic computer creature file. Everything about them comes from the land script: the skirmish box offers no
+opponent, difficulty or team settings.</p>
+<p><strong>Progress: 3/38 done, 14 partial — 26%</strong></p>
+<p>See <a href="ai.html">ai.md</a> for how they decide, <a href="creatures.html">creatures.md</a> for their creatures and
+<a href="../multiplayer/skirmish.html">../multiplayer/skirmish.md</a> for the skirmish itself.</p>
+<h2 id="how-a-slot-gets-a-computer-god">How a slot gets a computer god</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every player slot has a computer god's mind, switched off. The land script's <code>TOGGLE_COMPUTER_PLAYER</code> switches it on and marks that player as a computer player</td>
+<td>partial</td>
+<td>the command adds the player (<code>FeatureScriptCommands::ToggleComputerPlayer</code>, <code>PlayerArchetype</code>); there is no mind to switch on</td>
+</tr>
+<tr>
+<td>The switch is ignored while a network game's map is being loaded, so the people's slots stay theirs</td>
+<td>todo</td>
+<td>our tree has no network play; see <a href="../multiplayer/network_play.html">../multiplayer/network_play.md</a></td>
+</tr>
+<tr>
+<td>A temple on a skirmish land whose player isn't switched on gets no god: nothing plays it</td>
+<td>partial</td>
+<td>nothing plays such a temple in our tree, as in the game, but nothing plays any other god's temple either</td>
+</tr>
+<tr>
+<td>There is no difficulty setting anywhere. A computer god's strength comes only from its land and from matching the person's creature (below)</td>
+<td>partial</td>
+<td>our tree has no difficulty setting either; the sizing to the person's creature is not done (below)</td>
+</tr>
+<tr>
+<td>No skirmish land sets a personality, and no script runs in a skirmish, so computer gods keep their built-in personality</td>
+<td>todo</td>
+<td>no computer god mind in our tree; see <a href="ai.html">ai.md</a></td>
+</tr>
+<tr>
+<td>No skirmish land sets allies, so every god is left to its own attitude to each player (unconfirmed what that starts at)</td>
+<td>todo</td>
+<td>no computer god mind in our tree; no attitudes in our tree; see <a href="../multiplayer/player_diplomacy.html">../multiplayer/player_diplomacy.md</a></td>
+</tr>
+<tr>
+<td>Messages, taunts and gifts to other players are in the mind but were never made</td>
+<td>n/a</td>
+<td>see <a href="ai.html">ai.md</a></td>
+</tr>
+<tr>
+<td>The player's own colour and each god's colour mark their influence and their creatures (unconfirmed for creatures)</td>
+<td>done</td>
+<td>each player's influence is drawn in its colour (<code>influence::k_CircleColours</code>, <code>src/ECS/Influence/InfluenceCircles.cpp</code>); the creatures' colours are unconfirmed</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-skirmish-lands">The skirmish lands</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Skirmish lands can be chosen and loaded</td>
+<td>partial</td>
+<td>the debug menu's "Playground Islands" loads them (<code>src/Debug/Gui.cpp</code>); there is no skirmish box (<a href="../multiplayer/skirmish.html">../multiplayer/skirmish.md</a>)</td>
+</tr>
+<tr>
+<td><a href="../multiplayer/maps/two_gods.html">Two Gods</a>: player two is a computer god with a leopard</td>
+<td>partial</td>
+<td>the player and its creature are made by the land script (<code>ToggleComputerPlayer</code>, <code>CreateCreatureFromFile</code>); no mind drives the god</td>
+</tr>
+<tr>
+<td><a href="../multiplayer/maps/three_gods.html">Three Gods</a>: players two and three, with a lion and a horse</td>
+<td>partial</td>
+<td>the player and its creature are made by the land script (<code>ToggleComputerPlayer</code>, <code>CreateCreatureFromFile</code>); no mind drives the god</td>
+</tr>
+<tr>
+<td><a href="../multiplayer/maps/four_gods.html">Four Gods</a>: players two to four, with a horse, a tortoise and a zebra</td>
+<td>partial</td>
+<td>the player and its creature are made by the land script (<code>ToggleComputerPlayer</code>, <code>CreateCreatureFromFile</code>); no mind drives the god</td>
+</tr>
+<tr>
+<td><a href="../multiplayer/maps/island_wars.html">Island Wars</a> (a fan's rework of one of Lionhead's later online maps, not a game install file): players two to four, with a leopard, a gorilla and a brown bear, all from Nemesis's mind file</td>
+<td>partial</td>
+<td>as above (the file is not in our game folder)</td>
+</tr>
+<tr>
+<td><a href="../multiplayer/maps/death_comes_to_those_that_wait.html">Death Comes To Those That Wait</a> (a fan-made land by "Fat Omen", not a game install file): players three and four are computer gods with a tortoise and a zebra. Player two (a horse) and players five to eight get creatures but no temple and are never switched on</td>
+<td>partial</td>
+<td>as above; the creatures of the temple-less players are made too</td>
+</tr>
+<tr>
+<td><a href="../multiplayer/maps/firestorm.html">Firestorm</a> has temples for players two and three but switches neither on, so they stand idle (as far as found)</td>
+<td>partial</td>
+<td>as in the game, nothing plays them; but nothing plays any god in our tree</td>
+</tr>
+<tr>
+<td>Each computer god's towns, temple and influence come from the land script, as in the story</td>
+<td>done</td>
+<td>towns, temples and owners (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>), influence (<code>src/ECS/Influence</code>)</td>
+</tr>
+<tr>
+<td>Each skirmish land sets the player and town influence multipliers (0.4 to 1.2 for towns)</td>
+<td>done</td>
+<td><code>SET_TOWN_INFLUENCE_MULTIPLIER</code>, <code>SET_PLAYER_INFLUENCE_MULTIPLIER</code></td>
+</tr>
+<tr>
+<td>The land's balance settings (impressiveness, speed and belief speed scales) apply to every god</td>
+<td>partial</td>
+<td><code>SET_GLOBAL_LAND_BALANCE</code> is kept (<code>land_balance::Set</code>); only numbers 4 (villagers' speed, <code>src/ECS/VillagerSpeed.cpp</code>) and 5 (trees) are read; no god acts on them</td>
+</tr>
+</tbody>
+</table>
+<h2 id="their-creatures">Their creatures</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land script loads each god's creature from the generic computer creature file, of the species it names, at a given place</td>
+<td>partial</td>
+<td><code>CREATE_CREATURE_FROM_FILE</code> (<code>FeatureScriptCommands::CreateCreatureFromFile</code>, <code>CreatureArchetype</code>); it faces a fixed way and takes our starting size</td>
+</tr>
+<tr>
+<td>When the computer god starts, its creature is sized to the person's creature: theirs times 0.9 plus a random amount up to 0.3 (so 0.9 to 1.2 times)</td>
+<td>todo</td>
+<td><code>SET_COMPUTER_PLAYER_CREATURE_LIKE</code> is empty</td>
+</tr>
+<tr>
+<td>The land names which player's creature to copy, but the name only turns the sizing on: it always copies the creature of the person at this machine</td>
+<td>todo</td>
+<td><code>SET_COMPUTER_PLAYER_CREATURE_LIKE</code> is empty</td>
+</tr>
+<tr>
+<td>The sizing only happens when the computer god isn't the local player and the person has a creature</td>
+<td>todo</td>
+<td><code>SET_COMPUTER_PLAYER_CREATURE_LIKE</code> is empty</td>
+</tr>
+<tr>
+<td>A god marked as a computer player has its creature learn at once every miracle the god has, plus heal, food, wood and water always</td>
+<td>todo</td>
+<td>nothing marks a computer player in our tree; see <a href="creatures.html">creatures.md</a></td>
+</tr>
+<tr>
+<td>Those miracles count as seen as often as needed to learn them, so it can cast them straight away</td>
+<td>todo</td>
+<td>as above</td>
+</tr>
+<tr>
+<td>In a skirmish (not a network game), a computer god with a temple but no creature gets one from the generic file, of one of 17 species at random, at its temple's creature spot</td>
+<td>todo</td>
+<td>no skirmish start in our tree</td>
+</tr>
+<tr>
+<td>The creature's own mind then runs as any creature's</td>
+<td>partial</td>
+<td>creatures from files think with the creature mind (see <a href="../creature/decision_making.html">../creature/decision_making.md</a>); nothing of their god steers them</td>
+</tr>
+<tr>
+<td>The creature fights other creatures with the computer's tactics</td>
+<td>partial</td>
+<td>any creature not the local player's fights by the computer's moves (<code>fight::ChooseMove</code>); see <a href="../creature/fighting.html">../creature/fighting.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="temples-nobody-plays-network-games">Temples nobody plays (network games)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>In a network game, any player with a temple who is neither a person nor a computer god becomes a computer god</td>
+<td>todo</td>
+<td>our tree has no network play; see <a href="../multiplayer/network_play.html">../multiplayer/network_play.md</a></td>
+</tr>
+<tr>
+<td>Its creature is one of 11 species at random, made at its temple's creature spot</td>
+<td>todo</td>
+<td>no network play</td>
+</tr>
+<tr>
+<td>It is named with a line picked at random from the first 99 of the game's text</td>
+<td>todo</td>
+<td>no network play; in the shipped text those lines are villagers' grumbles ("Work, work, work. I'm sick of it."), not names; unconfirmed that players saw this</td>
+</tr>
+<tr>
+<td>It is taken through all 13 stages of growing up at once</td>
+<td>todo</td>
+<td>no network play</td>
+</tr>
+</tbody>
+</table>
+<h2 id="their-hands">Their hands</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A computer god's hand starts at its temple; without a temple it starts at a fixed spot (2150, 2620)</td>
+<td>todo</td>
+<td>only the person's hand exists (<code>HandSystem</code>)</td>
+</tr>
+<tr>
+<td>The hand is drawn on the land so the person can watch it work (unconfirmed how it looks)</td>
+<td>todo</td>
+<td>only the person's hand exists (<code>HandSystem</code>)</td>
+</tr>
+<tr>
+<td>The hand can only act inside its god's influence</td>
+<td>todo</td>
+<td>only the person's hand exists</td>
+</tr>
+<tr>
+<td>It moves at its god's speed in metres per second, which scripts can change</td>
+<td>todo</td>
+<td><code>SET_COMPUTER_PLAYER_SPEED</code> is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="out-of-the-game">Out of the game</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A god among players one to four with no temple left is out of the game (how a temple is lost is unconfirmed here)</td>
+<td>todo</td>
+<td>no rule in our tree takes a god out of the game; see <a href="../multiplayer/skirmish.html">../multiplayer/skirmish.md</a>; how a temple is damaged and destroyed: <a href="../story/losing_and_game_over.html">../story/losing_and_game_over.md</a></td>
+</tr>
+<tr>
+<td>A god that is out has its mind switched off and its creature taken off the land</td>
+<td>todo</td>
+<td>as above</td>
+</tr>
+<tr>
+<td>The person is told "<name> is out of the game."; when the last other god goes, they have won</td>
+<td>todo</td>
+<td>as above; see <a href="../multiplayer/skirmish.html">../multiplayer/skirmish.md</a></td>
+</tr>
+<tr>
+<td>Players five to eight are never counted out</td>
+<td>todo</td>
+<td>as above</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

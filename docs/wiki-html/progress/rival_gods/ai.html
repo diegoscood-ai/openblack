@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How a computer god decides — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="here" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#how-a-computer-god-decides">How a computer god decides</a><ul>
+<li><a href="#the-tree-of-needs">The tree of needs</a></li>
+<li><a href="#the-broad-aims-and-their-needs">The broad aims and their needs</a></li>
+<li><a href="#what-each-desire-does">What each desire does</a></li>
+<li><a href="#how-it-feels-about-other-players">How it feels about other players</a></li>
+<li><a href="#what-it-has-seen-and-learnt">What it has seen and learnt</a></li>
+<li><a href="#its-queue-of-actions">Its queue of actions</a></li>
+<li><a href="#its-hand">Its hand</a></li>
+<li><a href="#saving">Saving</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="how-a-computer-god-decides">How a computer god decides</h1>
+<p>Every rival god, in the story and in skirmish, is driven by the same mind: a fixed tree of needs, from six broad aims
+down to single hand actions, weighed each turn against what the god can see, how it feels about each other player and
+what it has been told by the land's scripts. The scripts can tune the weights, pause the mind, take over its hand and
+queue actions of their own.</p>
+<p><strong>Progress: 0/66 done, 0 partial — 0%</strong></p>
+<p>openblack has no computer god mind yet: a computer player is only a player entity (<code>PlayerArchetype</code>) and every script
+function that would steer one is a stub (see <a href="challenge_scripts.html">challenge_scripts.md</a>).</p>
+<h2 id="the-tree-of-needs">The tree of needs</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The mind is a tree four levels deep: 6 broad aims, 19 needs under them, 54 smaller desires and 50 hand actions at the leaves</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>Each node has a weight, its personality, which multiplies how strongly it is felt; scripts set it by the node's name, from 0 to 1</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>); <code>SET_COMPUTER_PLAYER_PERSONALITY</code> is a stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>A name can belong to more than one node (defeating a player is both an aim and a need) and setting it sets every node of that name</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>Each node also has a suppression value that scripts can set by name</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>); <code>SET_COMPUTER_PLAYER_SUPPRESSION</code> is a stub</td>
+</tr>
+<tr>
+<td>Each node measures how much it is wanted by finding the best object for it in the world (a town, a creature, a site) and how much that object needs it</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>A node's object is passed down, so the action at the leaf acts on the town or creature its parents chose</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>Each turn the mind processes the tree and performs the leaf action of the strongest branch (unconfirmed how ties and thresholds work)</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>A node already processed this turn isn't worked out again</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>The six aims are looked at on their own timers: reacting to players every 50, looking after its creature every 100, defeating players every 200, its towns every 300, other players and the world every 5000 (unconfirmed units)</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>Distance matters: a desire's pull falls off with how far its object is (unconfirmed how)</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-broad-aims-and-their-needs">The broad aims and their needs</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dealing with other players: giving them things and talking to them, each weighted a quarter</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>Looking after its creature (weight 0.4): feeding it, casting food for it, making it drink, healing it, sending it to sleep, sending it home (half weight)</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>); drinking, sleep, warming and cooling start at weight 0 in the game, so they never happen unless a script raises them</td>
+</tr>
+<tr>
+<td>Teaching its creature (weight 0.5): ordinary skills, aggressive, compassionate and impressive miracles</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>); see <a href="creatures.html">creatures.md</a></td>
+</tr>
+<tr>
+<td>Playing with its creature (weight a quarter): throwing food at it, and slapping, stroking, leashing it to things or casting on it for a laugh, all of which start at 0</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>Its creature's emergencies (weight 0.95): starving, hurt or ill</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>); the ill branch has no action under it in the game</td>
+</tr>
+<tr>
+<td>Attending to its towns (0.7): the town that most wants food, the one that most wants wood, building sites needing workers and needing wood</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>); see <a href="towns_and_influence.html">towns_and_influence.md</a></td>
+</tr>
+<tr>
+<td>Expanding its towns (0.7): combining scaffolds, finding where to build with one, and filling the workshop with wood</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>Attending to its worshippers (0.7): feeding them, resting them, sending villagers to a site that needs them, charging up miracles</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>Growing its towns' population (0.7): making breeder disciples</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>Expanding its influence (0.75): winning towns by impressing them or by meeting their food needs</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>); the game's tree lists the food branch twice and never the wood branch</td>
+</tr>
+<tr>
+<td>Defeating a player (0.1 each): the player in general, the one with more miracles, the one with a better creature, the one with more worshippers</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>Reacting to players (1): to an aggressive creature, to miracles cast at it, to things thrown at it, and defending its towns</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>Checking its towns (1): for attacks on their belief, for damage and fire, and for buildings left unprotected</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>The world aim has nothing under it</td>
+<td>n/a</td>
+<td>nothing to do</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-each-desire-does">What each desire does</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Feeding its creature: food from a field, from a fish farm, or a food miracle on it</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>Its starving creature: a food miracle, a field, a fish farm or another town's food</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>Its hurt creature: healing it with a miracle</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>); see <a href="magic.html">magic.md</a></td>
+</tr>
+<tr>
+<td>A town short of food: a disciple, its own creature's help, a food miracle, a field, a fish farm, or food from another town for the storehouse</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>A town short of wood: a disciple, its creature's help, a wood miracle, a forest, or wood from another town</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>A building site short of workers: a disciple, its creature's help to build, or a free villager from the town</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>A building site short of wood: a wood miracle, a forest or another town's wood</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>Winning a town: its creature impressing it, throwing things to impress it, impressive miracles, or miracles that meet its needs</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>Destroying a town: with a miracle, with its creature or with a thrown object</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>Attacking a creature: with miracles, with its own creature, or by throwing a rock</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>A player casting miracles at it: using its creature as a diversion</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>A player throwing things at it: a physical shield, or its creature as a diversion</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>Defending a town: with its creature or with miracles</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>A burning building: a water miracle; a damaged one: its creature's help; an unprotected one: a shield</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>Its worshippers hungry: a food miracle on the worship site, a field, a fish farm or another town's food</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>Its worshippers tired: heal at the worship site, or taking villagers home from it</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>A worship site short of villagers: raising the town's totem, or taking villagers from the town to it</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>A belief attack on its town: a miracle to defend against it, or its creature impressing the town</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>Throwing something at a player</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>Nice and nasty messages, taunts, scares and gifts to a player are in the tree but were never made</td>
+<td>n/a</td>
+<td>they do nothing in the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-it-feels-about-other-players">How it feels about other players</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A god keeps an attitude to each of the eight players</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>); <code>SET_COMPUTER_PLAYER_ATTITUDE</code> and <code>GET_COMPUTER_PLAYER_ATTITUDE</code> are stubs</td>
+</tr>
+<tr>
+<td>Scripts set it on a scale where the stored value is twice the one given, and read it back halved</td>
+<td>todo</td>
+<td><code>SET_COMPUTER_PLAYER_ATTITUDE</code> is a stub and <code>GET_COMPUTER_PLAYER_ATTITUDE</code> gives 0; e.g. Nemesis's 2 is kept as 4 in the game</td>
+</tr>
+<tr>
+<td>It judges how much aggressive magic each player throws at it, from the miracles it has seen cast</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>); each player keeps its last cast and a count of casts by type (<code>PlayerMagic::lastCast</code>, <code>castCount</code>, <code>src/ECS/Components/PlayerMagic.h</code>), but no god reads them; see <a href="magic.html">magic.md</a></td>
+</tr>
+<tr>
+<td>It judges how much each player throws at it by hand</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>It judges which player is worth defeating by their miracles, their worshippers and their creature</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>Gods can be allies, with an alliance strength scripts set from 0 to 1</td>
+<td>todo</td>
+<td><code>SET_PLAYER_ALLY</code> is a stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>Allies may use each other's influence</td>
+<td>todo</td>
+<td>the ally fallback of <code>influence::CalculatePlayerInfluence</code> (<code>src/ECS/Influence/Influence.cpp</code>) gives 0: no alliances in our tree; see <a href="../worship/influence.html">../worship/influence.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-it-has-seen-and-learnt">What it has seen and learnt</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It keeps a list of things it has seen, cleaned of things that no longer exist</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>Many of its searches cheat: it can find any field, abode, tree, town, villager, creature, player or miracle on the land without having seen it</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>It watches what other gods do and keeps it to copy later ("look and learn"; unconfirmed what it copies)</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>It checks its remembered lessons and miracles still exist each turn</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="its-queue-of-actions">Its queue of actions</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>An action becomes a state of the hand made of steps (pick up, carry, drop, cast) with their arguments</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>The god is busy until the action's steps finish, and ready again after</td>
+<td>todo</td>
+<td><code>COMPUTER_PLAYER_READY</code> always answers no (<code>src/CHLApi.cpp</code>)</td>
+</tr>
+<tr>
+<td>Scripts can force an action at once, on given objects, ahead of its own choice</td>
+<td>todo</td>
+<td><code>FORCE_COMPUTER_PLAYER_ACTION</code> is a stub</td>
+</tr>
+<tr>
+<td>Scripts can queue actions to follow one another, and clear the queue</td>
+<td>todo</td>
+<td><code>QUEUE_COMPUTER_PLAYER_ACTION</code> and <code>GAME_CLEAR_COMPUTER_PLAYER_ACTIONS</code> are stubs</td>
+</tr>
+<tr>
+<td>A queued action whose object has gone is dropped</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>The mind can be paused, and switched off for good when a god is beaten</td>
+<td>todo</td>
+<td>both <code>ENABLE_DISABLE_COMPUTER_PLAYER</code> natives are stubs</td>
+</tr>
+<tr>
+<td>A script that moves the hand takes it over until the script releases it</td>
+<td>todo</td>
+<td><code>MOVE_COMPUTER_PLAYER_POSITION</code> and <code>RELEASE_COMPUTER_PLAYER</code> are stubs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="its-hand">Its hand</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It acts through a hand of its own that flies over the land at its speed (scripts use 8 to 4000)</td>
+<td>todo</td>
+<td>only the person's hand exists (<code>HandSystem</code>, <code>Locator::handSystem</code>)</td>
+</tr>
+<tr>
+<td>Its hand stops when it would leave its influence</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>)</td>
+</tr>
+<tr>
+<td>It casts miracles from gestures or from its temple's icons</td>
+<td>todo</td>
+<td>no computer god mind in our tree: a computer player is only a player entity (<code>PlayerArchetype</code>); see <a href="magic.html">magic.md</a></td>
+</tr>
+<tr>
+<td>The camera can follow its hand or look at it</td>
+<td>todo</td>
+<td><code>SET_FOCUS_FOLLOW_COMPUTER_PLAYER</code> and <code>SET_POSITION_FOLLOW_COMPUTER_PLAYER</code> are stubs; the script camera's computer-hand branches are not ported (<code>src/Camera/ScriptCamera.cpp</code>); see <a href="../camera/index.html">../camera/</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="saving">Saving</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A god's mind, weights, queue, what it has seen, its attitudes and the miracles cast at it are saved and loaded with the game</td>
+<td>todo</td>
+<td>no computer god mind and no saved games in our tree; see <a href="../engine/index.html">../engine/</a></td>
+</tr>
+<tr>
+<td>Scripts can save a god's weights and load them back (unconfirmed where they are kept)</td>
+<td>todo</td>
+<td><code>SAVE_COMPUTER_PLAYER_PERSONALITY</code> and <code>LOAD_COMPUTER_PLAYER_PERSONALITY</code> are stubs</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snow — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="here" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#snow">Snow</a><ul>
+<li><a href="#falling-snow">Falling snow</a></li>
+<li><a href="#snow-lying">Snow lying</a></li>
+<li><a href="#what-snow-does">What snow does</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="snow">Snow</h1>
+<p>Cold storms snow. Flakes tumble down near the camera, and the snow piles up on the land, buildings and trees, then melts
+away slowly once the storm has gone.</p>
+<p><strong>Progress: 5/21 done, 1 partial — 26%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../day-night-weather.html">Day, night and weather in the original</a>.</p>
+<h2 id="falling-snow">Falling snow</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>One set of 256 flakes over an 80 unit square is repeated over every quarter block near the camera where it snows</td>
+<td>todo</td>
+<td>The drawn snow is not ported (<a href="../../day-night-weather.html#the-drawn-snow">day-night-weather.md</a>)</td>
+</tr>
+<tr>
+<td>Flakes tumble as they drift down in circles</td>
+<td>todo</td>
+<td>The drawn snow is not ported</td>
+</tr>
+<tr>
+<td>A flake that falls through the ground starts again at the top</td>
+<td>todo</td>
+<td>The drawn snow is not ported</td>
+</tr>
+<tr>
+<td>More flakes and more opaque the harder it snows; none for a little snow; fainter from 50 units away</td>
+<td>todo</td>
+<td>The drawn snow is not ported</td>
+</tr>
+<tr>
+<td>Snow falls from the rain's height at the rain's speed</td>
+<td>todo</td>
+<td>The drawn snow is not ported (the rain's height and speed are in <code>src/ECS/Weather/Rain.cpp</code>)</td>
+</tr>
+<tr>
+<td>Snow is only drawn with the weather detail option on</td>
+<td>todo</td>
+<td>The drawn snow is not ported</td>
+</tr>
+</tbody>
+</table>
+<h2 id="snow-lying">Snow lying</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A snowing storm piles snow on a grid of 40 unit cells, most within its inner radius</td>
+<td>todo</td>
+<td>The lying snow is not ported: the grid's snow cover stays 0 (<code>src/ECS/Weather/Atmos.cpp</code>; <a href="../../day-night-weather.html#lh3datmos-the-40-m-grid-atmoscpp">day-night-weather.md</a>)</td>
+</tr>
+<tr>
+<td>Towards a storm's edge snow is taken away</td>
+<td>todo</td>
+<td>The lying snow is not ported</td>
+</tr>
+<tr>
+<td>Snow depth is capped</td>
+<td>todo</td>
+<td>The lying snow is not ported</td>
+</tr>
+<tr>
+<td>Snow melts by 2 in one of eight bands of rows every 0.3 seconds</td>
+<td>todo</td>
+<td>The lying snow is not ported</td>
+</tr>
+<tr>
+<td>The land turns white where the snow is deep enough, raggedly by a noise image</td>
+<td>todo</td>
+<td>The lying snow is not ported</td>
+</tr>
+<tr>
+<td>Buildings, trees and objects standing in snow show a snow texture over them, more the deeper it lies</td>
+<td>todo</td>
+<td>The lying snow is not ported</td>
+</tr>
+<tr>
+<td>Snow shows on the faces turned upward</td>
+<td>todo</td>
+<td>The lying snow is not ported</td>
+</tr>
+<tr>
+<td>A new land starts with no snow</td>
+<td>done</td>
+<td>The weather is cleared with the land (<code>magic::OnLoadMap</code>); there is never lying snow in our tree</td>
+</tr>
+<tr>
+<td>Snow lying is saved with the game</td>
+<td>todo</td>
+<td>openblack has no saved games. See ../engine/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-snow-does">What snow does</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A creature's footsteps crunch in snow</td>
+<td>partial</td>
+<td>The footstep sound follows the cell's surface type (<code>CreatureAudioSystem.cpp</code>); there is no lying snow to make it crunch</td>
+</tr>
+<tr>
+<td>A tornado over snow throws up snow dust</td>
+<td>todo</td>
+<td>No lying snow in our tree; see ../miracles/tornado.md</td>
+</tr>
+<tr>
+<td>The forest miracle grows snowy trees on snow</td>
+<td>done</td>
+<td><code>TerrainMaterial</code> in <code>src/Magic/Spells/SpellForest.cpp</code> takes the snowy material where it snows hard (the snow byte of the weather there)</td>
+</tr>
+<tr>
+<td>Snow puts out fires as rain does</td>
+<td>done</td>
+<td><code>src/ECS/Fire/FireEffect.cpp</code> (the larger of rain and snow)</td>
+</tr>
+<tr>
+<td>The creature feels the cold</td>
+<td>done</td>
+<td><code>CreaturePhysiologySystem.cpp</code>; see ../creature/</td>
+</tr>
+<tr>
+<td>Snow-covered peaks painted into the land are not weather and never melt</td>
+<td>done</td>
+<td>see ../terrain/countries.md</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

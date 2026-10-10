@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forest — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="here" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#forest">Forest</a><ul>
+<li><a href="#casting-and-cost">Casting and cost</a></li>
+<li><a href="#planting">Planting</a></li>
+<li><a href="#upkeep-and-withering">Upkeep and withering</a></li>
+<li><a href="#effects-on-the-world">Effects on the world</a></li>
+<li><a href="#the-casters-camera">The caster's camera</a></li>
+<li><a href="#effects-fx">Effects (FX)</a></li>
+<li><a href="#audio">Audio</a></li>
+<li><a href="#creatures-and-saving">Creatures and saving</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="forest">Forest</h1>
+<p>A seed miracle: thrown onto the land it plants eighteen magic trees in a spiral, which grow while the caster pays for
+them and wither away when the miracle ends. Sparkles, a light on the land and a flock of butterflies (or bats, for an
+evil god) follow, and the caster's camera takes a short flight round the new forest. There is no power-up.</p>
+<p>Given by gold scroll: <a href="../story/gold_scrolls/the_workshop.html">The Workshop</a>.</p>
+<p><strong>Progress: 32/41 done, 0 partial — 78%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../miracles.html">Miracles one by one</a>.</p>
+<h2 id="casting-and-cost">Casting and cost</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cast with the forest gesture from its seed</td>
+<td>done</td>
+<td>Cast from its seed on press (<code>src/ECS/Systems/Implementations/HandSpellSeed.cpp</code>); the seed comes from a worship icon or a one-shot orb. See <code>../gesture/</code> and <code>dispensers_and_seeds.md</code></td>
+</tr>
+<tr>
+<td>Only on land within influence, in a cell no building covers</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellForest.cpp</code> (CanCastAt: in the map, on land, no abode of the cell covers it, the cell's newest fixed object is no multi-cell building), with the cast rule's influence test (<code>src/Magic/CastRules.cpp</code>)</td>
+</tr>
+<tr>
+<td>Not right beside an abode (measured from the abode's middle and its size)</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellForest.cpp</code> (NoAbodeCovers: an abode's 2D radius against the distance to its middle; fields never block)</td>
+</tr>
+<tr>
+<td>It can't be cast at an object</td>
+<td>done</td>
+<td><code>src/Magic/CastRules.cpp</code> (CanCastOn: no for the forest)</td>
+</tr>
+<tr>
+<td>Cost 13000 to cast, then 5 a turn plus 1 for each tree</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellForest.cpp</code> (CalculateCostToMaintain: cost per turn plus one per tree); test <code>SpellForest.costToMaintain</code></td>
+</tr>
+<tr>
+<td>No power-up exists</td>
+<td>done</td>
+<td>The NATURE row has no power-up (<code>src/Magic/MagicTables.cpp</code>)</td>
+</tr>
+<tr>
+<td>It can be recast only while it has trees left to make</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellForest.cpp</code> (HasEnoughChantsAndLifeForRecast: trees still to make); test <code>SpellForest.maxObjectsToCreate</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="planting">Planting</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The seed falls, spinning, and plants every tree at once when it lands</td>
+<td>done</td>
+<td>The falling seed atom's land collision event (<code>src/Particles/PSys.cpp</code>) makes <code>src/Magic/Spells/SpellForest.cpp</code> (SpellEvent) plant the whole forest at once</td>
+</tr>
+<tr>
+<td>Eighteen trees on a spiral from 2 to 11 m round the cast point</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellForest.cpp</code> (SpiralOffset); tests <code>SpellForest.spiral</code>, <code>SpellForest.mapCoords</code></td>
+</tr>
+<tr>
+<td>A spot a building covers is skipped, never retried; other trees don't block</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellForest.cpp</code> (ValidPlaceForTree: a spot is tested once; a tree is no multi-cell building)</td>
+</tr>
+<tr>
+<td>The kind of tree comes from the ground at the centre: broadleaves, palms on sand or by water, conifers on snow</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellForest.cpp</code> (RandomTreeType, TerrainMaterial: the cast point's material, snow, and no block counts as deep water, so palms); test <code>SpellForest.realInfoDat</code></td>
+</tr>
+<tr>
+<td>Each tree faces a random way; trees further out grow smaller (down to half size)</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellForest.cpp</code> (CreateTree: a random angle, target scale 1 - 0.5 x distance / 11); test <code>SpellForest.targetScale</code></td>
+</tr>
+<tr>
+<td>Trees grow a little each turn up to their size</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellForest.cpp</code> (Process grows every tree 0.01 a turn while it can afford them)</td>
+</tr>
+<tr>
+<td>They also grow as other trees do, faster with rain and good land</td>
+<td>done</td>
+<td><code>src/ECS/Trees.cpp</code> (TreeGrowthAmount with the rain and the land's alignment, also for the miracle's trees); test <code>SpellForest.treeGrowthAmount</code></td>
+</tr>
+<tr>
+<td>The forest belongs to the caster</td>
+<td>done</td>
+<td>Each magic tree keeps the caster's player (<code>src/Magic/Objects/MagicTree.cpp</code>); the forest itself keeps none, as the original never reads it</td>
+</tr>
+<tr>
+<td>A forest cast from a worship icon leaves its seed on the ground at the centre, rising with the tallest tree; the hand can pick it up and cast the trees left elsewhere</td>
+<td>done</td>
+<td>(added) <code>src/Magic/Core/SpellSeed.cpp</code> (DrawSpells, FollowsSpell, ValidForPlaceInHand), <code>src/Magic/Spells/SpellForest.cpp</code> (AdjustSpellSeedPos); tests <code>SpellForest.seedFollowsSpell</code>, <code>SpellForest.adjustSpellSeedPos</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="upkeep-and-withering">Upkeep and withering</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>While the caster can't afford all the trees, every tree withers each turn and goes at nothing</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellForest.cpp</code> (Process: fewer wanted than there are, every tree shrinks 0.05 a turn)</td>
+</tr>
+<tr>
+<td>When the miracle ends every tree withers away within about two seconds; magic trees never stay</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellForest.cpp</code> (CloseDown drops the creator, so no tree is wanted and all shrink 0.05 a turn)</td>
+</tr>
+<tr>
+<td>A forest left alone lasts two minutes</td>
+<td>done</td>
+<td>The timers from the NATURE row (<code>src/Magic/MagicTables.cpp</code>), aged in <code>src/Magic/Core/Spell.cpp</code>. Our wiki differs: 120 s is a one-shot miracle's time; a player's forest has no time limit and lasts while it is paid for (<a href="../../miracles.html#forest-magicspellsspellforest-magicobjectsmagictree-ecstrees">page</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="effects-on-the-world">Effects on the world</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Villagers look at the nice miracle when it lands</td>
+<td>todo</td>
+<td>The look-at-nice-miracle reaction is started (<code>src/Magic/Core/SpellEvent.cpp</code>), but villagers have no handler for it (<code>src/ECS/Systems/Implementations/VillagerReactions.cpp</code>)</td>
+</tr>
+<tr>
+<td>Villagers stop to look at the magic trees</td>
+<td>todo</td>
+<td>Each magic tree starts its reaction (<code>src/Magic/Objects/MagicTree.cpp</code>), but villagers have no handler for it</td>
+</tr>
+<tr>
+<td>Creatures take no notice of the magic trees' reaction</td>
+<td>done</td>
+<td>Creatures take no reactions at all in our tree (no creature handler in <code>src/ECS/Effects/Reactions.cpp</code>)</td>
+</tr>
+<tr>
+<td>A burning magic tree stops drawing looks, and draws them again once put out</td>
+<td>done</td>
+<td><code>src/Magic/Objects/MagicTree.cpp</code> (the fire start removes the tree's reaction, the fire end makes it again)</td>
+</tr>
+<tr>
+<td>A magic tree gives a quarter of an ordinary tree's wood, scaled by tribal power</td>
+<td>done</td>
+<td><code>src/Magic/Objects/MagicTree.cpp</code> (0.25 x tribal power), read by <code>src/ECS/Trees.cpp</code> (wood value, kept by the felled tree)</td>
+</tr>
+<tr>
+<td>Shields don't stop the planting; it does no damage</td>
+<td>done</td>
+<td>The forest event pays and plants with no shield test; its effect values do no damage</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-casters-camera">The caster's camera</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Only the caster's camera flies the forest's camera path, placed at the forest</td>
+<td>todo</td>
+<td>The camera atom's creator is not ported, so the forest's camera path and the goddess are not played (our wiki: postponed)</td>
+</tr>
+<tr>
+<td>It waits, then glides onto the path and follows it slowed down</td>
+<td>todo</td>
+<td>Not ported (no camera path from the forest effect)</td>
+</tr>
+<tr>
+<td>The flight lasts one play of its animation and ends with the miracle</td>
+<td>todo</td>
+<td>Not ported</td>
+</tr>
+<tr>
+<td>A movement key (only on a frame where it would move the camera) or gripping the land gives the camera back</td>
+<td>todo</td>
+<td>Not ported</td>
+</tr>
+<tr>
+<td>The flight no longer locks the camera and the player's movement (user-reported defect)</td>
+<td>n/a</td>
+<td>There is no forest camera flight in our tree to lock anything</td>
+</tr>
+<tr>
+<td>The hand stays shown during the flight</td>
+<td>todo</td>
+<td>No flight yet</td>
+</tr>
+</tbody>
+</table>
+<h2 id="effects-fx">Effects (FX)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A trail of rising player-coloured blobs follows the falling seed</td>
+<td>done</td>
+<td>Particle data of the forest effect</td>
+</tr>
+<tr>
+<td>An animated light lies on the land for the life of the effect</td>
+<td>done</td>
+<td><code>src/Particles/Creators/LightMap.cpp</code> (the forest's light map)</td>
+</tr>
+<tr>
+<td>At 3.5 s sparkles burst and keep rising, with spinning vortices</td>
+<td>done</td>
+<td>Particle data, hung from the camera atom, which exists even though it draws nothing</td>
+</tr>
+<tr>
+<td>At 5.5 s five flocks of ten circle the forest on a squashed sphere</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Forest.cpp</code> (the forest path and good or evil creator), <code>src/Particles/Rules/Flock.cpp</code> (flocking); test <code>SpellForest.butterflyFlap</code></td>
+</tr>
+<tr>
+<td>Bats for an evil caster, butterflies otherwise</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Forest.cpp</code> (good or evil creator: butterflies or bats, flapping clips from <code>src/Particles/Creators/Mesh.cpp</code>)</td>
+</tr>
+<tr>
+<td>The flocks fade in over 4 s and out at 12 to 14 s</td>
+<td>done</td>
+<td>Particle data</td>
+</tr>
+</tbody>
+</table>
+<h2 id="audio">Audio</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A sound with the seed, cut when it lands</td>
+<td>done</td>
+<td>The particle sound rules (<code>src/Particles/Rules/Sound.cpp</code>)</td>
+</tr>
+<tr>
+<td>A sound with the sparkles at 3.5 s</td>
+<td>done</td>
+<td>Particle data</td>
+</tr>
+<tr>
+<td>A sound with the flocks at 5.5 s</td>
+<td>done</td>
+<td>Particle data</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creatures-and-saving">Creatures and saving</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A creature can cast a forest</td>
+<td>todo</td>
+<td>Creatures cast no miracles in our tree</td>
+</tr>
+<tr>
+<td>The forest and its trees are kept in a saved game</td>
+<td>todo</td>
+<td>No game save system</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

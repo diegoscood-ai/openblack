@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>States overview — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="here" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#states-overview">States overview</a><ul>
+<li><a href="#choosing-the-state">Choosing the state</a></li>
+<li><a href="#changing-state">Changing state</a></li>
+<li><a href="#what-every-state-shares">What every state shares</a></li>
+<li><a href="#each-state">Each state</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="states-overview">States overview</h1>
+<p>The god hand is always in exactly one state, picked afresh every frame from what the interface is doing and what the hand
+holds. There are eleven: hidden, normal, camera, tugging, holding, totem, scooping, creature, holding a miracle, playing
+a set animation, and the temple. Each state places, turns and animates the hand its own way; changing state blends the
+hand from where it was drawn.</p>
+<p><strong>Progress: 26/39 done, 8 partial — 77%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../hand-and-interface.html">The hand and the interface</a>.</p>
+<h2 id="choosing-the-state">Choosing the state</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The state is chosen again every frame, before the hand is placed and drawn</td>
+<td>done</td>
+<td><code>HandSystem::RequiredHandState</code> (<code>HandSystem.cpp</code>) picks the hand's state each frame in <code>HandSystem::Update</code>, before <code>HandSystem::Place</code></td>
+</tr>
+<tr>
+<td>Inside the temple the hand is always in the temple state</td>
+<td>done</td>
+<td><code>RequiredHandState</code> gives CITADEL first inside the temple; see <a href="temple_hand.html">temple_hand.md</a> for how it is placed</td>
+</tr>
+<tr>
+<td>Holding a miracle's seed puts it in the miracle state</td>
+<td>done</td>
+<td><code>RequiredHandState</code>: GRAIN for a held spell seed; see <a href="pouring.html">pouring.md</a></td>
+</tr>
+<tr>
+<td>Holding something being pulled out of the ground puts it in the tugging state</td>
+<td>done</td>
+<td><code>RequiredHandState</code>: TUG while a tree is tugged (<code>_tug</code>); see <a href="tug.html">tug.md</a></td>
+</tr>
+<tr>
+<td>Holding anything else puts it in the holding state</td>
+<td>done</td>
+<td><code>RequiredHandState</code>: HOLDING for anything else held, and for a pile in its locked select</td>
+</tr>
+<tr>
+<td>After the hand lets go of something, it waits about 180 milliseconds before going back to normal</td>
+<td>done</td>
+<td><code>HandSystem::UpdateReleaseImpulse</code> (<code>HandTurn.cpp</code>): the 180 ms countdown, then the release impulse packet (the released object's spin)</td>
+</tr>
+<tr>
+<td>Working a village's totem puts it in the totem state</td>
+<td>partial</td>
+<td><code>RequiredHandState</code> gives TOTEM for the interface's totem state, but nothing reaches that state; see <a href="totem.html">totem.md</a></td>
+</tr>
+<tr>
+<td>Interacting with a creature puts it in the creature state, if a creature is under the hand, else it stays normal</td>
+<td>done</td>
+<td><code>RequiredHandState</code>: CREATURE for the interface's creature state with a creature locked for the hand, else NORMAL (<code>HandSystem::UpdateCreatureFrame</code>); tests <code>HandCreatureFrame.*</code> (<code>test/test_hand_creature.cpp</code>)</td>
+</tr>
+<tr>
+<td>A set animation started by a tap (knocking on a house) puts it in the play-animation state until the animation ends</td>
+<td>done</td>
+<td><code>HandSystem::StartFixedPosAnimation</code> (an abode's tap, <code>src/ECS/Abodes.cpp</code>) gives PLAY_ANIM</td>
+</tr>
+<tr>
+<td>While the interface is switched off (cinematics, some script moments) the hand is hidden</td>
+<td>done</td>
+<td><code>RequiredHandState</code> gives INVISIBLE for the interface's modes 1, 2, 12 and 25 (an inactive interface); <code>HandSystem::Update</code> marks the hand <code>NotDrawn</code></td>
+</tr>
+<tr>
+<td>Otherwise it is in the camera state while a drag of the camera is under way, and the normal state when not</td>
+<td>partial</td>
+<td>Gripping takes the camera state (<code>HandSystem::Place</code>); the CAMERA state of the camera mode's tricons is pending (<code>RequiredHandState</code>)</td>
+</tr>
+<tr>
+<td>Scooping several things up puts it in the scooping state</td>
+<td>done</td>
+<td><code>RequiredHandState</code>: a pile in its locked select is HOLDING. Our wiki differs: the original has no scooping state; a pile being scooped is the HOLDING state (<a href="../../hand-and-interface.html#the-hands-state-the-spring-the-held-object-power-ups-and-roots">page</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="changing-state">Changing state</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>On a change, the old state is left and the new one entered, each resetting what it eases</td>
+<td>partial</td>
+<td>The state change starts the blend; the zoomers are reset per case (the normal state's up zoomers on entering it, the grain state on entering it), not by one Enter and Exit per state</td>
+</tr>
+<tr>
+<td>Every change of state blends the hand's bones and place from where they were drawn over 0.13 seconds</td>
+<td>done</td>
+<td><code>HandCrossFade</code> (<code>src/3D/HandCrossFade.h</code>, the hand system's <code>_stateBlend</code>) blends the bones from <code>_stateBlendFromWorld</code> and the place from where it was drawn (<code>HandSystem::Update</code>, <code>HandPlacement.cpp</code>), 0.13 s; tests <code>HandCrossFade.*</code> (<code>test/hand/test_hand_cross_fade.cpp</code>)</td>
+</tr>
+<tr>
+<td>A change of animation inside a state blends the same way</td>
+<td>done</td>
+<td>No blend for a change of clip inside a state, as the original. Our wiki differs: a clip change inside a state is not blended (<a href="../../hand-and-interface.html#the-hands-clip-handstatenormal">page</a>)</td>
+</tr>
+<tr>
+<td>Entering the normal state starts the hand's up straight and its distance where it was</td>
+<td>done</td>
+<td><code>HandSystem::Place</code> snaps the up zoomers to (0, 1, 0) on entering the normal state; the hand distance zoomer carries on</td>
+</tr>
+<tr>
+<td>Entering the hidden state keeps the last drawn bones, so the hand blends back in from them</td>
+<td>done</td>
+<td>While hidden nothing updates the pose (<code>HandSystem::Place</code> returns), so the blend back starts from the last drawn bones</td>
+</tr>
+<tr>
+<td>Leaving the creature state tells the creature how it was treated, held between -1 and 1</td>
+<td>done</td>
+<td>Leaving the CREATURE state sends the feedback packet with the clamped value (<code>ecs/CreatureHandPackets.h</code>); test <code>HandCreatureFrame.ALongHoldSendsOnlyTheFeedback</code></td>
+</tr>
+<tr>
+<td>Entering the creature interaction pushes a close camera on the creature, and leaving it pops the camera back</td>
+<td>todo</td>
+<td>The interaction camera is not ported (hand-and-interface.md, Pending)</td>
+</tr>
+<tr>
+<td>A creature interaction ended within 450 milliseconds counts as a click on the player's own creature</td>
+<td>done</td>
+<td><code>creature_hand::k_ClickMaxCameraMs</code> (450, <code>src/Creature/CreatureHandRules.h</code>), timed in the hand's camera ms; test <code>HandCreatureFrame.ALetGoWithinAClickOfTheOwnCreatureSendsTheClickThenTheFeedback</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-every-state-shares">What every state shares</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A spring-damped copy of the cursor trails it by at most 80 pixels on each axis, with a stiffness of 20</td>
+<td>done</td>
+<td><code>HandSystem::Update</code>: the smoothed mouse clamped to 80 pixels, the velocity's 20 and 0.03 per second</td>
+</tr>
+<tr>
+<td>The trailing gap leans the hand sideways and back and forth through its lean animations, unless smaller than a ten-thousandth</td>
+<td>done</td>
+<td><code>HandSystem::Update</code> (the lean layers), skipped below 0.0001</td>
+</tr>
+<tr>
+<td>The hand's alignment is held between -1 and 1 and its morph updated every frame</td>
+<td>done</td>
+<td><code>HandSystem::UpdateMorphing</code> (<code>HandMorph.cpp</code>) over <code>hand_morph::Advance</code> (<code>src/3D/HandMorph.cpp</code>): the local player's alignment clamped to -1..1, re-morphed when it moves 0.03; see <a href="look_and_morph.html">look_and_morph.md</a></td>
+</tr>
+<tr>
+<td>The hand's time runs on the camera's clock, or the frame's while in the temple</td>
+<td>done</td>
+<td><code>game_clock::CameraFrameMs</code> (the game time while a hand demo plays), <code>game_clock::FrameRealMs</code> inside the temple</td>
+</tr>
+<tr>
+<td>The hand points along the line of sight through the cursor, turned only when the cursor has moved</td>
+<td>done</td>
+<td><code>HandSystem::HandMatrixRotation</code>; the up target taken only when the mouse's x changed (<code>HandSystem::UpdateNormalUp</code>)</td>
+</tr>
+<tr>
+<td>Whether the camera's edge hints show depends on the state: the normal, camera and holding states allow them</td>
+<td>todo</td>
+<td>The camera's tricons are not ported</td>
+</tr>
+<tr>
+<td>The hand can be swapped between left and right at any time</td>
+<td>todo</td>
+<td>Our hand is drawn unmirrored; no left-handed mode</td>
+</tr>
+<tr>
+<td>The hand's state is saved and loaded with the game</td>
+<td>todo</td>
+<td>No save of the hand in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="each-state">Each state</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hidden: nothing is drawn and nothing moves</td>
+<td>done</td>
+<td>INVISIBLE: <code>NotDrawn</code> on the hand and no pose update</td>
+</tr>
+<tr>
+<td>Normal: hovering under the cursor, feeling objects, offering camera hints at the edges</td>
+<td>partial</td>
+<td>Hover and the felt objects' up are done (<code>HandPlacement.cpp</code>); the edge hints are not ported</td>
+</tr>
+<tr>
+<td>Camera: gripping or dragging the land or the edges</td>
+<td>partial</td>
+<td>The land grip only; see <a href="navigation.html">navigation.md</a></td>
+</tr>
+<tr>
+<td>Tugging: pulling at something rooted until it comes free</td>
+<td>partial</td>
+<td>See <a href="tug.html">tug.md</a></td>
+</tr>
+<tr>
+<td>Holding: carrying objects and people</td>
+<td>done</td>
+<td>See <a href="holding.html">holding.md</a></td>
+</tr>
+<tr>
+<td>Totem: holding a village's totem and sliding it</td>
+<td>todo</td>
+<td>See <a href="totem.html">totem.md</a></td>
+</tr>
+<tr>
+<td>Scooping: taking up several things at once</td>
+<td>done</td>
+<td>A pile being scooped is HOLDING; see <a href="multi_pickup.html">multi_pickup.md</a></td>
+</tr>
+<tr>
+<td>Creature: held to a creature's body</td>
+<td>partial</td>
+<td>See <a href="creature_contact.html">creature_contact.md</a></td>
+</tr>
+<tr>
+<td>Holding a miracle, and pouring</td>
+<td>done</td>
+<td>See <a href="pouring.html">pouring.md</a></td>
+</tr>
+<tr>
+<td>Playing a set animation at a fixed place</td>
+<td>done</td>
+<td><code>HandSystem::StartFixedPosAnimation</code> (PLAY_ANIM, the hand pinned at the point); see <a href="hand_animations.html">hand_animations.md</a></td>
+</tr>
+<tr>
+<td>Temple</td>
+<td>partial</td>
+<td>See <a href="temple_hand.html">temple_hand.md</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

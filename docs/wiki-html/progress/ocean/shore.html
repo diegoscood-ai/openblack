@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The shore — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="here" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-shore">The shore</a><ul>
+<li><a href="#coast">Coast</a></li>
+<li><a href="#wading-and-splashing">Wading and splashing</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-shore">The shore</h1>
+<p>Where land meets the sea: the land's texture fades out towards the water, the lowest land lies flat at sea level, and
+shallows can be waded.</p>
+<p><strong>Progress: 9/10 done, 0 partial — 90%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../water.html">Water in the game</a>.</p>
+<h2 id="coast">Coast</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's texture fades to clear from altitude 4 down to altitude 1, so the sea shows through at the coast</td>
+<td>done</td>
+<td><code>src/3D/CoastAlpha.cpp</code> and the block texture's alpha (<code>src/3D/BlockTexture.cpp</code>); test <code>test/test_block_texture.cpp</code></td>
+</tr>
+<tr>
+<td>The fade is ragged by the land's noise, so the waterline wanders</td>
+<td>done</td>
+<td><code>src/3D/CoastAlpha.cpp</code></td>
+</tr>
+<tr>
+<td>Land at sea level next to the sea is flattened to height 0</td>
+<td>done</td>
+<td><code>LandIslandInterface::GetHeightAt</code> and <code>GetDrawnHeightAt</code></td>
+</tr>
+<tr>
+<td>Cells of open sea are not drawn as land</td>
+<td>done</td>
+<td><code>src/3D/LandBlock.cpp</code> (their triangles collapsed), <code>src/3D/BlockTexture.cpp</code></td>
+</tr>
+<tr>
+<td>Coast cells are flagged so fire, forests and spells treat them as wet</td>
+<td>done</td>
+<td>The cell bits (<code>src/ECS/SeaCells.cpp</code>) read by <code>src/ECS/Fire/FireEffect.cpp</code> and the water queries</td>
+</tr>
+<tr>
+<td>There are no breaking waves or foam lines on the shore</td>
+<td>done</td>
+<td>None in our tree, as the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="wading-and-splashing">Wading and splashing</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A creature wades in shallow water and keeps out of the deep</td>
+<td>done</td>
+<td><code>CreatureLocomotionSystem.cpp</code>; see ../creature/</td>
+</tr>
+<tr>
+<td>Splash sprites rise round a creature's feet as it walks through water</td>
+<td>todo</td>
+<td>Not ported</td>
+</tr>
+<tr>
+<td>A creature's footsteps sound wet in water</td>
+<td>done</td>
+<td><code>CreatureAudioSystem.cpp</code> (the water surface)</td>
+</tr>
+<tr>
+<td>The hand gripping the land at the water makes a splash ring</td>
+<td>done</td>
+<td>The grip in water (<code>HandPlacement.cpp</code>) and its ring (<code>src/ECS/Systems/Implementations/HandFish.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

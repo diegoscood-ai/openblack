@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flocks — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="here" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#flocks">Flocks</a><ul>
+<li><a href="#flying-flock-casting">Flying flock: casting</a></li>
+<li><a href="#flying-flock-the-birds">Flying flock: the birds</a></li>
+<li><a href="#flying-flock-effects-and-sound">Flying flock: effects and sound</a></li>
+<li><a href="#ground-flock-casting">Ground flock: casting</a></li>
+<li><a href="#ground-flock-running-and-hunting">Ground flock: running and hunting</a></li>
+<li><a href="#ground-flock-look-sound-and-end">Ground flock: look, sound and end</a></li>
+<li><a href="#both-flocks">Both flocks</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="flocks">Flocks</h1>
+<p>Two flock miracles are swept out of the hand. The flying flock makes doves for a good god or bats for an evil one; they
+fly off together, leave a trail and frighten creatures (bats). The ground flock makes a pack of wolves that run down a
+corridor, hunting and eating villagers in their way. Wild animals and livestock are in <a href="../animal/index.html">../animal/</a>.</p>
+<p><strong>Progress: 46/50 done, 1 partial — 93%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../miracles.html">Miracles one by one</a>.</p>
+<h2 id="flying-flock-casting">Flying flock: casting</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Doves for a caster whose alignment is good enough, bats otherwise</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellFlock.cpp</code> (the caster's alignment under the switch, -0.2: bats); test <code>SpellFlock.goodOrEvil</code></td>
+</tr>
+<tr>
+<td>Twelve birds times tribal power, rounded half to even</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellFlock.cpp</code> (numberToCreate x tribal power, rounded to nearest even); test <code>SpellFlock.numberToCreate</code></td>
+</tr>
+<tr>
+<td>Birds are made twelve a second along the hand's sweep, their height eased along it, each nudged a little at random</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellFlock.cpp</code> (the exit loop: twelve a second along the last point to the hand, height interpolated, a 0.1 m jitter); test <code>SpellFlock.spawnPoint</code></td>
+</tr>
+<tr>
+<td>Birds that would start off the map, or outside the human caster's influence, are skipped but still counted</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellFlock.cpp</code> (off the map, or a human caster with no influence there: skipped, still counted)</td>
+</tr>
+<tr>
+<td>Birds keep being made until all are, even after the miracle is over</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellFlock.cpp</code> (the exit loop runs while fewer are made than wanted)</td>
+</tr>
+<tr>
+<td>They fan out across the camera's heading (or the creature's throw), side chosen by which way the hand swept</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellFlock.cpp</code> (the destination: the camera's heading for a human, side from the sweep, angle 2 x made x side / N); test <code>SpellFlock.fan</code></td>
+</tr>
+<tr>
+<td>Each flies for a point up to 800 m away in whole map cells, halving the distance down to 12.5 m until it is on the map</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellFlock.cpp</code> (whole cells, halved down to 12.5 m until on the map); test <code>SpellFlock.destination</code></td>
+</tr>
+<tr>
+<td>Birds fly at their kind's normal height; followers take the leader's goal</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellFlock.cpp</code> (the leader flies at its kind's normal height; the others take the leader's goal)</td>
+</tr>
+<tr>
+<td>Every bird is the same size, 2.8 to 3.0 times the model, whatever its birth size</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellFlock.cpp</code> (2.8 plus up to 0.2 times the model's scale)</td>
+</tr>
+<tr>
+<td>A bird faces its goal from where it actually appeared</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellFlock.cpp</code> (the angle from the jittered birth point to the goal)</td>
+</tr>
+<tr>
+<td>The local caster's hand leaves a trail of sparkles (good) or smoke (evil) until all birds are made</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellFlock.cpp</code> (the cast effect follows the local hand and is stepped every frame, closed when all are made)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="flying-flock-the-birds">Flying flock: the birds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The leader wanders from wherever it is now, so the flock roams away from the cast point</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellFlock.cpp</code> (the flock is placed where its leader is each turn), <code>src/ECS/AnimalBirds.cpp</code></td>
+</tr>
+<tr>
+<td>Each leg's height varies within the kind's limits</td>
+<td>done</td>
+<td><code>src/ECS/AnimalBirds.cpp</code>, <code>src/ECS/AnimalAI.cpp</code></td>
+</tr>
+<tr>
+<td>Random wander points avoid places the map's walls block</td>
+<td>done</td>
+<td><code>src/ECS/AnimalAI.cpp</code> (the random point is refused where it collides, <code>living::Collides</code> in <code>src/ECS/LivingPos.cpp</code>)</td>
+</tr>
+<tr>
+<td>Birds bank into their turns and flap</td>
+<td>done</td>
+<td><code>src/ECS/AnimalBirds.cpp</code>, <code>src/ECS/AnimalAnimations.cpp</code></td>
+</tr>
+<tr>
+<td>Birds are lit by the brightest land light</td>
+<td>done</td>
+<td><code>src/ECS/Systems/Implementations/RenderingSystem.cpp</code> (the land light on objects)</td>
+</tr>
+<tr>
+<td>A bird crossing a shield into it strikes the shield, sparks, and fades if the shield holds</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellFlock.cpp</code> (<code>psys::shields::FindShieldCrossedInto</code> with the bird's 2D radius, a shield-collide event, then the fade if the shield holds)</td>
+</tr>
+<tr>
+<td>When the miracle ends every bird fades over 20 turns, but stays opaque until it vanishes</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellFlock.cpp</code> (the fade zoomer over 20 turns, the alpha only changes in the turn); test <code>SpellFlock.fade</code></td>
+</tr>
+<tr>
+<td>The miracle lasts 25 s for a player and costs 40 a turn while its birds or effect last</td>
+<td>done</td>
+<td>The tables' timer and cost per turn (<code>src/Magic/Spells/SpellFlock.cpp</code>); test <code>SpellFlock.realInfoDat</code>. Our wiki differs: from a hand seed the first 5000 prayer runs out at 40 a turn after 12.5 s, before the 25 s timer (<a href="../../miracles.html#pending--not-faithful">page</a>)</td>
+</tr>
+<tr>
+<td>Bats frighten creatures</td>
+<td>todo</td>
+<td>Nothing in our tree asks whether an animal frightens a creature</td>
+</tr>
+</tbody>
+</table>
+<h2 id="flying-flock-effects-and-sound">Flying flock: effects and sound</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each bird trails pale sparkles (doves) or black smoke (bats), sized to the bird</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Flock.cpp</code> (follow targets: a trail on each bird, scaled by it)</td>
+</tr>
+<tr>
+<td>A trail stays where its bird was when the bird goes, and fades with the effect</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Flock.cpp</code> (a target that goes is forgotten, its atom stays)</td>
+</tr>
+<tr>
+<td>One coo (doves) or screech (bats) per cast, not one per bird</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Flock.cpp</code> (one sound only, unless it is the collection's only atom)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="ground-flock-casting">Ground flock: casting</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Always wolves, whatever the caster's alignment</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellFlock.cpp</code></td>
+</tr>
+<tr>
+<td>Fourteen wolves times tribal power, rounded half to even</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellFlock.cpp</code>; test <code>SpellFlock.numberToCreate</code></td>
+</tr>
+<tr>
+<td>Made twelve a second along the sweep on the ground, skipped off the map or outside influence</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellFlock.cpp</code> (the ground exit loop)</td>
+</tr>
+<tr>
+<td>A puff of magic appears where each wolf appears</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellFlock.cpp</code> (a magic-object-created spot visual at each wolf)</td>
+</tr>
+<tr>
+<td>Every wolf is 1.5 to 2.0 times the model, whatever its birth size</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellFlock.cpp</code> (1.5 plus up to 0.5 times the model's scale)</td>
+</tr>
+<tr>
+<td>Wolves are born grown up and hungry, owned by the caster</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellFlock.cpp</code> (made an adult, grown-up age plus one, with the info's hunger, owned by the caster)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="ground-flock-running-and-hunting">Ground flock: running and hunting</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The pack runs down a 45 m-wide corridor to its goal at the wolves' run speed</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellFlock.cpp</code> (the corridor's normal and 45 m half width, the run speed); test <code>SpellFlock.wolfCorridor</code></td>
+</tr>
+<tr>
+<td>Wolves reaching their goal fade away</td>
+<td>done</td>
+<td><code>src/ECS/AnimalPredators.cpp</code> (within 30 m of the final goal, the fade)</td>
+</tr>
+<tr>
+<td>A hungry wolf hunts villagers inside the corridor and not behind it</td>
+<td>done</td>
+<td><code>src/ECS/AnimalPredators.cpp</code> (IsHuntingTargetValid: inside the corridor, not behind the wolf's cell); test <code>SpellFlock.wolfCorridor</code></td>
+</tr>
+<tr>
+<td>Once a wolf remembers prey, a new prey must be much closer to take its place</td>
+<td>done</td>
+<td><code>src/ECS/AnimalPredators.cpp</code> (NearerThanStored)</td>
+</tr>
+<tr>
+<td>It chases, pounces when close and facing, and gives up when the prey gets too far</td>
+<td>partial</td>
+<td><code>src/ECS/AnimalPredators.cpp</code> (chase, stalk, pounce, abandon). Our wiki notes the spell wolves circle 30 to 50 m from the prey and seldom reach the leap; not checked against the game (<a href="../../miracles.html#pending--not-faithful">page</a>)</td>
+</tr>
+<tr>
+<td>Within a metre of the prey the pounce brings it down, again each turn it stays that close</td>
+<td>done</td>
+<td><code>src/ECS/AnimalPredators.cpp</code> (TargetPounce: within 1 m the villager is downed at 0.05 life)</td>
+</tr>
+<tr>
+<td>The downed villager plays its attacked fall</td>
+<td>done</td>
+<td><code>src/ECS/AnimalPredators.cpp</code> (ProcessDownedVillagers: the downed clip, then being eaten)</td>
+</tr>
+<tr>
+<td>The villager is eaten over 300 turns and then dies the normal villager death, killed by an animal</td>
+<td>done</td>
+<td><code>src/ECS/AnimalPredators.cpp</code> (300 turns, then the villager's death by an animal, <code>ecs::villager::VillagerDead</code>)</td>
+</tr>
+<tr>
+<td>The wolf takes 15 to 24 mouthfuls, then runs on</td>
+<td>done</td>
+<td><code>src/ECS/AnimalPredators.cpp</code></td>
+</tr>
+<tr>
+<td>Things that can't be eaten are never hunted</td>
+<td>done</td>
+<td><code>src/ECS/AnimalPredators.cpp</code> (a thing that cannot be eaten, <code>script_held::CannotBeEaten</code>, is no prey)</td>
+</tr>
+<tr>
+<td>A remembered prey that can no longer be reached is dropped</td>
+<td>done</td>
+<td><code>src/ECS/AnimalPredators.cpp</code> (<code>ecs::villager::IsReachable</code> and the other validity checks)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="ground-flock-look-sound-and-end">Ground flock: look, sound and end</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Wolves leave a land-tinted dust trail</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Flock.cpp</code> (the ground dust trail)</td>
+</tr>
+<tr>
+<td>One howl per cast</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Flock.cpp</code> (one sound per cast)</td>
+</tr>
+<tr>
+<td>Wolves bank into their turns and play the right clip in each state</td>
+<td>done</td>
+<td><code>src/ECS/AnimalAI.cpp</code>, <code>src/ECS/AnimalAnimations.cpp</code></td>
+</tr>
+<tr>
+<td>When the miracle ends the wolves turn translucent white and fade over 2 s while running on</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellFlock.cpp</code> (the fade, the animal keeps moving), drawn white with its alpha by <code>src/ECS/Systems/Implementations/RenderingSystem.cpp</code></td>
+</tr>
+<tr>
+<td>A burning wolf is drawn charred with flames</td>
+<td>done</td>
+<td><code>src/ECS/Systems/Implementations/RenderingSystem.cpp</code> (the spell wolf with a fire: the charring grey and the glow); flames from the fire graphics (<code>src/ECS/Fire/FireGraphic.cpp</code>)</td>
+</tr>
+<tr>
+<td>The player can't pick up the miracle's wolves</td>
+<td>done</td>
+<td><code>ecs::animal_ai::ValidForPlaceInHand</code> (the species' pick-up rule), used by <code>src/ECS/Systems/Implementations/HandPlacement.cpp</code></td>
+</tr>
+<tr>
+<td>The miracle lasts 60 s for a player and costs 35 a turn</td>
+<td>done</td>
+<td>The tables' timer and cost per turn; test <code>SpellFlock.realInfoDat</code>. Our wiki differs: from a hand seed the first 5000 prayer runs out at 35 a turn after 14.5 s, before the 60 s timer (<a href="../../miracles.html#pending--not-faithful">page</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="both-flocks">Both flocks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The leader is a miracle event each turn with no effect on anything</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellFlock.cpp</code> (the leader's point event, reaction to an impressive miracle)</td>
+</tr>
+<tr>
+<td>A running flock and its animals are kept in a saved game</td>
+<td>todo</td>
+<td>No game save system</td>
+</tr>
+<tr>
+<td>A creature can cast either flock, throwing it the way it faces</td>
+<td>todo</td>
+<td>Creatures cast no miracles in our tree; the creature's direction rule is in <code>src/Magic/Spells/SpellFlock.cpp</code> but nothing calls it for a creature</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Worship sites — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="here" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#worship-sites">Worship sites</a><ul>
+<li><a href="#the-site-in-the-world">The site in the world</a></li>
+<li><a href="#food-for-the-dancers">Food for the dancers</a></li>
+<li><a href="#icons-artefacts-and-shelter">Icons, artefacts and shelter</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="worship-sites">Worship sites</h1>
+<p>Each tribe a player wins over gets a worship site beside the player's temple, where that tribe's villagers dance to make
+prayer power. The site holds the tribe's miracle icons, a food store for the dancers and an altar. Artefacts put down at a site gain worth there: see <a href="../town/artefacts.html">../town/artefacts.md</a>.</p>
+<p><strong>Progress: 10/25 done, 4 partial — 48%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../magic.html">Magic: the core of the miracles</a>.</p>
+<h2 id="the-site-in-the-world">The site in the world</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land scripts place worship sites (built and planned) for the players' citadels</td>
+<td>partial</td>
+<td><code>CREATE_WORSHIP_SITE</code> makes a built site at the citadel (<code>src/Magic/Script/MapScriptMagic.cpp</code> to <code>worship::citadel::CreateBuiltWorshipSite</code>) and the first turn gives every town of a player with a citadel its site (<code>citadel::PostLoadCleanup</code>); <code>CREATE_PLANNED_WORSHIP_SITE</code> does nothing: sites are born built</td>
+</tr>
+<tr>
+<td>A site stands round the temple at its tribe's distance from the citadel, facing out from it</td>
+<td>done</td>
+<td>one of six slots at the heart's angle plus n sevenths of a turn (<code>src/Worship/Citadel.cpp</code>), at the heart's arrival point turned to the slot (<code>src/Worship/WorshipSite.cpp</code>)</td>
+</tr>
+<tr>
+<td>One site per tribe: every town of the same tribe a player owns is assigned to that tribe's site</td>
+<td>done</td>
+<td><code>citadel::FindOrCreateWorshipSite</code> and <code>AddTown</code>; a new site takes the player's towns of its tribe, oldest first (<code>site::Create</code>)</td>
+</tr>
+<tr>
+<td>A site is made for a newly claimed town's tribe if the player has none yet</td>
+<td>partial</td>
+<td>a town looks for its site when it gets its first villager (<code>worship::town::CheckAddWorshipSite</code>, <code>src/ECS/Town/TownVillagers.cpp</code>) and on the land's first turn; a town taken over gets none (<code>town_belief::TakeOverTown</code> leaves it pending); see <code>../town/</code></td>
+</tr>
+<tr>
+<td>A town the player loses is taken off its site; a site with no towns left goes (unconfirmed)</td>
+<td>todo</td>
+<td><code>site::RemoveTown</code> exists but nothing calls it when a town changes owner (<code>town_belief::TakeOverTown</code>)</td>
+</tr>
+<tr>
+<td>The site has its tribe's model, base and the player's colours</td>
+<td>done</td>
+<td>B_WORSHIP wearing its temple's texture (<code>src/Worship/WorshipSite.cpp</code>), with the tribe's altar from the site info's mesh</td>
+</tr>
+<tr>
+<td>A ring of light stands round the altar in the player's colour, as bright as the site's prayer battery is full</td>
+<td>todo</td>
+<td>see <a href="../rendering/light_beams.html">../rendering/light_beams.md</a></td>
+</tr>
+<tr>
+<td>The site has a gate the worshippers come in by, a dance floor, a rest place and a food place</td>
+<td>done</td>
+<td>the site's points: arrival, dance centre, hiding place (<code>src/Worship/SpecialPoints.cpp</code>), and its food pot (<code>src/Worship/WorshipSite.cpp</code>)</td>
+</tr>
+<tr>
+<td>Worship site upgrades: built on from a planned upgrade, they make the site bigger (unconfirmed what else they change)</td>
+<td>todo</td>
+<td>sites are born built, with no building site or upgrade</td>
+</tr>
+<tr>
+<td>The site can be set on fire, burning about its centre</td>
+<td>done</td>
+<td>a site burns about its own centre (<code>object::WorshipSiteCentre</code>, <code>src/ECS/Fire/FireObjectTraits.cpp</code>)</td>
+</tr>
+<tr>
+<td>Scripts can stop a player building worship sites</td>
+<td>done</td>
+<td><code>SET_CAN_BUILD_WORSHIPSITE</code> (<code>src/Magic/Script/CHLWorship.cpp</code>), read by <code>worship::town::CheckAddWorshipSite</code></td>
+</tr>
+<tr>
+<td>Scripts can read how many of a town's people died worshipping</td>
+<td>done</td>
+<td><code>GET_TOWN_WORSHIP_DEATHS</code> (<code>src/Magic/Script/CHLWorship.cpp</code>): the town's chant deaths (<code>TownDeaths</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="food-for-the-dancers">Food for the dancers</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The site has its own food pile that the dancers eat from</td>
+<td>partial</td>
+<td>the site has its food pot (<code>src/Worship/WorshipSite.cpp</code>), but the dancers don't eat: villagers have no belly yet (<code>src/ECS/Systems/Implementations/VillagerWorship.cpp</code>)</td>
+</tr>
+<tr>
+<td>How much food the site needs is worked out from its dancers and how hungry they are</td>
+<td>done</td>
+<td><code>site::CalculateDesireForFood</code> from its dancers' hunger, read by the advisors (<code>src/Audio/Services/Guidance.cpp</code>); test <code>WorshipTest.DesireForFoodOfASite</code></td>
+</tr>
+<tr>
+<td>Villagers carry food from their town's store to the site when it runs short</td>
+<td>todo</td>
+<td>the supply states are not ported; see <code>../villager/</code></td>
+</tr>
+<tr>
+<td>Disciples and the creature bring fish and crops straight to the site</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Food poured on the site by the food miracle or dropped there by hand goes into its store</td>
+<td>done</td>
+<td><code>site::AddResource</code> (<code>src/Worship/WorshipSite.cpp</code>), reached from <code>pot_resource::AddResourceToPos</code> and <code>object_resources::AddResource</code>; tests <code>WorshipSiteAddResource.FoodGoesToThePotWoodOnlyToABuildingSite</code>, <code>WorshipTest.FoodGivenToASiteFillsItsFoodPot</code></td>
+</tr>
+<tr>
+<td>Casting food on a site teaches the creature that feeding worshippers is a thing its god does</td>
+<td>todo</td>
+<td>the deed has only a name in <code>src/Creature/CreatureDeeds.h</code>; nothing records it</td>
+</tr>
+<tr>
+<td>The site shows a sign of what it needs (food) over it</td>
+<td>todo</td>
+<td>the food need only feeds the advisors' remark</td>
+</tr>
+<tr>
+<td>Computer players drop the resources they give at their own site</td>
+<td>todo</td>
+<td>no computer players</td>
+</tr>
+</tbody>
+</table>
+<h2 id="icons-artefacts-and-shelter">Icons, artefacts and shelter</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Artefacts kept at the site make power-ups cheaper by the artefact multiplier</td>
+<td>todo</td>
+<td>no artefacts; the multiplier is in the table, unused</td>
+</tr>
+<tr>
+<td>In danger, a town's villagers run to the site to hide</td>
+<td>todo</td>
+<td>the hiding place is used only by worshippers beyond the site's room; a town in danger stops worshipping instead (<code>src/ECS/Town/TownEmergency.cpp</code>)</td>
+</tr>
+<tr>
+<td>A site with more worshippers than it has room for is overloaded; only so many dancers are drawn</td>
+<td>done</td>
+<td>beyond <code>maxDancersVisible</code> a worshipper waits at the hiding place (<code>src/ECS/Systems/Implementations/VillagerWorship.cpp</code>)</td>
+</tr>
+<tr>
+<td>The creature can be sent to the site, and treats it as a place to work, e.g. casting food there</td>
+<td>todo</td>
+<td>see <code>../creature/</code></td>
+</tr>
+<tr>
+<td>A cheat gives a site endless prayer power</td>
+<td>partial</td>
+<td>each site's infinite flag, set from the debug Miracles window (<code>src/Debug/Miracles.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>The miracle icons round the site, and summoning from them, are in <code>../miracles/</code>.</p>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

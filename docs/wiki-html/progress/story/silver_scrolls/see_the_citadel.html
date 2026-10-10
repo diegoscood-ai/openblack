@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>See The Citadel — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#see-the-citadel">See The Citadel</a><ul>
+<li><a href="#is-it-in-the-game">Is it in the game?</a></li>
+<li><a href="#reaching-the-temple">Reaching the temple</a></li>
+<li><a href="#the-rotate-lesson">The rotate lesson</a></li>
+<li><a href="#helping-the-builders">Helping the builders</a></li>
+<li><a href="#the-three-scrolls">The three scrolls</a></li>
+<li><a href="#the-temple-explained">The temple explained</a></li>
+<li><a href="#bugs-and-quirks">Bugs and quirks</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="see-the-citadel">See The Citadel</h1>
+<p>A cut early draft of the first land's opening at the temple (called the citadel here): the advisors teach the player
+to rotate the camera, then to carry wood and food to the villagers building the temple, and once it is built they show
+the three kinds of scroll and explain the temple, its info orb and its entrance. It is a tutorial, not a silver scroll:
+it never opens a challenge record and only shows a silver scroll for two seconds as an example. It was never compiled
+into the game; the shipped opening does this part of Land 1 its own way.</p>
+<p><strong>Land:</strong> 1 (never started) · <strong>Giver:</strong> the advisors, then a villager with an information scroll · <strong>Script:</strong> SeeTheCitadel · <strong>Reward:</strong> none · <strong>Repeatable:</strong> no</p>
+<p><strong>Progress: 0/0 done, 0 partial — 0%</strong></p>
+<p>Sources: the script's source text, the script compiler's project and quest menu lists, Land 1's map script, the shipped
+Land 1 opening script, the game's text table and the camera zone files. The quest's title is "See The Citadel" from its
+script name, since its title text is missing from the text table. Every row is n/a: the game never runs this script.
+The shipped equivalents are tracked in <a href="../tutorial.html">../tutorial.md</a> and
+<a href="../../temple/temple_exterior.html">../../temple/temple_exterior.md</a>.</p>
+<h2 id="is-it-in-the-game">Is it in the game?</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Not in the compiled challenge file: it is missing from the compiler's project list, and no script starts it</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The developers' quest menu lists it to be compiled alone, but even then its own line to start itself is commented out</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Its title text (9) and every text-table line it uses (the rotate lessons and two "follow us" extras) are missing from the shipped text table; the rest of its lines are typed straight into the script as draft English</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The only record it would make, a gold-scroll (quest) record, is commented out, so it would not appear as a challenge at all</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Its temple is exactly Land 1's planned temple site, and it uses Land 1's real camera zone files (the building zone, then zone 2)</td>
+<td>n/a</td>
+<td>never started by the game: checked against <code>Land1.txt</code> and <code>Data/Zones</code></td>
+</tr>
+<tr>
+<td>The village it looks up (about 90 from Land 1's player village) matches no town, but it never uses it</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The shipped Land 1 opening also locks the camera to the building zone while the temple is finished and widens it to zone 2 afterwards, but with different lines and no rotate lesson or scroll demonstration</td>
+<td>n/a</td>
+<td>never started by the game: see <a href="../tutorial.html">../tutorial.md</a></td>
+</tr>
+<tr>
+<td>Not reachable at all in the shipped game</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="reaching-the-temple">Reaching the temple</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The temple is set to 30% built</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Until the camera is within 100 of the temple, the good advisor points at it and says a "follow us" line every 30 seconds</td>
+<td>n/a</td>
+<td>never started by the game: the line is missing from the text table</td>
+</tr>
+<tr>
+<td>Then the camera is kept to the building zone</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>A wood store is made about 50 east of the temple and a food store about 55 south of it, each given 6,000</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-rotate-lesson">The rotate lesson</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cut scene: the camera rises to a view of the temple over 3 seconds; the good advisor clings to the bottom of the screen and says "<strong><em> HAND DEMO INITIATED </em></strong>", then the first rotate line</td>
+<td>n/a</td>
+<td>never started by the game: a comment asks for the rotate hand animation here; the rotate lines are missing from the text table</td>
+</tr>
+<tr>
+<td>The evil advisor clings beside him for the second rotate line</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The player may then only rotate the camera</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>While the player has rotated fewer than 15 times, both rotate lines are repeated every 30 seconds</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>After the first rotation, a third rotate line is said once</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>After more than 30 rotations, the evil advisor says a fifth rotate line (a fourth line and a wait for 60 rotations are commented out, as are two more lines)</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The lesson only ends after more than 90 rotations</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="helping-the-builders">Helping the builders</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The player may now rotate and use the hand</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Cut scene: the camera moves to the wood store (3 seconds); evil advisor: "They'll build the temple a lot quicker if you supply them with the wood they need.", pointing at the store</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Evil advisor, clinging: "<strong><em> HAND DEMO INITIATED </em></strong>" then "Pick up some wood from the supplies here and drop it near the builders."</td>
+<td>n/a</td>
+<td>never started by the game: a comment asks for a carry-wood hand animation</td>
+</tr>
+<tr>
+<td>The camera moves to the food store; good advisor: "Dont you forget to feed them though." then, pointing, "They need food if they're going to be happy little workers."</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Good advisor, clinging: "<strong><em> HAND DEMO INITIATED </em></strong>", "Pick up some food from the supplies here and drop it near the builders." and "It's up to you what help you give the villagers." as the camera returns to the temple view</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Until the temple is fully built: each handful of food let go within 20 of the building site brings the good advisor's "Gotta keep up your strength chaps."</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Each handful of wood let go there brings the evil advisor's "Work, bitches, work!"</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The script counts the handfuls but never uses the counts; comments plan reminders that were never written</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The script does nothing to build the temple itself; it waits for the villagers to finish it</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-three-scrolls">The three scrolls</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The camera is widened to zone 2 and the player gets the full controls back</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Cut scene: camera low by the temple (3 seconds); the good advisor says another "follow us" line</td>
+<td>n/a</td>
+<td>never started by the game: missing from the text table</td>
+</tr>
+<tr>
+<td>A villager appears in front of the temple with an information scroll beside him; the camera moves to him over 4 to 5 seconds</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Good advisor, pointing at it: "This is an information scroll. There's lots more to be learnt from these scrolls"</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>After 2 seconds it is replaced by a silver scroll: "This kind of scroll will give you rewards."</td>
+<td>n/a</td>
+<td>never started by the game: the only silver scroll in this script, shown for about 2 seconds</td>
+</tr>
+<tr>
+<td>Then by a gold scroll: "And these scrolls are special scrolls. Keep an eye out for them."</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>An information scroll appears 10 above the villager: "Click on the one above this bloke's head to learn about the citadel."</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>It waits until that scroll or the villager is clicked</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-temple-explained">The temple explained</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Camera high over the temple (4 seconds): "The citadel is the centre of your power. The citadel blah blah."</td>
+<td>n/a</td>
+<td>never started by the game: placeholder text</td>
+</tr>
+<tr>
+<td>Camera to the info orb at the building site; good advisor, pointing: "This is the info orb. Pick it up and click on things for info."</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Camera to the entrance: "This is the entrance. Click on it to go inside or press F at any time." then "You can go in now or take a look around the village first."</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The script ends there; the villager and the information scroll above him are left in the world</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="bugs-and-quirks">Bugs and quirks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A handful counts only if it is within 20 of the site at the moment it leaves the hand, so food or wood thrown there from afar never counts</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

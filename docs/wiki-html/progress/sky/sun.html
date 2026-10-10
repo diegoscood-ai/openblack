@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The sun — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="here" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-sun">The sun</a><ul>
+<li><a href="#where-it-stands">Where it stands</a></li>
+<li><a href="#fading-in-and-out">Fading in and out</a></li>
+<li><a href="#how-it-looks">How it looks</a></li>
+<li><a href="#draw-order-and-depth">Draw order and depth</a></li>
+<li><a href="#the-glare">The glare</a></li>
+<li><a href="#what-hides-the-glare">What hides the glare</a></li>
+<li><a href="#the-suns-light">The sun's light</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-sun">The sun</h1>
+<p>The sun is a single textured square about 9900 units across, placed 30000 units out along both minus x and minus z
+(the north west) and turned to face the island. It rises and sets with the script hour and is drawn into the sky right
+after the dome. At the end of the frame a larger orange glare is drawn over everything. The glare dims when land, the
+sea's horizon or (at some detail levels) objects hide the sun.</p>
+<p><strong>Progress: 33/43 done, 4 partial — 81%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../day-night-weather.html">Day, night and weather in the original</a>, <a href="../../rendering.html">World rendering: original versus openblack</a>.</p>
+<h2 id="where-it-stands">Where it stands</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The sun's x and z never change: 30000 units out along minus x and minus z</td>
+<td>done</td>
+<td><code>sun::Place</code> (<code>src/Graphics/Sun.cpp</code>)</td>
+</tr>
+<tr>
+<td>It follows the script hour (the stretched hours scripts see), not the visual hour</td>
+<td>done</td>
+<td><code>Renderer::DrawSun</code> takes the sky's time, the script time; test <code>Sun.RisesAndSetsWithTheScriptTime</code> (<code>test/graphics/test_sun.cpp</code>)</td>
+</tr>
+<tr>
+<td>Its height is 7500 × (h − 6) / 6, where h is the hour held between 6 and 18 and mirrored about noon: 0 at 6 and 18, 7500 at noon</td>
+<td>done</td>
+<td><code>sun::Place</code>; test <code>Sun.RisesAndSetsWithTheScriptTime</code></td>
+</tr>
+<tr>
+<td>Before 6 and after 18 it stays at height 0, on the horizon, while it fades</td>
+<td>done</td>
+<td><code>sun::Place</code></td>
+</tr>
+<tr>
+<td>It is turned three eighths of a turn about the vertical so it faces the island</td>
+<td>done</td>
+<td><code>Renderer::DrawSun</code> (the turn's sense is inferred)</td>
+</tr>
+<tr>
+<td>It is drawn at the mesh's own size (scale 1)</td>
+<td>done</td>
+<td><code>Renderer::DrawSun</code></td>
+</tr>
+<tr>
+<td>It does not move round the sky: it rises and sets in the same place</td>
+<td>done</td>
+<td><code>sun::Place</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="fading-in-and-out">Fading in and out</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fully shown (255) from 6 to 18</td>
+<td>done</td>
+<td><code>sun::Place</code>; test <code>Sun.RisesAndSetsWithTheScriptTime</code></td>
+</tr>
+<tr>
+<td>It fades in from 3 to 6 at 85 a script hour ((h − 3) × 85)</td>
+<td>done</td>
+<td><code>sun::Place</code></td>
+</tr>
+<tr>
+<td>It fades out from 18 to 21 at 85 a script hour (255 − (h − 18) × 85)</td>
+<td>done</td>
+<td><code>sun::Place</code></td>
+</tr>
+<tr>
+<td>Before 3 and after 21 it is not drawn at all, and nor is its glare</td>
+<td>done</td>
+<td><code>sun::Place</code> returns nothing, so neither the sun nor its glare is drawn</td>
+</tr>
+<tr>
+<td>With the fog option on and an overcast at the camera, its strength is divided by (8 × overcast + 1), overcast capped at 1, truncated to a whole number</td>
+<td>todo</td>
+<td><code>Renderer::DrawSun</code> does not dim the sun by the overcast</td>
+</tr>
+<tr>
+<td>Without the fog option an overcast does not dim it</td>
+<td>done</td>
+<td>Our tree never dims it by the overcast</td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-it-looks">How it looks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The mesh is the weather folder's sun model: one square about 9928 units across, facing along its own z</td>
+<td>done</td>
+<td><code>sun.l3d</code> loaded by the sky (<code>src/3D/Implementations/Sky.cpp</code>)</td>
+</tr>
+<tr>
+<td>Its texture is a 256 by 256 picture (sun.raw); the square shows the part from 0.5 to 0.75 across and from 0.25 down</td>
+<td>done</td>
+<td><code>raw/sun</code> in <code>Renderer::DrawSun</code>; the texture coordinates come from the mesh</td>
+</tr>
+<tr>
+<td>The texture is cut to 5 bits a channel as the game stores it</td>
+<td>done</td>
+<td>The raw texture load</td>
+</tr>
+<tr>
+<td>It is tinted a warm 0x957C63, with the strength as its alpha</td>
+<td>done</td>
+<td><code>Renderer::DrawSun</code></td>
+</tr>
+<tr>
+<td>It is added to the sky behind it, using its alpha</td>
+<td>done</td>
+<td><code>Renderer::DrawSun</code> (additive, source alpha and one, as our wiki gives it: <a href="../../rendering.html#sky-sun-moon-and-clouds-original">rendering.md</a>)</td>
+</tr>
+<tr>
+<td>Its colour does not change with the time of day, the alignment or the climate, only its strength</td>
+<td>done</td>
+<td><code>Renderer::DrawSun</code></td>
+</tr>
+<tr>
+<td>There are no lens flares or rings: only the disc and its glare</td>
+<td>done</td>
+<td>Nothing else is drawn</td>
+</tr>
+</tbody>
+</table>
+<h2 id="draw-order-and-depth">Draw order and depth</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It is drawn in the sky, after the dome and before the moon, before the land, the sea and everything else</td>
+<td>partial</td>
+<td>The sky stage of the main pass (<code>src/Graphics/Renderer.cpp</code>) draws the dome, then the moon, then the sun</td>
+</tr>
+<tr>
+<td>It leaves no depth, so the land drawn later covers it</td>
+<td>done</td>
+<td><code>Renderer::DrawSun</code> (no depth write)</td>
+</tr>
+<tr>
+<td>The game draws no sun in the sea; only a mirrored moon goes into the sea's sky</td>
+<td>done</td>
+<td>The reflection pass draws only the moon (<code>src/Graphics/Renderer.cpp</code>)</td>
+</tr>
+<tr>
+<td>Scripts can stop it being drawn: SET_SUN_DRAW with true hides the sun and its glare until it is set false again or the game restarts its script</td>
+<td>todo</td>
+<td>SET_SUN_DRAW is a stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-glare">The glare</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The glare is the sun again, 1.8 times as large, drawn in orange 0xA06A35</td>
+<td>done</td>
+<td><code>sun::k_GlareScale</code> in <code>Renderer::DrawSun</code></td>
+</tr>
+<tr>
+<td>It is drawn only in frames where the sun itself was drawn</td>
+<td>done</td>
+<td><code>Renderer::DrawSun</code> (the same placement)</td>
+</tr>
+<tr>
+<td>It is drawn last in the 3D frame, over everything, with no depth test (the game sets the depth test to always pass)</td>
+<td>done</td>
+<td><code>Renderer::DrawSun</code> at the end of the blended pass, depth test always</td>
+</tr>
+<tr>
+<td>Its alpha is the glare strength × the sun's strength / 255</td>
+<td>done</td>
+<td><code>Renderer::DrawSun</code></td>
+</tr>
+<tr>
+<td>With the fog option its alpha is also divided by (8 × overcast + 1)</td>
+<td>todo</td>
+<td>The glare is not dimmed by the overcast</td>
+</tr>
+<tr>
+<td>It eases towards its target by 0.01 of the gap for every millisecond of game time, kept between 0 and 255</td>
+<td>done</td>
+<td><code>sun::EaseGlare</code>; test <code>Sun.GlareEasesTowardsWhatShows</code></td>
+</tr>
+<tr>
+<td>While the game is paused it holds where it is</td>
+<td>done</td>
+<td><code>sun::EaseGlare</code> takes the frame's game time</td>
+</tr>
+<tr>
+<td>The target is 255 × (1 − 0.2 × the number of hidden samples)</td>
+<td>done</td>
+<td><code>sun::EaseGlare</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-hides-the-glare">What hides the glare</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Five points are tested: the sun's centre and four points 500 units off it along the world's x and y</td>
+<td>partial</td>
+<td><code>sun::k_GlareSamples</code>: the four points lie along the sun's own right and the world's up</td>
+</tr>
+<tr>
+<td>Each point is first pushed further along the line from the camera by the near distance</td>
+<td>todo</td>
+<td>Not in <code>Renderer::DrawSun</code></td>
+</tr>
+<tr>
+<td>No point is tested lower than height 10</td>
+<td>done</td>
+<td><code>sun::k_GlareLowestSample</code></td>
+</tr>
+<tr>
+<td>A point counts as hidden when the land lies between the camera and it, tested along the line by the land's cells</td>
+<td>partial</td>
+<td><code>Renderer::DrawSun</code> marches the land height along a quarter of the line in 256 steps, not the game's land line test</td>
+</tr>
+<tr>
+<td>A point also counts as hidden when the line from the camera dips below sea level within 7500 units of the camera, so the sea's horizon hides the setting sun</td>
+<td>todo</td>
+<td>No sea test in <code>Renderer::DrawSun</code></td>
+</tr>
+<tr>
+<td>At detail levels 3, 4 and 6, with the depth-reading option on, a point also counts as hidden when the depth buffer at its spot on the screen shows something nearer, so models hide it</td>
+<td>todo</td>
+<td>Only the land hides the glare in our tree</td>
+</tr>
+<tr>
+<td>Looking straight at the sun with nothing in the way gives the full glare</td>
+<td>done</td>
+<td><code>sun::EaseGlare</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-suns-light">The sun's light</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Models are lit from a fixed sun far to the north west and up</td>
+<td>done</td>
+<td><code>model_light::k_DefaultSun</code> (<code>src/Graphics/ModelLight.h</code>)</td>
+</tr>
+<tr>
+<td>Object shadows fall away from that fixed sun</td>
+<td>done</td>
+<td><code>src/Graphics/ShadowMath.h</code> (the fixed sun point); the static shadows too, see ../terrain/landscape_rendering.md</td>
+</tr>
+<tr>
+<td>The land's and models' colour through the day comes from the light palette, not from the sun's height</td>
+<td>done</td>
+<td>see lighting.md</td>
+</tr>
+<tr>
+<td>The creature can choose to look at the sun, which it may do only when it is not night</td>
+<td>partial</td>
+<td>The plan action exists (<code>src/Creature/CreaturePlanActions.cpp</code>, LookAtSun as a look-about); the night check is not confirmed; see ../creature/</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

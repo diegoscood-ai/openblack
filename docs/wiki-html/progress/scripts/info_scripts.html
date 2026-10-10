@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Info scripts and tables — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="here" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#info-scripts-and-tables">Info scripts and tables</a><ul>
+<li><a href="#the-games-text-infoscript2txt">The game's text (InfoScript2.txt)</a></li>
+<li><a href="#the-patch-and-multiplayer-text-infoscriptpatch2txt-infoscriptmultiplayer2txt">The patch and multiplayer text (InfoScriptPatch2.txt, InfoScriptMultiplayer2.txt)</a></li>
+<li><a href="#the-table-file-infodat">The table file (info.dat)</a></li>
+<li><a href="#the-weather-features-tables-weatherinfolhw-countrylhw">The weather feature's tables (weatherinfo.lhw, country.lhw)</a></li>
+<li><a href="#the-creatures-web-page-creature_htmltmpl-html">The creature's web page (creature_html.tmpl, html/)</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="info-scripts-and-tables">Info scripts and tables</h1>
+<p>The rest of <code>Scripts/</code>: the game's text in three UTF-16 text scripts (<code>InfoScript2.txt</code>, <code>InfoScriptPatch2.txt</code>,
+<code>InfoScriptMultiplayer2.txt</code>), the table file <code>info.dat</code>, the two tables for the real-world weather feature
+(<code>weatherinfo.lhw</code>, <code>country.lhw</code>) and the template for the creature's web page. What <code>info.dat</code>'s tables hold and how
+openblack reads them is <a href="../engine/info_tables.html">../engine/info_tables.md</a>; this file covers only what is specific to
+the script files.</p>
+<p><strong>Progress: 11/20 done, 4 partial — 65%</strong></p>
+<h2 id="the-games-text-infoscript2txt">The game's text (<code>InfoScript2.txt</code>)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The text script is UTF-16 with a byte order mark, one <code>ADD_TEXT</code> line per text: a flag, a narrator, the text's name and its English words</td>
+<td>done</td>
+<td><code>helptext::Parse</code> (<code>src/Common/HelpText.cpp</code>), and <code>gui::TextDatabase::AddScript</code> (<code>src/Gui/TextDatabase.cpp</code>) by name; <code>test/test_help_text_loader.cpp</code></td>
+</tr>
+<tr>
+<td>It holds 6,974 texts, the count given by its own constant at the top</td>
+<td>done</td>
+<td>all read; <code>helptext::k_TextCount</code> is the bound the scripts' text numbers are checked against</td>
+</tr>
+<tr>
+<td>A <code>\n</code> in a text is a line break</td>
+<td>done</td>
+<td><code>helptext::ConvertScriptText</code> turns it into a line break (and the tilde forms into the game's hard space)</td>
+</tr>
+<tr>
+<td>Texts are numbered in the order they come in, and the challenge scripts, advisors and help ask for them by number</td>
+<td>done</td>
+<td><code>helptext::Get</code> and <code>GetEntry</code> by the text's place in the file; the challenge scripts' say-text functions, the advisors and help use them</td>
+</tr>
+<tr>
+<td>Each text names who speaks it: nobody (2,587 texts, mostly interface and villagers), the default voice (728), the good advisor (1,127), the evil advisor (851), a man (791), a woman (152), Nemesis (200), Khazar (160), Lethys (49), the trainer (143), the guide (118), the monk (24), a big voice (19), a boy (18) or the ogre (7)</td>
+<td>done</td>
+<td><code>helptext::Entry::narrator</code>, resolved with the file's own narrator lines; saying a text and the advisor who speaks it read it (<code>help::SpiritWhoTalks</code>); the voices are the audio domain's (see ../audio/)</td>
+</tr>
+<tr>
+<td>Two of the narrators used (the guide and the monk) aren't among the narrator numbers the script declares</td>
+<td>n/a</td>
+<td>data quirk: our reader gives them an undeclared narrator (<code>helptext::k_NarratorUndeclared</code>); which voice the game gives them is not known</td>
+</tr>
+<tr>
+<td>The first number of each line (1 for 6,214 texts, 0 for 760)</td>
+<td>done</td>
+<td>kept as <code>helptext::Entry::arg0</code>: whether the text is drawn in the dialogue box (<code>HelpSystem::AddText</code> passes it to <code>HelpTextDisplay::Add</code>)</td>
+</tr>
+<tr>
+<td>The texts cover new-game and tutorial lines (986 starting "new"), creature lines (755), the creature's questions (620), villagers' lines and banter (619), dialogue boxes (388), creature states (260), tooltips (160), pause menu (152), did-you-know hints (107), multiplayer (99), temple rooms (96), and each challenge's lines</td>
+<td>partial</td>
+<td>read; shown where our tree has the interface for them (the dialogue box, the advisors, tooltips, temple scrolls and signs, the creature cave screen)</td>
+</tr>
+<tr>
+<td>Text is looked up by the game's language (the shipped file is English)</td>
+<td>partial</td>
+<td><code>helptext::Language</code> reads the game folder's <code>Country.txt</code> (used for the text size); only the English text file is read</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-patch-and-multiplayer-text-infoscriptpatch2txt-infoscriptmultiplayer2txt">The patch and multiplayer text (<code>InfoScriptPatch2.txt</code>, <code>InfoScriptMultiplayer2.txt</code>)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The patch's 12 texts: the start-up choices added by the patch (start normally, skip to choosing the creature, skip the creature's training, keep the old creature) and the online lobby's labels</td>
+<td>done</td>
+<td><code>helptext::GetPatch</code> and <code>TextDatabase</code></td>
+</tr>
+<tr>
+<td>The multiplayer script's 29 texts: the winning conditions (villagers killed, eaten, born; houses, wonders, food, wood, towns, prayer power, belief, trees grown and more) and the lobby's labels</td>
+<td>done</td>
+<td>read by <code>TextDatabase</code></td>
+</tr>
+<tr>
+<td>These are kept apart from the main texts and numbered from nought on their own</td>
+<td>partial</td>
+<td>the patch texts have their own numbers (<code>helptext::GetPatch</code>); the multiplayer texts are only in <code>TextDatabase</code>'s single table by name</td>
+</tr>
+<tr>
+<td>The patch's start-up choices act on the story (skip the tutorial, skip the creature's training, keep the old creature)</td>
+<td>done</td>
+<td>the start-up requester's answer sets the skip flags in <code>Game.cpp</code>, and the challenge functions read them (<code>CanSkipTutorial</code>, <code>CanSkipCreatureTraining</code>, <code>IsKeepingOldCreature</code>; see challenge_natives_game_flow.md)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-table-file-infodat">The table file (<code>info.dat</code>)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The game reads every table of objects, buildings, miracles, creatures, villagers and dances from <code>Scripts/info.dat</code> when it starts</td>
+<td>done</td>
+<td><code>Game::Run</code> (<code>InfoFile::LoadFromFile</code>); see ../engine/info_tables.md</td>
+</tr>
+<tr>
+<td>The dance table names the dance scripts</td>
+<td>partial</td>
+<td>read, unused; see dance_scripts.md</td>
+</tr>
+<tr>
+<td>The challenge language's constant names come from the same tables</td>
+<td>done</td>
+<td><code>components/lhvmlang</code> (<code>ConstantTable::LoadInfo</code>); test <code>ChlLanguage.ConstantsFromInfoTables</code> (<code>test/lhvm/test_chl_language.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-weather-features-tables-weatherinfolhw-countrylhw">The weather feature's tables (<code>weatherinfo.lhw</code>, <code>country.lhw</code>)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>country.lhw</code> lists 242 countries by their two-letter code, for the player to say where they live</td>
+<td>todo</td>
+<td>not read; the real-weather feature is the weather domain's (see ../weather/scripted_weather.md)</td>
+</tr>
+<tr>
+<td>The game asks a weather server for the weather in the player's country, area and city, and gets back a weather type, a temperature and the visibility</td>
+<td>todo</td>
+<td>none</td>
+</tr>
+<tr>
+<td><code>weatherinfo.lhw</code> turns each of 13 weather types into the land's weather (rain, snow, overcast, wind, temperature and the like, as ranges)</td>
+<td>todo</td>
+<td>not read</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-creatures-web-page-creature_htmltmpl-html">The creature's web page (<code>creature_html.tmpl</code>, <code>html/</code>)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The game writes a web page about the player's creatures from the template, filling in each creature's name, age, alignment, strength, energy and health with a picture of it and the images in <code>Scripts/html/</code></td>
+<td>todo</td>
+<td>none; the creature cave and profiles are the creature domain's (see ../creature/)</td>
+</tr>
+<tr>
+<td>The pictures of the creatures for the page are taken by the game</td>
+<td>todo</td>
+<td>none</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

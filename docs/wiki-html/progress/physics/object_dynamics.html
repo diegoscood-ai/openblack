@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Object dynamics — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="here" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#object-dynamics">Object dynamics</a><ul>
+<li><a href="#simulation-and-timing">Simulation and timing</a></li>
+<li><a href="#bodies-and-shapes">Bodies and shapes</a></li>
+<li><a href="#mass-and-material">Mass and material</a></li>
+<li><a href="#gravity-and-flight">Gravity and flight</a></li>
+<li><a href="#contacts-sliding-and-rolling">Contacts, sliding and rolling</a></li>
+<li><a href="#coming-to-rest-sleeping-and-waking">Coming to rest, sleeping and waking</a></li>
+<li><a href="#other-things-that-move-objects">Other things that move objects</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="object-dynamics">Object dynamics</h1>
+<p>How loose objects move once they are in the physics: falling under gravity, tumbling, sliding and rolling on slopes,
+bouncing, coming to rest and waking again. The game runs its own rigid-body simulation (every mesh vertex is a contact
+point with a spring and friction, probed 0.06 s ahead), not a general physics engine. Collisions are in
+<a href="collisions.html">collisions.md</a>, water in <a href="water_physics.html">water_physics.md</a>, throwing and landing in
+<a href="throwing_and_landing.html">throwing_and_landing.md</a>. Impact damage, fire and explosions are in
+<a href="impact_damage.html">impact_damage.md</a>, <a href="fire.html">fire.md</a> and <a href="explosions.html">explosions.md</a>. Tornadoes do not push
+physics bodies: what a tornado lifts rides its funnel instead (see <a href="../miracles/tornado.html">../miracles/tornado.md</a>). No
+wind or other steady force acts on flying or resting objects: the only pushes are a villager shoving an object out of
+its way and the hand's twist after a release, each lasting one turn.</p>
+<p>openblack runs the game's own simulation: the bodies are <code>src/ECS/Physics/PhysicsBody.cpp</code> (with
+<code>PhysicsObjects::LoadConstants</code> reading <code>Data/PhysicsConstants.txt</code> through the resource caches),
+and <code>PhysicsObjects</code> (<code>src/ECS/Physics/PhysicsObjects.cpp</code>) steps them once a game turn and draws moving
+bodies between turns. Each kind's material, weight and shape are in <code>PhysicsObjects.cpp</code> too. Tests:
+<code>test/test_physics_body_pose.cpp</code>, <code>test/test_physics_body_water.cpp</code>. Bullet is still linked but never stepped:
+it only answers the ray casts of the hand, the camera and the console (<code>DynamicsSystem</code>).</p>
+<p><strong>Progress: 36/43 done, 6 partial — 91%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../physics.html">Physics: thrown objects, collisions, damage and rocks that split</a>.</p>
+<h2 id="simulation-and-timing">Simulation and timing</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The physics runs in fixed steps of 5 ms, 20 of them per game turn of 0.1 s (200 a second), however fast the frames are</td>
+<td>done</td>
+<td><code>PhysicsObjects::GameTurnUpdate</code> runs the turn's 20 substeps of <code>PhysicsBody::k_Dt</code> once a game turn (<code>src/ECS/Physics/PhysicsObjects.cpp</code>)</td>
+</tr>
+<tr>
+<td>The physics stands still while the game is paused</td>
+<td>done</td>
+<td>No game turn runs while paused, so <code>GameTurnUpdate</code> is not called</td>
+</tr>
+<tr>
+<td>A flying object is drawn between where it was at the start and at the end of the last game turn, so its motion looks smooth at any frame rate</td>
+<td>done</td>
+<td><code>PhysicsObjects::UpdateFrame</code> writes <code>components::PhysicsDrawPose</code> (lerped rows, normalised, with the quarter turn of boned models)</td>
+</tr>
+<tr>
+<td>The game logic (AI, reactions) sees each flying object's position and angles at the end of the turn</td>
+<td>done</td>
+<td><code>GameTurnUpdate</code> writes each moving body's pose into the <code>Transform</code> (<code>SyncTransform</code>)</td>
+</tr>
+<tr>
+<td>There is no limit on how many objects can be flying at once</td>
+<td>done</td>
+<td><code>MakeSureEndSlotIsFree</code> grows the list by 16</td>
+</tr>
+<tr>
+<td>A flying object leaves the map cells while it flies and goes back into them when it comes to rest</td>
+<td>done</td>
+<td>Out of the cells when it starts (<code>AddObject</code>, the knocked branch of <code>Substep</code>), back in through <code>PhysicsObjects::BackInMap</code></td>
+</tr>
+<tr>
+<td>Objects a script marks as immovable never become physics objects</td>
+<td>done</td>
+<td><code>object_flags::IsImmovable</code> refused in <code>AddObject</code>; set by SET_ID_MOVEABLE (<code>src/CHLApi.cpp</code>)</td>
+</tr>
+<tr>
+<td>Buildings, fields, forests and the creature never become flying objects; rocks, statics, mobile objects, villagers, animals, trees, dead trees, food and wood, building pieces and one-shot miracle orbs can (pots only when their info allows, villagers only when reachable)</td>
+<td>partial</td>
+<td><code>PhysicsObjects::CanBecomeAPhysicsObject</code>; pots fly without their info being asked and villagers without a reachability test</td>
+</tr>
+</tbody>
+</table>
+<h2 id="bodies-and-shapes">Bodies and shapes</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A body is built from the mesh's physics parts (or the LOD-0 parts when it has none): every vertex is a contact point and every triangle a face others can hit; morphing models (food piles, storage pits, the village centre, the temple heart) follow the land under each point</td>
+<td>partial</td>
+<td><code>CollectVertices</code> and <code>PhysicsBody::Build</code> (the physics submeshes, else LOD 0); morphing models do not follow the land under each point</td>
+</tr>
+<tr>
+<td>Trees get a hand-made spindle body of 16 points along the trunk, with the centre of mass at 40% of the height while rooted (the spindle then reaches 0.2 of the height below the base) and at half the height once dead, and 0.3 of the drag</td>
+<td>done</td>
+<td><code>SetUpTreeBody</code> in <code>src/ECS/Physics/PhysicsObjects.cpp</code> (0.4 H rooted, 0.5 H dead, drag x 0.3)</td>
+</tr>
+<tr>
+<td>Villagers and animals get a hand-made body of 12 points on three levels (head, waist, feet), centre of mass at half height, with twice the air drag</td>
+<td>done</td>
+<td><code>SetUpLivingBody</code> (the turned box, half height, drag x 2); tests <code>LivingLanding.*</code> (<code>test/test_living_landing.cpp</code>)</td>
+</tr>
+<tr>
+<td>Pieces broken off buildings are thin slabs of their triangles, weighing 30 per unit of area, with twice the air drag; pieces thinner than 0.4 R² are deleted</td>
+<td>done</td>
+<td><code>SetUpBody</code> fragment branch (a copy 0.45 behind, 30 x area, drag x 2) and <code>CreateFragment</code> in <code>src/ECS/Physics/Buildings.cpp</code> (slivers deleted)</td>
+</tr>
+<tr>
+<td>How a body tumbles comes from its moment of inertia worked out from its points; the original's formula has one cross term wrong, which changes how lopsided objects spin</td>
+<td>done</td>
+<td><code>PhysicsBody::ComputeMomentOfInertia</code> keeps the original's wrong cross term</td>
+</tr>
+<tr>
+<td>The body's radius is its farthest point from the centre of mass, times the object's scale</td>
+<td>done</td>
+<td><code>PhysicsBody::Build</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="mass-and-material">Mass and material</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>An object's mass is its info weight times its scale cubed, and never below 0.01 (trees excepted)</td>
+<td>done</td>
+<td><code>PhysicsObjects::Weight</code> (at least 0.01). Our wiki differs: the minimum of 0.01 applies to every object, trees included (<a href="../../physics.html#bodies">physics.md</a>)</td>
+</tr>
+<tr>
+<td>Villagers weigh 82.5 at scale 1; buildings count as 2000 and never move; the temple heart and the gates 10000, the creature 1000, the physical shield 50000 times its scale cubed, all static</td>
+<td>partial</td>
+<td><code>PhysicsObjects::Weight</code>: villagers from info.dat (82.5), buildings 2000, the physical shield from its info at the collision scale, the creature a stand-in 1000 (<code>creature_physics::k_Mass</code>); no temple heart or gates in the physics</td>
+</tr>
+<tr>
+<td>Each kind of object takes one of 24 material rows from <code>Data/PhysicsConstants.txt</code>: density, contact stiffness, contact damping, friction, how much spin is kept each second, and air drag</td>
+<td>done</td>
+<td><code>PhysicsObjects::LoadConstants</code> reads <code>Data/PhysicsConstants.txt</code> through the resource caches</td>
+</tr>
+<tr>
+<td>Material values are clamped when loaded (density 0.05 to 3, stiffness 0 to 240, damping 0 to 10, friction 0 to 3, spin kept 0.2 to 1, drag 0 to 4); rows past the file's count copy the first one; without the file every row is zero (the game has no built-in values)</td>
+<td>partial</td>
+<td><code>PhysicsObjects::LoadConstants</code> clamps each column and copies row 0 past the file's count; without the file a built-in table is used, not zeros</td>
+</tr>
+<tr>
+<td>Which row each kind uses: buildings, the temple heart and the creature row 0, any other movable object row 1, the football 2, rocks and the heavy statics 3, pots 4 (the food offering 5), trees 6, villagers 7, animals 8, one-shot miracle orbs 9, the physical shield 10, building pieces 11, poo 12, vortex 13, the toys 14/15/16/19/20, the scaffold 17, fences 18, the three mushrooms 21–23; wood in the hand row 1</td>
+<td>partial</td>
+<td><code>PhysicsObjects::ConstantsType</code> maps buildings, the creature, rocks, pots, trees, villagers, animals, orbs, the shield (10), fragments, the scaffold, fences, toys and mushrooms; the football, poo and vortex rows have no class in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="gravity-and-flight">Gravity and flight</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every flying body falls under a gravity of 9.81 m/s²</td>
+<td>done</td>
+<td><code>PhysicsBody::k_Gravity</code></td>
+</tr>
+<tr>
+<td>Air drag grows with the square of the speed, scaled by 0.3 times the radius squared and the material's drag</td>
+<td>done</td>
+<td><code>PhysicsBody</code> (0.3 R squared times the material's drag)</td>
+</tr>
+<tr>
+<td>No body flies faster than 124 m/s</td>
+<td>done</td>
+<td><code>PhysicsBody::k_MaxSpeed</code></td>
+</tr>
+<tr>
+<td>No body spins faster than 3π radians a second (one and a half turns)</td>
+<td>done</td>
+<td><code>PhysicsBody::k_MaxOmega</code></td>
+</tr>
+<tr>
+<td>Spin dies away: each second a body keeps its material's share of its spin</td>
+<td>done</td>
+<td><code>PhysicsBody::SetUpConstants</code> (the per-substep step of the share kept a second)</td>
+</tr>
+<tr>
+<td>Bodies tumble when they hit things off-centre: each contact point's force turns the body</td>
+<td>done</td>
+<td><code>PhysicsBody::ContactForces</code> (the torque of each contact)</td>
+</tr>
+<tr>
+<td>Steady pushes on a body last one game turn and are cleared at its end; only a villager shoving an object and the hand's twist after a release set them</td>
+<td>done</td>
+<td>Cleared in <code>EndTurn</code>; the hand's twist after a release is in <code>src/ECS/Physics/FromHand.cpp</code>; <code>PhysicsObjects::PushObject</code> exists but nothing calls it</td>
+</tr>
+</tbody>
+</table>
+<h2 id="contacts-sliding-and-rolling">Contacts, sliding and rolling</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each contact point pushes back like a spring: the depth at first touch times the stiffness, plus damping on any deeper push</td>
+<td>done</td>
+<td><code>PhysicsBody::ContactForces</code></td>
+</tr>
+<tr>
+<td>Each contact point holds with friction up to friction times the push; past that it slides, so objects stick on gentle slopes and slide down steep ones</td>
+<td>done</td>
+<td><code>PhysicsBody::ContactForces</code> (Coulomb anchors)</td>
+</tr>
+<tr>
+<td>Round or many-pointed objects roll down slopes as friction at the contact turns into spin</td>
+<td>done</td>
+<td><code>PhysicsBody::ContactForces</code></td>
+</tr>
+<tr>
+<td>How high something bounces comes from its material's stiffness and damping, not from a fixed bounce share</td>
+<td>done</td>
+<td>No bounce factor in <code>PhysicsBody</code></td>
+</tr>
+<tr>
+<td>Fast bodies test their contacts 0.06 s ahead, so they don't pass through thin things</td>
+<td>done</td>
+<td><code>PhysicsBody::k_LookAhead</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="coming-to-rest-sleeping-and-waking">Coming to rest, sleeping and waking</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A body touching something comes to rest when its speed is under 1 m/s, its spin under half that and its turning force under it; its velocity and spin are then cleared</td>
+<td>done</td>
+<td><code>PhysicsBody::Integrate</code> (<code>Result::Stopped</code>)</td>
+</tr>
+<tr>
+<td>A body can't come to rest before it has been in the physics for its scale times its half height in seconds (a tall object flies longer before settling)</td>
+<td>done</td>
+<td><code>PhysicsBody::Initialise</code> (the rest counter starts at minus scale x half height x 1000)</td>
+</tr>
+<tr>
+<td>From 15 s after that the rest test loosens steadily (the limit grows by 1 every 15 s), so nothing jitters for ever</td>
+<td>done</td>
+<td><code>PhysicsBody::Integrate</code></td>
+</tr>
+<tr>
+<td>At rest the object goes back into the map; one that comes to rest outside the map is deleted</td>
+<td>done</td>
+<td><code>EndPhysics</code> and <code>PhysicsObjects::BackInMap</code></td>
+</tr>
+<tr>
+<td>Resting objects near a moving body join the physics as sleeping obstacles, and only those</td>
+<td>done</td>
+<td>The wake walk in <code>BeginTurn</code> (<code>AddProxy</code>)</td>
+</tr>
+<tr>
+<td>A moving body wakes the objects in the map cells within its radius plus 0.1 s of its sideways travel</td>
+<td>done</td>
+<td><code>BeginTurn</code> (the box of the speed x 0.1 plus the radius)</td>
+</tr>
+<tr>
+<td>A sleeping obstacle that is hit hard enough is knocked into flight and becomes a physics object of its own</td>
+<td>done</td>
+<td><code>Result::Pushed</code> in <code>Substep</code></td>
+</tr>
+<tr>
+<td>Sleeping obstacles with nothing moving near them leave the physics at the start of the next turn (the physical shield always stays)</td>
+<td>done</td>
+<td><code>BeginTurn</code> (the physical shields always stay)</td>
+</tr>
+<tr>
+<td>A body that falls more than four of its radii below sea level is deleted</td>
+<td>done</td>
+<td><code>PhysicsBody::Integrate</code> (<code>Result::Delete</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="other-things-that-move-objects">Other things that move objects</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A villager clearing ground pushes the obstacle within 2 m with a force of its weight × 9.81, and kicks the football; what they push moves in the physics and villagers' bodies don't hit it</td>
+<td>partial</td>
+<td><code>PhysicsObjects::PushObject</code> and the pair rule are there, but nothing calls the push and there is no football</td>
+</tr>
+<tr>
+<td>A forester's felled tree is put into the physics and topples; once it tips past about 11 degrees a tree taller than 10 m makes one falling sound</td>
+<td>done</td>
+<td><code>ecs::FellTree</code> (<code>src/ECS/Trees.cpp</code>), from the forester (<code>src/ECS/Villager/VillagerForester.cpp</code>); the fall sound in <code>EndTurn</code> (felled-tree kind)</td>
+</tr>
+<tr>
+<td>Reward chests don't use the physics while falling: they appear 150 m up, fall at 50 m/s turning at π rad/s, and on landing play their thump, shake the camera and raise 27 dust sprites</td>
+<td>todo</td>
+<td>No reward chests (<code>CreateReward</code> in <code>src/CHLApi.cpp</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

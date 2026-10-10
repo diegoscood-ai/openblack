@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scrolls and signs — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="here" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#scrolls-and-signs">Scrolls and signs</a><ul>
+<li><a href="#challenge-scrolls">Challenge scrolls</a></li>
+<li><a href="#tips-and-signs">Tips and signs</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="scrolls-and-signs">Scrolls and signs</h1>
+<p>The scrolls that float over the people and places of a land to mark a challenge or a tip, and the signposts the player
+reads. Which challenges each land has, and what its gold and silver scrolls lead to, are in ../story/; the scrolls
+inside the temple are in ../temple/.</p>
+<p><strong>Progress: 9/18 done, 4 partial — 61%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../hand-and-interface.html">The hand and the interface</a>.</p>
+<h2 id="challenge-scrolls">Challenge scrolls</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A land script puts a scroll up at a place or over a character, tied to a challenge</td>
+<td>done</td>
+<td><code>CREATE_HIGHLIGHT</code> in <code>src/CHLApi.cpp</code> makes a highlight at the point with its challenge id (<code>ecs::script_highlight::Create</code>); <code>HIGHLIGHT_PROPERTIES</code> names it</td>
+</tr>
+<tr>
+<td>Gold scrolls mark the story's challenges and silver ones the side challenges</td>
+<td>done</td>
+<td>the info rows Gold and Silver (<code>script_highlight::Info</code> in <code>src/ECS/ScriptHighlight.h</code>); which challenge each marks is the land script's</td>
+</tr>
+<tr>
+<td>A bronze scroll kind</td>
+<td>done</td>
+<td>row 0 <code>Info::Bronze</code> (the plain mini scroll, no particles); (unconfirmed where the game uses it)</td>
+</tr>
+<tr>
+<td>Scrolls glint with sparkles in their colour</td>
+<td>done</td>
+<td>the silver and gold rows start their glints at creation, with the highlight as their target (<code>script_highlight::Create</code>); the bronze row has none</td>
+</tr>
+<tr>
+<td>All scrolls pulse together, smoothly, once every turn of a shared clock</td>
+<td>partial</td>
+<td>the shared pulse is stepped every turn (<code>StepPulse</code>, test <code>ScriptHighlight.PulseOfProcessHighlights</code>), but the active glow it drives is not drawn (<code>ExtrasOf</code> has no caller)</td>
+</tr>
+<tr>
+<td>Tapping a scroll starts its challenge, shown by its active sparkles</td>
+<td>partial</td>
+<td>a tap lights the scroll and starts its active effect (<code>InterfaceTap</code>, <code>SetActivated</code>); starting the challenge through the temple's challenge room is pending</td>
+</tr>
+<tr>
+<td>A started scroll stays as a reminder: tapping it again replays the challenge's last message</td>
+<td>partial</td>
+<td>a tap on a scroll with a challenge counts the help record's Reminder event (<code>InterfaceTap</code>); replaying the challenge's message is pending with the challenge room</td>
+</tr>
+<tr>
+<td>The hand can only tap a scroll inside the player's influence (unless the scroll says otherwise)</td>
+<td>done</td>
+<td>a highlight is tapped wherever the hand is (<code>hand_tap::SendsTap</code>; test <code>ScriptHighlight.TappedOutsideTheInfluence</code>). Our wiki differs: a highlight's influence test is always off, so the original taps it outside the influence too (<a href="../../hand-and-interface.html#tapping-objects">hand and interface</a>)</td>
+</tr>
+<tr>
+<td>Scrolls can't be picked up, burnt, crushed or knocked over, and the creature leaves them alone</td>
+<td>partial</td>
+<td>never placed in the hand (<code>HandSystem</code> keeps a highlight out of the pick-up); burning, crushing, knocking over and the creature not checked</td>
+</tr>
+<tr>
+<td>A scroll can be set to draw at a height and turned on or off by scripts</td>
+<td>done</td>
+<td><code>SET_PROPERTY</code> YPOS (<code>script_highlight::SetYPos</code>), <code>SET_ACTIVE</code>, and <code>SET_DRAW_HIGHLIGHT</code> hiding the scrolls (<code>help::script_control</code>)</td>
+</tr>
+<tr>
+<td>The advisors point the scroll out when it comes up, or at random later</td>
+<td>todo</td>
+<td>only the first did-you-know tap runs "FirstDYKExplained"; see <a href="help_system.html">help_system.md</a></td>
+</tr>
+<tr>
+<td>Scrolls are kept in saved games</td>
+<td>todo</td>
+<td>see ../engine/</td>
+</tr>
+<tr>
+<td>The temple's world room can hide or show every challenge's scroll</td>
+<td>todo</td>
+<td>the main room's challenges button only changes its map (<code>src/3D/TempleToggles.cpp</code>); see ../temple/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="tips-and-signs">Tips and signs</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>"Did you know" scrolls in the world give a tip when tapped</td>
+<td>done</td>
+<td><code>script_highlight::InterfaceTap</code> opens the help bubble with the sign's text and marks it read (<code>src/Help/Bubble.cpp</code>); tests <code>HelpSystem.BubbleOpensWithEachTappedSignsTextAndTheSameSignClosesIt</code>, <code>DidYouKnowBubble.*</code></td>
+</tr>
+<tr>
+<td>A building whose info names a did-you-know gets the sign by its door</td>
+<td>done</td>
+<td>(added) <code>abodes::CreateAbodeSurroundingObjects</code> in <code>src/ECS/Abodes.cpp</code> makes the did-you-know highlight at the entrance point (<a href="../../intro.html#script-highlights">intro</a>)</td>
+</tr>
+<tr>
+<td>A scroll can be the way into the land's vortex to the next land</td>
+<td>todo</td>
+<td>see ../story/</td>
+</tr>
+<tr>
+<td>Signposts that show their words when the hand is over them</td>
+<td>todo</td>
+<td>(unconfirmed which lands have them and what they say); the did-you-know signs are read by tapping, above</td>
+</tr>
+<tr>
+<td>The temple's room signs, lit for the door under the hand</td>
+<td>done</td>
+<td><code>src/3D/TempleSigns.cpp</code>; see ../temple/</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

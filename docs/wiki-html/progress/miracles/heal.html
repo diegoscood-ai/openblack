@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Heal — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="here" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#heal">Heal</a><ul>
+<li><a href="#casting-and-cost">Casting and cost</a></li>
+<li><a href="#who-is-healed">Who is healed</a></li>
+<li><a href="#what-the-heal-does">What the heal does</a></li>
+<li><a href="#reactions">Reactions</a></li>
+<li><a href="#effects-fx">Effects (FX)</a></li>
+<li><a href="#audio">Audio</a></li>
+<li><a href="#creatures-and-saving">Creatures and saving</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="heal">Heal</h1>
+<p>A miracle cast on the land that restores the life of the people, animals and creatures near the cast point and cures
+poisoning. The power-up first raises a glowing mushroom and heals a much wider area a few seconds later.</p>
+<p>Given by silver scrolls: a heal chest by <a href="../story/silver_scrolls/the_sacrifice.html">The Sacrifice</a> and <a href="../story/silver_scrolls/swap_to_brown_bear.html">Swap To Brown Bear</a>,
+heal dispensers by <a href="../story/silver_scrolls/the_ogre.html">The Ogre</a> and <a href="../story/silver_scrolls/the_pied_piper.html">The Pied Piper</a>, and a temple that heals all around it by
+<a href="../story/silver_scrolls/the_beach_temple_puzzle.html">The Beach Temple Puzzle</a>.</p>
+<p><strong>Progress: 25/35 done, 3 partial — 76%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../miracles.html">Miracles one by one</a>.</p>
+<h2 id="casting-and-cost">Casting and cost</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It can't be cast where there is nobody to heal</td>
+<td>done</td>
+<td><code>src/Magic/CastRules.cpp</code> (CanCastAt: the type's own FindHealTargets must find someone); a script cast checks nothing, as in the original</td>
+</tr>
+<tr>
+<td>Cost 6000 / 9000 to cast and 10 for each person healed</td>
+<td>done</td>
+<td>From the info tables (<code>src/Magic/MagicTables.cpp</code>); each chakra's heal event pays its cost per event (<code>src/Magic/Core/SpellEvent.cpp</code>, <code>src/Magic/Core/Chants.cpp</code>)</td>
+</tr>
+<tr>
+<td>Who is healed is chosen once, at the cast; anyone walking in later is not</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellHeal.cpp</code> (InitWithPos gives the effect its targets once)</td>
+</tr>
+<tr>
+<td>The miracle lasts as long as its effect</td>
+<td>done</td>
+<td><code>src/Magic/Core/Spell.cpp</code> (the plain spell turn); the chakra rule keeps the effect alive until the spell closes (<code>src/Particles/Rules/Heal.cpp</code>; test <code>Heal.chakraWaitsForTargetsUntilClosed</code>)</td>
+</tr>
+<tr>
+<td>The caster's tribal power widens the reach and raises the most it can heal</td>
+<td>done</td>
+<td><code>src/Magic/CastRules.cpp</code> (FindHealTargets: radius and most both times the tribal power when there is a spell)</td>
+</tr>
+<tr>
+<td>Plain heal: 10 m, at most 20; power-up: 35 m, at most 100, healing 3.5 s after the cast</td>
+<td>done</td>
+<td>Radius and most from the HEAL and HEAL_PU_ONE rows (<code>src/Magic/CastRules.cpp</code>); the power-up's delay and mushroom are the particle data (<code>src/Particles/Rules/KeyPoints.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="who-is-healed">Who is healed</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Map cells are walked outward from the cast cell; the plain heal looks in only a 2 by 2 block of cells</td>
+<td>done</td>
+<td><code>src/Magic/CastRules.cpp</code> (FindHealTargets: ceil(2R/10) squared cells along the map spiral, so 4 for the plain heal)</td>
+</tr>
+<tr>
+<td>Each cell's people are measured from the cast point moved into that cell</td>
+<td>done</td>
+<td><code>src/Magic/CastRules.cpp</code> (both distance tests measure from the spiral's moving map point)</td>
+</tr>
+<tr>
+<td>Distance is flat (height ignored) and strictly inside the reach</td>
+<td>done</td>
+<td><code>src/Magic/CastRules.cpp</code> (flat distance, strict test)</td>
+</tr>
+<tr>
+<td>Within a cell the most recent arrivals are taken first, up to the limit</td>
+<td>done</td>
+<td><code>src/Magic/CastRules.cpp</code> (each cell's mobile list from its head, <code>ecs::map_cells::MobileInCell</code>, stops at the most)</td>
+</tr>
+<tr>
+<td>Only living villagers and animals, and any creature; doves never; the dead are not revived</td>
+<td>partial</td>
+<td>Villagers and animals, no bird and no vulture (<code>src/Magic/CastRules.cpp</code> CanBeHealedByHealSpell); creatures are never targets here, though the original heals them; no dead test (openblack removes the dead)</td>
+</tr>
+<tr>
+<td>Someone held in the hand is not healed</td>
+<td>partial</td>
+<td>A held villager's chakra ends at once (<code>src/Particles/Rules/Heal.cpp</code>, using the hand's held object instead of the original's unavailable flag); whether one held at the cast is skipped as a target is not checked</td>
+</tr>
+<tr>
+<td>Two heals never work on the same person at once</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Heal.cpp</code> (a target that already has a chakra is skipped)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-the-heal-does">What the heal does</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each person is healed the moment their glow appears, up to full life at full strength</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Heal.cpp</code> sends one heal event per chakra; <code>src/ECS/Effects/EffectValues.cpp</code> (ApplyEffect: life up to 1)</td>
+</tr>
+<tr>
+<td>It cures poisoning (for example from poisoned food)</td>
+<td>done</td>
+<td><code>src/Magic/Core/SpellEvent.cpp</code> removes the poison for HEAL and HEAL_PU_ONE (<code>src/ECS/Life.cpp</code>)</td>
+</tr>
+<tr>
+<td>Buildings, trees and fields are not healed</td>
+<td>done</td>
+<td>Only villagers and animals are targets (<code>src/Magic/CastRules.cpp</code>)</td>
+</tr>
+<tr>
+<td>A creature in a fight gets fight health and stamina back, and its wounds mend</td>
+<td>todo</td>
+<td>Creatures are not heal targets in <code>src/Magic/CastRules.cpp</code>, and a creature's own life change from an effect is not ported (<code>src/ECS/Effects/EffectValues.cpp</code>)</td>
+</tr>
+<tr>
+<td>A creature's cuts and scars fade when healed</td>
+<td>todo</td>
+<td>Creatures are not healed by the miracle at all</td>
+</tr>
+<tr>
+<td>A creature healed by another creature thinks better of it</td>
+<td>todo</td>
+<td>Creatures are not healed by the miracle, and creatures don't cast it</td>
+</tr>
+<tr>
+<td>Healing counts as a good deed for the caster's alignment</td>
+<td>done</td>
+<td><code>src/ECS/Effects/EffectValues.cpp</code> (ApplyEffect moves the caster player's alignment), <code>src/ECS/Effects/Alignment.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="reactions">Reactions</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Villagers look at the nice miracle (one reaction per miracle)</td>
+<td>todo</td>
+<td>The look-at-nice-miracle reaction is started (<code>src/Magic/Core/SpellEvent.cpp</code>), but villagers have no handler for it (<code>src/ECS/Systems/Implementations/VillagerReactions.cpp</code> handles only food, wood, fire, death, shield and teleport)</td>
+</tr>
+<tr>
+<td>A creature watching a player's or creature's heal is impressed and can learn it</td>
+<td>todo</td>
+<td>Creatures take no reactions (no creature handler in <code>src/ECS/Effects/Reactions.cpp</code>) and don't learn miracles by watching</td>
+</tr>
+</tbody>
+</table>
+<h2 id="effects-fx">Effects (FX)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A glowing chakra follows each healed person's middle, sized to them</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Heal.cpp</code> (the chakra follows its target's middle, scaled by its 2D radius)</td>
+</tr>
+<tr>
+<td>The healed person glows pale cyan-white, rising over 1.5 s and gone by 3 s</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Heal.cpp</code> (ChakraFade into <code>components::SpecularColour</code>), drawn by <code>src/ECS/Systems/Implementations/RenderingSystem.cpp</code>; test <code>Heal.chakraFade</code></td>
+</tr>
+<tr>
+<td>Five spinning sparkles rise and spread from each person</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Heal.cpp</code> (the fused spherical burst); test <code>Heal.fusedSphericalExplode</code></td>
+</tr>
+<tr>
+<td>The chakra ends when its person goes or is picked up</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Heal.cpp</code> (the target gone or held ends the chakra and clears the glow)</td>
+</tr>
+<tr>
+<td>Power-up: a tall glowing mushroom grows, turns and collapses over 6 s</td>
+<td>done</td>
+<td><code>src/Particles/Rules/KeyPoints.cpp</code>, <code>src/Particles/Creators/Mesh.cpp</code> (the animated mesh creator)</td>
+</tr>
+<tr>
+<td>Power-up: seven stars shoot up about 37 m and fade</td>
+<td>done</td>
+<td>Particle data of the power-up effect, run by <code>src/Particles/PSys.cpp</code></td>
+</tr>
+<tr>
+<td>Two sparkles swing to and fro around the miracle held in the hand</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Heal.cpp</code> (the in-hand wiggle); test <code>Heal.healInHandWiggle</code></td>
+</tr>
+<tr>
+<td>Effect on a holder of the miracle</td>
+<td>partial</td>
+<td>Data-driven holder effect (<code>src/Worship/SpellSeedGraphic.cpp</code> makes the seed's holder particle); not checked against the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="audio">Audio</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>One heal sound per miracle, when the first chakra appears</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Heal.cpp</code> (the first atom's heal sound, once)</td>
+</tr>
+<tr>
+<td>Power-up: the mushroom's sound at the cast, stopped at once if its effect goes</td>
+<td>done</td>
+<td>The mesh's create sound (<code>src/Particles/PSys.cpp</code>), released with the effect (<code>src/Particles/Rules/Sound.cpp</code>)</td>
+</tr>
+<tr>
+<td>Power-up: the heal sound follows about 3.5 s later</td>
+<td>done</td>
+<td>Particle data of the power-up effect (the chakra's heal sound comes with the delayed chakras)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creatures-and-saving">Creatures and saving</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A creature can cast heal at a hurt villager</td>
+<td>todo</td>
+<td>Creatures cast no miracles in our tree (nothing in <code>src/Creature/</code> casts a spell)</td>
+</tr>
+<tr>
+<td>A heal in progress is kept in a saved game</td>
+<td>todo</td>
+<td>No game save system</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

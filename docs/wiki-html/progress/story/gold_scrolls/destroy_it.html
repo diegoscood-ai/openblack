@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Destroy it! — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#destroy-it">Destroy it!</a><ul>
+<li><a href="#how-it-appears">How it appears</a></li>
+<li><a href="#the-fly-over-lethys-still-holds-a-town">The fly-over (Lethys still holds a town)</a></li>
+<li><a href="#the-fly-over-lethys-holds-none-of-the-three">The fly-over (Lethys holds none of the three)</a></li>
+<li><a href="#what-the-player-must-do">What the player must do</a></li>
+<li><a href="#success-failure-and-abandoning">Success, failure and abandoning</a></li>
+<li><a href="#reward-and-aftermath">Reward and aftermath</a></li>
+<li><a href="#advisors">Advisors</a></li>
+<li><a href="#music-and-sounds">Music and sounds</a></li>
+<li><a href="#creature">Creature</a></li>
+<li><a href="#script-quirks">Script quirks</a></li>
+<li><a href="#unused-or-cut-parts">Unused or cut parts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="destroy-it">Destroy it!</h1>
+<p>Land 2's last gold scroll: once Khazar has taught the player about influence (or has been killed by Nemesis), a gold
+scroll appears on the shore west of the Indian town by the bay. Clicking it flies the camera over Lethys's three towns
+(or, if they are all lost to him already, his temple) while the advisors say what must be done: win his towns and
+destroy his temple. The scroll has no title of its own in the game's text; the challenge log files it under the good
+advisor's line "Destroy it!", and its success is the share of Lethys's three towns he no longer holds. The land as a
+whole is in <a href="../land_2.html">../land_2.md</a>, the land's control script in
+<a href="../../scripts/land2_script.html">../../scripts/land2_script.md</a>, Lethys in
+<a href="../../rival_gods/lethys.html">../../rival_gods/lethys.md</a>.</p>
+<p><strong>Land:</strong> 2 · <strong>Giver:</strong> the evil advisor, at a gold scroll on the shore west of the Indian town by the bay (Town2) · <strong>Script:</strong> Land2FinalScroll · <strong>Reward:</strong> none (finishing what it asks opens the way out: <a href="leave_through_the_vortex_land_2.html">leave_through_the_vortex_land_2.md</a>) · <strong>Repeatable:</strong> no (the log entry's reminder replays the fly-over)</p>
+<p>Sources: the quest's script source (<code>FinalGoldScroll.txt</code>) and the land's control script (<code>LandControl2.txt</code>), checked
+against the compiled form in the shipped <code>challenge.chl</code>; the land's map script (<code>Land2.txt</code>) for which towns are whose;
+the game's English text table; and the executable (read-only) for how the challenge log stores and updates an entry.
+openblack's state is judged on this tree: of the 37 script functions this quest and the scripts it runs need, 3 still
+only log "not implemented" in <code>src/CHLApi.cpp</code> (the town look-up and the challenge log), but openblack never runs Land
+2's control script at all (the land-loading command does nothing, and the story always starts with Land 1's control
+script, which stops long before its end; see <a href="../land_2.html">../land_2.md</a> row 1), so the scroll never appears; every row
+below is todo unless the notes say otherwise.</p>
+<p><strong>Progress: 0/48 done, 1 partial — 1%</strong></p>
+<h2 id="how-it-appears">How it appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's control script can start this scroll in two places, and starts it only once (a land-wide "final scroll started" flag)</td>
+<td>todo</td>
+<td><code>LandControl2</code> never runs: <code>LOAD_MAP</code> does nothing (see ../../scripts/land2_script.md)</td>
+</tr>
+<tr>
+<td>First place: after Khazar's gesture lesson ("Impress Village") is finished and the nearest Indian town (Town1, west of the player's home) belongs to the player, Khazar's lesson on influence plays, and as soon as it ends the scroll is started</td>
+<td>todo</td>
+<td>the town ownership needs <code>GetTownWithId</code> (a stub); see <a href="impress_village.html">impress_village.md</a></td>
+</tr>
+<tr>
+<td>Second place: straight after Khazar's death (<a href="nemesis_no.html">nemesis_no.md</a>) ends, if the scroll hasn't been started yet</td>
+<td>todo</td>
+<td>Khazar's death needs computer-player natives (stubs); see <a href="nemesis_no.html">nemesis_no.md</a></td>
+</tr>
+<tr>
+<td>If the land's exit has already begun (the player has won the land and Lethys's temple vortex is open), the scroll is never made</td>
+<td>todo</td>
+<td>plain script flag; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>A gold scroll (a story highlight) appears on the ground at a fixed spot on the shore, about 190 west of the Indian town by the bay, on the way west towards Lethys's lands</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> is real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>While the camera is within 100 of the scroll and the scroll is on screen, the evil advisor steps out, points at it and says "There's a Gold Story Scroll down here, Boss.", at most once every 30 seconds and only when no film is playing</td>
+<td>todo</td>
+<td>the notify loop calls real natives (<code>SpiritEject</code>, <code>SpiritPointPos</code>, <code>RunText</code>); never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The nagging and the wait end when the scroll (or its spot) is clicked, or when the land's exit begins; the scroll is then switched on</td>
+<td>todo</td>
+<td><code>GameThingClicked</code> is real and <code>SetActive</code> handles highlights; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Before the film, the script counts which of Lethys's three starting towns he still holds: the near Celtic town (the one nearest the player, mid-land), the far Celtic town on the left of the fly-over's view and the one on the right (his home town, by his temple)</td>
+<td>todo</td>
+<td><code>GetTownWithId</code> is a stub and the town owner (property 21) is not handled by <code>GetProperty</code></td>
+</tr>
+<tr>
+<td>If the exit began while the player was looking for the scroll, the film and the log are skipped</td>
+<td>todo</td>
+<td>plain script flag; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-fly-over-lethys-still-holds-a-town">The fly-over (Lethys still holds a town)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A film starts; the camera's position and aim are remembered</td>
+<td>todo</td>
+<td><code>GetCameraPosition</code>, <code>GetCameraFocus</code> and <code>StartCameraControl</code> are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The camera flies over 3 seconds from near the scroll to look west across the water</td>
+<td>todo</td>
+<td><code>MoveCameraPosition</code>, <code>MoveCameraFocus</code> are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The evil advisor steps out: "All we gotta do is destroy his Temple to eradicate all belief in Lethys!", and goes home</td>
+<td>todo</td>
+<td><code>SpiritEject</code>, <code>RunText</code>, <code>SpiritHome</code> are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The camera flies over 5 seconds to look down on the near Celtic town, whoever owns it now</td>
+<td>todo</td>
+<td>the town comes from <code>GetTownWithId</code> (a stub)</td>
+</tr>
+<tr>
+<td>After 2 seconds the good advisor steps out: "Let's move in and enlighten these poor people.", goes home, and the dialogue closes</td>
+<td>todo</td>
+<td>real advisor and text natives; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Half a second later the challenge log entry is recorded from this view of the near town: a quest (gold) entry titled "Destroy it!", success = the share of the three towns Lethys no longer holds (0, ⅓ or ⅔ here), alignment 0, its reminder the fly-over itself</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>If the town on the left is still Lethys's: the camera flies over 5 seconds to it, waits 3 seconds, and one of five lines is picked at random; whichever advisor owns it steps out and says it (spoken so the player can click through it), then both go home</td>
+<td>todo</td>
+<td>the town ownership read is a stub</td>
+</tr>
+<tr>
+<td>If the town on the right (Lethys's home town) is still his: the camera flies over 5 seconds to it, waits 3 seconds, and another of the same five lines is picked, never the same one as for the left town; its advisor steps out and says it, and the good advisor goes home</td>
+<td>todo</td>
+<td>the town ownership read is a stub</td>
+</tr>
+<tr>
+<td>If the last line picked was a good advisor's, the evil advisor butts in: "I want this Village! Now!" and goes home</td>
+<td>todo</td>
+<td><code>SpiritSpeaks</code> is real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The dialogue closes; the screen fades to black over 2 seconds; the camera is put back where it was; the film ends and the screen fades back in over 1 second</td>
+<td>todo</td>
+<td><code>SetFade</code>, <code>SetFadeIn</code>, <code>FadeFinished</code> and the camera are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-fly-over-lethys-holds-none-of-the-three">The fly-over (Lethys holds none of the three)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>After the first 3-second move, the evil advisor steps out and the camera flies straight over 5 seconds to Lethys's temple</td>
+<td>todo</td>
+<td>real advisor and camera natives; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>After 2 seconds the evil advisor says "All we gotta do is destroy his Temple to eradicate all belief in Lethys!"</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>No log entry is recorded during this film; the entry first appears with the first update 5 seconds later (see below)</td>
+<td>todo</td>
+<td>the log entries (<code>UpdateSnapshot</code>) are stubs</td>
+</tr>
+<tr>
+<td>The same fade to black, camera reset and fade back in end it</td>
+<td>todo</td>
+<td>real fade and camera natives; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-the-player-must-do">What the player must do</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every 5 seconds the script recounts Lethys's three towns and updates the log entry's success to the share he has lost (0, ⅓, ⅔ or 1), alignment 0, same title and reminder</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> is a stub and the town counts need <code>GetTownWithId</code> (a stub)</td>
+</tr>
+<tr>
+<td>The updates go on until the land's exit begins; nothing else ends them</td>
+<td>todo</td>
+<td>plain script; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Success counts only the three towns Lethys started with; towns he wins later and his temple are not counted</td>
+<td>todo</td>
+<td>the town counts are stubs</td>
+</tr>
+<tr>
+<td>What actually ends the land is checked by the land's control script, not this one: Lethys must hold no towns at all and his temple must be down to a tenth of its health</td>
+<td>todo</td>
+<td>the town totals and temple health reads are stubs or unhandled; see <a href="leave_through_the_vortex_land_2.html">leave_through_the_vortex_land_2.md</a> and <a href="../losing_and_game_over.html#how-a-temple-takes-damage">../losing_and_game_over.md</a></td>
+</tr>
+<tr>
+<td>Along the way, once Khazar is dead and the player has taken two of the three towns (or Lethys is down to one town), Lethys steals the creature</td>
+<td>todo</td>
+<td>needs computer-player natives and the town counts (stubs); see <a href="lethys_has_taken_our_creature.html">lethys_has_taken_our_creature.md</a></td>
+</tr>
+<tr>
+<td>Taking any town, or holding six, is also what makes Nemesis kill Khazar, if he hasn't already</td>
+<td>todo</td>
+<td>needs computer-player natives and the town counts (stubs); see <a href="nemesis_no.html">nemesis_no.md</a></td>
+</tr>
+<tr>
+<td>Winning a town from Lethys brings a taunt from Lethys (and, while Khazar lives, praise from Khazar), from the land's town-ownership watcher</td>
+<td>todo</td>
+<td>the town-ownership watcher reads stubs; see ../../rival_gods/lethys.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="success-failure-and-abandoning">Success, failure and abandoning</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The log entry reaches full success when all three of Lethys's starting towns are no longer his</td>
+<td>todo</td>
+<td>the log is a stub</td>
+</tr>
+<tr>
+<td>There is no failure: the scroll can't be lost, timed out or turned down</td>
+<td>todo</td>
+<td>the same script; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>If the player leaves through Lethys's vortex when he steals the creature, the land ends with this scroll unfinished; the scroll's script is simply stopped with the rest of the land</td>
+<td>todo</td>
+<td><code>StopAllScriptsExcluding</code> works, but no land is loaded after it</td>
+</tr>
+<tr>
+<td>Losing the land (the player's temple destroyed) is the game's general game over, not part of this quest</td>
+<td>partial</td>
+<td>see <a href="../losing_and_game_over.html">../losing_and_game_over.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="reward-and-aftermath">Reward and aftermath</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>There is no reward; the scroll only points the way</td>
+<td>todo</td>
+<td>the same script; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The scroll itself is never deleted by the script; it stays switched on until the land ends</td>
+<td>todo</td>
+<td>the same script; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Story order: it comes after Khazar's lessons (or his death) and ends with the land's exit through Lethys's temple vortex, or is cut short by following the creature through Lethys's vortex</td>
+<td>todo</td>
+<td>Land 3 is never loaded; see <a href="so_you_couldnt_bear_to_be_without_your_creature.html">so_you_couldnt_bear_to_be_without_your_creature.md</a></td>
+</tr>
+<tr>
+<td>It can't soft-lock on its own: the scroll needs only a click, and the land's end is checked separately; the land is stuck only if the player can't take Lethys's towns and wreck his temple</td>
+<td>todo</td>
+<td>the town and temple reads it relies on are stubs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="advisors">Advisors</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The evil advisor gives the scroll and nags about it; both advisors speak in the fly-over</td>
+<td>todo</td>
+<td><code>SpiritEject</code>, <code>SpiritHome</code> are real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Whether the evil advisor's "I want this Village! Now!" plays depends on which advisor owned the last random line</td>
+<td>todo</td>
+<td><code>SpiritSpeaks</code> is real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="music-and-sounds">Music and sounds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The script plays no music or sound of its own; only the advisors' voices</td>
+<td>todo</td>
+<td>the same script, no sound calls; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creature">Creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature takes no part in this scroll</td>
+<td>n/a</td>
+<td>nothing in the script touches it</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-quirks">Script quirks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The log title is an advisor's line ("Destroy it!", the good advisor's), not a scroll title; the scroll has none</td>
+<td>todo</td>
+<td>the log is a stub</td>
+</tr>
+<tr>
+<td>The log's success counts towns but the land's end also needs the temple, so the entry can read fully done while the land goes on</td>
+<td>todo</td>
+<td>the log is a stub</td>
+</tr>
+<tr>
+<td>Replaying the entry from the log runs the whole fly-over again, which records the entry again with a new picture and the success of the last count</td>
+<td>todo</td>
+<td>the log is a stub</td>
+</tr>
+<tr>
+<td>When Lethys has none of the three towns at the click, the evil advisor's line is the same one the town branch opens with, and no entry is recorded until the first update</td>
+<td>todo</td>
+<td>the log is a stub</td>
+</tr>
+<tr>
+<td>When neither the left nor the right town is still Lethys's, the "last line" checked for the evil advisor's butt-in is still empty; what the check does then is not determined</td>
+<td>todo</td>
+<td>the same script; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The scroll's spot is checked as both the scroll and its location in the notify loop (the script passes the scroll twice)</td>
+<td>todo</td>
+<td>the same script; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The script's first record command (straight after the film) is commented out in the source; recording happens inside the film</td>
+<td>todo</td>
+<td>the same script; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="unused-or-cut-parts">Unused or cut parts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Two flags meant to say whether the left and right towns are needed are set but read only by the fly-over itself</td>
+<td>n/a</td>
+<td>nothing else uses them</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

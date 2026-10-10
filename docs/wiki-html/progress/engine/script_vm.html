@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Script virtual machine — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="here" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#script-virtual-machine">Script virtual machine</a><ul>
+<li><a href="#the-compiled-program">The compiled program</a></li>
+<li><a href="#running-scripts">Running scripts</a></li>
+<li><a href="#native-functions">Native functions</a></li>
+<li><a href="#land-scripts">Land scripts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="script-virtual-machine">Script virtual machine</h1>
+<p>The game's story, challenges and tutorial are written in Black &amp; White's own script language, compiled into one program
+(<code>challenge.chl</code>) that a small virtual machine runs alongside the world, a step each game turn, calling into the game
+through several hundred native functions. Lands themselves are set up by simpler line-by-line land scripts. What the
+scripts do, land by land, belongs to <a href="../story/index.html">../story/</a>.</p>
+<p><strong>Progress: 14/36 done, 20 partial — 67%</strong></p>
+<h2 id="the-compiled-program">The compiled program</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The game loads its compiled script program (code, constant data, global variables, scripts and their parameters) at start</td>
+<td>done</td>
+<td><code>components/ScriptLibrary</code> (<code>LHVMFile</code>), <code>challenge.chl</code> loaded in <code>src/Game.cpp</code></td>
+</tr>
+<tr>
+<td>The scripts marked to start on their own are started when the program loads</td>
+<td>done</td>
+<td><code>LHVM::LoadBinary</code> starts the auto-start list</td>
+</tr>
+<tr>
+<td>The land control script is started for the game</td>
+<td>done</td>
+<td><code>src/Game.cpp</code> starts <code>LandControlAll</code> by name</td>
+</tr>
+<tr>
+<td>The challenge script sources compile to exactly the program the game ships</td>
+<td>done</td>
+<td><code>components/lhvmcompiler</code>; tests <code>ChlRoundTrip.ChallengeChlWithoutHeaders</code>, <code>ChlRoundTrip.ChallengeChlWithHeaders</code></td>
+</tr>
+<tr>
+<td>Creature Isle's version of the program format</td>
+<td>n/a</td>
+<td>expansion not supported</td>
+</tr>
+</tbody>
+</table>
+<h2 id="running-scripts">Running scripts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every running script gets a step each game turn, after the living and before the weather and the miracles</td>
+<td>done</td>
+<td><code>LHVM::LookIn</code> from <code>Game::GameLogicLoop</code></td>
+</tr>
+<tr>
+<td>A script runs until it waits, sleeps or yields, and carries on from there next turn</td>
+<td>partial</td>
+<td><code>LHVM::CpuLoop</code>; runs the story's scripts, not audited instruction by instruction</td>
+</tr>
+<tr>
+<td>Arithmetic, comparisons, logic and jumps work on integers, floats, positions and objects</td>
+<td>partial</td>
+<td>opcode handlers in <code>components/ScriptLibrary/src/LHVM.cpp</code>; not audited against the game</td>
+</tr>
+<tr>
+<td>Converting between number types truncates as the game does</td>
+<td>done</td>
+<td>tests <code>LhvmCast.ToIntTruncatesTheFloat</code>, <code>LhvmCast.ToFloatReadsTheBitsAsAnUnsignedInteger</code></td>
+</tr>
+<tr>
+<td>Taking a value off the stack into a variable releases the object the variable held before</td>
+<td>done</td>
+<td><code>LHVM::RemoveReference</code> on the old value (<code>components/ScriptLibrary/src/LHVM.cpp</code>)</td>
+</tr>
+<tr>
+<td>A script's elapsed time is counted in tenths of a second as the game counts it</td>
+<td>done</td>
+<td>the tick count times 0.1f (<code>components/ScriptLibrary/src/LHVM.cpp</code>)</td>
+</tr>
+<tr>
+<td>Native calls the game doesn't implement drop their arguments so later values don't shift</td>
+<td>done</td>
+<td>test <code>LhvmNativeStack.ANativeBoundWithAnArgumentItDoesNotPopHasItDropped</code></td>
+</tr>
+<tr>
+<td>A script can start another and either wait for it to finish or carry on alongside it</td>
+<td>partial</td>
+<td><code>Opcode24Call</code> (sync and async); not audited</td>
+</tr>
+<tr>
+<td>Exception handlers (a block's "when"/"until" conditions) are checked each turn before the scripts' normal code, and can break out of their block</td>
+<td>partial</td>
+<td><code>LHVM::LookIn</code> runs the exception handlers first; not audited</td>
+</tr>
+<tr>
+<td>Global variables are shared by all scripts; each script has its own locals and parameters</td>
+<td>partial</td>
+<td><code>LHVM</code>; not audited</td>
+</tr>
+<tr>
+<td>Objects a script holds are reference counted so the game doesn't delete them under it</td>
+<td>partial</td>
+<td><code>AddReference</code> and <code>RemoveReference</code> in the VM; the game objects' side not checked</td>
+</tr>
+<tr>
+<td>A script can stop itself, all scripts, scripts of a type, or scripts by name</td>
+<td>partial</td>
+<td><code>StopTask</code>, <code>StopAllTasks</code>, <code>StopTasksOfType</code>, <code>StopScripts</code> exist and are reached from <code>src/CHLApi.cpp</code>; few callers</td>
+</tr>
+<tr>
+<td>Only some kinds of script run in some situations (for example help scripts versus challenge scripts)</td>
+<td>partial</td>
+<td>the temple's turn runs only the temple help and special scripts (<code>src/Game.cpp</code>); the world's turn runs every kind</td>
+</tr>
+<tr>
+<td>Scripts can ask for their own task number and the kind of script they are</td>
+<td>partial</td>
+<td>the task number is given to the help script control (<code>src/CHLApi.cpp</code>); the script type accessors are not all used</td>
+</tr>
+<tr>
+<td>The whole script program can be rebooted (every script stopped and the auto-start ones started again), as the game does when asked to</td>
+<td>todo</td>
+<td><code>LHVM::Reboot</code> runs when the program loads; nothing else requests it</td>
+</tr>
+<tr>
+<td>Scripts are stopped and their state kept when the game is saved, and restored on load</td>
+<td>partial</td>
+<td>the VM writes and reads its state (<code>SaveState</code>, <code>RestoreState</code>); no save games (see saving_and_loading.md)</td>
+</tr>
+<tr>
+<td>A script error is reported with its script and line, and the game carries on</td>
+<td>partial</td>
+<td>the VM's error callback logs in <code>src/Game.cpp</code>; the game's own handling unconfirmed</td>
+</tr>
+</tbody>
+</table>
+<h2 id="native-functions">Native functions</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The native function table matches the game's, by name, order, arguments and results</td>
+<td>done</td>
+<td><code>src/CHLApi.cpp</code>; test <code>ChlLanguage.NativeTableMatchesTheGameBindings</code></td>
+</tr>
+<tr>
+<td>Each native function does what the game's does</td>
+<td>partial</td>
+<td>about 245 of the 465 bound natives do something; the other 220 log "not implemented" (<code>src/CHLApi.cpp</code>); which ones each challenge needs: see ../story/</td>
+</tr>
+<tr>
+<td>Positions, objects, floats and strings are taken off and put on the stack as the game passes them</td>
+<td>partial</td>
+<td>stack helpers in <code>src/CHLApi.cpp</code>; test <code>test/audio/test_chlapi_stack.cpp</code> for a few natives; not audited as a whole</td>
+</tr>
+</tbody>
+</table>
+<h2 id="land-scripts">Land scripts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Land scripts are read line by line, each line a command with numbers, strings and quoted positions</td>
+<td>done</td>
+<td><code>src/LHScriptX/Lexer.cpp</code>, <code>Script.cpp</code></td>
+</tr>
+<tr>
+<td>An unreadable line doesn't end the game: the land is kept as far as it got</td>
+<td>partial</td>
+<td><code>Game::LoadMap</code> stops at the first bad line (unconfirmed whether the game skips just the line)</td>
+</tr>
+<tr>
+<td>Version, land number, landscape, starting camera position and influence multipliers</td>
+<td>partial</td>
+<td>version, land number, landscape, starting camera position and the town and player influence multipliers done (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>); one town's own multiplier logs "not implemented"</td>
+</tr>
+<tr>
+<td>Towns, town centres, abodes, citadels and town belief</td>
+<td>done</td>
+<td>towns, centres, abodes and planned abodes, citadels, belief and its cap, uninhabitable towns, congregation points (<code>FeatureScriptCommands.cpp</code>)</td>
+</tr>
+<tr>
+<td>Villagers</td>
+<td>done</td>
+<td>villagers by position, town villagers and special town villagers (<code>FeatureScriptCommands.cpp</code>)</td>
+</tr>
+<tr>
+<td>Trees, forests, big forests, flowers, features, fields, pots, mobile objects and statics, street lights and lanterns, bonfires, mists</td>
+<td>partial</td>
+<td>trees, dead trees, forests, big forests, features, fields, fish farms, pots, mobile objects and statics, street lights and lanterns, bonfires, mists done; flowers, walls, pitches, temporary pots, scaffolds and furniture are empty</td>
+</tr>
+<tr>
+<td>Streams and footpaths</td>
+<td>partial</td>
+<td>streams, stream points, footpaths and nodes done; paths and linking footpaths log "not implemented", waterfalls are empty</td>
+</tr>
+<tr>
+<td>Weather climates</td>
+<td>done</td>
+<td>climates with rain, temperature and wind, and storms (<code>FeatureScriptCommands.cpp</code>)</td>
+</tr>
+<tr>
+<td>Animals, flocks, creature pens, worship sites, spell icons and dispensers, one-shot spells, fireflies, influence rings, arenas</td>
+<td>partial</td>
+<td>animals, flocks, worship sites, spell icons and dispensers, one-shot spells, influence rings and arenas done; creature pens, planned worship sites and fireflies are empty; fireflies: <a href="../nature/fireflies.html">../nature/fireflies.md</a></td>
+</tr>
+<tr>
+<td>Creatures from mind files, and computer players switched on</td>
+<td>partial</td>
+<td>creatures from files and the computer player switch done; CREATE_CREATURE logs "not implemented", personalities and creature likes are empty</td>
+</tr>
+<tr>
+<td>Land balance, night time and the game's opening messages</td>
+<td>partial</td>
+<td>global land balance, night time and the lost-town scale done; per-player balance, opening messages and artefacts are empty</td>
+</tr>
+<tr>
+<td>Map scripts: the commands that set up a game rather than a land (players, date, turn length, which land and scripts to load, language)</td>
+<td>todo</td>
+<td><code>src/LHScriptX/MapScriptCommands.cpp</code> throws for each and is never run</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Villager looks, voices and special villagers — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="here" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#villager-looks-voices-and-special-villagers">Villager looks, voices and special villagers</a><ul>
+<li><a href="#models-and-drawing">Models and drawing</a></li>
+<li><a href="#names-and-information">Names and information</a></li>
+<li><a href="#special-villagers">Special villagers</a></li>
+<li><a href="#voices-and-speech">Voices and speech</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="villager-looks-voices-and-special-villagers">Villager looks, voices and special villagers</h1>
+<p>How villagers look and sound: their tribe's models, their animations, what they carry, their names, the special
+characters that wander the lands, and the voices of villagers talking and praising the player.</p>
+<p><strong>Progress: 8/19 done, 5 partial — 55%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../animation.html">Skeletal animation (villagers and animals)</a>, <a href="../../villagers.html">Villagers: data, state machine and speed</a>.</p>
+<h2 id="models-and-drawing">Models and drawing</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each villager draws its tribe's model for its job, high or low detail by distance</td>
+<td>n/a</td>
+<td>the job's mesh of the tribe (<code>src/ECS/Archetypes/VillagerArchetype.cpp</code>). Our wiki differs: in this version of the original the level of detail loading is disabled, so models always draw their first level (<a href="../../rendering-objects.html#villager-blobs-object-reflections-and-lod">rendering-objects</a>)</td>
+</tr>
+<tr>
+<td>Women, men and children each have their own models</td>
+<td>done</td>
+<td>the info's adult and child meshes (<code>src/ECS/Archetypes/VillagerArchetype.cpp</code>, <code>villager::SetAge</code>)</td>
+</tr>
+<tr>
+<td>Villagers animate: walking synced to the ground covered, working, eating, dancing, idling, dying</td>
+<td>done</td>
+<td>the state's clip, the walk synced to the ground covered (<code>src/ECS/VillagerAnimations.cpp</code>, <code>src/ECS/Animations.cpp</code>); <code>test/test_villager_draw_golden.cpp</code></td>
+</tr>
+<tr>
+<td>Clips play into and out of states, and the state waits for them</td>
+<td>done</td>
+<td>the into and out-of clips, with the state waiting for them (<code>src/ECS/VillagerAnimations.cpp</code>)</td>
+</tr>
+<tr>
+<td>What a villager carries shows in its hand (tools, logs by tree type, food, the ball)</td>
+<td>done</td>
+<td>the carried object on the hand bone (<code>src/ECS/CarriedProps.cpp</code>); See tools_and_carried_items.md</td>
+</tr>
+<tr>
+<td>Villagers are drawn smoothly between game turns and lean with slopes</td>
+<td>done</td>
+<td>the smooth drawing between turns (<code>components::DrawPosition</code>, <code>src/ECS/MobileDrawing.cpp</code>) and the axes from the ground (<code>src/ECS/LivingAngle.cpp</code>); <code>test/test_drawn_position.cpp</code>, <code>test/test_living_axes.cpp</code></td>
+</tr>
+<tr>
+<td>Each foot casts a short ground shadow</td>
+<td>done</td>
+<td><code>src/Graphics/GroundBlobs.cpp</code>; <code>test/test_ground_blobs.cpp</code>; see ../rendering/</td>
+</tr>
+<tr>
+<td>Poisoned villagers show they are poisoned</td>
+<td>done</td>
+<td><code>SHOW_POISONED</code> and its clip (<code>src/ECS/Villager/VillagerFood.cpp</code>); see <a href="../resources/poison_and_mushrooms.html">../resources/poison_and_mushrooms.md</a></td>
+</tr>
+<tr>
+<td>Disciple icon over a disciple's head</td>
+<td>todo</td>
+<td>See disciples.md</td>
+</tr>
+<tr>
+<td>Villagers at home are hidden</td>
+<td>done</td>
+<td>a villager inside is out of the map and not drawn (<code>src/ECS/Villager/VillagerHome.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="names-and-information">Names and information</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Only named villagers have a name (about 2 in 10 new villagers; see <a href="special_villagers.html">special_villagers.md</a>), shown under the hand</td>
+<td>todo</td>
+<td>the key bindings exist (<code>src/Gui/GameMenu.cpp</code>); special villagers are not ported (<code>RollSpecialVillager</code>, <code>src/ECS/Villager/VillagerCore.cpp</code>), so nobody has a name</td>
+</tr>
+<tr>
+<td>A villager's details show on request</td>
+<td>todo</td>
+<td>the editor's inspector shows the component (<code>src/Editor</code>), not the game's display</td>
+</tr>
+<tr>
+<td>Tooltip for what a villager is doing</td>
+<td>todo</td>
+<td>See ../interface/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="special-villagers">Special villagers</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Now and then a created villager is a special one with its own look and name (hermit, sculptor, piper, sailor, priest, healer and the rest)</td>
+<td>todo</td>
+<td>the roll is drawn (<code>RollSpecialVillager</code>) but a normal villager is always made; see <a href="special_villagers.html">special_villagers.md</a></td>
+</tr>
+<tr>
+<td>Special villagers speak with a speech bubble</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Story characters are villagers driven by the challenge scripts</td>
+<td>partial</td>
+<td>the scripts move, animate and release villagers (<code>src/ECS/Villager/VillagerScript.cpp</code>) and draw the intro family in high detail (<code>src/ECS/SuperVillager.cpp</code>); See ../story/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="voices-and-speech">Voices and speech</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Awed villagers praise or fear the player aloud, good or evil, more awed as their town nears being won</td>
+<td>partial</td>
+<td>the guidance's alignment and desire remarks (<code>src/Audio/Services/Guidance.cpp</code>); the impression that should drive them is not ported (<code>villager_reactions::AddReaction</code>); see ../audio/voices_and_speech.md</td>
+</tr>
+<tr>
+<td>Villagers talk to each other in their tribe's babble</td>
+<td>partial</td>
+<td>the banter bank from the clips' sound events, by man, woman or child (<code>src/Audio/Services/AnimationSounds.cpp</code>); see ../audio/voices_and_speech.md</td>
+</tr>
+<tr>
+<td>Villagers shout and scream when fleeing, burning or dying</td>
+<td>partial</td>
+<td>the thrown screams and the pick-up scream from the clips' sound events and the hand (<code>src/Audio/Services/AnimationSounds.cpp</code>); See ../audio/</td>
+</tr>
+<tr>
+<td>Villagers call out tribe-specific lines when the town needs something</td>
+<td>partial</td>
+<td>the town desire remarks (<code>src/Audio/Services/Guidance.cpp</code>); see ../audio/voices_and_speech.md</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

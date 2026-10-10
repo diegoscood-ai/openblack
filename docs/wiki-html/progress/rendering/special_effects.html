@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Special effects — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="here" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#special-effects">Special effects</a><ul>
+<li><a href="#lights-and-glows">Lights and glows</a></li>
+<li><a href="#marks-on-the-land-and-water">Marks on the land and water</a></li>
+<li><a href="#highlights">Highlights</a></li>
+<li><a href="#smoke">Smoke</a></li>
+<li><a href="#over-the-whole-picture">Over the whole picture</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="special-effects">Special effects</h1>
+<p>The game's smaller visual effects that aren't particle effects: beams and glows of light, the hand's and the villages'
+lights at night, footprints and rings on the water, highlights placed by challenges, chimney smoke and the effects laid
+over the whole picture. The sea's reflections are in <a href="../ocean/index.html">../ocean/</a>, rain splashes in
+<a href="../weather/index.html">../weather/</a>, gesture trails in <a href="../gesture/index.html">../gesture/</a>.</p>
+<p><strong>Progress: 12/18 done, 2 partial — 72%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../parity.html">Graphics engine parity: original versus openblack</a>, <a href="../../rendering.html">World rendering: original versus openblack</a>.</p>
+<h2 id="lights-and-glows">Lights and glows</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A spot light's beam: an open cone of eight sides drawn additively from the light, fading to black, its texture drifting</td>
+<td>done</td>
+<td><code>AppendCone</code> in <code>src/Graphics/LightBeams.cpp</code>, drawn by the temple (<code>src/Graphics/RendererTemple.cpp</code>); test <code>test/graphics/test_light_beams.cpp</code></td>
+</tr>
+<tr>
+<td>Windows shed a volume of light drawn out from their edges, fading to nothing</td>
+<td>done</td>
+<td><code>MakeVolumeLight</code> in <code>src/Graphics/LightBeams.cpp</code>, drawn by the temple; test <code>test/graphics/test_light_beams.cpp</code></td>
+</tr>
+<tr>
+<td>At night the hand carries a light that brightens the land around it, coming up as the land darkens</td>
+<td>done</td>
+<td><code>src/Graphics/HandLight.cpp</code>; test <code>test/graphics/test_hand_light.cpp</code></td>
+</tr>
+<tr>
+<td>At night the hand's light glows warm on the water beneath it</td>
+<td>done</td>
+<td><code>src/Graphics/HandWaterGlow.cpp</code>; test <code>test/graphics/test_hand_water_glow.cpp</code></td>
+</tr>
+<tr>
+<td>Village lanterns and campfires light the land around them at night, flickering</td>
+<td>partial</td>
+<td>street and country lanterns and the gate's lamps (<code>src/3D/NightLights.cpp</code>, run by <code>VillageLightSystem::Update</code>, <code>Locator::villageLightSystem</code>; <code>StreetLanternArchetype</code>) light the land cells at night, flickering; the temple door's lanterns are missing. Our wiki differs: the lit "campfires" are country lanterns drawn with the campfire mesh; a bonfire itself has no lantern light (<a href="../../map-loading.html#map-script-objects-street-lanterns-bonfires-dead-trees-gates">map-loading.md</a>)</td>
+</tr>
+</tbody>
+</table>
+<p>The columns of light over village centres and temples, the light round worship sites' altars, the glow of disciples,
+the scroll and vortex beams and the falling-spell bursts are in <a href="light_beams.html">light_beams.md</a>.</p>
+<h2 id="marks-on-the-land-and-water">Marks on the land and water</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Creatures leave prints as their footsteps fall, fading over about five seconds; they are not saved</td>
+<td>done</td>
+<td><code>FootprintSystem</code> (<code>src/ECS/Systems/Implementations/FootprintSystem.cpp</code>), <code>src/Creature/CreatureFootprints.cpp</code>; tests <code>CreatureFootprints.GoneInAboutFiveSeconds</code>, <code>FootprintSystemTest.*</code></td>
+</tr>
+<tr>
+<td>Each species leaves its own print at its own size; the crocodile's has no size</td>
+<td>done</td>
+<td><code>CreatureFootprints.h</code>; test <code>CreatureFootprints.SpeciesCells</code></td>
+</tr>
+<tr>
+<td>On the first of April every creature leaves smiley faces</td>
+<td>done</td>
+<td><code>CreatureFootprints.h</code>; tests <code>CreatureFootprints.AprilFoolsSmileyKeepsTheSpeciesSize</code>, <code>FootprintSystemDate.*</code></td>
+</tr>
+<tr>
+<td>Prints stop being laid when there are as many as there can be</td>
+<td>done</td>
+<td><code>CreatureFootprints</code>; test <code>CreatureFootprints.FullTrailDropsNewPrints</code></td>
+</tr>
+<tr>
+<td>Creatures leave wet prints after walking out of water, placed by species</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Rings spread on the water where something splashes, growing and fading over 0.7 seconds</td>
+<td>done</td>
+<td><code>src/ECS/WaterRings.cpp</code>, <code>src/Particles/PSysWaterRings.cpp</code>: the hand's splash, thrown objects, sharks, the waterfall and the fish puzzle; test <code>test/test_psys_water.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="highlights">Highlights</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Challenges place highlights that pulse with a beam and can be tapped</td>
+<td>partial</td>
+<td><code>src/ECS/ScriptHighlight.cpp</code>: highlights are made, pulse and can be tapped (<code>InterfaceTap</code>), but their glow column and sprite are worked out and not drawn; the beams are in <a href="light_beams.html">light_beams.md</a>; the scrolls in <a href="../interface/scrolls_and_signs.html">../interface/scrolls_and_signs.md</a></td>
+</tr>
+<tr>
+<td>Highlighted things are drawn in a highlight material</td>
+<td>todo</td>
+<td>unconfirmed which things use it</td>
+</tr>
+</tbody>
+</table>
+<h2 id="smoke">Smoke</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Smoke rises from the chimneys of homes</td>
+<td>done</td>
+<td><code>src/ECS/ChimneySmoke.cpp</code>, <code>src/Graphics/RendererSmoke.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="over-the-whole-picture">Over the whole picture</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scripts fade the picture to a colour and back over whole seconds</td>
+<td>done</td>
+<td><code>src/3D/ScreenFade.cpp</code> (SET_FADE and SET_FADE_IN per turn), drawn in the screen overlay pass</td>
+</tr>
+<tr>
+<td>Cinema bars slide in for cut scenes, hiding the dialogs</td>
+<td>done</td>
+<td><code>ScreenFade</code> bars over 2 s and snapped on for films (<code>src/3D/ScreenFade.cpp</code>, <code>src/Video/VideoPlayer.cpp</code>)</td>
+</tr>
+<tr>
+<td>Motion blur</td>
+<td>todo</td>
+<td>the renderer keeps a motion blur amount (unconfirmed when the game uses it)</td>
+</tr>
+<tr>
+<td>Scripts take screenshots of the world for the challenge room's pictures</td>
+<td>todo</td>
+<td>see <a href="../temple/index.html">../temple/</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

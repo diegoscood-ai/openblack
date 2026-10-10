@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>On-screen text — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="here" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#on-screen-text">On-screen text</a><ul>
+<li><a href="#text-and-fonts">Text and fonts</a></li>
+<li><a href="#spoken-text">Spoken text</a></li>
+<li><a href="#script-text">Script text</a></li>
+<li><a href="#other-overlays">Other overlays</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="on-screen-text">On-screen text</h1>
+<p>The words the game writes over the screen: what the advisors and characters say, text that land scripts put up, titles,
+and the game's text database and fonts that all of it comes from. The script functions themselves are listed in
+../story/.</p>
+<p><strong>Progress: 12/24 done, 6 partial — 62%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../hand-and-interface.html">The hand and the interface</a>.</p>
+<h2 id="text-and-fonts">Text and fonts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The game's texts are read from its info scripts by name, later scripts replacing earlier ones</td>
+<td>done</td>
+<td><code>src/Gui/TextDatabase.cpp</code> (the menus' names) and <code>helptext</code> (<code>src/Common/HelpText.h</code>, the numbered help texts); tests <code>HelpTextLoader.*</code></td>
+</tr>
+<tr>
+<td>Each text says who speaks it (narrator, good or evil advisor, a character)</td>
+<td>done</td>
+<td>each ADD_TEXT's narrator is read (<code>helptext::Entry::narrator</code>) and picks the voice and the colour (<code>HelpSystem::SayText</code>, test <code>HelpTextDisplay.NarratorColourAndFont</code>)</td>
+</tr>
+<tr>
+<td>The game's fonts are read and drawn as the game draws them, with a question mark for missing letters</td>
+<td>done</td>
+<td><code>src/Gui/GameFont.cpp</code>; tests <code>GameFontLoaderTest.*</code></td>
+</tr>
+<tr>
+<td>Lines wrap after spaces and hyphens and at line breaks</td>
+<td>done</td>
+<td><code>GameFont::Wrap</code>; the help text's own word wrap in <code>HelpTextDisplay</code> (test <code>HelpTextDisplay.GreedyWrapAndMaxLines</code>)</td>
+</tr>
+<tr>
+<td>Text in other languages (the game's other language files)</td>
+<td>done</td>
+<td>the installed game's text scripts are read, whatever their language (tests <code>HelpTextLanguage.*</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="spoken-text">Spoken text</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>What is said appears over the screen, a word at a time in step with the voice</td>
+<td>partial</td>
+<td>the texts are shown over the screen (<code>src/Help/HelpTextDisplay.cpp</code>, <code>Renderer::DrawHelpText</code>) with the newest sliding in (test <code>HelpTextDisplay.NewestFadesIn</code>); no word-at-a-time reveal in step with the voice is in our code or wiki</td>
+</tr>
+<tr>
+<td>The story text setting chooses no text, story text only, or all text</td>
+<td>partial</td>
+<td>the display has the TEXT_DRAW gate (<code>HelpSystem::GetTextDraw</code>, test <code>HelpTextDisplay.ResetCloseAndGate</code>), but the menu's Story text choice is not passed to it</td>
+</tr>
+<tr>
+<td>Text sits at the top of the screen, or at the bottom with the setting</td>
+<td>partial</td>
+<td>top to bottom or bottom to top is a display input (<code>GetTextTopToBottom</code>, test <code>HelpTextDisplay.TopToBottom</code>), but the menu's box is not passed to it</td>
+</tr>
+<tr>
+<td>Text stays up for as long as it takes to read, by the player's read speed, then fades</td>
+<td>done</td>
+<td><code>HelpSystem::IsTextRead</code> and the display's stack fade (tests <code>HelpSystem.ReadingTimeWithoutVoice</code>, <code>HelpTextDisplay.StackScalesAndAlpha</code>)</td>
+</tr>
+<tr>
+<td>Some text waits for a click to go on, shown by a prompt</td>
+<td>done</td>
+<td>with interaction the text waits for the click and the "click to continue" icon is shown (<code>HelpSystem::Draw3D</code>); test <code>HelpSystem.WithInteraction</code></td>
+</tr>
+<tr>
+<td>Codes inside a text change its colour or put in a picture of the key or mouse button to press</td>
+<td>partial</td>
+<td>colour and new line codes are done (tests <code>HelpTextDisplay.ColourCode</code>, <code>HelpTextDisplay.NewLineCode</code>); the key or button picture of a $M code is not drawn in the help text</td>
+</tr>
+<tr>
+<td>A number can be filled into a text</td>
+<td>done</td>
+<td><code>RUN_TEXT_WITH_NUMBER</code>, <code>TEMP_TEXT_WITH_NUMBER</code> in <code>src/CHLApi.cpp</code>; test <code>HelpTextDisplay.NumberCodes</code></td>
+</tr>
+<tr>
+<td>Text running when the player goes into the temple is put away and comes back on leaving</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-text">Script text</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A script runs a text by name, on one line or wrapped, with or without waiting for the player</td>
+<td>done</td>
+<td><code>RUN_TEXT</code>, <code>TEMP_TEXT</code> in <code>src/CHLApi.cpp</code> (<code>HelpSystem::RunText</code>, <code>TempText</code>); tests <code>HelpSystem.QueueSingleLineAndClear</code>, <code>HelpSystem.TempText</code></td>
+</tr>
+<tr>
+<td>A script draws text anywhere on screen at a size, fading in, in a colour it sets</td>
+<td>todo</td>
+<td><code>GAME_DRAW_TEXT</code>, <code>GAME_DRAW_TEMP_TEXT</code>, <code>SET_DRAW_TEXT_COLOUR</code> log "not implemented" in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>A script fades all its drawn text out</td>
+<td>todo</td>
+<td><code>FADE_ALL_DRAW_TEXT</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>A script asks whether the text has been read</td>
+<td>done</td>
+<td><code>TEXT_READ</code> in <code>src/CHLApi.cpp</code> (<code>HelpSystem::IsTextRead</code>)</td>
+</tr>
+<tr>
+<td>Land titles and challenge titles shown as a challenge begins</td>
+<td>todo</td>
+<td>see ../story/</td>
+</tr>
+<tr>
+<td>Words shown over the screen by the temple's future room</td>
+<td>done</td>
+<td><code>GameInterface::SetMessage</code>, from <code>src/3D/Implementations/TempleInterior.cpp</code>; see ../temple/</td>
+</tr>
+<tr>
+<td>Game messages a land's feature script starts and adds lines to</td>
+<td>todo</td>
+<td><code>START_GAME_MESSAGE</code>, <code>ADD_GAME_MESSAGE_LINE</code> in <code>src/LHScriptX/FeatureScriptCommands.cpp</code> do nothing</td>
+</tr>
+</tbody>
+</table>
+<h2 id="other-overlays">Other overlays</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Text shown while the game is paused</td>
+<td>todo</td>
+<td>(unconfirmed what it says)</td>
+</tr>
+<tr>
+<td>Villagers' names, and their details, over their heads</td>
+<td>partial</td>
+<td>drawn by the debug overlay (<code>Gui::ShowVillagerNames</code> in <code>src/Debug/Gui.cpp</code>), not in the game's font or look</td>
+</tr>
+<tr>
+<td>The creature's status panel and the fight's panel</td>
+<td>partial</td>
+<td>the panels' values and layout are ported (<code>src/Creature/CreatureStatusPanel.cpp</code>, <code>src/Creature/CreatureFightHud.cpp</code>; tests <code>CreatureStatusPanel.*</code>) but nothing draws them yet; see ../creature/</td>
+</tr>
+<tr>
+<td>Cinema bars and screen fades</td>
+<td>done</td>
+<td><code>ScreenFade</code> (<code>src/3D/ScreenFade.cpp</code>: the script fade and the wide screen bars), drawn by <code>Renderer::DrawFinishFrameOverlays</code>; see ../camera/ and ../story/</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

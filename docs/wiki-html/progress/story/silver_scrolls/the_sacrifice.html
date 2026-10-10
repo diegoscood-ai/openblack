@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Sacrifice — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-sacrifice">The Sacrifice</a><ul>
+<li><a href="#how-it-appears">How it appears</a></li>
+<li><a href="#the-introduction">The introduction</a></li>
+<li><a href="#what-the-player-must-do">What the player must do</a></li>
+<li><a href="#rules-while-it-runs">Rules while it runs</a></li>
+<li><a href="#endings">Endings</a></li>
+<li><a href="#letting-the-boy-go">Letting the boy go</a></li>
+<li><a href="#reward">Reward</a></li>
+<li><a href="#aftermath">Aftermath</a></li>
+<li><a href="#advisors-music-and-sounds">Advisors, music and sounds</a></li>
+<li><a href="#creature-involvement">Creature involvement</a></li>
+<li><a href="#script-quirks">Script quirks</a></li>
+<li><a href="#other-modes-and-unused-material">Other modes and unused material</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-sacrifice">The Sacrifice</h1>
+<p>A second-land silver scroll: an Indian priest, his wife and their small son come to the player's new worship site, where
+the priest offers his firstborn to the altar. Anything sacrificed there counts towards a total of 4000 of prayer power;
+who (or what) the player gives up, or spares, sets the outcome's alignment. Reaching 4000 with the boy alive earns a
+heal miracle reward.</p>
+<p><strong>Land:</strong> 2 · <strong>Giver:</strong> an Indian priest and priestess from the Indian village the control script calls Town6 (town id 11), at the player's worship site · <strong>Script:</strong> Sacrifice · <strong>Reward:</strong> a heal miracle chest from the sky (only for reaching 4000 without killing the family) · <strong>Repeatable:</strong> no</p>
+<p>Sources: the quest's script source (<code>Sacrifice.txt</code>, with the land control script <code>LandControl2.txt</code> and the shared
+helpers <code>ChallengeNotify.txt</code>, <code>StandardReminder.txt</code>, <code>Reward.txt</code>), checked line by line against the PC game's
+compiled <code>challenge.chl</code>; the game's text table; the land file <code>Land2.txt</code> for which town sits where; and the executable
+for what reading a worship site's sacrifice total returns. openblack is judged on this tree: of the 60 script functions
+the quest and the scripts it runs need, 7 only log "not implemented" in <code>src/CHLApi.cpp</code>, among them the
+sacrifice-total, held-object, snapshot and reward commands; creating villagers works (<code>Create</code>). The land's control
+script never runs (see <a href="../land_2.html">../land_2.md</a> and <a href="../../scripts/land2_script.html">../../scripts/land2_script.md</a>),
+so none of it happens; rows are todo unless the notes say otherwise. The script's function coverage is in
+<a href="../../scripts/challenge_scripts.html">../../scripts/challenge_scripts.md</a>; how sacrifice gives prayer power in
+<a href="../../worship/prayer_power.html">../../worship/prayer_power.md</a>.</p>
+<p><strong>Progress: 0/71 done, 5 partial — 4%</strong></p>
+<h2 id="how-it-appears">How it appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's control script starts a watcher for the quest as soon as the land is set up</td>
+<td>todo</td>
+<td><code>LandControl2</code> never runs: <code>LOAD_MAP</code> is empty, so the story never reaches Land 2 (<a href="../../../map-loading.html#pending">map-loading</a>)</td>
+</tr>
+<tr>
+<td>Every 11 seconds the watcher looks for a worship site within 15 of a fixed altar spot by the player's home village (the site the player is taught to build in this land; the plague's watcher uses the same spot)</td>
+<td>todo</td>
+<td>the finder and the built test work (<code>Call</code>, <code>GetProperty</code> built percentage in <code>src/CHLApi.cpp</code>); the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The quest starts only once that worship site is fully built (built exactly 1) and the Indian village with town id 11 belongs to the player; the village is checked only after the site is built, and the watcher then stops</td>
+<td>todo</td>
+<td>reading the village's owner (<code>GetProperty</code> player) is not ported; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The scroll is a silver scroll (a challenge highlight) beside a house about 100 north of that Indian village's centre, far west of the altar</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> works (<code>src/ECS/ScriptHighlight.cpp</code>); the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Until the scroll (or the spot it marks) is clicked, whenever the camera is within 100 of it and it is on screen, the evil advisor pops out at most every 30 seconds, points at it and says "These people look like they're doing something interesting, Boss."</td>
+<td>todo</td>
+<td>the shared nag's natives work (<code>SpiritEject</code>, <code>SpiritPointPos</code>, <code>GameThingFieldOfView</code>, <code>RunText</code>, <code>DllGettime</code>); the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Clicking it makes the scroll active (opened) and the quest begins at once; there is no time limit on clicking it</td>
+<td>todo</td>
+<td><code>GameThingClicked</code> and <code>SetActive</code> on a highlight work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Only on the click are the family made at the house: a 6-year-old Indian boy (an Indian farmer villager made a child by age), a priest and a priestess, all three joining the Indian village</td>
+<td>todo</td>
+<td><code>Create</code> makes villagers and children, <code>FlockAttach</code> works; setting the age works for villagers; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>After the introduction the scroll is moved to beside the altar (about 20 from it) and stays there; the script never removes it</td>
+<td>todo</td>
+<td><code>SetPosition</code> works; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-introduction">The introduction</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A widescreen scene under the Gregorian chant script theme</td>
+<td>partial</td>
+<td><code>SetWidescreen</code>, <code>StartMusic</code> work (<code>src/Audio</code>); the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The three are drawn in high detail; the priest and priestess walk a few paces from the house while the boy shuffles along very slowly (speed 0.1)</td>
+<td>todo</td>
+<td><code>SetHighGraphicsDetail</code>, <code>MoveGameThing</code> and the speed property work for villagers; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The camera glides in on them over 5 seconds, then closer over 6</td>
+<td>todo</td>
+<td><code>MoveCameraPosition</code>, <code>MoveCameraFocus</code>, <code>HasCameraArrived</code> work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>After 5 seconds the priest, gossiping, says "Greetings, almighty presence." while the boy stands scared stiff and the priestess idles</td>
+<td>todo</td>
+<td><code>RunText</code> and the villagers' script animations (<code>SetScriptState</code>, <code>SetScriptUlong</code>) work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The camera eases round; the priest: "As a gesture of gratitude from our people, we have a gift for you." and the dialogue closes</td>
+<td>todo</td>
+<td><code>RunText</code>, <code>TextRead</code>, <code>GameCloseDialogue</code> work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The boy (now at speed 0.2) and his parents walk off to a spot about 50 south; the camera pulls back and up over about 8 seconds, rising to 80 high</td>
+<td>todo</td>
+<td><code>MoveGameThing</code> and the camera moves work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The screen fades to black over 2 seconds; the camera is cut to the player's altar and the family is put down beside it, each then taking one step</td>
+<td>partial</td>
+<td><code>SetFade</code>, <code>SetCameraPosition</code>, <code>SetCameraFocus</code>, <code>SetPosition</code> work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The screen fades back in over 2 seconds; the parents face the camera, and the boy mourns, looking away towards one spot</td>
+<td>todo</td>
+<td><code>SetFadeIn</code> and <code>SetFocus</code> on villagers work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The camera drifts over 8 seconds; the priest: "We are a spiritual tribe, with ancient customs."</td>
+<td>todo</td>
+<td>the camera moves and <code>RunText</code> work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The quest is recorded: title "The Sacrifice", 0 done, alignment 0, reminder "These people await a sacrifice from you." (evil advisor), with the current view as its picture. The snapshot records the challenge in the player's challenge log with its title and reminder</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub; how records are kept: <a href="../challenges_and_rewards.html">../challenges_and_rewards.md</a></td>
+</tr>
+<tr>
+<td>The parents turn to the boy; the priest: "If you place anything on this altar, its life-force is added to our stored prayer power."</td>
+<td>todo</td>
+<td><code>SetFocus</code> on villagers and <code>RunText</code> work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The priest: "As a gesture of my belief, I offer my firstborn son to the altar." (waits for the player to click on)</td>
+<td>todo</td>
+<td><code>RunText</code> with interaction works; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The text clears and the camera pulls back over 3 seconds to take in the altar</td>
+<td>todo</td>
+<td><code>GameClearDialogue</code> and the camera moves work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Both advisors pop out. Evil: "Now that's what I call a gesture of belief!" The evil advisor then points at the altar while the good advisor answers: "But human sacrifice is wrong! Why not sacrifice something else? Like a plant." (waits for a click)</td>
+<td>todo</td>
+<td><code>SpiritEject</code>, <code>SpiritPointPos</code>, <code>RunText</code> work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The family go back to normal detail, the music stops and the scene ends</td>
+<td>partial</td>
+<td><code>SetHighGraphicsDetail</code>, <code>StopMusic</code>, <code>EndDialogue</code> work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-the-player-must-do">What the player must do</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The player must sacrifice 4000 worth of prayer power at the worship site, by whatever means, or choose to sacrifice or kill one of the family</td>
+<td>todo</td>
+<td>sacrificing at a worship site is not ported (<code>src/ECS/HeldApply.cpp</code>: the altar does not take what is dropped on it)</td>
+</tr>
+<tr>
+<td>What counts is the site's own running sacrifice total, read once after the introduction and then continually; only what is added after the introduction counts</td>
+<td>todo</td>
+<td><code>GetSacrificeTotal</code> is a stub; no worship site keeps a sacrifice total</td>
+</tr>
+<tr>
+<td>The script only reads the total, so anything that adds to it counts (trees, animals, villagers, the boy himself); it does not look at what was sacrificed</td>
+<td>todo</td>
+<td>no sacrifice total exists</td>
+</tr>
+<tr>
+<td>The developers' notes give the sacrifice values they planned around: a tree 250 to 1000, a decent animal 700 to 2000, a human 10,000 to 20,000, "so required is about 4K"</td>
+<td>n/a</td>
+<td>source comment only</td>
+</tr>
+<tr>
+<td>There is no time limit and nothing ends the quest except one of the outcomes below</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="rules-while-it-runs">Rules while it runs</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>While the boy is alive he cries every 4 seconds, a random one of eleven child-crying samples played at him, until the quest ends</td>
+<td>todo</td>
+<td>timers (<code>CreateTimer</code>, <code>GetTimerTimeRemaining</code>) and <code>PlaySoundEffect</code> work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Whenever the total rises, after 2 seconds the priest (if alive) judges the offering by how much it added: under 700 "Hmm. That didn't produce much prayer power."; 700 to 2000 "Yes. Feel the power."; over 2000 "That's a powerful sacrifice. A whole heap of prayer power has been stored from it."</td>
+<td>todo</td>
+<td>the judged amount comes from <code>GetSacrificeTotal</code>, a stub</td>
+</tr>
+<tr>
+<td>The first time an offering adds under 700, the evil advisor first grumbles "Bah, humbug!" (once per quest)</td>
+<td>todo</td>
+<td>needs the sacrifice total</td>
+</tr>
+<tr>
+<td>If the priest is dead when the total rises, only the evil advisor's "Bah, humbug!" is said, and only if not said before</td>
+<td>todo</td>
+<td>needs the sacrifice total</td>
+</tr>
+<tr>
+<td>Offerings made during the 2-second pause and the priest's line are added together and judged as one next time round</td>
+<td>todo</td>
+<td>needs the sacrifice total</td>
+</tr>
+<tr>
+<td>The scroll's progress is the amount sacrificed since the start divided by 4000, updated continually with alignment 0 and the same title and reminder; it is capped at 1 once 4000 is reached</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> is a stub; undetermined how an update with alignment 0 interacts with the 0.5 recorded when the boy is let go</td>
+</tr>
+<tr>
+<td>Each time round, if no ending has happened, the script notes which of the three (if any) the player is holding in the hand; this is how it later tells "sacrificed" from "killed"</td>
+<td>todo</td>
+<td><code>GetObjectHeld</code> is a stub</td>
+</tr>
+<tr>
+<td>An ending counts as a sacrifice when that person no longer exists and was the one in the hand the last time the script looked; a person who dies any other way (leaving a body) counts as killed</td>
+<td>todo</td>
+<td>needs <code>GetObjectHeld</code> and the altar sacrifice; undetermined: whether the altar removes a villager straight from the hand, which this test relies on</td>
+</tr>
+<tr>
+<td>The endings are checked in a fixed order: the priest first, then the priestess, then the boy; only if all three live are the boy's release and the 4000 total looked at</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="endings">Endings</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each death ending is a short scene: the camera is cut to the altar view, the line is said (waiting for a click), the record is closed fully done, and the camera is put back where it was</td>
+<td>todo</td>
+<td><code>SetCameraPosition</code> and <code>SetCameraFocus</code> work but <code>Snapshot</code> is a stub; the endings need the sacrifice</td>
+</tr>
+<tr>
+<td>The priest sacrificed: the boy blows a raspberry at his mother, who looks at the camera unimpressed: "It's what he would have wanted." Alignment +1</td>
+<td>todo</td>
+<td>needs the altar sacrifice; <code>Snapshot</code> stub</td>
+</tr>
+<tr>
+<td>The priest killed any other way: the same gestures, the priestess: "You killed my husband! But he was a good priest!" Alignment +0.5</td>
+<td>todo</td>
+<td>the endings need <code>GetObjectHeld</code>; <code>Snapshot</code> stub</td>
+</tr>
+<tr>
+<td>The priestess sacrificed: the boy blows a raspberry at his father, who looks at the camera unimpressed: "Ah, so you thought my wife'd make a better sacrifice. Interesting," Alignment 0</td>
+<td>todo</td>
+<td>needs the altar sacrifice</td>
+</tr>
+<tr>
+<td>The priestess killed any other way: the priest, unimpressed: "My wife! You do work in mysterious ways, don't you?" Alignment -0.2</td>
+<td>todo</td>
+<td>the endings need <code>GetObjectHeld</code>; <code>Snapshot</code> stub</td>
+</tr>
+<tr>
+<td>The boy sacrificed: the priest looks at the camera impressed, the priestess unimpressed: "Excellent. I knew sacrificing my lad would provide a huge power-boost." Alignment -1</td>
+<td>todo</td>
+<td>needs the altar sacrifice</td>
+</tr>
+<tr>
+<td>The boy killed any other way: the priest, defeated: "Er, you were supposed to sacrifice him on the altar. Such a waste." Alignment -1</td>
+<td>todo</td>
+<td>the endings need <code>GetObjectHeld</code>; <code>Snapshot</code> stub</td>
+</tr>
+<tr>
+<td>None of the death endings gives a reward, and the quest is over after any of them</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Reaching 4000 with all three alive: the camera glides to the altar over 4 seconds; after 2 the boy blows a raspberry at his father</td>
+<td>todo</td>
+<td>needs the sacrifice total</td>
+</tr>
+<tr>
+<td>The priest faces the camera: "The power from that sacrifice will remain stored until you need it." while he prays and the priestess cheers; the boy turns to the camera and does a mocking dance</td>
+<td>todo</td>
+<td>needs the sacrifice total</td>
+</tr>
+<tr>
+<td>The priest: "You allowed my son to live. I bow to your will." (waits for a click). The record is closed fully done with alignment +1</td>
+<td>todo</td>
+<td>needs the sacrifice total; <code>Snapshot</code> stub</td>
+</tr>
+<tr>
+<td>The reward then follows in its own scene (below)</td>
+<td>todo</td>
+<td><code>CreateRewardInTown</code> is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="letting-the-boy-go">Letting the boy go</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>If the boy is more than 100 from the altar and is neither in the hand nor flying (the player has carried him off and put him down), a scene cuts to the altar view and the priest, waiting impatiently: "We are awaiting a sacrifice." (waits for a click)</td>
+<td>todo</td>
+<td>the in-hand property (<code>GetProperty</code>) is not ported; flying is</td>
+</tr>
+<tr>
+<td>The record is updated: 0 done, alignment +0.5; the boy is let go from the script to live as an ordinary villager; this happens only once</td>
+<td>todo</td>
+<td><code>ReleaseFromScript</code> works; <code>UpdateSnapshot</code> is a stub; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Unlike the endings, this scene does not put the camera back where it was; it is left on the altar view</td>
+<td>todo</td>
+<td>the camera natives work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Letting him go does not end the quest: the 4000 total is still asked for, and the boy's later death still ends it with his "killed" (or "sacrificed") line and alignment -1</td>
+<td>todo</td>
+<td>needs the sacrifice total</td>
+</tr>
+<tr>
+<td>The parents are never let go by the script in any outcome; only the released boy goes back to normal village life</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="reward">Reward</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Only the 4000 ending gives one: a heal miracle chest, dropped from the sky at a spot about 20 in front of the altar</td>
+<td>todo</td>
+<td><code>CreateRewardInTown</code> is a stub; see <a href="../rewards.html">../rewards.md</a></td>
+</tr>
+<tr>
+<td>The chest is given "in" the Indian village whose centre is at the given spot (town id 12, the one the control script calls Town1, the nearest village), not the sacrificing family's village</td>
+<td>todo</td>
+<td><code>CreateRewardInTown</code> is a stub</td>
+</tr>
+<tr>
+<td>What the chest holds follows the reward rules: a town that can't yet cast heal learns it; if the player already has heal, the next heal power-up the player lacks is given (to that village)</td>
+<td>todo</td>
+<td>no reward chests; <a href="../rewards.html">../rewards.md</a> "Miracle rewards"</td>
+</tr>
+<tr>
+<td>The reward scene picks one of two camera shots at random (high, 80 up and 60 back, or low, 15 up and 15 back), glides in over 4 seconds, looks up for the falling chest, then follows it down from 25 up and 30 back</td>
+<td>todo</td>
+<td>the shared reward-from-sky script: the camera moves work but the chest is never made (<code>CreateRewardInTown</code> stub)</td>
+</tr>
+<tr>
+<td>Clicking the chest says its help line, if the dialogue is free (the first reward of the game would get the special first-reward lines instead, which can't happen by this land)</td>
+<td>todo</td>
+<td><code>GetHelp</code> is a stub and there is no chest</td>
+</tr>
+</tbody>
+</table>
+<h2 id="aftermath">Aftermath</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The prayer power given stays in the site's store like any other sacrifice</td>
+<td>todo</td>
+<td>no sacrifice store; see <a href="../../worship/prayer_power.html">../../worship/prayer_power.md</a></td>
+</tr>
+<tr>
+<td>On finishing, the script sets a land flag marking the sacrifice as completed; nothing in the shipped scripts reads it</td>
+<td>todo</td>
+<td>the flag is declared by the land's set-up script; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Nothing else in the land's story depends on the outcome</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="advisors-music-and-sounds">Advisors, music and sounds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The priest's lines are the "man" narrator voice, the priestess's the "woman" voice; the advisors use their own voices</td>
+<td>todo</td>
+<td>the voices are read past; see ../../scripts/info_scripts.md</td>
+</tr>
+<tr>
+<td>Clicking the active scroll again speaks its reminder, "These people await a sacrifice from you.", through the evil advisor</td>
+<td>todo</td>
+<td>the shared reminder script's natives (<code>SpiritEject</code>, <code>RunText</code>) work; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Music: the Gregorian chant script theme for the introduction only; the endings have none</td>
+<td>partial</td>
+<td><code>StartMusic</code> and <code>StopMusic</code> play and stop it; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Sounds: the boy's eleven crying samples, every 4 seconds while he lives</td>
+<td>partial</td>
+<td><code>PlaySoundEffect</code> works; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creature-involvement">Creature involvement</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The script never mentions the creature; whatever the creature sacrifices at the site adds to the same total, and a family member it kills counts as "killed" (it was not in the player's hand)</td>
+<td>todo</td>
+<td>no creature sacrifice and no sacrifice total</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-quirks">Script quirks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sacrificing the priest gives the best alignment of all (+1, the same as sparing everyone), better than killing him any other way (+0.5)</td>
+<td>todo</td>
+<td>needs the sacrifice</td>
+</tr>
+<tr>
+<td>The scroll and the family start at the Indian village's house, but the whole quest then takes place at the player's own altar across the land; the family is simply moved there in the fade</td>
+<td>todo</td>
+<td>the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The reward is given to a third village (town id 12), neither the family's nor the player's home</td>
+<td>todo</td>
+<td><code>CreateRewardInTown</code> stub</td>
+</tr>
+<tr>
+<td>The control script's comments disagree with its code: the comment on the village with id 10 says the sacrifice is "at town 2", the comment on the village with id 11 says it has "no challenge", yet the watcher is given the village with id 11, as is the developers' test script</td>
+<td>n/a</td>
+<td>comments only</td>
+</tr>
+<tr>
+<td>After the record line in the introduction the script waits for a line to be read though none is showing</td>
+<td>todo</td>
+<td><code>TextRead</code> works; the quest never starts: no Land 2 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A running total of all offerings is kept but never used</td>
+<td>n/a</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="other-modes-and-unused-material">Other modes and unused material</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every line of the quest's text (21 lines) is used; nothing is cut</td>
+<td>n/a</td>
+<td></td>
+</tr>
+<tr>
+<td>A developers' test script starts the quest on its own with the village with id 11; an unshipped land-one control script (one developer's copy) also started it</td>
+<td>n/a</td>
+<td>not started by the game</td>
+</tr>
+<tr>
+<td>A saved game keeps the family, the total read at the start and the record</td>
+<td>todo</td>
+<td>openblack has no saved games</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Wolves Are Possessed — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-wolves-are-possessed">The Wolves Are Possessed</a><ul>
+<li><a href="#how-it-starts">How it starts</a></li>
+<li><a href="#the-attack">The attack</a></li>
+<li><a href="#the-monk-helps">The monk helps</a></li>
+<li><a href="#what-the-player-must-do">What the player must do</a></li>
+<li><a href="#failure-the-wolves-reach-the-village">Failure: the wolves reach the village</a></li>
+<li><a href="#success">Success</a></li>
+<li><a href="#soft-locks-and-what-comes-next">Soft-locks and what comes next</a></li>
+<li><a href="#script-quirks">Script quirks</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-wolves-are-possessed">The Wolves Are Possessed</h1>
+<p>A gold story event on the third land: after the player has won two villages and stopped two of the creature's prison
+pillars, Lethys sends a pack of twenty possessed wolves at the Indian village. If the player has finished the monk's
+quest, the monk appears and turns most of the wolves into cows. The player must kill the rest before any reaches the
+village, or the village's faith swings to Lethys. It is logged in the story log under the monk's line "The wolves are
+possessed." (it has no title of its own) and has no scroll to click.</p>
+<p><strong>Land:</strong> 3 · <strong>Giver:</strong> Lethys (a cut scene; no scroll) · <strong>Script:</strong> FreeTheCreature (its wolf attack) · <strong>Reward:</strong> none; failing gives the Indian village to Lethys · <strong>Repeatable:</strong> no</p>
+<p>Part of freeing the creature: <a href="so_you_couldnt_bear_to_be_without_your_creature.html">so_you_couldnt_bear_to_be_without_your_creature.md</a>.
+The monk is the silver scroll <a href="../silver_scrolls/the_shaolin.html">../silver_scrolls/the_shaolin.md</a>. The land:
+<a href="../land_3.html">../land_3.md</a>.</p>
+<p>Sources: the land's challenge scripts (the original source text, which matches the shipped <code>challenge.chl</code>) and the
+game's text table. openblack never runs Land 3's control script (the land-loading command does nothing), and of what it
+needs, snapshots and belief changes are still stubs in <code>src/CHLApi.cpp</code> (flocks, animals, villagers and dialogue work),
+so every row is todo unless the notes say otherwise.</p>
+<p><strong>Progress: 0/28 done, 0 partial — 0%</strong></p>
+<h2 id="how-it-starts">How it starts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It is started by the creature's prison when exactly two pillars are down and the Indian village is the player's; if the Indian village is won third, it never happens</td>
+<td>todo</td>
+<td>the prison's pillars follow town ownership, read through stubs (<code>GetTownWithId</code>), so it is never started</td>
+</tr>
+<tr>
+<td>At the same moment, if the monk's quest is done, his Wonder gift is started</td>
+<td>todo</td>
+<td>follows from the same start; see <a href="../silver_scrolls/the_shaolin.html">../silver_scrolls/the_shaolin.md</a></td>
+</tr>
+<tr>
+<td>It logs to its own story-log entry, separate from freeing the creature, and switches back to the creature's entry when it ends</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>It waits 5 minutes, then waits until the Indian village is the player's (or gone)</td>
+<td>todo</td>
+<td>the town ownership read is a stub</td>
+</tr>
+<tr>
+<td>If all three pillars are down by then, nothing happens and the entry is simply marked complete</td>
+<td>todo</td>
+<td>the pillars never fall and the log is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-attack">The attack</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A pack is formed at a spot about 510 from the Indian village, towards the prison: wolves are made within 20 of it until there are 20, held loosely together (inner radius 5, outer 40)</td>
+<td>todo</td>
+<td><code>FlockCreate</code>, <code>FlockAttach</code> and <code>CREATE</code> of animals are real (<code>ecs::script_containers</code>, <code>CreateScriptObject</code>); never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>The pack sets off slowly (half speed) towards the Indian village</td>
+<td>todo</td>
+<td><code>MoveGameThing</code> and the speed are handled for animals; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>A cut scene with one of the generic quest tunes: the camera watches from behind and follows the pack. Lethys: "You may have your few believers." Lethys: "But I can still command the beasts of the wilderness."</td>
+<td>todo</td>
+<td><code>StartMusic</code>, the camera and <code>RunText</code> are real; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>The camera moves; the pack quickens a little (0.6)</td>
+<td>todo</td>
+<td>real camera natives and the speed; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-monk-helps">The monk helps</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Only if the monk's own quest has reached its end: the Tibetan town music plays, and after 4 seconds the monk appears near the pack's path facing the camera, playing his ambient animation five times</td>
+<td>todo</td>
+<td><code>StartMusic</code> and <code>CREATE</code> of a villager are real; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>Monk: "It seems you have need of me." Monk: "The wolves are possessed."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>The camera follows the pack again; wolves are taken from it until 8 are left. Each taken wolf, after 1 to 4 seconds, stops, a sparkle appears and it is replaced by a cow, which is let go</td>
+<td>todo</td>
+<td><code>FlockDetach</code>, <code>SpecialEffectObject</code> and <code>ObjectDelete</code> are real; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>Monk: "But I think I can help you. I will try to destroy some of the wolves." Monk: "That is all." The monk disappears</td>
+<td>todo</td>
+<td><code>RunText</code> and <code>ObjectDelete</code> are real; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>Without the monk, the scene just lasts 12 seconds more and all 20 wolves come</td>
+<td>todo</td>
+<td>the same script; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>The story-log entry is started at nothing done, its reminder the good advisor's "The Village is coming under attack!"</td>
+<td>todo</td>
+<td>the log entry is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-the-player-must-do">What the player must do</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Kill every wolf of the pack before any of them gets within 25 of the spot at the edge of the village; the check is every 5 seconds</td>
+<td>todo</td>
+<td><code>IdSize</code> and the distances are real; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>There is no time limit other than the wolves' walk</td>
+<td>todo</td>
+<td>the same script; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+</tbody>
+</table>
+<h2 id="failure-the-wolves-reach-the-village">Failure: the wolves reach the village</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The pack is let loose; a cut scene flies the camera to the village</td>
+<td>todo</td>
+<td>real camera natives; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>The story-log entry is marked complete (the source's own comment calls it "you have failed to save the town")</td>
+<td>todo</td>
+<td>the log is a stub</td>
+</tr>
+<tr>
+<td>The good advisor steps out and points: "The wolves have reached the Village!" then "The Villagers are switching allegiance!"</td>
+<td>todo</td>
+<td>advisors and texts are real; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>Lethys's belief in the Indian village is set to full and the player's to 0.3</td>
+<td>todo</td>
+<td><code>ObjectRelativeBelief</code> and <code>SetPlayerBelief</code> are stubs</td>
+</tr>
+<tr>
+<td>This can lose the village, raising its prison pillar again</td>
+<td>todo</td>
+<td>the beliefs and the pillars are stubbed; see <a href="so_you_couldnt_bear_to_be_without_your_creature.html">so_you_couldnt_bear_to_be_without_your_creature.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="success">Success</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>When the last wolf of the pack is dead the entry is marked complete; there is no line and no reward</td>
+<td>todo</td>
+<td>the log is a stub</td>
+</tr>
+<tr>
+<td>Either way the entry ends at complete with no alignment change, so the log cannot tell success from failure</td>
+<td>todo</td>
+<td>the log is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="soft-locks-and-what-comes-next">Soft-locks and what comes next</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>It cannot block the story: freeing the creature does not wait for it</td>
+<td>todo</td>
+<td>the same script; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>Losing the village only means winning it back</td>
+<td>todo</td>
+<td>the town ownership reads are stubs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-quirks">Script quirks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The second line after the wolves arrive belongs to the evil advisor in the text table, but only the good advisor has stepped out to say it</td>
+<td>todo</td>
+<td>the same script; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+<tr>
+<td>The wait for the village to be taken over has no pause in its loop</td>
+<td>todo</td>
+<td>the same script; never reached: Land 3 needs <code>LOAD_MAP</code>, and the prison only starts it when a pillar falls, which reads stubbed town ownership</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

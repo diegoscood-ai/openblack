@@ -1,7 +1,7 @@
 find_package(Python3 COMPONENTS Interpreter)
 
 add_executable(gen_info gen_info.cpp)
-target_include_directories(gen_info PRIVATE ../../src ${CXXOPTS_INCLUDE_DIRS})
+target_include_directories(gen_info PRIVATE ${PROJECT_SOURCE_DIR}/src ${CXXOPTS_INCLUDE_DIRS})
 set_property(TARGET gen_info PROPERTY FOLDER "tests")
 if (MSVC)
   target_compile_options(gen_info PRIVATE /utf-8)
@@ -93,8 +93,38 @@ set(QUEST_CHALLENGE_OUTPUT ${QUESTS_BINARY_DIR}/challenge.chl)
 
 # TODO: Combine all texture generating scripts into a single one
 
-add_custom_target(
-  generate_mock_game_data
+# The data is made again only when a script, a file of Scripts or a tool that
+# writes it changes, or when one of the files below is missing (the stamp is
+# written last)
+set(MOCK_GAME_DATA_STAMP ${CMAKE_CURRENT_BINARY_DIR}/mock_game_data.stamp)
+file(GLOB_RECURSE MOCK_SCRIPTS_FILES CONFIGURE_DEPENDS
+     ${CMAKE_CURRENT_SOURCE_DIR}/Scripts/*
+)
+set(MOCK_GAME_DATA_GENERATORS
+    ${CMAKE_CURRENT_SOURCE_DIR}/gen_meshes.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/gen_zeroed_file.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/Data/Landscape/gen_land_textures.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/Data/WeatherSystem/gen_sky.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/Data/Misc/gen_coffre.py
+)
+
+add_custom_command(
+  OUTPUT ${MOCK_GAME_DATA_STAMP}
+         ${ALL_MESHES_OUTPUT}
+         ${ALL_ANIMATIONS_OUTPUT}
+         ${HAND_BASE_OUTPUT}
+         ${TERRAIN_LAND_1_OUTPUT}
+         ${TERRAIN_LAND_MPM_2P_1_OUTPUT}
+         ${SKY_OUTPUT}
+         ${COFFRE_MESH_OUTPUT}
+         ${COFFRE_ANIM_OUTPUT}
+         ${CONE_MESH_OUTPUT}
+         ${MARKER_MESH_OUTPUT}
+         ${RIVER_MESH_OUTPUT}
+         ${RIVER2_MESH_OUTPUT}
+         ${SPHERE_MESH_OUTPUT}
+         ${INFO_DAT_OUTPUT}
+         ${QUEST_CHALLENGE_OUTPUT}
   COMMAND ${CMAKE_COMMAND} -E make_directory ${AUDIO_BINARY_DIR}
   COMMAND ${CMAKE_COMMAND} -E make_directory ${DATA_BINARY_DIR}
   COMMAND ${CMAKE_COMMAND} -E make_directory ${TEXTURES_BINARY_DIR}
@@ -158,7 +188,8 @@ add_custom_target(
     lndtool write -o ${TERRAIN_LAND_1_OUTPUT} --terrain-type ${TERRAIN_TYPE}
     --noise-map ${TERRAIN_NOISE_MAP} --bump-map ${TERRAIN_BUMP_MAP}
     --material-array=${TERRAIN_MATERIAL_LIST} --points
-    "1788.40 28.9173050 2710.00"
+    "1788.40 28.9173050 2710.00" --points "1798.40 28.9173050 2710.00" --points
+    "1788.40 28.9173050 2720.00" --points "1798.40 28.9173050 2720.00"
   COMMAND
     lndtool write -o ${TERRAIN_LAND_MPM_2P_1_OUTPUT} --terrain-type
     ${TERRAIN_TYPE} --noise-map ${TERRAIN_NOISE_MAP} --bump-map
@@ -203,6 +234,14 @@ add_custom_target(
     Python3::Interpreter
     ${CMAKE_CURRENT_SOURCE_DIR}/Scripts/Quests/gen_challenge.py --output-file
     ${QUEST_CHALLENGE_OUTPUT}
+  COMMAND ${CMAKE_COMMAND} -E touch ${MOCK_GAME_DATA_STAMP}
+  DEPENDS ${MOCK_GAME_DATA_GENERATORS}
+          ${MOCK_SCRIPTS_FILES}
+          gen_info
+          l3dtool
+          anmtool
+          lndtool
+          packtool
   COMMENT "Generating mock game data in ${CMAKE_CURRENT_BINARY_DIR}"
   BYPRODUCTS ${HAND_BASE_MESH_FILE}
              ${SKY_MESH_FILE}
@@ -222,6 +261,10 @@ add_custom_target(
              ${RIVER_INPUT}
              ${RIVER2_INPUT}
              ${SPHERE_INPUT}
+)
+add_custom_target(
+  generate_mock_game_data
+  DEPENDS ${MOCK_GAME_DATA_STAMP}
   SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/gen_meshes.py
           ${CMAKE_CURRENT_SOURCE_DIR}/gen_zeroed_file.py
           ${CMAKE_CURRENT_SOURCE_DIR}/Data/Landscape/gen_land_textures.py

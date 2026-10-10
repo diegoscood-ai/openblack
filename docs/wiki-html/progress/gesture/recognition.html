@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gesture recognition — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="here" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#gesture-recognition">Gesture recognition</a><ul>
+<li><a href="#the-gesture-templates">The gesture templates</a></li>
+<li><a href="#recording-the-hands-path">Recording the hand's path</a></li>
+<li><a href="#matching-a-path-with-the-templates">Matching a path with the templates</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="gesture-recognition">Gesture recognition</h1>
+<p>The game records the path the hand's cursor takes across the screen and compares it with a file of gesture templates
+to tell when the player has drawn a shape such as a circle, a spiral or a scribble. It only ever checks for the
+gestures it is waiting for at that moment.</p>
+<p><strong>Progress: 29/34 done, 3 partial — 90%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../magic.html">Magic: the core of the miracles</a>.</p>
+<h2 id="the-gesture-templates">The gesture templates</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The templates are read once at start-up from <code>Data\Gestures.jty</code></td>
+<td>done</td>
+<td><code>src/Magic/Gestures/GestureTemplates.cpp</code> (<code>Templates</code>, <code>LoadTemplates</code>): the bytes loaded once through the resource cache (<code>GestureTemplatesLoader</code>) and read by the gestures component's <code>GestureFile</code> (<code>components/gestures</code>); tests <code>GestureTemplatesLoader.readsTheRecordsOfTheBytes</code>, <code>Gestures.realData</code>, <code>GestureFile.GivesTheRecogniserTheFormerParseOfTheGamesTemplates</code></td>
+</tr>
+<tr>
+<td>The file holds 81 templates for 23 gesture kinds, several templates per kind (ten hearts, eleven R shapes, nine threes …) so loose drawings still match</td>
+<td>done</td>
+<td><code>GestureTemplates.cpp</code> through <code>GestureFile</code>; tests <code>Gestures.realData</code> (the 81 records of the real file; each player miracle gesture recognises its own stroke only), <code>GestureFile.ReadsTheGamesTemplates</code></td>
+</tr>
+<tr>
+<td>The square spiral and square wave templates added for Creature Isle are in the file and recognised</td>
+<td>done</td>
+<td>Loaded with the rest of the file and matched like any template (<code>src/Magic/Gestures/GestureMatch.cpp</code>); the square spiral is recognised in <code>Gestures.realData</code>. Nothing waits for its leash use yet (see <a href="leash_gestures.html">leash_gestures.md</a>)</td>
+</tr>
+<tr>
+<td>Each template stores its points normalised to a unit square, the turn at each point and the heading leaving it in eighths of a turn</td>
+<td>done</td>
+<td><code>KeySample</code> (point, turn, direction) in <code>src/Magic/Gestures/GestureTemplates.h</code></td>
+</tr>
+<tr>
+<td>Each template says whether it may be drawn mirrored (only the circle and the star), whether the starting direction matters and whether the shape's width against its height matters</td>
+<td>done</td>
+<td><code>checkDirection</code>, <code>allowReverse</code>, <code>checkAspect</code> in <code>GestureTemplates.h</code>, used by <code>src/Magic/Gestures/GestureMatch.cpp</code>; test <code>Gestures.syntheticTemplates</code> (the mirror only with allowReverse)</td>
+</tr>
+<tr>
+<td>The template file can be written back, as the developers' in-game recording tool did</td>
+<td>partial</td>
+<td><code>GestureFile::Write</code> (<code>components/gestures</code>) writes the file back byte for byte (tests <code>GestureFile.WritesAndReadsBackTheSameTemplates</code>, <code>GestureFile.ReadsTheGamesTemplates</code>), but nothing in the game calls it and there is no recording tool</td>
+</tr>
+</tbody>
+</table>
+<h2 id="recording-the-hands-path">Recording the hand's path</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The cursor is sampled about 34 times a second (every 28 ms), at the game's pace rather than the frame rate</td>
+<td>done</td>
+<td><code>src/Magic/Gestures/GestureInput.cpp</code> (<code>sampling::Update</code>: a sample per 28 ms of mouse-event time; approximate: a frame in which the mouse moved stands for a mouse event)</td>
+</tr>
+<tr>
+<td>No mouse button needs to be held: the path is recorded whenever the cursor moves</td>
+<td>done</td>
+<td><code>GestureInput.cpp</code>: a sample whenever the cursor moves, no button tested</td>
+</tr>
+<tr>
+<td>The last 80 samples are kept, older ones fall off</td>
+<td>done</td>
+<td><code>GestureSystem</code>, a ring of 80, in <code>src/Magic/Gestures/GestureBuffer.h</code></td>
+</tr>
+<tr>
+<td>Each sample also remembers the point of land under it, so a gesture can be placed in the world</td>
+<td>done</td>
+<td><code>Sample::world</code>, filled by <code>gestures::FeedSample</code> in <code>src/Magic/Gestures/PowerUpSystem.cpp</code></td>
+</tr>
+<tr>
+<td>Over the sky or off the land, the last land point is kept with the new screen point</td>
+<td>done</td>
+<td><code>GestureSystem::AddSampleAtLastWorld</code> (<code>GestureBuffer.cpp</code>), called by <code>FeedSample</code> when the cursor is off the land</td>
+</tr>
+<tr>
+<td>Holding the cursor still for about two seconds (70 identical samples) forgets the path</td>
+<td>done</td>
+<td><code>GestureSystem::k_StationaryLimit</code> (<code>GestureBuffer.cpp</code>); test <code>Gestures.stationaryWipe</code></td>
+</tr>
+<tr>
+<td>Corners are found as the path is drawn: the sample where the path turns most since the last corner, if it turns at least about 17 degrees</td>
+<td>done</td>
+<td><code>GestureSystem::FindCorner</code> with <code>k_CornerTurn</code> (<code>GestureBuffer.cpp</code>); test <code>Gestures.cornersOfASquare</code></td>
+</tr>
+<tr>
+<td>Samples closer than 4 pixels on both axes count as the same place</td>
+<td>done</td>
+<td><code>GestureSystem::Far</code> (<code>GestureBuffer.cpp</code>)</td>
+</tr>
+<tr>
+<td>A corner too close to the one before (under 12 pixels, or 4 pixels when the last stretch is small) is merged into it, keeping the sharper turn</td>
+<td>done</td>
+<td><code>GestureSystem::MergeOrReject</code> and <code>LongEnough</code> (12 px, or 4 px under a 50 px recent box) in <code>GestureBuffer.cpp</code></td>
+</tr>
+<tr>
+<td>Each corner records the turn from the way in to the way out, and the way out as one of eight directions</td>
+<td>done</td>
+<td><code>GestureSystem::UpdateHeading</code>, <code>Octant</code>, <code>RoundHalfDown</code> (<code>GestureBuffer.cpp</code>); test <code>Gestures.octant</code></td>
+</tr>
+<tr>
+<td>Pixel distances are measured on the actual screen</td>
+<td>done</td>
+<td>Our tree measures in the window's own pixels (<code>input::GameCursor</code>), as the original does, with no rescaling</td>
+</tr>
+<tr>
+<td>After a gesture is recognised the path is forgotten and nothing is recorded for 0.4 seconds</td>
+<td>done</td>
+<td><code>gestures::Success</code> clears the buffer and starts the 0.4 s cooldown; <code>FeedSample</code> takes nothing meanwhile (<code>PowerUpSystem.cpp</code>)</td>
+</tr>
+<tr>
+<td>Moving the camera forgets the path being drawn, except while the camera is shaking</td>
+<td>partial</td>
+<td><code>ProcessPowerUpSystem</code> clears the buffer whenever the camera's position changed (<code>sampling::CameraMoving</code>); the position read includes the shake offset, so a shaking camera wipes it too (unconfirmed what the original does while shaking)</td>
+</tr>
+<tr>
+<td>A camera that follows something, or the camera of a creature fight in an arena, lets the player keep drawing while it moves</td>
+<td>todo</td>
+<td><code>ProcessPowerUpSystem</code> has no camera mode that lets the player gesture while moving (no follow or arena camera)</td>
+</tr>
+<tr>
+<td>Nothing is recorded while the hand is not over the world: in the temple, in cut scenes, with the interface off</td>
+<td>partial</td>
+<td>Only the pause stops sampling (<code>FeedSample</code>); the original's early outs (inside the temple, inactive interface, cut scenes) are not ported (comment in <code>ProcessPowerUpSystem</code>)</td>
+</tr>
+<tr>
+<td>Pressing the button during a creature fight forgets the path</td>
+<td>todo</td>
+<td><code>ProcessPowerUpSystem</code> has <code>fighting = false</code>: no fight interface for the player</td>
+</tr>
+<tr>
+<td>Starting a cast on release or a power-up starts the path again from the current point</td>
+<td>done</td>
+<td><code>gestures::ReseedBuffer</code> from <code>HandSystem::BeginApplyOnRelease</code> (<code>src/ECS/Systems/Implementations/HandSpellSeed.cpp</code>) and from <code>SetupPowerUpGestures</code> (<code>src/Magic/Core/SpellSeed.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="matching-a-path-with-the-templates">Matching a path with the templates</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Only the gestures being waited for are checked, in a fixed order; the first one recognised is acted on and there is no best-match search</td>
+<td>done</td>
+<td><code>gestures::ProcessPowerUpSystem</code> in <code>src/Magic/Gestures/PowerUpSystem.cpp</code>: circle, power-ups or selection, scribble, spirals, R, each returning on the first success</td>
+</tr>
+<tr>
+<td>A gesture's templates are tried in the file's order and the first that fits is taken</td>
+<td>done</td>
+<td><code>MatchGesture</code> in <code>src/Magic/Gestures/GestureMatch.cpp</code></td>
+</tr>
+<tr>
+<td>A template fits when the turns at the path's corners add up to the template's turns, never straying by more than about 34 degrees on the way</td>
+<td>done</td>
+<td><code>MatchForward</code> and <code>MatchMirror</code> with the maximum error (3/16 of a half turn) in <code>GestureMatch.cpp</code>; test <code>Gestures.syntheticTemplates</code></td>
+</tr>
+<tr>
+<td>A small turn (under about 30 degrees) on either side may be skipped when that brings the two closer</td>
+<td>done</td>
+<td><code>k_SmallTurn</code> (21/128 of a half turn) in <code>GestureMatch.cpp</code></td>
+</tr>
+<tr>
+<td>The match may start at any corner of the path, so a stroke drawn before the gesture does not spoil it</td>
+<td>done</td>
+<td><code>MatchForward</code> tries every keypoint as the start (<code>GestureMatch.cpp</code>)</td>
+</tr>
+<tr>
+<td>Templates that check direction need the path to set off the same way as the template</td>
+<td>done</td>
+<td><code>DirectionMatches</code> in <code>GestureMatch.cpp</code></td>
+</tr>
+<tr>
+<td>A circle or a star drawn the other way round is recognised as its mirror image</td>
+<td>done</td>
+<td><code>MatchMirror</code> for templates with <code>allowReverse</code>; test <code>Gestures.realData</code> (CIRCLE and STAR mirrored)</td>
+</tr>
+<tr>
+<td>Templates that check their shape need the path to be about as wide against its height (very tall, very wide, or in between)</td>
+<td>done</td>
+<td><code>AspectFits</code> in <code>GestureMatch.cpp</code> (the three aspect classes)</td>
+</tr>
+<tr>
+<td>A gesture can be drawn anywhere on the screen and at any size</td>
+<td>done</td>
+<td>Keypoints are compared by their turns and directions only; tests <code>Gestures.syntheticTemplates</code>, <code>GesturesMenu.ADrawnTemplateMatchesItsGestureOnly</code></td>
+</tr>
+<tr>
+<td>A recognised gesture is placed on the land under the middle of the box round the samples it was drawn with</td>
+<td>done</td>
+<td><code>PacketFromResult</code> in <code>GestureMatch.cpp</code> (the land under the centre of the matched samples' box)</td>
+</tr>
+<tr>
+<td>A circle's size is the half width of its box, measured across the land at the depth of its middle, a little enlarged</td>
+<td>done</td>
+<td><code>PacketFromResult</code>: 1.05 x the half width of the box at that distance; used as the circle's size by <code>ProcessPowerUpSystem</code></td>
+</tr>
+<tr>
+<td>Recognised gestures are sent to the other players in a network game with where they were drawn</td>
+<td>n/a</td>
+<td>No network play</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

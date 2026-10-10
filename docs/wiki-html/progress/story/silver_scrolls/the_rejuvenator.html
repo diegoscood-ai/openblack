@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Rejuvenator — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-rejuvenator">The Rejuvenator</a><ul>
+<li><a href="#how-it-appears">How it appears</a></li>
+<li><a href="#the-introduction">The introduction</a></li>
+<li><a href="#rejuvenating-three-villagers">Rejuvenating three villagers</a></li>
+<li><a href="#hut-and-woman-rules-both-stages">Hut and woman rules (both stages)</a></li>
+<li><a href="#the-transformation">The transformation</a></li>
+<li><a href="#the-swap-offer">The swap offer</a></li>
+<li><a href="#killing-the-woman">Killing the woman</a></li>
+<li><a href="#aftermath-advisors-and-music">Aftermath, advisors and music</a></li>
+<li><a href="#bugs-quirks-and-unused-parts">Bugs, quirks and unused parts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-rejuvenator">The Rejuvenator</h1>
+<p>A third-land silver scroll that appears once the player wins the Egyptian village: an old woman at a lone hut can turn
+old villagers back into children. After she has rejuvenated three, bringing her a child makes her magic go wrong: the
+hut blows up and the child becomes an ape creature (a chimp if the player's creature already is an ape), which the
+player can swap their creature for. Killing her ends the quest with no creature.</p>
+<p><strong>Land:</strong> 3 · <strong>Giver:</strong> an old woman at a lone Celtic hut, a one-house neutral village · <strong>Script:</strong> SwapToApe · <strong>Reward:</strong> an ape creature to swap to (a chimp if the player's creature is an ape) · <strong>Repeatable:</strong> no (the swap offer itself never ends)</p>
+<p>Sources: the quest's script (the original source text, checked line by line against the decompile of the PC game's
+compiled <code>challenge.chl</code>), Land 3's control, set-up and map scripts, the game's text table and its species list.
+openblack is judged on this tree: the quest's challenge-record, disciple and creature commands are stubs in
+<code>src/CHLApi.cpp</code> (they only log "not implemented"), <code>Create</code> makes villagers but no creatures (<code>CreateScriptObject</code>),
+and <code>SwapCreature</code> is a stub. The land-loading command does nothing, so Land 3's control script, which starts this
+quest, never runs. Every row is todo unless the notes say otherwise. The land is in <a href="../land_3.html">../land_3.md</a>; the
+swap that ends the quest is described in full in <a href="./creature_swaps.html">creature_swaps.md</a>.</p>
+<p><strong>Progress: 0/57 done, 6 partial — 5%</strong></p>
+<h2 id="how-it-appears">How it appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The quest's script is started by the land's control script as soon as the player has come through the vortex onto the land</td>
+<td>todo</td>
+<td><code>LandControl3</code> never runs: <code>LOAD_MAP</code> is empty (<a href="../../../map-loading.html#pending">map-loading</a>)</td>
+</tr>
+<tr>
+<td>It then checks every 10 seconds whether the Egyptian village (Lethys's at the start) belongs to the player; nothing shows until it does</td>
+<td>todo</td>
+<td>reading a town's owner (<code>GetProperty</code> player) is not ported; no other condition, so it can appear while the creature is still Lethys's prisoner</td>
+</tr>
+<tr>
+<td>Once the Egyptian village is the player's, the challenge is registered and a silver scroll appears 4 above the lone Celtic hut, some 440 from the Egyptian village</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> and the height property (<code>SetProperty</code> y position) work; <code>Snapshot</code> is a stub; the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Until the scroll or the hut is clicked, whenever the camera is within 100 of the scroll and it is on screen, the evil advisor steps out at most every 30 seconds, points at it and says "A Silver Reward Scroll. Let's see what it's all about."</td>
+<td>todo</td>
+<td>the shared notify script's natives work (<code>SpiritEject</code>, <code>SpiritPointPos</code>, <code>RunText</code>); the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Clicking the scroll or the hut makes the scroll active and the quest goes on; no time limit before that</td>
+<td>todo</td>
+<td><code>GameThingClicked</code> and <code>SetActive</code> on a highlight work; the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-introduction">The introduction</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>An old woman (a Norse housewife) comes out of the hut</td>
+<td>todo</td>
+<td><code>Create</code> makes villagers; the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A cut scene with the "spooky" script music starts; the camera glides up and out to look at her (3 seconds)</td>
+<td>partial</td>
+<td>the music command plays the track (<code>StartMusic</code>, <code>src/Audio/GameMusic.cpp</code>); the scene never runs</td>
+</tr>
+<tr>
+<td>After 2 seconds the camera moves to a low view in front of the hut (4 seconds) as she walks to a spot about 4 in front of the door</td>
+<td>todo</td>
+<td><code>MoveCameraPosition</code> and <code>MoveGameThing</code> work; the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>When she is there the camera centres on her head (3 seconds) and she turns to face it</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The challenge record opens: title "The Rejuvenator", progress 0, reminder "This woman is giving people the power of youth." (good advisor)</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>She gossips (animation) as the camera closes right in over 8 seconds: "Oooh 'Ello. Pleased to meet you. I can make the old young."</td>
+<td>todo</td>
+<td>the villagers' script animations and <code>RunText</code> work; the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A second gossip animation: "Bring me an old Villager and I'll wind back the years. Oh yes." (spoken in the game's "with interaction" form; undetermined what that changes for the player)</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The camera goes back to where the player had it (5 seconds for the position, 4 for the focus) while she starts wandering around her spot, within 6 of it</td>
+<td>todo</td>
+<td><code>SetScriptStatePos</code> and <code>SetScriptFloat</code> (the wander) are stubs</td>
+</tr>
+<tr>
+<td>Good advisor: "I don't like this old bat at all."; evil advisor: "I say we try her out. It might hurt people."</td>
+<td>todo</td>
+<td><code>SpiritEject</code> and <code>RunText</code> work; the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The music stops and the scene ends</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="rejuvenating-three-villagers">Rejuvenating three villagers</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The player brings villagers to her, normally by carrying them in the hand and putting them down near the hut</td>
+<td>partial</td>
+<td>carrying villagers works in our hand (<code>src/ECS/Systems/Implementations/HandSystem.cpp</code>); the quest's checks never run</td>
+</tr>
+<tr>
+<td>Every 3 seconds the quest picks one villager within 20 of the hut that no script is using</td>
+<td>todo</td>
+<td><code>CreateTimer</code> and <code>CallNear</code> work; undetermined which villager is picked when there are several; the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>It acts only when that villager is not in the hand and has more than 5% health, and the woman is not in the hand and is within 20 of the hut</td>
+<td>todo</td>
+<td>the in-hand and health properties (<code>GetProperty</code>) are not ported</td>
+</tr>
+<tr>
+<td>A villager aged 13 or younger: the woman says "They're not old enough. Hardly worth the bother." and the quest waits until that villager is more than 20 from the hut, or 20 seconds</td>
+<td>todo</td>
+<td>needs the in-hand and health reads</td>
+</tr>
+<tr>
+<td>An older villager is rejuvenated in a cut scene: the camera cuts to a view by the hut and creeps sideways over 10 seconds</td>
+<td>partial</td>
+<td>the camera cut works (<code>SetCameraPosition</code>, <code>SetCameraFocus</code> in <code>src/CHLApi.cpp</code>); the scene never runs</td>
+</tr>
+<tr>
+<td>The villager and the woman both walk very slowly (speed 0.2) to the hut's door</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>When both are within 1 of it: a spell-success sparkle for 4 seconds, a light camera shake (radius 20, strength 0.1, 1 second), and the villager becomes four years old and loses their job</td>
+<td>todo</td>
+<td><code>SetDisciple</code> is a stub; the age property, <code>ShakeCamera</code> and <code>SpecialEffectObject</code> work</td>
+</tr>
+<tr>
+<td>A second later the child walks to the woman's spot in front of the hut; when the camera has finished its move it cuts back to where the player had it, and the woman wanders again</td>
+<td>partial</td>
+<td>the camera cut back works; the scene never runs</td>
+</tr>
+<tr>
+<td>The child is then let go to live as a normal villager</td>
+<td>todo</td>
+<td><code>ReleaseFromScript</code> works; the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>After three villagers are rejuvenated the woman says "Phew. All this work has made me feel dizzy." and the record moves to half done</td>
+<td>todo</td>
+<td><code>UpdateSnapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>There is no time limit; villagers of any tribe count</td>
+<td>todo</td>
+<td>read from the script; the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="hut-and-woman-rules-both-stages">Hut and woman rules (both stages)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>If the hut is damaged (its health drops below what it was when she came out) and the camera is within 100 with the hut on screen, she says "Oh come on! Leave my hut alone!"; this is checked only once, so damage seen from far away uses it up silently</td>
+<td>todo</td>
+<td>the health read is not ported</td>
+</tr>
+<tr>
+<td>If the woman is thrown, while she flies the camera follows her and the game runs at half speed, until she lands</td>
+<td>todo</td>
+<td><code>SetGameSpeed</code> and the camera follow natives work, but the flying check needs the in-hand read; the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The script never sets the game speed back to normal after her flight (undetermined whether ending the scene restores it)</td>
+<td>todo</td>
+<td>undetermined whether ending the scene restores it; the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>While she is in the hand, or more than 20 from the hut, nothing happens</td>
+<td>todo</td>
+<td>the in-hand read is not ported</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-transformation">The transformation</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No hint is given: the next step is to bring a child; every 3 seconds the quest picks a child within 20 of the hut that no script is using, and acts if it is alive, the woman isn't in the hand and is within 20 of the hut</td>
+<td>todo</td>
+<td>the evil advisor's hint "We should bring her a kid, Boss. See what happens." is commented out as giving it away; the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The three children she just made are let go beside her and count, so the transformation can follow at once without the player bringing anyone</td>
+<td>todo</td>
+<td>read from the script; the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A cut scene: the woman is drawn in high detail, sound effects are switched on, the camera cuts to a view of the hut and both walk to its door</td>
+<td>partial</td>
+<td>the cut works (<code>SetCameraPosition</code>, <code>SetCameraFocus</code>); the scene never runs</td>
+</tr>
+<tr>
+<td>When the child is within 1 of the door: the short epic sting plays, the camera shakes (4 seconds) and a spell-success sparkle covers the child for 5 seconds</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A second later the woman walks back to her spot (speed 0.4); after 2 seconds she turns to the hut, scared stiff, and the hut explodes and is gone</td>
+<td>todo</td>
+<td><code>ObjectDelete</code> works; the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Half a second later an ape creature appears where the child stood, or a chimp if the player's creature is already an ape; the child is removed</td>
+<td>todo</td>
+<td>CHL <code>Create</code> makes no creatures (<code>CreateScriptObject</code> in <code>src/CHLApi.cpp</code>); <code>CreatureArchetype::Create</code> builds both species, but our species list numbers the ape differently from the scripts (the scripts' ape is number 0, which our <code>Enums.h</code> calls Unknown; ours is <code>GiantApe</code>)</td>
+</tr>
+<tr>
+<td>She turns to the creature, scared stiff again; a second later the record closes as a success (progress 1, alignment 0.3 towards evil) and its reminder becomes "But it's a special Creature. We can swap our Creature to it."</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub; no creature is made</td>
+</tr>
+<tr>
+<td>The woman: "Oops. I've created a Creature. Sorry. What a faux pas." and she walks off towards the Egyptian village</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Good advisor: "But it's a special Creature. We can swap our Creature to it."; evil advisor: "Yeah? I suppose we bring our boy over and click on it." (the last token is the action-button picture); good advisor: "Precisely."</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The camera cuts back to where the player had it, the music stops and the scene ends; the quest's scroll is removed</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The woman is removed the moment she is off screen</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-swap-offer">The swap offer</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A silver scroll appears over the new creature, which keeps turning to look at the camera; when the camera is near, the evil advisor says "Swap your Creature with this one if you want." at most once a minute</td>
+<td>todo</td>
+<td>the shared swap script; full detail in <a href="./creature_swaps.html">creature_swaps.md</a></td>
+</tr>
+<tr>
+<td>Clicking it with the player's creature further than 50 away: "You'll need to bring our Creature, Boss."</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Otherwise the two creatures meet, the good advisor asks to confirm and clicking the new creature confirms, clicking the player's own cancels</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>On confirmation the creature's mind moves into the ape (or chimp) in a short scene, and the evil advisor says "Great, Boss. If you want your old Creature back, just return here later."</td>
+<td>todo</td>
+<td><code>SwapCreature</code> is a stub; our tree cannot move the player's creature's mind into another body</td>
+</tr>
+<tr>
+<td>The old body stays under a scroll and the offer never ends, so the player can swap back and forth</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="killing-the-woman">Killing the woman</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>If the woman dies at any point before the transformation, the quest ends: the record closes as finished (progress 1) with alignment fully evil, and no creature is made</td>
+<td>todo</td>
+<td>the health read is not ported; <code>Snapshot</code> stub</td>
+</tr>
+<tr>
+<td>Evil advisor: "You killed her. Don't feel bad. I'd have done the same. Ha."; good advisor: "Oh when will the horror ever end? Don't answer that, evil one."</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The scroll over the hut is not removed in this case (undetermined whether the game removes it when the script ends)</td>
+<td>todo</td>
+<td>undetermined whether the game removes it when the script ends</td>
+</tr>
+</tbody>
+</table>
+<h2 id="aftermath-advisors-and-music">Aftermath, advisors and music</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hut is destroyed for good; the rejuvenated villagers stay children and grow up normally</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The reminder line, replayed by clicking the scroll, is spoken by the good advisor</td>
+<td>todo</td>
+<td>the shared reminder script; the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Music: the "spooky" script track for the introduction, the short epic sting for the transformation</td>
+<td>partial</td>
+<td><code>StartMusic</code> works; counted in the scene rows; the scene never runs</td>
+</tr>
+<tr>
+<td>There is no reward chest; the creature is the reward</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The player's creature only matters for its species (ape gives a chimp) and for the swap</td>
+<td>todo</td>
+<td>the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="bugs-quirks-and-unused-parts">Bugs, quirks and unused parts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A rejuvenated child is let go near the hut, so the next check of the first stage can pick it again and the woman says "They're not old enough. Hardly worth the bother.", pausing the quest up to 20 seconds (undetermined whether the villager search also returns children)</td>
+<td>todo</td>
+<td>read from the script; the quest never starts: no Land 3 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The opening record line was first written before the cut scene and moved inside it; a closing record line after the swap is commented out</td>
+<td>n/a</td>
+<td>source history only</td>
+</tr>
+<tr>
+<td>The text table has no lines numbered 1, 6 or 7 for this quest, and line 17 (the evil advisor's hint) exists but is never said</td>
+<td>n/a</td>
+<td>cut material</td>
+</tr>
+<tr>
+<td>The source creates a plain "female" villager; the compiled game turns that into a Norse housewife</td>
+<td>n/a</td>
+<td>data detail</td>
+</tr>
+<tr>
+<td>The record's alignment is mildly evil for a successful transformation and fully evil for killing her</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>A saved game keeps the stage, the woman and the offer</td>
+<td>todo</td>
+<td>openblack has no saved games</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editor — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="here" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#editor">Editor</a><ul>
+<li><a href="#layout">Layout</a></li>
+<li><a href="#tools-and-time">Tools and time</a></li>
+<li><a href="#cameras">Cameras</a></li>
+<li><a href="#outliner-and-inspector">Outliner and inspector</a></li>
+<li><a href="#palette">Palette</a></li>
+<li><a href="#changing-the-land-itself">Changing the land itself</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="editor">Editor</h1>
+<p>openblack's in-game editor, toggled with F2: a tool bar, an outliner, an inspector and tabs for the palette and the
+scripts' log, round the view of the world, where the mouse picks, moves, turns and places things. The Log tab and the
+debug bar's Scripts window are in <a href="script_debugger.html">script_debugger.md</a>.</p>
+<p><strong>Progress: 25/32 done, 1 partial — 80%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../openblack-internals.html">openblack internals</a>.</p>
+<h2 id="layout">Layout</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>F2 opens and closes it; closed, the game runs as without it</td>
+<td>done</td>
+<td><code>src/Editor/EditorWindow.cpp</code></td>
+</tr>
+<tr>
+<td>Tool bar along the top, wrapping onto more rows on a narrow window</td>
+<td>done</td>
+<td><code>EditorWindow::DrawToolbar</code></td>
+</tr>
+<tr>
+<td>Outliner, inspector and the bottom tabs can each be shown or hidden</td>
+<td>done</td>
+<td><code>src/Editor/EditorWindow.cpp</code></td>
+</tr>
+<tr>
+<td>Its keys only act while it is open and the mouse is over the world</td>
+<td>done</td>
+<td><code>EditorWindow::TakesEvent</code></td>
+</tr>
+<tr>
+<td>Its colours shared by every panel</td>
+<td>done</td>
+<td><code>src/Editor/EditorStyle.h</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="tools-and-time">Tools and time</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Select (W), move (E), rotate (R) and the game's own hand (H)</td>
+<td>done</td>
+<td><code>src/Editor/EditorWindow.cpp</code></td>
+</tr>
+<tr>
+<td>Dragging a picked thing over the land, and turning it about the up axis</td>
+<td>done</td>
+<td><code>src/Editor/EditorMath.cpp</code>; tests <code>EditorMath.*</code></td>
+</tr>
+<tr>
+<td>Snapping for moving and turning, set from the tool bar</td>
+<td>done</td>
+<td><code>SnapPoint</code>, <code>SnapAngle</code> (<code>src/Editor/EditorMath.cpp</code>)</td>
+</tr>
+<tr>
+<td>Duplicate (D) and Delete, removing what the thing alone owns</td>
+<td>done</td>
+<td><code>src/Editor/EditorEntities.cpp</code></td>
+</tr>
+<tr>
+<td>Put a thing back on the ground</td>
+<td>done</td>
+<td>"Ground" (<code>src/Editor/EditorWindow.cpp</code>)</td>
+</tr>
+<tr>
+<td>Pause and play the game, and step one turn (.) while paused</td>
+<td>done</td>
+<td>"Pause" or "Play", and the step key (<code>src/Editor/EditorWindow.cpp</code>); test <code>EditorSystemStep.*</code></td>
+</tr>
+<tr>
+<td>Boxes round the picked thing and the one under the mouse</td>
+<td>done</td>
+<td><code>src/Editor/EditorWindow.cpp</code></td>
+</tr>
+<tr>
+<td>Undo and redo</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Picking several things at once</td>
+<td>todo</td>
+<td>one thing at a time (<code>src/Editor/EditorSelection.h</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="cameras">Cameras</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A free camera, an orbit round the picked thing (O) and a follow camera (Shift+O)</td>
+<td>done</td>
+<td><code>src/Camera/EditorCameraModel.cpp</code>, <code>src/Editor/EditorMath.cpp</code></td>
+</tr>
+<tr>
+<td>Bring the picked thing into view (G)</td>
+<td>done</td>
+<td><code>src/Editor/EditorWindow.cpp</code></td>
+</tr>
+<tr>
+<td>Camera move speed stepped up and down and reset (+, -, 0)</td>
+<td>done</td>
+<td><code>src/Camera/KeyboardMoveSpeed.h</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="outliner-and-inspector">Outliner and inspector</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Everything on the land by kind, searched by words; a click picks, a double click brings into view</td>
+<td>done</td>
+<td><code>src/Editor/Panels/OutlinerPanel.cpp</code>, <code>src/Editor/EditorOutline.cpp</code>; tests <code>EditorOutline.*</code></td>
+</tr>
+<tr>
+<td>The list is read twice a second and only the visible rows are drawn</td>
+<td>done</td>
+<td><code>src/Editor/Panels/OutlinerPanel.cpp</code></td>
+</tr>
+<tr>
+<td>The picked thing's place, turn and size to change, and what it is made of</td>
+<td>done</td>
+<td><code>src/Editor/Panels/InspectorPanel.cpp</code></td>
+</tr>
+<tr>
+<td>For a creature, every section of the creature tools</td>
+<td>done</td>
+<td><a href="creature_tools.html">creature_tools.md</a></td>
+</tr>
+<tr>
+<td>For a villager, its life and its states</td>
+<td>done</td>
+<td>the inspector's Villager and Living action views (<code>InspectorPanel.cpp</code>)</td>
+</tr>
+<tr>
+<td>For a building, a town or a worship site, their own figures</td>
+<td>partial</td>
+<td>the inspector shows a building's town, food, wood and inhabitants and a town's player and homeless (<code>InspectorPanel.cpp</code>); nothing for worship sites</td>
+</tr>
+</tbody>
+</table>
+<h2 id="palette">Palette</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Things to place by kind: creatures, villagers and buildings by tribe, trees, features, mobile objects and statics, dispensers and bubbles</td>
+<td>done</td>
+<td><code>src/Editor/Panels/PalettePanel.cpp</code>, <code>src/Editor/EditorPalette.cpp</code>; tests <code>EditorPalette.*</code></td>
+</tr>
+<tr>
+<td>Names made readable from the game's tables</td>
+<td>done</td>
+<td><code>src/Editor/EditorPalette.cpp</code></td>
+</tr>
+<tr>
+<td>A picked item follows the mouse until a click puts it down, turned by the wheel or [ and ]</td>
+<td>done</td>
+<td><code>src/Editor/EditorWindow.cpp</code></td>
+</tr>
+<tr>
+<td>A whole list laid out at once in rows</td>
+<td>done</td>
+<td><code>src/Editor/EditorWindow.cpp</code></td>
+</tr>
+<tr>
+<td>A building goes to the nearest town, or a new one of its tribe</td>
+<td>done</td>
+<td><code>src/Editor/EditorEntities.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="changing-the-land-itself">Changing the land itself</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Saving what was placed back to the land's script or a file of its own</td>
+<td>todo</td>
+<td>changes last until the land is reloaded</td>
+</tr>
+<tr>
+<td>Raising and lowering the land, and painting its countries</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Drawing footpaths and streams</td>
+<td>todo</td>
+<td>they can be shown, not edited</td>
+</tr>
+<tr>
+<td>Placing the land's script markers, scrolls and challenge places</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

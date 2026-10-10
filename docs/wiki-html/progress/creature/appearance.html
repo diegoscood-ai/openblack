@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Creature appearance — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="here" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#creature-appearance">Creature appearance</a><ul>
+<li><a href="#the-bodys-shape">The body's shape</a></li>
+<li><a href="#the-skin">The skin</a></li>
+<li><a href="#how-the-alignment-moves">How the alignment moves</a></li>
+<li><a href="#drawing">Drawing</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="creature-appearance">Creature appearance</h1>
+<p>A creature's body shows what it has become. Each species has a base mesh and a mesh at either end of three axes: evil
+to good, thin to fat and weak to strong. The body is drawn as the base pulled towards one mesh on each axis, and its
+skin is blended towards the evil or good skin, so an evil creature grows dark and twisted and a good one bright and
+noble.</p>
+<p><strong>Progress: 25/35 done, 4 partial — 77%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../creature.html">The creature: groundwork, random streams and what is unknown</a>.</p>
+<h2 id="the-bodys-shape">The body's shape</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each species has a base mesh and evil, good, thin, fat, weak and strong meshes</td>
+<td>done</td>
+<td><code>creature_body</code> mesh names (<code>src/3D/CreatureBody.cpp</code>); test <code>NamesTheMeshOfEachAppearance</code></td>
+</tr>
+<tr>
+<td>The ogre's variants keep its base name</td>
+<td>done</td>
+<td>test <code>TheOgresVariantsKeepItsBaseName</code></td>
+</tr>
+<tr>
+<td>A species missing a variant mesh uses its base for that side</td>
+<td>done</td>
+<td><code>creature_morph</code> (<code>src/Creature/CreatureMorph.cpp</code>); test <code>MissingMeshesFallBackOnTheBase</code></td>
+</tr>
+<tr>
+<td>The creature's alignment is the evil to good axis</td>
+<td>done</td>
+<td>test <code>AlignmentIsTheEvilGoodAxis</code></td>
+</tr>
+<tr>
+<td>Its fatness runs from thin to fat</td>
+<td>done</td>
+<td>test <code>FatnessRunsFromThinToFat</code></td>
+</tr>
+<tr>
+<td>Its strength, with its species' own strength counted in, runs from weak to strong</td>
+<td>done</td>
+<td>test <code>StrengthCountsFourTimesTheSpecies</code></td>
+</tr>
+<tr>
+<td>Each axis pulls every vertex and normal from the base towards the mesh on its side</td>
+<td>done</td>
+<td>drawn by <code>src/Graphics/CreatureDraw.cpp</code>; tests <code>EachAxisPullsTowardsTheMeshOnItsSide</code>, <code>BlendMovesTheBaseTowardsEachMesh</code>, <code>CreatureDrawBodies.TheShapeIsBlendedTowardsTheLoadedMeshesByHowFarAlongEachAxis</code></td>
+</tr>
+<tr>
+<td>The fatness the body shows follows the creature's fatness by at most a hundredth a turn, last in the creature turn (after the actions), kept within 0 and 1</td>
+<td>done</td>
+<td><code>CreaturePhysiologySystem::ProcessShownFatness</code> (<code>shownFatness</code>); tests <code>ShownFatnessFollowsByAHundredthATurn</code>, <code>ShownFatnessStaysWithinNoneAndFull</code>, <code>TheFatnessShownStepsAfterTheTurnTowardsTheFatness</code></td>
+</tr>
+<tr>
+<td>The body is only redrawn once an axis has moved far enough</td>
+<td>done</td>
+<td>test <code>SmallChangesDoNotRedrawTheBody</code></td>
+</tr>
+<tr>
+<td>A new alignment redraws every axis; a new fatness the fatness and strength; a new strength only the vertices</td>
+<td>done</td>
+<td>tests <code>ANewAlignmentRedrawsEveryAxis</code>, <code>ANewFatnessRedrawsFatnessAndStrength</code>, <code>ANewStrengthOnlyReshapesTheVertices</code></td>
+</tr>
+<tr>
+<td>The rest pose and the animations follow the evil to good and thin to fat axes</td>
+<td>done</td>
+<td>see <a href="animation.html">animation.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-skin">The skin</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each skin of the base mesh is blended towards the matching skin of the evil or good mesh</td>
+<td>done</td>
+<td><code>creature_skin</code> in <code>CreatureSkinSystem</code>; tests <code>SkinsArePairedByTheirPlaceInTheList</code>, <code>WeightIsTheAxisIn256StepsTruncated</code></td>
+</tr>
+<tr>
+<td>A neutral creature shows its base skins</td>
+<td>done</td>
+<td>test <code>NeutralShowsNoVariant</code></td>
+</tr>
+<tr>
+<td>The blend is done a 4-bit channel at a time in whole steps, as the game does</td>
+<td>done</td>
+<td>tests <code>ChannelIsAWeightedMeanRoundedDown</code>, <code>TexelBlendsEachChannelOnItsOwn</code>, <code>WeightIsCappedAt255</code>, <code>TheBlendIsTheHandsBlend</code></td>
+</tr>
+<tr>
+<td>Tattoos, then wounds, then blood are painted over the blended skin</td>
+<td>done</td>
+<td>see <a href="creature_tattoos.html">creature_tattoos.md</a> and <a href="marks.html">marks.md</a></td>
+</tr>
+<tr>
+<td>The skin is repainted only when the alignment drawn, the tattoos or the marks change</td>
+<td>done</td>
+<td><code>CreatureSkinSystem</code> revisions; tests <code>CreatureSkinSystemTest.EachChangeBumpsItsRevision</code>, <code>CreatureDrawSkins.ASkinIsUploadedOnceUntilItIsPaintedAgain</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-the-alignment-moves">How the alignment moves</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A creature has its own alignment, separate from its player's</td>
+<td>done</td>
+<td><code>components::Creature::alignment</code> (<code>src/ECS/Components/Creature.h</code>); see <a href="../worship/index.html">../worship</a> for the player's</td>
+</tr>
+<tr>
+<td>Its alignment moves by at most its species' change a turn</td>
+<td>todo</td>
+<td>nothing moves a creature's own alignment from turn to turn; <code>AlignmentSystem</code> handles the players' only</td>
+</tr>
+<tr>
+<td>The miracles it casts move its alignment by what they do to the world</td>
+<td>todo</td>
+<td>the miracles a creature casts do not change its alignment</td>
+</tr>
+<tr>
+<td>What it does with its body moves its alignment: eating villagers, killing, destroying, helping, healing</td>
+<td>todo</td>
+<td>the game's deeds for creatures are not counted; see <a href="object_actions.html">object_actions.md</a> and <a href="town_actions.html">town_actions.md</a></td>
+</tr>
+<tr>
+<td>The nice and nasty spells pull its alignment for a while and put it back</td>
+<td>done</td>
+<td><code>creature_spells</code> nice and nasty (<code>src/Creature/CreatureSpells.cpp</code>, run by <code>src/Magic/Spells/SpellCreature.cpp</code>); see <a href="../miracles/index.html">../miracles</a></td>
+</tr>
+<tr>
+<td>The aggression and compassion leashes don't change how it looks, only how it feels</td>
+<td>done</td>
+<td>see <a href="leash.html">leash.md</a></td>
+</tr>
+<tr>
+<td>Scripts can read and set alignments</td>
+<td>partial</td>
+<td><code>GET_ALIGNMENT</code> and <code>SET_ALIGNMENT</code> work on players' alignments (<code>src/CHLApi.cpp</code>); no native reads or sets a creature's</td>
+</tr>
+<tr>
+<td>The alignment is kept in creature files</td>
+<td>done</td>
+<td>read by <code>src/Creature/CreatureMindFileBody.cpp</code> and written by <code>src/Creature/CreatureMindModel.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="drawing">Drawing</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature is drawn with the land's lighting</td>
+<td>done</td>
+<td><code>src/Graphics/RendererCreature.cpp</code>; see <a href="../rendering/index.html">../rendering</a></td>
+</tr>
+<tr>
+<td>A creature casts a soft shadow of its silhouette onto the land and what stands on it, from the scene's light, kept at least 45 degrees up</td>
+<td>done</td>
+<td>a complex caster in <code>src/Graphics/ShadowList.cpp</code> with <code>shadow_math::LightCreature</code></td>
+</tr>
+<tr>
+<td>The shadow fades out as the camera pulls away from the creature</td>
+<td>done</td>
+<td>the projected shadows' fade in <code>src/Graphics/ShadowList.cpp</code></td>
+</tr>
+<tr>
+<td>Only the nearest few creatures cast shadows</td>
+<td>todo</td>
+<td>every drawn creature casts a shadow (<code>src/Graphics/ShadowList.cpp</code>); there is no limit</td>
+</tr>
+<tr>
+<td>The hair casts no shadow</td>
+<td>done</td>
+<td>the shadow is cast from the body mesh only (<code>src/Graphics/ShadowList.cpp</code>)</td>
+</tr>
+<tr>
+<td>A frozen creature looks icy, a dark blue sheen growing over it as it freezes</td>
+<td>partial</td>
+<td>the freeze is kept (<code>creature_spells::FrozenTint</code>, <code>components::CreatureSpells::freeze</code>) but the renderer does not draw the tint</td>
+</tr>
+<tr>
+<td>An invisible creature dissolves into static and casts no shadow</td>
+<td>partial</td>
+<td>the fizz is kept (<code>components::CreatureSpells::fizz</code>) but nothing draws the static, and the creature still casts its shadow</td>
+</tr>
+<tr>
+<td>Creatures far from the camera are drawn with simpler meshes</td>
+<td>todo</td>
+<td>(unconfirmed whether the game has level of detail for creatures)</td>
+</tr>
+<tr>
+<td>Species-specific extras: eyes, eyelids and hair tufts</td>
+<td>done</td>
+<td>see <a href="face_eyes_hair.html">face_eyes_hair.md</a></td>
+</tr>
+<tr>
+<td>Each player's creature can be told apart by its tattoos and colours</td>
+<td>partial</td>
+<td>tattoos are drawn; see <a href="creature_tattoos.html">creature_tattoos.md</a></td>
+</tr>
+<tr>
+<td>A creature carrying a glow from its player's creed (the hand's glow) when a script sets it</td>
+<td>todo</td>
+<td><code>SET_CREATURE_CREED_PROPERTIES</code> is a stub</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

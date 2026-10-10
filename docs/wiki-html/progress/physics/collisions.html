@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Collisions — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="here" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#collisions">Collisions</a><ul>
+<li><a href="#against-the-land">Against the land</a></li>
+<li><a href="#object-against-object">Object against object</a></li>
+<li><a href="#what-can-be-hit">What can be hit</a></li>
+<li><a href="#knock-back">Knock-back</a></li>
+<li><a href="#stuck-and-embedded-objects">Stuck and embedded objects</a></li>
+<li><a href="#map-edges">Map edges</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="collisions">Collisions</h1>
+<p>What flying objects hit and how: the land, other loose objects, buildings, trees, people and the creature, and the edges
+of the map. Contacts are springs with friction at every point of a body (see <a href="object_dynamics.html">object_dynamics.md</a>).
+What the hits do to life and buildings is in <a href="impact_damage.html">impact_damage.md</a>.</p>
+<p>What a villager carries, and the log it lets fall when it is launched, is in <a href="../villager/tools_and_carried_items.html">../villager/tools_and_carried_items.md</a>.</p>
+<p>openblack tests the game's own way: each body's points against the land (<code>PhysicsBody::GroundAndWater</code>)
+and against other bodies' faces (<code>PhysicsBody::CollideVertices</code>, <code>src/ECS/Physics/PhysicsBody.cpp</code>), with the pair
+rules and the turn in <code>src/ECS/Physics/PhysicsObjects.cpp</code>; the creature is a stand-in ball, not its bones' ellipsoids.
+Bullet is still linked but never stepped: it only answers ray casts (<code>DynamicsSystem</code>). Tests:
+<code>test/test_physics_body_pose.cpp</code>, <code>test/test_physics_body_water.cpp</code>.</p>
+<p><strong>Progress: 30/33 done, 3 partial — 95%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../physics.html">Physics: thrown objects, collisions, damage and rocks that split</a>.</p>
+<h2 id="against-the-land">Against the land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every point of a body is tested against the land height under it; the push is along the flat normal of the land triangle there</td>
+<td>done</td>
+<td><code>PhysicsBody::GroundAndWater</code> (land height per vertex, flat triangle normal through <code>land_normal</code>), <code>src/ECS/Physics/PhysicsBody.cpp</code></td>
+</tr>
+<tr>
+<td>Against the land a body uses its own material's stiffness, damping and friction</td>
+<td>done</td>
+<td><code>PhysicsBody::SetUpConstants</code> from the class's row of <code>Data/PhysicsConstants.txt</code> (<code>PhysicsObjects::LoadConstants</code>, <code>ConstantsType</code>)</td>
+</tr>
+<tr>
+<td>A thrown object is only ever pushed up out of the land when it leaves the hand, never pulled down to it</td>
+<td>done</td>
+<td><code>PhysicsBody::AdjustToGroundLevel(noPullDown, ...)</code> called by <code>physics::from_hand::InitialisePhysicsFromHand</code> (<code>src/ECS/Physics/FromHand.cpp</code>); test <code>PhysicsBodyPose.AdjustToGroundLevel</code></td>
+</tr>
+<tr>
+<td>A body over the sea stops touching the land while any of its points is under the water</td>
+<td>done</td>
+<td><code>PhysicsBody::GroundAndWater</code> sea branch (buoyancy, no contact with the bottom); tests <code>PhysicsBodyWaterTest.NearestCellDecides</code>, <code>NoCellIsWater</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="object-against-object">Object against object</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Two bodies are tested only when they are closer than the sum of their radii; then each point of one is tested against the faces of the other</td>
+<td>done</td>
+<td><code>Substep</code> in <code>src/ECS/Physics/PhysicsObjects.cpp</code> (sum of radii), then <code>PhysicsBody::CollideVertices</code></td>
+</tr>
+<tr>
+<td>Between two bodies the softer stiffness and damping are used, and the friction is 0.3 times the smaller friction (things slide off each other easily)</td>
+<td>done</td>
+<td><code>PhysicsBody::CollideVertices</code> / <code>ContactForces</code></td>
+</tr>
+<tr>
+<td>What pushes one body pushes the other back as hard, and turns it</td>
+<td>done</td>
+<td><code>PhysicsBody::ContactForces</code> puts the force on both bodies; no unit test in our tree</td>
+</tr>
+<tr>
+<td>Two resting bodies don't collide with each other, except in the step either was just put into the physics</td>
+<td>done</td>
+<td><code>Substep</code> skips two resting bodies unless either is <code>justSetUp</code></td>
+</tr>
+<tr>
+<td>A thrown object and its thrower pass through each other for as long as the object stays in the physics list</td>
+<td>done</td>
+<td><code>Substep</code> thrower test; <code>ForgetThrower</code> when the object rests or leaves</td>
+</tr>
+<tr>
+<td>Villagers' bodies pass through things a villager pushed or kicked, and those through villagers</td>
+<td>done</td>
+<td>The pair skip in <code>Substep</code> (<code>PhysicsObject::k_PushedByLiving</code>), set on a forester's felled tree (<code>ecs::FellTree</code>, <code>src/ECS/Trees.cpp</code>); <code>PhysicsObjects::PushObject</code> has no caller yet, so villagers push nothing</td>
+</tr>
+<tr>
+<td>What a released villager was carrying flies without hitting other objects</td>
+<td>done</td>
+<td><code>villager::CreateDroppedResource</code> (from <code>FromHand.cpp</code> and <code>ECS/LivingPhysics.cpp</code>) makes the log through <code>VillagerStores::MakeDroppedLog</code> and <code>PhysicsObjects::AddDroppedObject</code> with <code>k_NoObjectCollision</code></td>
+</tr>
+<tr>
+<td>Contacts are tested 0.06 s ahead along the body's motion, so fast objects stop at thin walls such as the physical shield</td>
+<td>done</td>
+<td><code>PhysicsBody::k_LookAhead</code> and the predicted vertex length in <code>CollideVertices</code>; checked against a physical shield (<a href="../../physics.html#the-physical-shield-test">physics.md</a>); no unit test</td>
+</tr>
+<tr>
+<td>Each body remembers what it last hit in the turn; what reacts to a hit knows what hit it, and a body thrown by nobody takes the credit of whoever threw what hit it</td>
+<td>done</td>
+<td><code>EndTurn</code> in <code>PhysicsObjects.cpp</code> (<code>PhysicsBody::lastHit</code>, <code>PhysicsObject::hitBy</code>, <code>byPlayer</code> passed on)</td>
+</tr>
+<tr>
+<td>How hard a hit was is the mean of the body's total force (gravity included) over the touched steps of the turn; divided by its weight it gives the G of the hit (about 0 for something lying still)</td>
+<td>done</td>
+<td><code>EndTurn</code> (<code>impact = the length of forceSum x 0.05</code>), <code>PhysicsObject::GLoad</code>. Our wiki differs: G is about 1, not 0, for a body lying on the ground (<a href="../../physics.html#manager-physicsobjectgameturnupdate-0x644fc0">physics.md</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-can-be-hit">What can be hit</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rocks, statics, mobile objects, villagers, animals, dead trees and carried food or wood are obstacles to flying bodies</td>
+<td>done</td>
+<td><code>PhysicsObjects::InteractsWithPhysicsObjects</code> (mobile statics and objects, villagers, animals, dead trees, the hand's food and wood pots)</td>
+</tr>
+<tr>
+<td>Standing trees and forests are not obstacles: thrown things pass through them</td>
+<td>done</td>
+<td><code>PhysicsObjects::InteractsWithPhysicsObjects</code> (<code>Tree</code>, <code>BigForest</code> excluded)</td>
+</tr>
+<tr>
+<td>Fields are never hit</td>
+<td>done</td>
+<td><code>PhysicsObjects::InteractsWithPhysicsObjects</code> (<code>Field</code> and field abodes excluded)</td>
+</tr>
+<tr>
+<td>Food and wood piles are hit, unless they are part of a storage pit</td>
+<td>partial</td>
+<td><code>PhysicsObjects::InteractsWithPhysicsObjects</code>: only the hand's food and wood pots are hit; piles are never hit. Our wiki differs: piles do not interact with flying bodies at all (<a href="../../physics.html#manager-physicsobjectgameturnupdate-0x644fc0">physics.md</a>)</td>
+</tr>
+<tr>
+<td>Buildings are obstacles only while more than 10% built and still standing (life above 0.01); ruins are not. The village centre always is; worship sites, graveyards, fish farms, football pitches, lanterns, bonfires and totem statues never are</td>
+<td>partial</td>
+<td><code>PhysicsObjects::InteractsWithPhysicsObjects</code> tests only the building's life (above 0.01); the more-than-10%-built test and the per-type exceptions are not there</td>
+</tr>
+<tr>
+<td>A building is a heavy obstacle that never moves; a hit damages it instead</td>
+<td>done</td>
+<td>Weight 2000, not dynamic (<code>PhysicsObjects::Weight</code>, <code>CanBecomeAPhysicsObject</code>); the hit goes to <code>physics::Buildings::ReactToPhysicsImpact</code> (<code>src/ECS/Physics/Buildings.cpp</code>, <code>FragMesh.cpp</code>); see <a href="impact_damage.html">impact_damage.md</a></td>
+</tr>
+<tr>
+<td>Pieces broken off buildings hit only the land</td>
+<td>done</td>
+<td>Fragment bodies have no faces and are not obstacles (<code>SetUpBody</code> fragment branch, <code>InteractsWithPhysicsObjects</code>), <code>src/ECS/Physics/Buildings.cpp</code></td>
+</tr>
+<tr>
+<td>The creature is an obstacle that is never moved by the physics: thrown things hit one ellipsoid per bone</td>
+<td>partial</td>
+<td><code>creature_physics::SetUpBody</code> (<code>src/ECS/CreaturePhysics.cpp</code>): a static body, but a ball of six points as tall as the creature, not one shape per bone; the weight is a stand-in</td>
+</tr>
+<tr>
+<td>A physical shield is always in the physics as a very heavy static dome (weight 50000 × its scale cubed) that thrown things bounce off</td>
+<td>done</td>
+<td><code>BeginTurn</code> keeps every physical shield (<code>magic::map_shield::Shields</code>), weight from its info at the collision scale (<code>src/Magic/Objects/MapShield.cpp</code>)</td>
+</tr>
+<tr>
+<td>A spiritual shield and the miracle vortices are not obstacles</td>
+<td>done</td>
+<td><code>map_shield::InteractsWithPhysicsObjects</code> (magic shield no); vortices are not among the obstacle classes</td>
+</tr>
+</tbody>
+</table>
+<h2 id="knock-back">Knock-back</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A resting object hit by a flying body is knocked into flight (rocks, villagers, animals, pots) and flies on its own</td>
+<td>done</td>
+<td><code>PhysicsBody::Result::Pushed</code> in <code>Substep</code>, woken through the class's <code>initialisePhysicsKnocked</code> (<code>ECS/LivingPhysics.cpp</code>) or <code>CanWakeKnockedProxy</code></td>
+</tr>
+<tr>
+<td>A rock hit hard may split in two, the halves keeping its speed and half its spin</td>
+<td>done</td>
+<td><code>ReactToPhysicsImpact</code> in <code>PhysicsObjects.cpp</code> calls <code>Rocks::SplitInTwo</code> with the velocity and half the angular momentum (<code>src/ECS/Rocks.cpp</code>)</td>
+</tr>
+<tr>
+<td>Whoever threw the first object is credited for what the objects it knocked do</td>
+<td>done</td>
+<td><code>EndTurn</code> passes <code>byPlayer</code> on from the hitter</td>
+</tr>
+</tbody>
+</table>
+<h2 id="stuck-and-embedded-objects">Stuck and embedded objects</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A released object that overlaps things under it is raised, step by step by the deepest overlap through their tops, until nothing pushes it</td>
+<td>done</td>
+<td><code>PhysicsObjects::RaiseUntilNotIntersecting</code> with <code>PhysicsBody::PenetrationAlong</code></td>
+</tr>
+<tr>
+<td>A villager is not raised over things a villager pushed, nor those over a villager</td>
+<td>done</td>
+<td><code>RaiseUntilNotIntersecting</code> skips <code>k_PushedByLiving</code> bodies (a felled tree; nothing else sets it yet)</td>
+</tr>
+<tr>
+<td>The miracle vortex and map shields never raise objects</td>
+<td>done</td>
+<td><code>RaiseUntilNotIntersecting</code> only takes what <code>InteractsWithPhysicsObjects</code> (false for a vortex and the magic shield)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="map-edges">Map edges</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Looking up map cells for a body near or past the edge uses the nearest edge cells of the 512 by 512 map</td>
+<td>done</td>
+<td><code>BoxCell</code> clamps each corner to the 512 by 512 cells (<code>PhysicsObjects.cpp</code>)</td>
+</tr>
+<tr>
+<td>An object that comes to rest outside the map is deleted</td>
+<td>done</td>
+<td><code>PhysicsObjects::BackInMap</code> from <code>EndPhysics</code></td>
+</tr>
+<tr>
+<td>A body that falls more than four radii under sea level (off the land into the deep) is deleted</td>
+<td>done</td>
+<td><code>PhysicsBody::Integrate</code> returns <code>Result::Delete</code>, then <code>ToBeDeleted</code> (or <code>Buildings::DestroyFragment</code>) in <code>Substep</code></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

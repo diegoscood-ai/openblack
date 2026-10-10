@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Saving and loading — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="here" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#saving-and-loading">Saving and loading</a><ul>
+<li><a href="#slots">Slots</a></li>
+<li><a href="#autosave">Autosave</a></li>
+<li><a href="#what-a-save-holds">What a save holds</a></li>
+<li><a href="#writing-and-reading-safely">Writing and reading safely</a></li>
+<li><a href="#creatures-outside-a-save">Creatures outside a save</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="saving-and-loading">Saving and loading</h1>
+<p>Saving the whole game to a slot and loading it back: the world with every object in it, the players and their creature,
+the towns, the scripts, the camera, the weather and the temple. Saves live in the player's profile and are made from the
+temple's save game room, by the quick save keys, by scripts, and by an autosave. openblack has no save-game system yet.</p>
+<p><strong>Progress: 2/37 done, 5 partial — 12%</strong></p>
+<h2 id="slots">Slots</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Games are saved into numbered slots kept in the player's profile folder, one folder per slot</td>
+<td>todo</td>
+<td>no save system; <code>src/Serializer</code> only reads footpath data</td>
+</tr>
+<tr>
+<td>A slot holds the world file, a second file with the scripts' state, and a small info file the save room shows (land, date)</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Each save keeps a picture of the moment, at a high and a low resolution, shown on the save room's slot</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The temple's save game room lists the slots and saves, loads and deletes, asking the player to confirm each</td>
+<td>partial</td>
+<td>the room's scroll is drawn with made-up facts (<code>src/3D/TempleScrolls.cpp</code>); the room itself: see ../temple/</td>
+</tr>
+<tr>
+<td>Quick save and quick load keys save to and load from a slot without going to the temple</td>
+<td>todo</td>
+<td>bound but marked not yet implemented in <code>src/Input/KeyBindings.h</code></td>
+</tr>
+<tr>
+<td>A challenge script can save the game into a given slot</td>
+<td>todo</td>
+<td>SAVE_GAME_IN_SLOT is a stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="autosave">Autosave</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>With autosave on, the game saves itself every 6000 turns (ten minutes of play)</td>
+<td>todo</td>
+<td>the menu's autosave box (<code>src/Gui/GameMenu.cpp</code>) is not acted on</td>
+</tr>
+<tr>
+<td>The autosaves of each land take turns among three slots, so an older one always survives</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>There is no autosave in a network game, while paused, while help is showing a sequence, or on the multiplayer/skirmish lands (unconfirmed which land is excluded)</td>
+<td>todo</td>
+<td>see <a href="../multiplayer/skirmish.html">../multiplayer/skirmish.md</a>: the land left out is the Gods' Playground island; a skirmish does autosave. Once the game is over the automatic save and the quick-save on exit stop: see <a href="../story/losing_and_game_over.html">../story/losing_and_game_over.md</a></td>
+</tr>
+<tr>
+<td>A save can be forced at once (for example when leaving a land) whatever the interval</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The game can tell whether its own automatic save is there and readable, and load it to continue</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-a-save-holds">What a save holds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A version string and the land's landscape file come first; loading opens that landscape again</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Every object in the world is saved, and the links between objects are put back once all are loaded</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The players, which one is the player, and the player's creature with its state</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The game turn, the time of day and its speed, and the land's influence multipliers</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The help system's progress and the player's help statistics</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The scripts: every running script, its variables and where it is</td>
+<td>partial</td>
+<td>the script VM can write and read its state (<code>SaveState</code>, <code>RestoreState</code> in <code>components/ScriptLibrary</code>); nothing calls them</td>
+</tr>
+<tr>
+<td>The camera, the land's starting camera position, camera help settings and the camera bookmarks</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The weather's climate and the snow lying on the land</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The hand and what it holds</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The audio's state</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The temple: which rooms are open, the challenge room's list, the hints already seen</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The land's good and evil balance</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Objects in flight keep their position, speed and spin</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Miracles under way keep their place, strength, age and effects</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The random number streams' positions</td>
+<td>partial</td>
+<td>the streams can be saved and restored (test <code>GameRandom.SaveLoad</code>); no save game uses it; see game_loop_and_clock.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="writing-and-reading-safely">Writing and reading safely</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A save is written to a temporary file and only replaces the old one once it is complete</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A problem while saving is reported to the player</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A save that failed to load twice (the game crashed loading it) is not offered again</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Loading stops the scripts and clears the land before reading</td>
+<td>todo</td>
+<td><code>Game::LoadMap</code> clears a land for a new map, not for a save</td>
+</tr>
+<tr>
+<td>After loading, the game clock carries on from the saved turn</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A "saving" and "loading" box shows while the game works</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A save's stored checksum is not checked on load, and older versions' saves are read as they are</td>
+<td>todo</td>
+<td>the original writes but does not check them</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creatures-outside-a-save">Creatures outside a save</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The player's creature, with its mind and body, goes with the player into the next land</td>
+<td>partial</td>
+<td>what a vortex swallows is written as land-script lines for the next land (<code>src/ECS/VortexSave.cpp</code>), but with no save folder nothing is read back; the player's creature comes only from <code>--creature-file</code>; see ../creature/</td>
+</tr>
+<tr>
+<td>Creature mind files can be read and written in the game's format</td>
+<td>done</td>
+<td><code>components/creaturemind</code>; tests <code>CreatureMindFile.CurrentVersionRoundTrips</code>, <code>CreatureMindFile.EncryptionRoundTrips</code></td>
+</tr>
+<tr>
+<td>A land's script can create a computer player's creature from a mind file</td>
+<td>done</td>
+<td><code>FeatureScriptCommands::CreateCreatureFromFile</code> (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>)</td>
+</tr>
+<tr>
+<td>The player can load a creature from a mind file</td>
+<td>partial</td>
+<td><code>--creature-file</code> names the mind file loaded when a land asks for the player's creature (<code>src/ECS/PlayerCreature.cpp</code>), and the debug creature spawner's file dialog (<code>src/Debug/CreatureSpawnerMindFiles.cpp</code>); no profiles</td>
+</tr>
+<tr>
+<td>The creature's details are exported to a web page in the profile for the online creature service</td>
+<td>n/a</td>
+<td>the online service no longer exists</td>
+</tr>
+<tr>
+<td>Creatures shared with Creature Isle</td>
+<td>n/a</td>
+<td>expansion not supported</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

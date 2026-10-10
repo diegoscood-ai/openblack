@@ -9,8 +9,11 @@
 
 #pragma once
 
+#include <algorithm>
 #include <array>
+#include <map>
 #include <optional>
+#include <vector>
 
 #include <3D/LandIslandInterface.h>
 #include <Camera/Camera.h>
@@ -68,8 +71,11 @@ class MockWindowingSystem final: public openblack::windowing::WindowingInterface
 class MockTerrain final: public openblack::LandIslandInterface
 {
 	[[nodiscard]] float GetHeightAt(glm::vec2) const final { return 0.0f; }
+	[[nodiscard]] float GetUnflattenedHeightAt(glm::vec2) const final { return 0.0f; }
 	[[nodiscard]] glm::vec3 GetNormalAt(glm::vec2) const final { return {0.0f, 1.0f, 0.0f}; }
 	[[nodiscard]] const openblack::lnd::LNDCell& GetCell(const glm::u16vec2&) const final { assert(false); }
+	// The land's ray cast reads the corners: level land at 0, as GetHeightAt
+	[[nodiscard]] std::array<uint16_t, 4> GetCellCorners(glm::u16vec2) const final { return {0, 0, 0, 0}; }
 	void DumpTextures() const final { assert(false); }
 	void DumpMaps() const final { assert(false); }
 	[[nodiscard]] std::vector<openblack::LandBlock>& GetBlocks() final { assert(false); }
@@ -77,7 +83,11 @@ class MockTerrain final: public openblack::LandIslandInterface
 	[[nodiscard]] const std::vector<openblack::lnd::LNDCountry>& GetCountries() const final { assert(false); }
 	[[nodiscard]] const openblack::graphics::Texture2D& GetAlbedoArray() const final { assert(false); }
 	[[nodiscard]] const openblack::graphics::Texture2D& GetBump() const final { assert(false); }
+	[[nodiscard]] const openblack::graphics::Texture2D& GetSmallBump() const final { assert(false); }
 	[[nodiscard]] const openblack::graphics::Texture2D& GetHeightMap() const final { assert(false); }
+	[[nodiscard]] const openblack::graphics::Texture2D& GetCellMap() const final { assert(false); }
+	[[nodiscard]] const openblack::graphics::FrameBuffer& GetStaticShadowFramebuffer() const final { assert(false); }
+	[[nodiscard]] const openblack::graphics::FrameBuffer& GetLandAlphaFramebuffer() const final { assert(false); }
 	[[nodiscard]] const openblack::graphics::FrameBuffer& GetFootprintFramebuffer() const final { assert(false); }
 	[[nodiscard]] openblack::U16Extent2 GetIndexExtent() const final { assert(false); }
 	[[nodiscard]] glm::mat4 GetOrthoView() const final { assert(false); }
@@ -100,6 +110,7 @@ public:
 	[[nodiscard]] bool GetUnbindableRepeat(openblack::input::UnbindableActionMap) const final { return false; }
 	[[nodiscard]] glm::uvec2 GetMousePosition() const override { return k_MockMousePos; }
 	[[nodiscard]] glm::ivec2 GetMouseDelta() const override { return {}; }
+	[[nodiscard]] float GetMouseWheelDelta() const override { return 0.0f; }
 	[[nodiscard]] std::array<std::optional<glm::vec3>, 2> GetHandPositions() const override { return {}; }
 	void Frame() final {}
 	void ProcessEvent(const SDL_Event& event) final {}
@@ -121,11 +132,10 @@ public:
 	void UpdatePhysicsTransforms() override {}
 	[[nodiscard]] virtual std::optional<glm::vec2> RayCastClosestHitScreenCoord(glm::u16vec2 screenCoord) const = 0;
 	[[nodiscard]] std::optional<std::pair<openblack::ecs::components::Transform, openblack::RigidBodyDetails>>
-	RayCastClosestHit(const glm::vec3& origin, [[maybe_unused]] const glm::vec3& direction,
-	                  [[maybe_unused]] float tMax) const override
+	RayCastClosestHit(const glm::vec3& origin, const glm::vec3& direction, [[maybe_unused]] float tMax) const override
 	{
 		const auto& terrain = openblack::Locator::terrainSystem::value();
-		const auto screenCoord = GetWindowCoordinates(origin);
+		const auto screenCoord = GetWindowCoordinates(PointAhead(origin, direction));
 		if (!screenCoord.has_value())
 		{
 			return std::nullopt;
@@ -136,6 +146,19 @@ public:
 			return std::nullopt;
 		}
 		return {{{{hit->x, terrain.GetHeightAt(*hit), hit->y}}, {}}};
+	}
+
+	// The recordings are keyed by the screen pixel a ray was cast through. A ray starts at the eye, which is on no
+	// pixel, so the pixel is read from the ray's point at depth 0 of the projection (2 near far / (near + far) in
+	// front of the eye): any point of the ray in front of the eye is on the same pixel
+	[[nodiscard]] glm::vec3 PointAhead(const glm::vec3& origin, const glm::vec3& direction) const
+	{
+		const auto view = camera->GetViewMatrix(openblack::Camera::Interpolation::Target);
+		const auto& projection = camera->GetProjectionMatrix(openblack::Camera::Projection::Normal);
+		const auto depth = glm::inverse(projection) * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+		const float originDepth = (view * glm::vec4(origin, 1.0f)).z;
+		const float directionDepth = (glm::mat3(view) * direction).z;
+		return origin + direction * ((depth.z / depth.w - originDepth) / directionDepth);
 	}
 
 	[[nodiscard]] std::optional<glm::u16vec2> GetWindowCoordinates(const glm::vec3& position) const
@@ -153,6 +176,40 @@ public:
 
 	uint16_t frameNumber = 0;
 	const openblack::Camera* camera;
+};
+
+// The raycasts a scenario recorded, read from its raycasts/<name>.json: for a screen coordinate, the first branch that
+// lists it gives the hit (or no hit) of each frame. A coordinate or frame the recording does not have is a test error
+class RecordedMockDynamicsSystem final: public MockDynamicsSystem
+{
+public:
+	struct Branch
+	{
+		std::vector<glm::u16vec2> coords;
+		std::map<uint16_t, std::optional<glm::vec2>> frames;
+	};
+
+	[[nodiscard]] std::optional<glm::vec2> RayCastClosestHitScreenCoord(glm::u16vec2 screenCoord) const override
+	{
+		for (const auto& branch : branches)
+		{
+			if (std::ranges::find(branch.coords, screenCoord) == branch.coords.end())
+			{
+				continue;
+			}
+			const auto found = branch.frames.find(frameNumber);
+			if (found != branch.frames.end())
+			{
+				return found->second;
+			}
+			assert(false); // Shouldn't be any unaccounted raycasts
+			return std::nullopt;
+		}
+		assert(false); // Shouldn't be any unaccounted raycasts
+		return std::nullopt;
+	}
+
+	std::vector<Branch> branches;
 };
 
 #if defined(_MSC_VER)

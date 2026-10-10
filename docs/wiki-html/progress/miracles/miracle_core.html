@@ -1,0 +1,691 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Miracle effects and reactions — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="here" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#miracle-effects-and-reactions">Miracle effects and reactions</a><ul>
+<li><a href="#a-miracles-life">A miracle's life</a></li>
+<li><a href="#the-effect-on-what-it-reaches">The effect on what it reaches</a></li>
+<li><a href="#damage-and-kills">Damage and kills</a></li>
+<li><a href="#alignment-and-belief-from-miracles">Alignment and belief from miracles</a></li>
+<li><a href="#people-and-animals-reacting">People and animals reacting</a></li>
+<li><a href="#impressiveness-and-belief">Impressiveness and belief</a></li>
+<li><a href="#creatures-watching-the-player-cast">Creatures watching the player cast</a></li>
+<li><a href="#challenge-scripts-and-miracles">Challenge scripts and miracles</a></li>
+<li><a href="#computer-gods-casting-miracles">Computer gods casting miracles</a></li>
+<li><a href="#saving">Saving</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="miracle-effects-and-reactions">Miracle effects and reactions</h1>
+<p>The machinery every miracle shares once it is cast: its life from creation to removal, the effect it applies to the
+things it reaches, the deaths and damage it causes, how it moves alignment and belief, how people, animals and creatures
+react to it, the challenge scripts' miracle commands, computer gods casting miracles, and saving active miracles.
+Casting by hand is in <a href="casting_and_globes.html">casting_and_globes.md</a>, what a miracle costs in
+<a href="prayer_cost.html">prayer_cost.md</a>, and creatures casting in <a href="creature_spells.html">creature_spells.md</a>.</p>
+<p><strong>Progress: 46/94 done, 16 partial — 57%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../magic.html">Magic: the core of the miracles</a>, <a href="../../miracles.html">Miracles one by one</a>.</p>
+<h2 id="a-miracles-life">A miracle's life</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A new miracle remembers who cast it and for which player; a miracle with no caster belongs to the neutral player</td>
+<td>done</td>
+<td><code>magic::AllocSpell</code> and <code>magic::CastAtPos</code> (<code>src/Magic/Core/Spell.cpp</code>): no creator means <code>creator::NeutralPlayer()</code></td>
+</tr>
+<tr>
+<td>Its strength, chants, duration and how many things it may make come from the cast</td>
+<td>done</td>
+<td><code>base::InitWithPos</code> (<code>src/Magic/Core/Spell.cpp</code>) from the <code>SpellCastData</code></td>
+</tr>
+<tr>
+<td>A miracle cast from a seed lasts the seed's time for a player cast, times the seed's multiplier (one-off seeds too)</td>
+<td>done</td>
+<td><code>PrepareCast</code> in <code>src/Magic/Core/SpellSeed.cpp</code> (the player timer times the seed's multiplier; one-off seeds go through the same seed)</td>
+</tr>
+<tr>
+<td>A miracle whose effect can't start is refused; one that has no effect (shield, teleport, flocks) still lives</td>
+<td>partial</td>
+<td>The no-effect classes live on (<code>base::InitWithPos</code> sends their start event). A spell whose particle file is missing is cast anyway without an effect (a log line), where our wiki says the original refuses it (<a href="../../magic.html#life-cycle-spellcpp-0x71fb40">life cycle</a>)</td>
+</tr>
+<tr>
+<td>A miracle cast on a thing starts at the thing and its effect follows it</td>
+<td>done</td>
+<td><code>base::InitWithObject</code> casts at the object and adds it as the effect's target; <code>magic::CastAtObject</code> follows the seed's cast-on-object rule</td>
+</tr>
+<tr>
+<td>Miracles are processed in a fixed order each turn: shields, seeds, then every miracle kept up, then every miracle run</td>
+<td>done</td>
+<td><code>magic::ProcessSpells</code> (<code>src/Magic/Core/Spell.cpp</code>): grid decay, <code>map_shield::ProcessShields</code>, <code>worship::ProcessSpellIcons</code>, every upkeep, then each spell's seed and turn</td>
+</tr>
+<tr>
+<td>A miracle ages each turn and closes when it outlives its duration</td>
+<td>done</td>
+<td><code>ProcessMaintainRequest</code> in <code>src/Magic/Core/Spell.cpp</code></td>
+</tr>
+<tr>
+<td>When its caster is gone the miracle closes at once without paying for the turn</td>
+<td>done</td>
+<td><code>ProcessMaintainRequest</code>: a creator that is not functional closes the spell and returns before paying</td>
+</tr>
+<tr>
+<td>A miracle held in the hand is placed where the hand is, on the ground below it</td>
+<td>done</td>
+<td><code>ProcessMaintainRequest</code>: a hand-cast spell's cast point follows the hand, on the map at altitude 0</td>
+</tr>
+<tr>
+<td>A held miracle that leaves the ground where it may be cast is dropped from the hand</td>
+<td>partial</td>
+<td>An in-hand miracle stops applying off castable ground (<code>HandSystem::UpdateSeedAction</code>, <code>src/ECS/Systems/Implementations/HandSpellSeed.cpp</code>), but the seed stays in the hand</td>
+</tr>
+<tr>
+<td>A miracle whose power runs out closes; its effect finishes, then it is removed</td>
+<td>done</td>
+<td><code>base::CoreProcess</code> (<code>src/Magic/Core/Spell.cpp</code>): strength 0 closes it, the effect runs out and the spell is deleted when its effect is gone</td>
+</tr>
+<tr>
+<td>The people's reactions to a miracle end as soon as its effect finishes, even for miracles kept on (shield, forest)</td>
+<td>done</td>
+<td><code>base::CoreProcess</code> removes the reactions it started when its effect finishes (<code>reactions::RemoveAllReactionsInitiatedByObject</code>)</td>
+</tr>
+<tr>
+<td>A seed goes with its miracle when the miracle is removed</td>
+<td>done</td>
+<td><code>base::ToBeDeleted</code> deletes the linked seed (<code>seed::ToBeDeleted</code>)</td>
+</tr>
+<tr>
+<td>The hand's stream of magic stops when a seed miracle the local player cast closes</td>
+<td>done</td>
+<td><code>base::CloseDown</code>: the first close-down of a spell cast by the local interface calls <code>hand_grain::Stop</code></td>
+</tr>
+<tr>
+<td>A miracle whose seed was left outside its player's influence closes</td>
+<td>done</td>
+<td><code>seed::ProcessFromSpell</code> (<code>src/Magic/Core/SpellSeed.cpp</code>) for a seed that follows its spell and belongs to a worship icon; icons exist only where worship sites are made</td>
+</tr>
+<tr>
+<td>Each miracle marks the map cell it stands in for the minimap, and the marks fade only while the minimap shows</td>
+<td>partial</td>
+<td><code>spell_grid::Mark</code> and <code>Decay</code> (<code>src/Magic/Core/SpellGrid.cpp</code>); the decay always runs (the flag that gates it is unidentified) and nothing reads the grid: no minimap</td>
+</tr>
+<tr>
+<td>A miracle shows a blip on the minimap</td>
+<td>todo</td>
+<td>No minimap (TODO in <code>base::InitWithPos</code>)</td>
+</tr>
+<tr>
+<td>The player's last cast (place, kind, time) and a count of each kind cast are kept</td>
+<td>done</td>
+<td><code>players::MagicOf(player).lastCast</code> and <code>castCount</code>, set in <code>base::InitWithPos</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-effect-on-what-it-reaches">The effect on what it reaches</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each strike's effect is scaled by the chants it pays, the tribe's power and the strike's strength</td>
+<td>done</td>
+<td><code>spell_event::ApplyDefaultSpellEffect</code> (<code>src/Magic/Core/SpellEvent.cpp</code>): the paid event strength, the tribal power and the event's strength</td>
+</tr>
+<tr>
+<td>An area strike reaches every object whose footprint overlaps its circle and whose height overlaps it, measured from the ground</td>
+<td>done</td>
+<td><code>EffectValues::ApplyEffectToMapPos</code> (<code>src/ECS/Effects/EffectValues.cpp</code>): fire centre and radius against the strike's circle, height against the altitude difference</td>
+</tr>
+<tr>
+<td>A strike that meets a shield is spent on the shield first (one more payment, a spark only if not absorbed)</td>
+<td>done</td>
+<td><code>spell_event::ApplyDefaultSpellEffect</code> (shield check) and <code>spell_event::SpellHitSpell</code>; see <a href="physical_shield.html">physical_shield.md</a>, <a href="spiritual_shield.html">spiritual_shield.md</a></td>
+</tr>
+<tr>
+<td>The "can it destroy" question is answered after the shield test and falls through to a reaction with no target</td>
+<td>done</td>
+<td><code>spell_event::ApplyDefaultSpellEffect</code>: the can-destroy event after the shield test, <code>explosion::CanBeDestroyedBySpell</code> with a target, straight to the reaction without one</td>
+</tr>
+<tr>
+<td>A strike on one thing heals or harms it; healing cures poison</td>
+<td>done</td>
+<td><code>spell_event::ApplyDefaultSpellEffect</code> (object event; a heal cures <code>Poisoned</code>) and <code>effects::ApplyEffect</code></td>
+</tr>
+<tr>
+<td>Healing passes through each thing's defence table, then damage, keeping life between none and full</td>
+<td>done</td>
+<td><code>effects::ApplyEffect</code> (<code>src/ECS/Effects/EffectValues.cpp</code>) with the info's defence multipliers; <code>life::IncreaseLife</code> and <code>ReduceLife</code> keep 0..1 (<code>src/ECS/Life.cpp</code>)</td>
+</tr>
+<tr>
+<td>Burning strikes heat the thing's fire</td>
+<td>done</td>
+<td><code>fire::ApplyEffectToFireEffectIfNecessary</code> from <code>effects::ApplyEffect</code> (<code>src/ECS/Fire</code>); see <a href="fireball.html">fireball.md</a></td>
+</tr>
+<tr>
+<td>A strike pushes what it hits along the strike's movement</td>
+<td>partial</td>
+<td>The strike's movement is kept on the spell (<code>movementDirection</code> in <code>spell_event::ApplyDefaultSpellEffect</code>), but <code>effects::ApplyEffect</code> applies no push</td>
+</tr>
+<tr>
+<td>The temple and its parts can't be destroyed by miracles</td>
+<td>partial</td>
+<td><code>explosion::CanBeDestroyedBySpell</code> refuses the temple, its parts, the worship sites and totems; an area strike still lowers the heart's life value, with no effect</td>
+</tr>
+</tbody>
+</table>
+<h2 id="damage-and-kills">Damage and kills</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A villager or animal whose life reaches nothing from a miracle dies; a building is destroyed</td>
+<td>partial</td>
+<td>Villagers die (<code>villager::DestroyedByEffect</code>) and animals start dying; a building brought to 0 by a miracle is not destroyed (no abode branch in <code>DestroyedByEffect</code>, <code>src/ECS/Effects/EffectValues.cpp</code>; only a physical hit destroys it, <code>src/ECS/Abodes.cpp</code>)</td>
+</tr>
+<tr>
+<td>A villager's life is kept finer than its shown health, so small strikes add up to a kill</td>
+<td>done</td>
+<td><code>Villager::life</code> is a float (<code>src/ECS/Life.cpp</code>)</td>
+</tr>
+<tr>
+<td>Buildings, trees and features lose life to crushing and hitting strikes; fields take none</td>
+<td>done</td>
+<td><code>effects::ApplyEffect</code>: <code>abodes::ReduceLife</code> for buildings (a field's life does not change), <code>life::ReduceLife</code> for the rest</td>
+</tr>
+<tr>
+<td>A creature struck down by a miracle faints, or is restored if it may not die</td>
+<td>todo</td>
+<td>Creatures take no harm from miracles (<code>effects::ApplyEffect</code> skips them: not ported)</td>
+</tr>
+<tr>
+<td>A creature's own miracle never harms it (only damaging effects are ignored)</td>
+<td>todo</td>
+<td>Creatures take no miracle damage at all yet (<code>src/ECS/Effects/EffectValues.cpp</code>)</td>
+</tr>
+<tr>
+<td>In a fight, a creature's stamina takes the damage and healing, blocking softens it, and it faints at none</td>
+<td>todo</td>
+<td>Miracle damage is not passed to creatures, in fights or out</td>
+</tr>
+<tr>
+<td>Outside fights a miracle leaves cuts and scars on a creature where it struck</td>
+<td>todo</td>
+<td>No miracle damage on creatures</td>
+</tr>
+<tr>
+<td>A creature caster counts the things its miracles destroy</td>
+<td>todo</td>
+<td>TODO in <code>effects::ApplyEffect</code></td>
+</tr>
+<tr>
+<td>The owner of a damaged thing keeps a tally of the damage each player did</td>
+<td>todo</td>
+<td>Not kept (<code>effects::ApplyEffect</code>: the per-player damage statistic)</td>
+</tr>
+<tr>
+<td>A town remembers which player attacked it last</td>
+<td>done</td>
+<td><code>effects::ApplyEffect</code> calls <code>town_emergency::UpdateAggressor</code> with the caused player for a destructive effect on a town's villager or building</td>
+</tr>
+<tr>
+<td>Something crushed starts a "struck" reaction from the casting creature (or itself) for its owner</td>
+<td>done</td>
+<td><code>effects::ApplyEffect</code>: REACT_TO_OBJECT_CRUSHED from the applier (or the object) for the object's player; <span class="state approx">inferred</span> only villagers count as crushable</td>
+</tr>
+<tr>
+<td>A creature changes its opinion of a creature whose miracles hit it, at most every minute, even in fights and for its own</td>
+<td>todo</td>
+<td>Creatures take no miracle hits</td>
+</tr>
+</tbody>
+</table>
+<h2 id="alignment-and-belief-from-miracles">Alignment and belief from miracles</h2>
+<p>The player's alignment itself is in <a href="../worship/index.html">../worship/</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Harming or healing a thing moves the caster's alignment by its kind (villager, building, plant, field, feature) and the life it changed</td>
+<td>done</td>
+<td><code>alignment::Update</code> (<code>src/ECS/Effects/Alignment.cpp</code>) from <code>effects::ApplyEffect</code>, by the object's alignment type and the life changed; player casters only</td>
+</tr>
+<tr>
+<td>Burning counts by the harm its heat does</td>
+<td>done</td>
+<td><code>alignment::Update</code> with <code>ConvertTemperatureToDamage</code></td>
+</tr>
+<tr>
+<td>A change is softened the closer the alignment already is to that side</td>
+<td>done</td>
+<td><code>alignment::ScaleChange</code>; test <code>SpellChants.alignmentScale</code></td>
+</tr>
+<tr>
+<td>Pending alignment moves the player by at most a small step each turn, and the rest is dropped</td>
+<td>done</td>
+<td><code>alignment::ProcessForPlayer</code> (the maximum change per turn times the clamped pending, then pending 0)</td>
+</tr>
+<tr>
+<td>A creature caster's own alignment changes by its own step each creature turn</td>
+<td>todo</td>
+<td>A creature-applied effect moves no alignment (TODO in <code>effects::ApplyEffect</code>)</td>
+</tr>
+<tr>
+<td>A history of alignment deeds is kept for statistics</td>
+<td>n/a</td>
+<td>Our tree keeps none. Our wiki differs: the history only feeds a debug overlay that retail never shows, so nothing in the game reads it (<a href="../../magic.html#player-alignment-galignment-gplayer-0x60-srcecseffectsalignment-componentsalignment">alignment</a>)</td>
+</tr>
+<tr>
+<td>A creature tribe's power for a miracle is its player's</td>
+<td>done</td>
+<td><code>magic::AllocSpell</code> gives the spell its creator's player; <code>GetTribalPower</code> uses it</td>
+</tr>
+<tr>
+<td>Tribal powers come from the worshipping tribes of each player</td>
+<td>todo</td>
+<td>Every tribe's power stays 1.0 (<code>PlayerMagic::tribalPower</code>); see <a href="prayer_cost.html">prayer_cost.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="people-and-animals-reacting">People and animals reacting</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A miracle (on cast or on each strike, per its table) starts a reaction that spreads to the cells around it</td>
+<td>done</td>
+<td><code>base::InitWithPos</code> and <code>spell_event::ApplyDefaultSpellEffect</code> call <code>reactions::CreateReaction</code> (<code>src/ECS/Effects/Reactions.cpp</code>), spread over the cells in its radius</td>
+</tr>
+<tr>
+<td>A reaction reaches further for a stronger miracle</td>
+<td>partial</td>
+<td><code>reactions::SpreadReaction</code> walks the cells of the radius only; the scaling of the cell count by the spell's strength (our wiki's reading) is not applied</td>
+</tr>
+<tr>
+<td>Reactions that grow start small and widen each turn</td>
+<td>n/a</td>
+<td>Our tree gives a growing reaction radius 1 and spreads it once. Our wiki differs: the per-turn re-spread is behind a debug switch the game never turns on, so each reaction is offered only once (<a href="../../animals.html#reactions">animals</a>)</td>
+</tr>
+<tr>
+<td>One reaction is re-spread each turn in turn</td>
+<td>n/a</td>
+<td>Our tree spreads each reaction once, at creation. Our wiki differs: the original's re-spread is behind a debug switch the game never turns on (<a href="../../animals.html#reactions">animals</a>)</td>
+</tr>
+<tr>
+<td>Villagers and creatures within reach decide by priority: kind of reaction, distance and species</td>
+<td>partial</td>
+<td>Villagers and animals: <code>reactions::Score</code> with each type's priority (<code>VillagerReactions.cpp</code>, <code>src/ECS/AnimalFlee.cpp</code>); test <code>VillagerReactionsPure.Scores</code>. Creatures take no reactions (<code>ClassOf</code> in <code>Reactions.cpp</code>)</td>
+</tr>
+<tr>
+<td>Villagers flee a nasty miracle, the closer the more urgently</td>
+<td>todo</td>
+<td>The flee-from-spell reaction has no villager handler (<code>VillagerReactions.cpp</code> handles fire, teleport, shield, death, food and wood only)</td>
+</tr>
+<tr>
+<td>Villagers and creatures turn to look at a nice miracle</td>
+<td>todo</td>
+<td>The look-at-spell reactions have no handler</td>
+</tr>
+<tr>
+<td>A creature never flees its own miracle</td>
+<td>todo</td>
+<td>Creatures take no reactions</td>
+</tr>
+<tr>
+<td>Someone inside a shield doesn't react to a miracle outside it</td>
+<td>done</td>
+<td><code>reactions::SpreadReaction</code> asks <code>map_shield::IsReactionBlockedByShield</code> for every villager and animal</td>
+</tr>
+<tr>
+<td>A villager in a shield's reaction weighs other reactions against it like any other</td>
+<td>partial</td>
+<td>The common switch rule (<code>SwitchAllowed</code>) covers only the food and wood reactions; a miracle reaction (fire, teleport, shield) reaching a villager in a miracle reaction goes to its own code (<code>DispatchMiracleReaction</code>, <code>VillagerReactions.cpp</code>)</td>
+</tr>
+<tr>
+<td>A reaction lasts its table's turns whatever the distance, and stops when what it reacts to goes</td>
+<td>done</td>
+<td><code>reactions::StandardTurnsToReact</code> (<code>src/ECS/Effects/Reactions.cpp</code>); a gone initiator's reactions are pruned at the turn's start (<code>reactions::Prune</code>, approximate). Our wiki differs: the table's turns are lengthened for a closer villager (<a href="../../magic.html#reactions-ecseffectsreactions">reactions</a>)</td>
+</tr>
+<tr>
+<td>A villager won't take the same reaction again too soon; the memory keeps three kinds</td>
+<td>done</td>
+<td><code>reactions::Records</code> (three records, dropped after 1800 turns); test <code>VillagerReactionsTest.SetReactionDoneWhen</code></td>
+</tr>
+<tr>
+<td>A more urgent different reaction takes over only after ten seconds (one second after being picked up)</td>
+<td>done</td>
+<td><code>reactions::MaySwitch</code>; test <code>VillagerReactionsTest.FoodToWoodSwitchAfterTenSeconds</code></td>
+</tr>
+<tr>
+<td>Only villagers and creatures free to react take it up (not dead, scripted, in a fight …)</td>
+<td>partial</td>
+<td>Villagers: <code>villager::IsAvailableForReaction</code> (test <code>VillagerReactionsTest.IsAvailableForReaction</code>); creatures take no reactions</td>
+</tr>
+<tr>
+<td>Villagers who can't reach the miracle, or are hiding, still gain belief without reacting</td>
+<td>todo</td>
+<td>No belief from reactions (TODO in <code>villager_reactions::AddReaction</code>)</td>
+</tr>
+<tr>
+<td>Animals flee nasty miracles</td>
+<td>todo</td>
+<td>The animals' handler (<code>src/ECS/AnimalFlee.cpp</code>) takes predators, food and flying objects only</td>
+</tr>
+<tr>
+<td>A reaction started by something picked up by the hand stops spreading while held</td>
+<td>done</td>
+<td><code>reactions::SetUnavailableInHand</code> from <code>HandHolding.cpp</code>, <code>SetAvailable</code> again on release (<code>HandApplyToObject.cpp</code>)</td>
+</tr>
+<tr>
+<td>A creature examines and learns from a nice miracle only if it is its own or an ally's, from a seed nobody has learnt from yet</td>
+<td>todo</td>
+<td>Creatures take no reactions</td>
+</tr>
+<tr>
+<td>A creature runs from a nasty miracle, sometimes in fright, or goes to look at a nice one</td>
+<td>todo</td>
+<td>Creatures take no reactions</td>
+</tr>
+</tbody>
+</table>
+<h2 id="impressiveness-and-belief">Impressiveness and belief</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>How much a miracle impresses depends on the land's balance, the reaction, the miracle, distance and how bored the watcher's town is</td>
+<td>todo</td>
+<td>Not ported: villager reactions feed no impressiveness (TODO in <code>villager_reactions::AddReaction</code>)</td>
+</tr>
+<tr>
+<td>A villager impressed adds belief in that player to its town, less in a bigger town</td>
+<td>todo</td>
+<td>Not ported (see above)</td>
+</tr>
+<tr>
+<td>A town takes in its pending belief at its own turn, scaled by the town</td>
+<td>done</td>
+<td><code>town_belief::Fold</code> (<code>src/ECS/Town/TownBelief.cpp</code>); test <code>TownBeliefTest.FoldPending</code></td>
+</tr>
+<tr>
+<td>Each impression bores the town a little with that kind of miracle; the boredom wears off each town turn, faster on a lost land</td>
+<td>partial</td>
+<td>The boredom wears off in <code>town_belief::Fold</code>, with the lost town scale (<code>SET_LOST_TOWN_SCALE</code>, <code>src/LHScriptX/FeatureScriptCommands.cpp</code>; test <code>TownBeliefTest.FoldBoredom</code>); impressions add none</td>
+</tr>
+<tr>
+<td>Each reaction also moves the player's alignment (fleeing a little evil, admiring a little good), weighted by the town's desire</td>
+<td>todo</td>
+<td>Not ported, with the impressiveness</td>
+</tr>
+<tr>
+<td>A creature watching its own player's miracle is impressed by it</td>
+<td>todo</td>
+<td>Creatures take no reactions</td>
+</tr>
+<tr>
+<td>Belief symbols rise over impressed villagers</td>
+<td>todo</td>
+<td>No belief from miracles, so no symbols from them</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creatures-watching-the-player-cast">Creatures watching the player cast</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The player's creature, if it sees the point, feels the desires a miracle answers</td>
+<td>todo</td>
+<td>TODO in <code>base::InitWithPos</code> (the creature's mind)</td>
+</tr>
+<tr>
+<td>A creature copies a deed it sees the player do with a miracle (water on crops, feeding, attacking another's town …)</td>
+<td>partial</td>
+<td><code>creature_mimic::Consider</code> is called for water on crops only (<code>src/Magic/Spells/SpellWater.cpp</code>); the general hook after a hit is a TODO in <code>spell_event::ApplyDefaultSpellEffect</code></td>
+</tr>
+<tr>
+<td>A creature that sees a miracle counts it towards learning it</td>
+<td>partial</td>
+<td><code>creature_watching::SeeMiracle</code> and <code>CreatureMindSystem::SeeMiracle</code> exist (<code>src/Creature/CreatureWatching.cpp</code>), but only the debug creature menu calls them: casting a miracle does not. See <a href="creature_spells.html">creature_spells.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="challenge-scripts-and-miracles">Challenge scripts and miracles</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A script can cast a miracle at a point, from a point, with radius, duration and curl</td>
+<td>done</td>
+<td><code>SPELL_AT_POS</code>: <code>magic::script::SpellAtPos</code> and <code>CastSpellAtPos</code> (<code>src/Magic/Script/CHLSpells.cpp</code>)</td>
+</tr>
+<tr>
+<td>A script can cast a miracle on a thing, on it or at its place by the miracle's rule</td>
+<td>done</td>
+<td><code>SPELL_AT_THING</code>: <code>magic::script::SpellAtThing</code> and <code>magic::CastAtObject</code></td>
+</tr>
+<tr>
+<td>A script can find a miracle already at a point (or a shield over it)</td>
+<td>partial</td>
+<td><code>SPELL_AT_POINT</code> (<code>magic::script::SpellAtPoint</code>) finds the first spell of that magic within the radius; for the shields it answers 0 instead of the shield there</td>
+</tr>
+<tr>
+<td>A script miracle with an unknown kind gives nothing back</td>
+<td>done</td>
+<td><code>ValidMagic</code> in <code>src/Magic/Script/CHLSpells.cpp</code>: an error line and nothing pushed</td>
+</tr>
+<tr>
+<td>A script miracle makes no cast sound</td>
+<td>done</td>
+<td>The effects ask <code>IsScriptCasting</code> (the neutral player's cast) before their cast sound (<code>src/Particles/Rules/Fireball.cpp</code>, <code>Storm.cpp</code>)</td>
+</tr>
+<tr>
+<td>A script can stop spells on a creature wearing off</td>
+<td>done</td>
+<td><code>CREATURE_SPELL_REVERSION</code> (<code>src/CHLApi.cpp</code>) through <code>spell_creature::SetReversion</code>; see <a href="creature_spells.html">creature_spells.md</a>. Tests <code>SpellCreatureTest.TheReversionNativePopsTheCreatureThenTheFlag</code>, <code>CreatureSpells.WithoutReversionASpellStopsWhereItIs</code></td>
+</tr>
+<tr>
+<td>The land's balance set by script feeds how impressive miracles are</td>
+<td>partial</td>
+<td><code>SET_LAND_BALANCE</code> is stored (<code>src/ECS/Systems/Implementations/LandBalanceSystem.cpp</code>) and read by trees and villager speed, but there is no impressiveness to feed</td>
+</tr>
+<tr>
+<td>A script can ask a player's last cast miracle, where and when</td>
+<td>done</td>
+<td><code>PLAYER_SPELL_CAST_TIME</code>, <code>PLAYER_SPELL_LAST_CAST</code>, <code>GET_LAST_SPELL_CAST_POS</code> in <code>src/Magic/Script/CHLSpells.cpp</code></td>
+</tr>
+<tr>
+<td>A script can give or take a miracle from a player and ask whether the player has it</td>
+<td>done</td>
+<td><code>SET_PLAYER_MAGIC</code> (<code>players::SetMagicTypeEnabled</code>) and <code>HAS_PLAYER_MAGIC</code> (ever enabled; 1 with no such player) in <code>src/Magic/Script/CHLSpells.cpp</code></td>
+</tr>
+<tr>
+<td>A script can ask whether a thing is under a miracle</td>
+<td>todo</td>
+<td><code>IS_AFFECTED_BY_SPELL</code> is a stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>A script can ask whether wind magic (storm or tornado) is at a place</td>
+<td>todo</td>
+<td><code>IS_WIND_MAGIC_AT_POS</code> is a stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>A script can put a miracle into an object or set a miracle's properties on it</td>
+<td>done</td>
+<td><code>SET_MAGIC_IN_OBJECT</code> (a town's magic) and <code>SET_MAGIC_PROPERTIES</code> (a dispenser's) in <code>src/Magic/Script/CHLWorship.cpp</code></td>
+</tr>
+<tr>
+<td>A script can ask the prayer power a miracle needs and whether a miracle is charging</td>
+<td>done</td>
+<td><code>GET_MANA_FOR_SPELL</code> (<code>CHLSpells.cpp</code>); <code>IS_SPELL_CHARGING</code>, <code>IS_THAT_SPELL_CHARGING</code>, <code>CLEAR_PLAYER_SPELL_CHARGING</code> (<code>CHLWorship.cpp</code>, on the worship icons)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="computer-gods-casting-miracles">Computer gods casting miracles</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A rival god casts miracles to attack towns and creatures, choosing the best aggressive one it has</td>
+<td>todo</td>
+<td>No computer player AI</td>
+</tr>
+<tr>
+<td>A rival god casts miracles to impress towns and helps its own (food, wood, water, heal into its store and building sites)</td>
+<td>todo</td>
+<td>No computer player AI</td>
+</tr>
+<tr>
+<td>A rival god shields its towns and things against attacks</td>
+<td>todo</td>
+<td>No computer player AI</td>
+</tr>
+<tr>
+<td>A rival god charges its worship sites' miracles and checks it has the prayer power</td>
+<td>todo</td>
+<td>No computer player AI (the worship sites and icons themselves exist)</td>
+</tr>
+<tr>
+<td>A rival god teaches its creature miracles and casts on it for a laugh</td>
+<td>todo</td>
+<td>No computer player AI</td>
+</tr>
+<tr>
+<td>A rival god's miracles last its own time</td>
+<td>partial</td>
+<td><code>GetTimerWhenComputerPlayerCasting</code> (<code>src/Magic/MagicTables.cpp</code>) is there, but nothing casts as a computer player</td>
+</tr>
+</tbody>
+</table>
+<h2 id="saving">Saving</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Active miracles, their reactions and their seeds are saved and loaded with the game</td>
+<td>todo</td>
+<td>No game save system</td>
+</tr>
+<tr>
+<td>Reactions in progress are saved and loaded</td>
+<td>todo</td>
+<td>No game save system</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

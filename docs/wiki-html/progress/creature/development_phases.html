@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Development phases — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="here" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#development-phases">Development phases</a><ul>
+<li><a href="#how-stages-work">How stages work</a></li>
+<li><a href="#the-stages">The stages</a></li>
+<li><a href="#limits-on-a-young-creature">Limits on a young creature</a></li>
+<li><a href="#the-creature-tutorial">The creature tutorial</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="development-phases">Development phases</h1>
+<p>A creature grows up through stages, from a fresh young creature in the first land to a fully mature one. Each stage has
+its own lesson from the story (eating from the hand, punishment, the leash, meeting its guide, fighting, helping a town),
+brings and takes away desires, and gates what it can learn. The first stages come with a creature tutorial.</p>
+<p><strong>Progress: 6/47 done, 12 partial — 26%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../creature.html">The creature: groundwork, random streams and what is unknown</a>.</p>
+<h2 id="how-stages-work">How stages work</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A creature is at one of fourteen stages, from the first to fully mature</td>
+<td>partial</td>
+<td>the stage is kept (<code>CreatureMindState::developmentPhase</code>, <code>src/ECS/Components/CreatureMind.h</code>, 0 to <code>k_FullyGrownUp</code> 13), but every creature starts fully mature unless its mind file or a script says otherwise; the original's starts at the first stage (<a href="../../creature.html#the-players-creature">creature.md</a>)</td>
+</tr>
+<tr>
+<td>Each stage brings up to ten desires and takes away up to four, from the game's tables</td>
+<td>done</td>
+<td><code>Phases</code> in <code>CreatureMindSystem.cpp</code> (from <code>creatureDevelopmentPhaseEntry</code>), <code>creature_desires::ActivateForPhase</code>; test <code>CreatureDesires.GrowingUpBringsAndTakesDesires</code></td>
+</tr>
+<tr>
+<td>Reaching a stage, no desire stays held back</td>
+<td>done</td>
+<td><code>creature_desires::ActivateForPhase</code> clears every hold first</td>
+</tr>
+<tr>
+<td>Each turn the creature checks whether it has met its stage's criteria and moves on</td>
+<td>todo</td>
+<td>nothing moves a creature to the next stage</td>
+</tr>
+<tr>
+<td>Each stage lasts at least a time from the game's tables</td>
+<td>todo</td>
+<td>the duration table is not read</td>
+</tr>
+<tr>
+<td>Moving to a new stage tells the player what the creature can now do</td>
+<td>todo</td>
+<td>see <a href="lessons_and_help.html">lessons and help</a></td>
+</tr>
+<tr>
+<td>The stage is saved in and restored from the mind file</td>
+<td>partial</td>
+<td>read from the file in <code>CreatureMindSystem::TakeUpFile</code> (<code>CreatureMindLearning.cpp</code>); <code>creature_mind_model::ToFile</code> writes it, but nothing in the game saves the mind</td>
+</tr>
+<tr>
+<td>The stage shows in the debug spawner and can be changed there</td>
+<td>done</td>
+<td>Debug &gt; Creature spawner (<code>src/Debug/CreatureSpawner.cpp</code>, "set stage"; openblack-only)</td>
+</tr>
+<tr>
+<td>The testbed can set a creature's stage</td>
+<td>n/a</td>
+<td>openblack-only tool, and our tree has no testbed; the debug spawner sets the stage</td>
+</tr>
+<tr>
+<td>A script sets a creature's stage</td>
+<td>partial</td>
+<td>SET_CREATURE_DEV_STAGE (<code>src/CHLApi.cpp</code>, <code>player_creature::SetDevelopmentStage</code> in <code>src/ECS/PlayerCreature.cpp</code>); the desires follow at the mind's next turn, the original's at once</td>
+</tr>
+<tr>
+<td>The tutorial's script starts the player's creature growing up again from the first stage, kept near its home</td>
+<td>todo</td>
+<td>DEV_FUNCTION 1 is not ported (<code>player_creature::DevFunction</code> handles only 2 and 3; the rest log <code>NotImplemented</code>)</td>
+</tr>
+<tr>
+<td>The tutorial's scripts grant the learning leash, then the aggression and compassion leashes</td>
+<td>done</td>
+<td>DEV_FUNCTION 2 and 3 (<code>player_creature::DevFunction</code> in <code>src/ECS/PlayerCreature.cpp</code>, called from <code>src/CHLApi.cpp</code>); see <a href="leash.html">leash</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-stages">The stages</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>First stage: the fresh creature, just chosen, learns its first simple things</td>
+<td>partial</td>
+<td>the stage exists; the initial lessons and their criteria are missing</td>
+</tr>
+<tr>
+<td>Learning to take from the player and eat: stroked for holding food, it learns to eat what it is given</td>
+<td>partial</td>
+<td><code>CreatureMindSystem::LearnFromFeedback</code> (eat when stroked, from the second stage on); the stage's criteria are missing; see <a href="feeding_and_thrown_things.html">feeding_and_thrown_things.md</a></td>
+</tr>
+<tr>
+<td>Punishment: it learns from slaps, and from here on strokes and slaps teach lessons</td>
+<td>partial</td>
+<td>lessons start at this stage (<code>k_MinLessonPhase</code> in <code>CreatureMindLearning.cpp</code>); the stage's criteria are missing</td>
+</tr>
+<tr>
+<td>Leash pull and pick up: it is led on the leash and learns to pick things up; from here on it can copy the player</td>
+<td>partial</td>
+<td>copying the player starts here (<code>creature_watching::k_MinMimicPhase</code>); the stage's criteria are missing</td>
+</tr>
+<tr>
+<td>Leash tied to something (planned as a house): it learns to stay where the leash is tied</td>
+<td>todo</td>
+<td>tying the leash works (see <a href="leash.html">leash</a>); the stage's lesson doesn't; in the shipped lesson the creature is tied to a palm tree by the pen, not a house: <a href="../story/gold_scrolls/the_creatures_learning.html#lesson-5-tying-the-leash">../story/gold_scrolls/the_creatures_learning.md</a></td>
+</tr>
+<tr>
+<td>Meeting its guide</td>
+<td>todo</td>
+<td>no shipped script sets this stage; see <a href="../story/creature_guide.html">../story/creature_guide.md</a></td>
+</tr>
+<tr>
+<td>Making friends with its guide</td>
+<td>todo</td>
+<td>set from the meeting on; see <a href="../story/creature_guide.html">../story/creature_guide.md</a></td>
+</tr>
+<tr>
+<td>The guide explains the history</td>
+<td>todo</td>
+<td>no shipped script sets this stage (the history is told while making friends); see <a href="../story/creature_guide.html">../story/creature_guide.md</a></td>
+</tr>
+<tr>
+<td>The guide teaches it miracles; after this stage it can cast powered-up miracles</td>
+<td>todo</td>
+<td>creatures cast no miracles in our tree, powered up or not; set by the guide's food lesson (<a href="../story/creature_guide.html">../story/creature_guide.md</a>)</td>
+</tr>
+<tr>
+<td>Impressing a town</td>
+<td>todo</td>
+<td>see <a href="../story/creature_guide.html">../story/creature_guide.md</a></td>
+</tr>
+<tr>
+<td>Learning to fight</td>
+<td>todo</td>
+<td>see <a href="fighting.html">fighting</a> and <a href="../story/creature_guide.html">../story/creature_guide.md</a></td>
+</tr>
+<tr>
+<td>Helping a town</td>
+<td>todo</td>
+<td>no shipped script sets this stage; see <a href="../story/creature_guide.html">../story/creature_guide.md</a></td>
+</tr>
+<tr>
+<td>The good and evil leashes</td>
+<td>partial</td>
+<td>the leashes can be granted (DEV_FUNCTION 3; see <a href="leash.html">leash</a>); the stage's lesson doesn't exist; the shipped game sets this stage at the end of the tying lesson, which also shows the two leashes; the stage's own lesson is compiled but never started: <a href="../story/gold_scrolls/the_creatures_learning.html#lesson-5-tying-the-leash">../story/gold_scrolls/the_creatures_learning.md</a></td>
+</tr>
+<tr>
+<td>Fully mature: every desire it has is its own</td>
+<td>done</td>
+<td>stage 13 from the game's tables; the default for every creature in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="limits-on-a-young-creature">Limits on a young creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Skills it sees practised are only learnt once it is old enough for each</td>
+<td>partial</td>
+<td><code>creature_watching::SeeSkill</code> (<code>minPhase</code>); test <code>CreatureWatching.LearnsASkillOnceWatchedLongEnough</code>; dormant: <code>CreatureMindSystem::SeeSkill</code> is only called by the debug spawner</td>
+</tr>
+<tr>
+<td>Miracles it sees cast are only learnt once it is old enough for each</td>
+<td>partial</td>
+<td><code>creature_watching::SeeMiracle</code>; test <code>CreatureWatching.LearnsAMiracleBySightingsAndSpecies</code>; dormant: <code>CreatureMindSystem::SeeMiracle</code> is only called by the debug spawner</td>
+</tr>
+<tr>
+<td>A young creature can't copy the player, and the player is told so</td>
+<td>partial</td>
+<td>it can't copy before its stage (<code>creature_watching::k_MinMimicPhase</code>); the message is missing</td>
+</tr>
+<tr>
+<td>A young creature can't pick things up until it has learnt to, and the player is told so</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A young creature can't run until it has learnt to</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A young creature is kept near its home until it is mature enough to leave</td>
+<td>partial</td>
+<td><code>LeashSystem::ConfineToHome</code> keeps it near home, but only the debug spawner calls it; nothing lets it go as it matures</td>
+</tr>
+<tr>
+<td>An action it can't learn at its stage tells the player so</td>
+<td>todo</td>
+<td>see <a href="lessons_and_help.html">lessons and help</a></td>
+</tr>
+<tr>
+<td>The young creature is given its first lessons (including that villagers are nice to eat, for the computer gods' creatures)</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Its growth in size goes with its age</td>
+<td>done</td>
+<td>see <a href="growth_and_size.html">growth and size</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-creature-tutorial">The creature tutorial</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Selecting the creature</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Making it run</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Handing it something</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Deselecting it</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>More rocks are needed for its home</td>
+<td>todo</td>
+<td>see <a href="home_and_pen.html">home and pen</a></td>
+</tr>
+<tr>
+<td>Picking things up</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Helping build</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Dropping things</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Eating</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Rewarding and punishing it</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Drinking</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Having a poo</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Showing a lesson as the creature learns (running, picking up, throwing, stomping, dancing)</td>
+<td>todo</td>
+<td>see <a href="lessons_and_help.html">lessons and help</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

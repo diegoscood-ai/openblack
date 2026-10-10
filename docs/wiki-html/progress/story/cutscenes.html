@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cut scenes and films — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="here" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#cut-scenes-and-films">Cut scenes and films</a><ul>
+<li><a href="#films">Films</a></li>
+<li><a href="#scripted-cut-scenes">Scripted cut scenes</a></li>
+<li><a href="#the-storys-set-pieces">The story's set pieces</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="cut-scenes-and-films">Cut scenes and films</h1>
+<p>The films (Bink videos) and the scripted cut scenes of the story: the camera moving through shots under cinema bars,
+fades, and the advisors and characters acting them out.</p>
+<p><strong>Progress: 8/20 done, 7 partial — 58%</strong></p>
+<h2 id="films">Films</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The start-up logos, the pre-intro, the intro film, the loading screen's tip pictures and the creature's fall</td>
+<td>partial</td>
+<td>the intro film (<code>SET_AVI_SEQUENCE</code>, <code>src/Video/VideoPlayer</code>, our own Bink decoder) and the creature's fall (<code>src/Video/FallingSpellVideo</code>) play; the logos, the pre-intro and the tip pictures are not shown (no front end or loading screen); see ../video/bink_videos.md and <a href="../../video.html#startup-and-loading-screen">video.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="scripted-cut-scenes">Scripted cut scenes</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A cut scene takes the camera and brings the cinema bars in</td>
+<td>done</td>
+<td><code>StartCameraControl</code>, <code>SetWidescreen</code> (<code>src/CHLApi.cpp</code>, <code>ScreenFade</code>); checked in the Land 1 intro</td>
+</tr>
+<tr>
+<td>The camera is set to a place and focus at once</td>
+<td>done</td>
+<td><code>SetCameraPosition</code>, <code>SetCameraFocus</code> (<code>src/CHLApi.cpp</code>, <code>Camera/ScriptCamera</code>)</td>
+</tr>
+<tr>
+<td>The camera glides to a place and focus over a time</td>
+<td>done</td>
+<td><code>MoveCameraPosition</code>, <code>MoveCameraFocus</code>, <code>HasCameraArrived</code> (<code>Camera/ScriptCamera</code>, <code>test/test_script_camera.cpp</code>); checked in the Land 1 intro; see ../camera/script_camera.md</td>
+</tr>
+<tr>
+<td>The camera follows or faces an object</td>
+<td>done</td>
+<td><code>FocusFollow</code>, <code>PositionFollow</code>, <code>SetCameraToFaceObject</code>, <code>MoveCameraToFaceObject</code> (<code>src/CHLApi.cpp</code>); the intro's follow shots checked; see ../camera/follow_cameras.md</td>
+</tr>
+<tr>
+<td>The camera runs a recorded camera path</td>
+<td>partial</td>
+<td><code>RunCameraPath</code> is real (<code>CameraPathSystem</code>); its scenes (the creatures in the glade) are not checked in game; see ../camera/camera_paths.md</td>
+</tr>
+<tr>
+<td>The picture fades to a colour and back between shots</td>
+<td>done</td>
+<td><code>SetFade</code>, <code>SetFadeIn</code>, <code>FadeFinished</code> (<code>ScreenFade</code>); see ../camera/cinematics.md</td>
+</tr>
+<tr>
+<td>Characters walk to marks, turn and play animations for the scene</td>
+<td>partial</td>
+<td><code>MoveGameThing</code>, <code>SetFocus</code>, <code>OverrideStateAnimation</code>, <code>WalkPath</code>, <code>SetScriptState</code> work for villagers and animals (the intro's family walks, checked) but not for creatures</td>
+</tr>
+<tr>
+<td>Special effects and sounds are started for the scene</td>
+<td>partial</td>
+<td><code>SpecialEffectPosition</code>, <code>SpecialEffectObject</code>, <code>PlaySoundEffect</code> are real (<code>src/CHLApi.cpp</code>); which effects match the original is not checked one by one</td>
+</tr>
+<tr>
+<td>Game time can be set, stopped and moved on for a scene</td>
+<td>done</td>
+<td><code>SetGameTime</code>, <code>GameTimeOnOff</code>, <code>MoveGameTime</code> (<code>src/CHLApi.cpp</code>)</td>
+</tr>
+<tr>
+<td>Music for the scene</td>
+<td>done</td>
+<td><code>StartMusic</code>, <code>StopMusic</code>, <code>AttachMusic</code> (<code>Audio/Services/GameMusic</code>); the intro's music plays; see ../audio/music.md</td>
+</tr>
+<tr>
+<td>The game's speed can be slowed for a scene</td>
+<td>done</td>
+<td><code>StartGameSpeed</code>, <code>SetGamespeed</code>, <code>EndGameSpeed</code> (<code>Help/ScriptControl</code>); used by the intro</td>
+</tr>
+<tr>
+<td>Close camera clipping for close shots</td>
+<td>todo</td>
+<td><code>SetGraphicsClipping</code> is a stub in <code>src/CHLApi.cpp</code> (the camera's own near plane is ported, <code>test/test_near_clipping.cpp</code>); see ../camera/cinematics.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-storys-set-pieces">The story's set pieces</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The family and the drowning boy at the very start</td>
+<td>partial</td>
+<td>the intro runs and is checked in game up to the hand-over (the family, the kiss, the son and the sharks, the film, the rescue); the welcome dance (<code>DanceCreate</code> stub) and the high-detail family are not done; see <a href="land_1.html">land_1.md</a></td>
+</tr>
+<tr>
+<td>The temple's completion</td>
+<td>partial</td>
+<td><code>CitadelGuide</code> calls only real natives; not checked in game; see <a href="gold_scrolls/the_temple_is_finished.html">gold_scrolls/the_temple_is_finished.md</a></td>
+</tr>
+<tr>
+<td>The creatures in the glade</td>
+<td>todo</td>
+<td>the camera part of <code>CreaturesInGlade</code> is real, but its creatures are not made or driven (<code>CreatureDoAction</code> stub, no script-made creatures)</td>
+</tr>
+<tr>
+<td>Khazar's arrival and death</td>
+<td>todo</td>
+<td>never reached (Land 2 needs <code>LOAD_MAP</code>), and the computer god natives are stubs; see land_2.md</td>
+</tr>
+<tr>
+<td>Lethys stealing the creature</td>
+<td>todo</td>
+<td>never reached (Land 2 needs <code>LOAD_MAP</code>), and the creature natives it needs are stubs</td>
+</tr>
+<tr>
+<td>The vortex opening between lands</td>
+<td>partial</td>
+<td>a script opens a vortex (<code>CREATE</code> of a vortex, <code>VortexParameters</code>, <code>src/ECS/Vortex</code>); Land 1's exit vortex opens at once in a game that skips the guide; the films and going through (<code>LOAD_MAP</code>) are not done; see <a href="portals.html">portals.md</a></td>
+</tr>
+<tr>
+<td>Nemesis's curse, the big fight and the ending</td>
+<td>todo</td>
+<td>never reached (Land 5 needs <code>LOAD_MAP</code>); see ending.md</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

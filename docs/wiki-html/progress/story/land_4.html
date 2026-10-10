@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Land 4 — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="here" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#land-4">Land 4</a><ul>
+<li><a href="#arriving">Arriving</a></li>
+<li><a href="#gold-scrolls">Gold scrolls</a></li>
+<li><a href="#silver-scrolls">Silver scrolls</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="land-4">Land 4</h1>
+<p>Khazar's land again, now ruined by Nemesis: meteors fall, a village has been turned undead and ogres guard the way. The
+player rebuilds, helps the survivors and the creature is given the first of the creeds that will protect it.</p>
+<p>Every silver scroll of the game, land by land, with scores: <a href="silver_scrolls.html">silver_scrolls.md</a>.</p>
+<p>How the player can lose a land, and the game over: <a href="losing_and_game_over.html">losing_and_game_over.md</a>.</p>
+<p><strong>Progress: 0/15 done, 0 partial — 0%</strong></p>
+<h2 id="arriving">Arriving</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land loads and its control script begins</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; <code>LandControlAll</code> runs <code>LandControl1</code> first whatever land is loaded (<code>Game.cpp</code>). The land script's contents: see ../scripts/land4_script.md</td>
+</tr>
+<tr>
+<td>The player comes through the vortex and finds the land ruined; the creature is kept away from the vortex</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; covered in <a href="gold_scrolls/the_defending_ogres.html">gold_scrolls/the_defending_ogres.md</a>; keeping the creature away (<code>CreatureDoAction</code>) is a stub</td>
+</tr>
+<tr>
+<td>A man explains what Nemesis has done</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; covered in <a href="gold_scrolls/the_defending_ogres.html">gold_scrolls/the_defending_ogres.md</a> (its natives are mostly real; the log is a stub)</td>
+</tr>
+<tr>
+<td>Meteors fall on the land: fire, lightning and darkness meteors, aimed near the player's towns</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; covered in <a href="gold_scrolls/the_defending_ogres.html">gold_scrolls/the_defending_ogres.md</a>; the fireballs, storms and clock natives are real; see ../miracles/</td>
+</tr>
+<tr>
+<td>The player's home town is built up and its people are kept from exploring until the story allows</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; covered in <a href="gold_scrolls/the_defending_ogres.html">gold_scrolls/the_defending_ogres.md</a>; moving the creature by script is not done</td>
+</tr>
+<tr>
+<td>The creature is given the creed</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; covered in <a href="gold_scrolls/undead_village.html#the-creed">gold_scrolls/undead_village.md</a>: <code>InCreatureHand</code> and <code>SetCreatureCreedProperties</code> are stubs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="gold-scrolls">Gold scrolls</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gold scroll: "The Heartbroken Man" — a nomad's story; how the player answers sets the alignment</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; full breakdown: <a href="gold_scrolls/the_heartbroken_man.html">gold_scrolls/the_heartbroken_man.md</a>: most natives are real; the health and held reads are not handled</td>
+</tr>
+<tr>
+<td>Gold scroll: "Undead Village" — a village of skeletons; set right by raising its two sunken totems</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; full breakdown: <a href="gold_scrolls/undead_village.html">gold_scrolls/undead_village.md</a>: skeletons and script-made totems are not done</td>
+</tr>
+<tr>
+<td>Gold scroll: "The Totem Puzzle" — a bell memory game at five bell towers by the Japanese village: the towers ring rounds of 3, 5, 7 and 9 notes and the player clicks them back in the same order; the totems to raise belong to Undead Village</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; full breakdown: <a href="gold_scrolls/the_totem_puzzle.html">gold_scrolls/the_totem_puzzle.md</a>: the bell towers (<code>CREATE</code> of a totem) are never made</td>
+</tr>
+<tr>
+<td>Gold scroll: "The Defending Ogres" — the ogre Sleg and his family guard the way with a guardian stone; gremlins attack the creature</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; full breakdown: <a href="gold_scrolls/the_defending_ogres.html">gold_scrolls/the_defending_ogres.md</a>: Sleg and the gremlins are never made (<code>CreatureCreateRelativeToCreature</code> is a stub)</td>
+</tr>
+<tr>
+<td>Gold scroll: leave through the vortex — the way to Nemesis's land</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; full breakdown: <a href="gold_scrolls/leave_through_the_vortex_land_4.html">gold_scrolls/leave_through_the_vortex_land_4.md</a> (its script has no stubs); vortex mechanics: <a href="portals.html">portals.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="silver-scrolls">Silver scrolls</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Silver scroll: "The Treacherous Path" — a blind woman walks to her brother with healing potions; the player keeps her safe</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; see <a href="silver_scrolls/the_treacherous_path.html">silver_scrolls/the_treacherous_path.md</a></td>
+</tr>
+<tr>
+<td>Silver scroll: "The Fish Puzzle" — a boy wants to be a fisherman; tapping the water herds the fish away from the hand</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; see <a href="silver_scrolls/the_fish_puzzle.html">silver_scrolls/the_fish_puzzle.md</a></td>
+</tr>
+<tr>
+<td>Silver scroll (no title in the game's text): the creature breeder returns with creatures to swap</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; see challenges_and_rewards.md; <a href="silver_scrolls/the_creature_breeder.html">silver_scrolls/the_creature_breeder.md</a></td>
+</tr>
+<tr>
+<td>Bronze puzzles: the Theseus maze, whose prize falls from the sky, and the Japanese village's totem puzzle (raise all the totems), which gives a shield miracle dispenser</td>
+<td>todo</td>
+<td>never reached: <code>LOAD_MAP</code> is an empty native, so the story never loads this land; see <a href="minigames.html">minigames.md</a> and <a href="gold_scrolls/the_totem_puzzle.html#quirks-unused-and-cut-parts">gold_scrolls/the_totem_puzzle.md</a>; <code>CREATE</code> of a puzzle game is real (<code>src/ECS/PuzzleGames</code>)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

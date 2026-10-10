@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diagnostics — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="here" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#diagnostics">Diagnostics</a><ul>
+<li><a href="#command-line">Command line</a></li>
+<li><a href="#logging">Logging</a></li>
+<li><a href="#measuring">Measuring</a></li>
+<li><a href="#crashes">Crashes</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="diagnostics">Diagnostics</h1>
+<p>openblack's ways of measuring and checking itself: the game's command-line switches for testing, logging, the
+profiler, frame statistics, benchmarks, screenshots and crash reports.</p>
+<p><strong>Progress: 15/19 done, 3 partial — 87%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../openblack-internals.html">openblack internals</a>.</p>
+<h2 id="command-line">Command line</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Point the game at the original's files, pick the land to start on, or the testbed</td>
+<td>partial</td>
+<td><code>--game-path</code> and <code>--start-level</code> (<code>src/main.cpp</code>); no testbed in our tree</td>
+</tr>
+<tr>
+<td>Window size, window mode, renderer backend, vertical sync, interface scale</td>
+<td>done</td>
+<td><code>-W</code>, <code>-H</code>, <code>--window-mode</code>, <code>--backend-type</code>, <code>--no-vsync</code> (on by default, as the original), <code>--ui-scale</code> (<code>src/main.cpp</code>)</td>
+</tr>
+<tr>
+<td>The original's detail level, 0 to 6</td>
+<td>done</td>
+<td><code>--detail-level</code></td>
+</tr>
+<tr>
+<td>Run a set number of frames and quit, for automated runs</td>
+<td>done</td>
+<td><code>--num-frames-to-simulate</code></td>
+</tr>
+<tr>
+<td>A screenshot at a given frame, to a given path</td>
+<td>done</td>
+<td><code>--screenshot-frame</code>, <code>--screenshot-path</code></td>
+</tr>
+<tr>
+<td>Run a testbed scenario or benchmark</td>
+<td>todo</td>
+<td>no <code>--scenario</code> or benchmark switches in our tree; see <a href="testbed.html">testbed.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="logging">Logging</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Logs to a file, the terminal or the Android log</td>
+<td>done</td>
+<td><code>--log-file</code> (a file, <code>stdout</code> or <code>logcat</code>)</td>
+</tr>
+<tr>
+<td>A log level for each subsystem</td>
+<td>done</td>
+<td><code>--log-level</code></td>
+</tr>
+<tr>
+<td>The log shown in the console window</td>
+<td>done</td>
+<td><code>src/Debug/Console.cpp</code>, the editor's log panel (<code>src/Editor/Panels/LogPanel.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="measuring">Measuring</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A profiler of the frame's stages on the CPU and of the renderer's views on the GPU</td>
+<td>done</td>
+<td><code>src/Profiler.cpp</code>, <code>src/Debug/Profiler.cpp</code></td>
+</tr>
+<tr>
+<td>Frame statistics logged every so many frames: average, 95th percentile and slowest frame, CPU and GPU, each stage</td>
+<td>done</td>
+<td><code>--frame-stats</code>, <code>src/Debug/FrameStatsLog.cpp</code>, <code>src/Common/FrameStats.cpp</code>; tests <code>FrameStats.*</code></td>
+</tr>
+<tr>
+<td>Benchmarks summed up as mean, 95th percentile and slowest, written as JSON and CSV to compare runs</td>
+<td>partial</td>
+<td><code>src/Debug/BenchmarkRecorder.cpp</code>; tests <code>BenchmarkRecorder.*</code>; nothing in the game runs a benchmark</td>
+</tr>
+<tr>
+<td>Screenshots from the menu bar</td>
+<td>done</td>
+<td>"Capture" in <code>src/Debug/Gui.cpp</code></td>
+</tr>
+<tr>
+<td>A hash of the game's state each turn to check two runs stay the same</td>
+<td>done</td>
+<td><code>OPENBLACK_STATE_HASH</code> writes one hash line per turn (<code>src/Debug/StateHash.cpp</code>); test <code>ReplayDeterminism.sameGameInTwoProcesses</code></td>
+</tr>
+<tr>
+<td>Memory use by system</td>
+<td>partial</td>
+<td>the process and graphics memory are logged with <code>OPENBLACK_PROFILE</code> (<code>src/Debug/MemoryStats.cpp</code>); not by system</td>
+</tr>
+</tbody>
+</table>
+<h2 id="crashes">Crashes</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every kind of crash (failed assertions, runtime errors, abort, terminate, fatal signals, system exceptions, fatal renderer errors) is caught</td>
+<td>done</td>
+<td><code>src/Common/CrashHandler.cpp</code></td>
+</tr>
+<tr>
+<td>A report with a stack trace goes to stderr, the log and a file in a crashes folder, with a minidump on Windows</td>
+<td>done</td>
+<td><code>src/Common/CrashReport.cpp</code>, the minidump in <code>CrashHandler.cpp</code>; tests <code>CrashReport.*</code></td>
+</tr>
+<tr>
+<td>The game exits with a non-zero code instead of waiting on a dialog, breaking into a debugger first if one is attached</td>
+<td>done</td>
+<td><code>src/Common/CrashHandler.cpp</code></td>
+</tr>
+<tr>
+<td>A switch keeps the system's own crash dialogs</td>
+<td>done</td>
+<td><code>--crash-dialogs</code> (<code>CrashHandler.h</code>); test <code>CrashReport.FindsTheCrashDialogsSwitch</code></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

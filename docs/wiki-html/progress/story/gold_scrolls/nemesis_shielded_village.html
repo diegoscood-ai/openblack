@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nemesis&#x27;s Shielded Village — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#nemesiss-shielded-village">Nemesis's Shielded Village</a><ul>
+<li><a href="#is-it-a-gold-scroll">Is it a gold scroll?</a></li>
+<li><a href="#the-shield-how-it-starts">The shield: how it starts</a></li>
+<li><a href="#the-shield-film">The shield film</a></li>
+<li><a href="#the-worshippers-and-their-stones">The worshippers and their stones</a></li>
+<li><a href="#bringing-it-down">Bringing it down</a></li>
+<li><a href="#nemesiss-last-village">Nemesis's last village</a></li>
+<li><a href="#nemesiss-blast-barrages">Nemesis's blast barrages</a></li>
+<li><a href="#music-and-sounds">Music and sounds</a></li>
+<li><a href="#script-quirks-and-bugs">Script quirks and bugs</a></li>
+<li><a href="#unused-and-cut-parts">Unused and cut parts</a></li>
+<li><a href="#creature-involvement">Creature involvement</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="nemesiss-shielded-village">Nemesis's Shielded Village</h1>
+<p>Land 5's story beats around Nemesis's defences: the Tibetan village whose Wonder curses the creature is hidden under a
+spiritual shield held up by three worshippers praying at singing stones, which the player must scare off, kill or
+unseat; Nemesis's own last village fires burning meteors and raises physical shields at a creature that comes near; and
+once the creature is healed, Nemesis sends barrages of blasts at the player's villages and citadel until his last
+village falls. None of this is a logged quest: no script makes a scroll or a challenge-log entry for it, and the game's
+text table has no title for it, so this file is named after what it is.</p>
+<p><strong>Land:</strong> 5 · <strong>Giver:</strong> none (the evil advisor warns of the shield when the player first nears the Tibetan village) · <strong>Script:</strong> ThrowThroughShield (challenge THROW_THROUGH_SHIELD), and NemesisDefendHisLastTown, MakesSmokeComeOutOfMeteor and ThrowBeamBlock in the land's control script LandControl5 · <strong>Reward:</strong> none (bringing the shield down lets the Tibetan village be won, the third step of the curse) · <strong>Repeatable:</strong> no</p>
+<p>Sources: the land's challenge scripts (the original source text, which matches the PC game's compiled <code>challenge.chl</code>)
+and the game's text table (<code>Scripts/InfoScript2.txt</code>) for every line and its speaker. openblack's state is judged on
+this tree: the story's top script always runs Land 1's control script first and the land-loading command (<code>LoadMap</code> in
+<code>src/CHLApi.cpp</code>) has an empty body, so Land 5's control script and everything here never runs. Every row is todo unless
+its notes say a working command would do that part. The curse these defences guard is in
+<a href="i_have_a_surprise_for_you.html">i_have_a_surprise_for_you.md</a>, the fight that follows in
+<a href="so_this_is_a_fight_to_the_death.html">so_this_is_a_fight_to_the_death.md</a>; the land as a whole is in
+<a href="../land_5.html">../land_5.md</a>.</p>
+<p><strong>Progress: 0/46 done, 0 partial — 0%</strong></p>
+<h2 id="is-it-a-gold-scroll">Is it a gold scroll?</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The shield script logs nothing: no scroll on the map, no challenge-log entry, no progress, and no title; its challenge name only groups the script</td>
+<td>todo</td>
+<td>the same script, so nothing is logged either; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>It is part of the story all the same: the Tibetan village it guards holds the third Wonder, and winning that village is one of the three steps that lift the curse</td>
+<td>todo</td>
+<td>see <a href="i_have_a_surprise_for_you.html">i_have_a_surprise_for_you.md</a>; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The land's control script starts it in the background as the land begins, together with the curse and Nemesis's town defences</td>
+<td>todo</td>
+<td><code>LandControl5</code> never runs: <code>LOAD_MAP</code> is empty</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-shield-how-it-starts">The shield: how it starts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>When the land begins, three singing stones are put at three spots away from the village (one on a hill to the east, one on a hill to its south, one far north near the player's home) and a fourth at the shield's centre over the village</td>
+<td>todo</td>
+<td><code>CREATE</code> makes mobile statics; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The shield goes up when the player first has any belief in the Tibetan village, or the creature comes within 300 of the shield's centre</td>
+<td>todo</td>
+<td><code>BeliefForPlayer</code> is a stub</td>
+</tr>
+<tr>
+<td>The three outer stones are then made indestructible</td>
+<td>todo</td>
+<td><code>SetIndestructable</code> is real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>It only goes up if the village is not already the player's and at least one outer stone is still where it was put (within 1); otherwise nothing at all happens</td>
+<td>todo</td>
+<td>the town owner check needs <code>GetTownWithId</code>-style reads that are stubs; the stone positions are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-shield-film">The shield film</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A film with spooky music: the camera turns to the village over 4 seconds; the evil advisor points at it: "Boss, I don't mean to worry you but some serious defences are going up here."</td>
+<td>todo</td>
+<td><code>StartMusic</code>, the camera, advisors and texts are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Three Egyptian worshippers are made by the stones (a forester, a trader and a housewife), each facing his stone</td>
+<td>todo</td>
+<td><code>CREATE</code> makes villagers and <code>SetFocus</code> turns them; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>For each stone still in place, its worshipper's guard script starts and the camera flies past for 10 seconds: first worshipper "By the almighty powers, we will protect our town.", second "Nemesis, ever generous, has granted us a Spiritual Shield.", third the first line again</td>
+<td>todo</td>
+<td>real camera, villager and text natives; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The camera rises high over the village (10 seconds); a magic beam runs down from 80 above the centre into the village, two flashes, and the spiritual shield is cast over the village, endless, its radius 35 for each stone that is working (up to 105)</td>
+<td>todo</td>
+<td>the shield is cast by <code>SpellAtPos</code> (<a href="../../miracles/spiritual_shield.html">../../miracles/spiritual_shield.md</a>); <code>SpecialEffectPosition</code> is real, the beam (<code>AddSpotVisualTargetPos</code>) is a stub; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Both advisors step out: evil "These three are the source of the Shield. We gotta knock them out.", good "Their strong belief in Nemesis won't make that easy.", evil "Kill them! Smash their stones. Yeah!", good "Or we could just break their concentration.", evil "Oh yeah. Break their concentration with a boulder in the face!"; the music stops</td>
+<td>todo</td>
+<td>advisors and texts are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-worshippers-and-their-stones">The worshippers and their stones</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each worshipper does a mocking dance by his stone</td>
+<td>todo</td>
+<td>villager animations by script are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>A stone is working while its worshipper is alive and within 1 of where he started, and the stone is within 1 of its spot: it chants (a Tibetan chanting sound, one of three, tied to him) and a magic beam runs from 5 above it to the top of the shield</td>
+<td>todo</td>
+<td><code>AttachSoundTag</code> and <code>SpecialEffectObject</code> are real; the beam is a stub; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>When either moves away the chant and beam stop; they come back when both are in place again</td>
+<td>todo</td>
+<td>the same; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Every 3 seconds a working stone sparkles; if the creature is within 100 of it and not invisible, a lightning strike leaps from the stone at the creature's head and either side of it, then the creature is let go after 3 seconds</td>
+<td>todo</td>
+<td><code>SpecialEffectObject</code> is real; whether the strike hurts is not determined; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Every 3 seconds the worshipper checks for near misses within 40: a flying rock or tree (not one the script made) or a fireball. If one is close he ducks, runs to a hiding spot, looks round for 45 seconds, then walks back and dances again</td>
+<td>todo</td>
+<td><code>CallNear</code> and villager moves are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Killing a worshipper switches his stone off for good; a stone also stays off while it is out of place</td>
+<td>todo</td>
+<td>the same script; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The shield shrinks or grows by 35 each time a stone stops or starts</td>
+<td>todo</td>
+<td><code>SetMagicRadius</code> is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="bringing-it-down">Bringing it down</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The shield falls the moment all three stones are off at once; a scared worshipper's 45 seconds of hiding are the window to deal with the others</td>
+<td>todo</td>
+<td>the stage count drives the radius, a stub; the fall itself is plain script</td>
+</tr>
+<tr>
+<td>The shield and the beam are deleted and the worshippers' guard scripts end, so they never put it back up</td>
+<td>todo</td>
+<td><code>ObjectDelete</code> of a spell is real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>If all three worshippers still exist the good advisor says "We did it! The Shield's down and no one got killed."; otherwise the evil advisor: "Sweet, Boss. One dead Shield and a few human casualties. Couldn't have done better myself."</td>
+<td>todo</td>
+<td>advisors and texts are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>With the shield down the Tibetan village can be impressed or conquered; its first capture blasts its Wonder and logs the curse's step</td>
+<td>todo</td>
+<td>the town capture and its belief need stubbed natives; see <a href="i_have_a_surprise_for_you.html">i_have_a_surprise_for_you.md</a></td>
+</tr>
+<tr>
+<td>It cannot soft-lock: a worshipper can always be killed, and nothing restarts the shield once it has fallen</td>
+<td>todo</td>
+<td>the same script; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="nemesiss-last-village">Nemesis's last village</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>From the start of the land, whenever the creature is within 200 of a point by Nemesis's village, a burning meteor is fired at it every 6 seconds (the first after 10)</td>
+<td>todo</td>
+<td><code>CreateTimer</code> and <code>GetTimerTimeRemaining</code> are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Each meteor is a half-size rock made 250 up the mountain behind the village, set on fire, heated to 2000, kept out of the wind and thrown to land in 6 seconds within 30 of a fixed spot west of the village (not at the creature)</td>
+<td>todo</td>
+<td><code>CreateWithAngleAndScale</code>, <code>SetOnFire</code> and <code>SetTemperature</code> are real, but <code>SetAffectedByWind</code> and the aim <code>SetTarget</code> are stubs; burning rocks: <a href="../../nature/rocks_splitting_and_heat.html">../../nature/rocks_splitting_and_heat.md</a></td>
+</tr>
+<tr>
+<td>While it flies and is not held it trails a huge smoke plume (a bonfire effect eight times normal size, renewed constantly)</td>
+<td>todo</td>
+<td><code>SpecialEffectPosition</code> is real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>6 seconds after launch, once it is neither held nor flying, a fireball is cast just by it and it is deleted with an explosion; a meteor caught by the hand explodes once it is let go and has landed</td>
+<td>todo</td>
+<td>the fireball is cast by <code>SpellAtPos</code> (<a href="../../miracles/fireball.html">../../miracles/fireball.md</a>) and <code>ObjectDelete</code> is real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Every 30 seconds while the creature is near, a physical shield (radius 75, 30 seconds) is raised over Nemesis's village</td>
+<td>todo</td>
+<td>cast by <code>SpellAtPos</code> (<a href="../../miracles/physical_shield.html">../../miracles/physical_shield.md</a>); the timer is real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>These defences run until Nemesis's last village is won</td>
+<td>todo</td>
+<td>the town capture reads are stubs</td>
+</tr>
+<tr>
+<td>While the curse is on the village cannot be won (the player's belief there is reset whenever it reaches 0.1)</td>
+<td>todo</td>
+<td><code>SetPlayerBelief</code> and <code>BeliefForPlayer</code> are stubs; see <a href="i_have_a_surprise_for_you.html">i_have_a_surprise_for_you.md</a></td>
+</tr>
+<tr>
+<td>After the healing scene, it can be won only while Nemesis holds none of the land's other villages (the neutral Japanese one included): whenever he holds one, the player's belief there is set back to 0</td>
+<td>todo</td>
+<td><code>SetPlayerBelief</code> is a stub</td>
+</tr>
+<tr>
+<td>The first time he holds one again: good "Leader! Nemesis has retaken one of our Villages!", evil "Aw, shoot. Everything's lost unless we get it back. Come on, Boss."; when he holds none again: evil "Boss! We can conquer Nemesis' last town! We got the power. I can sense it!", and the warning can then come again</td>
+<td>todo</td>
+<td>the town owner reads are stubs</td>
+</tr>
+<tr>
+<td>Winning it ends the land's loop, stops every other Land 5 script and starts the big fight</td>
+<td>todo</td>
+<td>the town capture reads are stubs; see <a href="so_this_is_a_fight_to_the_death.html">so_this_is_a_fight_to_the_death.md</a>, <a href="../ending.html">../ending.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="nemesiss-blast-barrages">Nemesis's blast barrages</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>After the healing scene, every 15 seconds one of four targets is picked at random: the Aztec village, the Greek village, a spot south-east of the Tibetan village, or the player's citadel; the three villages are only attacked if the player owns them, the citadel always</td>
+<td>todo</td>
+<td><code>Random</code> and <code>SpellAtPos</code> are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>A barrage is a line of blasts marching from a start point by Nemesis's land towards the target: each step is a row of seven blasts (one in the line and three either side, 20 apart), each a level-one blast (radius 50, 15 seconds) dropped from 30 above</td>
+<td>todo</td>
+<td>each blast is cast by <code>SpellAtPos</code> (<a href="../../miracles/blast.html">../../miracles/blast.md</a>); never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Village barrages take 20 steps, 2 seconds apart; the citadel barrage takes 10 steps, 1 second apart, from a closer start</td>
+<td>todo</td>
+<td>plain script timing; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The steps start at the start point and stop one step short of the target</td>
+<td>todo</td>
+<td>the same script; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The barrages end when Nemesis's last village is won</td>
+<td>todo</td>
+<td>the town capture reads are stubs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="music-and-sounds">Music and sounds</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The shield film plays the spooky script theme</td>
+<td>todo</td>
+<td><code>StartMusic</code> is real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The three working stones chant (three Tibetan chanting recordings, one per worshipper)</td>
+<td>todo</td>
+<td><code>AttachSoundTag</code> is real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-quirks-and-bugs">Script quirks and bugs</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The shield's main loop, Nemesis's defence loop and the barrage loop have no pauses; the shield loop makes a flash at the top of the shield on every pass</td>
+<td>todo</td>
+<td>the same script; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>A new near-miss check is started every 3 seconds even while an earlier one is still sending the worshipper to hide, so two can move him at once</td>
+<td>todo</td>
+<td>the same script; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>If the player moves all three stones off their spots before the trigger, the shield never goes up and nothing is said</td>
+<td>todo</td>
+<td>the same script; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The shield's creature check at the centre stone does nothing: the reaction it was meant to start (the creature running away) is commented out</td>
+<td>n/a</td>
+<td>never in the game</td>
+</tr>
+<tr>
+<td>The control script still holds a comment that the shield script replaced the Tibetan village's old lines, though its capture film is still there</td>
+<td>n/a</td>
+<td>nothing to do</td>
+</tr>
+</tbody>
+</table>
+<h2 id="unused-and-cut-parts">Unused and cut parts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The third worshipper's own line "No one shall harm us or test our faith." was dropped as a bad recording (it is filed under the good advisor's voice)</td>
+<td>n/a</td>
+<td>never in the game</td>
+</tr>
+<tr>
+<td>A fuller version had shouts when worshippers gave up or were hit ("Argh! I'm giving up!", "Ow! I give up!", "I've had enough. This is too dangerous.", screams), advisors' comments on each ("Perfect. He survived. Let's move quickly before he recovers.", "I spy a dead guy", "He's toast.", "You iced him, Boss.", "You got him, but the guy ran off.", "He'll be back sooner or later to reactivate the Shield, though.") and "One of the rays has been reactivated!"; no script says them</td>
+<td>n/a</td>
+<td>never in the game</td>
+</tr>
+<tr>
+<td>A battle plan for Nemesis is compiled into the game but nothing starts it: every 30 seconds it would have had him defend his own village when the creature or camera came within 250, destroy villages the player had won, impress villages the player was gaining, and attack the creature with spells when it was outside the player's influence</td>
+<td>n/a</td>
+<td>never started by the game; see <a href="../../rival_gods/nemesis.html">../../rival_gods/nemesis.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="creature-involvement">Creature involvement</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature can break the shield by throwing rocks or trees near the worshippers, or by killing them; a working stone strikes at it with lightning when it is within 100 unless it is invisible</td>
+<td>todo</td>
+<td>the creature throws nothing by script and its flights are not checked here; see <a href="../../creature/object_actions.html">../../creature/object_actions.md</a></td>
+</tr>
+<tr>
+<td>Bringing the creature within 200 of Nemesis's village draws his meteors and shields</td>
+<td>todo</td>
+<td>the distance checks are real; never reached: Land 5 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Ally Speaks — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-ally-speaks">The Ally Speaks</a><ul>
+<li><a href="#is-it-in-the-game">Is it in the game?</a></li>
+<li><a href="#how-it-would-appear">How it would appear</a></li>
+<li><a href="#the-cut-scene">The cut scene</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-ally-speaks">The Ally Speaks</h1>
+<p>A cut story cut scene, once meant to be offered from a gold scroll at the player's temple, in which the camera flies a
+prepared path while the advisors talk about another god's temple across the land. It was never compiled into the game,
+its gold scroll was already commented out, and none of its fifteen lines were ever written. It has no in-game title;
+this file uses the script's own name.</p>
+<p><strong>Land:</strong> 2 by its markers (never started) · <strong>Giver:</strong> none (the gold scroll at the player's temple is commented out) · <strong>Script:</strong> AllySpeaks · <strong>Reward:</strong> none · <strong>Repeatable:</strong> no</p>
+<p><strong>Progress: 0/0 done, 0 partial — 0%</strong></p>
+<p>Sources: the script's source text and its single-quest test launcher, the compiler's challenge and camera lists, the
+game's camera data file and text table, and the land map scripts. Every row is n/a: nothing in the shipped game can
+start it.</p>
+<h2 id="is-it-in-the-game">Is it in the game?</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The script is not among the files compiled into the shipped <code>challenge.chl</code></td>
+<td>n/a</td>
+<td>never started by the game: only its own (uncompiled) test launcher runs it</td>
+</tr>
+<tr>
+<td>Its challenge name keeps an entry in the compiler's list of challenges</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Its camera position and camera path are in the compiler's camera list, and the shipped camera data file still holds an entry under that name</td>
+<td>n/a</td>
+<td>never started by the game; the path data is left over in <code>Data/camera.edt</code></td>
+</tr>
+<tr>
+<td>None of its fifteen lines, nor the advisor's scroll prompt it names, are in the shipped text table or the development text source</td>
+<td>n/a</td>
+<td>never started by the game; who would speak each line is unknown</td>
+</tr>
+<tr>
+<td>Its "my temple" marker is 19 from the player's planned temple on the second land; the other temple it looks at is not near any shipped temple (the nearest, Lethys's on the third land, is about 290 away)</td>
+<td>n/a</td>
+<td>never started by the game; the second land's other two temples are about 475 and 1900 away; which god the "ally" is cannot be told from the script</td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-it-would-appear">How it would appear</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A gold scroll at the player's temple, with the evil advisor pointing it out when the camera comes near</td>
+<td>n/a</td>
+<td>never started by the game: both lines are commented out in the source, so as written it would play at once with no scroll and no challenge log entry</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-cut-scene">The cut scene</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The camera's position is saved, then the camera jumps to the start of a prepared camera path and flies along it; two seconds after it arrives the talk starts</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>One line is spoken; the evil advisor steps out and a second line starts; a second later the good advisor steps out; a third line follows and a two-second pause</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Both advisors turn to look at the other god's temple, a second apart; two lines; the evil advisor looks away for one line and back; three more lines</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The good advisor looks away for one line (with a two-second pause) and back; one line; both look away for three lines (another two-second pause); both look at the other temple for the last line</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>When the camera path ends the camera returns to where the player left it and the cut scene ends</td>
+<td>n/a</td>
+<td>never started by the game; nothing is logged or rewarded</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

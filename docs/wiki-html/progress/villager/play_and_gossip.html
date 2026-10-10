@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Villager play and social life — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="here" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#villager-play-and-social-life">Villager play and social life</a><ul>
+<li><a href="#playtime-and-relaxation">Playtime and relaxation</a></li>
+<li><a href="#football">Football</a></li>
+<li><a href="#social-life">Social life</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="villager-play-and-social-life">Villager play and social life</h1>
+<p>Villagers do more than work and sleep: they play football on the town's pitch when the town wants playtime, sit and
+chill out in the evening, gossip, dance round the town's artefacts and celebrate.</p>
+<p><strong>Progress: 4/19 done, 1 partial — 24%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../villagers.html">Villagers: data, state machine and speed</a>.</p>
+<h2 id="playtime-and-relaxation">Playtime and relaxation</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The town wants playtime once the game has run a while, and relaxation in the evening</td>
+<td>done</td>
+<td><code>DesireForPlaytime</code> and <code>DesireForRelaxation</code> (<code>src/ECS/Town/TownDesire.cpp</code>); <code>test/test_town_desire.cpp</code></td>
+</tr>
+<tr>
+<td>Villagers taking up relaxation sit and chill out outside their home or in town</td>
+<td>partial</td>
+<td>villagers sit and chill out from the idle branch (<code>GO_AND_CHILLOUT_OUTSIDE_HOME</code>, <code>SIT_AND_CHILLOUT</code>, <code>src/ECS/Villager/VillagerDecide.cpp</code>); relaxation itself sets an activity of the pitch, the creature or the artefacts, none of them ported (<code>CheckSatisfyRelaxation</code>, <code>src/ECS/Villager/VillagerSatisfy.cpp</code>)</td>
+</tr>
+<tr>
+<td>Villagers kick a ball about when one lies near</td>
+<td>todo</td>
+<td><code>CHECK_INTERACT_WITH_BALL</code> is a TODO row</td>
+</tr>
+<tr>
+<td>Children play rather than work</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="football">Football</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Villagers walk to the football pitch when it is playtime and take positions in two teams</td>
+<td>todo</td>
+<td>the pitch is a building only (<code>src/ECS/Archetypes/AbodeArchetype.cpp</code>) and football is off; the whole feature: <a href="../town/football.html">../town/football.md</a></td>
+</tr>
+<tr>
+<td>Goalkeepers, defenders and attackers each play their part: dribble, pass, shoot, lob, clear, mark and save</td>
+<td>todo</td>
+<td>the football states are TODO rows</td>
+</tr>
+<tr>
+<td>The match waits for kick off, pauses, restarts after the ball goes out (dead ball)</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A goal is celebrated by the scoring side and mourned by the other</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Spectators watch the match and do a Mexican wave</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A referee and the ball's own physics</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The player or the creature can pick up the ball and throw it</td>
+<td>todo</td>
+<td>no ball; See ../hand/</td>
+</tr>
+<tr>
+<td>A pitch under construction draws villagers to build it</td>
+<td>done</td>
+<td>a pitch's site is built like any other (<code>src/ECS/Town/BuildingSites.cpp</code>); its own construction state does nothing, as in the original</td>
+</tr>
+</tbody>
+</table>
+<h2 id="social-life">Social life</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Villagers stop to gossip with each other</td>
+<td>todo</td>
+<td><code>VILLAGER_GOSSIPS</code> is a TODO row</td>
+</tr>
+<tr>
+<td>Housewives gossip round the storage pit</td>
+<td>n/a</td>
+<td><code>HOUSEWIFE_GOSSIPS_AROUND_STORAGE_PIT</code> is a TODO row. Our wiki differs: the housewife's day, the gossip included, is dead code in this version of the original (<a href="../../villagers.html#pregnancy-and-births">villagers</a>)</td>
+</tr>
+<tr>
+<td>Villagers tell others about something interesting they found, walking up to them</td>
+<td>todo</td>
+<td>the telling states (<code>INITIALISE_TELL_OTHERS_ABOUT_OBJECT</code> and the rest) are TODO rows</td>
+</tr>
+<tr>
+<td>Villagers dance round the town's artefacts, which impresses the town</td>
+<td>todo</td>
+<td>See ../town/artefacts.md</td>
+</tr>
+<tr>
+<td>Villagers congregate in town after an emergency</td>
+<td>done</td>
+<td>states 242 and 243 (<code>src/ECS/Villager/VillagerEmergency.cpp</code>); See ../town/emergencies_and_aggression.md</td>
+</tr>
+<tr>
+<td>Villagers celebrate when their town is won over</td>
+<td>todo</td>
+<td>the take-over's celebration is not ported (<code>town_belief::TakeOverTown</code>)</td>
+</tr>
+<tr>
+<td>Villagers dance while reacting to something wonderful</td>
+<td>todo</td>
+<td><code>DANCE_WHILE_REACTING</code> is a TODO row</td>
+</tr>
+<tr>
+<td>Villagers sing and chant while worshipping</td>
+<td>done</td>
+<td>the worship dance (<code>src/ECS/Systems/Implementations/VillagerWorship.cpp</code>) and the tribe's chants (<code>GameMusic::ProcessChantMusic</code>, <code>src/Audio/Services/GameMusic.cpp</code>); See ../worship/</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

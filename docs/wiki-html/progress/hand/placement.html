@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Placement — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="here" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#placement">Placement</a><ul>
+<li><a href="#where-the-hand-sits">Where the hand sits</a></li>
+<li><a href="#size-and-facing">Size and facing</a></li>
+<li><a href="#showing-and-hiding">Showing and hiding</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="placement">Placement</h1>
+<p>Where the god hand sits in the world, how large it is drawn and which way it faces. The game keeps the hand under the
+cursor at all times, hanging over the land, the sea, the object or the temple wall the cursor points at.</p>
+<p><strong>Progress: 17/29 done, 6 partial — 69%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../hand-and-interface.html">The hand and the interface</a>.</p>
+<h2 id="where-the-hand-sits">Where the hand sits</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hand's fingertips lie on the line of sight through the cursor, so it is always under the cursor on screen</td>
+<td>done</td>
+<td><code>HandSystem::ResolveCursorPoint</code> (<code>HandPlacement.cpp</code>): the hand's model origin goes on the mouse ray, at the smoothed distance</td>
+</tr>
+<tr>
+<td>It is pulled back from the land towards the camera by its own height, so its fingers hang down to the land</td>
+<td>done</td>
+<td><code>ResolveCursorPoint</code>: the empty hand stops 3.2 x its scale short of the land</td>
+</tr>
+<tr>
+<td>Over the sea it rests on the water</td>
+<td>done</td>
+<td><code>Game.cpp</code> meets the sea plane when the land is missed, and <code>ResolveCursorPoint</code> does not pull the empty hand back over the sea (land below 0.1)</td>
+</tr>
+<tr>
+<td>It eases out to land further from the camera slowly and in to nearer land quickly</td>
+<td>done</td>
+<td><code>ResolveCursorPoint</code>: the hand distance zoomer, 0.28 s moving away and 0.1 s coming closer, at least 1</td>
+</tr>
+<tr>
+<td>It is kept between 2 units and the hand's reach from the camera</td>
+<td>done</td>
+<td><code>ResolveCursorPoint</code> clamps to [2, the reach]; the reach from SET_INTERFACE_INTERACTION (<code>HandSystemInterface::SetHandReach</code>)</td>
+</tr>
+<tr>
+<td>With nothing under the cursor (the sky) it keeps its distance and stands upright</td>
+<td>partial</td>
+<td>With no land nor object hit the hand is not moved (<code>HandSystem::Place</code> returns); the original's distance from the hand's last place and the upright stance are not ported</td>
+</tr>
+<tr>
+<td>Over an object it hangs where the line of sight meets the object's own mesh, standing on that face</td>
+<td>done</td>
+<td><code>HandSystem::PickObjectAlongRay</code>: the exact triangle test of the drawn mesh; villagers and animals by their 2D radius; the up is the felt face's (<code>_feelUp</code>, <code>HandSystem::UpdateNormalUp</code>)</td>
+</tr>
+<tr>
+<td>Holding something over an object, it is pulled back further by half the size of what it holds, and more near a creature</td>
+<td>partial</td>
+<td><code>ResolveCursorPoint</code> pulls the held hand back by half the held object's 2D radius over an object; the creature's push is not ported</td>
+</tr>
+<tr>
+<td>Over a worship icon it hangs at the icon, a set distance short of it</td>
+<td>done</td>
+<td><code>ResolveCursorPoint</code>: a spell icon's point and altitude, the depth target 3.2 x the hand's size short of it</td>
+</tr>
+<tr>
+<td>Gripping the land it stays on the gripped point and moves with it</td>
+<td>done</td>
+<td><code>HandSystem::Place</code> (the camera state): the hand stays on the gripped land point</td>
+</tr>
+<tr>
+<td>Dragging by the edge it holds its distance from the camera over 0.4 seconds, never past the land</td>
+<td>todo</td>
+<td>No edge drag in the wired camera (raffclar's <code>camera_drag</code> is in our tree, not wired); see <a href="navigation.html">navigation.md</a></td>
+</tr>
+<tr>
+<td>It moves by the frame's real time, or by the game's time while a script holds the cinema bars</td>
+<td>done</td>
+<td>The hand's dt is the camera time step: the frame's real time, or the game time while a hand demo plays (<code>game_clock::CameraFrameMs</code>), the real time inside the temple. Our wiki differs: the game's time is used while a hand demo plays back, not while a script holds the bars (<a href="../../hand-and-interface.html#holding-spring-and-throwing-handstateholdingupdate-0x5b3c70">page</a>)</td>
+</tr>
+<tr>
+<td>Its speed and direction of movement are measured each frame for throws and spins</td>
+<td>done</td>
+<td>The holding spring and the grain state's measure (<code>HandPlacement.cpp</code>, <code>HandHolding.cpp</code>)</td>
+</tr>
+<tr>
+<td>Held to a creature it rests on the creature's body under the cursor</td>
+<td>partial</td>
+<td>The CREATURE state puts the hand where the creature hand puts it (<code>HandSystem::Place</code>, approximate: <code>_creaturePose</code>); see <a href="creature_contact.html">creature_contact.md</a></td>
+</tr>
+<tr>
+<td>In the temple it hangs a little short of the room's surface and turns to face it</td>
+<td>partial</td>
+<td>The world's placement is used inside the temple, with the room meshes picked as objects; see <a href="temple_hand.html">temple_hand.md</a></td>
+</tr>
+<tr>
+<td>Scripts can point the hand and camera at the player's temple</td>
+<td>todo</td>
+<td>Not in our tree</td>
+</tr>
+<tr>
+<td>Scripts can hold the hand at a set place</td>
+<td>partial</td>
+<td>Only the fixed-position animation (<code>HandSystem::StartFixedPosAnimation</code>, used by an abode's tap) pins the hand; no script command does</td>
+</tr>
+</tbody>
+</table>
+<h2 id="size-and-facing">Size and facing</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hand is scaled so it spans 3.2 units, growing past 150 units from the camera so it keeps about the same size on screen</td>
+<td>done</td>
+<td><code>HandSystem::Place</code>: the scale 3.2 x handScale / 555.294, with the original's distance curve below 10 and past 150</td>
+</tr>
+<tr>
+<td>It faces along the line of sight through the cursor, laid level</td>
+<td>done</td>
+<td><code>HandSystem::HandMatrixRotation</code> (<code>HandFrame.cpp</code>) with <code>hand_orientation::HeadingAlongRay</code> (<code>src/3D/HandOrientation.cpp</code>): the heading from the camera to cursor ray, laid level; test <code>HandOrientation.FacesAlongTheLevelledLineOfSight</code></td>
+</tr>
+<tr>
+<td>Looking straight down it keeps its heading</td>
+<td>done</td>
+<td>The heading is only taken from the ray when it is not vertical (<code>hand_orientation::HeadingAlongRay</code>); test <code>HandOrientation.KeepsItsHeadingLookingStraightDown</code></td>
+</tr>
+<tr>
+<td>Its up eases over 0.4 seconds to the slope of the land, or the face of the object, under it</td>
+<td>done</td>
+<td><code>HandSystem::UpdateNormalUp</code> (<code>HandFrame.cpp</code>): <code>hand_orientation::k_UpEaseSeconds</code> (0.4 s) to the land normal or the felt face; no unit test of the ease</td>
+</tr>
+<tr>
+<td>The slope is only taken afresh when the cursor moves across the screen</td>
+<td>done</td>
+<td><code>UpdateNormalUp</code> takes a new target only when the mouse's x changed</td>
+</tr>
+<tr>
+<td>Dragging the land it holds its up, and stands straight up when let go</td>
+<td>done</td>
+<td>The camera state uses the last normal up, frozen; entering the normal state snaps the up to (0, 1, 0) (<code>HandSystem::Place</code>)</td>
+</tr>
+<tr>
+<td>A right hand is the left hand's mesh mirrored</td>
+<td>todo</td>
+<td>Our hand is drawn unmirrored (hand-and-interface.md, Pending)</td>
+</tr>
+<tr>
+<td>The player picks a left or right hand in the options</td>
+<td>todo</td>
+<td>No left or right hand option in our tree</td>
+</tr>
+<tr>
+<td>Holding a miracle or pouring food and wood lifts and tips the hand</td>
+<td>done</td>
+<td><code>hand_grain</code> and the holding branch of <code>HandSystem::Place</code>; see <a href="pouring.html">pouring.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="showing-and-hiding">Showing and hiding</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hand is hidden while the menu is open and while a script's cinematic has the interface</td>
+<td>partial</td>
+<td>The INVISIBLE state hides the hand (<code>NotDrawn</code>) for the interface's inactive state, as when a script holds the bars (<code>HandSystem::Update</code>); whether our menu hides it was not checked</td>
+</tr>
+<tr>
+<td>Scripts can make the hand invisible and bring it back</td>
+<td>todo</td>
+<td>Not found in our tree (unconfirmed which commands do it)</td>
+</tr>
+<tr>
+<td>Where the hand can't be drawn, a plain mouse pointer is drawn instead</td>
+<td>todo</td>
+<td>Not in our tree (the system cursor is not ported)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

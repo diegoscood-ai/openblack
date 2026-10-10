@@ -1,0 +1,606 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Impress Village — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#impress-village">Impress Village</a><ul>
+<li><a href="#how-it-appears">How it appears</a></li>
+<li><a href="#the-scroll">The scroll</a></li>
+<li><a href="#khazars-introduction">Khazar's introduction</a></li>
+<li><a href="#the-gesture-hand-demo">The gesture hand demo</a></li>
+<li><a href="#practising-the-gesture">Practising the gesture</a></li>
+<li><a href="#going-to-the-norse-village">Going to the Norse village</a></li>
+<li><a href="#filling-the-store">Filling the store</a></li>
+<li><a href="#khazars-lesson-on-influence">Khazar's lesson on influence</a></li>
+<li><a href="#failing-and-the-story">Failing and the story</a></li>
+<li><a href="#advisors-and-music">Advisors and music</a></li>
+<li><a href="#creature">Creature</a></li>
+<li><a href="#script-quirks">Script quirks</a></li>
+<li><a href="#unused-or-cut-parts">Unused or cut parts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="impress-village">Impress Village</h1>
+<p>Khazar's second lesson on the second land, logged as the gold scroll "Impress Village": twenty minutes after the
+worship lesson Khazar lays a scroll by the village and teaches casting by gesture (a spiral to open the miracle
+selection, then the miracle's own gesture), then takes the player to the nearest Norse village, empties its store and
+has the player fill it with food while he gives it wood. When that village is won, Khazar comes back for a lesson on
+influence, which is not a scroll of its own but is covered here. The land as a whole is in <a href="../land_2.html">../land_2.md</a>,
+the land's script in <a href="../../scripts/land2_script.html">../../scripts/land2_script.md</a>, the script program in
+<a href="../../scripts/challenge_scripts.html">../../scripts/challenge_scripts.md</a>.</p>
+<p><strong>Land:</strong> 2 · <strong>Giver:</strong> Khazar (the friendly god's hand), at a scroll west of the player's village · <strong>Script:</strong> LearnGestures (then LearnInfluence) · <strong>Reward:</strong> none; the store-filling wins the Norse village over, and winning it brings the lesson on influence and the land's last scroll · <strong>Repeatable:</strong> no</p>
+<p>Sources: the quest's script sources (<code>LearnGestures.txt</code>, <code>LearnInfluence.txt</code>), the land's control script
+(<code>LandControl2.txt</code>, its expansion and influence watchers), the shared Land 2 scroll notifier (<code>SetupLand2.txt</code>) and the
+hand demo scripts (<code>HandDemos.txt</code>), checked against the compiled scripts in the shipped <code>challenge.chl</code>; the game's
+English text table (<code>InfoScript2.txt</code>) and hand demo recordings (<code>Data/HandDemo</code>). openblack's state is judged on this
+tree: of the 71 script functions the two scripts and the scripts they run need, 13 still only log "not implemented" in
+<code>src/CHLApi.cpp</code> (among them Khazar's hand and actions, the town store and the challenge log). openblack never runs Land
+2's control script at all (see <a href="../../scripts/land2_script.html">../../scripts/land2_script.md</a>), so the quest never
+appears; every row is todo unless the notes say otherwise.</p>
+<p><strong>Progress: 0/66 done, 1 partial — 1%</strong></p>
+<h2 id="how-it-appears">How it appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>When Khazar's worship lesson is done (<a href="worship_site.html">worship_site.md</a>), the control script starts an expansion watcher alongside The Workshop</td>
+<td>todo</td>
+<td>never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>The watcher sets a 20-minute timer and checks every 3 seconds; once the time is up and the player still owns the home village, the quest starts, once</td>
+<td>todo</td>
+<td><code>CreateTimer</code> and <code>GetTimerTimeRemaining</code> are real (<code>src/ECS/ScriptTimer</code>); never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+<tr>
+<td>Starting it also marks that the gestures lesson has been triggered, which changes Khazar's idle remarks from "build more" ones to ones that include "take over the land"</td>
+<td>todo</td>
+<td>Khazar's remarks need his computer player (all computer-player natives are stubs)</td>
+</tr>
+<tr>
+<td>The quest's village is the nearest Norse village to the player (the one the land script also uses for the idol scroll), and its store is the storage pit within 20 of a fixed spot in it</td>
+<td>todo</td>
+<td><code>GetTownWithId</code> is a stub</td>
+</tr>
+<tr>
+<td>Its target is twice the cost of a grain miracle, used to keep the worship site able to pay for one</td>
+<td>todo</td>
+<td><code>GetManaForSpell</code> is real; never reached: Land 2 needs <code>LOAD_MAP</code>, an empty native</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-scroll">The scroll</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The Norse village's store is emptied of all food and wood straight away, before the scroll appears</td>
+<td>todo</td>
+<td><code>RemoveResource</code> is a stub; see <a href="../../town/storehouse.html">../../town/storehouse.md</a></td>
+</tr>
+<tr>
+<td>Khazar's hand flies (speed 200, fixed height) to a spot west of the player's village; a gold scroll appears there on the ground; 2 seconds later his hand is let go</td>
+<td>todo</td>
+<td><code>MoveComputerPlayerPosition</code> and <code>ComputerPlayerReady</code> are stubs (the wait for his hand never ends); <code>CreateHighlight</code> is real</td>
+</tr>
+<tr>
+<td>The good advisor nags it while the camera is within 100 and it is on screen, at most every 30 seconds: "Look. One of Khazar's Scrolls. Let's click on it."</td>
+<td>todo</td>
+<td>the notifier calls real natives; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The quest waits for the scroll (or its spot) to be clicked</td>
+<td>todo</td>
+<td><code>GameThingClicked</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="khazars-introduction">Khazar's introduction</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Khazar's own computer player is paused for the lesson</td>
+<td>todo</td>
+<td><code>EnableDisableComputerPlayer</code> is a stub</td>
+</tr>
+<tr>
+<td>A widescreen film with Khazar's music; the camera pulls up over the village and his hand flies in (speed 300), then comes to 20 in front of the camera</td>
+<td>todo</td>
+<td><code>SetWidescreen</code>, <code>StartMusic</code> and the camera are real, but Khazar's hand moves are stubs</td>
+</tr>
+<tr>
+<td>Khazar: "You have become well established." · "Our combined strength is becoming greater." · "As you near Lethys it will become more essential to have your Miracle skills in top form." (the camera drifts and his hand moves slowly aside) · "For this you must experience the benefit of gestures."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The interface is limited to moving the hand and the film ends</td>
+<td>todo</td>
+<td><code>SetInterfaceInteraction</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-gesture-hand-demo">The gesture hand demo</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Any miracle the player is charging is cancelled; a second film with Khazar's music turns the camera west, Khazar's hand drifts in</td>
+<td>todo</td>
+<td><code>ClearPlayerSpellCharging</code> and the camera are real; Khazar's hand is a stub; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Khazar: "You can charge Miracles without having to return to your Temple to select them"</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The worship site's power is raised to twice a grain miracle's cost if it has less</td>
+<td>todo</td>
+<td><code>GetMana</code> and <code>GameSetMana</code> are real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The "gestures" hand demo plays, pausing at its marks: "Move your hand in a spiral like this." · "Now select the Miracle of your choice. " · "Grain is selected like this."</td>
+<td>todo</td>
+<td><code>PlayHandDemo</code>, <code>HandDemoTrigger</code> are real (<code>Data/HandDemo/Gestures.hnd</code>); see <a href="../../gesture/miracle_gestures.html">../../gesture/miracle_gestures.md</a>; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The dialogue closes and the log entry "Impress Village" is recorded at 0; tapping the entry in the log plays this whole gesture demo again, instead of an advisor's reminder</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>When the demo ends, Khazar (one line, the player may act): "All your Gestures are summarised at the bottom right of the screen."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The music stops and the film ends into dialogue; the player's counts of spirals drawn and miracles picked by gesture so far are noted</td>
+<td>todo</td>
+<td><code>StopMusic</code> and <code>GetTotalEvents</code> are real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Khazar (one line): "You try it now."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="practising-the-gesture">Practising the gesture</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A bronze info sign on gestures appears nearby (power-ups, the spiral, leash and creature miracle gestures, repeating the last miracle)</td>
+<td>todo</td>
+<td>the info sign script is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The player has 5 minutes to draw the spiral and pick a miracle by its gesture; both counts must have gone up</td>
+<td>todo</td>
+<td><code>GetTotalEvents</code> and <code>CreateTimer</code> are real; see <a href="../../gesture/miracle_gestures.html">../../gesture/miracle_gestures.md</a>; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Every second while waiting, any miracle being charged is cancelled and the worship site's power is topped up to twice a grain miracle's cost, so the player can always afford the miracle</td>
+<td>todo</td>
+<td><code>ClearPlayerSpellCharging</code>, <code>GetMana</code>, <code>GameSetMana</code> are real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>When the 5 minutes run out, Khazar (one line): "Well, it doesn't matter if you can't do it now." and the lesson moves on without the praise</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The interface goes back to normal</td>
+<td>todo</td>
+<td><code>SetInterfaceInteraction</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>If the player did it, a film: 1.5 seconds, then Khazar: "Superb. "</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="going-to-the-norse-village">Going to the Norse village</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The village's store is emptied of food and wood again and the scroll moves to the Norse village</td>
+<td>todo</td>
+<td><code>RemoveResource</code> is a stub</td>
+</tr>
+<tr>
+<td>If the village still exists: Khazar: "You should practice your gestures. Go and impress this town over here." as the camera flies there and his hand goes to above the store</td>
+<td>todo</td>
+<td>Khazar's hand moves are stubs; the camera and text are real</td>
+</tr>
+<tr>
+<td>The log entry is recorded at 0.5 with the good advisor's reminder "You need to fill up the Village Store with food."</td>
+<td>todo</td>
+<td>the log entry is a stub</td>
+</tr>
+<tr>
+<td>Khazar: "They look like they're in a bad way. No food or wood."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>If the store exists: Khazar: "Why don't you create some food for their Village Store, while I supply them with wood." (the player may act), then "Make sure you have people worshipping at your Worship Site."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>His hand is let go and the film ends</td>
+<td>todo</td>
+<td><code>ReleaseComputerPlayer</code> is a stub</td>
+</tr>
+<tr>
+<td>If Khazar's temple has a wood miracle, it is filled with enough power for six wood miracles and he is told to cast wood on the village four times</td>
+<td>todo</td>
+<td><code>QueueComputerPlayerAction</code> is a stub; <code>GetSpellIconInTemple</code> is real</td>
+</tr>
+</tbody>
+</table>
+<h2 id="filling-the-store">Filling the store</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every 3 seconds the store's food is read and the log entry is updated to 0.5 plus half the share of 2,800 food it holds</td>
+<td>todo</td>
+<td><code>GetResource</code> and <code>UpdateSnapshot</code> are stubs</td>
+</tr>
+<tr>
+<td>The player fills it by casting grain on the store or dropping food in it (any way of adding food counts)</td>
+<td>todo</td>
+<td>the store read <code>GetResource</code> is a stub</td>
+</tr>
+<tr>
+<td>When it holds more than 2,800 food (the wood is not checked; a wood check is commented out) Khazar is let go and, if he is still alive, a film: his hand is put by the store and the camera sweeps round it</td>
+<td>todo</td>
+<td>the store read is a stub</td>
+</tr>
+<tr>
+<td>If the village is not yet the player's, Khazar: "Excellent, we have filled the Village Store and the people are easily impressed." then "The town needs more impressing before it becomes yours. But I have matters to attend to and shall return later."; this is remembered for the influence lesson</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>If it already is the player's, only the first line, as a one-line dialogue</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The step also ends, without the film, if the village or its store no longer exists</td>
+<td>todo</td>
+<td>the store read is a stub</td>
+</tr>
+<tr>
+<td>The log entry "Impress Village" is recorded at 1 (complete), now with the evil advisor's reminder "You need to impress this Village."</td>
+<td>todo</td>
+<td>the log entry is a stub</td>
+</tr>
+<tr>
+<td>The quest then waits until the village is the player's (or no longer exists), and only then marks the gestures lesson done</td>
+<td>todo</td>
+<td>the town ownership needs <code>GetTownWithId</code> (a stub); see <a href="../../town/belief_and_conversion.html">../../town/belief_and_conversion.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="khazars-lesson-on-influence">Khazar's lesson on influence</h2>
+<p>Not a scroll: no highlight and no log entry. The control script's influence watcher, started with The Workshop, waits
+for the gestures lesson to be done and the Norse village to be the player's, then runs it.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The influence watcher checks for both conditions over and over without any pause</td>
+<td>todo</td>
+<td>the same script; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>If Khazar is alive: a widescreen film with Khazar's music; his hand flies (speed 300) towards the Indian village</td>
+<td>todo</td>
+<td><code>SetWidescreen</code> and <code>StartMusic</code> are real, but Khazar's hand is a stub</td>
+</tr>
+<tr>
+<td>If the store was filled before the village was won: the camera flies a recorded track and Khazar says "Congratulations." then "You are expanding well. Lethys had better beware."; otherwise the camera is put on a fixed view</td>
+<td>todo</td>
+<td><code>RunCameraPath</code> and <code>RunText</code> are real; see <a href="../../camera/camera_paths.html">../../camera/camera_paths.md</a>; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Khazar: "Time is not kind, you need to gain influence in the direction of our common enemy."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>If the Indian village (the one where The Sea and The Plague happen) is not yet the player's, the camera turns to it and Khazar: "I strongly encourage you to gain this town."; either way, Khazar: "Before I leave to defend my realm I must tell you one more thing."</td>
+<td>todo</td>
+<td>real camera and text natives; the town ownership read is a stub; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The screen fades to black over 2 seconds, the camera is put high above the edge of the player's influence and fades back in</td>
+<td>todo</td>
+<td><code>SetFade</code>, <code>SetFadeIn</code>, <code>SetCameraPosition</code> are real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>Khazar: "You will notice you cannot do anything, even cast Miracles outside of your influence." · "However, there is a way using the power of belief." as the camera drops to the edge</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The "Influence" hand demo plays, pausing once: "You can reach outside the edge of your realm for short periods of time" · "But your influence is soon lost until your hand is returned to your realm."</td>
+<td>todo</td>
+<td><code>PlayHandDemo</code> is real (<code>Data/HandDemo/Influence.hnd</code>), but virtual influence (<code>SetVirtualInfluence</code>) is a stub; see <a href="../../worship/influence.html">../../worship/influence.md</a></td>
+</tr>
+<tr>
+<td>Fade to black, the camera is put back on the view before the demo, fade in, the music stops and the film ends; Khazar is let go</td>
+<td>todo</td>
+<td>fades, camera and <code>StopMusic</code> are real; letting Khazar go is a stub; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>A bronze info sign on influence appears (the faded hand, virtual influence, what can be done outside influence)</td>
+<td>todo</td>
+<td>the info sign script is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>If Khazar is already dead, only the info sign appears</td>
+<td>todo</td>
+<td>Khazar's death needs computer-player natives (stubs)</td>
+</tr>
+<tr>
+<td>When the lesson ends, the watcher starts the land's last scroll (<a href="destroy_it.html">destroy_it.md</a>) unless Khazar's death has already started it</td>
+<td>todo</td>
+<td>plain script flags; see <a href="destroy_it.html">destroy_it.md</a>; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="failing-and-the-story">Failing and the story</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The quest can't be failed: the gesture practice gives up after 5 minutes and the store has no time limit</td>
+<td>todo</td>
+<td>the same script; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>If the player loses the home village before the 20 minutes are up, the quest waits until it is theirs again</td>
+<td>todo</td>
+<td>the town ownership read (<code>GetTownWithId</code>) is a stub</td>
+</tr>
+<tr>
+<td>If Khazar is dead when the scroll is clicked, his lessons are skipped and the quest at once marks itself done without logging anything; the scroll is never removed</td>
+<td>todo</td>
+<td>Khazar's death needs computer-player natives (stubs)</td>
+</tr>
+<tr>
+<td>If the Norse village is destroyed, the store step ends and the lesson is marked done, but the influence lesson never comes, since it waits for that village to be won</td>
+<td>todo</td>
+<td>the store and town reads are stubs</td>
+</tr>
+<tr>
+<td>Winning the Norse village before the scroll is clicked does not skip the lesson; the store must still be filled</td>
+<td>todo</td>
+<td>the store read is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="advisors-and-music">Advisors and music</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The scroll is nagged by the good advisor; the log reminders are the good advisor's (fill the store), then the evil advisor's (impress the village)</td>
+<td>partial</td>
+<td>the notifier and reminders call real natives; the log entries are stubs</td>
+</tr>
+<tr>
+<td>Khazar's theme plays through each of his films</td>
+<td>todo</td>
+<td><code>StartMusic</code> and <code>StopMusic</code> are real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creature">Creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature has no part; it can help fill the store, since only the store's food is read</td>
+<td>todo</td>
+<td>follows from the store read, a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-quirks">Script quirks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>When the 5 minutes run out, both noted counts are pushed on by one each second until neither matches; if the player had done just one of the two steps, a count can match again and "Well, it doesn't matter…" is said twice</td>
+<td>todo</td>
+<td><code>GetTotalEvents</code> is real; never reached (Land 2 needs <code>LOAD_MAP</code>), and the quest would hang first at its wait for Khazar's hand (<code>ComputerPlayerReady</code> is a stub)</td>
+</tr>
+<tr>
+<td>The log entry is updated before the 2,800 check, so it can show just over complete for a moment</td>
+<td>todo</td>
+<td>the log entry is a stub</td>
+</tr>
+<tr>
+<td>Khazar's wood miracle is given power for six casts but he is told to cast four</td>
+<td>todo</td>
+<td><code>QueueComputerPlayerAction</code> is a stub</td>
+</tr>
+<tr>
+<td>Khazar's computer player is paused at the start of the lesson and no Land 2 script un-pauses it; whether letting his hand go lifts the pause is undetermined</td>
+<td>todo</td>
+<td><code>EnableDisableComputerPlayer</code> is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="unused-or-cut-parts">Unused or cut parts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Two spare influence demo scripts exist in the hand demo file; one has its demo commented out, the other plays a second influence recording (<code>influence2.hnd</code>); nothing in the game runs them</td>
+<td>n/a</td>
+<td>never in the shipped game</td>
+</tr>
+<tr>
+<td>An earlier place for the 0 log entry, after the gesture demo, is commented out</td>
+<td>n/a</td>
+<td>commented out</td>
+</tr>
+<tr>
+<td>A wood check on the store (2,800 wood as well as food) is commented out</td>
+<td>n/a</td>
+<td>commented out</td>
+</tr>
+<tr>
+<td>A note to clear the repeat-miracle icon and remove the leash "for confusion" is left as a to-do</td>
+<td>n/a</td>
+<td>a to-do note in the source</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

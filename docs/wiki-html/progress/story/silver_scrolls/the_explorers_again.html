@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Explorers Again — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#the-explorers-again">The Explorers Again</a><ul>
+<li><a href="#whether-it-happens">Whether it happens</a></li>
+<li><a href="#the-settlement-and-the-wreck">The settlement and the wreck</a></li>
+<li><a href="#the-arrival-film">The arrival film</a></li>
+<li><a href="#the-polar-bear">The polar bear</a></li>
+<li><a href="#the-swap-offer">The swap offer</a></li>
+<li><a href="#creature">Creature</a></li>
+<li><a href="#script-quirks">Script quirks</a></li>
+<li><a href="#cut-and-unused-parts">Cut and unused parts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="the-explorers-again">The Explorers Again</h1>
+<p>A Land 5 silver scroll that only exists if the player helped the singing missionaries of the first land sail away
+(<a href="./the_explorers.html">The Explorers</a>): their wrecked boat lies on Land 5's shore, they have founded a Norse settlement
+in the player's name, and tapping the scroll by the wreck plays a short film in which three of them dance, thank the
+player and present a polar bear brought from an icy island, which the player may then swap for their creature.</p>
+<p><strong>Land:</strong> 5 · <strong>Giver:</strong> three Norse sailors by their wrecked boat on the shore below the player's Norse town · <strong>Script:</strong> MissionariesReturned · <strong>Reward:</strong> a polar bear to swap for the player's creature (and a ready-built Norse town of 11 buildings and 20 villagers, plus the three sailors) · <strong>Repeatable:</strong> no (the swap offer stays open)</p>
+<p>Sources: the challenge script and the shared creature-swap script (the original source text, which matches the PC game's
+compiled <code>challenge.chl</code>), the land's control script that starts it, Land 1's missionaries script that sets the
+condition, the land's own building script <code>Land5.txt</code>, the game's text table and the executable. The land as a whole is
+in <a href="../land_5.html">../land_5.md</a>, its script program in <a href="../../scripts/land5_script.html">../../scripts/land5_script.md</a>,
+creature swaps in <a href="../challenges_and_rewards.html">../challenges_and_rewards.md</a>. openblack's state is judged on this
+tree: openblack never runs Land 5's control script (the land-loading native does nothing and the story always begins
+with Land 1's control script), so this challenge never starts. Of the 57 script functions it and the swap script need,
+53 work in <code>src/CHLApi.cpp</code>, among them building, making villagers and features, the scroll, dialogue, advisors, camera
+moves and animations; the other 4, the creature's actions and species, the challenge record and the swap itself, only
+log "not implemented", and a script cannot make the polar bear (<code>CreateScriptObject</code> makes no creatures). Every row is
+todo unless the notes say otherwise.</p>
+<p><strong>Progress: 0/39 done, 3 partial — 4%</strong></p>
+<h2 id="whether-it-happens">Whether it happens</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's control script starts it as Land 5 begins, but only if the missionaries' boat sailed in the first land, a flag set at the very end of <a href="./the_explorers.html">The Explorers</a> when they leave happily (after the water-miracle dispenser reward)</td>
+<td>todo</td>
+<td><code>LandControl5</code> never runs: <code>LOAD_MAP</code> is empty (<a href="../../../map-loading.html#pending">map-loading</a>); the flag is a global of the challenge program and lives as long as the story does</td>
+</tr>
+<tr>
+<td>If the boat never sailed (the challenge was ignored, failed, or the missionaries were killed) nothing at all is made: no wreck, no settlement, no scroll</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A single-quest test launcher that sets the flag and starts it exists in the sources but is not part of the shipped game</td>
+<td>n/a</td>
+<td>developer test only</td>
+</tr>
+<tr>
+<td>It is started in the background alongside the land's other challenges and has no time limit</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Everything stops when Nemesis loses his last village (the land then stops every script but its own)</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-settlement-and-the-wreck">The settlement and the wreck</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The wreck of the missionaries' boat is placed on the shore, about 157 from the player's second Norse town, at half health</td>
+<td>todo</td>
+<td><code>Create</code> makes features, but the health property (<code>SetProperty</code>) is not ported; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The land file gives the player a Norse town there (town 1, starting belief 2, the lightning miracle, eight fields and two fish farms) with 11 planned buildings and nothing built</td>
+<td>partial</td>
+<td>our tree makes the town (<code>TownArchetype</code>) and records its planned buildings (<code>CREATE_PLANNED_ABODE</code>, <code>src/LHScriptX/FeatureScriptCommands.cpp</code>) when the land is loaded; the land is never reached in the story; see <a href="../../scripts/land5_script.html">../../scripts/land5_script.md</a></td>
+</tr>
+<tr>
+<td>The script builds all 11 of them at once (village centre, two houses of one style, three of another, one of a third, the graveyard, the Wonder, the crèche and the storage pit), each strongly wanted (desire 9) and set fully built</td>
+<td>todo</td>
+<td><code>BuildBuilding</code> (forcing a planned building, <code>ecs::building_sites</code>) and the built percentage property work; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>20 villagers are made within 20 of the village centre, 10 men then 10 women, each joined to the town and left to live there</td>
+<td>todo</td>
+<td><code>Create</code> makes villagers, <code>FlockAttach</code> and <code>ReleaseFromScript</code> work; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Without this challenge the town stays an empty plan with no people for the whole land</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>A silver scroll is put up by the wreck, 2 above the ground; no advisor points it out (the call to the shared "Your godly attention is required here, Leader." notice is switched off)</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> works (<code>src/ECS/ScriptHighlight.cpp</code>); the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The scroll waits for a tap however long it takes</td>
+<td>todo</td>
+<td><code>GameThingClicked</code> works; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-arrival-film">The arrival film</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tapping the scroll records the challenge as started, titled "The Explorers Again", with the good advisor's reminder "This is the boat the Missionaries arrived in."</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>A film starts with the missionaries' background tune; the camera flies to look down at the wreck over 4 seconds</td>
+<td>partial</td>
+<td><code>StartMusic</code> works; the camera moves work too, but the film never runs</td>
+</tr>
+<tr>
+<td>Three Norse sailors come out of the wreck one after another (half a second, then a third of a second apart) and walk to three spots on the beach</td>
+<td>todo</td>
+<td><code>Create</code> and <code>MoveGameThing</code> work for villagers; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Both advisors come out; evil: "On no. It's those crazy missionaries again." (the text table's own typo); after 2 seconds the camera creeps a little further back over 12 seconds</td>
+<td>todo</td>
+<td><code>SpiritEject</code>, <code>RunText</code> and the camera moves work; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>As each sailor reaches his spot he starts dancing: the first circling, the second as a partner, the third arm in arm</td>
+<td>todo</td>
+<td>the villagers' script animations (<code>SetScriptState</code>, <code>SetScriptUlong</code>) work; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Evil: "I never thought their stupid boat could ever make it this far."; good: "Their faith in us is as strong as it ever was."; both go home</td>
+<td>todo</td>
+<td><code>RunText</code>, <code>SpiritHome</code> work; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The camera drops close over 8 seconds; the first sailor turns to it and talks: "Our belief in you kept us going, Holy One." then dances again</td>
+<td>todo</td>
+<td><code>RunText</code>, <code>SetFocus</code> and the camera moves work; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The camera moves again over 12 seconds; the second sailor turns and talks: "We're travelled far and done much in your name." (the text table's typo); meanwhile the third turns to talk and the camera swings over 3 seconds to look up at their new town, and each goes back to dancing</td>
+<td>todo</td>
+<td>as above; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>After 1 second the camera turns to the first sailor (2 seconds), who says: "We also picked up something you might find useful." and "We humbly offer it to you by way of thanks."</td>
+<td>todo</td>
+<td>as above; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-polar-bear">The polar bear</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The reward sting plays and a polar bear creature appears at the water's edge by the wreck</td>
+<td>todo</td>
+<td><code>Create</code> makes no creatures; <code>PlaySoundEffect</code> works</td>
+</tr>
+<tr>
+<td>The camera drops to the bear's level over 6 seconds; the sailors face it and talk and point at it one after another, then the first turns back to the camera and the others dance</td>
+<td>todo</td>
+<td>no bear</td>
+</tr>
+<tr>
+<td>The bear walks up the beach towards the sailors; 2 seconds later the first sailor: "It's a big white animal we found on an icy island we visited."</td>
+<td>todo</td>
+<td>no bear</td>
+</tr>
+<tr>
+<td>The bear turns to the camera; evil: "What the heck is that?"; good: "It's beautiful. These people have travelled a long way, haven't they?"</td>
+<td>todo</td>
+<td>no bear</td>
+</tr>
+<tr>
+<td>The music stops, the advisors go home, and 1 second later the challenge is recorded as finished (success 1, alignment 0); the film ends</td>
+<td>todo</td>
+<td><code>Snapshot</code> is a stub</td>
+</tr>
+<tr>
+<td>The three sailors join the new town and are let go to live as ordinary villagers</td>
+<td>todo</td>
+<td><code>FlockAttach</code> and <code>ReleaseFromScript</code> work; the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-swap-offer">The swap offer</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The bear can't be picked up and a silver scroll hangs 1 above its head; it keeps turning to look at the camera</td>
+<td>partial</td>
+<td>the pick-up flag works (<code>SetIdPickupable</code>); the bear (creatures are not made by <code>Create</code>) and the scroll over it don't</td>
+</tr>
+<tr>
+<td>While the camera is within 100 of the scroll with the bear on screen, the evil advisor points at it: "Swap your Creature with this one if you want." at most once a minute</td>
+<td>todo</td>
+<td>no bear</td>
+</tr>
+<tr>
+<td>Tapping the scroll or the bear with the player's creature further than 50 away: evil: "You'll need to bring our Creature, Boss." and the offer starts over</td>
+<td>todo</td>
+<td>no bear</td>
+</tr>
+<tr>
+<td>With the creature within 50 the scroll goes, the creature is unleashed and walked to within 15 of the bear (given up to 5 seconds), and both look each other over</td>
+<td>todo</td>
+<td><code>CreatureDoAction</code> is a stub</td>
+</tr>
+<tr>
+<td>Every 30 seconds the good advisor asks: "Are you sure you want a new Creature? Click the Action Button on the Creature you want to swap to if you are. Click your own Creature to cancel."</td>
+<td>todo</td>
+<td>no bear</td>
+</tr>
+<tr>
+<td>Tapping the bear confirms; tapping the player's own creature, or 110 seconds without an answer, cancels and the scroll comes back</td>
+<td>todo</td>
+<td>no bear</td>
+</tr>
+<tr>
+<td>The swap: a two-creature camera, the creatures face each other, sparkles over both, each points at the other, the minds are swapped with the swap sound, and 3 seconds after both have finished pointing the camera returns</td>
+<td>todo</td>
+<td><code>SwapCreature</code> is a stub; see <a href="../challenges_and_rewards.html">../challenges_and_rewards.md</a></td>
+</tr>
+<tr>
+<td>Evil: "Great, Boss. If you want your old Creature back, just return here later."; the old creature stays as the one on offer, idle and not pick-up-able, under a new scroll</td>
+<td>todo</td>
+<td><code>SwapCreature</code> stub</td>
+</tr>
+<tr>
+<td>The offer never ends: the player can swap back and forth for the rest of the land</td>
+<td>todo</td>
+<td>the swap script's loop has no way out</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creature">Creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The player's creature plays no part in the film; it is only needed, within 50 of the bear, for the swap</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="script-quirks">Script quirks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The sailors are switched to high-detail drawing before they are made, so the switch does nothing and they are drawn as normal villagers; switching it off at the end is likewise empty</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The storage pit, graveyard and Wonder are looked up at each other's places (mixed up), which does no harm because all of them are only set built</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>The swap script makes a 60 to 120 second timer for the offer that it never reads</td>
+<td>todo</td>
+<td>the quest never starts: no Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="cut-and-unused-parts">Cut and unused parts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A sailor's line "Eventually we landed and started this settlement in your honour." is in the text table but no script says it</td>
+<td>n/a</td>
+<td>never in the game</td>
+</tr>
+<tr>
+<td>A second sailor's thanks ("You've been so devine we thought we'd make an offering of it") was written into the film and switched off; it has no text line</td>
+<td>n/a</td>
+<td>never in the game</td>
+</tr>
+<tr>
+<td>An earlier start that waited for the camera to look at the wreck, instead of a scroll, is switched off</td>
+<td>n/a</td>
+<td>never in the game</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

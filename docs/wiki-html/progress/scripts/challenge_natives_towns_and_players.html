@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Challenge natives: towns, players and rival gods — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="here" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#challenge-natives-towns-players-and-rival-gods">Challenge natives: towns, players and rival gods</a><ul>
+<li><a href="#used-by-the-shipped-scripts">Used by the shipped scripts</a></li>
+<li><a href="#not-used-by-the-shipped-scripts">Not used by the shipped scripts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="challenge-natives-towns-players-and-rival-gods">Challenge natives: towns, players and rival gods</h1>
+<p>The challenge scripts' functions for towns (belief, desires, stores, buildings, worship), players (alignment, alliances, land balance) and the rival gods the computer plays. The game has 464 of these functions in all; the language statement each comes from is shown in italics, and "called" counts are calls in the shipped <code>challenge.chl</code>. How the virtual machine runs them is in <a href="../engine/script_vm.html">../engine/script_vm.md</a>; what each challenge is about is in <a href="../story/index.html">../story/</a>.</p>
+<p><strong>Progress: 8/49 done, 1 partial — 17%</strong></p>
+<h2 id="used-by-the-shipped-scripts">Used by the shipped scripts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gives a player's good or evil alignment: <em>alignment of player ‹zero›</em> (called 2 times in 2 scripts)</td>
+<td>done</td>
+<td><code>GetAlignment</code> in <code>src/CHLApi.cpp</code>: <code>ecs::effects::alignment::Get</code> for the player (<code>src/ECS/Effects/Alignment.cpp</code>); <code>test/test_alignment_system.cpp</code></td>
+</tr>
+<tr>
+<td>Has a town build a building at a position, with a desire: <em>build building at ‹position› desire ‹desire›</em> (called 28 times in 9 scripts)</td>
+<td>done</td>
+<td><code>BuildBuilding</code>: <code>ecs::building_sites::ForceBuildingOfPlannedAtPos</code> (<code>src/ECS/Town/BuildingSites.cpp</code>), the town's planned building at the point, with the desire times five; <code>test/test_building_sites.cpp</code></td>
+</tr>
+<tr>
+<td>Gives how much food or wood a store holds: <em>get resource ‹resource› in ‹container›</em> (called 11 times in 7 scripts)</td>
+<td>todo</td>
+<td><code>GetResource</code> logs "not implemented" and pushes nought</td>
+</tr>
+<tr>
+<td>Puts food or wood into a store: <em>add resource ‹resource› ‹quantity› to ‹container›</em> (called 5 times in 3 scripts)</td>
+<td>partial</td>
+<td><code>AddResource</code>: <code>ecs::object_resources::AddResource</code> on an object, pushing what it took; a villager's own resources (Land 1's builders) are not ported</td>
+</tr>
+<tr>
+<td>Takes food or wood out of a store: <em>remove resource ‹resource› ‹quantity› from ‹container›</em> (called 9 times in 4 scripts)</td>
+<td>todo</td>
+<td><code>RemoveResource</code> logs "not implemented" and pushes nought</td>
+</tr>
+<tr>
+<td>Gives a town's or villager's belief in a player: <em>get ‹object› belief for player ‹player›</em> (called 21 times in 9 scripts)</td>
+<td>todo</td>
+<td><code>BeliefForPlayer</code> logs "not implemented" and pushes nought</td>
+</tr>
+<tr>
+<td>Sets an object's belief in a player relative to others: <em>set ‹object› player ‹player› relative belief ‹belief›</em> (called once in 1 script)</td>
+<td>todo</td>
+<td><code>ObjectRelativeBelief</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Moves a rival god's hand to a position at a speed: <em>move computer player ‹player› to ‹position› speed ‹speed› [with fixed height]</em> (called 68 times in 26 scripts)</td>
+<td>todo</td>
+<td><code>MoveComputerPlayerPosition</code> logs "not implemented": there are no computer players</td>
+</tr>
+<tr>
+<td>Turns a rival god (computer player) on or off: <em>enable/disable computer player ‹player›</em> (called 3 times in 3 scripts)</td>
+<td>todo</td>
+<td><code>EnableDisableComputerPlayer311</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives where a rival god's hand is: <em>computer player ‹player› position</em> (called 8 times in 6 scripts)</td>
+<td>todo</td>
+<td><code>GetComputerPlayerPosition</code> logs "not implemented" and pushes a zero position</td>
+</tr>
+<tr>
+<td>Puts a rival god's hand at a position at once: <em>set computer player ‹player› position to ‹position› [with fixed height]</em> (called 10 times in 7 scripts)</td>
+<td>todo</td>
+<td><code>SetComputerPlayerPosition</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Sets a town's or villager's belief in a player: <em>set ‹object› player ‹player› belief ‹belief›</em> (called 5 times in 4 scripts)</td>
+<td>todo</td>
+<td><code>SetPlayerBelief</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Boosts or lowers one of a town's desires: <em>set ‹object› desire boost ‹desire› ‹boost›</em> (called 10 times in 4 scripts)</td>
+<td>done</td>
+<td><code>SetTownDesireBoost</code>: <code>ecs::town_desire::ScriptSetTownDesireBoost</code> (<code>src/ECS/Town/TownDesire.cpp</code>), with the original's range checks and re-sort; <code>test/test_town_desire.cpp</code></td>
+</tr>
+<tr>
+<td>Whether a rival god is ready: <em>computer player ‹player› ready</em> (called 23 times in 12 scripts)</td>
+<td>todo</td>
+<td><code>ComputerPlayerReady</code> logs "not implemented" and pushes false</td>
+</tr>
+<tr>
+<td>Turns a rival god on or off (second form): <em>enable/disable computer player ‹player›</em> (called 9 times in 7 scripts)</td>
+<td>todo</td>
+<td><code>EnableDisableComputerPlayer345</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Creates a random villager of a tribe at a position: <em>create random villager of tribe ‹tribe› at ‹position›</em> (called once in 1 script)</td>
+<td>todo</td>
+<td><code>CreateRandomVillagerOfTribe</code> logs "not implemented" and pushes 0</td>
+</tr>
+<tr>
+<td>Sets what a scaffold builds, its size and whether it destroys what is under it: <em>set ‹object› building properties ‹type› size ‹size› [destroys when placed]</em> (called 8 times in 5 scripts)</td>
+<td>done</td>
+<td><code>SetScaffoldProperties</code>: <code>ecs::scaffolds::SetScaffoldProperties</code> (<code>src/ECS/Scaffolds.cpp</code>), its type, size and destroy flag</td>
+</tr>
+<tr>
+<td>Sets a rival god's personality (a named set of behaviours) on or off: <em>set computer player ‹player› personality ‹aspect› ‹probability›</em> (called 25 times in 5 scripts)</td>
+<td>todo</td>
+<td><code>SetComputerPlayerPersonality</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Makes a rival god do an action at once: <em>force computer player ‹player› action ‹action› [‹obj1›] [‹obj2›]</em> (called 11 times in 6 scripts)</td>
+<td>todo</td>
+<td><code>ForceComputerPlayerAction</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Adds an action to a rival god's queue: <em>queue computer player ‹player› action ‹action› [‹obj1›] [‹obj2›]</em> (called 4 times in 1 script)</td>
+<td>todo</td>
+<td><code>QueueComputerPlayerAction</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives the town with a number from the land script: <em>get town with id ‹id›</em> (called 28 times in 14 scripts)</td>
+<td>todo</td>
+<td><code>GetTownWithId</code> logs "not implemented" and pushes 0</td>
+</tr>
+<tr>
+<td>Makes a villager a disciple of a job, with or without a sound: <em>set ‹object› disciple ‹disciple type› [with sound]</em> (called 3 times in 3 scripts)</td>
+<td>todo</td>
+<td><code>SetDisciple</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Hands a rival god back to its own thinking: <em>release computer player ‹player›</em> (called 26 times in 18 scripts)</td>
+<td>todo</td>
+<td><code>ReleaseComputerPlayer</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Sets how fast a rival god acts: <em>set computer player ‹player› speed ‹speed›</em> (called 4 times in 3 scripts)</td>
+<td>todo</td>
+<td><code>SetComputerPlayerSpeed</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives a rival god as an object: <em>get computer player ‹player›</em> (called 2 times in 2 scripts)</td>
+<td>todo</td>
+<td><code>CallComputerPlayer</code> logs "not implemented" and pushes 0</td>
+</tr>
+<tr>
+<td>Whether a town may build a worship site: <em>enable/disable ‹object› build worship site</em> (called 6 times in 2 scripts)</td>
+<td>done</td>
+<td><code>SetCanBuildWorshipsite</code>: <code>magic::script::SetCanBuildWorshipsite</code> (<code>src/Magic/Script/CHLWorship.cpp</code>), for a town or the temple's heart</td>
+</tr>
+<tr>
+<td>Sets a rival god's attitude to a player: <em>set computer player ‹player1› attitude to player ‹player2› to ‹attitude›</em> (called 4 times in 2 scripts)</td>
+<td>todo</td>
+<td><code>SetComputerPlayerAttitude</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Sets how allied two players are: <em>set player ‹player1› ally with player ‹player2› percentage ‹percentage›</em> (called 5 times in 5 scripts)</td>
+<td>todo</td>
+<td><code>SetPlayerAlly</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives how many adults a town or container holds: <em>adult size of ‹container›</em> (called once in 1 script)</td>
+<td>todo</td>
+<td><code>IdAdultSize</code> logs "not implemented" and pushes nought</td>
+</tr>
+<tr>
+<td>Gives how many adults a building can hold: <em>adult capacity of ‹container›</em> (called 2 times in 1 script)</td>
+<td>todo</td>
+<td><code>ObjectAdultCapacity</code> logs "not implemented" and pushes nought</td>
+</tr>
+<tr>
+<td>Gives how many worshippers have died in a town: <em>get worship deaths in ‹town›</em> (called 2 times in 1 script)</td>
+<td>done</td>
+<td><code>GetTownWorshipDeaths</code>: the town's deaths from worship (<code>TownDeaths</code>, written when a villager dies)</td>
+</tr>
+<tr>
+<td>Gives how many towns a player has: <em>get player ‹player› town total</em> (called 4 times in 1 script)</td>
+<td>todo</td>
+<td><code>GetPlayerTownTotal</code> logs "not implemented" and pushes nought</td>
+</tr>
+<tr>
+<td>Gives a town's totem: <em>get totem statue in ‹town›</em> (called 2 times in 2 scripts)</td>
+<td>todo</td>
+<td><code>GetTotemStatue</code> logs "not implemented" and pushes 0</td>
+</tr>
+<tr>
+<td>Gives the time since a player last attacked a town: <em>get time since player ‹player› attacked ‹town›</em> (called 2 times in 1 script)</td>
+<td>todo</td>
+<td><code>GetTimeSinceObjectAttacked</code> logs "not implemented" and pushes nought</td>
+</tr>
+<tr>
+<td>Gives the total health of a town's buildings and villagers: <em>get building and villager health total in ‹town›</em> (called 2 times in 1 script)</td>
+<td>todo</td>
+<td><code>GetTownAndVillagerHealthTotal</code> logs "not implemented" and pushes nought</td>
+</tr>
+<tr>
+<td>Gives how much has been sacrificed at a worship site: <em>get ‹worship site› sacrifice total</em> (called 2 times in 1 script)</td>
+<td>todo</td>
+<td><code>GetSacrificeTotal</code> logs "not implemented" and pushes nought</td>
+</tr>
+<tr>
+<td>Clears a rival god's actions: <em>clear computer player ‹player› actions</em> (called once in 1 script)</td>
+<td>todo</td>
+<td><code>GameClearComputerPlayerActions</code> logs "not implemented"</td>
+</tr>
+</tbody>
+</table>
+<h2 id="not-used-by-the-shipped-scripts">Not used by the shipped scripts</h2>
+<p>The game has these but no shipped script calls them; mods and fan-made challenges can.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sets a player's alignment: <em>set the player's alignment (no statement in the language)</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>SetAlignment</code>: <code>ecs::effects::alignment::AddClamped</code>: the value is added to the player's alignment, as the original does despite the name; out of -1 to 1 nothing happens. Our wiki differs: the original adds the value to the alignment rather than setting it (<a href="../../magic.html#player-alignment-galignment-gplayer-0x60-srcecseffectsalignment-componentsalignment">magic</a>)</td>
+</tr>
+<tr>
+<td>Gives a player's town nearest a position within a radius: <em>get nearest town at ‹value› for player ‹value› radius ‹value›</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>GetNearestTownOfPlayer</code>: <code>ecs::map_cells::FindPlayerTownAtPos</code>, only that player's towns within the radius, handed to the script as a found thing</td>
+</tr>
+<tr>
+<td>Holds back one of a rival god's behaviours: <em>set computer player ‹value› suppression ‹value› ‹value›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>SetComputerPlayerSuppression</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Finds a building of a kind in a town, built at least so far: <em>get building ‹value› in ‹value› min built ‹value› [excluding scripted]</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>CallBuildingInTown</code> logs "not implemented" and pushes 0</td>
+</tr>
+<tr>
+<td>Gives a rival god's attitude to a player: <em>get computer player ‹player1› attitude to player ‹player2›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>GetComputerPlayerAttitude</code> logs "not implemented" and pushes nought</td>
+</tr>
+<tr>
+<td>Loads a rival god's personality from a file: <em>load computer player ‹value› personality ‹value›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>LoadComputerPlayerPersonality</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Saves a rival god's personality to a file: <em>save computer player ‹value› personality ‹value›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>SaveComputerPlayerPersonality</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives how many a building can hold: <em>capacity of ‹container›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>ObjectCapacity</code> logs "not implemented" and pushes nought</td>
+</tr>
+<tr>
+<td>Gives how allied two players are: <em>get player ‹player1› ally percentage with player ‹player2›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>GetPlayerAlly</code> logs "not implemented" and pushes nought</td>
+</tr>
+<tr>
+<td>Sets a player's land balance: <em>set ‹value› land balance ‹value›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>SetLandBalance</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Sets how much an object's belief counts: <em>set ‹value› belief scale ‹value›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>SetObjectBeliefScale</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Adds food or wood to a building site (unconfirmed): <em>add for building ‹value› to ‹value›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>GameAddForBuilding</code> logs "not implemented"</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

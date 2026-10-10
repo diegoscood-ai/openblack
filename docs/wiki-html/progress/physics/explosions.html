@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Explosions — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="here" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#explosions">Explosions</a><ul>
+<li><a href="#the-burst">The burst</a></li>
+<li><a href="#the-shock-wave">The shock wave</a></li>
+<li><a href="#shattering-into-pieces">Shattering into pieces</a></li>
+<li><a href="#marks-dust-smoke-and-water">Marks, dust, smoke and water</a></li>
+<li><a href="#shake-and-sound">Shake and sound</a></li>
+<li><a href="#other-bangs">Other bangs</a></li>
+<li><a href="#saving">Saving</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="explosions">Explosions</h1>
+<p>Blasts in Black &amp; White: the engine pieces every explosion shares (an area burst of heat and crushing, a shock wave
+that runs outward and shatters what it reaches into flying pieces, rubble and scorch heaps, dust puffs, smoke or steam,
+camera shake and the bang), and the other things that go off with a bang. The game has no exploding barrels or fire
+explosions: fire only flares into extra flames when very hot (see <a href="fire.html">fire.md</a>). The blast miracle's own timings,
+power-ups and casting are in <a href="../miracles/blast.html">../miracles/blast.md</a>; the fireball's impact in
+<a href="../miracles/fireball.html">../miracles/fireball.md</a>; lightning strikes in <a href="../miracles/lightning.html">../miracles/lightning.md</a>.
+Pieces knocked off a building by a thrown rock are in <a href="impact_damage.html">impact_damage.md</a>.</p>
+<p>openblack: the explosion rules and the wave's effect on objects in <code>src/Particles/Rules/Explosion.cpp</code>, the shattering in
+<code>src/Particles/Rules/ExplodeObject.cpp</code>, rubble and dust in <code>src/ECS/GroundMarks.cpp</code>, the shake (scripts only) in
+<code>src/Camera/CameraShake.cpp</code>, tests in <code>test/test_explosion.cpp</code>.</p>
+<p><strong>Progress: 31/43 done, 6 partial — 79%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../physics.html">Physics: thrown objects, collisions, damage and rocks that split</a>.</p>
+<h2 id="the-burst">The burst</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>An explosion acts at the land under it (sea level over water); it starts acting after its delay and keeps acting for its set time</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Explosion.cpp</code> (the centre at the land's altitude, events from its initial delay for its time); test <code>Explosion.blastEventsCadenceAndCloseDown</code> (<code>test/test_explosion.cpp</code>)</td>
+</tr>
+<tr>
+<td>Every turn while it acts it applies its burst: heat (which sets things alight), crushing and a blow, over a fixed radius</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Explosion.cpp</code> (one spell event a step: the spell's burn, crush and hit in its effect radius); heat feeds <a href="fire.html">fire.md</a></td>
+</tr>
+<tr>
+<td>The burst is the same everywhere inside its radius: there is no falloff with distance</td>
+<td>done</td>
+<td><code>EffectValues::ApplyEffectToMapPos</code> (<code>src/ECS/Effects/EffectValues.cpp</code>): every receiver in reach takes the whole effect</td>
+</tr>
+<tr>
+<td>The burst's strength scales with what the caster paid, the tribe's power and the event's own strength; the radius does not</td>
+<td>partial</td>
+<td><code>src/Magic/Core/Chants.cpp</code> and the effect values; the tribal power is never set in our tree, so it is always 1</td>
+</tr>
+<tr>
+<td>A burst hurts through each thing's defences, moves the caster's alignment and angers the towns it harms</td>
+<td>done</td>
+<td><code>ecs::effects::ApplyEffect</code> (the info's defence multipliers, the alignment update, the town's emergency), <code>src/ECS/Effects/EffectValues.cpp</code></td>
+</tr>
+<tr>
+<td>Villagers near an explosion react once for the whole explosion, not once per turn</td>
+<td>done</td>
+<td><code>src/Magic/Core/SpellEvent.cpp</code> (the reaction is made on the first event only)</td>
+</tr>
+<tr>
+<td>A shield over the explosion is struck where the way down enters it, and can stop it</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Explosion.cpp</code> (the ray from 200 m above meets the shield: a spark and an event to the shield; a held shield stops the blast)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-shock-wave">The shock wave</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A wave front runs outward at a set speed and reaches each object when it touches the object's edge</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Explosion.cpp</code> (the ring grows at its spread speed and reaches an object by its radius)</td>
+</tr>
+<tr>
+<td>The wave's reach grows with the caster tribe's power (1 to 5 times)</td>
+<td>partial</td>
+<td>The reach times the tribal power (1 to 5) is in <code>src/Particles/Rules/Explosion.cpp</code>, but the tribal power is always 1 in our tree</td>
+</tr>
+<tr>
+<td>The wave takes only things fixed on the map, at most one a turn, and only those it may destroy</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Explosion.cpp</code> (one object a step, the first that may be destroyed). Our wiki differs: the targets are the mobile and the fixed objects of each cell, not only the fixed ones (<a href="../../miracles.html#ur_explosion-initcollection-0x67e200-modifyatomcollection-0x67ece0-update-0x67e900">miracles.md</a>)</td>
+</tr>
+<tr>
+<td>Creatures, fields, temples, teleport stones, totems, totem statues, worship totems, pots and one-off seeds are never destroyed by it</td>
+<td>partial</td>
+<td><code>explosion::CanBeDestroyedBySpell</code> says no for creatures, fields, the temple and its parts, worship sites and totems; teleport stones, totem statues, pots and one-off seeds are not excluded</td>
+</tr>
+<tr>
+<td>Things a script made indestructible, or that the help system holds, are spared</td>
+<td>todo</td>
+<td><code>explosion::CanBeDestroyedBySpell</code> does not test <code>Indestructible</code> or the objects a script or the help holds</td>
+</tr>
+<tr>
+<td>A building reached is shattered into pieces but left standing as an empty shell with no life; this includes spell dispensers</td>
+<td>done</td>
+<td><code>explosion::DestroyedByBeam</code> takes all its life through <code>ecs::abodes::ReduceLife</code> (dispensers too). Our wiki differs: a building with a town is then drawn as a building site at 0 percent until repaired (<a href="../../miracles.html#ur_explosion-initcollection-0x67e200-modifyatomcollection-0x67ece0-update-0x67e900">miracles.md</a>)</td>
+</tr>
+<tr>
+<td>Anything else reached (trees, statues, small objects) shatters and is removed</td>
+<td>done</td>
+<td><code>explosion::DestroyedByBeam</code> (trees through <code>DeleteTree</code>, the rest destroyed as by an effect) after its pieces go to <code>src/Particles/Rules/ExplodeObject.cpp</code></td>
+</tr>
+<tr>
+<td>Villagers are never shattered; they take only the burst's heat and crushing</td>
+<td>partial</td>
+<td><code>explosion::DestroyedByBeam</code> deletes a villager the ring reaches, with no death. Our wiki differs: villagers the ring reaches are destroyed by the beam like other objects (<a href="../../miracles.html#ur_explosion-initcollection-0x67e200-modifyatomcollection-0x67ece0-update-0x67e900">miracles.md</a>)</td>
+</tr>
+<tr>
+<td>A shield in the wave's way is struck at the point it is reached, with a spark and the wave's direction</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Explosion.cpp</code> (a target inside a shield: a spark and an event to the shield)</td>
+</tr>
+<tr>
+<td>At most a set number of things shatter and a set number are removed per explosion</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Explosion.cpp</code> (the effect file's most to explode and most to delete)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="shattering-into-pieces">Shattering into pieces</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A shattered model breaks into strips of up to 16 triangles that touch along a shared edge, even across texture seams</td>
+<td>done</td>
+<td><code>src/Particles/Rules/ExplodeObject.cpp</code>; test <code>Explosion.explodeMeshWalksSharedEdges</code></td>
+</tr>
+<tr>
+<td>Each piece flies away from a point 5 m below the centre at the blast's speed, with some randomness</td>
+<td>done</td>
+<td><code>src/Particles/Rules/ExplodeObject.cpp</code>; test <code>Explosion.explodeMeshPieceVelocity</code></td>
+</tr>
+<tr>
+<td>Pieces fall, bounce off the land, tumble, fade over 3 s, shrink from 1 to 5 s and are gone at 6 s</td>
+<td>done</td>
+<td>The effect file's rules run by <code>src/Particles/PSys.cpp</code></td>
+</tr>
+<tr>
+<td>Pieces make no sound and no ripples when they land, even on water</td>
+<td>done</td>
+<td>The effect file has none</td>
+</tr>
+<tr>
+<td>Pieces are lit by the land and by their model's own light</td>
+<td>done</td>
+<td><code>mesh_pieces::Build</code> in <code>src/Particles/Rules/ExplodeObject.cpp</code>; tests <code>Explosion.explodedPieceLitColour</code>, <code>Explosion.meshPiecesBuildWorldAndLight</code></td>
+</tr>
+<tr>
+<td>Objects waiting to be shattered are handled newest first</td>
+<td>done</td>
+<td><code>src/Particles/Rules/ExplodeObject.cpp</code> (the queue is emptied from its last entry); test <code>Explosion.explodeObjectQueueToPieces</code></td>
+</tr>
+<tr>
+<td>Five rock pieces are thrown out from the centre's height</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Explosion.cpp</code> (five rock meshes queued to break)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="marks-dust-smoke-and-water">Marks, dust, smoke and water</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Land counts as dry when it is more than 3 above sea level; the same test picks every dry or wet effect below</td>
+<td>done</td>
+<td><code>pot_resource::IsDryLand</code> (<code>src/ECS/PotResource.cpp</code>), used by <code>src/Particles/Rules/Explosion.cpp</code></td>
+</tr>
+<tr>
+<td>On dry land a heap of rubble lies at the centre, at a random angle, following the land's shape, for 15 s, fading out over its last second</td>
+<td>done</td>
+<td><code>src/ECS/GroundMarks.cpp</code> (the mound at a random angle, moulded to the land, 15 s, fading over its last second)</td>
+</tr>
+<tr>
+<td>A brown dust puff of 15 sprites flies up and out, growing and fading over 1.5 s</td>
+<td>done</td>
+<td>The ground mark's dust (<code>DisappearSmoke</code> mode 1); test <code>Explosion.groundMarkDustIsDisappearSmokeMode1</code></td>
+</tr>
+<tr>
+<td>Grey smoke rises a little after the bang for a few seconds</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Explosion.cpp</code> (the smoke spot visual after the smoke delay, magnitude 8 for 4 s)</td>
+</tr>
+<tr>
+<td>On water there is no rubble or dust: three rings spread and white steam rises instead</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Explosion.cpp</code> (steam), <code>src/Particles/PSysWaterRings.cpp</code> (three rings)</td>
+</tr>
+<tr>
+<td>The land itself is not burnt or blackened by explosions or fire</td>
+<td>done</td>
+<td>Nothing in our tree marks the land; the mound is the only mark</td>
+</tr>
+</tbody>
+</table>
+<h2 id="shake-and-sound">Shake and sound</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>An explosion within 200 m of the camera shakes it up and down (the eye and what it looks at), fading over 0.7 s</td>
+<td>todo</td>
+<td>Effects do not start a camera shake: <code>src/Particles/Rules/Sound.cpp</code> reads the shake flag but does nothing with it</td>
+</tr>
+<tr>
+<td>Only the nearest shake counts; between two at the same distance the newest wins</td>
+<td>done</td>
+<td><code>camera_shake::Adjust</code> (<code>src/Camera/CameraShake.cpp</code>: the nearest to the last drawn camera, the newest at a tie); used by script shakes only</td>
+</tr>
+<tr>
+<td>Shaking is always on; there is no option to turn it off</td>
+<td>done</td>
+<td>No option in our tree (<code>camera_shake::Adjust</code>)</td>
+</tr>
+<tr>
+<td>Each explosion has a whoosh as it comes down and one of two bangs as it hits, at a random pitch</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Sound.cpp</code>, <code>src/Audio/Services/SpellSounds.cpp</code></td>
+</tr>
+<tr>
+<td>A new effect starts with a double step, so the bang lands on the same turn as in the game</td>
+<td>partial</td>
+<td>Not found in our tree: a spell's effect is stepped once a turn (<code>src/Magic/Core/Spell.cpp</code>); our wiki does not describe a double first step</td>
+</tr>
+<tr>
+<td>Scripts can shake the camera at a point, with a radius, strength and time</td>
+<td>done</td>
+<td><code>ShakeCamera</code> in <code>src/CHLApi.cpp</code> (SHAKE_CAMERA) to <code>camera_shake::StartCameraShake</code>, applied to the drawn camera (<code>script_camera::ApplyShake</code> from <code>src/Game.cpp</code>)</td>
+</tr>
+<tr>
+<td>A reward chest reaching the ground makes a thump and a short shake</td>
+<td>todo</td>
+<td>No reward chests: <code>CreateReward</code> in <code>src/CHLApi.cpp</code> is a stub</td>
+</tr>
+</tbody>
+</table>
+<h2 id="other-bangs">Other bangs</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scripts can play special effects such as the "bang" smoke burst and the temple explosion at a place or on an object</td>
+<td>done</td>
+<td><code>SpecialEffectPosition</code> and <code>SpecialEffectObject</code> in <code>src/CHLApi.cpp</code> to <code>psys::manager::CreateSpotVisual</code> (<code>src/Particles/PSysManager.cpp</code>)</td>
+</tr>
+<tr>
+<td>Fireworks go up and burst with their own sounds, started by scripts and when a player takes a town</td>
+<td>partial</td>
+<td>Scripts can start the fireworks spot visuals (<code>src/Particles/PSysManager.cpp</code>); a town changing hands starts none</td>
+</tr>
+<tr>
+<td>A temple whose heart is destroyed goes through a destruction sequence with explosions and plasma</td>
+<td>todo</td>
+<td>Nothing in our tree. See <a href="../temple/index.html">../temple/</a> and <a href="../multiplayer/index.html">../multiplayer/</a></td>
+</tr>
+<tr>
+<td>A failed miracle cast gives a small puff</td>
+<td>done</td>
+<td><code>FailApply</code> in <code>src/ECS/Systems/Implementations/HandSpellSeed.cpp</code> (the fail spot visual and sound). See <a href="../miracles/casting_and_globes.html">../miracles/casting_and_globes.md</a></td>
+</tr>
+<tr>
+<td>The creature smashes rocks in half by hand</td>
+<td>todo</td>
+<td>Only the hand taps rocks (<code>Rocks::Tap</code> from <code>HandSystem.cpp</code>); the creature's actions do not split rocks</td>
+</tr>
+</tbody>
+</table>
+<h2 id="saving">Saving</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Explosions in progress (wave front, waiting pieces) are saved and loaded with the game</td>
+<td>todo</td>
+<td>openblack has no saved games</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Landscape rendering — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="here" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#landscape-rendering">Landscape rendering</a><ul>
+<li><a href="#painting-the-blocks">Painting the blocks</a></li>
+<li><a href="#light-and-colour">Light and colour</a></li>
+<li><a href="#distance-and-detail">Distance and detail</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="landscape-rendering">Landscape rendering</h1>
+<p>How the land is drawn: each block painted from its countries' materials, lifted by noise and a bump map, lit by a
+per-cell luminosity through a light table that follows the time of day and the alignment, faded into the sea at the
+coast, and hazed with distance.</p>
+<p><strong>Progress: 24/26 done, 1 partial — 94%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../rendering.html">World rendering: original versus openblack</a>.</p>
+<h2 id="painting-the-blocks">Painting the blocks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each block is painted 16 by 16 texels a cell, in 4 bits a channel</td>
+<td>done</td>
+<td><code>src/3D/BlockTexture.cpp</code>; test <code>test/test_block_texture.cpp</code></td>
+</tr>
+<tr>
+<td>Each texel takes its country's material for the height there</td>
+<td>done</td>
+<td><code>src/3D/BlockTexture.cpp</code></td>
+</tr>
+<tr>
+<td>The land's noise map shifts the height a texel's material is picked by, so material edges are ragged</td>
+<td>done</td>
+<td><code>src/3D/BlockTexture.cpp</code></td>
+</tr>
+<tr>
+<td>The bump map shades each texel</td>
+<td>done</td>
+<td><code>src/3D/BlockTexture.cpp</code></td>
+</tr>
+<tr>
+<td>Where a cell's corners lie in different countries, each corner paints the texel and the four are blended by distance</td>
+<td>done</td>
+<td><code>src/3D/BlockTexture.cpp</code>; test <code>test/test_block_texture.cpp</code></td>
+</tr>
+<tr>
+<td>The texture fades to clear towards the coast, below altitude 4, so the sea drawn underneath shows through</td>
+<td>done</td>
+<td><code>src/3D/CoastAlpha.cpp</code>, <code>src/3D/BlockTexture.cpp</code>, <code>assets/shaders/fs_terrain.sc</code></td>
+</tr>
+<tr>
+<td>Open-sea cells are not drawn at all</td>
+<td>done</td>
+<td><code>src/3D/BlockTexture.cpp</code></td>
+</tr>
+<tr>
+<td>A small bump texture is drawn over the land near the camera for fine detail</td>
+<td>done</td>
+<td><code>LandIsland::CreateSmallBumpTexture</code>, the per-vertex fade in <code>vs_terrain</code> and the blend in <code>assets/shaders/fs_terrain.sc</code> (<a href="../../rendering.html#terrain-detail-small-bump">rendering.md</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="light-and-colour">Light and colour</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each cell corner has a luminosity that lights the land through a 256-level light table</td>
+<td>done</td>
+<td><code>src/3D/LandLightTable.cpp</code>; test <code>test/test_land_light.cpp</code></td>
+</tr>
+<tr>
+<td>The light table is rebuilt every frame from the weather palette for the time of day and the alignment the sky shows</td>
+<td>done</td>
+<td><code>LandLightTable::Build</code> from <code>src/Graphics/Renderer.cpp</code>, <code>src/3D/LandLightFrame.cpp</code></td>
+</tr>
+<tr>
+<td>The darkest levels ramp through a warm colour, and the brightest come out brighter than the palette</td>
+<td>done</td>
+<td><code>src/3D/LandLightTable.cpp</code></td>
+</tr>
+<tr>
+<td>Each cell's own colour is added to the land as a light, the haze applied</td>
+<td>done</td>
+<td>The land's specular (the cell colour plus the haze) in <code>src/Graphics/Haze.cpp</code> and <code>assets/shaders/haze.sh</code></td>
+</tr>
+<tr>
+<td>Night lights of villages and the hand are stamped onto the cells</td>
+<td>done</td>
+<td><code>night_lights::Update</code> (<code>src/3D/NightLights.cpp</code>), run by <code>VillageLightSystem::Update</code> (<code>Locator::villageLightSystem</code>) after the frame's land light; see ../rendering/ and ../town/</td>
+</tr>
+<tr>
+<td>Cloud shadows darken the cells as clouds pass</td>
+<td>done</td>
+<td><code>Clouds::StampShadows</code>, <code>src/3D/LandColourStamps.cpp</code>; see ../sky/clouds.md</td>
+</tr>
+<tr>
+<td>Lightning stamps a glow on the land where it strikes</td>
+<td>done</td>
+<td><code>src/3D/LandColourStamps.cpp</code>, <code>src/ECS/Weather/LightningFlash.cpp</code>; test <code>test/test_land_colour_stamps.cpp</code></td>
+</tr>
+<tr>
+<td>Static shadows of buildings and trees are baked into the land</td>
+<td>done</td>
+<td><code>RenderPass::StaticShadow</code> into the island's shadow texture, applied in <code>assets/shaders/fs_terrain.sc</code> (<a href="../../rendering.html#shadows-three-systems-in-the-original">rendering.md</a>)</td>
+</tr>
+<tr>
+<td>Overcast darkens the land and draws the haze in</td>
+<td>done</td>
+<td><code>LandLightTable::Build</code> (<code>src/3D/LandLightTable.cpp</code>)</td>
+</tr>
+<tr>
+<td>Normals of the land are worked out per cell triangle for lighting the things on it</td>
+<td>done</td>
+<td><code>src/3D/LandNormal.cpp</code>; test <code>test/test_land_normal.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="distance-and-detail">Distance and detail</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Distant land fades into a haze a third of the land's colour, closing in at dusk</td>
+<td>done</td>
+<td><code>src/Graphics/Haze.cpp</code>, <code>assets/shaders/haze.sh</code>; test <code>test/test_haze_land_light.cpp</code></td>
+</tr>
+<tr>
+<td>Each block picks its own haze class</td>
+<td>done</td>
+<td><code>haze::BlockClassOf</code> (<code>src/Graphics/Haze.cpp</code>)</td>
+</tr>
+<tr>
+<td>The fog detail option turns the haze and overcast tinting on or off</td>
+<td>partial</td>
+<td>The Fog key switches the haze (<code>haze::Params::on</code>); the sky's overcast tint is not ported</td>
+</tr>
+<tr>
+<td>Land at sea level is drawn flat at height 0</td>
+<td>done</td>
+<td><code>LandIslandInterface::GetDrawnHeightAt</code></td>
+</tr>
+<tr>
+<td>The land under the sea is drawn mirrored, half lit and without bump detail, for the reflection</td>
+<td>done</td>
+<td>The reflection pass (<code>src/Graphics/Renderer.cpp</code>); see ../ocean/reflections.md</td>
+</tr>
+<tr>
+<td>Snow lying on the land whitens it, raggedly by a noise image</td>
+<td>todo</td>
+<td>Our tree has no lying snow (<a href="../../day-night-weather.html#pending">day-night-weather.md</a>); see ../weather/snow.md</td>
+</tr>
+<tr>
+<td>Rivers clear the land's alpha so the water shows</td>
+<td>done</td>
+<td><code>RenderPass::LandAlpha</code> (<code>src/ECS/Rivers.cpp</code>); see rivers.md</td>
+</tr>
+<tr>
+<td>Building footprints are blended into the land's colour</td>
+<td>done</td>
+<td><code>Renderer::DrawFootprintPass</code>; see land_marks.md</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

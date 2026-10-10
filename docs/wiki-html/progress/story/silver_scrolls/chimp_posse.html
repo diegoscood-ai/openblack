@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chimp Posse — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#chimp-posse">Chimp Posse</a><ul>
+<li><a href="#is-it-in-the-game">Is it in the game?</a></li>
+<li><a href="#the-chimps">The chimps</a></li>
+<li><a href="#the-introduction">The introduction</a></li>
+<li><a href="#getting-the-toys-home">Getting the toys home</a></li>
+<li><a href="#friends">Friends</a></li>
+<li><a href="#nemesiss-revenge">Nemesis's revenge</a></li>
+<li><a href="#the-end">The end</a></li>
+<li><a href="#bugs-and-quirks">Bugs and quirks</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="chimp-posse">Chimp Posse</h1>
+<p>A cut challenge for the last land: three small, angry chimp creatures on a hilltop have lost their ball in "the
+neighbour's garden", and Nemesis's creature takes it. Bringing the ball back (with their die and teddy still at home)
+makes the chimps friends of the player's creature, until Nemesis's creature comes to take the ball again. It makes a
+challenge record but no silver scroll, has no reward, and was never compiled into the game.</p>
+<p><strong>Land:</strong> 5 (never started) · <strong>Giver:</strong> none (a cut scene when the camera nears the chimps) · <strong>Script:</strong> ChimpPosse · <strong>Reward:</strong> none (the chimps become the creature's friends) · <strong>Repeatable:</strong> no</p>
+<p><strong>Progress: 0/0 done, 0 partial — 0%</strong></p>
+<p>Sources: the script's source text and its single-quest test launcher, the script compiler's project and quest menu
+lists, Land 5's map script and the game's text table. Every row is n/a: the game never runs this quest. To restore it
+openblack would need making creatures by script, creature desires, friendships and forced actions, held-object checks
+and the challenge record, which are all stubs in <code>src/CHLApi.cpp</code> (its <code>Create</code> makes the toys, being mobile statics,
+but not the chimps).</p>
+<h2 id="is-it-in-the-game">Is it in the game?</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Not in the compiled challenge file: it is missing from the compiler's project list, and no land's control script or challenge list starts it</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Only its single-quest test launcher starts it, after Land 5's setup script; the developers' quest menu compiles that launcher with Land 5's setup, volcano and returning-explorers scripts</td>
+<td>n/a</td>
+<td>never started by the game: the launcher is not compiled into the shipped game either</td>
+</tr>
+<tr>
+<td>It opens a challenge record but never makes a silver scroll, so even if run there would be no scroll to click; the quest starts on its own when the camera comes near</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Its title "Chimp Posse" and both its reminders exist in the text table, but all fourteen of its spoken lines are missing; their wording survives only in the source's comments (for ten of them)</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Its spots fit Land 5: the spot "just outside Nemesis's citadel" is about 50 from Nemesis's citadel on Land 5, and the "big fight arena" is about 95 from Nemesis's Aztec village there</td>
+<td>n/a</td>
+<td>never started by the game: checked against every <code>Land&lt;N&gt;.txt</code></td>
+</tr>
+<tr>
+<td>Not reachable at all in the shipped game</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-chimps">The chimps</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Three chimp creatures are made at three spots on the hill's edge, about 45 from their home on the hilltop, at half size</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>They are fully grown, taught the fireball and lightning miracles, and friends with each other</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Their only desire is anger, with the desires to play and to make friends set to full</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>They are kept within 75 of their home</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>A die and a cuddly toy, at half size, are put 7 either side of their home</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Until the ball is moved, the chimps stand facing the spot where it lies: one points at it and looks confused in turn, one is sad then embarrassed, one angry then confused</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Once the ball has moved more than 10, they are let go; from then until the quest ends their energy is kept full every second, a comment says so they can cast miracles</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-introduction">The introduction</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Starts when the camera is within 100 of the chimps' home and looking at it</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Cut scene: the camera glides to 20 above and 20 off the middle chimp over 3 seconds</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>A half-size ball appears about 215 away, down near sea level</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The good advisor points at the chimp; the record opens as "Chimp Posse", success and alignment 0, reminder "It looks like these chimps have lost a toy."</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Good advisor (comment's wording): "Oooh look at that. A group of chimps. Aaah sweet."</td>
+<td>n/a</td>
+<td>never started by the game: not in the text table</td>
+</tr>
+<tr>
+<td>After 2 seconds the camera moves to the ball over 4 seconds; the evil advisor points at it: "Ahh diddums. They seem to have lost their ball in the neighbours garden."</td>
+<td>n/a</td>
+<td>never started by the game: not in the text table</td>
+</tr>
+<tr>
+<td>Nemesis's creature is put about 80 from the ball and made to pick it up; the camera follows him, rising to 60 above over 12 seconds</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>With the ball in hand he walks off towards the big fight arena, about 320 east</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>"Uh Oh. Getting the ball back for the chimps has just got harder." After 4 seconds and the line, the camera returns over 4 seconds</td>
+<td>n/a</td>
+<td>never started by the game: not in the text table</td>
+</tr>
+</tbody>
+</table>
+<h2 id="getting-the-toys-home">Getting the toys home</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>When Nemesis's creature is within 20 of the arena, he puts the ball down and is let go (once)</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Any toy that no longer exists is made again at the chimps' home</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The first time the player's creature comes within 50 of the home while the chimps aren't friendly and it isn't carrying the ball, the evil advisor points at it: "Woah. The Chimps aren't very friendly."</td>
+<td>n/a</td>
+<td>never started by the game: not in the text table</td>
+</tr>
+<tr>
+<td>A toy counts as home when it is within 50 of the home, not in the hand and not in Nemesis's creature's hand</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The ball home for the first time moves the record to 0.5, reminder "These Chimps seem to be friendly towards our Creature."</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>A toy coming home with the other two there brings two good advisor lines whose wording is lost; with one still missing: "The chimps will only be happy with you if ALL of the toys are returned."</td>
+<td>n/a</td>
+<td>never started by the game: not in the text table</td>
+</tr>
+<tr>
+<td>The die or the cuddly toy coming home when the others are there moves the record to 1.0</td>
+<td>n/a</td>
+<td>never started by the game: the ball never does, even if it is the last one home</td>
+</tr>
+<tr>
+<td>A toy that ends up more than 100 from home counts as missing again; if the player's creature or the hand has it: "The chimps are not happy with you." "They want the toy back."</td>
+<td>n/a</td>
+<td>never started by the game: not in the text table</td>
+</tr>
+<tr>
+<td>If Nemesis's creature has it: the good advisor points at him: "Oh dear. Nemesis' Creature has taken back his toy from the chimps." "They're not happy about it either"</td>
+<td>n/a</td>
+<td>never started by the game: not in the text table</td>
+</tr>
+</tbody>
+</table>
+<h2 id="friends">Friends</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>With all three toys home, the three chimps and the player's creature become friends both ways</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>As soon as any toy is missing again they stop being friends</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>There is no reward, no alignment change, no timer and no failure</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="nemesiss-revenge">Nemesis's revenge</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Two minutes after the chimps first become friends, Nemesis's creature comes back for the ball: every 10 seconds he is made to grab it until it is in his hand</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Each of those 10-second tries while he is within 200 of the chimps' home, the good advisor points at him: "I don't think the toy belongs to the chimps." "Nemesis' Creature looks mighty pissed."</td>
+<td>n/a</td>
+<td>never started by the game: not in the text table</td>
+</tr>
+<tr>
+<td>With the ball he walks to a spot just outside his citadel, being sent again every 20 seconds until within 5, and puts it down there</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The chimps then lose their friendship (the ball is missing) until the player brings it back again</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-end">The end</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The quest is meant to end once the revenge is over and the chimps are friends again: the chimps are marked active and the record closes at 1.0 with the opening reminder</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>What "active" chimps were to do is never written; nothing else reads it</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="bugs-and-quirks">Bugs and quirks</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The revenge never ends: it loops until a flag that nothing sets, so it never reports back, the chimps never become active and the challenge can never close</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>Once Nemesis's creature has put the ball down at his citadel, that loop goes round with no pause</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+<tr>
+<td>The main loop also has no pause</td>
+<td>n/a</td>
+<td>never started by the game</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Real weather — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="here" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#real-weather">Real weather</a><ul>
+<li><a href="#turning-it-on">Turning it on</a></li>
+<li><a href="#where-the-player-lives">Where the player lives</a></li>
+<li><a href="#fetching-the-weather">Fetching the weather</a></li>
+<li><a href="#turning-it-into-the-lands-weather">Turning it into the land's weather</a></li>
+<li><a href="#developer-keys">Developer keys</a></li>
+<li><a href="#openblack">openblack</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="real-weather">Real weather</h1>
+<p>Outside multiplayer, the game could fetch the real weather where the player lives from Lionhead's weather service on
+the internet, and turn it into the land's background weather: its temperature, cloud, rain, snow and wind, sometimes
+with a storm. The player's town came from their account on the game's web site. The service is long gone, so in
+openblack the fetching itself cannot work; what a replacement would need is listed at the end. The land's own weather
+is owned by <a href="../weather/climates.html">../weather/</a>; the short summary row is in
+<a href="../weather/scripted_weather.html">../weather/scripted_weather.md</a> under "Real-world weather", and the service is listed with
+the other online extras in <a href="online_services.html">online_services.md</a>.</p>
+<p><strong>Progress: 1/31 done, 0 partial — 3%</strong></p>
+<h2 id="turning-it-on">Turning it on</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The real weather is set up once as a game starts, never in a multiplayer game</td>
+<td>todo</td>
+<td>no real weather in our tree; the original log says it asks whether this is a multiplayer game and, if not, starts the weather system</td>
+</tr>
+<tr>
+<td>It needs the weather preset file <code>Scripts/weatherinfo.lhw</code>; without it nothing happens</td>
+<td>todo</td>
+<td>our tree does not read <code>Scripts/weatherinfo.lhw</code></td>
+</tr>
+<tr>
+<td>Its settings live under the game's setup key in the registry: whether to use it, the server's name, the server's port and the address of the query page</td>
+<td>n/a</td>
+<td>value names: UseInternetWeatherSystem, WeatherSystemServerName, WeatherSystemServerPort, WeatherSystemServerURL</td>
+</tr>
+<tr>
+<td>If the settings are missing, the game writes the defaults: use it = 1, server <code>weather.bwgame.com</code>, port 80, page <code>/query/</code></td>
+<td>n/a</td>
+<td>the server is gone</td>
+</tr>
+<tr>
+<td>The query is only made when the "use" value reads 0</td>
+<td>n/a</td>
+<td>the game writes 1 as the default and then only runs when it reads 0, so it looks inverted; what the setup program wrote for "on" is not confirmed (unconfirmed)</td>
+</tr>
+<tr>
+<td>The server name and page may each be up to 200 characters</td>
+<td>n/a</td>
+<td></td>
+</tr>
+<tr>
+<td>It needs the current online player profile's login name and password; with no login name it does nothing</td>
+<td>n/a</td>
+<td>the password is kept encrypted in the profile and decrypted for the query; the accounts are gone</td>
+</tr>
+<tr>
+<td>With no internet connection found at start-up, no query is made</td>
+<td>todo</td>
+<td>our tree makes no connection check (no online code)</td>
+</tr>
+<tr>
+<td>There is no in-game option screen for it; it is set up outside the game</td>
+<td>todo</td>
+<td>no real weather in our tree and no option for it</td>
+</tr>
+</tbody>
+</table>
+<h2 id="where-the-player-lives">Where the player lives</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The player's place is not typed into the game: the game asks the web site for the place stored with the player's account</td>
+<td>n/a</td>
+<td>the account (registered at the game's web site) held a country, an area and a city</td>
+</tr>
+<tr>
+<td>The first request is a web page fetch from the weather server with the action "query user data", the user's name, password and today's date</td>
+<td>n/a</td>
+<td>the date is the computer's local date written day.month.year with two-digit day and month and a four-digit year</td>
+</tr>
+<tr>
+<td>The reply starts with a status line that must be 1; anything else is a failure and the reply is thrown away</td>
+<td>n/a</td>
+<td></td>
+</tr>
+<tr>
+<td>The next three lines are the country, the area and the city</td>
+<td>n/a</td>
+<td>the country is a two-letter code, the area and city up to 150 characters each</td>
+</tr>
+<tr>
+<td>Country codes are named from the game's list of 242 countries, one "code=Name" per line (for example de=Germany, gb=Great Britain, uk=United Kingdom, us=United States)</td>
+<td>todo</td>
+<td>our tree does not read <code>Scripts/country.lhw</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="fetching-the-weather">Fetching the weather</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The second request asks with the action "query weather", the country, the area, the city and today's date</td>
+<td>n/a</td>
+<td>plain web page fetch over port 80 with the game's own web client</td>
+</tr>
+<tr>
+<td>The reply is lines of colon-separated fields, one line per day</td>
+<td>n/a</td>
+<td></td>
+</tr>
+<tr>
+<td>Each line gives a date (three numbers), then six numbers: the temperature, the visibility, the weather type and three more</td>
+<td>n/a</td>
+<td>the meanings of the three others are not confirmed (unconfirmed); fields after the ninth are ignored</td>
+</tr>
+<tr>
+<td>A line whose first field is empty is skipped</td>
+<td>n/a</td>
+<td></td>
+</tr>
+<tr>
+<td>The days fetched are kept in a list and written to <code>weather.dat</code> in the player's profile folder</td>
+<td>todo</td>
+<td>our tree writes no <code>weather.dat</code></td>
+</tr>
+<tr>
+<td>The first day line in the reply becomes the player's weather</td>
+<td>n/a</td>
+<td>confirmed in the game's code during the bwgame.com service work (C:\projectswgame-service, docs/protocol.md); an earlier reading said the last line</td>
+</tr>
+<tr>
+<td>The weather is fetched only once per game start, not refreshed while playing</td>
+<td>todo</td>
+<td>no real weather in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="turning-it-into-the-lands-weather">Turning it into the land's weather</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Once a turn, while it is on and outside multiplayer, the game checks whether new real weather is waiting</td>
+<td>todo</td>
+<td>no real weather in our tree</td>
+</tr>
+<tr>
+<td>The first time, the land's own background weather (temperature, rain, snow, overcast, the two winds and snow cover) is kept so it can be put back</td>
+<td>todo</td>
+<td>no real weather in our tree; the ambient weather it would keep is there (<code>weather::atmos::Ambient</code>, <code>src/ECS/Weather/Atmos.h</code>)</td>
+</tr>
+<tr>
+<td>The background temperature becomes the real temperature, and the background overcast becomes the real visibility number, as whole numbers</td>
+<td>todo</td>
+<td>no real weather in our tree; <code>weather::atmos::SetAmbient</code> could take the values (<code>src/ECS/Weather/Atmos.h</code>)</td>
+</tr>
+<tr>
+<td>The weather type then picks one of 13 presets (types 0 to 12) from <code>weatherinfo.lhw</code>, each record 112 bytes</td>
+<td>todo</td>
+<td><code>weatherinfo.lhw</code> is not read</td>
+</tr>
+<tr>
+<td>A preset can set, add to or take away from each of: overcast, snow cover, snowfall, rain and the two winds</td>
+<td>todo</td>
+<td><code>weatherinfo.lhw</code> is not read; each is capped at 100 in the game</td>
+</tr>
+<tr>
+<td>A preset can also make a storm, with its own strength, size and look</td>
+<td>todo</td>
+<td>no real weather in our tree; storms themselves exist (<code>src/ECS/Weather/Storms.cpp</code>)</td>
+</tr>
+<tr>
+<td>Types 0 and 1 change nothing and make no storm</td>
+<td>todo</td>
+<td><code>weatherinfo.lhw</code> is not read by our tree</td>
+</tr>
+<tr>
+<td>Type 2: a storm with rain 40</td>
+<td>todo</td>
+<td><code>weatherinfo.lhw</code> is not read by our tree</td>
+</tr>
+<tr>
+<td>Type 3: a storm with snowfall 50 and snow cover 50</td>
+<td>todo</td>
+<td><code>weatherinfo.lhw</code> is not read by our tree</td>
+</tr>
+<tr>
+<td>Type 4: a storm with no rain</td>
+<td>todo</td>
+<td><code>weatherinfo.lhw</code> is not read by our tree</td>
+</tr>
+<tr>
+<td>Type 5: a storm with rain 100, the heaviest rain</td>
+<td>todo</td>
+<td><code>weatherinfo.lhw</code> is not read by our tree</td>
+</tr>
+<tr>
+<td>Type 6: a storm with rain 50, and 10 more overcast</td>
+<td>todo</td>
+<td><code>weatherinfo.lhw</code> is not read by our tree</td>
+</tr>
+<tr>
+<td>Type 7: a storm with rain 30, snowfall 30 and snow cover 30 (sleet)</td>
+<td>todo</td>
+<td><code>weatherinfo.lhw</code> is not read by our tree</td>
+</tr>
+<tr>
+<td>Type 8: a storm with no rain or snow of its own</td>
+<td>todo</td>
+<td><code>weatherinfo.lhw</code> is not read by our tree</td>
+</tr>
+<tr>
+<td>Type 9: a storm with rain 40</td>
+<td>todo</td>
+<td><code>weatherinfo.lhw</code> is not read by our tree</td>
+</tr>
+<tr>
+<td>Type 10: a storm with snowfall 100, snow cover 100, wind 1 each way and 100 more overcast (a blizzard)</td>
+<td>todo</td>
+<td><code>weatherinfo.lhw</code> is not read by our tree</td>
+</tr>
+<tr>
+<td>Type 11: a storm with snowfall 100 and snow cover 100</td>
+<td>todo</td>
+<td><code>weatherinfo.lhw</code> is not read by our tree</td>
+</tr>
+<tr>
+<td>Type 12: a storm with overcast set to 2</td>
+<td>todo</td>
+<td><code>weatherinfo.lhw</code> is not read by our tree</td>
+</tr>
+<tr>
+<td>A message joins the game's message list naming the place, "City (Country)", or "City (Area,Country)" when there is an area</td>
+<td>todo</td>
+<td>no real weather in our tree; no message list in our tree</td>
+</tr>
+<tr>
+<td>The message carries one of nine weather pictures chosen from the type</td>
+<td>todo</td>
+<td>no real weather in our tree; types 1 → picture 0; 8 and 12 → 2; 9 → 3; 2 and 6 → 4; 3 → 5; 11 → 6; 7 → 7; 5 and 10 → 8; 0, 4 and others → 1 in the game</td>
+</tr>
+<tr>
+<td>Turning it off puts the kept background weather back and removes the storm it made</td>
+<td>todo</td>
+<td>no real weather in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="developer-keys">Developer keys</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A developer key shows the weather got: country, area, city, type, temperature and visibility, or that the system is not loaded</td>
+<td>n/a</td>
+<td>developer keys of the original, not a player feature</td>
+</tr>
+<tr>
+<td>A developer key reloads the presets, and another switches the real weather off and on, putting the land's weather back</td>
+<td>n/a</td>
+<td>as above</td>
+</tr>
+<tr>
+<td>A developer key steps through the nine weather pictures in a test message</td>
+<td>n/a</td>
+<td>as above</td>
+</tr>
+</tbody>
+</table>
+<h2 id="openblack">openblack</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>openblack's weather has calm, temperature 0 background air that storms add to</td>
+<td>done</td>
+<td>the ambient weather is all 0 in a game (<code>weather::atmos::Ambient</code>, <code>src/ECS/Weather/Atmos.h</code>), as the original without the internet weather; climates and storms add to it (<code>src/ECS/Weather/Climate.cpp</code>)</td>
+</tr>
+<tr>
+<td>A replacement weather source (a public weather service, or the player's own settings) that gives temperature, visibility and a type</td>
+<td>todo</td>
+<td>the original service is gone; a replacement would need a place chosen in the game's options, a type mapped onto the 13 presets, and an opt-in since it reaches the internet</td>
+</tr>
+<tr>
+<td>Reading the 13 presets from <code>weatherinfo.lhw</code></td>
+<td>todo</td>
+<td>nothing in our tree reads the file</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

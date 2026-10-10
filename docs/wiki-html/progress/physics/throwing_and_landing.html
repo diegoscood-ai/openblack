@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Throwing and landing — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="here" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#throwing-and-landing">Throwing and landing</a><ul>
+<li><a href="#letting-go-from-the-hand">Letting go from the hand</a></li>
+<li><a href="#creature-throws">Creature throws</a></li>
+<li><a href="#landing-by-kind-of-object">Landing, by kind of object</a></li>
+<li><a href="#landing-effects">Landing effects</a></li>
+<li><a href="#thrown-things-as-weapons">Thrown things as weapons</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="throwing-and-landing">Throwing and landing</h1>
+<p>The physics side of letting go of something: the speed it leaves the hand (or the creature's hand) with, whether it is
+put down or thrown, its flight, and what each kind of object does when it lands. Grabbing, holding and the hand's states
+are in <a href="../hand/throwing.html">../hand/throwing.md</a>. Damage done by what lands is in <a href="impact_damage.html">impact_damage.md</a>; burning objects that
+start flying leave their fire group (see <a href="fire.html">fire.md</a>). No craters or ground marks from landings exist in the game.</p>
+<p>openblack: the hand picks things up and lets them go through the game's own release
+(<code>src/ECS/Systems/Implementations/HandHolding.cpp</code>, <code>src/ECS/Physics/FromHand.cpp</code>) into the game's physics
+(<code>src/ECS/Physics/PhysicsObjects.cpp</code>), with landing sounds, dust and rings (<code>src/ECS/Physics/CollisionSounds.cpp</code>).
+The kinds' own landings are in <code>src/ECS/Systems/Implementations/HandPhysics.cpp</code> (trees replanted or
+dead, piles), <code>src/ECS/LivingPhysics.cpp</code> and <code>src/ECS/VillagerDrowning.cpp</code> (postures, falls, drowning, stores), and the creature lets
+go through the same release (<code>CreatureObjectActionSystem</code>). Artefacts are not ported (<a href="../town/artefacts.html">../town/artefacts.md</a>) and there are no reward
+chests (<code>CreateReward</code> is a stub); scaffolds land through <code>src/ECS/Scaffolds.cpp</code> (<a href="../building/workshop_and_scaffolds.html">../building/workshop_and_scaffolds.md</a>). Tests: <code>test/test_release_prediction.cpp</code>, <code>test/test_living_landing.cpp</code>.</p>
+<p><strong>Progress: 35/45 done, 5 partial — 83%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../physics.html">Physics: thrown objects, collisions, damage and rocks that split</a>.</p>
+<h2 id="letting-go-from-the-hand">Letting go from the hand</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>What is held follows the hand through a spring updated every 10 ms (pull 260 times the gap, damping 40 times the speed); the throw speed is the spring's speed at the moment of release</td>
+<td>done</td>
+<td>The hand's spring in <code>src/ECS/Systems/Implementations/HandPlacement.cpp</code> (260 and 40, 10 ms steps); the throw speed is the spring's</td>
+</tr>
+<tr>
+<td>The throw speed is capped at 124 m/s</td>
+<td>done</td>
+<td><code>src/ECS/Physics/FromHand.cpp</code> (the capped velocity); test <code>ReleasePrediction.CapReleaseVelocity</code></td>
+</tr>
+<tr>
+<td>The hand gives what it lets go no spin; 180 ms later whatever it let go that still has a body gets a one-turn twist of 1.6 × its mass × its speed about the level axis across the hand's motion</td>
+<td>done</td>
+<td>The release twist in <code>src/ECS/Physics/FromHand.cpp</code> (1.6 x mass x speed into the external torque for one turn)</td>
+</tr>
+<tr>
+<td>The object starts its flight from the pose it had in the hand</td>
+<td>done</td>
+<td><code>from_hand::PredictRelease</code> and <code>from_hand::Throw</code> (<code>src/ECS/Physics/FromHand.cpp</code>)</td>
+</tr>
+<tr>
+<td>A release counts as a throw when its sideways speed is over 2 m/s (over 1 m/s from the creature); slower it is a drop</td>
+<td>done</td>
+<td><code>from_hand::InitialisePhysicsFromHand</code> (squared sideways speed over 4, over 1 from a creature)</td>
+</tr>
+<tr>
+<td>On release the object is moved up out of the ground; a dropped one is also lowered onto it and, unless it is a tree, turned to lie along the slope</td>
+<td>done</td>
+<td><code>PhysicsBody::AdjustToGroundLevel(thrown, !tree)</code> from <code>from_hand::InitialisePhysicsFromHand</code></td>
+</tr>
+<tr>
+<td>On release the object is raised until it no longer overlaps anything under it</td>
+<td>done</td>
+<td><code>PhysicsObjects::RaiseUntilNotIntersecting</code>; see <a href="collisions.html">collisions.md</a></td>
+</tr>
+<tr>
+<td>A drop that needed no raising, over dry land (or a land cell above the lowest heights), is put down where it is, without flying</td>
+<td>done</td>
+<td><code>from_hand::InitialisePhysicsFromHand</code> (the landed test)</td>
+</tr>
+<tr>
+<td>Villagers, animals and fences dropped on ground steeper than about 45 degrees are not put down but slide off in the physics</td>
+<td>done</td>
+<td><code>from_hand::InitialisePhysicsFromHand</code> (normal y at least 0.7)</td>
+</tr>
+<tr>
+<td>When the hand is forced to let go, the object is put down where it is held, with no speed, and never replanted (a tree dies)</td>
+<td>done</td>
+<td><code>from_hand::ForceDrop</code> (<code>src/ECS/Physics/FromHand.cpp</code>)</td>
+</tr>
+<tr>
+<td>Everything the hand throws or drops is credited to its player, for kills, drownings and impressing</td>
+<td>partial</td>
+<td><code>PhysicsObject::byPlayer</code> rides on the body and passes on through hits; the impact damage of villagers and animals does not use it (see <a href="impact_damage.html">impact_damage.md</a>)</td>
+</tr>
+<tr>
+<td>A thrown (not put down) object makes nearby people and animals react once: villagers look or point (reach 25 m), and any animal nearer than twice the object's speed runs off</td>
+<td>partial</td>
+<td><code>animal_ai::SpreadFlyingObjectReaction</code> from <code>FromHand.cpp</code>: animals flee it; villagers do not react to it. Our wiki differs: only the predators within 25 m flee a thrown object (<a href="../../animals.html#reactions">animals.md</a>)</td>
+</tr>
+<tr>
+<td>There is no size limit on throwing: rocks wider than 3.6 can't be picked up at all, and anything the hand holds can be thrown</td>
+<td>done</td>
+<td><code>Rocks::ValidForPlaceInHand</code> (<code>src/ECS/Rocks.cpp</code>)</td>
+</tr>
+<tr>
+<td>A slow release of carried food or wood (speed squared at most 5) puts it straight down as a pile, or into a store close by</td>
+<td>done</td>
+<td><code>from_hand::InitialisePhysicsFromHand</code> hand pot branch (the put-down effect, piles and stores, lost in water)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creature-throws">Creature throws</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Thrown at a target, the flight time is the time it would take to fall the distance (square root of distance over gravity), and the release speed is the one that reaches the target in that time; a moving target is aimed ahead</td>
+<td>done</td>
+<td><code>creature_throw::FlightTime</code> and the release velocity (<code>src/Creature/CreatureThrow.cpp</code>); tests <code>CreatureThrow.*</code> (<code>test/creature/test_creature_throw.cpp</code>)</td>
+</tr>
+<tr>
+<td>A creature throws nothing at a target nearer than two thirds of its height</td>
+<td>done</td>
+<td><code>creature_throw::FarEnoughToThrow</code>; test <code>CreatureThrow.ItThrowsAtNothingTooClose</code></td>
+</tr>
+<tr>
+<td>Tossed away, it leaves with 0.6 of the hand's own speed over the last 100 ms of the animation, turned with the creature and mirrored for the other hand</td>
+<td>done</td>
+<td><code>src/Creature/CreatureThrow.cpp</code>; test <code>CreatureThrow.TossingKeepsSomeOfTheHandsSpeed</code></td>
+</tr>
+<tr>
+<td>Put down, it is placed at the hand's height above the ground with no speed, then let go through the same release as the hand's (settled, raised, landed test) with a spin of one about the vertical</td>
+<td>partial</td>
+<td><code>CreatureObjectActionSystem::ReleaseHeld</code> lets go through <code>from_hand::InitialisePhysicsFromHand</code> with no speed; the spin of one about the vertical is not given</td>
+</tr>
+<tr>
+<td>What the creature throws then flies, bounces and rests in the same physics as hand throws</td>
+<td>done</td>
+<td><code>CreatureObjectActionSystem::ReleaseHeld</code> to <code>PhysicsObjects::AddObject</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="landing-by-kind-of-object">Landing, by kind of object</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rocks and other fixed objects stay where they come to rest</td>
+<td>done</td>
+<td>The end of physics (<code>EndPhysics</code>, <code>BackInMap</code>)</td>
+</tr>
+<tr>
+<td>A rock or other artefact gently put down from the hand by a player within 50 m of a town's building or a worship site becomes that town's (or site's) artefact, and impresses it when it is worth it</td>
+<td>todo</td>
+<td>No town artefacts in our tree (<code>src/ECS/Town/TownProcess.cpp</code> TODO). See <a href="../town/artefacts.html">../town/artefacts.md</a></td>
+</tr>
+<tr>
+<td>A tree put down gently on land, held upright (tilted less than about 0.2 radians) and not burning, is planted again with a planting sound, joining a forest nearby or starting one</td>
+<td>done</td>
+<td>The tree class's end of physics in <code>HandPhysics.cpp</code> (<code>Replant</code>, its smoke, forest, spot visual and alignment) and its drop sound</td>
+</tr>
+<tr>
+<td>A tree thrown, dropped tilted, dropped in water or burning falls and becomes a dead tree lying where it stops</td>
+<td>done</td>
+<td><code>MakeDeadTree</code> from the tree's end of physics (<code>HandPhysics.cpp</code>); the same entity keeps its fire</td>
+</tr>
+<tr>
+<td>Trees planted by the forest miracle that are thrown just stay where they fall, neither replanted nor dead</td>
+<td>todo</td>
+<td>The forest miracle's trees are trees like any other in the physics (<code>HandPhysics.cpp</code>), so they are replanted or die</td>
+</tr>
+<tr>
+<td>A tree or dead tree that hits a wood store goes into it as wood</td>
+<td>done</td>
+<td>The tree and dead tree impact in <code>HandPhysics.cpp</code> (<code>DepositInStore</code>)</td>
+</tr>
+<tr>
+<td>Thrown carried food or wood that comes to rest on land becomes a pile; in the water it stays a floating object</td>
+<td>done</td>
+<td>The pot class's end of physics in <code>HandPhysics.cpp</code> (<code>PutDownHandPot</code> on land)</td>
+</tr>
+<tr>
+<td>Thrown food or wood that hits a store, or a pile of the same thing, goes into it</td>
+<td>done</td>
+<td>The pot class's impact in <code>HandPhysics.cpp</code> (<code>held_apply::PotImpactTakes</code>, <code>resource_stores::DeleteObjectAndTakeResource</code>)</td>
+</tr>
+<tr>
+<td>Fences and the three mushrooms that hit a store taking their resource go into it</td>
+<td>partial</td>
+<td>Fences go into a wood store (<code>ReactToPhysicsImpact</code> in <code>PhysicsObjects.cpp</code>); mushrooms do not</td>
+</tr>
+<tr>
+<td>An animal goes into any store that hits it or that it hits, as much as the animal is worth</td>
+<td>done</td>
+<td><code>AnimalReactToPhysicsImpact</code> (<code>src/ECS/LivingPhysics.cpp</code>, any food store, <code>resource_stores</code>)</td>
+</tr>
+<tr>
+<td>A villager or animal lands lying on its back, its front or its feet by how it is tilted, then gets up</td>
+<td>done</td>
+<td><code>VillagerEndPhysics</code>, <code>AnimalEndPhysics</code> (<code>src/ECS/LivingPhysics.cpp</code>); tests <code>LivingLanding.*</code>; see <a href="thrown_living.html">thrown_living.md</a></td>
+</tr>
+<tr>
+<td>A scaffold put down gently snaps to a planned building of the town or starts building there; otherwise a little effect plays where it lands</td>
+<td>done</td>
+<td>The scaffold class's handlers in <code>src/ECS/Scaffolds.cpp</code> (snapped into a workshop's slot, a gentle put-down builds, else the no-building puff); see <a href="../building/workshop_and_scaffolds.html">../building/workshop_and_scaffolds.md</a></td>
+</tr>
+<tr>
+<td>Pieces broken off buildings land on the ground only and vanish after 100 turns per triangle</td>
+<td>done</td>
+<td>Fragments hit only the land and live 100 turns per triangle (<code>src/ECS/Physics/Buildings.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="landing-effects">Landing effects</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A landing or hit plays a sound picked by what hit what: each object has a collision sound type, against the ground, the water or the other object's type</td>
+<td>done</td>
+<td><code>CollisionSounds::AttemptToAddSoundEvent</code> (<code>src/ECS/Physics/CollisionSounds.cpp</code>)</td>
+</tr>
+<tr>
+<td>The sound is soft under 1.25 G, hard over 3 G and medium between (by the unscaled info weight); grain is never hard</td>
+<td>done</td>
+<td><code>CollisionSounds::AttemptToAddSoundEvent</code> (grain never hard)</td>
+</tr>
+<tr>
+<td>A sound plays only when the body hit another object or hit with more than half its weight, and the same pair stays quiet for 2 turns (at most 128 pairs at once)</td>
+<td>done</td>
+<td><code>EndTurn</code> (hit or more than half its weight) and the pair list of <code>CollisionSounds</code> (2 turns, 128 pairs)</td>
+</tr>
+<tr>
+<td>The sound follows the object it belongs to</td>
+<td>done</td>
+<td>Played in 3D with the object as the owner (<code>CollisionSounds.cpp</code>)</td>
+</tr>
+<tr>
+<td>A rock hitting a building lets the building play its own sound</td>
+<td>done</td>
+<td><code>Buildings::ReactToPhysicsImpact</code> plays the knock or the collapse sound</td>
+</tr>
+<tr>
+<td>Six dust puffs rise where it lands, as big as the object (at most 5 m), growing over an eighth of a second and gone after a second of game time; on snow they blend towards the land's colour by the snow's depth</td>
+<td>partial</td>
+<td>Six puffs (<code>CollisionSounds.cpp</code>, <code>src/ECS/Physics/Dust.cpp</code>); the snow tint is not applied</td>
+</tr>
+<tr>
+<td>A body that passes within 10 m of the camera faster than 20 m/s makes one of five whooshing sounds</td>
+<td>done</td>
+<td><code>Substep</code> in <code>PhysicsObjects.cpp</code> (one of five fly-by sounds)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="thrown-things-as-weapons">Thrown things as weapons</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A thrown object passes through its thrower for as long as it stays in the physics</td>
+<td>done</td>
+<td>The thrower skip in <code>Substep</code></td>
+</tr>
+<tr>
+<td>Whatever a thrown object hits carries the thrower's credit on to what it hits next</td>
+<td>done</td>
+<td><code>EndTurn</code> passes <code>byPlayer</code> on</td>
+</tr>
+<tr>
+<td>A thrown object that hits the creature hurts it by how hard it hit for the creature's mass (capped at 100 G, a hundredth of that as damage, nothing under a two-hundredth)</td>
+<td>todo</td>
+<td>The creature's physics class has no impact reaction (<code>src/ECS/CreaturePhysics.cpp</code>); see <a href="impact_damage.html">impact_damage.md</a></td>
+</tr>
+<tr>
+<td>A creature hit by something its own player threw likes the player less, and its fear and anger from being damaged rise</td>
+<td>todo</td>
+<td>No creature impact reaction in our tree</td>
+</tr>
+<tr>
+<td>Creatures try to catch objects flying towards them: at least 1 m/s across the ground, reachable within 5 s, and only 3% of the time when an unallied player threw it</td>
+<td>todo</td>
+<td><code>PhysicsObjects::CheckAllCreaturesForCatching</code> is called, but its creature hook is never set</td>
+</tr>
+<tr>
+<td>Thrown objects bounce off a physical shield and cost it prayer power by their momentum</td>
+<td>done</td>
+<td>The shield's heavy body in the physics and <code>map_shield::ReactToPhysicsImpact</code> (<code>src/Magic/Objects/MapShield.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

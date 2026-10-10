@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Silver scrolls — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="here" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#silver-scrolls">Silver scrolls</a><ul>
+<li><a href="#land-1">Land 1</a></li>
+<li><a href="#land-2">Land 2</a></li>
+<li><a href="#land-3">Land 3</a></li>
+<li><a href="#land-4">Land 4</a></li>
+<li><a href="#land-5">Land 5</a></li>
+<li><a href="#on-more-than-one-land">On more than one land</a></li>
+<li><a href="#cut-or-never-started">Cut or never started</a></li>
+<li><a href="#not-silver-scrolls">Not silver scrolls</a></li>
+<li><a href="#totals">Totals</a></li>
+<li><a href="#known-openblack-blockers">Known openblack blockers</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="silver-scrolls">Silver scrolls</h1>
+<p>The story's own quests, the gold scrolls, are listed in <a href="gold_scrolls.html">gold_scrolls.md</a>.</p>
+<p>Every silver scroll of the five story lands, land by land, with links to each quest's own file in
+<a href="silver_scrolls/index.html">silver_scrolls/</a>. This is an index, not a feature file: it has no rows of its own and is not scored;
+the numbers below are summed from the quest files.</p>
+<p>Gold scrolls are the story: the player has to finish them to move on, and they are covered in the land files
+(<a href="land_1.html">land_1.md</a> to <a href="land_5.html">land_5.md</a>). Silver scrolls are the optional challenges: a silver scroll stands
+over whoever asks for help, tapping it starts the quest, and the quest is kept in the challenge log with how well it went
+and how good or evil the player was. How challenges and their rewards work in general is in
+<a href="challenges_and_rewards.html">challenges_and_rewards.md</a> and <a href="rewards.html">rewards.md</a>.</p>
+<p>The list was drawn up from the game's challenge scripts: the 47 script files that put up a challenge highlight were
+each checked against every land's control script to see whether, when and on which land the game starts them, and the
+set that ships was taken from the compiled challenge program, so a quest that is only in the script sources is listed as
+cut. Each table is in the order the land offers its quests, as far as the control script fixes it.</p>
+<h2 id="land-1">Land 1</h2>
+<p>The land's control script starts the throwing lesson and the lost flock straight after the opening, the explorers and
+the breeder once the creature is chosen, then the rest one by one as the creature's lessons go on.</p>
+<table>
+<thead>
+<tr>
+<th>Quest</th>
+<th>Giver</th>
+<th>Reward</th>
+<th>Rows</th>
+<th>Score</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="silver_scrolls/throwing_stones.html">Throwing Stones</a></td>
+<td>the advisors, over the hill above the pillar</td>
+<td>a toy ball, then up to six water miracle seeds for practice throws</td>
+<td>50</td>
+<td>31%</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/the_lost_flock.html">The Lost Flock</a></td>
+<td>a Norse shepherd by the player's village</td>
+<td>a large food reward at five sheep; a sheep creature to swap to at ten</td>
+<td>83</td>
+<td>18%</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/the_explorers.html">The Explorers</a></td>
+<td>three sailors by an unfinished ark on a beach</td>
+<td>a water miracle dispenser</td>
+<td>93</td>
+<td>16%</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/the_immersion_mushrooms.html">The Immersion Mushrooms</a></td>
+<td>a hippy at his hut (only with a force-feedback mouse)</td>
+<td>a compassion creature miracle dispenser, for the right mushroom</td>
+<td>42</td>
+<td>9%</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/the_singing_stones.html">The Singing Stones</a></td>
+<td>a hippy by the stone circle</td>
+<td>a food miracle dispenser</td>
+<td>71</td>
+<td>42%</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/the_hermit.html">The Hermit</a></td>
+<td>a hermit at his hillside hut</td>
+<td>a water miracle dispenser, or a water miracle from the sky if his hut was damaged</td>
+<td>91</td>
+<td>19%</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/the_saviour.html">The Saviour</a></td>
+<td>a fisherman's wife on the shore</td>
+<td>a strength creature miracle dispenser, for saving all five or killing all five</td>
+<td>53</td>
+<td>26%</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/the_pied_piper.html">The Pied Piper</a></td>
+<td>the crèche woman of the Norse village</td>
+<td>a heal miracle dispenser (good ending) or a lightning miracle dispenser (evil ending)</td>
+<td>87</td>
+<td>24%</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/the_ogre.html">The Ogre</a></td>
+<td>the advisors, at the ogre's pass</td>
+<td>a beach ball, then a heal miracle dispenser by the temple</td>
+<td>59</td>
+<td>8%</td>
+</tr>
+</tbody>
+</table>
+<p>The creature breeder (Land 1 and Land 4) is in the shared table below.</p>
+<h2 id="land-2">Land 2</h2>
+<p>Khazar's land starts the singing stones and the beach temple at once. The others wait on towns: the control script
+watches each quest's town from the start, and each quest opens when the player owns its town (the plague also waits for a
+finished worship site, and so does the sacrifice; the sea needs two towns, the idol its town and more than five towns in
+all).</p>
+<table>
+<thead>
+<tr>
+<th>Quest</th>
+<th>Giver</th>
+<th>Reward</th>
+<th>Rows</th>
+<th>Score</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="silver_scrolls/the_singing_stones_land_2.html">The Singing Stones (land 2)</a></td>
+<td>a priest at the hut above the stones</td>
+<td>none: each tune's effect (night with bats, the dead raised, snow) is the prize</td>
+<td>88</td>
+<td>3%</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/the_beach_temple_puzzle.html">The Beach Temple Puzzle</a></td>
+<td>a Greek farmer living in the beach temple</td>
+<td>the temple heals every living thing within 10 of it, for good</td>
+<td>51</td>
+<td>2%</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/the_plague.html">The Plague</a></td>
+<td>a sick Indian trader of the poisoned village</td>
+<td>the first lightning miracle enabled at the village</td>
+<td>57</td>
+<td>4%</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/the_riddles.html">The Riddles</a></td>
+<td>Annika, a woman of an Indian village</td>
+<td>a zebra creature to swap to</td>
+<td>52</td>
+<td>5%</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/the_slavers.html">The Slavers</a></td>
+<td>a villager of the Greek village by Khazar, then the slavers' chief</td>
+<td>a wolf-pack miracle dispenser, and the freed slaves and the slavers join the village</td>
+<td>115</td>
+<td>7%</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/the_sacrifice.html">The Sacrifice</a></td>
+<td>an Indian priest and priestess, at the player's worship site</td>
+<td>a heal miracle chest, for reaching 4000 prayer power with the family alive</td>
+<td>76</td>
+<td>4%</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/the_sea.html">The Sea</a></td>
+<td>a mother at her hut in the Indian town by the bay</td>
+<td>a "big" creature miracle dispenser, if all five sons walk home alive</td>
+<td>84</td>
+<td>2%</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/the_greedy_farmer.html">The Greedy Farmer</a></td>
+<td>a Celtic farmer on the edge of his town</td>
+<td>the lightning miracle and its second level for the town</td>
+<td>143</td>
+<td>1%</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/the_idol.html">The Idol</a></td>
+<td>the good advisor, at the idol in the hills</td>
+<td>the fireball miracle's first and second levels for the nearest town</td>
+<td>116</td>
+<td>5%</td>
+</tr>
+</tbody>
+</table>
+<h2 id="land-3">Land 3</h2>
+<p>Lethys's land starts both quests as the player arrives through the vortex.</p>
+<table>
+<thead>
+<tr>
+<th>Quest</th>
+<th>Giver</th>
+<th>Reward</th>
+<th>Rows</th>
+<th>Score</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="silver_scrolls/the_rejuvenator.html">The Rejuvenator</a></td>
+<td>an old woman at a lone Celtic hut</td>
+<td>an ape creature to swap to (a chimp if the creature already is an ape)</td>
+<td>60</td>
+<td>5%</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/the_shaolin.html">The Shaolin</a></td>
+<td>a guru at the mountain temple above the Japanese village</td>
+<td>a Wonder begun for the player during the creature's rescue</td>
+<td>67</td>
+<td>4%</td>
+</tr>
+</tbody>
+</table>
+<h2 id="land-4">Land 4</h2>
+<p>The ruined land starts the fish puzzle and the breeder at the beginning; the blind woman's quest waits until the player
+owns the Aztec village.</p>
+<table>
+<thead>
+<tr>
+<th>Quest</th>
+<th>Giver</th>
+<th>Reward</th>
+<th>Rows</th>
+<th>Score</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="silver_scrolls/the_fish_puzzle.html">The Fish Puzzle</a></td>
+<td>a boy turtle farmer on the shore</td>
+<td>a tortoise creature to swap for</td>
+<td>44</td>
+<td>7%</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/the_treacherous_path.html">The Treacherous Path</a></td>
+<td>a woman at her hut in the Aztec village</td>
+<td>a wolf creature to swap for, if her brother is healed</td>
+<td>62</td>
+<td>7%</td>
+</tr>
+</tbody>
+</table>
+<h2 id="land-5">Land 5</h2>
+<p>Nemesis's land starts the wolf puzzle, the traitor and the crusaders at the beginning, and the returning explorers too if
+their ark sailed on Land 1. The brown bear waits for the player to win the neutral Japanese village, the heavenly fire
+for the first win of the Greek village.</p>
+<table>
+<thead>
+<tr>
+<th>Quest</th>
+<th>Giver</th>
+<th>Reward</th>
+<th>Rows</th>
+<th>Score</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="silver_scrolls/stanley_the_wolf.html">Stanley The Wolf</a></td>
+<td>the wolf's owner, by a campfire beside the puzzle</td>
+<td>a lion creature to swap for, and the fireball's second and third levels</td>
+<td>53</td>
+<td>4%</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/the_japanese_traitor.html">The Japanese Traitor</a></td>
+<td>a stranger praying at a fire in the forest, at night</td>
+<td>none: secrets about Nemesis's curse on the creature</td>
+<td>42</td>
+<td>5%</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/the_magic_dragon.html">The Magic Dragon</a></td>
+<td>the crusaders' leader, by the dragon's cave</td>
+<td>a flying-flock miracle dispenser</td>
+<td>69</td>
+<td>11%</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/the_explorers_again.html">The Explorers Again</a></td>
+<td>three sailors by their wrecked boat</td>
+<td>a polar bear to swap for, and a ready-built Norse town</td>
+<td>43</td>
+<td>4%</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/swap_to_brown_bear.html">Swap To Brown Bear</a></td>
+<td>a Japanese farmer on the edge of the neutral Japanese village</td>
+<td>a brown bear to swap to, and a heal miracle chest</td>
+<td>55</td>
+<td>3%</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/the_heavenly_fire.html">The Heavenly Fire</a></td>
+<td>none: it starts by itself, announced by the evil advisor</td>
+<td>an itchy creature miracle seed, if the village is well protected</td>
+<td>61</td>
+<td>4%</td>
+</tr>
+</tbody>
+</table>
+<p>The heavenly fire puts up no scroll (that part of its script is switched off), but it is recorded in the challenge log
+like the other silver quests, so it is counted here.</p>
+<h2 id="on-more-than-one-land">On more than one land</h2>
+<table>
+<thead>
+<tr>
+<th>Quest</th>
+<th>Lands</th>
+<th>What it is</th>
+<th>Rows</th>
+<th>Score</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="silver_scrolls/the_creature_breeder.html">The Creature Breeder</a></td>
+<td>1 and 4 (also placed on 2 and 5 but never started there)</td>
+<td>a standing silver scroll over the breeder's kennels, offering the special creatures to swap for; it comes back forever</td>
+<td>31</td>
+<td>23%</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/creature_swaps.html">Creature swaps</a></td>
+<td>all</td>
+<td>not a quest: the shared offer that ends every quest whose reward is a creature, the breeder's stricter version of it, and the five swap scrolls cut before release</td>
+<td>46</td>
+<td>0%</td>
+</tr>
+</tbody>
+</table>
+<h2 id="cut-or-never-started">Cut or never started</h2>
+<p>Written for the game but never run by it; every row in these files is n/a.</p>
+<table>
+<thead>
+<tr>
+<th>Quest</th>
+<th>Land</th>
+<th>Rows</th>
+<th>Why it never runs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="silver_scrolls/swap_to_cow.html">Swap To Cow</a></td>
+<td>4</td>
+<td>31</td>
+<td>compiled into the shipped game, but no land's control script or any other script starts it</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/creature_ladder.html">Creature Ladder</a></td>
+<td>none</td>
+<td>24</td>
+<td>never compiled; it has no title or lines in the text table and its tattoo reward was never written</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/big_whale.html">The Big Whale</a></td>
+<td>1</td>
+<td>19</td>
+<td>never compiled; none of its lines are in the text table</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/the_sculptor_cut_silver.html">The Sculptor (cut silver version)</a></td>
+<td>1</td>
+<td>22</td>
+<td>never compiled; replaced by the gold-scroll Sculptor of the story, and even the early control script that names it could not start it</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/food_for_thought.html">The Nomads (Food for Thought)</a></td>
+<td>2</td>
+<td>22</td>
+<td>never compiled; only its title is in the text table</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/landslide.html">Landslide</a></td>
+<td>1</td>
+<td>15</td>
+<td>never compiled; neither its title nor its lines are in the text table</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/the_attackers.html">The Attackers</a></td>
+<td>2 most likely</td>
+<td>66</td>
+<td>missing from the compiler's project list, so not in the compiled program; nothing starts it</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/the_miracle_stones.html">The Miracle Stones</a></td>
+<td>2</td>
+<td>72</td>
+<td>missing from the compiler's project list, so not in the compiled program; nothing starts it</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/see_the_citadel.html">See The Citadel</a></td>
+<td>1</td>
+<td>41</td>
+<td>never compiled; an early draft of the opening at the temple, a tutorial rather than a silver scroll</td>
+</tr>
+<tr>
+<td><a href="silver_scrolls/chimp_posse.html">Chimp Posse</a></td>
+<td>5</td>
+<td>43</td>
+<td>never compiled; it opens a challenge record but puts up no scroll and gives no reward</td>
+</tr>
+</tbody>
+</table>
+<p>Two more cut scrolls live inside other files: the five cut swap scrolls (horse, leopard, lion, tortoise, wolf) in
+<a href="silver_scrolls/creature_swaps.html">creature_swaps.md</a>, and the Slavers Warning, a bronze scroll that is compiled but
+never started, at the end of <a href="silver_scrolls/the_slavers.html">the_slavers.md</a>.</p>
+<h2 id="not-silver-scrolls">Not silver scrolls</h2>
+<p>Some challenges look like silver scrolls but are not counted here:</p>
+<ul>
+<li>Lethys's vortex on Land 2 is logged as a step of the gold story, not as a silver quest (see <a href="land_2.html">land_2.md</a>).</li>
+<li>Khazar's Fireball and Shield challenges on Land 2 are gold scrolls (see <a href="land_2.html">land_2.md</a>).</li>
+<li>The bronze puzzles are signposted by information signs, not silver scrolls: the tree puzzles of lands 2 and 3, and the
+  Theseus maze and the Japanese totem puzzle of land 4 (see <a href="minigames.html">minigames.md</a>).</li>
+<li>The Spiritual Healer on Land 2 has no scroll, no highlight and no log entry; it is a village event, kept in
+  <a href="silver_scrolls/the_spiritual_healer.html">silver_scrolls/the_spiritual_healer.md</a> (63 rows, 3%) for completeness.</li>
+<li>Land 3's man who wants to be thrown ("throw the bloke") is a standing joke with no scroll or log entry (see
+  <a href="minigames.html#the-man-who-wants-to-be-thrown-land-3">minigames.md</a>).</li>
+</ul>
+<h2 id="totals">Totals</h2>
+<table>
+<thead>
+<tr>
+<th>Land</th>
+<th>Silver quests</th>
+<th>Rows</th>
+<th>Score</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Land 1</td>
+<td>9, plus the breeder</td>
+<td>629</td>
+<td>22%</td>
+</tr>
+<tr>
+<td>Land 2</td>
+<td>9</td>
+<td>782</td>
+<td>4%</td>
+</tr>
+<tr>
+<td>Land 3</td>
+<td>2</td>
+<td>127</td>
+<td>4%</td>
+</tr>
+<tr>
+<td>Land 4</td>
+<td>2, plus the breeder</td>
+<td>106</td>
+<td>7%</td>
+</tr>
+<tr>
+<td>Land 5</td>
+<td>6</td>
+<td>323</td>
+<td>5%</td>
+</tr>
+<tr>
+<td>The breeder (lands 1 and 4)</td>
+<td>1</td>
+<td>31</td>
+<td>23%</td>
+</tr>
+<tr>
+<td>All lands</td>
+<td>29</td>
+<td>1998</td>
+<td>10%</td>
+</tr>
+</tbody>
+</table>
+<p>The all-lands line counts the 28 single-land quests and the breeder once: 7 done, 370 partial, 1520 todo and 101 n/a
+rows. The shared swap offer (46 rows, 0%), the Spiritual Healer and the cut quests are left out of it.</p>
+<h2 id="known-openblack-blockers">Known openblack blockers</h2>
+<p>None of the silver quests runs to its end in openblack yet, for the same few reasons:</p>
+<ul>
+<li>Only Land 1's control script runs: it starts the singing stones at once, the throwing lesson and the lost flock after
+  the opening, and the rest only in a game that skips the creature training, since otherwise it stops at Choose Your
+  Creature's gate stones; the control scripts of Lands 2 to 5 never run, because the story always begins with Land 1
+  and the land-loading command does nothing.</li>
+<li>Scripts cannot make every kind of object: making an object from a script handles villagers, animals, scenery, rocks,
+  dispensers and puzzles, but not creatures or reward chests, so the quests' creatures and rewards never appear.</li>
+<li>Some reads answer a default instead of the real value: an object's health is not ported and answers 0, so several
+  quests take their giver for dead at once.</li>
+<li>Stopping a script by name compares the whole text with each script's name. The game is reported to split the text
+  into several names at spaces, commas and tabs; this comes from the executable and has not been checked yet.</li>
+<li>Some of the commands the quests need (the challenge log, rewards, the creature's actions, the creature swap,
+  held-object checks) are still stubs in <code>src/CHLApi.cpp</code> that only log "not implemented"; dialogue, advisors, camera
+  moves, highlights and timers work.</li>
+</ul>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

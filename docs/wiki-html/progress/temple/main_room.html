@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Main room — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="here" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#main-room">Main room</a><ul>
+<li><a href="#the-room">The room</a></li>
+<li><a href="#the-map-in-the-pool">The map in the pool</a></li>
+<li><a href="#the-five-buttons">The five buttons</a></li>
+<li><a href="#the-worlds-statistics-scroll">The world's statistics scroll</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="main-room">Main room</h1>
+<p>The temple's central hall: a pool with the island in relief floating over it as a map, five buttons choosing what the
+map shows, a scroll of the world's statistics, and doors to every other room.</p>
+<p><strong>Progress: 15/23 done, 4 partial — 74%</strong></p>
+<h2 id="the-room">The room</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The room is drawn with its floor reflecting it</td>
+<td>done</td>
+<td><code>Renderer::DrawTempleReflection</code> (<code>src/Graphics/RendererTemple.cpp</code>), <code>RenderingSystemTemple</code>; only the main room is mirrored, as our wiki's rendering page says</td>
+</tr>
+<tr>
+<td>The pool shimmers, drawn twice over itself, turned</td>
+<td>done</td>
+<td><code>Renderer::DrawTemplePool</code>, timed by <code>TempleInterior::GetPoolTime</code></td>
+</tr>
+<tr>
+<td>The temple is lit by the alignment of the realm the player came in from: red pulse for evil, slow rainbow for good</td>
+<td>done</td>
+<td><code>src/3D/TempleLight.cpp</code>; test <code>test_temple_light</code></td>
+</tr>
+<tr>
+<td>The doors swing open as the camera walks through them, with door sounds</td>
+<td>done</td>
+<td><code>src/3D/TempleDoors.cpp</code>; test <code>test_temple_doors</code></td>
+</tr>
+<tr>
+<td>Signs over the doors name the rooms and light up for the door under the hand</td>
+<td>done</td>
+<td><code>src/3D/TempleSigns.cpp</code>; test <code>TempleSigns.TheMainRoomLightsTheSignOfTheDoorUnderTheCursor</code></td>
+</tr>
+<tr>
+<td>Tooltips say what the hand is over and what clicking does</td>
+<td>partial</td>
+<td><code>src/3D/TempleToolTips.cpp</code>, shown by <code>TempleInterior::UpdateToolTips</code>; no test of its own; the pictures' and replay tooltips are todo</td>
+</tr>
+<tr>
+<td>Moving about the room</td>
+<td>done</td>
+<td>see ../camera/temple_camera.md (<code>src/Camera/TempleCameraModel.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-map-in-the-pool">The map in the pool</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The island floats over the pool in relief, from the land's heights and brightness, fading out at the coast</td>
+<td>done</td>
+<td><code>src/3D/TempleMap.cpp</code>, <code>Renderer::DrawTempleMap</code>; test <code>test_temple_map</code></td>
+</tr>
+<tr>
+<td>The map's land texture is drawn afresh each visit</td>
+<td>done</td>
+<td><code>TempleInterior::Activate</code> frames the map again and counts the visit (<code>GetVisits</code>, read by <code>Renderer::DrawTempleMapPass</code>)</td>
+</tr>
+<tr>
+<td>Markers turn over the map for the temples and the creatures, in their player's colour</td>
+<td>partial</td>
+<td><code>TempleInterior::UpdateMapMarkers</code>, <code>Renderer::DrawTempleMapMarkers</code>; test <code>TempleMap.ColoursMarkersByTheirPlayersLightened</code>; some lands give players others' colours (TODO in <code>src/3D/TempleMap.cpp</code>)</td>
+</tr>
+<tr>
+<td>Markers for the challenges not done, miracles being cast and the players' influence</td>
+<td>todo</td>
+<td>TODO in <code>TempleInterior::UpdateMapMarkers</code></td>
+</tr>
+<tr>
+<td>A double click on the map leaves the temple for that place</td>
+<td>done</td>
+<td><code>TempleInterior::LeaveForMapPoint</code>; see ../camera/temple_camera.md</td>
+</tr>
+<tr>
+<td>The hand feels the click on the map</td>
+<td>todo</td>
+<td>TODO in <code>TempleInterior::LeaveForMapPoint</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-five-buttons">The five buttons</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Buttons choose what the map shows: temples, creatures, miracles being cast, influence and challenges</td>
+<td>done</td>
+<td><code>src/3D/TempleToggles.cpp</code>; test <code>test_temple_toggles</code></td>
+</tr>
+<tr>
+<td>A button is pressed in or out, turning over with a click</td>
+<td>done</td>
+<td><code>TempleToggles</code>; test <code>TempleToggles.TurnOverAsTheyAreLetGoOf</code></td>
+</tr>
+<tr>
+<td>Each button plays its own pitch of click</td>
+<td>done</td>
+<td><code>TempleToggles::ClickOf</code>: each button's own down and up pitch, the creatures button's slip kept; test <code>TempleToggles.EachClicksAtItsOwnPitch</code></td>
+</tr>
+<tr>
+<td>Turning influence on recolours the map's land by owner</td>
+<td>todo</td>
+<td>TODO in <code>src/3D/TempleToggles.cpp</code></td>
+</tr>
+<tr>
+<td>The buttons' settings are kept with the saved game</td>
+<td>todo</td>
+<td>our tree has no saved game; see ../engine/saving_and_loading.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-worlds-statistics-scroll">The world's statistics scroll</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A scroll of the world: believers, men and women, births and deaths, sacrifices, buildings, wonders and disciples</td>
+<td>partial</td>
+<td><code>src/3D/TempleScrolls.cpp</code>: the population is counted (<code>GatherScrollFacts</code> in <code>TempleInterior.cpp</code>), the rest is made up (<code>TempleScrolls::Facts::Mock</code>); <code>src/Game/GameStats.cpp</code> does not feed it yet (<a href="../interface/statistics_counted.html">../interface/statistics_counted.md</a>)</td>
+</tr>
+<tr>
+<td>The scroll turns up and down as the mouse drags it</td>
+<td>done</td>
+<td><code>src/3D/TempleScroll.cpp</code>; test <code>test_temple_scroll</code></td>
+</tr>
+<tr>
+<td>Clicking a scroll brings the camera close and its text is drawn in front of it</td>
+<td>done</td>
+<td><code>TempleScrolls::SetFocus</code> (from <code>TempleInterior</code>), with the camera's woosh (test <code>TempleSounds.TheCameraWooshesOneOfFourByTheClock</code>); see ../camera/temple_camera.md</td>
+</tr>
+<tr>
+<td>Scrolls squeak as they turn</td>
+<td>done</td>
+<td><code>src/3D/TempleScrolls.cpp</code>; tests <code>TempleScrolls.SqueakAsTheyStartToTurnAndAgainAfterStopping</code>, <code>TempleSounds.TheScrollsSqueakOneOfSixByTheClock</code></td>
+</tr>
+<tr>
+<td>Scroll text is written onto parchment in the game's font</td>
+<td>partial</td>
+<td><code>src/3D/TempleScroll.cpp</code>, <code>src/3D/OrientedText.cpp</code>; tests <code>TempleScrollTexture.*</code>, <code>TempleScrollText.*</code>; the half-height glyphs and the pictures are todo (TODOs in <code>TempleScroll.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lighting by time of day — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="here" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#lighting-by-time-of-day">Lighting by time of day</a><ul>
+<li><a href="#the-lands-light">The land's light</a></li>
+<li><a href="#models-and-the-world">Models and the world</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="lighting-by-time-of-day">Lighting by time of day</h1>
+<p>The light the world is seen in: a palette of colours for the land through the day for each alignment, a dark colour, a
+warm colour and the moon's colour, which light the land, the models and the sea, and close the haze in at dusk.</p>
+<p><strong>Progress: 15/16 done, 1 partial — 97%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../day-night-weather.html">Day, night and weather in the original</a>, <a href="../../rendering.html">World rendering: original versus openblack</a>.</p>
+<h2 id="the-lands-light">The land's light</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The weather palette holds the good, neutral and evil colours of the land through the day</td>
+<td>done</td>
+<td><code>LandLightPalette</code> and <code>LandLightTable</code> (<code>src/3D/LandLightTable.cpp</code>); tests <code>LandLightPalette.*</code> (<code>test/test_land_light.cpp</code>)</td>
+</tr>
+<tr>
+<td>The land's colour of the moment comes from the palette by the sky type and the alignment the sky shows</td>
+<td>done</td>
+<td><code>LandLightTable::Build</code> (sky type and the sky alignment); tests <code>LandLightTable.DuskClear</code>, <code>MatchesTheOldConventionEveryHour</code></td>
+</tr>
+<tr>
+<td>An overcast at the camera darkens the land's colour</td>
+<td>done</td>
+<td><code>LandLightTable::Build</code> (no channel above 255 - 96 x overcast); test <code>LandLightTable.NightOverOneOvercastSmallFlash</code></td>
+</tr>
+<tr>
+<td>A flash of lightning takes every light and the haze towards white</td>
+<td>done</td>
+<td><code>LandLightTable::Build</code> (the flash); tests <code>LandLightTable.NoonStormWithFlash</code>, <code>FlashZeroLeavesTheTable</code></td>
+</tr>
+<tr>
+<td>The dark, warm and moon colours change with the alignment</td>
+<td>done</td>
+<td><code>LandLightTable::GetWarmColour</code>, <code>GetMoonColour</code> (<code>src/3D/LandLightTable.h</code>)</td>
+</tr>
+<tr>
+<td>The land's light of the moment is kept by things made in it, such as a splash on the water</td>
+<td>done</td>
+<td><code>src/3D/LandLightFrame.h</code> (the last table built); test <code>LandLightTable.RingColourFixedAtCreation</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="models-and-the-world">Models and the world</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Models are lit by the land's light where they stand, and by the sun's direction</td>
+<td>done</td>
+<td><code>src/Graphics/ModelLight.cpp</code>; see ../rendering/</td>
+</tr>
+<tr>
+<td>Trees take the land's brightness where they stand</td>
+<td>done</td>
+<td><code>src/Graphics/TreeBrightness.cpp</code>; test <code>test/test_tree_brightness.cpp</code>; see ../nature/</td>
+</tr>
+<tr>
+<td>Mists and clouds take the land's light</td>
+<td>done</td>
+<td><code>Clouds::Colour</code> (<code>src/3D/Clouds.cpp</code>) and the mists' light (<code>src/3D/Mists.cpp</code>)</td>
+</tr>
+<tr>
+<td>The sea takes the land's light at full luminosity</td>
+<td>done</td>
+<td>see ../ocean/sea_surface.md</td>
+</tr>
+<tr>
+<td>Distant things fade into a haze that is a third of the land's colour and closes in at dusk</td>
+<td>done</td>
+<td><code>src/Graphics/Haze.cpp</code>, <code>assets/shaders/haze.sh</code>; test <code>test/test_haze_land_light.cpp</code></td>
+</tr>
+<tr>
+<td>Under a storm the haze thickens</td>
+<td>done</td>
+<td><code>LandLightTable::Build</code> (the overcast draws the haze in)</td>
+</tr>
+<tr>
+<td>At night, village lights, lanterns, the hand and fires light the cells around them</td>
+<td>partial</td>
+<td><code>night_lights::Update</code> (<code>src/3D/NightLights.cpp</code>: the hand, the street lanterns and the gate's lamps), run by <code>VillageLightSystem::Update</code> (<code>Locator::villageLightSystem</code>) once a frame; the temple's lanterns are not lit; see ../town/ and ../rendering/</td>
+</tr>
+<tr>
+<td>The light at night is the moon's colour</td>
+<td>done</td>
+<td><code>src/3D/LandLightTable.cpp</code></td>
+</tr>
+<tr>
+<td>Inside the temple the light comes from the temple's own lights, not the time of day</td>
+<td>done</td>
+<td><code>src/3D/TempleLight.cpp</code>; see ../temple/</td>
+</tr>
+<tr>
+<td>Shadows of objects fall away from the sun</td>
+<td>done</td>
+<td>The static shadows are sheared along the fixed sun direction and the projected ones use the fixed sun point (<code>src/Graphics/ShadowMath.cpp</code>), as our wiki describes (<a href="../../rendering.html#shadows-three-systems-in-the-original">rendering.md</a>); see ../rendering/</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

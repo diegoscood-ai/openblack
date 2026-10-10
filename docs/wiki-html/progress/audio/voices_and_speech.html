@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voices and speech — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="here" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#voices-and-speech">Voices and speech</a><ul>
+<li><a href="#dialogue">Dialogue</a></li>
+<li><a href="#villagers">Villagers</a></li>
+<li><a href="#the-creature">The creature</a></li>
+<li><a href="#other-voices">Other voices</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="voices-and-speech">Voices and speech</h1>
+<p>Spoken lines: the advisors and story characters reading their dialogue, villagers talking and singing, the creature's
+voice, and the whispering voices that say the player's name.</p>
+<p><strong>Progress: 10/15 done, 4 partial — 80%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../audio.html">Audio: the engine, the banks, the music, the voices and the script</a>.</p>
+<h2 id="dialogue">Dialogue</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each line of dialogue has a recording, played as the line shows</td>
+<td>done</td>
+<td><code>src/Audio/Services/Voices.cpp</code> (the text to voice table built from the dialogue banks' wave names), said by <code>help::HelpSystem</code> (<code>src/Help/HelpSystem.cpp</code>) and the dialogue commands in <code>src/CHLApi.cpp</code>; tests <code>VoiceTable.*</code>, <code>VoicesTest.*</code></td>
+</tr>
+<tr>
+<td>The advisors' lines from their own banks (guidance and help sprites)</td>
+<td>done</td>
+<td><code>src/Audio/Services/Advisor.cpp</code> on the help sprites bank, <code>src/Audio/Services/Guidance.cpp</code> on the guidance bank, driven by <code>src/Help/SpiritsRuntime.cpp</code>; tests <code>VoicesTest.SpiritTextsGoToTheirAdvisor</code>, <code>GuidanceTest.*</code>; see ../story/advisors.md</td>
+</tr>
+<tr>
+<td>The advisors' lips move with their voice</td>
+<td>done</td>
+<td><code>audio::advisor::LipSyncThisFrame</code> and <code>LipSyncKey</code> (<code>src/Audio/Services/Advisor.cpp</code>) read by <code>src/Help/SpiritsRuntime.cpp</code>; tests <code>LipSync.*</code></td>
+</tr>
+<tr>
+<td>A line can be skipped and the voice stops</td>
+<td>done</td>
+<td><code>voices::CutByClick</code> from the help system's click; test <code>VoicesTest.ClickCutsOnlyTheVillagersNarration</code></td>
+</tr>
+<tr>
+<td>Speech volume and subtitles settings</td>
+<td>partial</td>
+<td>the options box has the effects and music volumes and the help text speed (<code>src/Gui/GameMenu.cpp</code>); none of them is saved to disk. Our wiki differs: the original has only two main volumes, effects and music, and no speech volume (<a href="../../audio.html#master-volumes-focus-and-reset">audio</a>); see ../interface/options.md</td>
+</tr>
+<tr>
+<td>Miracle lines spoken when a miracle is cast</td>
+<td>done</td>
+<td>the power-up and fully charged lines from the spell dialogue bank (<code>src/Magic/Core/SpellSeed.cpp</code>, <code>src/Worship/WorshipSpellIcon.cpp</code>)</td>
+</tr>
+<tr>
+<td>The missionaries' three sung verses, with the words to follow</td>
+<td>partial</td>
+<td>the three verses are music banks started by the script, with their line markers (LAST_MUSIC_LINE, <code>src/Audio/Services/GameMusic.cpp</code>); no words drawn to follow; see <a href="../story/silver_scrolls/the_explorers.html">the_explorers.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="villagers">Villagers</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Villagers talk in their tribe's babble</td>
+<td>partial</td>
+<td>the banter bank plays from the villagers' clip sound events, by man, woman or child (<code>src/Audio/Services/AnimationSounds.cpp</code>); see ../villager/looks_and_voices.md</td>
+</tr>
+<tr>
+<td>Villagers praise or fear the player aloud</td>
+<td>partial</td>
+<td><code>src/Audio/Services/Guidance.cpp</code> plays the alignment remarks, town desires and resource drop remarks (tests <code>GuidanceTest.AlignmentRemarks</code>, <code>GuidanceTest.DesireSampleAndScore</code>); the remarks on deaths, attacks, lost villagers and destroyed buildings are not connected yet; see ../villager/looks_and_voices.md</td>
+</tr>
+<tr>
+<td>Villagers sing while they dance and worship</td>
+<td>done</td>
+<td>the chants, each tribe's and its sung version, by the nearest dancing worship site (<code>GameMusic::ProcessChantMusic</code>); test <code>GameMusicTest.ChantMusicAtTheDance</code>; see ../worship/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-creature">The creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature's voice from its species' bank, by size and alignment</td>
+<td>done</td>
+<td><code>creature_audio::VoiceBankStem</code>, <code>CreatureAudioSystem</code> (<code>src/ECS/Systems/Implementations/CreatureAudioSystem.cpp</code>); tests <code>CreatureAudio.VoiceBankStem</code>, <code>CreatureAudio.SizeKey</code></td>
+</tr>
+<tr>
+<td>Its voice is heard only when close enough</td>
+<td>done</td>
+<td><code>creature_audio::IsHeard</code> (<code>src/Creature/CreatureAudio.cpp</code>); test <code>CreatureAudio.Gate</code></td>
+</tr>
+<tr>
+<td>Scripts change the creature's sounds</td>
+<td>done</td>
+<td>SET_CREATURE_SOUND in <code>src/CHLApi.cpp</code> sets the script audio state that <code>CreatureAudioSystem::AreOtherVoicesEnabled</code> reads; test <code>CreatureAudio.TheScriptLetsOtherVoicesBeHeard</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="other-voices">Other voices</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Spooky whispering voices now and then say the player's name, matched by how it sounds</td>
+<td>done</td>
+<td><code>src/Audio/Services/SpookyVoices.cpp</code> (the player's name matched by its sound code, at night), run from <code>Guidance.cpp</code>; tests <code>SpookySoundex.*</code>, <code>SpookyTest.*</code></td>
+</tr>
+<tr>
+<td>The hidden phone box's recorded messages</td>
+<td>todo</td>
+<td>the phone box mesh is listed (<code>src/3D/AllMeshes.cpp</code>), nothing plays its messages; see ../story/land_1.md</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

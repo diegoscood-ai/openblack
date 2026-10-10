@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lightning — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="here" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#lightning">Lightning</a><ul>
+<li><a href="#casting-and-cost">Casting and cost</a></li>
+<li><a href="#picking-targets">Picking targets</a></li>
+<li><a href="#damage-and-effects">Damage and effects</a></li>
+<li><a href="#shields-and-clashing-bolts">Shields and clashing bolts</a></li>
+<li><a href="#bolts-not-cast-by-hand">Bolts not cast by hand</a></li>
+<li><a href="#effects-fx">Effects (FX)</a></li>
+<li><a href="#audio">Audio</a></li>
+<li><a href="#creatures-and-saving">Creatures and saving</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="lightning">Lightning</h1>
+<p>A held miracle: while the player keeps casting, forked bolts leap from the hand to people, creatures, trees and
+buildings in a cone ahead of the camera, setting them alight. Two power-ups add a wider reach, more forks and more
+targets at once.</p>
+<p>Given by silver scrolls: to a town by <a href="../story/silver_scrolls/the_greedy_farmer.html">The Greedy Farmer</a> (with its second level) and
+<a href="../story/silver_scrolls/the_plague.html">The Plague</a>, and as a dispenser by the evil ending of <a href="../story/silver_scrolls/the_pied_piper.html">The Pied Piper</a>.</p>
+<p><strong>Progress: 36/43 done, 2 partial — 86%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../miracles.html">Miracles one by one</a>.</p>
+<h2 id="casting-and-cost">Casting and cost</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Held miracle: bolts strike only while the cast is held; letting go ends it</td>
+<td>done</td>
+<td><code>src/ECS/Systems/Implementations/HandSpellSeed.cpp</code> (the in-hand cast type: one apply a turn while held, the unlock on release)</td>
+</tr>
+<tr>
+<td>Cost to cast 5000 / 7500 / 10000, then 50 / 70 / 90 a turn and 2 a strike; a part-paid strike is weaker</td>
+<td>done</td>
+<td><code>src/Magic/Core/Chants.cpp</code>; <code>test/test_spell_chants.cpp</code></td>
+</tr>
+<tr>
+<td>A bolt held longer than 6 s closes by itself</td>
+<td>done</td>
+<td><code>src/Magic/Core/Spell.cpp</code> (the age against the duration); <code>test/test_spell_chants.cpp</code></td>
+</tr>
+<tr>
+<td>Two power-up levels: reach 60 / 100 / 140 m, cone half-angle widens, more forks and targets</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Lightning.cpp</code> (the effect files' radius, cone, fork and target counts)</td>
+</tr>
+<tr>
+<td>The bolts aim along the camera's look direction</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Lightning.cpp</code> (the heading is the angle of the camera's forward, as in the original)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="picking-targets">Picking targets</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Searches a square of map cells twice the reach across, cell by cell outward, fixed objects before moving ones</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Lightning.cpp</code> (SearchAround: a spiral of 4 ceil(R/10) squared cells, each cell's fixed list first)</td>
+</tr>
+<tr>
+<td>Anything available is a target (people, creatures, animals, trees, buildings, fields, rocks…), but not miracle seeds or dying villagers</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Lightning.cpp</code> (IsAvailable, CanBeStruck)</td>
+</tr>
+<tr>
+<td>Only objects inside the cone ahead are taken, up to 6 / 12 / 28 on the first search</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Lightning.cpp</code> (the SplitAngle cone, MaxLightningObjects)</td>
+</tr>
+<tr>
+<td>Missing targets are made up with points on the ground ahead, up to 3 / 8 / 15</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Lightning.cpp</code> (AddGroundPoints)</td>
+</tr>
+<tr>
+<td>A visible creature in the cone draws every fork to itself</td>
+<td>todo</td>
+<td>Not in our tree; our wiki describes no such pull (only a creature skip of unverified meaning, a TODO in <code>src/Particles/Rules/Lightning.cpp</code>)</td>
+</tr>
+<tr>
+<td>Targets are searched again every second, never more than the first count</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Lightning.cpp</code> (RenewSearchEvery, RenewTargetsOnMove; a search never adds more targets than there are forks)</td>
+</tr>
+<tr>
+<td>Each step strikes a random share of the targets (at most 4 / 10 / 20 at once)</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Lightning.cpp</code> (UpdateForkStructure)</td>
+</tr>
+<tr>
+<td>Forks are rebuilt at every search, two for each target struck at once plus two</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Lightning.cpp</code> (CreateForkStructure, made once); <code>test/test_lightning.cpp</code>. Our wiki differs: the forks are made once, two for each target, and are not rebuilt when the targets are searched again (<a href="../../miracles.html#lightning-magic_type-4-6-seed-6-lightning_bolt-particlesruleslightningcpp">page</a>)</td>
+</tr>
+<tr>
+<td>Land between the hand and a fork's split point stops that fork for the step</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Lightning.cpp</code> (the land ray cast, <code>src/3D/Implementations/LandIsland.cpp</code>); tests <code>Lightning.landCutsTheFork</code>, <code>test/test_land_raycast.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="damage-and-effects">Damage and effects</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A strike burns, crushes and hits everything within a metre of the tip, not just its target</td>
+<td>done</td>
+<td><code>src/Magic/Core/SpellEvent.cpp</code>, <code>src/ECS/Effects/EffectValues.cpp</code> (the area effect at the tip, radius 1 m)</td>
+</tr>
+<tr>
+<td>Struck things catch fire through the fire system</td>
+<td>done</td>
+<td><code>src/ECS/Effects/EffectValues.cpp</code> into <code>src/ECS/Fire/FireEffect.cpp</code>; see <code>../physics/</code> for fire spreading</td>
+</tr>
+<tr>
+<td>Villagers flee the miracle (one reaction per miracle)</td>
+<td>done</td>
+<td><code>src/ECS/Effects/Reactions.cpp</code>, <code>src/ECS/Systems/Implementations/VillagerReactions.cpp</code></td>
+</tr>
+<tr>
+<td>A heavy crush makes onlookers react to the crushed object</td>
+<td>done</td>
+<td><code>src/ECS/Effects/EffectValues.cpp</code> (the crushed-object reaction)</td>
+</tr>
+<tr>
+<td>Each strike counts towards the caster's alignment and the town's grudge</td>
+<td>done</td>
+<td><code>src/ECS/Effects/EffectValues.cpp</code> (<code>alignment::Update</code>, the town's aggressor), <code>src/ECS/Effects/Alignment.cpp</code>; see <code>../worship/</code> for alignment</td>
+</tr>
+<tr>
+<td>Struck villagers are not shown as skeletons by the bolt itself</td>
+<td>done</td>
+<td>Correctly absent</td>
+</tr>
+<tr>
+<td>A bolt striking only a creature leaves nearby villagers in a valid state (no crash)</td>
+<td>done</td>
+<td><code>src/ECS/Systems/Implementations/VillagerReactions.cpp</code></td>
+</tr>
+<tr>
+<td>Electric arcs crawl over struck objects; an object still struck is arced again after each search, at most 100 arcs alive</td>
+<td>todo</td>
+<td>No arc rule in our tree; our wiki does not describe them</td>
+</tr>
+</tbody>
+</table>
+<h2 id="shields-and-clashing-bolts">Shields and clashing bolts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A spiritual shield stops a fork at its surface, costs the shield 10 / 20 / 30 a hit and sparks</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Lightning.cpp</code> (a shield test on each fork segment, an event to the shield's spell and a spark), <code>src/Particles/Rules/Shield.cpp</code></td>
+</tr>
+<tr>
+<td>Two hand-cast bolts pointing the same way meet at a clash point</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Lightning.cpp</code> (FindClash); test <code>Lightning.twoBoltsClash</code> (<code>test/test_lightning.cpp</code>)</td>
+</tr>
+<tr>
+<td>A clash glows at the meeting point, the older bolt carries on three times as thick, and both strike at double strength</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Lightning.cpp</code> (the common glow, the fork three times as thick, strength 2 to both spells); test <code>Lightning.twoBoltsClash</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="bolts-not-cast-by-hand">Bolts not cast by hand</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A bolt from a storm cloud searches a circle round the cloud, all kinds, no creature pull</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Lightning.cpp</code> (the parent mode: a circle, no cone); see <code>storm.md</code></td>
+</tr>
+<tr>
+<td>A bolt given its targets strikes their ground positions within its reach</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Lightning.cpp</code> (TakeTargetsFromManager); which effect uses this path is (unconfirmed)</td>
+</tr>
+<tr>
+<td>A strike with no miracle behind it (scripts) applies the weather lightning's effect</td>
+<td>todo</td>
+<td>A TODO in <code>src/Particles/Rules/Lightning.cpp</code>: without a spell the original's fixed effect values are not applied</td>
+</tr>
+</tbody>
+</table>
+<h2 id="effects-fx">Effects (FX)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Glowing ball at the hand, larger per level</td>
+<td>done</td>
+<td>The effect files, <code>src/Particles/Rules/HandFollow.cpp</code></td>
+</tr>
+<tr>
+<td>Forks drawn as textured chains, re-laid each step, thicker per level</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Lightning.cpp</code>, <code>src/Particles/Creators/Chain.cpp</code>, <code>src/Graphics/RendererChain.cpp</code>; test <code>Lightning.chainSegmentUv</code></td>
+</tr>
+<tr>
+<td>Fork joints shrink with depth, jitter sideways and flicker in alpha</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Lightning.cpp</code> (the fork tree: scale by depth, sideways jitter, random alpha)</td>
+</tr>
+<tr>
+<td>The trunk stays glued to the drawn hand between steps</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Lightning.cpp</code> (the hand draw offset on the trunk joints), <code>src/Particles/PSys.cpp</code>; tests <code>Lightning.handDrawOffset</code>, <code>Lightning.trunkJointsFollowTheHand</code></td>
+</tr>
+<tr>
+<td>Each hit lights the land with an animated light map</td>
+<td>done</td>
+<td><code>src/Particles/Creators/LightMap.cpp</code>; test <code>Lightning.lightMapCreatorProperties</code></td>
+</tr>
+<tr>
+<td>No land or screen flash for the miracle (the storm's flash is separate)</td>
+<td>done</td>
+<td>Correctly absent</td>
+</tr>
+<tr>
+<td>Flickering sprites around the held miracle in the hand, fading on release</td>
+<td>partial</td>
+<td><code>src/Magic/Hand/HandMagicFX.cpp</code> (the level's in-hand effect, from the data); not checked against the game</td>
+</tr>
+<tr>
+<td>Effect on a holder of the miracle</td>
+<td>partial</td>
+<td><code>src/Worship/SpellSeedGraphic.cpp</code> (the seed's holder effect, from the data); not checked against the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="audio">Audio</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A crackle loop starts with the cast, a different one per level</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Lightning.cpp</code> (the bolt's sound started while the effect is enabled), <code>src/Audio/Services/SpellSounds.cpp</code></td>
+</tr>
+<tr>
+<td>On release the crackle is let go and fades from that turn, silent in seven turns</td>
+<td>done</td>
+<td><code>src/Audio/Services/SpellSounds.cpp</code> (release and fade step), <code>src/Particles/Rules/Sound.cpp</code></td>
+</tr>
+<tr>
+<td>The crackle sample's own loop points are honoured; a released loop plays out its tail</td>
+<td>done</td>
+<td><code>src/Audio/Device/WaveBuffers.cpp</code>, <code>src/Audio/Device/Sound.h</code></td>
+</tr>
+<tr>
+<td>No thunder for the miracle</td>
+<td>done</td>
+<td>Correctly absent</td>
+</tr>
+<tr>
+<td>Closing by the 6 s timer stops the crackle the same way</td>
+<td>done</td>
+<td>The same close-down path (<code>src/Magic/Core/Spell.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creatures-and-saving">Creatures and saving</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A creature can cast lightning at a target</td>
+<td>todo</td>
+<td>Creatures cast no world miracles in our tree; see <code>creature_spells.md</code></td>
+</tr>
+<tr>
+<td>A bolt in progress is kept in a saved game</td>
+<td>todo</td>
+<td>openblack has no game saving</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Following cameras — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="here" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#following-cameras">Following cameras</a><ul>
+<li><a href="#following-the-creature">Following the creature</a></li>
+<li><a href="#fights">Fights</a></li>
+<li><a href="#other-following-cameras">Other following cameras</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="following-cameras">Following cameras</h1>
+<p>Cameras that lock onto something and follow it: the creature, the creature's fights, and the other following cameras
+the game has. Script-driven following is in <a href="script_camera.html">script_camera.md</a>.</p>
+<p><strong>Progress: 9/18 done, 3 partial — 58%</strong></p>
+<h2 id="following-the-creature">Following the creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A key locks the camera onto the player's creature and lets go again</td>
+<td>done</td>
+<td><code>CreatureModeSystem::PressCreatureKey</code> (<code>src/ECS/Systems/Implementations/CreatureModeSystem.cpp</code>) with <code>CreatureCameraModel</code> (<code>src/Camera/CreatureCameraModel.cpp</code>); <code>CreatureMode.CreatureKeyLocksOntoYourCreatureAndLetsGo</code> (<code>test/creature/test_creature_follow.cpp</code>). Whether the game's key follows or only flies there is unconfirmed</td>
+</tr>
+<tr>
+<td>A double click on a creature locks onto it, another god's too</td>
+<td>done</td>
+<td><code>CreatureModeSystem::ReadKeys</code> enters on a double click on any creature under the hand, when the double-click flight is allowed</td>
+</tr>
+<tr>
+<td>The camera starts the creature's viewing distance away, or as close as it already is, looking at its middle</td>
+<td>done</td>
+<td><code>src/Camera/CreatureFollow.cpp</code>; <code>CreatureFollow.StartsAtTheViewingDistanceFromAfar</code>, <code>StaysAboutAsCloseWhenAlreadyClose</code>, <code>LooksAtTheMiddleOfTheCreature</code>; <code>CreatureCameraModel.StartsOnTheCreaturesMiddleWithTheFollowsView</code> (<code>test/camera/test_creature_camera_model.cpp</code>)</td>
+</tr>
+<tr>
+<td>It eases after the creature, arriving two seconds later at first and one second once settled</td>
+<td>done</td>
+<td><code>CreatureFollow.EasesInTwoSecondsAtFirstAndOneLater</code>, <code>CreatureCameraModel.TheEaseSettlesToASecondAfterTwo</code></td>
+</tr>
+<tr>
+<td>Shift and the arrow keys turn it round the creature and tilt it</td>
+<td>done</td>
+<td><code>CreatureFollow.ShiftAndCursorKeysTurnAndTilt</code>, <code>CreatureCameraModelTest.ShiftAndTheCursorKeysTurnAndTiltIt</code></td>
+</tr>
+<tr>
+<td>Ctrl and the arrow keys turn it and draw it in and out; the wheel zooms</td>
+<td>done</td>
+<td><code>CreatureFollow.CtrlAndCursorKeysTurnAndZoom</code>, <code>TheWheelZoomsTwice</code>; <code>CreatureCameraModelTest.TheWheelDrawsItInAndOut</code></td>
+</tr>
+<tr>
+<td>Its distance and pitch stay within bounds</td>
+<td>done</td>
+<td><code>CreatureFollow.KeepsWithinItsBounds</code></td>
+</tr>
+<tr>
+<td>Ctrl and Shift together swing it to where the land falls away, for a clear view</td>
+<td>done</td>
+<td><code>CreatureFollow.ClearViewSwingsAwayFromAHill</code>, <code>ClearViewTiltsTowardsTwentyTwoDegrees</code>; <code>CreatureCameraModelTest.CtrlAndShiftTogetherSwingItClearOfTheLand</code></td>
+</tr>
+<tr>
+<td>The arrow keys alone, gripping the land, the temple, a script's cinema bars or the creature leaving give the camera back</td>
+<td>done</td>
+<td><code>CreatureModeSystem::Update</code> (a fresh grip, the temple, a script's camera or bars, the creature gone); <code>CreatureFollow.CursorKeysAloneGiveTheCameraBack</code>, <code>CreatureCameraModelTest.TheCursorKeysAloneGiveTheCameraBack</code></td>
+</tr>
+<tr>
+<td>The camera keeps a thing in view smoothly unless it turns too fast to follow</td>
+<td>todo</td>
+<td>not in our tree (unconfirmed rule)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="fights">Fights</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>When the player's creature starts a fight the camera flies to watch it from the side of the arena</td>
+<td>partial</td>
+<td><code>CreatureFightSystem::Watch</code> (<code>src/ECS/Systems/Implementations/CreatureFightSystem.cpp</code>) flies the camera with <code>creature_fight::CameraOrigin</code>, <code>CameraSide</code>; but it returns while the interface is active, so in normal play it does not fly (looks like an inverted check)</td>
+</tr>
+<tr>
+<td>The camera stays on the arena during the fight</td>
+<td>partial</td>
+<td><code>CreatureFightSystem::FollowDuel</code> follows the fighters once they move 0.3 of the arena's radius away (<code>fight::k_CameraFollowShare</code>, <code>src/Creature/CreatureFight.h</code>); the game stays on the arena</td>
+</tr>
+<tr>
+<td>Clicking near another creature fight takes the camera to watch it</td>
+<td>todo</td>
+<td>not in our tree</td>
+</tr>
+<tr>
+<td>The fight's camera shows text and can be left, ending the fight soon after</td>
+<td>todo</td>
+<td>not in our tree</td>
+</tr>
+<tr>
+<td>During a fight moving the mouse always turns the camera</td>
+<td>todo</td>
+<td><code>TODO(#710)</code> in <code>DefaultWorldCameraModel.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="other-following-cameras">Other following cameras</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A camera that follows behind a thing, keeping to its heading</td>
+<td>partial</td>
+<td>only the script camera's follow does it (<code>CAMERA_PROPERTIES</code> with behind, <code>script_camera::FollowHeading</code>; <code>ScriptCameraFollow.HeadingBehindAWallHug</code> in <code>test/test_script_camera.cpp</code>); no other camera uses it</td>
+</tr>
+<tr>
+<td>A camera that watches a worship dance</td>
+<td>todo</td>
+<td>not in our tree (unconfirmed when the game uses it)</td>
+</tr>
+<tr>
+<td>The camera that zooms in to the temple from outside as the player interacts with it</td>
+<td>todo</td>
+<td>entering the temple is a cut in our tree (<code>TempleInterior::Activate</code>, <code>src/3D/Implementations/TempleInterior.cpp</code>); see <a href="temple_camera.html">temple_camera.md</a></td>
+</tr>
+<tr>
+<td>The editor's orbit and follow cameras</td>
+<td>n/a</td>
+<td>openblack-only, <code>src/Camera/EditorCameraModel.cpp</code>; see <code>../debug/</code></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

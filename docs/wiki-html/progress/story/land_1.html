@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Land 1 — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="here" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#land-1">Land 1</a><ul>
+<li><a href="#opening-and-setup">Opening and setup</a></li>
+<li><a href="#choosing-the-creature-gold">Choosing the creature (gold)</a></li>
+<li><a href="#the-creatures-learning-gold">The creature's learning (gold)</a></li>
+<li><a href="#the-big-creature-and-the-storm-gold">The big creature and the storm (gold)</a></li>
+<li><a href="#silver-scrolls">Silver scrolls</a></li>
+<li><a href="#leaving-the-land">Leaving the land</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="land-1">Land 1</h1>
+<p>The first land: the player's own island, where the people build the temple, the advisors teach the hand and the camera,
+the player chooses and trains a creature, and the land ends with the player leaving through the vortex for Khazar's land.</p>
+<p>Every silver scroll of the game, land by land, with scores: <a href="silver_scrolls.html">silver_scrolls.md</a>.</p>
+<p>How the player can lose a land, and the game over: <a href="losing_and_game_over.html">losing_and_game_over.md</a>.</p>
+<p><strong>Progress: 1/33 done, 19 partial — 32%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../intro.html">The Land 1 intro and the tutorial's script side</a>.</p>
+<h2 id="opening-and-setup">Opening and setup</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's map loads and its story begins with the land's control script</td>
+<td>partial</td>
+<td><code>Game.cpp</code> loads <code>challenge.chl</code> and starts <code>LandControlAll</code>, which runs <code>LandControl1</code>; about half of the 464 natives are real (<code>src/CHLApi.cpp</code>). The intro is checked in game up to the hand-over; the land script's contents: see ../scripts/land1_script.md</td>
+</tr>
+<tr>
+<td>Setup places the first did-you-know scrolls, sets the starting belief of the villages and the weather</td>
+<td>partial</td>
+<td><code>SetupLand1</code> places the did-you-know scrolls (<code>CreateHighlight</code>) and sets the weather; <code>SetVirtualInfluence</code>, <code>BeliefForPlayer</code> and <code>SetPlayerBelief</code> are stubs in <code>src/CHLApi.cpp</code>, so the starting belief is not set</td>
+</tr>
+<tr>
+<td>The family leads the player to their village ("follow us"); the mother waits if the hand falls behind and says so if it runs ahead</td>
+<td>partial</td>
+<td><code>FollowUs</code> runs, checked in game up to the hand-over; the follow part after it is not checked; see tutorial.md</td>
+</tr>
+<tr>
+<td>The villagers finish building the temple and the advisors show the player its entrance and how to go in</td>
+<td>partial</td>
+<td><code>CitadelGuide</code> calls only real natives (camera, advisors, <code>SetInterfaceCitadel</code>, <code>InsideTemple</code>), not checked in game; see <a href="gold_scrolls/the_temple_is_finished.html">gold_scrolls/the_temple_is_finished.md</a>, ../temple/temple_exterior.md; a cut early draft: <a href="silver_scrolls/see_the_citadel.html">silver_scrolls/see_the_citadel.md</a></td>
+</tr>
+<tr>
+<td>Camera zones keep the camera inside the parts of the land opened so far, widened as gates open</td>
+<td>partial</td>
+<td><code>SetCameraZone</code> reads the zone files (<code>src/Camera/PlayerCameraScript</code>), but the player camera does not keep to them yet (<a href="../../script-camera.html#zones-and-fixed-rotation">../../bw1-notes/script-camera.md</a>); see ../camera/camera_limits.md</td>
+</tr>
+<tr>
+<td>The hidden phone box of the first land, with its jokey recorded messages</td>
+<td>todo</td>
+<td>its script was not traced here; see ../scripts/challenge_scripts.md</td>
+</tr>
+<tr>
+<td>A new game can skip the opening (straight to choosing a creature), skip all of the first land's story, or keep the old creature (patch 1.1)</td>
+<td>done</td>
+<td>the SkipBox (<code>src/Gui/SkipBox</code>) with its four answers and <code>CanSkipTutorial</code>, <code>CanSkipCreatureTraining</code>, <code>IsKeepingOldCreature</code>, <code>CurrentProfileHasCreature</code> (the <code>--creature-file</code> profile creature) are real; see <a href="../../map-loading.html#skipping-the-tutorial-skipbox-and-can_skip_tutorial">../../bw1-notes/map-loading.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="choosing-the-creature-gold">Choosing the creature (gold)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gold scroll: "Choose Your Creature" — three gate stones, placed in turn (the tiger stone, the ape stone, then the cow stone carved from a blank rock), open the creatures' gates; the three creatures show off in their glade and the player picks one</td>
+<td>partial</td>
+<td>see <a href="gold_scrolls/choose_your_creature.html">gold_scrolls/choose_your_creature.md</a>: the trainer's scene uses real natives, but the gate-stone loop never ends (<code>ObjectInfoBits</code> is a stub) and the creatures are never made</td>
+</tr>
+<tr>
+<td>Gold scroll: "The Lost Brother" — a woman's brother has wandered off sick; bringing him home earns the ape gate stone (worse alignment for killing or dropping him)</td>
+<td>todo</td>
+<td>never started: see <a href="gold_scrolls/the_lost_brother.html">gold_scrolls/the_lost_brother.md</a></td>
+</tr>
+<tr>
+<td>Gold scroll: "The Sculptor" — the player brings a rock from the quarry, the sculptor carves the third gate stone from it</td>
+<td>todo</td>
+<td>never started: see <a href="gold_scrolls/the_sculptor.html">gold_scrolls/the_sculptor.md</a></td>
+</tr>
+<tr>
+<td>Gate stones taken away or thrown into the sea come back to where they belong</td>
+<td>partial</td>
+<td>the guards (<code>ProtectGateKeys</code>) call only real natives, but the held read is not handled; see <a href="gold_scrolls/choose_your_creature.html">gold_scrolls/choose_your_creature.md</a></td>
+</tr>
+<tr>
+<td>The advisors point out the gate stones and the quarry rock while the player hasn't got them</td>
+<td>partial</td>
+<td>real advisor natives; see <a href="gold_scrolls/choose_your_creature.html">gold_scrolls/choose_your_creature.md</a> and <a href="gold_scrolls/the_sculptor.html">gold_scrolls/the_sculptor.md</a></td>
+</tr>
+<tr>
+<td>The creatures of the glade the player didn't choose wander off</td>
+<td>todo</td>
+<td>the glade's creatures are never made (<code>CREATE</code> of a creature is not done); in the game the two not chosen are deleted during the fade, see <a href="gold_scrolls/choose_your_creature.html">gold_scrolls/choose_your_creature.md</a>; see ../creature/</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-creatures-learning-gold">The creature's learning (gold)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gold scroll: "The Creature's Learning" — Sable the trainer teaches the creature in five lessons: seeing its home pen, learning to eat, being slapped and stroked, the Leash of Learning, and tying the leash to a tree, where she also shows the leashes of aggression and compassion; the good-and-evil leash lesson itself is cut and never played</td>
+<td>todo</td>
+<td>see <a href="gold_scrolls/the_creatures_learning.html">gold_scrolls/the_creatures_learning.md</a>: the skip branch of the first lesson runs in our game; the lessons themselves are never reached in a no-skip game: Choose Your Creature waits for ever at the gate stones (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>Each stage has its own scroll, reminder and advisor lines, and the next waits for the last</td>
+<td>partial</td>
+<td>see <a href="gold_scrolls/the_creatures_learning.html">gold_scrolls/the_creatures_learning.md</a>; a no-skip game never gets there: Choose Your Creature waits for ever at the gate stones (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>After the last lesson Sable joins the player's Norse village as an ordinary villager; after the earlier lessons she goes back into the temple, or vanishes</td>
+<td>partial</td>
+<td>see <a href="gold_scrolls/the_creatures_learning.html#the-trainers-exit-and-aftermath">gold_scrolls/the_creatures_learning.md</a>; a no-skip game never gets there: Choose Your Creature waits for ever at the gate stones (<code>ObjectInfoBits</code> is a stub)</td>
+</tr>
+<tr>
+<td>How the creature learns from these lessons</td>
+<td>todo</td>
+<td>the creature teaching natives are stubs; see <a href="gold_scrolls/the_creatures_learning.html">gold_scrolls/the_creatures_learning.md</a>, ../creature/lessons_and_help.md, ../creature/feeding_and_thrown_things.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-big-creature-and-the-storm-gold">The big creature and the storm (gold)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The guide (a big creature) wanders the land and asks to meet the player's creature</td>
+<td>todo</td>
+<td>the guide is never made (<code>CREATE</code> of a creature is not done); see <a href="./creature_guide.html">creature_guide.md</a></td>
+</tr>
+<tr>
+<td>The guide teaches the creature to impress a village and then to do it on its own</td>
+<td>todo</td>
+<td>see <a href="./creature_guide.html">creature_guide.md</a></td>
+</tr>
+<tr>
+<td>The guide teaches the creature to fight, healing both after the bout</td>
+<td>todo</td>
+<td>see <a href="./creature_guide.html">creature_guide.md</a></td>
+</tr>
+<tr>
+<td>The storm ends the land's lessons: Nemesis's storm kills the guide and the scripts of the land wind down</td>
+<td>todo</td>
+<td>see <a href="./creature_guide.html">creature_guide.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="silver-scrolls">Silver scrolls</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Silver scroll: "The Ogre" — an ogre's guardian stone blocks the way; the player's creature fights the ogre (or puts him to sleep) for the reward</td>
+<td>todo</td>
+<td>see <a href="silver_scrolls/the_ogre.html">silver_scrolls/the_ogre.md</a>; the ogre is made from a creature (<code>CreatureCreateRelativeToCreature</code> is a stub) and the reward is a stub</td>
+</tr>
+<tr>
+<td>Silver scroll: "The Saviour" — a freak wave leaves five men drowning; only the creature is tall enough to wade out and save them</td>
+<td>partial</td>
+<td>see <a href="silver_scrolls/the_saviour.html">silver_scrolls/the_saviour.md</a>; <code>CreatureSavingPeople</code> needs only <code>GetTownWithId</code> and the log among stubs, but needs a creature</td>
+</tr>
+<tr>
+<td>Silver scroll: "Throwing Stones" — a target game of throwing rocks at targets (and not at the houses)</td>
+<td>partial</td>
+<td>see <a href="silver_scrolls/throwing_stones.html">silver_scrolls/throwing_stones.md</a>; started after the temple scene; <code>GameThingHit</code> and the log are stubs</td>
+</tr>
+<tr>
+<td>Silver scroll: "The Lost Flock" — a shepherd's sheep have strayed; bring them back to his pen (better alignment the more come back)</td>
+<td>partial</td>
+<td>see <a href="silver_scrolls/the_lost_flock.html">silver_scrolls/the_lost_flock.md</a>; started after the temple scene; <code>PopulateContainer</code>, <code>CallNearInState</code> and <code>InCreatureHand</code> are stubs</td>
+</tr>
+<tr>
+<td>Silver scroll: "The Pied Piper" — a piper lures the village's children into his cave; the creature leashes him, drags him out and carries him back to free them (eating or drowning him is the evil ending)</td>
+<td>partial</td>
+<td>see <a href="silver_scrolls/the_pied_piper.html">silver_scrolls/the_pied_piper.md</a>; started only past the creature gate (skip games); <code>SetScriptStatePos</code>, <code>SetScriptFloat</code> and the log are stubs</td>
+</tr>
+<tr>
+<td>Silver scroll: "The Hermit" — a hermit won't worship until he sees a huge creature; impressing him, damaging his hut or killing him changes the alignment</td>
+<td>partial</td>
+<td>see <a href="silver_scrolls/the_hermit.html">silver_scrolls/the_hermit.md</a>; started only past the creature gate (skip games); creature natives and wander natives are stubs</td>
+</tr>
+<tr>
+<td>Silver scroll: "The Explorers" — missionaries want a boat to sail away in and sing three verses while it is made; the player helps them leave</td>
+<td>partial</td>
+<td>see <a href="silver_scrolls/the_explorers.html">silver_scrolls/the_explorers.md</a>; started only past the creature gate; <code>SexIsMale</code>, <code>GetObjectHeld</code>, <code>InCreatureHand</code>, <code>GetResource</code> are stubs</td>
+</tr>
+<tr>
+<td>Silver scroll: "The Singing Stones" — a circle of stones sings when they are put back in the right order</td>
+<td>partial</td>
+<td>see <a href="silver_scrolls/the_singing_stones.html">silver_scrolls/the_singing_stones.md</a>; <code>SingingStoneCircle</code> is started by <code>LandControl1</code> at once and calls only <code>UpdateSnapshot</code> among stubs</td>
+</tr>
+<tr>
+<td>Silver scroll: "The Immersion Mushrooms" — a man wants the most powerful mushroom, the one that shakes most, for an experiment</td>
+<td>todo</td>
+<td>see <a href="silver_scrolls/the_immersion_mushrooms.html">silver_scrolls/the_immersion_mushrooms.md</a>; only runs with a force-feedback mouse (<code>ImmersionExists</code> is a stub, so never)</td>
+</tr>
+<tr>
+<td>Silver scroll (no title in the game's text): a creature breeder offers other creatures to swap for</td>
+<td>partial</td>
+<td>see challenges_and_rewards.md; <a href="silver_scrolls/the_creature_breeder.html">silver_scrolls/the_creature_breeder.md</a>; started only past the creature gate</td>
+</tr>
+</tbody>
+</table>
+<h2 id="leaving-the-land">Leaving the land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gold scroll: leave through the vortex — when the guide's lessons are done the vortex opens; the player sends people through and follows to the second land</td>
+<td>partial</td>
+<td>see <a href="gold_scrolls/leave_through_the_vortex_land_1.html">gold_scrolls/leave_through_the_vortex_land_1.md</a>: with the guide-skip answers the vortex and its scroll are made at once with real natives; vortex mechanics: <a href="portals.html">portals.md</a></td>
+</tr>
+<tr>
+<td>Loading the second land from the story</td>
+<td>todo</td>
+<td><code>LoadMap</code> in <code>src/CHLApi.cpp</code> is an empty native, so no land is loaded</td>
+</tr>
+<tr>
+<td>An unused script for taking over the land's villages with the guide's help</td>
+<td>n/a</td>
+<td>in the scripts but never started by the game; see <a href="./creature_guide.html">creature_guide.md</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

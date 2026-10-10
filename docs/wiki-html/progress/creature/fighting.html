@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fighting — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="here" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#fighting">Fighting</a><ul>
+<li><a href="#starting-a-fight">Starting a fight</a></li>
+<li><a href="#the-players-controls">The player's controls</a></li>
+<li><a href="#blows-and-damage">Blows and damage</a></li>
+<li><a href="#fighting-by-itself">Fighting by itself</a></li>
+<li><a href="#the-end-of-a-fight">The end of a fight</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="fighting">Fighting</h1>
+<p>Creatures fight each other in duels inside a circular arena. The player directs their own creature with the hand,
+clicking the opponent's body high, middle or low to strike, their own creature to block and the ground to step, or
+leaves it to fight by itself as it has learnt to. Nobody dies in a fight: the loser faints, is carried home and recovers.</p>
+<p><strong>Progress: 22/56 done, 16 partial — 54%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../creature.html">The creature: groundwork, random streams and what is unknown</a>.</p>
+<h2 id="starting-a-fight">Starting a fight</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>An angry creature can choose to fight another creature it sees</td>
+<td>done</td>
+<td><code>CreatureFightSystem::ProcessTurn</code> starts a fight when an angry creature has another near (<code>fight::WantsToFight</code>); test <code>CreatureFightSystemTest.WhatStartsAFight</code>; see <a href="decision_making.html">decision_making.md</a></td>
+</tr>
+<tr>
+<td>Tying the leash from the player's creature to another creature starts a fight</td>
+<td>done</td>
+<td><code>CreatureFightSystem</code> takes the leash's act-on list (<code>CreatureMindState::leash.actOn</code>, filled by <code>LeashSystem</code>); see <a href="leash.html">leash.md</a></td>
+</tr>
+<tr>
+<td>A creature too badly hurt won't start a fight</td>
+<td>done</td>
+<td><code>creature_fight</code> health threshold; test <code>CreatureFight.OutcomesAndStarting</code></td>
+</tr>
+<tr>
+<td>Asked to fight, the other creature can refuse, and the player is told why</td>
+<td>todo</td>
+<td>the help text of refusals is in <a href="lessons_and_help.html">lessons_and_help.md</a></td>
+</tr>
+<tr>
+<td>Neither creature may already be fighting or lying knocked out</td>
+<td>done</td>
+<td><code>CreatureFightSystem::StartFight</code> returns <code>StartResult::Busy</code></td>
+</tr>
+<tr>
+<td>The creature that starts it makes an arena between the two, sized by the bigger creature, with a cap</td>
+<td>done</td>
+<td>test <code>CreatureFight.ArenaIsSizedByTheBiggerCreatureAndCapped</code></td>
+</tr>
+<tr>
+<td>An arena already near is reused rather than a new one made</td>
+<td>todo</td>
+<td>(unconfirmed how near)</td>
+</tr>
+<tr>
+<td>The arena is marked out on the land and shown while the fight lasts</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The creatures walk to their places on either side, point at the arena, and play their fight start</td>
+<td>partial</td>
+<td>they walk to their places, taunt and play the start (<code>CreatureFighting</code> stages approach, taunt, ready in <code>CreatureFightSystem</code>); pointing at the arena is todo</td>
+</tr>
+<tr>
+<td>Scripts can start a fight and set where the loser goes</td>
+<td>todo</td>
+<td>only the debug spawner calls <code>StartFight</code>; <code>SET_FIGHT_EXIT</code>, <code>GET_ARENA</code> are stubs in <code>src/CHLApi.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-players-controls">The player's controls</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Clicking the opponent's body strikes at the band clicked: high, middle or low</td>
+<td>partial</td>
+<td><code>CreatureFightSystem::Press</code> and <code>fight::BandAt</code> (tests <code>CreatureFight.ClickHeightPicksTheBand</code>, <code>CreatureFightSystemTest.APressChargesOnThePlayersFighter</code>), but no hand code calls <code>Press</code>, so the player cannot click in a fight</td>
+</tr>
+<tr>
+<td>Clicking their own creature blocks</td>
+<td>partial</td>
+<td>in <code>CreatureFightSystem::Press</code>, which the hand never calls</td>
+</tr>
+<tr>
+<td>Clicking the ground steps forward, back or sideways, by the longer axis of the click</td>
+<td>partial</td>
+<td>test <code>CreatureFight.GroundClickStepsAlongTheLongerAxis</code>; not reached from the hand</td>
+</tr>
+<tr>
+<td>Stepping back or sideways is only allowed within the arena; forward always</td>
+<td>done</td>
+<td>test <code>CreatureFight.StepsBackOrSidewaysOnlyWithinRange</code></td>
+</tr>
+<tr>
+<td>Holding the click charges a blow, up to 1.2 seconds, playing a power-up while it waits</td>
+<td>partial</td>
+<td>test <code>CreatureFight.ChargeRunsToOnePointTwoSeconds</code>; not reached from the hand</td>
+</tr>
+<tr>
+<td>Moves queue up, at most twelve; a click can replace the queue</td>
+<td>done</td>
+<td>test <code>CreatureFight.QueueHoldsTwelveAndAClickReplacesIt</code></td>
+</tr>
+<tr>
+<td>Being hit takes away a charged blow still waiting</td>
+<td>done</td>
+<td>test <code>CreatureFight.GettingHitTakesAWaitingBlowAway</code></td>
+</tr>
+<tr>
+<td>Moves are taken from the queue only in range, from the stance or a block, and a blow only once charged</td>
+<td>done</td>
+<td>test <code>CreatureFight.OrdersAreTakenInRangeAndOnceCharged</code></td>
+</tr>
+<tr>
+<td>A special move, the species' big blow, at twice the force</td>
+<td>partial</td>
+<td>the special order plays and lands at twice the reach (<code>CreatureFightSystem</code>); how the player calls it in the game is unconfirmed and not wired</td>
+</tr>
+<tr>
+<td>Casting a miracle in a fight: attacking ones at the opponent, defending ones on itself</td>
+<td>todo</td>
+<td>the fight system casts no miracle; only the debug spawner lists spell orders</td>
+</tr>
+<tr>
+<td>Miracle icons appear by the arena for the miracles the creature can use in fights, to pick from</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The hand's tooltip during a fight says what a click will do</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The player taking the creature over gives it back to the computer after 15 seconds without a move, 3 at the start</td>
+<td>partial</td>
+<td>test <code>CreatureFight.PlayerMovesTakeBackControlAndTeach</code>; the player's fighter is under player control (<code>CreatureFightSystem::StartFight</code>), but with no clicks it is always given back</td>
+</tr>
+</tbody>
+</table>
+<h2 id="blows-and-damage">Blows and damage</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each creature has a fight health, starting at half its life plus a half, and a stamina</td>
+<td>done</td>
+<td>test <code>CreatureFight.HealthStaminaAndLife</code>; <code>fight::FightHealthAtStart</code> in <code>CreatureFightSystem::StartFight</code></td>
+</tr>
+<tr>
+<td>A blow's force is the attacker's size and strength against the defender's, times its speed, within limits</td>
+<td>done</td>
+<td>test <code>CreatureFight.DamageFollowsTheFormula</code></td>
+</tr>
+<tr>
+<td>A blocked blow does a tenth of the damage</td>
+<td>done</td>
+<td>test <code>CreatureFight.ABlockedBlowDoesATenth</code></td>
+</tr>
+<tr>
+<td>Blows land where the attacker's hand reaches; the creature steps in to land the chosen band</td>
+<td>done</td>
+<td>test <code>CreatureFight.ABlowIsChosenThatLandsAtTheBand</code></td>
+</tr>
+<tr>
+<td>The fighters never pass through each other</td>
+<td>done</td>
+<td>test <code>CreatureFight.FightersNeverPassThroughEachOther</code></td>
+</tr>
+<tr>
+<td>A blow throws the victim back or reels it to the side, top or bottom by where it lands, with a wobble</td>
+<td>done</td>
+<td>test <code>CreatureFight.RecoilsByHeightAndDirection</code> (top or bottom for high blows is a guess, noted in <code>src/Creature/CreatureFight.h</code>)</td>
+</tr>
+<tr>
+<td>Blows cut, bruise or graze, leaving wounds, some bleeding</td>
+<td>partial</td>
+<td><code>CreatureFightSystem</code> adds a wound at a random place on the skin (<code>CreatureSkinSystem::AddWound</code>); test <code>CreatureFight.WoundsByTheBlow</code>; which wound each blow leaves is guessed (see <a href="marks.html">marks.md</a>)</td>
+</tr>
+<tr>
+<td>Sparkles fly where blows land</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Blow and block sounds, the crowd's cheers, and fight music</td>
+<td>partial</td>
+<td>blow sounds play from the animations (<code>CreatureAudioSystem</code>, <a href="animation.html">animation.md</a>); cheers and fight music are todo (<a href="../audio/index.html">../audio</a>)</td>
+</tr>
+<tr>
+<td>Miracles cast at a fighter make it reel</td>
+<td>todo</td>
+<td>no miracle reaches a fighter</td>
+</tr>
+<tr>
+<td>Stamina comes back slowly each turn</td>
+<td>done</td>
+<td><code>fight::RegainStamina</code> in <code>CreatureFightSystem</code></td>
+</tr>
+<tr>
+<td>The game keeps counts of attacks, blocks and steps for the statistics</td>
+<td>todo</td>
+<td>kept in the player's help record and shown on Tech Stats (<a href="../interface/statistics_counted.html">../interface/statistics_counted.md</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="fighting-by-itself">Fighting by itself</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Left alone the creature chooses its own moves by what its opponent is doing</td>
+<td>done</td>
+<td><code>fight::ChooseMove</code> from <code>CreatureFightSystem</code>; tests <code>CreatureFight.ComputerChoosesByWhatTheOpponentDoes</code>, <code>OpponentStatesAsTheComputerSeesThem</code></td>
+</tr>
+<tr>
+<td>How aggressively it fights follows what it has learnt: each move the player makes nudges it towards attack or defence</td>
+<td>partial</td>
+<td>tests <code>CreatureFight.PlayerMovesTakeBackControlAndTeach</code>, <code>ComputerKeepsTheGameTiers</code>; the tendency is kept in <code>CreatureFightRecord</code>, but with no player clicks nothing nudges it</td>
+</tr>
+<tr>
+<td>A creature's first fight starts it leaning by its alignment: evil attacks, good defends</td>
+<td>done</td>
+<td><code>fight::FirstTendency</code> in <code>CreatureFightSystem::StartFight</code></td>
+</tr>
+<tr>
+<td>Scripts can make a creature fight by itself whatever the player does, and ask whether it does</td>
+<td>partial</td>
+<td><code>CreatureFightSystem::SetAutoFighting</code> exists (debug spawner only); <code>SET_CREATURE_AUTO_FIGHTING</code> and <code>IS_AUTO_FIGHTING</code> are stubs</td>
+</tr>
+<tr>
+<td>Scripts can queue blows, steps and spells for a creature and read its moves</td>
+<td>todo</td>
+<td><code>SET_CREATURE_QUEUE_FIGHT_*</code>, <code>GET_CREATURE_FIGHT_ACTION</code>, <code>CREATURE_FIGHT_QUEUE_HITS</code> are stubs</td>
+</tr>
+<tr>
+<td>Computer players' creatures fight with the computer's tactics</td>
+<td>partial</td>
+<td>any creature not the local player's fights by the computer moves; there are no computer players (<a href="../multiplayer/index.html">../multiplayer</a>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-end-of-a-fight">The end of a fight</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>At no fight health a creature faints; the other wins</td>
+<td>done</td>
+<td><code>CreatureFightSystem</code>; test <code>CreatureFight.OutcomesAndStarting</code></td>
+</tr>
+<tr>
+<td>A quarter of the fight health lost comes off the creature's real life</td>
+<td>done</td>
+<td><code>fight::LifeAfterFight</code> in <code>CreatureFightSystem</code>; test <code>CreatureFight.HealthStaminaAndLife</code></td>
+</tr>
+<tr>
+<td>The loser lies out cold for a while by its size, is carried home (fading out and in), rests until healthy enough and gets up</td>
+<td>done</td>
+<td><code>CreatureFightSystem::KnockOut</code>, <code>CreatureKnockedOut</code>, <code>HomeOf</code>; test <code>CreatureFightSystemTest.KnockedOutItIsTakenHomeAtOnce</code></td>
+</tr>
+<tr>
+<td>Spells on a knocked-out creature are brought to their end</td>
+<td>todo</td>
+<td><code>CreatureFightSystem::KnockOut</code> leaves its spells as they are</td>
+</tr>
+<tr>
+<td>After the fight each creature responds: the winner celebrates, the loser sulks, and they remember how they feel about each other</td>
+<td>partial</td>
+<td>the winner plays its finish and celebrates (<code>CreatureFighting::Stage::Celebrate</code>); the loser's response and the change of attitude are todo</td>
+</tr>
+<tr>
+<td>Creatures never die in a fight; only a script kills one for good</td>
+<td>partial</td>
+<td>fights never kill; <code>CreatureFightSystem::KillPermanently</code> exists but only the debug spawner calls it</td>
+</tr>
+<tr>
+<td>A fight can be called off with no winner</td>
+<td>done</td>
+<td><code>CreatureFightSystem::AbortFight</code>, used when a fighter is lost or leaves</td>
+</tr>
+<tr>
+<td>The fight panel shows each creature's name over a bar of fight health and a thinner bar of stamina</td>
+<td>partial</td>
+<td><code>src/Creature/CreatureFightHud</code> (test <code>CreatureFightHud.LayoutAndColours</code>) and <code>CreatureFightSystem::GetPanel</code> exist, but nothing draws the panel</td>
+</tr>
+<tr>
+<td>The camera goes to watch the player's creature fight from the side of the arena, and the player can leave the fight view</td>
+<td>partial</td>
+<td><code>CreatureFightSystem::Watch</code> frames the duel from the arena's side; it follows the fighters as they move where the game keeps still, and leaving the view is todo</td>
+</tr>
+<tr>
+<td>The fight shows text on the screen as it ends</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Villagers nearby gather to watch a fight and react to it</td>
+<td>todo</td>
+<td>see <a href="../villager/index.html">../villager</a></td>
+</tr>
+<tr>
+<td>Creatures and animals nearby react to a fight</td>
+<td>todo</td>
+<td>see <a href="reactions.html">reactions.md</a></td>
+</tr>
+<tr>
+<td>Fights won earn belts and medals shown in the Creature Cave</td>
+<td>todo</td>
+<td>see <a href="creature_cave.html">creature_cave.md</a></td>
+</tr>
+<tr>
+<td>Arenas are saved and loaded with the game</td>
+<td>todo</td>
+<td>no saved games</td>
+</tr>
+<tr>
+<td>The tutorial for the learning to fight stage of growing up shows how to fight</td>
+<td>todo</td>
+<td>see <a href="development_phases.html">development_phases.md</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

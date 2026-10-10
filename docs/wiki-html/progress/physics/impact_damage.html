@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Impact damage — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="here" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#impact-damage">Impact damage</a><ul>
+<li><a href="#how-a-blow-is-measured">How a blow is measured</a></li>
+<li><a href="#people-and-animals">People and animals</a></li>
+<li><a href="#the-creature">The creature</a></li>
+<li><a href="#buildings">Buildings</a></li>
+<li><a href="#trees-rocks-and-other-things">Trees, rocks and other things</a></li>
+<li><a href="#feedback">Feedback</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="impact-damage">Impact damage</h1>
+<p>What happens to people, animals, the creature, buildings, rocks and other things when a moving body strikes them or
+they strike the ground: crush damage judged by how hard the blow was, buildings cracking where a rock hits, rocks
+chipping and splitting, and the feedback (sounds, the thrower's credit, the creature copying the player). How bodies
+move and collide is in <a href="object_dynamics.html">object_dynamics.md</a> and <a href="collisions.html">collisions.md</a>, thrown villagers and
+animals in flight in <a href="thrown_living.html">thrown_living.md</a>, and throwing itself in
+<a href="throwing_and_landing.html">throwing_and_landing.md</a>.</p>
+<p>openblack measures every blow the game's way (<code>EndTurn</code> in <code>src/ECS/Physics/PhysicsObjects.cpp</code>)
+and hands it to each kind's impact reaction (<code>ReactToPhysicsImpact</code>): people and animals are hurt straight off their
+life rather than through the effect path (<code>src/ECS/LivingPhysics.cpp</code>), the creature has no reaction yet, rocks wear
+and split (<code>src/ECS/Rocks.cpp</code>), and resources go into stores. Rocks break buildings into pieces through <code>src/ECS/Physics/Buildings.cpp</code> and <code>src/ECS/Physics/FragMesh.cpp</code> (test <code>test/test_fragmesh_light.cpp</code>); over a broken building the damaged model is drawn with the partly built model over it (<code>src/ECS/Physics/PartialBuild.cpp</code>).</p>
+<p><strong>Progress: 23/47 done, 7 partial — 56%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../physics.html">Physics: thrown objects, collisions, damage and rocks that split</a>.</p>
+<h2 id="how-a-blow-is-measured">How a blow is measured</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>At the end of each game turn (after all physics steps), every body whose total force over the turn's touched steps (gravity included) is above a tiny limit gets an impact strength: that total, scaled by 0.05</td>
+<td>done</td>
+<td><code>EndTurn</code> in <code>src/ECS/Physics/PhysicsObjects.cpp</code> (the touched substeps' force sum times 0.05)</td>
+</tr>
+<tr>
+<td>Each body also remembers which other body hit it that turn, and the player whose hand threw it (taking the hitter's when it has none)</td>
+<td>done</td>
+<td><code>EndTurn</code> (<code>PhysicsObject::hitBy</code>, <code>byPlayer</code> taken from the hitter)</td>
+</tr>
+<tr>
+<td>A blow is judged in multiples of the body's own weight under gravity ("how many g", about 0 for something lying still); a heavy body needs a harder blow to be hurt</td>
+<td>done</td>
+<td><code>PhysicsObject::GLoad</code>, passed to each class's reaction in <code>ImpactInfo</code>. Our wiki differs: G is about 1, not 0, for a body lying on the ground (<a href="../../physics.html#manager-physicsobjectgameturnupdate-0x644fc0">physics.md</a>)</td>
+</tr>
+<tr>
+<td>Every object with a model that is hit by moving things takes part in collisions while something moves near it, so a thrown rock can strike a standing villager or a house (standing trees are not hit)</td>
+<td>done</td>
+<td>The wake walk in <code>BeginTurn</code> makes resting proxies of what interacts (<code>src/ECS/Physics/PhysicsObjects.cpp</code>)</td>
+</tr>
+<tr>
+<td>An impact plays a collision sound picked by both materials, at one of three loudness levels by how many g it was</td>
+<td>done</td>
+<td><code>CollisionSounds::AttemptToAddSoundEvent</code> (<code>src/ECS/Physics/CollisionSounds.cpp</code>); see <a href="throwing_and_landing.html">throwing_and_landing.md</a></td>
+</tr>
+<tr>
+<td>A thrown thing that can be used on what it hit (an animal or a tree into a store, food or wood into a store or a pile of the same; a toadstool poisons the store's food) is used on it instead of hurting it</td>
+<td>partial</td>
+<td>Trees and dead trees go into a storage pit (<code>HandPhysics.cpp</code>), fences into a wood store and pots into a store or pot of their type (<code>ReactToPhysicsImpact</code>, <code>held_apply</code>), animals into a food store (<code>ECS/LivingPhysics.cpp</code>); mushrooms and the toadstool's poison are not handled</td>
+</tr>
+</tbody>
+</table>
+<h2 id="people-and-animals">People and animals</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A villager or animal is hurt only by a blow above 2 g</td>
+<td>done</td>
+<td><code>LivingReactToPhysicsImpact</code> (<code>src/ECS/LivingPhysics.cpp</code>)</td>
+</tr>
+<tr>
+<td>The harm is the game's crush effect scaled by (g − 2) × 0.03, applied by what hit it with the thrower's player, through the body's own defences</td>
+<td>partial</td>
+<td>(g - 2) x 0.03 times the animal's crush defence, taken straight off the life (<code>HurtByImpact</code>); not through the effect path, so no thrower's player is credited</td>
+</tr>
+<tr>
+<td>The same rule is the fall damage: a villager or animal thrown hard enough is hurt or killed by its own landing</td>
+<td>done</td>
+<td>The landing's blow goes through the same reaction (<code>ECS/LivingPhysics.cpp</code>)</td>
+</tr>
+<tr>
+<td>A villager that cannot take effects (not available, at home, in a hand, or hiding in a building) is not hurt</td>
+<td>partial</td>
+<td>Villagers at home, held or hidden are out of the map cells and the physics, so nothing hits them; the impact itself does not test whether the villager takes effects</td>
+</tr>
+<tr>
+<td>A villager whose life reaches nothing while standing dies as any villager dies, credited to the thrower's player; one hurt to nothing in flight dies when it lands</td>
+<td>partial</td>
+<td><code>villager::DestroyedByEffect</code> with no player (the impact's player is not kept); one hurt to nothing in flight dies at its landing (<code>VillagerEndPhysics</code>)</td>
+</tr>
+<tr>
+<td>An animal killed by a blow dies (it falls and lies; in flight it starts dying when it lands), it does not just vanish</td>
+<td>done</td>
+<td><code>animal_ai::DestroyedByEffect</code> (dying; in flight its landing does it)</td>
+</tr>
+<tr>
+<td>The harm moves the thrower's alignment by the crush it did, weighted by the victim's alignment kind</td>
+<td>todo</td>
+<td>The impact damage does not go through the effect path, so no alignment changes</td>
+</tr>
+<tr>
+<td>Hurting a town's villager makes the town count the thrower's player as an attacker</td>
+<td>todo</td>
+<td>Not from impacts (no effect path)</td>
+</tr>
+<tr>
+<td>A town keeps a count of its injured people: it rises when a villager's life falls below 0.7 and falls when it climbs back above</td>
+<td>todo</td>
+<td>No count of injured villagers in our tree</td>
+</tr>
+<tr>
+<td>Villagers nearby react to someone crushed</td>
+<td>todo</td>
+<td>No crushed reaction from impacts</td>
+</tr>
+<tr>
+<td>A villager or animal standing in the way is knocked into the air by any blow its resting body can't hold (the scripted 30 m/s launch happens only through the temple's redirect)</td>
+<td>partial</td>
+<td>The knock into flight is done (<code>Result::Pushed</code>, the class's <code>initialisePhysicsKnocked</code> in <code>ECS/LivingPhysics.cpp</code>); the temple's redirect launch is not ported</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-creature">The creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A creature struck by a thrown body takes crushing harm of how many g the blow was for its mass, capped at 100, times 0.01 (a toy does nothing)</td>
+<td>todo</td>
+<td>The creature's physics class has no impact reaction (<code>src/ECS/CreaturePhysics.cpp</code>)</td>
+</tr>
+<tr>
+<td>A thrown thing striking a creature while it fights takes none of its fight health or life and doesn't make it reel</td>
+<td>todo</td>
+<td>No creature impact reaction in our tree</td>
+</tr>
+<tr>
+<td>A creature a script controls, belonging to the player, isn't hurt by blows</td>
+<td>todo</td>
+<td>No creature impact reaction in our tree</td>
+</tr>
+<tr>
+<td>Blows worth less than 0.005 are ignored</td>
+<td>todo</td>
+<td>No creature impact reaction in our tree</td>
+</tr>
+<tr>
+<td>A creature is never killed by blows: at no life it faints</td>
+<td>todo</td>
+<td>No creature impact reaction in our tree</td>
+</tr>
+<tr>
+<td>When its own player hit it, the creature thinks less of its player by the harm done</td>
+<td>todo</td>
+<td>No creature impact reaction in our tree</td>
+</tr>
+<tr>
+<td>Being hit feeds its fear and its anger from being damaged by the harm done (out of a fight, a second time through its cut-and-scar code)</td>
+<td>todo</td>
+<td>No creature impact reaction in our tree</td>
+</tr>
+<tr>
+<td>A hit sways the creature's upper or lower body by the blow's sideways force (except in some of its animations)</td>
+<td>todo</td>
+<td>No sway in our tree</td>
+</tr>
+<tr>
+<td>A creature's own throwing (at buildings, villagers, the camera, the sea) uses the same blows</td>
+<td>done</td>
+<td>What the creature lets go of flies through the physics (<code>CreatureObjectActionSystem.cpp</code> to <code>PhysicsObjects::AddObject</code> or <code>from_hand::InitialisePhysicsFromHand</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="buildings">Buildings</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Only rocks (and the bowling ball) damage buildings; anything else thrown at a house just bounces off</td>
+<td>done</td>
+<td><code>Buildings::PhysicallyDestroysAbodes</code> (constants rows 3 and 20), <code>src/ECS/Physics/Buildings.cpp</code></td>
+</tr>
+<tr>
+<td>The blow is judged by momentum (speed × weight): up to 300 nothing happens</td>
+<td>done</td>
+<td><code>Buildings::ReactToPhysicsImpact</code> (speed times mass of the hitter)</td>
+</tr>
+<tr>
+<td>From 300 to 1000 a light knock sound plays, from 1000 to 2000 a heavier one, and the building is not hurt</td>
+<td>done</td>
+<td><code>Buildings::ReactToPhysicsImpact</code> (the two rock-on-ground sounds)</td>
+</tr>
+<tr>
+<td>Above 2000 a built building cracks: the part of its model within the rock's size plus 0.7 m of the line through the impact along the rock's motion breaks away</td>
+<td>done</td>
+<td><code>FragMesh::Impact</code> (<code>src/ECS/Physics/FragMesh.cpp</code>: the cylinder of the rock's radius plus 0.7 along its motion)</td>
+</tr>
+<tr>
+<td>The broken part flies off as its own piece, with 0.3 of the rock's velocity and a small random spin, and then lies as debris</td>
+<td>done</td>
+<td><code>FragMesh::Impact</code> and <code>CreateFragment</code> in <code>Buildings.cpp</code> (0.3 of the velocity, the game's random spin)</td>
+</tr>
+<tr>
+<td>The building's damaged model is kept, so later hits keep breaking it down; a building repaired past 0.2 life gets a fresh one</td>
+<td>partial</td>
+<td>The FragMesh is kept and drawn with the partly built model over it (<code>components::BuildingDamage</code>, <code>src/ECS/Physics/PartialBuild.cpp</code>); villagers do not repair, so it is never made afresh</td>
+</tr>
+<tr>
+<td>The building loses life to match the share of its model knocked away (crush, through its defence), with a big crash sound</td>
+<td>done</td>
+<td><code>abodes::OnPhysicalDamage</code> with the remaining share and the collapse sound</td>
+</tr>
+<tr>
+<td>A building completely broken is destroyed (its ruins and rebuilding are in <a href="../building/index.html">../building/</a>)</td>
+<td>done</td>
+<td><code>abodes::OnPhysicalDamage</code> (<code>src/ECS/Abodes.cpp</code>); see <a href="../building/index.html">../building/</a></td>
+</tr>
+<tr>
+<td>A building damaged this way empties: its people come out</td>
+<td>done</td>
+<td><code>abodes::ReduceLife</code>: every inhabitant reacts as to a tap, the building stops working</td>
+</tr>
+<tr>
+<td>Storage pits and the village centre take blows as other buildings do; scaffolds and totem statues ignore them</td>
+<td>done</td>
+<td><code>Buildings::ReactToPhysicsImpact</code> for abodes and storage pits; scaffolds and totem statues have no reaction</td>
+</tr>
+<tr>
+<td>A local player's throw that leaves less than 40% of an on-screen building shows the help sprites about destroying buildings</td>
+<td>todo</td>
+<td>Not in <code>Buildings.cpp</code></td>
+</tr>
+<tr>
+<td>A creature's blow on a house breaks it like a rock's</td>
+<td>partial</td>
+<td>The creature's knock-down action gives a home a blow through <code>abodes::OnPhysicalDamage</code> (<code>CreatureObjectActionSystem.cpp</code>, approximate: no breaking model); a creature thrower is not ported in <code>Buildings::ReactToPhysicsImpact</code></td>
+</tr>
+<tr>
+<td>Rocks thrown at an enemy temple are first redirected, with a plasma beam, to one of its owner's buildings (towns oldest first, each town's buildings newest first; life over 0.25 preferred) or else a homeless villager, the redirected hit carrying no speed; otherwise they hurt it by speed × weight × 0.000005, at most 0.2 a blow, and the harm passes to its heart</td>
+<td>todo</td>
+<td>No temple redirect, plasma beam or heart damage in our tree. See <a href="../temple/index.html">../temple/</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="trees-rocks-and-other-things">Trees, rocks and other things</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Thrown things do not knock trees or dead trees down; only things meant to be used on them act</td>
+<td>done</td>
+<td>Standing trees are not obstacles (<code>InteractsWithPhysicsObjects</code>). Our wiki differs: dead trees are obstacles, and a resting obstacle hit hard enough is knocked into flight (<a href="../../physics.html#manager-physicsobjectgameturnupdate-0x644fc0">physics.md</a>)</td>
+</tr>
+<tr>
+<td>A rock that lands harder than 4 g, if taller than 0.7 m and not hit by another rock, loses a little life, (g − 4) × 0.005</td>
+<td>done</td>
+<td><code>ReactToPhysicsImpact</code> in <code>src/ECS/Physics/PhysicsObjects.cpp</code></td>
+</tr>
+<tr>
+<td>A rock worn below 1% life splits into two smaller rocks (a burning rock's fire goes to both)</td>
+<td>done</td>
+<td><code>Rocks::SplitInTwo</code> (<code>src/ECS/Rocks.cpp</code>: halves of 0.7935 its scale, its velocity, half its spin, <code>fire::CopyFire</code>)</td>
+</tr>
+<tr>
+<td>Broken pieces, bonfires, scaffolds and totem statues have no reaction to blows</td>
+<td>done</td>
+<td>No reaction for them in <code>ReactToPhysicsImpact</code></td>
+</tr>
+<tr>
+<td>Rocks thrown at a physical shield cost it power and anger the town it guards</td>
+<td>done</td>
+<td><code>map_shield::ReactToPhysicsImpact</code> (<code>src/Magic/Objects/MapShield.cpp</code>: pays by momentum, the town records the aggressor); see <a href="../miracles/physical_shield.html">../miracles/physical_shield.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="feedback">Feedback</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>While a person or rock thrown from the hand (not a tree) feels any blow, the player's creature may learn "damage by throwing" from it</td>
+<td>todo</td>
+<td>Not from impacts of people or rocks; only the building branch asks the creature to copy (<code>creature_mimic::Consider</code> in <code>Buildings.cpp</code>)</td>
+</tr>
+<tr>
+<td>When it was hit by something, it is also "damage by throwing at"</td>
+<td>todo</td>
+<td>The building branch is there and, as in the game, never fires; nothing for thrown people and rocks</td>
+</tr>
+<tr>
+<td>Challenge scripts can ask what was last hit and by what, and clear it</td>
+<td>todo</td>
+<td>GET_HIT_OBJECT, GET_OBJECT_WHICH_HIT and CLEAR_HIT_OBJECT are stubs in <code>src/CHLApi.cpp</code></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

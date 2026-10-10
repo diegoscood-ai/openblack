@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cinematics — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="here" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#cinematics">Cinematics</a><ul>
+<li><a href="#cinema-bars">Cinema bars</a></li>
+<li><a href="#fades">Fades</a></li>
+<li><a href="#close-shots">Close shots</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="cinematics">Cinematics</h1>
+<p>What the scripts do to the picture around their cut scenes: the cinema bars, fading to a colour and back, putting the
+player's interface away, and close clipping. The cut scenes and films themselves are in <code>../story/</code>.</p>
+<p><strong>Progress: 11/15 done, 2 partial — 80%</strong></p>
+<h2 id="cinema-bars">Cinema bars</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The cinema bars slide in to a 16:9 picture and back out</td>
+<td>done</td>
+<td><code>ScreenFade::SetWideScreen</code> and <code>UpdateWideScreen</code> (<code>src/3D/ScreenFade.cpp</code>), bars of <code>ScreenFade::LetterboxHeight</code> drawn from <code>src/Game.cpp</code>; the slide time is the help system's <code>wideScreenTime</code></td>
+</tr>
+<tr>
+<td>Only the script that brought the bars in can take them out, or any script while none has</td>
+<td>done</td>
+<td><code>SET_WIDESCREEN</code> in <code>src/CHLApi.cpp</code> through <code>help::script_control::SetWideScreen</code> (<code>src/Help/ScriptControl.cpp</code>); <code>ScriptControl.SetWideScreen</code> (<code>test/test_help_system.cpp</code>)</td>
+</tr>
+<tr>
+<td>A script's bars put the hand and the player's interface away and hide the game's dialogs</td>
+<td>done</td>
+<td>the help system's wide-screen hook in <code>src/Game.cpp</code> makes the interface inactive (<code>interface_active::SetActive</code>), which hides the hand (<code>HandSystem</code>) and its tooltips; the did-you-know bubble is not drawn under a script's bars</td>
+</tr>
+<tr>
+<td>The game's own bars leave the interface</td>
+<td>done</td>
+<td>the same hook keeps the interface active when the bars have no owner (the game's own)</td>
+</tr>
+<tr>
+<td>Setting the bars the same again changes nothing</td>
+<td>done</td>
+<td><code>HelpSystem::SetWideScreen</code> returns at once when nothing changes (<code>src/Help/HelpSystem.cpp</code>)</td>
+</tr>
+<tr>
+<td>"widescreen ready": whether the bars have finished sliding</td>
+<td>done</td>
+<td><code>WIDESCREEN_TRANSISTION_FINISHED</code> reads <code>ScreenFade::IsWideScreenTransitionFinished</code></td>
+</tr>
+<tr>
+<td>The bars slide with game time and stop while the game is paused</td>
+<td>done</td>
+<td><code>ScreenFade::UpdateWideScreen</code> takes the frame's game milliseconds, 0 while paused (<code>src/Game.cpp</code>)</td>
+</tr>
+<tr>
+<td>The player's input is blocked while the bars are in</td>
+<td>done</td>
+<td>with a script's bars the interface is inactive and the key shortcuts and Escape are skipped (<code>src/Game.cpp</code>)</td>
+</tr>
+<tr>
+<td>Escape skips a cut scene or film</td>
+<td>partial</td>
+<td>Escape goes to the film player (<code>video::Get().EscapeKey</code>, <code>src/Game.cpp</code>); under a script's bars it does nothing; skipping a cut scene itself is not checked against the game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="fades">Fades</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fade the picture to a colour over whole seconds, or at once</td>
+<td>done</td>
+<td><code>SET_FADE</code> in <code>src/CHLApi.cpp</code> to <code>ScreenFade::FadeTo</code>, moved once a turn (<code>ScreenFade::ProcessTurn</code>)</td>
+</tr>
+<tr>
+<td>Fade back to normal over whole seconds</td>
+<td>done</td>
+<td><code>SET_FADE_IN</code> to <code>ScreenFade::FadeBackToNormal</code></td>
+</tr>
+<tr>
+<td>"fade finished": whether the fade is done</td>
+<td>done</td>
+<td><code>FADE_FINISHED</code> reads <code>ScreenFade::IsFinished</code></td>
+</tr>
+<tr>
+<td>A new land opens with no fade, no bars and no close clipping</td>
+<td>partial</td>
+<td>the script reboot clears the bars (<code>HelpSystem::Reset</code>) and the script camera (<code>script_camera::Reset</code>, <code>src/Game.cpp</code>); the screen fade is not reset, and there is no close clipping</td>
+</tr>
+</tbody>
+</table>
+<h2 id="close-shots">Close shots</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scripts bring the near plane right in for close shots</td>
+<td>todo</td>
+<td><code>SET_GRAPHICS_CLIPPING</code> is a stub in <code>src/CHLApi.cpp</code>; <code>near_clipping::k_Close</code> (<code>NearClipping.ScriptsCanClipClose</code>) is unused</td>
+</tr>
+<tr>
+<td>Close clipping is cleared when the scripts restart</td>
+<td>todo</td>
+<td>there is no close clipping to clear (the script reboot itself is in <code>src/Game.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

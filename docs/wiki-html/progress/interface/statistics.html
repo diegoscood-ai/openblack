@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Statistics — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="here" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#statistics">Statistics</a><ul>
+<li><a href="#getting-there">Getting there</a></li>
+<li><a href="#the-box">The box</a></li>
+<li><a href="#the-list-of-figures">The list of figures</a></li>
+<li><a href="#the-bar-graphs">The bar graphs</a></li>
+<li><a href="#the-line-graphs-player-stats">The line graphs (Player Stats)</a></li>
+<li><a href="#the-creatures-creature-stats">The creatures (Creature Stats)</a></li>
+<li><a href="#hidden-debug-and-cut">Hidden, debug and cut</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="statistics">Statistics</h1>
+<p>The game counts what each god and their people do and shows it in a Game Statistics box: six tabs of figures, a
+list of every figure with each player's value side by side, bar graphs comparing the players, line graphs of influence
+and population over the whole game, and on the creature tab each player's creature turning in 3D. This file is the
+box and how it is reached; what each figure counts, when, and what is saved is in
+<a href="statistics_counted.html">statistics_counted.md</a>.</p>
+<p><strong>Progress: 0/46 done, 2 partial — 2%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../hand-and-interface.html">The hand and the interface</a>.</p>
+<h2 id="getting-there">Getting there</h2>
+<p>Story lands and the end of the story show no statistics screen of their own, and no key opens the box: it is reached
+only from the in-game menu and from the end-of-game box of a network or skirmish game. Other places show some of the
+same figures in their own way: the temple's world scroll (<a href="../temple/main_room.html">../temple/main_room.md</a>), the
+creature cave's scrolls (<a href="../creature/creature_cave.html">../creature/creature_cave.md</a>), the creature's status panel
+(<a href="../creature/creature_mode.html">../creature/creature_mode.md</a>) and the creature's web page
+(<a href="../creature/lessons_and_help.html">../creature/lessons_and_help.md</a>).</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The in-game menu's Statistics tab opens the Game Statistics box</td>
+<td>todo</td>
+<td>the tab is there (<code>src/Gui/GameMenu.cpp</code>, <code>Action::Statistics</code>) and logs "This part of the menu is not available yet"; see <a href="main_menu.html">main_menu.md</a></td>
+</tr>
+<tr>
+<td>The box's first tab reads "Main Menu" and goes back to the in-game menu</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A "Back" button at the bottom left closes the box</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The end-of-game box of a network or skirmish game has a "Statistics" tab that opens the same box</td>
+<td>todo</td>
+<td>the end-of-game box itself (won or lost, scores, credits, Watch Game, Leave Game) is the multiplayer domain's: <a href="../multiplayer/network_play.html">../multiplayer/network_play.md</a>, <a href="../multiplayer/skirmish.html">../multiplayer/skirmish.md</a>; when each version of it opens: <a href="../story/losing_and_game_over.html">../story/losing_and_game_over.md</a></td>
+</tr>
+<tr>
+<td>Opened from the end of a game, the box's first tab reads "Game Over" and goes back to the end-of-game box</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>At the end of an online game the figures are also sent to Lionhead's statistics database</td>
+<td>n/a</td>
+<td>the server is gone; see <a href="statistics_counted.html">statistics_counted.md</a> and <a href="../pc_integration/online_services.html">../pc_integration/online_services.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-box">The box</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The box is built from the menu's dialog controls: tab buttons, a heading, a list, check boxes and a big button</td>
+<td>partial</td>
+<td>openblack has these controls (<code>src/Gui/Controls.cpp</code>, <code>src/Gui/Dialog.cpp</code>) but no statistics box</td>
+</tr>
+<tr>
+<td>Laid out in the menu's 800 by 600 space and scaled with it, like every dialog</td>
+<td>todo</td>
+<td>the scaling itself is done for the menu (<a href="main_menu.html">main_menu.md</a>)</td>
+</tr>
+<tr>
+<td>Six tabs along the top in small text: "Main Menu" (or "Game Over"), "Player Stats", "Creature Stats", "Town Stats", "Miracle Stats" and "Tech Stats"</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>It opens on Player Stats</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A heading, "Game Statistics", across the top of the box in medium text</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Below the heading, an area for graphs: three boxes side by side, each 220 by 230, at 40, 290 and 540 across</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Below the graphs, a list 720 wide and 150 tall of the tab's figures, in small text, scrolling with a bar and the wheel</td>
+<td>todo</td>
+<td>the menu's list scrolls the same way (<a href="main_menu.html">main_menu.md</a>)</td>
+</tr>
+<tr>
+<td>At the bottom, the "Back" button on the left and two check boxes, "Graphic" and "Numeric", which work as a pair: ticking one unticks the other</td>
+<td>todo</td>
+<td>Graphic starts ticked</td>
+</tr>
+<tr>
+<td>The figures are taken when the box opens (and each time a tab is picked) and don't change while it stays open</td>
+<td>todo</td>
+<td>the figures are counted (<code>src/Game/GameStats.cpp</code>, <a href="statistics_counted.html">statistics_counted.md</a>) but nothing takes them</td>
+</tr>
+<tr>
+<td>Only the first four players are shown: human and computer gods, never the neutral player</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The controls light up and click like the rest of the menu's</td>
+<td>todo</td>
+<td>see <a href="main_menu.html">main_menu.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-list-of-figures">The list of figures</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each row has the figure's name on the left and the players' values in the right-hand 300 pixels of the row</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>With Numeric ticked, each player's value is written in that player's colour, one column each</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>After the players' columns a Total column in white adds them up; it is left out for figures shown as percentages</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>In a one-player game only the Total column is drawn, with a "Total" heading over it</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>With Graphic ticked, a figure is drawn as one horizontal bar per player in the player's colour instead of numbers</td>
+<td>todo</td>
+<td>up to four bars a row</td>
+</tr>
+<tr>
+<td>Some figures are always written as numbers, whatever is ticked: the alignment changes, the creature's alignment change and every Tech Stats figure</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Values are written as whole numbers, as "value/most" (a value out of a maximum) or as a percentage of a maximum</td>
+<td>todo</td>
+<td>which figure uses which is in <a href="statistics_counted.html">statistics_counted.md</a></td>
+</tr>
+<tr>
+<td>Counts have no decimals; alignments, growth, satisfaction and the creature's damage, hunger and tiredness have two; chants and frame rates have one</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A bar's full length is the largest player's value, unless the figure has a fixed maximum (the "value/most" and percentage figures)</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Values are held between minus and plus 10^20 before they are shown</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Clicking a row shows that figure in the right-hand graph box as bars, one per player; clicking the row already shown does nothing</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-bar-graphs">The bar graphs</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each graph box holds one vertical bar per player in the player's colour</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>With one player, the bar is scaled to the figure's own maximum; with more, to the tallest player</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Picking Town Stats fills its graphs with Average Satisfaction Of Villagers, Total Buildings Built and Final Total Population</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Miracle Stats fills them with the aggressive, nice and creature miracle totals</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Tech Stats fills them with Min Frame Rate, Max Frame Rate and Total Lines Of Code Executed</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Player Stats shows Final Area Of Influence on the right, with the two line graphs in place of the other two boxes</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Creature Stats shows the creatures in place of the first two boxes; the right-hand box stays empty until a row is clicked</td>
+<td>todo</td>
+<td>the game also fills the two hidden boxes with Battles Fought and Battles Won, which never show</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-line-graphs-player-stats">The line graphs (Player Stats)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Two graphs on the left, each 470 by 100: "Influence" above and "Population" below</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Population draws one line per player in the player's colour across the whole game so far, two pixels thick</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Influence stacks the players' shares of the summed influence at each moment, filled bands that always reach the top</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Each graph is a bevelled box with its name written under its bottom edge with a shadow; the name lights up when the pointer is over the graph</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Population has horizontal guide lines: their step starts at a quarter and doubles until they are spread out, every fourth line brighter and the zero line white</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>With the pointer over a graph, the value at the pointer's height is written by its left edge: Population with two decimals when the graph's top is 10 or less, else a whole number; Influence as a percentage</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The graphs cover the whole game: they hold 500 points, each the average of 50 game turns at first; when full, pairs are merged and each point then covers twice as many turns</td>
+<td>partial</td>
+<td>the history store is ported (<code>game_stats::History</code>, test <code>GameStats.HistoryAveragesAndHalves</code>), but nothing adds to it and nothing draws it; see <a href="statistics_counted.html">statistics_counted.md</a></td>
+</tr>
+<tr>
+<td>Only finished points are drawn, not the one still being averaged</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-creatures-creature-stats">The creatures (Creature Stats)</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each player's creature is drawn in 3D in a box filled with the player's colour</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>The creatures turn slowly on the spot, once every 8.2 seconds, all in step</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>One creature fills the area of two graph boxes; two stand side by side; three are two above and one centred below; four are two by two</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="hidden-debug-and-cut">Hidden, debug and cut</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The text tables hold labels among the box's that nothing uses: "Advanced", a second "Back", "Credits" and "Total Polygons Drawn"</td>
+<td>n/a</td>
+<td>unused by the game; nothing to do</td>
+</tr>
+<tr>
+<td>The text tables hold labels for five creature miracles the box never lists (Hungry, Frightened, Tired, Ill, Thirsty)</td>
+<td>n/a</td>
+<td>unused by the game; see <a href="statistics_counted.html">statistics_counted.md</a></td>
+</tr>
+<tr>
+<td>Older versions saved the graph lines as objects of their own; the save code still names that type as obsolete</td>
+<td>n/a</td>
+<td>nothing to load</td>
+</tr>
+<tr>
+<td>With the game's debug messages on, the local player's population share, births, deaths, abodes and wonders are written every turn</td>
+<td>todo</td>
+<td>openblack's debug views (<a href="../debug/diagnostics.html">../debug/diagnostics.md</a>) don't show these</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

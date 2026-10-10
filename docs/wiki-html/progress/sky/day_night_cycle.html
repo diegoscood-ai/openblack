@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Day and night — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="here" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#day-and-night">Day and night</a><ul>
+<li><a href="#the-clock">The clock</a></li>
+<li><a href="#what-night-changes">What night changes</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="day-and-night">Day and night</h1>
+<p>The world runs through day, dusk and night on a clock of its own, about 28 minutes a day by default. Each land's
+script sets the length of the day and how much of it is night; challenge scripts can stop, set or move the clock.</p>
+<p><strong>Progress: 20/24 done, 2 partial — 88%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../day-night-weather.html">Day, night and weather in the original</a>, <a href="../../rendering.html">World rendering: original versus openblack</a>.</p>
+<h2 id="the-clock">The clock</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The time of day runs evenly, a whole day in a set number of seconds of game time, moving on once a turn</td>
+<td>done</td>
+<td><code>DayNightClock::ProcessTurn</code> (<code>src/3D/DayNightClock.cpp</code>)</td>
+</tr>
+<tr>
+<td>The default day lasts 1700 seconds, 8.3% of it full night and 7% of it changing</td>
+<td>done</td>
+<td><code>DayNightClock::k_DefaultDuration</code>, <code>k_DefaultNight</code>, <code>k_DefaultChange</code></td>
+</tr>
+<tr>
+<td>A land opens at noon with the clock running</td>
+<td>done</td>
+<td><code>DayNightClock::Reset</code> from <code>Game::LoadMap</code> (<code>src/Game.cpp</code>)</td>
+</tr>
+<tr>
+<td>The sky turns at four hours of each half day: full night, the start and end of dusk, full day</td>
+<td>done</td>
+<td><code>DayNightClock::SetCycle</code> and <code>sky_type::SetThresholds</code> (<code>src/3D/SkyType.cpp</code>); test <code>test/test_sky_type.cpp</code>; fireflies follow these stages: <a href="../nature/fireflies.html#night-and-day">../nature/fireflies.md</a></td>
+</tr>
+<tr>
+<td>Each land's script sets the day's length and its night and change fractions</td>
+<td>done</td>
+<td><code>FeatureScriptCommands::SetNighttime</code> (SET_NIGHTTIME, <code>src/LHScriptX/FeatureScriptCommands.cpp</code>)</td>
+</tr>
+<tr>
+<td>Scripts see a stretched time in which those four hours fall at 3.5, 7.5, 8 and 8.5</td>
+<td>done</td>
+<td><code>DayNightClock::GetScriptTime</code></td>
+</tr>
+<tr>
+<td>Scripts jump the clock to an hour; the sky's dome is rebuilt at once</td>
+<td>done</td>
+<td>SET_GAME_TIME in <code>src/CHLApi.cpp</code> to <code>DayNightClock::SetScriptTime</code> and <code>sky_type::Jump</code></td>
+</tr>
+<tr>
+<td>Scripts read the hour</td>
+<td>done</td>
+<td>GET_GAME_TIME in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>Scripts move the clock to an hour over some seconds, the short way round</td>
+<td>done</td>
+<td>MOVE_GAME_TIME in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>Scripts stop and restart the clock</td>
+<td>done</td>
+<td>GAME_TIME_ON_OFF in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>Scripts change the day's length and fractions, and reset them to the default</td>
+<td>done</td>
+<td>SET_GAME_TIME_PROPERTIES and RESET_GAME_TIME_PROPERTIES in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>The clock stops while the game is paused</td>
+<td>done</td>
+<td>No game turn runs while paused (the clock moves once a turn)</td>
+</tr>
+<tr>
+<td>The clock is saved and loaded with the game</td>
+<td>todo</td>
+<td>openblack has no saved games. See ../engine/</td>
+</tr>
+<tr>
+<td>Scripts read the real date and time of the player's computer</td>
+<td>todo</td>
+<td>GET_REAL_TIME, GET_REAL_DAY, GET_REAL_MONTH and GET_REAL_YEAR are stubs in <code>src/CHLApi.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-night-changes">What night changes</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The sky's dome turns from day through dusk to night</td>
+<td>done</td>
+<td>see sky_dome.md</td>
+</tr>
+<tr>
+<td>The land's and models' light follows the time of day</td>
+<td>done</td>
+<td>see lighting.md</td>
+</tr>
+<tr>
+<td>The sun sets and the moon rises</td>
+<td>done</td>
+<td>see sun_and_moon.md</td>
+</tr>
+<tr>
+<td>Windows of homes with people in light up at night</td>
+<td>done</td>
+<td><code>night_lights::WindowColour</code> (<code>src/3D/NightLights.cpp</code>), with the abode's people at home (<code>RenderingSystem.cpp</code>); see ../building/</td>
+</tr>
+<tr>
+<td>Village lanterns and fires glow at night and light the land</td>
+<td>partial</td>
+<td>Street lanterns and the gate's lamps (<code>night_lights::Update</code>, <code>src/3D/NightLights.cpp</code>, run by <code>VillageLightSystem::Update</code>, <code>Locator::villageLightSystem</code>); the temple's lanterns are not lit; see ../town/ and ../rendering/</td>
+</tr>
+<tr>
+<td>The hand gives off light at night</td>
+<td>done</td>
+<td><code>src/Graphics/HandLight.cpp</code>; see ../hand/</td>
+</tr>
+<tr>
+<td>Villagers go home to bed at night</td>
+<td>partial</td>
+<td>see ../villager/daily_routine.md</td>
+</tr>
+<tr>
+<td>Night sounds (crickets, owls) replace the day's</td>
+<td>done</td>
+<td>The sound map by the sky type (<code>src/Audio/Services/SoundMap.cpp</code>); see ../audio/</td>
+</tr>
+<tr>
+<td>The haze closes in at dusk</td>
+<td>done</td>
+<td><code>sky_type::HazeFactor</code> in <code>LandLightTable::Build</code> (<code>src/3D/LandLightTable.cpp</code>)</td>
+</tr>
+<tr>
+<td>Temperature falls at night and rises by day</td>
+<td>done</td>
+<td>The climate's hour factor (<code>src/ECS/Weather/Climate.cpp</code>); see ../weather/climates.md</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

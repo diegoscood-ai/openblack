@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Water — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="here" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#water">Water</a><ul>
+<li><a href="#casting-and-lifetime">Casting and lifetime</a></li>
+<li><a href="#drops">Drops</a></li>
+<li><a href="#putting-out-fires">Putting out fires</a></li>
+<li><a href="#fields">Fields</a></li>
+<li><a href="#trees">Trees</a></li>
+<li><a href="#look">Look</a></li>
+<li><a href="#sound">Sound</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="water">Water</h1>
+<p>A held miracle: a small rain cloud follows the hand and drops water on the land below for a few seconds. It puts out
+fires, sows and ripens fields, grows young trees and plants new ones in forests. The power-up ("extreme") version
+rains over a wider cone and grows any tree past its normal size, but never plants.</p>
+<p>Given by gold scroll: the monk's two water one-shot miracles in
+<a href="../story/gold_scrolls/fire_fire_im_on_fire.html#the-monk-helps">Fire! Fire! I'm on Fire!</a>, if his quest is done.</p>
+<p><strong>Progress: 32/41 done, 6 partial — 85%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../miracles.html">Miracles one by one</a>.</p>
+<h2 id="casting-and-lifetime">Casting and lifetime</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The rain is held: while the player keeps it, the drops fall under the hand and follow it each turn</td>
+<td>done</td>
+<td>The seed's in-hand cast (<code>src/ECS/Systems/Implementations/HandSpellSeed.cpp</code>); the spell's cast point follows the hand each turn (<code>src/Magic/Core/Spell.cpp</code>) and <code>src/Magic/Spells/SpellWater.cpp</code> drops under it</td>
+</tr>
+<tr>
+<td>It lasts 6 s for a player, 10 s for a computer player; a creature's lasts until it lets go</td>
+<td>partial</td>
+<td>The player's 6 s timer is read from the tables (<code>src/Magic/MagicTables.cpp</code>; test <code>Water.realData</code>); there are no computer players, and creatures cast nothing</td>
+</tr>
+<tr>
+<td>It costs 5000 (7000 extreme) to cast and 10 prayer power per drop; nothing per turn</td>
+<td>done</td>
+<td>Cost to create and cost per drop from the WATER rows; nothing per turn (<code>src/Magic/Core/Chants.cpp</code>); test <code>Water.realData</code></td>
+</tr>
+<tr>
+<td>While the player casts, the hand bobs up 8 m and back over an 8 s loop, and stops when the rain ends</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Sprinkle.cpp</code> starts the hand raise, unclamped, <code>src/ECS/Systems/Implementations/HandGrain.cpp</code>; the close-down stops it (<code>src/Magic/Core/Spell.cpp</code>)</td>
+</tr>
+<tr>
+<td>A scripted water miracle rains from a fixed point for nobody, with no hand bob</td>
+<td>done</td>
+<td><code>src/Magic/Script/CHLSpells.cpp</code> (SPELL_AT_POS, the neutral player); the hand raise only starts for this computer's own cast (<code>src/Particles/Rules/Sprinkle.cpp</code>)</td>
+</tr>
+<tr>
+<td>A creature can cast water from above, its hand raised over the target</td>
+<td>todo</td>
+<td>Creatures cast no miracles in our tree (nothing in <code>src/Creature/</code> casts a spell)</td>
+</tr>
+<tr>
+<td>A creature judges whether a field or a growing tree would gain from water before watering it</td>
+<td>todo</td>
+<td>No creature reasoning about watering</td>
+</tr>
+<tr>
+<td>The rain and the forests' shared planting delay are kept in a saved game</td>
+<td>todo</td>
+<td>No game save system</td>
+</tr>
+</tbody>
+</table>
+<h2 id="drops">Drops</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>One drop falls each turn at a random point of the cone under the cloud: 0.3–4.5 m out (0.3–8.7 m extreme)</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellWater.cpp</code> (Process: one drop a turn, radius 6 or 12 times 0.7 plus 0.3); test <code>Water.dropDistanceAndReach</code></td>
+</tr>
+<tr>
+<td>Each drop pays its 10 and soaks a 1 m circle at ground level</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellWater.cpp</code> (a point event with the WATER effect: burn -4000 within 1 m, cost per event 10; its result is not checked)</td>
+</tr>
+<tr>
+<td>A drop reaches every object in the nine cells around it whose edge lies within reach across the ground</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellWater.cpp</code> (nine cells, fixed then mobile lists, edge within 2.5 m, strict)</td>
+</tr>
+<tr>
+<td>A field counts as 5 m wide for the drop's reach</td>
+<td>done</td>
+<td><code>ecs::object::GetRadius</code> (5 m for a field), used by <code>src/Magic/Spells/SpellWater.cpp</code>; test <code>Water.dropDistanceAndReach</code></td>
+</tr>
+<tr>
+<td>Water hurts nothing, changes no weather and raises no water level</td>
+<td>done</td>
+<td>The WATER effect values are only the cooling (<code>src/ECS/Effects/EffectValues.cpp</code>)</td>
+</tr>
+<tr>
+<td>The miracle's own drops don't count as rain, so a fireball in it doesn't steam from rain</td>
+<td>done</td>
+<td>The rain state comes only from the weather (<code>src/ECS/Weather/</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="putting-out-fires">Putting out fires</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A drop cools anything already burning; light things go out at once, heavy ones need several drops</td>
+<td>done</td>
+<td><code>src/ECS/Fire/FireEffect.cpp</code> (the heat of the drop's burn -4000 cools an existing fire)</td>
+</tr>
+<tr>
+<td>A drop never sets anything alight or makes a fire where there was none</td>
+<td>done</td>
+<td><code>src/ECS/Fire/FireEffect.cpp</code> (negative heat only acts on an existing fire)</td>
+</tr>
+<tr>
+<td>A burning villager under the rain stops burning and goes back to what it was doing</td>
+<td>done</td>
+<td>The villager's own fire is cooled like any other (<code>src/ECS/Fire/FireEffect.cpp</code>), and <code>src/ECS/Systems/Implementations/VillagerFire.cpp</code> takes it back to work</td>
+</tr>
+<tr>
+<td>People nearby come to watch the water put a fire out, one reaction per miracle at a time</td>
+<td>partial</td>
+<td>The spell starts the putting-out-fire reaction once (<code>src/Magic/Spells/SpellWater.cpp</code>), but villagers have no handler for it (<code>src/ECS/Systems/Implementations/VillagerReactions.cpp</code>)</td>
+</tr>
+<tr>
+<td>The water puts out a fireball rolling in it</td>
+<td>done</td>
+<td>The ball's fire is cooled (<code>src/ECS/Fire/FireEffect.cpp</code>) and the ball goes below its deletion temperature (<code>src/Magic/Objects/MagicFireBall.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="fields">Fields</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>An unsown or half-sown field is sown fully by one drop</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellWater.cpp</code> (ApplyWaterSpell), <code>src/ECS/Fields.cpp</code> (ApplyWaterSpellToField)</td>
+</tr>
+<tr>
+<td>A sown field ripens faster: each drop ages the crop and adds food (about 0.58 per drop) until harvest age</td>
+<td>done</td>
+<td><code>src/ECS/Fields.cpp</code> (growth plus 2 and food plus 2 x 350 / 1200 per drop until 1200); test <code>Water.realData</code></td>
+</tr>
+<tr>
+<td>A burning field's crop is left as it is</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellWater.cpp</code> (a burning field is not sown or grown)</td>
+</tr>
+<tr>
+<td>The player's own creature may learn to water crops by watching each drop</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellWater.cpp</code> (<code>ecs::creature_mimic::Consider</code> per drop on a field, <code>src/ECS/CreatureMimic.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="trees">Trees</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Normal water grows a young, still-growing tree a little with each drop, up to its full size</td>
+<td>done</td>
+<td><code>src/ECS/Trees.cpp</code> (ApplyWaterSpell: the tree's water accelerator times its growth)</td>
+</tr>
+<tr>
+<td>Extreme water grows any tree, even a full-grown one, past its normal size, ever more slowly up to about three times</td>
+<td>done</td>
+<td><code>src/ECS/Trees.cpp</code> (with extreme water, the maximum is raised, slowing as the size nears 3)</td>
+</tr>
+<tr>
+<td>A growing tree rustles with one of the tree-growth sounds</td>
+<td>done</td>
+<td><code>src/ECS/Trees.cpp</code> (one of the nine tree-grow samples at the tree)</td>
+</tr>
+<tr>
+<td>Normal water on a full-grown forest tree plants a new young tree nearby, at most once every 40 turns across the whole island; natural forest spread shares the same delay</td>
+<td>done</td>
+<td><code>src/ECS/Trees.cpp</code> (more than 40 turns since the island's last new tree, shared with the forests' own spread)</td>
+</tr>
+<tr>
+<td>The new tree's spot is searched over up to 160 tries 5–9 m away, spots on water allowed</td>
+<td>done</td>
+<td><code>src/ECS/Trees.cpp</code> (PlantTreeNear: 32 rings of 5 tries, 5 to 9 m; a water cell is always free)</td>
+</tr>
+<tr>
+<td>A spot is refused only where it hits a fixed object's own collision shape</td>
+<td>partial</td>
+<td><code>src/ECS/Trees.cpp</code> (IsFreeForTree tests the map cells' fixed collide data, <code>ecs::map_cells::CollideWithFixed</code>, not each object's own shape)</td>
+</tr>
+<tr>
+<td>The new tree starts tiny and grows to 0.8–1.2 of its kind's size, turned at random</td>
+<td>done</td>
+<td><code>src/ECS/Trees.cpp</code> (size 0.1, most 0.8 to 1.2, a random angle)</td>
+</tr>
+<tr>
+<td>Trees grown by the forest miracle plant their seedlings into that miracle's forest, which removes them with it</td>
+<td>done</td>
+<td><code>src/ECS/Trees.cpp</code> (the sapling joins the parent's forest, which the forest miracle removes with it)</td>
+</tr>
+<tr>
+<td>Planting a tree counts as a good deed for the caster</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellWater.cpp</code> (<code>ecs::effects::alignment::UpdateForTree</code>); the player's statistic is only kept in multiplayer games, as in the original</td>
+</tr>
+</tbody>
+</table>
+<h2 id="look">Look</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A pale blue mist cloud forms at the gesture point, kept within 58 m of the land; bigger when extreme</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Sprinkle.cpp</code> (at most 58 m above the land), <code>src/Particles/Creators/Mist.cpp</code>; test <code>Water.mistCreatorMakesTheCloudAtom</code></td>
+</tr>
+<tr>
+<td>A rain cone streams from the cloud to the land, wider and taller when extreme</td>
+<td>done</td>
+<td><code>src/Particles/Creators/Mesh.cpp</code> (the animated textured rain cone)</td>
+</tr>
+<tr>
+<td>Cloud and cone fade out over 1 s when the rain ends and are gone 2.2 s after</td>
+<td>done</td>
+<td>Particle data, run by <code>src/Particles/PSys.cpp</code></td>
+</tr>
+<tr>
+<td>Every 0.1 s a ring spreads on the land or water where a drop fell, size 2 (4 extreme), in a random shade</td>
+<td>done</td>
+<td><code>src/Magic/Spells/SpellWater.cpp</code> (AddDropRing into <code>src/ECS/WaterRings.cpp</code>, colour from five shades); test <code>Water.ringTimingInSinglePrecision</code></td>
+</tr>
+<tr>
+<td>Old rings keep drifting with the wind the way a reused ring slot did in the game</td>
+<td>partial</td>
+<td><code>src/ECS/WaterRings.h</code>: the pool is a list, not the original's slots, so the drift is not reproduced</td>
+</tr>
+<tr>
+<td>The held seed shows a mist and a sparkling trail on the hand (bigger when extreme)</td>
+<td>partial</td>
+<td>The in-hand effect is the level's in-hand particles (<code>src/Magic/Hand/HandMagicFX.cpp</code>); our wiki notes it has not been checked in a screenshot</td>
+</tr>
+<tr>
+<td>A water seed on a dispenser shows its holder effect</td>
+<td>partial</td>
+<td>The seed's holder particles (<code>src/Worship/SpellSeedGraphic.cpp</code>); not checked in a screenshot. See <a href="dispensers_and_seeds.html">dispensers_and_seeds.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="sound">Sound</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A rain loop plays while the water falls and fades out when it stops</td>
+<td>done</td>
+<td>The particle sound rules (<code>src/Particles/Rules/Sound.cpp</code>, <code>src/Audio/Services/SpellSounds</code>)</td>
+</tr>
+<tr>
+<td>There is no cast, drop, splash or end sound</td>
+<td>done</td>
+<td>Matches the particle data</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

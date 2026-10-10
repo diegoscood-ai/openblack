@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Challenge natives: creatures — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="here" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#challenge-natives-creatures">Challenge natives: creatures</a><ul>
+<li><a href="#used-by-the-shipped-scripts">Used by the shipped scripts</a></li>
+<li><a href="#not-used-by-the-shipped-scripts">Not used by the shipped scripts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="challenge-natives-creatures">Challenge natives: creatures</h1>
+<p>The challenge scripts' functions for creatures: creating and loading them, their desires, actions and learning, the leash, fighting, development and the rival gods' creatures. The game has 464 of these functions in all; the language statement each comes from is shown in italics, and "called" counts are calls in the shipped <code>challenge.chl</code>. How the virtual machine runs them is in <a href="../engine/script_vm.html">../engine/script_vm.md</a>; what each challenge is about is in <a href="../story/index.html">../story/</a>.</p>
+<p><strong>Progress: 11/64 done, 5 partial — 21%</strong></p>
+<h2 id="used-by-the-shipped-scripts">Used by the shipped scripts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Creates a creature of a species from another creature's mind at a position: <em>create_creature_from_creature ‹creature› ‹scale› at ‹position› ‹type›</em> (called 5 times in 5 scripts)</td>
+<td>todo</td>
+<td><code>CreatureCreateRelativeToCreature</code> in <code>src/CHLApi.cpp</code> logs "not implemented" and pushes 0</td>
+</tr>
+<tr>
+<td>Teaches a creature every action: <em>teach ‹creature› all</em> (called once in 1 script)</td>
+<td>todo</td>
+<td><code>CreatureLearnEverything</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Teaches a creature (or makes it forget) an action on a kind of object: <em>teach ‹creature› ‹type of action› ‹action› ‹knows›</em> (called 137 times in 5 scripts)</td>
+<td>todo</td>
+<td><code>CreatureSetKnowsAction</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Sets how much a creature wants to do the things on its agenda: <em>set ‹creature› priority ‹priority›</em> (called once in 1 script)</td>
+<td>todo</td>
+<td><code>CreatureSetAgendaPriority</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Makes a creature do an action (eat, throw, pick up, cast, dance and so on) on an object: <em>force ‹value› ‹value› ‹value› ‹value›</em> (called 168 times in 46 scripts)</td>
+<td>todo</td>
+<td><code>CreatureDoAction</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Whether a creature is holding an object in its hand: <em>‹obj› in ‹creature› hand</em> (called 80 times in 29 scripts)</td>
+<td>todo</td>
+<td><code>InCreatureHand</code> logs "not implemented" and pushes false</td>
+</tr>
+<tr>
+<td>Sets how strong one of a creature's desires is: <em>set ‹creature› desire ‹desire› to ‹value›</em> (called 5 times in 3 scripts)</td>
+<td>todo</td>
+<td><code>CreatureSetDesireValue</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Turns one of a creature's desires on or off: <em>set ‹creature› desire ‹desire› ‹active›</em> (called 5 times in 3 scripts)</td>
+<td>todo</td>
+<td><code>CreatureSetDesireActivated78</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Turns one of a creature's desires on or off (the second form, taking the creature as an object): <em>set ‹creature› desire ‹active› ‹value›</em> (called 5 times in 4 scripts)</td>
+<td>todo</td>
+<td><code>CreatureSetDesireActivated79</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Sets the most one of a creature's desires can grow to: <em>set ‹creature› desire maximum ‹desire› to ‹value›</em> (called 4 times in 2 scripts)</td>
+<td>todo</td>
+<td><code>CreatureSetDesireMaximum</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives the player a creature (makes an existing creature the player's own): <em>set player_creature to ‹creature›</em> (called 3 times in 1 script)</td>
+<td>todo</td>
+<td><code>CreatureSetPlayer</code> logs "not implemented" (the tutorial's offered creatures are not given to the player)</td>
+</tr>
+<tr>
+<td>Gives the object a creature is going for: <em>get target object for ‹obj›</em> (called once in 1 script)</td>
+<td>todo</td>
+<td><code>GetTargetObject</code> logs "not implemented" and pushes 0</td>
+</tr>
+<tr>
+<td>Takes a creature's leash off: <em>detach ‹creature› leash</em> (called 20 times in 12 scripts)</td>
+<td>done</td>
+<td><code>DetachObjectLeash</code>: <code>creature_leash::script::Detach</code> (<code>src/Creature/LeashScript.cpp</code>) takes the leash off; <code>test/creature/test_leash_script.cpp</code></td>
+</tr>
+<tr>
+<td>Gives a creature a single desire for a time, overriding the rest: <em>set ‹creature› only desire ‹desire› [time ‹value›]</em> (called 8 times in 5 scripts)</td>
+<td>todo</td>
+<td><code>SetCreatureOnlyDesire</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Takes the single desire off a creature: <em>set ‹creature› disable only desire</em> (called 3 times in 3 scripts)</td>
+<td>todo</td>
+<td><code>SetCreatureOnlyDesireOff</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives a player's creature: <em>get player ‹player› creature</em> (called 97 times in 64 scripts)</td>
+<td>done</td>
+<td><code>CallPlayerCreature</code>: <code>ecs::player_creature::PlayersCreature</code> (<code>src/ECS/PlayerCreature.cpp</code>), the creature the player leads handed to the script as a found thing, 0 for none</td>
+</tr>
+<tr>
+<td>Sets a creature's stage of development (how much it knows and how big it is): <em>set ‹creature› ‹stage› development</em> (called 18 times in 17 scripts)</td>
+<td>partial</td>
+<td><code>SetCreatureDevStage</code>: <code>ecs::player_creature::SetDevelopmentStage</code> sets the mind's development phase; its desires follow at the mind's next turn, where the original changes them at once</td>
+</tr>
+<tr>
+<td>Swaps the player's creature for another species, keeping its mind: <em>swap creature from ‹from creature› to ‹to creature›</em> (called 2 times in 2 scripts)</td>
+<td>todo</td>
+<td><code>SwapCreature</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Whether a creature is on a leash: <em>‹object› leashed</em> (called 10 times in 7 scripts)</td>
+<td>done</td>
+<td><code>IsLeashed</code>: <code>creature_leash::script::IsLeashed</code></td>
+</tr>
+<tr>
+<td>Sets where a creature lives: <em>set ‹creature› home position ‹position›</em> (called 4 times in 2 scripts)</td>
+<td>done</td>
+<td><code>SetCreatureHome</code>: <code>ecs::player_creature::SetHome</code>, x and z through the fixed point, on the ground; the home then follows the temple pen each turn</td>
+</tr>
+<tr>
+<td>Whether a creature is fighting: <em>‹object› fighting</em> (called 16 times in 6 scripts)</td>
+<td>todo</td>
+<td><code>IsFighting</code> logs "not implemented" and pushes false</td>
+</tr>
+<tr>
+<td>Whether a creature's leash works: <em>enable/disable leash on ‹creature›</em> (called 15 times in 6 scripts)</td>
+<td>done</td>
+<td><code>SetLeashWorks</code>: <code>creature_leash::script::SetWorks</code>, set when the popped value is not zero</td>
+</tr>
+<tr>
+<td>Loads the player's own creature into the land at a position: <em>load my_creature at ‹position›</em> (called 4 times in 4 scripts)</td>
+<td>partial</td>
+<td><code>LoadMyCreature</code>: <code>ecs::player_creature::LoadMyCreature</code> loads the profile's mind file (<code>--creature-file</code>) through the mind cache and creates the creature at the middle of the point's cell; the fizz is not ported and the creation's random draws are not the original's</td>
+</tr>
+<tr>
+<td>Gives the position of a creature's backside (where it poops): <em>arse position of ‹object›</em> (called once in 1 script)</td>
+<td>todo</td>
+<td><code>GetArsePosition</code> logs "not implemented" and pushes a zero position</td>
+</tr>
+<tr>
+<td>Whether a creature is leashed to an object: <em>‹object› leashed to ‹target›</em> (called 7 times in 4 scripts)</td>
+<td>done</td>
+<td><code>IsLeashedToObject</code>: <code>creature_leash::script::IsLeashedToThing</code>, either order of the two things</td>
+</tr>
+<tr>
+<td>Gives how strongly a creature is interacting with something: <em>get ‹creature› interaction magnitude</em> (called 3 times in 2 scripts)</td>
+<td>todo</td>
+<td><code>GetInteractionMagnitude</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Whether a species of creature is available to choose: <em>creature ‹type› is available</em> (called 5 times in 1 script)</td>
+<td>todo</td>
+<td><code>IsCreatureAvailable</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives how many times a creature has done an action: <em>number of times action ‹action› by ‹creature›</em> (called 4 times in 1 script)</td>
+<td>todo</td>
+<td><code>GetActionCount</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives which kind of leash a creature is on: <em>get ‹object› leash type</em> (called once in 1 script)</td>
+<td>partial</td>
+<td><code>GetObjectLeashType</code>: the leash picked at the creature's player's temple, as the original (<code>worship::temple_leash::PickOf</code>, <code>leash_posts::ScriptLeashType</code>): 0 with no temple, -1 for none; nothing picks at the temple yet but the debug window</td>
+</tr>
+<tr>
+<td>Marks a creature as being in a development (training) script: <em>enable/disable ‹creature› development script</em> (called 12 times in 11 scripts)</td>
+<td>done</td>
+<td><code>CreatureInDevScript</code>: <code>ecs::player_creature::SetInDevScript</code></td>
+</tr>
+<tr>
+<td>Whether the leash is drawn: <em>enable/disable leash draw</em> (called 8 times in 2 scripts)</td>
+<td>done</td>
+<td><code>SetDrawLeash</code>: the camera control's draw-leash setting, read by the leash draw</td>
+</tr>
+<tr>
+<td>Makes two creatures friends or not: <em>enable/disable ‹creature› friends with ‹target creature›</em> (called 3 times in 2 scripts)</td>
+<td>todo</td>
+<td><code>CreatureForceFriends</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Loads a creature of a species from a mind file for a player at a position (the rival gods' creatures): <em>load creature ‹type› ‹mind filename› player ‹player› at ‹position›</em> (called 4 times in 4 scripts)</td>
+<td>todo</td>
+<td><code>LoadCreature</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Sets how a creature's creed (its learnt behaviour) is shown: hand, scale, power, time: <em>set ‹creature› creed properties hand ‹hand glow› scale ‹scale› power ‹power› time ‹time›</em> (called 12 times in 4 scripts)</td>
+<td>todo</td>
+<td><code>SetCreatureCreedProperties</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives a creature a name: <em>set ‹creature› name ‹text id›</em> (called 8 times in 8 scripts)</td>
+<td>todo</td>
+<td><code>SetCreatureName</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Puts a player's leash on or takes it off, as the leash key does: <em>toggle player ‹player› leash</em> (called 4 times in 3 scripts)</td>
+<td>partial</td>
+<td><code>ToggleLeash</code>: <code>creature_leash::script::Toggle</code>, the leash key for the script player's creature; which creatures it lets through is not compared with the original</td>
+</tr>
+<tr>
+<td>Lets a creature fight on its own or not: <em>enable/disable ‹creature› auto fighting</em> (called 4 times in 1 script)</td>
+<td>todo</td>
+<td><code>SetCreatureAutoFighting</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Queues a fight move for a creature: <em>queue ‹creature› fight move ‹move›</em> (called 3 times in 1 script)</td>
+<td>todo</td>
+<td><code>SetCreatureQueueFightMove</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives a creature's fight action: <em>get ‹creature› fight action</em> (called 5 times in 1 script)</td>
+<td>todo</td>
+<td><code>GetCreatureFightAction</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives how many hits a creature has queued in a fight: <em>get ‹creature› fight queue hits</em> (called 2 times in 1 script)</td>
+<td>todo</td>
+<td><code>CreatureFightQueueHits</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Lets the player's creature into the temple or keeps it out: <em>enable/disable creature in temple</em> (called 3 times in 3 scripts)</td>
+<td>todo</td>
+<td><code>SetCreatureInTemple</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Lets a creature's size follow the land's scale, or not: <em>enable/disable ‹creature› auto scale [‹size›]</em> (called 8 times in 7 scripts)</td>
+<td>todo</td>
+<td><code>CreatureAutoscale</code> logs "not implemented"</td>
+</tr>
+</tbody>
+</table>
+<h2 id="not-used-by-the-shipped-scripts">Not used by the shipped scripts</h2>
+<p>The game has these but no shipped script calls them; mods and fan-made challenges can.</p>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Turns all of a creature's desires off: <em>turn off all of a creature's desires (no statement in the language)</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>CreatureTurnOffAllDesires</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Teaches a creature whether an action is good to do with a kind of object: <em>teach a distinction about an action (no statement in the language)</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>CreatureLearnDistinctionAboutActivityObject</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Resets the count of how many times a creature has done an action: <em>initialise number of ‹value› for ‹value›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>CreatureInitialiseNumTimesPerformedAction</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives how many times a creature has done an action: <em>get number of ‹value› for ‹value›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>CreatureGetNumTimesActionPerformed</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Turns the creature's own help (its comments on what it is doing) on or off: <em>creature help on/off (no statement in the language)</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>SetCreatureHelp</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Whether a creature's strongest desire is a given one: <em>desire of ‹value› is ‹value›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>CreatureDesireIs</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Makes a creature finish what it is doing at once: <em>force ‹creature› finish</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>CreatureForceFinish</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Ties a creature's leash to an object: <em>attach ‹creature› leash to ‹object›</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>AttachObjectLeashToObject</code>: <code>creature_leash::script::AttachToThing</code> ties the leash, either order of the two things</td>
+</tr>
+<tr>
+<td>Ties a creature's leash to the player's hand: <em>attach ‹creature› leash to hand</em> (not called by the shipped scripts)</td>
+<td>partial</td>
+<td><code>AttachObjectLeashToHand</code>: <code>creature_leash::script::AttachToHand</code> unties a tied leash or puts one on; the original always unties and turns it on, and ours refuses a creature its player cannot lead</td>
+</tr>
+<tr>
+<td>Lets a creature attack its own player's town or not: <em>enable/disable ‹value› attack own town</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>SetAttackOwnTown</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Whether a creature goes back to how it was when the spells on it wear off: <em>enable/disable ‹value› spell reversion</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>CreatureSpellReversion</code> (<code>src/CHLApi.cpp</code>): pops the creature, then the flag, and sets it through <code>spell_creature::SetReversion</code>; no thing logs "Thing not found!", anything but a creature "Thing not creature!"; tests <code>SpellCreatureTest.TheReversionNativePopsTheCreatureThenTheFlag</code>, <code>SpellCreatureTest.AScriptTurnsReversionOffForACreatureOnly</code></td>
+</tr>
+<tr>
+<td>Gives how strong one of a creature's desires is: <em>get ‹value› desire ‹value›</em> (not called by the shipped scripts)</td>
+<td>done</td>
+<td><code>GetDesire</code>: <code>ecs::town_desire::ScriptGetDesire</code> (<code>src/ECS/Town/TownDesire.cpp</code>), a town's raw desire, 0 for anything else. Our wiki differs: the original reads a town's desire, not a creature's (<a href="../../villagers.html#town-desires-and-distribution">villagers</a>)</td>
+</tr>
+<tr>
+<td>Teaches a creature everything except one action: <em>teach ‹value› all excluding ‹value›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>CreatureLearnEverythingExcluding</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Turns a creature's reactions on or off: <em>enable/disable ‹value› reaction</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>CreatureReaction</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Whether a creature is interacting with an object: <em>‹value› interacting with ‹value›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>CreatureInteractingWith</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives the species a creature is opposite to: <em>get ‹god› opposite creature type</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>OpposingCreature</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Gives the position of a creature's belly: <em>belly position of ‹object›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>GetBellyPosition</code> logs "not implemented" and pushes a zero position</td>
+</tr>
+<tr>
+<td>Whether a creature is fighting on its own: <em>‹creature› is auto fighting</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>IsAutoFighting</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Queues a fight miracle for a creature: <em>queue ‹creature› fight spell ‹spell›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>SetCreatureQueueFightSpell</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Queues a fight step for a creature: <em>queue ‹creature› fight step ‹step›</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>SetCreatureQueueFightStep</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Lets a creature leave a fight or not: <em>enable/disable fight exit</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>SetFightExit</code> logs "not implemented"</td>
+</tr>
+<tr>
+<td>Whether a creature can get to a position: <em>‹position› valid for creature</em> (not called by the shipped scripts)</td>
+<td>todo</td>
+<td><code>PosValidForCreature</code> logs "not implemented"</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

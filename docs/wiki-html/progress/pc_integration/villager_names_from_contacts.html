@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Villagers named after the player&#x27;s contacts — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="here" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#villagers-named-after-the-players-contacts">Villagers named after the player's contacts</a><ul>
+<li><a href="#turning-it-on">Turning it on</a></li>
+<li><a href="#when-the-address-book-is-read">When the address book is read</a></li>
+<li><a href="#which-names-and-how-they-are-cut">Which names, and how they are cut</a></li>
+<li><a href="#what-each-contact-villager-is-like">What each contact villager is like</a></li>
+<li><a href="#the-built-in-names">The built-in names</a></li>
+<li><a href="#giving-the-names-to-villagers">Giving the names to villagers</a></li>
+<li><a href="#new-mail-while-playing">New mail while playing</a></li>
+<li><a href="#openblack">openblack</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="villagers-named-after-the-players-contacts">Villagers named after the player's contacts</h1>
+<p>The game can read the names in the player's e-mail address book (Microsoft Outlook, or its own address book filled
+from a POP3 mailbox) and give them to villagers, so that the player's friends live in the world as named villagers.
+While the game runs it can also watch for new e-mail and have one of those named villagers announce it. Without an
+address book, the same named villagers are taken from 48 built-in names, mostly of the Lionhead team and their
+families. The named villagers themselves are owned by <a href="../villager/special_villagers.html">../villager/special_villagers.md</a>
+(see also <a href="../villager/looks_and_voices.html">../villager/looks_and_voices.md</a>); this file covers where the names come from
+and the e-mail side.</p>
+<p><strong>Progress: 0/53 done, 2 partial — 2%</strong></p>
+<h2 id="turning-it-on">Turning it on</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The feature is off until the player turns it on in the separate setup program (Setup.exe), under its e-mail settings, for one chosen player profile</td>
+<td>todo</td>
+<td>our tree has no setup program or e-mail settings; the readme describes the setup steps</td>
+</tr>
+<tr>
+<td>The setup has a first box, "check for Internet e-mail", which turns the whole feature on</td>
+<td>todo</td>
+<td>our tree reads no address book or mail</td>
+</tr>
+<tr>
+<td>A second box chooses Microsoft Outlook; left clear, the game uses a POP3 mailbox instead</td>
+<td>todo</td>
+<td>our tree reads no address book or mail</td>
+</tr>
+<tr>
+<td>For POP3 the player fills in the mail server's name, their user name and their password in the setup</td>
+<td>todo</td>
+<td>our tree reads no address book or mail; the game keeps them as per-profile settings (POP3 server name, user name, password) (unconfirmed exactly where in the registry)</td>
+</tr>
+<tr>
+<td>A setting gives how often the game checks for new mail (an "e-mail check time")</td>
+<td>todo</td>
+<td>our tree reads no address book or mail (the original's value and its units are unconfirmed)</td>
+</tr>
+<tr>
+<td>Outlook Express is not supported, only full Outlook or POP3</td>
+<td>n/a</td>
+<td>as the readme states; openblack has no mail reading at all</td>
+</tr>
+<tr>
+<td>Outlook must be in "Internet Only" mode; in groupware (Exchange) mode it may refuse to give the names or mail</td>
+<td>n/a</td>
+<td>a limit of Outlook itself, from the readme</td>
+</tr>
+<tr>
+<td>The feature only works in the single-player game</td>
+<td>todo</td>
+<td>no named villagers in our tree; see ../villager/special_villagers.md; in the game named villagers are never made in a multiplayer game, and mail is only checked outside multiplayer</td>
+</tr>
+<tr>
+<td>The player must have registered on the game's web site and logged in to the online game at least once</td>
+<td>n/a</td>
+<td>the readme lists it as required; the game only starts its mail system when the online check succeeds and at least one online player profile exists; the online service is gone</td>
+</tr>
+<tr>
+<td>There is no in-game prompt or warning about the address book being read; agreeing is done by ticking the setup box</td>
+<td>todo</td>
+<td>our tree reads no address book or mail</td>
+</tr>
+</tbody>
+</table>
+<h2 id="when-the-address-book-is-read">When the address book is read</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>At start-up, once per run of the game, the game first checks whether the computer is connected to the internet</td>
+<td>todo</td>
+<td>our tree makes no connection check (no online code)</td>
+</tr>
+<tr>
+<td>Only when connected, and only when at least one online player profile exists, the mail system is loaded</td>
+<td>todo</td>
+<td>our tree reads no address book or mail</td>
+</tr>
+<tr>
+<td>The mail system is loaded with the player's own address book file, <code>addressbook.lhe</code>, in the current profile's folder</td>
+<td>todo</td>
+<td>our tree does not read <code>addressbook.lhe</code></td>
+</tr>
+<tr>
+<td>If the mail system fails to start, it is unloaded and the game carries on with built-in names only</td>
+<td>todo</td>
+<td>our tree reads no address book or mail</td>
+</tr>
+<tr>
+<td>The name table for named villagers is then built once, at start-up, not per land and not per villager</td>
+<td>todo</td>
+<td>our tree builds no name table</td>
+</tr>
+<tr>
+<td>With Outlook, the names come from Outlook's contacts through a small helper library shipped with the game (<code>outlookdll.dll</code>), which drives Outlook itself</td>
+<td>n/a</td>
+<td>uses Outlook's own automation; Windows and Outlook only</td>
+</tr>
+<tr>
+<td>With POP3, the names come from the game's own address book, which grows with the senders of mail received while playing</td>
+<td>todo</td>
+<td>our tree reads no address book or mail</td>
+</tr>
+<tr>
+<td>The number of contact names found is written to <code>inetlog.txt</code></td>
+<td>todo</td>
+<td>our tree writes no <code>inetlog.txt</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="which-names-and-how-they-are-cut">Which names, and how they are cut</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The game asks for at most 148 names: the table has room for 148</td>
+<td>todo</td>
+<td>our tree reads no address book or mail; our tree reads no address book or mail</td>
+</tr>
+<tr>
+<td>Each contact gives one name, the whole name string as the address book gives it, not split into first and last names</td>
+<td>todo</td>
+<td>our tree reads no address book or mail; our tree reads no address book or mail; which field Outlook gives (full name, display name) is not confirmed (unconfirmed)</td>
+</tr>
+<tr>
+<td>A contact with no name is skipped</td>
+<td>todo</td>
+<td>our tree reads no address book or mail; our tree reads no address book or mail</td>
+</tr>
+<tr>
+<td>Names are cut to 47 characters</td>
+<td>todo</td>
+<td>our tree reads no address book or mail; our tree reads no address book or mail; the name field holds 48 bytes with its end</td>
+</tr>
+<tr>
+<td>Names are taken in the order the address book lists them</td>
+<td>todo</td>
+<td>our tree reads no address book or mail; our tree reads no address book or mail</td>
+</tr>
+<tr>
+<td>No other filtering is done: duplicates, e-mail-address-only names and odd characters are kept</td>
+<td>todo</td>
+<td>our tree reads no address book or mail; our tree reads no address book or mail; none was found in the game (unconfirmed for the helper library)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-each-contact-villager-is-like">What each contact villager is like</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each contact gets an age of 11 to 50 years, at random</td>
+<td>todo</td>
+<td>our tree reads no address book or mail; our tree reads no address book or mail; a local (non-game) random number below 40, plus 11</td>
+</tr>
+<tr>
+<td>Sexes alternate in the address book's order: the first contact is male, the second female, and so on</td>
+<td>todo</td>
+<td>our tree reads no address book or mail; our tree reads no address book or mail; the game cannot tell a contact's sex</td>
+</tr>
+<tr>
+<td>A contact has no job of its own: it can be given to a villager of any job</td>
+<td>todo</td>
+<td>our tree reads no address book or mail; our tree reads no address book or mail</td>
+</tr>
+<tr>
+<td>A contact is married or not, at random (half and half)</td>
+<td>todo</td>
+<td>our tree reads no address book or mail; our tree reads no address book or mail; whether the game uses this afterwards is not confirmed (unconfirmed)</td>
+</tr>
+<tr>
+<td>A contact belongs to no particular tribe</td>
+<td>todo</td>
+<td>our tree reads no address book or mail; our tree reads no address book or mail</td>
+</tr>
+<tr>
+<td>A contact gets a random pet number from 0 to 30, and face 0</td>
+<td>todo</td>
+<td>our tree reads no address book or mail; our tree reads no address book or mail; whether the game uses these afterwards is not confirmed (unconfirmed)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-built-in-names">The built-in names</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The game's info table holds 48 built-in named villagers, each with name, age, sex, job, married, tribe, pet and face</td>
+<td>partial</td>
+<td>our tree reads the 48 into <code>InfoConstants::specialVillager</code> (<code>src/InfoConstants.h</code>) but nothing uses them</td>
+</tr>
+<tr>
+<td>They are mostly Lionhead staff, their families and friends: for example Peter Molyneux (40), Mark Webley (36) and family, Mark Healey, Jean-Claude Cottier, Claire Hedley, Steve Jackson, Jonty Barnes and children such as Sam Webley (5) and Rebecca Webley (3)</td>
+<td>todo</td>
+<td>no named villagers in our tree; see ../villager/special_villagers.md; the names are read from <code>Scripts/info.dat</code> but unused</td>
+</tr>
+<tr>
+<td>The built-in entries carry their own ages, sexes, jobs and tribes (for example a few are children, some are fishermen or foresters)</td>
+<td>todo</td>
+<td>no named villagers in our tree; see ../villager/special_villagers.md</td>
+</tr>
+<tr>
+<td>With 48 or more contacts, only contacts are used and no built-in name appears</td>
+<td>todo</td>
+<td>no named villagers in our tree; see ../villager/special_villagers.md</td>
+</tr>
+<tr>
+<td>With fewer than 48 contacts, the rest of the 48 places are filled with built-in names, starting from the first built-in entry</td>
+<td>todo</td>
+<td>no named villagers in our tree; see ../villager/special_villagers.md</td>
+</tr>
+<tr>
+<td>With no mail system at all, the pool is the 48 built-in names</td>
+<td>todo</td>
+<td>no named villagers in our tree; see ../villager/special_villagers.md</td>
+</tr>
+<tr>
+<td>In a multiplayer game the pool is the 48 built-in names, but no named villager is ever made there</td>
+<td>todo</td>
+<td>no named villagers in our tree; see ../villager/special_villagers.md</td>
+</tr>
+</tbody>
+</table>
+<h2 id="giving-the-names-to-villagers">Giving the names to villagers</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every time a villager is made, there is a 2 in 10 chance that the game tries to make it a named villager instead</td>
+<td>partial</td>
+<td>the roll is drawn (<code>ecs::villager::RollSpecialVillager</code>, from <code>VillagerArchetype</code>), keeping the game's random stream, but a normal villager always comes out (<a href="../../villagers.html">villagers</a>)</td>
+</tr>
+<tr>
+<td>The name is chosen by starting at a random place in the pool and taking the first name that fits</td>
+<td>todo</td>
+<td>no named villagers in our tree; see ../villager/special_villagers.md</td>
+</tr>
+<tr>
+<td>A name fits if it is of the villager's sex, has not been used yet, and is not empty; the job is not checked</td>
+<td>todo</td>
+<td>no named villagers in our tree; see ../villager/special_villagers.md</td>
+</tr>
+<tr>
+<td>Each name is used once per land; the use counts are cleared when the land is cleared</td>
+<td>todo</td>
+<td>no named villagers in our tree; see ../villager/special_villagers.md</td>
+</tr>
+<tr>
+<td>When no name is left, the villager is made as an ordinary one</td>
+<td>todo</td>
+<td>no named villagers in our tree; see ../villager/special_villagers.md</td>
+</tr>
+<tr>
+<td>A named villager takes the name's age, unless it is being born (a newborn keeps age 1)</td>
+<td>todo</td>
+<td>no named villagers in our tree; see ../villager/special_villagers.md</td>
+</tr>
+<tr>
+<td>The saved game stores only the name's place in the pool, so a load picks whatever name is at that place in the pool built at start-up</td>
+<td>todo</td>
+<td>no named villagers in our tree; see ../villager/special_villagers.md</td>
+</tr>
+<tr>
+<td>The name floats over the named villager's head, in the colour of the player who owns its town (white for none), when the camera is very close or the villager is picked out (unconfirmed which view setting)</td>
+<td>todo</td>
+<td>no named villagers in our tree; see ../villager/special_villagers.md; our tree only draws "Villager #n" debug labels (<code>src/Debug/Gui.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="new-mail-while-playing">New mail while playing</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Outside multiplayer, the game checks for new mail whenever the set check time has passed, or at once when the mail system asks to be checked</td>
+<td>todo</td>
+<td>our tree reads no address book or mail</td>
+</tr>
+<tr>
+<td>On start-up the game notes the time; only mail received after it is ever shown, so old mail left on the server is not repeated each session</td>
+<td>n/a</td>
+<td>relies on the mail headers' times; the readme notes mail with unreadable times or odd time zones is dropped</td>
+</tr>
+<tr>
+<td>Mail older than the game's start-up time, or whose time cannot be read, is not shown, and a line saying so is logged</td>
+<td>n/a</td>
+<td></td>
+</tr>
+<tr>
+<td>With Outlook, all folders holding new mail are scanned, which can take minutes for big folders</td>
+<td>n/a</td>
+<td>from the readme</td>
+</tr>
+<tr>
+<td>Each new mail gives an entry in the game's message list, with its sender and subject</td>
+<td>todo</td>
+<td>our tree reads no address book or mail</td>
+</tr>
+<tr>
+<td>The game looks through the player's towns, house by house and then the homeless, for a living named villager whose name is the sender's</td>
+<td>todo</td>
+<td>our tree reads no address book or mail</td>
+</tr>
+<tr>
+<td>If one is found, that villager says "&lt;name&gt;: Hey! I've sent you an e-mail about &lt;subject&gt;" in a speech bubble over its head</td>
+<td>todo</td>
+<td>our tree reads no address book or mail</td>
+</tr>
+<tr>
+<td>Otherwise any living named villager whose name can be shown says "Hey! &lt;sender&gt; has sent you an e-mail about &lt;subject&gt;"</td>
+<td>todo</td>
+<td>our tree reads no address book or mail</td>
+</tr>
+<tr>
+<td>With no named villager at all, nobody speaks; the message list still has the mail</td>
+<td>todo</td>
+<td>our tree reads no address book or mail</td>
+</tr>
+<tr>
+<td>The speech bubble is 250 by 175 with a text size of 19, holds up to 1023 characters, floats 1.5 units over the head and lasts 6 seconds</td>
+<td>todo</td>
+<td>our tree reads no address book or mail</td>
+</tr>
+<tr>
+<td>The bubble goes when it runs out, or when the villager dies or is removed</td>
+<td>todo</td>
+<td>our tree reads no address book or mail</td>
+</tr>
+<tr>
+<td>The game may also point the player to the speaking villager (unconfirmed)</td>
+<td>todo</td>
+<td>our tree reads no address book or mail</td>
+</tr>
+<tr>
+<td>A sender who is not in the address book is added to it and saved, and becomes a named villager on the next run</td>
+<td>todo</td>
+<td>our tree reads no address book or mail</td>
+</tr>
+</tbody>
+</table>
+<h2 id="openblack">openblack</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A replacement source of names (a contacts file, or the system's contacts)</td>
+<td>todo</td>
+<td>the original mail helpers are Windows- and Outlook-only; our tree would need its own source, and a clear opt-in, to give the same feature</td>
+</tr>
+<tr>
+<td>A switch to turn the feature off</td>
+<td>todo</td>
+<td>the original is off unless ticked in setup; our tree should stay off by default</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

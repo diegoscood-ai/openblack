@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skirmish — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="here" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#skirmish">Skirmish</a><ul>
+<li><a href="#reaching-it">Reaching it</a></li>
+<li><a href="#the-skirmish-box">The skirmish box</a></li>
+<li><a href="#starting-a-skirmish">Starting a skirmish</a></li>
+<li><a href="#the-lands">The lands</a></li>
+<li><a href="#playing">Playing</a></li>
+<li><a href="#winning-and-losing">Winning and losing</a></li>
+<li><a href="#leaving">Leaving</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="skirmish">Skirmish</h1>
+<p>A game against computer gods on one of the skirmish lands, started from the in-game menu (or a launch switch) without
+a network. The lands are the land scripts in <code>Scripts/Playgrounds</code>. The setup box only picks the land: everything else
+(opponents, their creatures, towns, miracles) comes from that land's script. Skirmish has been in the game since 1.00
+(the box is in the 1.00 program). Patch 1.2's winning conditions and time limit apply only to network games. It is not
+the Gods' Playground, the tutorial island the story reaches with F2 (see
+<a href="../story/tutorial_island.html">../story/tutorial_island.md</a>).</p>
+<p><strong>Progress: 5/57 done, 14 partial — 21%</strong></p>
+<p>See <a href="../rival_gods/skirmish_opponents.html">../rival_gods/skirmish_opponents.md</a> for the computer gods,
+<a href="multiplayer_rules.html">multiplayer_rules.md</a> for the network rules and
+<a href="../scripts/playground_scripts.html">../scripts/playground_scripts.md</a> for what each land script builds.</p>
+<h2 id="reaching-it">Reaching it</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The menu Escape brings up has a Start Skirmish Game button, second of five</td>
+<td>partial</td>
+<td>the button is there, second of five (<code>GameMenu::BuildMain</code>, <code>src/Gui/GameMenu.cpp</code>), but <code>Game::HandleInterfaceAction</code> only logs "This part of the menu is not available yet"; see <a href="../interface/main_menu.html">../interface/main_menu.md</a></td>
+</tr>
+<tr>
+<td>Start Skirmish Game ends the current game at once, without asking, and opens the skirmish box</td>
+<td>todo</td>
+<td>no skirmish box in our tree</td>
+</tr>
+<tr>
+<td>Leaving a story game this way quick-saves the story to its reserved slot, as any exit from the story does (except from the Gods' Playground island)</td>
+<td>todo</td>
+<td>no saved games in our tree; see <a href="../engine/saving_and_loading.html">../engine/saving_and_loading.md</a></td>
+</tr>
+<tr>
+<td>The Start Skirmish Game button is greyed out during a network game</td>
+<td>todo</td>
+<td>no network game in our tree</td>
+</tr>
+<tr>
+<td>During a skirmish the button reads Leave Skirmish Game, and Join Online Game is greyed out</td>
+<td>todo</td>
+<td>the labels are noted in <code>GameMenu::BuildMain</code>, not done</td>
+</tr>
+<tr>
+<td>During a skirmish (and a network game) the menu's five buttons are spaced further apart and start lower</td>
+<td>todo</td>
+<td>the menu always uses the story's button layout (<code>GetButtonRect</code>, <code>src/Gui/GameMenu.cpp</code>)</td>
+</tr>
+<tr>
+<td>The <code>SKIRMISH</code> launch switch opens the skirmish box straight away; <code>NEWGAME</code> overrides it, and it overrides <code>MULTIPLAYER</code></td>
+<td>todo</td>
+<td>our tree has none of these switches; <code>--start-level</code> loads a land directly (<code>src/main.cpp</code>); see <a href="../easter_eggs/launch_switches_and_files.html">../easter_eggs/launch_switches_and_files.md</a></td>
+</tr>
+<tr>
+<td>With no player profile yet, the new-player box comes first and a new story game starts instead of the skirmish</td>
+<td>todo</td>
+<td>no player profiles in our tree; see <a href="../interface/profiles.html">../interface/profiles.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-skirmish-box">The skirmish box</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A box titled "Choose a map for skirmish game." with a list of lands, Back on the left and Start Game on the right</td>
+<td>todo</td>
+<td>no skirmish box in our tree</td>
+</tr>
+<tr>
+<td>The list holds every <code>.txt</code> file in <code>Scripts/Playgrounds</code>, in the order the folder gives them, so an added land shows too</td>
+<td>partial</td>
+<td>our tree reads the same folder into its levels (<code>Game.cpp</code>, as <code>Level::LandType::Skirmish</code>) and lists them, sorted and titled by each land's start message, in the debug menu's "Playground Islands" (<code>src/Debug/Gui.cpp</code>)</td>
+</tr>
+<tr>
+<td>A land is shown by its file name without <code>.txt</code>. The exceptions are Two, Three and Four Gods, which read "Defeat another god to control this realm.", "Defeat two gods to control this realm." and "Defeat three gods to control this realm."</td>
+<td>todo</td>
+<td>the debug menu titles each land by its start message (<code>src/Level.cpp</code>), not by its file name; no skirmish box. <code>construct.txt</code> (not a game file) would show as "construct"; see <a href="maps/construct.html">maps/construct.md</a></td>
+</tr>
+<tr>
+<td>Start Game is greyed out until a land is picked</td>
+<td>todo</td>
+<td>no skirmish box in our tree</td>
+</tr>
+<tr>
+<td>There are no other options: no opponent count, difficulty, teams, colours, tribes, creature or time limit</td>
+<td>todo</td>
+<td>no skirmish box in our tree; all of these come from the land script; see <a href="../rival_gods/skirmish_opponents.html">../rival_gods/skirmish_opponents.md</a></td>
+</tr>
+<tr>
+<td>Start Game loads <code>Scripts/Playgrounds/&lt;name&gt;.txt</code></td>
+<td>partial</td>
+<td>the debug menu loads <code>Scripts/Playgrounds/&lt;name&gt;.txt</code> through <code>Game::LoadMap</code>; no skirmish box in our tree</td>
+</tr>
+<tr>
+<td>Back closes the box and returns to the story: its automatic save is reloaded and the main menu shown</td>
+<td>todo</td>
+<td>no skirmish box and no saved games in our tree</td>
+</tr>
+</tbody>
+</table>
+<h2 id="starting-a-skirmish">Starting a skirmish</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The usual loading screen is shown while the land loads</td>
+<td>todo</td>
+<td>our tree has no loading screen (noted in <code>src/Video/VideoPlayer.cpp</code>)</td>
+</tr>
+<tr>
+<td>Every script is reset first. The story's new-game steps (its control script, the challenge and save-room files, the skip-tutorial questions) are not run</td>
+<td>todo</td>
+<td><code>Game::Run</code> starts the story's control script (<code>LandControlAll</code>) and the skip-tutorial question on any land; see <a href="../scripts/challenge_scripts.html">../scripts/challenge_scripts.md</a></td>
+</tr>
+<tr>
+<td>The land script is read and builds the land, its towns, temples, creatures and computer gods</td>
+<td>partial</td>
+<td>the debug menu or <code>--start-level</code> loads it through <code>Game::LoadMap</code>; an unknown or misspelt command is skipped and the rest loads (<a href="../scripts/land_script_commands.html">../scripts/land_script_commands.md</a>); the computer gods get no mind</td>
+</tr>
+<tr>
+<td>A land whose start camera is left at the origin (Four Gods, Death Comes To Those That Wait) starts with the camera zoomed onto the player's temple</td>
+<td>todo</td>
+<td><code>FeatureScriptCommands::StartCameraPos</code> always looks at the point given</td>
+</tr>
+<tr>
+<td>When the land script reaches its start message, the land info box pops up. Its heading is the land's title, or for a number from 2 to 4 the matching "Defeat ... to control this realm." line; the description lines follow</td>
+<td>todo</td>
+<td><code>START_GAME_MESSAGE</code> and <code>ADD_GAME_MESSAGE_LINE</code> are empty; only the debug land list reads them, for its title and tooltip (<code>src/Level.cpp</code>). Island Wars and Firestorm have no start message, so they show no box</td>
+</tr>
+<tr>
+<td>The player's own creature is loaded from their profile's creature file and placed at their temple's creature spot</td>
+<td>todo</td>
+<td>no profiles; <code>LOAD_MY_CREATURE</code> can load a mind file given with <code>--creature-file</code>, but nothing does it at a skirmish start; see <a href="../creature/saves_and_files.html">../creature/saves_and_files.md</a></td>
+</tr>
+<tr>
+<td>The player starts with the alignment kept in their profile (limited to fully good or fully evil)</td>
+<td>todo</td>
+<td>no profiles; see <a href="../interface/profiles.html">../interface/profiles.md</a></td>
+</tr>
+<tr>
+<td>The game's random numbers start from the same fixed seed in every game, so the same moves play out the same way (unconfirmed whether anything reseeds it later)</td>
+<td>done</td>
+<td><code>Game::LoadMap</code> resets both seeds (<code>game_random::Reset</code>) for a land of the Playgrounds folder, as the original's skirmish start does (<a href="../../engine-math.html#random-numbers-game_random">engine-math</a>)</td>
+</tr>
+<tr>
+<td>The player's statistics start afresh</td>
+<td>todo</td>
+<td>no statistics reset at a land start; see <a href="../interface/statistics.html">../interface/statistics.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-lands">The lands</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="maps/two_gods.html">Two Gods</a>: two temples, the player and one computer god</td>
+<td>partial</td>
+<td>loads from the debug menu's "Playground Islands" (<code>Game::LoadMap</code>, <code>src/Debug/Gui.cpp</code>) with its towns, temples and creatures; no computer god mind drives its gods</td>
+</tr>
+<tr>
+<td><a href="maps/three_gods.html">Three Gods</a>: three temples, two computer gods</td>
+<td>partial</td>
+<td>loads from the debug menu's "Playground Islands" (<code>Game::LoadMap</code>, <code>src/Debug/Gui.cpp</code>) with its towns, temples and creatures; no computer god mind drives its gods</td>
+</tr>
+<tr>
+<td><a href="maps/four_gods.html">Four Gods</a>: four temples, three computer gods (its description says "Battle four other gods")</td>
+<td>partial</td>
+<td>loads from the debug menu's "Playground Islands" (<code>Game::LoadMap</code>, <code>src/Debug/Gui.cpp</code>) with its towns, temples and creatures; no computer god mind drives its gods</td>
+</tr>
+<tr>
+<td><a href="maps/island_wars.html">Island Wars</a>: four temples, three computer gods with creatures from Nemesis's mind file</td>
+<td>partial</td>
+<td>loads from the debug menu's "Playground Islands" (<code>Game::LoadMap</code>, <code>src/Debug/Gui.cpp</code>) with its towns, temples and creatures; no computer god mind drives its gods (the file is not in our game folder)</td>
+</tr>
+<tr>
+<td><a href="maps/firestorm.html">Firestorm</a>: three temples, but no computer god is switched on, so the other two temples stand idle (as far as found)</td>
+<td>partial</td>
+<td>loads from the debug menu's "Playground Islands" (<code>Game::LoadMap</code>, <code>src/Debug/Gui.cpp</code>) with its towns, temples and creatures; no computer god mind drives its gods; like the game, nothing plays its other temples (the file is not in our game folder)</td>
+</tr>
+<tr>
+<td><a href="maps/death_comes_to_those_that_wait.html">Death Comes To Those That Wait</a>, "By Fat Omen": temples for players one, three and four, two computer gods, and creatures for the temple-less players two and five to eight</td>
+<td>partial</td>
+<td>loads from the debug menu's "Playground Islands" (<code>Game::LoadMap</code>, <code>src/Debug/Gui.cpp</code>) with its towns, temples and creatures; no computer god mind drives its gods; the misspelt lines are skipped as in the game, but the line missing its bracket is skipped where the game reads it</td>
+</tr>
+<tr>
+<td><a href="maps/construct.html">Construct</a>: openblack's own test land (added in 2021), not one of the game's, with only the player's temple; copied into the playground folder, the box would list it like any other land</td>
+<td>partial</td>
+<td>loads from the debug menu or with <code>-s Playgrounds/construct.txt</code> like the others; see <a href="../easter_eggs/unused_content.html">../easter_eggs/unused_content.md</a></td>
+</tr>
+<tr>
+<td>Each land's towns belong to their players, with their tribe</td>
+<td>done</td>
+<td>towns load with their owner and tribe (<code>TownArchetype</code>, <code>CREATE_TOWN</code>); see <a href="../scripts/playground_scripts.html">../scripts/playground_scripts.md</a></td>
+</tr>
+<tr>
+<td>Each land sets its players' and towns' influence multipliers</td>
+<td>done</td>
+<td><code>SET_PLAYER_INFLUENCE_MULTIPLIER</code> and <code>SET_TOWN_INFLUENCE_MULTIPLIER</code> are kept in the map script globals and read by <code>src/ECS/Influence</code></td>
+</tr>
+<tr>
+<td>Each land sets its own day length</td>
+<td>done</td>
+<td><code>SET_NIGHTTIME</code> (<code>DayNightClock::SetCycleFromLand</code>); see <a href="../scripts/land_script_commands.html">../scripts/land_script_commands.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="playing">Playing</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The only miracles on offer are those the land gives: town miracles, dispensers, one-shot seeds and firefly rewards</td>
+<td>partial</td>
+<td>the land script's town miracles, dispensers and one-shot seeds are made (<a href="../scripts/playground_scripts.html">../scripts/playground_scripts.md</a>); fireflies come from the nightly top-up and the land's reward table (<a href="../nature/fireflies.html">../nature/fireflies.md</a>); but the story's control script also runs on the land</td>
+</tr>
+<tr>
+<td>No challenge or story script runs, so there are no scrolls, rewards or story advisor lines</td>
+<td>todo</td>
+<td>the story's control script (<code>LandControlAll</code>) starts on every land (<code>Game.cpp</code>)</td>
+</tr>
+<tr>
+<td>Whether the advisors still give their general hints on a skirmish land</td>
+<td>todo</td>
+<td>undetermined in the game; our guidance treats every land but Land 1 alike (<code>guidance::PlayNow</code>, <code>src/Audio/Services/Guidance.cpp</code>; nothing sets its playground query)</td>
+</tr>
+<tr>
+<td>The story's game-over script (when the temple's heart is destroyed) doesn't run in a skirmish</td>
+<td>todo</td>
+<td>the story's scripts run on a skirmish land too</td>
+</tr>
+<tr>
+<td>A skirmish runs on one machine, so pausing, the menu and game speed work as in the story</td>
+<td>partial</td>
+<td>pausing and the in-game menu work on any land (<code>game_clock::Pause</code>, <code>src/Gui/GameMenu.cpp</code>); see <a href="../interface/main_menu.html">../interface/main_menu.md</a></td>
+</tr>
+<tr>
+<td>The automatic save still runs (it skips only network games and the Gods' Playground island). A save records that it is a skirmish, so a loaded one carries on as a skirmish</td>
+<td>todo</td>
+<td>no saved games in our tree; see <a href="../engine/saving_and_loading.html">../engine/saving_and_loading.md</a></td>
+</tr>
+<tr>
+<td>About once a minute the player's alignment is written back to their profile, so a skirmish changes the alignment the story and the next skirmish start from</td>
+<td>todo</td>
+<td>no profiles; see <a href="../interface/profiles.html">../interface/profiles.md</a></td>
+</tr>
+<tr>
+<td>Every ten turns each player's share of a running total is recorded for the statistics</td>
+<td>todo</td>
+<td>see <a href="../interface/statistics.html">../interface/statistics.md</a></td>
+</tr>
+<tr>
+<td>There are no winning conditions and no time limit: patch 1.2 sets them up only for network games, and the time-limit check is skipped in a skirmish</td>
+<td>done</td>
+<td>our tree has no winning conditions or time limit on any land, which matches a skirmish; see <a href="multiplayer_rules.html">multiplayer_rules.md</a></td>
+</tr>
+<tr>
+<td>Music</td>
+<td>partial</td>
+<td>the music engine plays on a skirmish land as on any other (<code>src/Audio/GameMusic.cpp</code>); what the original plays there is undetermined</td>
+</tr>
+</tbody>
+</table>
+<h2 id="winning-and-losing">Winning and losing</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A god among players one to four is out of the game once it has no temple (how a temple is lost is unconfirmed here)</td>
+<td>todo</td>
+<td>no rule in our tree takes a god out of the game or ends a skirmish; how a temple is damaged and destroyed: <a href="../story/losing_and_game_over.html">../story/losing_and_game_over.md</a></td>
+</tr>
+<tr>
+<td>A god that is out stops thinking and its creature is taken off the land</td>
+<td>todo</td>
+<td>no rule in our tree takes a god out of the game or ends a skirmish; see <a href="../rival_gods/skirmish_opponents.html">../rival_gods/skirmish_opponents.md</a></td>
+</tr>
+<tr>
+<td>When another god is out, "<name> is out of the game." is shown</td>
+<td>todo</td>
+<td>no rule in our tree takes a god out of the game or ends a skirmish</td>
+</tr>
+<tr>
+<td>When every other god is out, the game ends and the end box says "Congratulations! You've won the game!"</td>
+<td>todo</td>
+<td>no rule in our tree takes a god out of the game or ends a skirmish</td>
+</tr>
+<tr>
+<td>When the player is out and only one god is left, the game ends and the end box says "You have lost the game."</td>
+<td>todo</td>
+<td>no rule in our tree takes a god out of the game or ends a skirmish</td>
+</tr>
+<tr>
+<td>When the player is out and two or more gods are left, the end box says "You have lost the game." with Watch Game and Leave Game; Watch Game closes it and play goes on, so the player can watch</td>
+<td>todo</td>
+<td>no rule in our tree takes a god out of the game or ends a skirmish; see <a href="../story/losing_and_game_over.html">../story/losing_and_game_over.md</a></td>
+</tr>
+<tr>
+<td>The end box is edged in the player's colour and has tabs for the statistics and (unconfirmed) the winning conditions</td>
+<td>todo</td>
+<td>no end box; see <a href="../interface/statistics.html">../interface/statistics.md</a></td>
+</tr>
+<tr>
+<td>Nothing is uploaded and no points are given (that is only for internet games)</td>
+<td>todo</td>
+<td>no rule in our tree takes a god out of the game or ends a skirmish; our tree has no online code; see <a href="online_services.html">online_services.md</a></td>
+</tr>
+<tr>
+<td>Whether a skirmish can end without a winner (Firestorm's idle temples, players with no temple)</td>
+<td>todo</td>
+<td>undetermined</td>
+</tr>
+</tbody>
+</table>
+<h2 id="leaving">Leaving</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Leave Skirmish Game asks "This will leave the current Skirmish game. Do you wish to do this?"</td>
+<td>todo</td>
+<td>the menu has no Leave Skirmish Game button</td>
+</tr>
+<tr>
+<td>Yes ends the skirmish and opens the skirmish box again, for another land or Back to the story</td>
+<td>todo</td>
+<td>no way to leave a skirmish in our tree</td>
+</tr>
+<tr>
+<td>Leaving a skirmish, or quitting the game from one, skips the quick-save the story makes on exit</td>
+<td>todo</td>
+<td>no saves in our tree; see <a href="../engine/saving_and_loading.html">../engine/saving_and_loading.md</a></td>
+</tr>
+<tr>
+<td>The player's creature is not saved back to their profile at the end of a skirmish (nothing found does it)</td>
+<td>todo</td>
+<td>no skirmish end and no profiles in our tree</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Key bindings — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="here" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#key-bindings">Key bindings</a><ul>
+<li><a href="#the-bindings">The bindings</a></li>
+<li><a href="#the-controls-page">The Controls page</a></li>
+<li><a href="#one-press-shortcuts">One-press shortcuts</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="key-bindings">Key bindings</h1>
+<p>The game's actions and the keys and mouse buttons they are bound to, the Controls page that lists and rebinds them,
+and the one-press shortcuts. What each camera or hand action does once pressed belongs to ../camera/ and ../hand/.</p>
+<p><strong>Progress: 10/26 done, 11 partial — 60%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../hand-and-interface.html">The hand and the interface</a>.</p>
+<h2 id="the-bindings">The bindings</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The game's default keys and mouse inputs for each of its 33 actions, in the order the options list them</td>
+<td>done</td>
+<td><code>src/Input/KeyBindings.h</code> (<code>k_DefaultKeyBindings</code>); tests <code>KeyBindings.TableIsTheGamesActionMap</code>, <code>KeyBindings.EveryActionOnce</code>, <code>KeyBindings.DefaultsDoNotConflict</code></td>
+</tr>
+<tr>
+<td>A key can need a held Ctrl, Shift or Alt; either side's modifier counts</td>
+<td>done</td>
+<td><code>src/Input/KeyBindings.cpp</code>; tests <code>KeyBindings.EitherSidesModifierKeyCounts</code>, <code>KeyBindings.EitherSideOfAModifier</code></td>
+</tr>
+<tr>
+<td>A binding with a modifier wins over the same key without one (Ctrl+S saves rather than showing details)</td>
+<td>done</td>
+<td>tests <code>KeyBindings.ModifierBindingWinsOverPlainOne</code>, <code>GameActionMap.ChordReplacesThePlainKey</code></td>
+</tr>
+<tr>
+<td>Letting go of a key ends every action bound to it</td>
+<td>done</td>
+<td>test <code>KeyBindings.LettingGoOfAKeyEndsAllItsActions</code></td>
+</tr>
+<tr>
+<td>Mouse buttons and the wheel can be bound to actions</td>
+<td>done</td>
+<td>test <code>KeyBindings.MouseMapsToActions</code></td>
+</tr>
+<tr>
+<td>Double clicks and both buttons together are read as their own inputs and can't be rebound</td>
+<td>done</td>
+<td><code>UnbindableActionMap</code> in <code>src/Input/BindableActions.h</code>, <code>src/Input/GameActionMap.cpp</code></td>
+</tr>
+<tr>
+<td>Land scripts can block actions for a while, which then read as not held</td>
+<td>partial</td>
+<td><code>help::interface_interaction</code> (SET_INTERFACE_INTERACTION, <code>src/Help/InterfaceInteraction.cpp</code>) has the control map's action gate (test <code>InterfaceInteractionTest.ControlMapActionGate</code>), but only the bookmark keys ask it; <code>GameActionMap</code> does not yet</td>
+</tr>
+<tr>
+<td>The keys and buttons in use are told apart so the cursor is held still while the mouse turns the camera</td>
+<td>partial</td>
+<td>only the middle button holds the cursor (relative mouse mode in <code>Game.cpp</code>); no general rule for the inputs in use</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-controls-page">The Controls page</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lists every action with its key and mouse button, named as the game names them</td>
+<td>done</td>
+<td>the Controls page lists the actions with their keys and mouse pictures (<code>GameMenu::BuildControls</code> in <code>src/Gui/GameMenu.cpp</code>)</td>
+</tr>
+<tr>
+<td>Picking an action and pressing a key or button binds it anew</td>
+<td>partial</td>
+<td><code>GameActionMap::SetKeyBinding</code> rebinds (test <code>GameActionMap.RebindingMovesTheAction</code>), but the Controls page cannot redefine an action yet and the debug Key Bindings window (<code>src/Debug/KeyBindingsWindow.cpp</code>) only shows them</td>
+</tr>
+<tr>
+<td>Some keys can't be bound (the ones the game keeps for itself)</td>
+<td>todo</td>
+<td>(unconfirmed which)</td>
+</tr>
+<tr>
+<td>Binding a key already in use takes it off the other action</td>
+<td>partial</td>
+<td>conflicts are found (<code>FindConflicts</code>, test <code>KeyBindings.ConflictsAreFound</code>, shown in the debug window) but nothing resolves them</td>
+</tr>
+<tr>
+<td>Load Defaults puts every binding back</td>
+<td>partial</td>
+<td><code>GameActionMap::ResetKeyBindings</code> exists but nothing calls it; the page's Load Defaults button does nothing</td>
+</tr>
+<tr>
+<td>The bindings are kept with the player's profile and read back when it is picked</td>
+<td>todo</td>
+<td>there are no profiles</td>
+</tr>
+<tr>
+<td>A key's name is written as the game writes it, such as "Ctrl+S"</td>
+<td>done</td>
+<td>test <code>KeyBindings.Names</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="one-press-shortcuts">One-press shortcuts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>F1, Help: asks the advisors about what the hand is over</td>
+<td>todo</td>
+<td>F1 toggles the renderer's debug view (<code>Game.cpp</code>); see <a href="help_system.html">help_system.md</a></td>
+</tr>
+<tr>
+<td>T, Talk: opens the chat line in a network game</td>
+<td>todo</td>
+<td>see ../multiplayer/</td>
+</tr>
+<tr>
+<td>Space flies the camera to the temple, and a second tap back</td>
+<td>partial</td>
+<td><code>ZoomToPlaces::PressTemple</code> is ported and tested (<code>src/Camera/ZoomToPlaces.cpp</code>, tests <code>ZoomToPlaces.*</code>) but no key calls it</td>
+</tr>
+<tr>
+<td>F3 flies the camera over the whole land, and back</td>
+<td>partial</td>
+<td><code>ZoomToPlaces::PressRealm</code> is ported and tested but no key calls it</td>
+</tr>
+<tr>
+<td>F4 to F9 take the player inside the temple, to each room</td>
+<td>done</td>
+<td><code>Game::ProcessTempleRoomKeys</code> takes the player into the temple at the room, or cuts to it inside; see <a href="../temple/index.html">../temple/</a></td>
+</tr>
+<tr>
+<td>C flies to the creature and F5 to its room</td>
+<td>partial</td>
+<td>C is read by <code>CreatureModeSystem</code> (<code>src/ECS/Systems/Implementations/CreatureModeSystem.cpp</code>) and F5 by <code>Game::ProcessTempleRoomKeys</code>; no creature is in play on Lands 1 and 2 yet; see ../creature/</td>
+</tr>
+<tr>
+<td>N toggles villagers' names and S their details over them</td>
+<td>partial</td>
+<td>the names and details are drawn by the debug overlay (<code>Gui::ShowVillagerNames</code> in <code>src/Debug/Gui.cpp</code>), switched from the debug menu; N and S are not handled</td>
+</tr>
+<tr>
+<td>L leashes or lets go of the creature; V and B pick the previous or next leash</td>
+<td>partial</td>
+<td><code>src/Creature/LeashKeys.cpp</code> reads L, V and B (tests <code>LeashKeys.*</code>); no creature is in play on Lands 1 and 2 yet; see ../creature/</td>
+</tr>
+<tr>
+<td>Ctrl+S quick saves and Ctrl+L quick loads</td>
+<td>todo</td>
+<td>nothing handles QUICK_SAVE or QUICK_LOAD; see ../engine/</td>
+</tr>
+<tr>
+<td>Number keys jump to camera bookmarks and Ctrl with a number sets one</td>
+<td>done</td>
+<td><code>CameraBookmarkSystem</code>, the 1..8 keys in <code>Game.cpp</code> (skipped under a script's wide screen or a control map switch off); see ../camera/</td>
+</tr>
+<tr>
+<td>An action's key whose feature isn't built yet says so in the log</td>
+<td>partial</td>
+<td>openblack only: held actions are logged at debug level (<code>GameActionMap.cpp</code>); there is no "not built yet" message</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

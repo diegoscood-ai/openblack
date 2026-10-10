@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Command-line tools — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="here" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#command-line-tools">Command-line tools</a><ul>
+<li><a href="#tools">Tools</a></li>
+<li><a href="#files-without-a-tool">Files without a tool</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="command-line-tools">Command-line tools</h1>
+<p>The small programs in <code>apps/</code> for looking inside the game's files and making new ones, each built on the file-format
+component in <code>components/</code> that the game reads the same files with.
+The game's own switches for the testbed (<code>--testbed</code>, <code>--scenario</code>, <code>--benchmark-*</code>) are in
+<a href="testbed.html">testbed.md</a>; none of them is a tool of its own.</p>
+<p><strong>Progress: 13/23 done, 0 partial — 57%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../tooling.html">Tools and formats</a>, <a href="../../openblack-internals.html">openblack internals</a>.</p>
+<h2 id="tools">Tools</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>packtool: list a pack's blocks, view a block's bytes, the info block, meshes, textures, animations and sounds</td>
+<td>done</td>
+<td><code>apps/packtool/packtool.cpp</code>, <code>components/pack</code></td>
+</tr>
+<tr>
+<td>packtool: extract a block, and write raw data and mesh packs</td>
+<td>done</td>
+<td><code>apps/packtool/packtool.cpp</code> (extract, write-raw, write-mesh, write-animation)</td>
+</tr>
+<tr>
+<td>l3dtool: print a mesh's header, skins, extra points, bones, footprints, names and metrics</td>
+<td>done</td>
+<td><code>apps/l3dtool/l3dtool.cpp</code>, <code>components/l3d</code></td>
+</tr>
+<tr>
+<td>l3dtool: write a mesh from glTF and extract a mesh to glTF</td>
+<td>done</td>
+<td><code>apps/l3dtool/l3dtool.cpp</code> (write and extract through glTF)</td>
+</tr>
+<tr>
+<td>anmtool: list an animation's keyframes and their contents</td>
+<td>done</td>
+<td><code>apps/anmtool/anmtool.cpp</code>, <code>components/anm</code></td>
+</tr>
+<tr>
+<td>anmtool: write an animation from glTF</td>
+<td>done</td>
+<td><code>apps/anmtool/anmtool.cpp</code> (write)</td>
+</tr>
+<tr>
+<td>lndtool: print a land's low resolution textures, blocks, countries, materials and the rest</td>
+<td>done</td>
+<td><code>apps/lndtool/lndtool.cpp</code>, <code>components/lnd</code></td>
+</tr>
+<tr>
+<td>lndtool: write a land from a height map, noise and bump maps</td>
+<td>done</td>
+<td><code>apps/lndtool/lndtool.cpp</code> (write)</td>
+</tr>
+<tr>
+<td>glwtool: list glows and their contents, and read and write them as JSON</td>
+<td>done</td>
+<td><code>apps/glwtool/glwtool.cpp</code>, <code>components/glw</code></td>
+</tr>
+<tr>
+<td>camtool: print a camera path's points, and write one from points</td>
+<td>todo</td>
+<td>no camtool in our tree; <code>components/cam</code> reads the paths</td>
+</tr>
+<tr>
+<td>morphtool: print the creatures' morph files, animation sets, hair groups and extra data</td>
+<td>done</td>
+<td><code>apps/morphtool/morphtool.cpp</code>, <code>components/morph</code></td>
+</tr>
+<tr>
+<td>morphtool: writing morph files back</td>
+<td>todo</td>
+<td>read only</td>
+</tr>
+<tr>
+<td>creaturemindtool: dump creature mind files, with their learning episodes, and check each writes back byte for byte</td>
+<td>todo</td>
+<td>no creaturemindtool in our tree; <code>components/creaturemind</code> reads and writes the files (tests <code>CreatureMindFile.*</code>)</td>
+</tr>
+<tr>
+<td>lhvmtool: read a compiled script program: its scripts, autostarts, global stack and data</td>
+<td>done</td>
+<td><code>apps/lhvmtool/lhvmtool.cpp</code></td>
+</tr>
+<tr>
+<td>lhvmtool: decompile it into source, naming constants from the script headers, on the recorded source lines, with how well it went</td>
+<td>done</td>
+<td><code>apps/lhvmtool/lhvmtool.cpp</code> (decompile), <code>components/lhvmdecompiler</code>; test <code>test/lhvm/test_lhvm_decompiler.cpp</code></td>
+</tr>
+<tr>
+<td>lhvmtool: compile source back into a program</td>
+<td>done</td>
+<td><code>apps/lhvmtool/lhvmtool_compile.cpp</code>, <code>components/lhvmcompiler</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="files-without-a-tool">Files without a tool</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gesture templates</td>
+<td>todo</td>
+<td>read through <code>components/gestures</code> (<code>GestureFile</code>) by <code>GestureTemplatesLoader</code> (<code>src/Resources/Loaders.cpp</code>, <code>src/Magic/Gestures/GestureTemplates.cpp</code>), no tool</td>
+</tr>
+<tr>
+<td>Particle effect files</td>
+<td>todo</td>
+<td>read through <code>components/psys</code> (<code>ParticleFile</code>, enum headers, stacked bitmaps) by <code>src/Particles/PSysFile.cpp</code>, no tool</td>
+</tr>
+<tr>
+<td>Raw images (the game's textures outside packs)</td>
+<td>todo</td>
+<td>read by <code>components/rawimage</code>, no tool</td>
+</tr>
+<tr>
+<td>The game's info tables</td>
+<td>todo</td>
+<td>read by <code>src/Parsers/InfoFile.cpp</code>, no tool</td>
+</tr>
+<tr>
+<td>The game's fonts</td>
+<td>todo</td>
+<td>read by <code>src/Graphics/GameFont.cpp</code>, no tool</td>
+</tr>
+<tr>
+<td>Saved games and profiles</td>
+<td>todo</td>
+<td>no tool; the profile's creature is read and written as a mind file in <code>Scripts/CreatureMind</code> (<code>--creature-file</code>, <code>components/creaturemind</code>), saved games are not read yet</td>
+</tr>
+<tr>
+<td>Sound banks outside packs, and the dance and footpath files</td>
+<td>todo</td>
+<td>(unconfirmed which of these need their own tool)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

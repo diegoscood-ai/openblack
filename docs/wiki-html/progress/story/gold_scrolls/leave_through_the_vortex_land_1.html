@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leave Through the Vortex (Land 1) — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../../progress/README.html">About the progress notes</a>
+<a class="" href="../../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../../progress/animal/index.html">animal</a>
+<a class="" href="../../../progress/audio/index.html">audio</a>
+<a class="" href="../../../progress/building/index.html">building</a>
+<a class="" href="../../../progress/camera/index.html">camera</a>
+<a class="" href="../../../progress/creature/index.html">creature</a>
+<a class="" href="../../../progress/debug/index.html">debug</a>
+<a class="" href="../../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../../progress/engine/index.html">engine</a>
+<a class="" href="../../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../../progress/hand/index.html">hand</a>
+<a class="" href="../../../progress/interface/index.html">interface</a>
+<a class="" href="../../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../../progress/nature/index.html">nature</a>
+<a class="" href="../../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../../progress/physics/index.html">physics</a>
+<a class="" href="../../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../../progress/resources/index.html">resources</a>
+<a class="" href="../../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../../progress/sky/index.html">sky</a>
+<a class="here" href="../../../progress/story/index.html">story</a>
+<a class="" href="../../../progress/temple/index.html">temple</a>
+<a class="" href="../../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../../progress/town/index.html">town</a>
+<a class="" href="../../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../../progress/video/index.html">video</a>
+<a class="" href="../../../progress/villager/index.html">villager</a>
+<a class="" href="../../../progress/weather/index.html">weather</a>
+<a class="" href="../../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#leave-through-the-vortex-land-1">Leave Through the Vortex (Land 1)</a><ul>
+<li><a href="#how-it-appears">How it appears</a></li>
+<li><a href="#the-vortex-opens">The vortex opens</a></li>
+<li><a href="#testing-the-vortex">Testing the vortex</a></li>
+<li><a href="#the-shepherd-comes-back">The shepherd comes back</a></li>
+<li><a href="#the-scroll-and-leaving">The scroll and leaving</a></li>
+<li><a href="#failure-soft-locks-and-story-order">Failure, soft locks and story order</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="leave-through-the-vortex-land-1">Leave Through the Vortex (Land 1)</h1>
+<p>The first land's last gold scroll: after Nemesis's storm kills the guide, a golden light marks a vortex that opens near
+the coast, swallows a shepherd and throws him back out, and the advisors tell the player to send people and supplies
+through and then follow. Clicking the scroll over the vortex dives the camera into it and ends the land. The quest's
+flow is here; how vortices work (what they suck in, what crosses, the arrival) is in <a href="../portals.html">../portals.md</a>.</p>
+<p><strong>Land:</strong> 1 · <strong>Giver:</strong> the two advisors, at the vortex near the coast · <strong>Script:</strong> LeaveThroughVortexL1 ·
+<strong>Reward:</strong> the way to the second land · <strong>Repeatable:</strong> no</p>
+<p>Sources: the land's control script and the quest's script (the original source text, which matches the shipped
+<code>challenge.chl</code>), the shared reminder script, the game's text table and the executable. openblack is judged on this
+tree: in a game that does not skip the creature guide the land's control script stops long before the storm (at Choose
+Your Creature's gate stones), and 3 of the 43 commands the quest needs only log "not implemented" in <code>src/CHLApi.cpp</code>.</p>
+<p><strong>Progress: 0/41 done, 11 partial — 13%</strong></p>
+<h2 id="how-it-appears">How it appears</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land's control script starts the quest in the background straight after the guide's fight lesson, together with The Ogre, and then runs the storm</td>
+<td>todo</td>
+<td>the call is in <code>LandControl1</code>, but a no-skip game never gets that far: it stops at Choose Your Creature's gate-stone loop (<code>ObjectInfoBits</code> is a stub), and the guide's lessons need a script-made guide creature (<code>CREATE</code> of a creature is not done). See <a href="../creature_guide.html">../creature_guide.md</a></td>
+</tr>
+<tr>
+<td>It waits until the storm opens the way: 30 seconds after the storm turns on the player's village (about two minutes after the guide dies)</td>
+<td>todo</td>
+<td>the storm's script needs the guide creature and creature actions (<code>CreatureDoAction</code> is a stub); never reached</td>
+</tr>
+<tr>
+<td>A yellow "see this" beam is made where the vortex will open, lasting until the vortex appears</td>
+<td>partial</td>
+<td><code>SpecialEffectPosition</code> is real in <code>src/CHLApi.cpp</code>; this branch is only reached in a no-skip game, which stops earlier</td>
+</tr>
+<tr>
+<td>The good advisor steps out: "This is hopeless. Wait. What's this golden light?" and, half a second in, the evil advisor points at the spot (without having been called out first; how that shows is undetermined)</td>
+<td>todo</td>
+<td><code>SpiritEject</code>, <code>SpiritPointPos</code>, <code>RunText</code> are real (advisors drawn and moving, <code>src/Help</code>); never reached in a no-skip game</td>
+</tr>
+<tr>
+<td>The quest then waits until the player brings the camera within 200 of the spot; there is no reminder meanwhile</td>
+<td>todo</td>
+<td>the camera-near check uses real natives (<code>GetCameraPosition</code>, <code>GetDistance</code>); never reached in a no-skip game</td>
+</tr>
+<tr>
+<td>A new game that skips the creature guide (or keeps the old creature) opens the vortex and its scroll at once, with no scenes</td>
+<td>partial</td>
+<td>the guide-skip branch calls only real natives: <code>CREATE</code> of an In vortex at the marker (<code>ecs::vortex::Create</code>) and <code>CreateHighlight</code> for the scroll. Reached with the third and fourth SkipBox answers, but not checked in game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-vortex-opens">The vortex opens</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The player's creature is forbidden to go through the vortex for now, and its kind is recorded "for setting up the next land", though no shipped script ever reads it back (quirk)</td>
+<td>todo</td>
+<td>property 36 (may go through a vortex) is not handled by <code>SetProperty</code> and <code>GameSubType</code> is a stub</td>
+</tr>
+<tr>
+<td>A cinema: the camera moves in over 7 seconds to look at the vortex's place</td>
+<td>todo</td>
+<td><code>MoveCameraPosition</code>, <code>MoveCameraFocus</code> are real (<code>src/Camera/ScriptCamera</code>); never reached in a no-skip game</td>
+</tr>
+<tr>
+<td>4 seconds in, a Norse shepherd is made beside it, faces it and looks about (the looking-for-something animation, twice)</td>
+<td>todo</td>
+<td><code>CREATE</code> makes villagers (<code>CreateScriptObject</code>), <code>SetFocus</code> and <code>SetScriptState</code> work on villagers; never reached in a no-skip game</td>
+</tr>
+<tr>
+<td>The vortex opens (an "in" vortex, the kind that takes things to the next land) and the yellow beam is removed; the shepherd is pulled in</td>
+<td>todo</td>
+<td><code>CREATE</code> of an In vortex and its pull are ported (<code>ecs::vortex</code>, test/test_vortex.cpp); never reached in a no-skip game (the skip path opens it at once instead)</td>
+</tr>
+<tr>
+<td>A second later both advisors step out; the good advisor looks back over the land; evil advisor: "What's this? Some trick? Some new Miracle?"</td>
+<td>todo</td>
+<td>advisors and texts are real (<code>SpiritEject</code>, <code>LookAtPosition</code>, <code>RunText</code>); never reached in a no-skip game</td>
+</tr>
+<tr>
+<td>The camera moves onto the vortex (8 seconds); good advisor: "It looks like a portal of some kind."</td>
+<td>todo</td>
+<td>real natives (<code>MoveCameraPosition</code>, <code>HasCameraArrived</code>, <code>RunText</code>); never reached in a no-skip game</td>
+</tr>
+<tr>
+<td>The camera goes to the vortex's edge; evil advisor: "It looks like a trap to me." then "Look. It's sucking stuff in."</td>
+<td>todo</td>
+<td>real natives; never reached in a no-skip game</td>
+</tr>
+<tr>
+<td>Good advisor: "Try throwing something into it." as the camera swings to a wide view of the vortex; then "I bet you anything it'll come out wherever this Vortex leads to."</td>
+<td>todo</td>
+<td>real natives; never reached in a no-skip game</td>
+</tr>
+<tr>
+<td>Both advisors go home and the cinema ends</td>
+<td>todo</td>
+<td><code>SpiritHome</code>, <code>EndCameraControl</code>, <code>EndDialogue</code> are real; never reached in a no-skip game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="testing-the-vortex">Testing the vortex</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A 60-second timer starts; the shepherd comes back when it runs out, or as soon as the player picks something up and lets go of it (or has held it for 60 seconds)</td>
+<td>todo</td>
+<td><code>CreateTimer</code> works but the held-object question <code>GetObjectHeld</code> is a stub, so only the 60-second timer could bring him back</td>
+</tr>
+<tr>
+<td>4 seconds later, the quest waits until the vortex is in view and the camera is within 150 of it</td>
+<td>todo</td>
+<td><code>PosFieldOfView</code> and the camera distance are real; never reached in a no-skip game</td>
+</tr>
+<tr>
+<td>What the player throws in really goes through to the next land</td>
+<td>todo</td>
+<td>the In vortex takes objects (<code>ecs::vortex</code>), but nothing carries them to another land: <code>LOAD_MAP</code> is empty. See <a href="../portals.html#what-crosses-and-what-is-left">../portals.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-shepherd-comes-back">The shepherd comes back</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A cinema: the camera turns to the vortex (4 seconds); 3 seconds in, a new shepherd is made at its middle and flung out towards the camera at speed 16, the camera following him</td>
+<td>todo</td>
+<td>the new shepherd is made, but the fling <code>SetHeadingAndSpeed</code> is a stub; the camera follow <code>SetFocusFollow</code> is real</td>
+</tr>
+<tr>
+<td>The shepherd: "Cor. There's a whole new world through there."</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached in a no-skip game</td>
+</tr>
+<tr>
+<td>The camera pulls back to the wide view; both advisors step out and the camera looks up</td>
+<td>todo</td>
+<td>real natives; never reached in a no-skip game</td>
+</tr>
+<tr>
+<td>Good advisor: "That's it. I'm going through for a look.", pointing high and then down into the vortex as he "goes through"</td>
+<td>todo</td>
+<td><code>SpiritPointPos</code> is real; never reached in a no-skip game</td>
+</tr>
+<tr>
+<td>Evil advisor: "He's braver than I thought. He's gone through."; 2 seconds later the good advisor points high again, as if back</td>
+<td>todo</td>
+<td>real natives (<code>SpiritPointPos</code>, <code>StopPointing</code>); never reached in a no-skip game</td>
+</tr>
+<tr>
+<td>Good advisor: "The Villager was right. There's a new land through there." then "And we should send plenty of food, wood and followers into the Vortex as well." (a line shared with the fourth land's vortex)</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached in a no-skip game</td>
+</tr>
+<tr>
+<td>Evil advisor: "You really aren't afraid of this thing, are you?"</td>
+<td>todo</td>
+<td><code>RunText</code> is real; never reached in a no-skip game</td>
+</tr>
+<tr>
+<td>Good advisor: "I say we throw things through and then go through it ourselves. Our Creature will follow. Try clicking the Action Button on the Scroll." — a second in, the gold scroll appears 20 above the vortex and he points at it</td>
+<td>todo</td>
+<td><code>CreateHighlight</code> and the height through <code>SetProperty</code> (YPos) are real; never reached in a no-skip game</td>
+</tr>
+<tr>
+<td>Evil advisor: "What the hell. Do we want to live forever?"; good advisor: "Well actually…" and the cinema ends</td>
+<td>todo</td>
+<td>real natives; never reached in a no-skip game</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-scroll-and-leaving">The scroll and leaving</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The scroll is not recorded in the scroll log: no title, progress mark or reminder text is set for it (unlike the guide's and trainer's scrolls)</td>
+<td>partial</td>
+<td>nothing to set; the scroll is a real highlight (<code>CreateHighlight</code>, <code>src/ECS/ScriptHighlight</code>)</td>
+</tr>
+<tr>
+<td>Straight away and then every 30 minutes until the scroll (or its spot) is clicked, the reminder "There's a Gold Story Scroll ya gotta click on, Boss." is said</td>
+<td>partial</td>
+<td>the shared reminder <code>QuestHighlightNotify</code> calls only real natives (<code>StartDialogue</code>, <code>RunText</code>, <code>GameThingClicked</code>); reached on the guide-skip path, not checked in game</td>
+</tr>
+<tr>
+<td>The reminder's advisor never steps out or points: the quest passes the evil advisor's voice where the reminder expects an advisor, so neither advisor matches (quirk)</td>
+<td>partial</td>
+<td>our tree runs the same script, so the same quirk follows; not checked in game</td>
+</tr>
+<tr>
+<td>The prepared "Click the Action Button on the Scroll and we can go through the Vortex." line is never said (the reminder's own first notice is commented out)</td>
+<td>n/a</td>
+<td>cut use of an existing line</td>
+</tr>
+<tr>
+<td>Once the scroll is clicked it is switched on and the creature is allowed through the vortex</td>
+<td>todo</td>
+<td>the scroll's click is real (<code>GameThingClicked</code>), but the creature's permission (property 36) is not handled by <code>SetProperty</code></td>
+</tr>
+<tr>
+<td>A cinema: the camera climbs to 100 above the vortex over 6 seconds looking down, then dives into it over 8</td>
+<td>partial</td>
+<td><code>MoveCameraPosition</code>, <code>MoveCameraFocus</code>, <code>HasCameraArrived</code> are real; reached once the scroll is clicked on the guide-skip path, not checked in game</td>
+</tr>
+<tr>
+<td>5 seconds into the dive the screen fades to black over 2 seconds</td>
+<td>partial</td>
+<td><code>SetFade</code> works (<code>src/CHLApi.cpp</code>, <code>ScreenFade</code>); reached on the guide-skip path, not checked in game</td>
+</tr>
+<tr>
+<td>When the camera arrives, every script of the guide's story (the storm with it) is stopped and the land is told to end</td>
+<td>partial</td>
+<td><code>StopScriptsInFiles</code> works by source file and the script sets the leave-now flag; reached on the guide-skip path, not checked in game</td>
+</tr>
+<tr>
+<td>With the storm's script stopped the land's control script finishes; the story stops every other script and loads the second land</td>
+<td>todo</td>
+<td><code>LandControl1</code> can finish, but <code>LOAD_MAP</code> is an empty native in <code>src/CHLApi.cpp</code>, so no second land is loaded. See <a href="../portals.html#arrival-scenes">../portals.md</a> and <a href="../land_2.html">../land_2.md</a></td>
+</tr>
+<tr>
+<td>The creature follows the player through: in the second land it is made again at the arrival vortex</td>
+<td>todo</td>
+<td>no land loading and no creature carried between lands; see <a href="../portals.html#arriving">../portals.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="failure-soft-locks-and-story-order">Failure, soft locks and story order</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The quest cannot fail: nothing in it reacts to the shepherd dying, the vortex being ignored or the scroll waiting; the player can stay in the first land as long as they like</td>
+<td>partial</td>
+<td>our tree runs the same script; nothing in it can fail</td>
+</tr>
+<tr>
+<td>If the storm stops existing before the scroll is clicked, the storm's script ends, the land's control script finishes and the story loads the second land at once, skipping the rest of this quest (undetermined whether the storm can end by itself)</td>
+<td>todo</td>
+<td>the storm's script is never reached (it needs the guide creature)</td>
+</tr>
+<tr>
+<td>In a skipped-guide game the creature's permission to go through is set on nothing (the creature is only looked up in the scene the skip leaves out), so it is never given here (quirk)</td>
+<td>partial</td>
+<td>our tree runs the same script (<code>CallPlayerCreature</code> gives the profile creature on the fourth answer); the permission property is not handled anyway</td>
+</tr>
+<tr>
+<td>Next in the story: the second land, Khazar's (<a href="../land_2.html">../land_2.md</a>)</td>
+<td>todo</td>
+<td><code>LOAD_MAP</code> is empty</td>
+</tr>
+<tr>
+<td>No music is started by the quest; whatever the storm left playing carries on</td>
+<td>partial</td>
+<td>our tree runs the same script; no music call</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../../";</script>
+<script src="../../../search.js"></script>
+<script src="../../../progress/progress.js"></script>
+</body>
+</html>

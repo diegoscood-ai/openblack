@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Look and morph — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="here" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#look-and-morph">Look and morph</a><ul>
+<li><a href="#alignment-morph">Alignment morph</a></li>
+<li><a href="#light-and-shadow">Light and shadow</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="look-and-morph">Look and morph</h1>
+<p>How the god hand looks: it changes shape and colour with the player's alignment (gold for good, red and spiked for evil),
+lights the land at night and casts a shadow.</p>
+<p><strong>Progress: 11/11 done, 0 partial — 100%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../hand-and-interface.html">The hand and the interface</a>.</p>
+<h2 id="alignment-morph">Alignment morph</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The base hand is pulled towards the evil hand below alignment 0 and towards the good hand from 0, by how far the alignment is from 0</td>
+<td>done</td>
+<td><code>HandSystem::MorphVertices</code> (<code>HandMorph.cpp</code>) with <code>hand_morph::LookOf</code> and <code>Weight</code> (<code>src/3D/HandMorph.cpp</code>): base + w (variant - base) with w the alignment's size, the evil mesh below 0 and the good one from 0; test <code>HandMorph.PullsTowardsEvilBelowZeroAndGoodFromZero</code></td>
+</tr>
+<tr>
+<td>The alignment shown is held between -1 and 1</td>
+<td>done</td>
+<td><code>hand_morph::Target</code> (<code>src/3D/HandMorph.cpp</code>), from <code>HandSystem::UpdateMorphing</code>: the local player's alignment clamped to -1..1 (<code>OPENBLACK_TEST_HAND_ALIGNMENT</code> to check it); test <code>HandMorph.TargetIsTheAlignmentHeldToItsRange</code></td>
+</tr>
+<tr>
+<td>The skin is blended a 4-bit channel at a time, alpha too, in whole steps</td>
+<td>done</td>
+<td><code>HandSystem::MorphTexture</code> with <code>hand_morph::BlendWeight</code> and <code>BlendTexel</code> (<code>src/3D/HandMorph.cpp</code>): the 4444 blend, each nibble in whole steps, t = trunc(256 x the alignment's size) at most 255; tests <code>HandMorph.SkinBlendsEveryChannelInWholeSteps</code>, <code>HandMorph.SkinWeightIsTruncated</code></td>
+</tr>
+<tr>
+<td>The hand doesn't ease: it jumps straight to the alignment once it has moved far enough from the one drawn</td>
+<td>done</td>
+<td><code>hand_morph::Refresh</code> and <code>Advance</code> (<code>src/3D/HandMorph.cpp</code>), from <code>HandSystem::UpdateMorphing</code>: re-morphs at once when the alignment moved 0.03 from the one drawn; tests <code>HandMorph.JumpsStraightToTheAlignmentOnceFarEnough</code>, <code>HandMorph.StaysUntilTheAlignmentMovesFarEnough</code></td>
+</tr>
+<tr>
+<td>It starts neutral</td>
+<td>done</td>
+<td><code>hand_morph::State</code> starts drawn at 0 (the hand system's <code>_morph</code>)</td>
+</tr>
+<tr>
+<td>Going into or out of the player's influence blends the skin again</td>
+<td>done</td>
+<td><code>hand_morph::Advance</code>: a change of the texture set (in or out of the influence, <code>HandSystem::InInfluence</code>) blends the skin again at the drawn alignment; test <code>HandMorph.CrossingTheInfluenceBlendsTheSkinAgainAtTheDrawnAlignment</code></td>
+</tr>
+<tr>
+<td>The influence is tested at the point picked under the cursor, a frame late, kept within reach of the map</td>
+<td>done</td>
+<td><code>HandSystem::InInfluence</code> at the action point, which <code>UpdateMorphing</code> reads at the start of the frame, before the hand is placed again (the last frame's)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="light-and-shadow">Light and shadow</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hand casts a soft shadow on the land under it</td>
+<td>done</td>
+<td>The hand casts a projected dynamic shadow (<code>graphics::shadow_list</code>, <code>src/Graphics/RendererShadows.cpp</code>); see <a href="../../rendering.html">rendering.md</a></td>
+</tr>
+<tr>
+<td>The shadow fades as the camera pulls away from the ground under the hand</td>
+<td>done</td>
+<td><code>src/Graphics/ShadowMath.cpp</code>; test <code>ShadowMath.FadeByDistance</code> (<code>test/test_shadow_math.cpp</code>)</td>
+</tr>
+<tr>
+<td>At night the hand carries a light that brightens the land around it</td>
+<td>done</td>
+<td><code>src/Graphics/HandLight.cpp</code>; tests <code>HandLight.*</code> (<code>test/graphics/test_hand_light.cpp</code>)</td>
+</tr>
+<tr>
+<td>At night its light glows warm on water near it, never in the temple</td>
+<td>done</td>
+<td><code>src/Graphics/HandWaterGlow.cpp</code>; tests <code>HandWaterGlow.*</code> (<code>test/graphics/test_hand_water_glow.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>The glows and effects the hand carries, and its effect on the world, are in <a href="hand_effects_and_glows.html">hand_effects_and_glows.md</a>.</p>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

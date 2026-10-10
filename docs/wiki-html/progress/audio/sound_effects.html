@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sound effects — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="here" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#sound-effects">Sound effects</a><ul>
+<li><a href="#how-effects-play">How effects play</a></li>
+<li><a href="#by-kind">By kind</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="sound-effects">Sound effects</h1>
+<p>The game's sound effects: the hand, miracles, the temple, buildings, trees, villagers, animals and the creature, each
+from the game's sound banks and most placed in the world.</p>
+<p><strong>Progress: 23/32 done, 6 partial — 81%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../audio.html">Audio: the engine, the banks, the music, the voices and the script</a>.</p>
+<h2 id="how-effects-play">How effects play</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>An effect plays with its bank's volume, pitch, random pitch change, loop count and distances</td>
+<td>done</td>
+<td>the play variants in <code>src/Audio/Game/GameSfx.cpp</code> on the 16 channels of <code>src/Audio/Engine/SamplePlay.cpp</code> (bank fields override the caller's where flagged; start pitch with its random deviation); tests <code>SamplePlayTest.*</code>, <code>FixedClockAudio.*</code></td>
+</tr>
+<tr>
+<td>Animation effects pick a sound by keys (action, size, surface, alignment …) at random</td>
+<td>done</td>
+<td><code>src/Audio/Engine/AnimEffects.cpp</code> (key rows and random sample lists of each bank); tests <code>AnimEffectsTest.*</code></td>
+</tr>
+<tr>
+<td>A sound marked to play once doesn't start again while its owner or its voice group plays it</td>
+<td>done</td>
+<td>play mode 2 and clone groups in <code>src/Audio/Engine/SamplePlay.cpp</code>; test <code>SamplePlayTest.ModesTwoAndThree</code></td>
+</tr>
+<tr>
+<td>Loops follow their owner and stop with it</td>
+<td>done</td>
+<td>tracked channels and sound tags (<code>src/Audio/Services/SoundTags.cpp</code>); tests <code>SoundTagTest.GoneThingReleasesItsLoop</code>, <code>SoundTagTest.GoneThingOneShotGoesAtOnce</code></td>
+</tr>
+<tr>
+<td>Particle effects start, fade and let go of their sounds</td>
+<td>done</td>
+<td><code>src/Audio/Services/SpellSounds.cpp</code>, <code>src/Particles/SoundAction.cpp</code>, <code>src/Particles/Rules/Sound.cpp</code>; tests <code>SpellSounds.*</code>, <code>SamplePlayTest.OwnerChannelAndTheFadeOfAPSysSound</code></td>
+</tr>
+<tr>
+<td>Sounds on objects (sound tags) restart while the camera is in reach</td>
+<td>done</td>
+<td><code>src/Audio/Services/SoundTags.cpp</code>; tests <code>SoundTagTest.ThingTagMode2ReplaysOnlyWhenSilent</code>, <code>SoundTagTest.ThingTagMode3RestartsEveryTurn</code></td>
+</tr>
+<tr>
+<td>A sound at a distant point arrives late, at the speed of sound</td>
+<td>done</td>
+<td>delayed point tags in <code>src/Audio/Services/SoundTags.cpp</code>; test <code>SoundTagTest.DelayedPointTagWaitsForTheSound</code></td>
+</tr>
+<tr>
+<td>A sound effects volume setting</td>
+<td>done</td>
+<td><code>audio::SetSampleMainVolume</code> through the options box slider (<code>src/Game.cpp</code>) and the debug Audio Player; not saved to disk yet</td>
+</tr>
+<tr>
+<td>Scripts play, stop and ask about sounds and attach them to objects</td>
+<td>done</td>
+<td>PLAY_SOUND_EFFECT, STOP_SOUND_EFFECT, ATTACH_SOUND_TAG, DETACH_SOUND_TAG, GAME_SOUND_PLAYING, SOUND_EXISTS, SET_GAME_SOUND in <code>src/CHLApi.cpp</code>, <code>src/Audio/Services/ScriptSound.cpp</code>; tests <code>ScriptSoundTest.*</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="by-kind">By kind</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hand: gripping the land, picking up, dipping in water, passing through influence</td>
+<td>done</td>
+<td>grip and splash in <code>src/ECS/Systems/Implementations/HandFish.cpp</code>, the pick-up loop of food and wood in <code>HandEffects.cpp</code>, influence edge crossing in <code>src/ECS/Influence/InfluenceCircles.cpp</code>; tests <code>UiSfxTest.InfluenceCrossing*</code></td>
+</tr>
+<tr>
+<td>Gestures and casting: recognised, failed, power up bands, bubbles popping</td>
+<td>done</td>
+<td><code>src/Particles/Rules/Gesture.cpp</code>, <code>src/ECS/Systems/Implementations/HandSpellSeed.cpp</code>, <code>src/Magic/Hand/HandMagicFX.cpp</code>, <code>src/Magic/Core/SpellSeed.cpp</code>, <code>src/Worship/WorshipSpellIcon.cpp</code></td>
+</tr>
+<tr>
+<td>Miracles: fireball, lightning, shields, forests growing, teleport, water</td>
+<td>done</td>
+<td>the spells bank through the particle sound actions (<code>src/Audio/Services/SpellSounds.cpp</code>), <code>src/Particles/Rules/Fireball.cpp</code>, <code>src/Magic/Objects/MagicTeleport.cpp</code>, <code>src/Magic/Core/OneOffSpellSeed.cpp</code>; see ../miracles/</td>
+</tr>
+<tr>
+<td>Fire crackling and steam</td>
+<td>done</td>
+<td><code>src/ECS/Fire/FireSound.cpp</code> (crackle following the burning thing), steam in <code>src/ECS/Fire/FireGraphic.cpp</code></td>
+</tr>
+<tr>
+<td>Thunder claps with lightning</td>
+<td>partial</td>
+<td>the storm miracle's thunder (<code>src/Particles/Rules/Storm.cpp</code>) and the rain bank's thunder one-shots (<code>src/Audio/Services/AtmosBanks.cpp</code>) play; the weather's own thunder at a strike's point is not ported; see ../weather/storms.md</td>
+</tr>
+<tr>
+<td>The camera's whoosh when moving fast</td>
+<td>done</td>
+<td><code>src/Camera/DefaultWorldCameraModel.cpp</code>, <code>src/Camera/TempleCameraModel.cpp</code></td>
+</tr>
+<tr>
+<td>The temple: doors, buttons, scrolls squeaking, the cave's waterfall and fire</td>
+<td>partial</td>
+<td>doors, buttons, scrolls and the scroll whoosh play (<code>src/3D/Implementations/TempleInterior.cpp</code>, <code>src/3D/TempleToggles.cpp</code>, <code>TempleSounds.h</code>); the creature cave's waterfall and fire are still silent; see ../temple/</td>
+</tr>
+<tr>
+<td>The leash: attaching and clicking</td>
+<td>done</td>
+<td><code>src/ECS/Systems/Implementations/LeashSystem.cpp</code></td>
+</tr>
+<tr>
+<td>Lanterns crackling</td>
+<td>done</td>
+<td><code>src/Audio/Services/LanternSounds.cpp</code> (a sound tag on each lit street lantern)</td>
+</tr>
+<tr>
+<td>Trees rustling, bending, falling, breaking and being turned to mulch</td>
+<td>partial</td>
+<td>rustle and bend (<code>src/ECS/Trees.cpp</code>, <code>AnimationSounds::PlayFromTable</code>), breaking when uprooted (<code>HandHolding.cpp</code>), mulch at a store (<code>src/ECS/ObjectDelivery.cpp</code>); the falling tree's sounds are not played</td>
+</tr>
+<tr>
+<td>Planting trees, scaffolds appearing, ready and tapped, the workshop</td>
+<td>done</td>
+<td>tree planting (<code>HandPhysics.cpp</code>), scaffold planting, tapping and joining (<code>src/ECS/Scaffolds.cpp</code>), the workshop's work loop and ready horn (<code>src/ECS/Town/Workshops.cpp</code>); see <a href="../building/workshop_and_scaffolds.html">../building/workshop_and_scaffolds.md</a></td>
+</tr>
+<tr>
+<td>Food and wood piles and picking them up</td>
+<td>done</td>
+<td>the pile sound by type and amount (<code>src/ECS/PotResource.cpp</code>), the hand's pick-up loop (<code>HandEffects.cpp</code>)</td>
+</tr>
+<tr>
+<td>Villagers: footsteps, work (axe, saw, hammer), screams, babies crying, the village bell</td>
+<td>partial</td>
+<td>footsteps by surface, work and thrown screams from the clips' sound events (<code>src/Audio/Services/AnimationSounds.cpp</code> from <code>src/ECS/Animations.cpp</code>), banter, the birth sound (<code>src/ECS/Villager/VillagerBirth.cpp</code>); the village bell and the totem are not played; see ../villager/looks_and_voices.md</td>
+</tr>
+<tr>
+<td>Crowds impressed, or losing belief</td>
+<td>todo</td>
+<td>the impressed reactions are not ported (<code>LivingActionSystem.cpp</code> lists them as todo)</td>
+</tr>
+<tr>
+<td>Animals: their calls and footsteps by species</td>
+<td>done</td>
+<td>the same clip sound events as the villagers, with each species' sound group (<code>src/Audio/Services/AnimationSounds.cpp</code>); see ../animal/</td>
+</tr>
+<tr>
+<td>The creature: breath, footsteps by ground, roars, snores, sneezes, eating, pooing, fight blows</td>
+<td>done</td>
+<td><code>src/ECS/Systems/Implementations/CreatureAudioSystem.cpp</code>, <code>src/Creature/CreatureAudio.cpp</code>, run by <code>src/ECS/CreatureLoop.cpp</code>; tests <code>CreatureAudio.*</code>, <code>CreatureAudioSystemTest.*</code></td>
+</tr>
+<tr>
+<td>Objects landing and breaking by what they are and what they hit</td>
+<td>done</td>
+<td><code>src/ECS/Physics/CollisionSounds.cpp</code> (editor bank key by what hits what), <code>src/ECS/Rocks.cpp</code>, building crash in <code>src/ECS/Abodes.cpp</code>; see ../physics/</td>
+</tr>
+<tr>
+<td>Rewards, chests, the reward sting and the acknowledgement of a command</td>
+<td>partial</td>
+<td>the scroll and signpost taps play (<code>src/ECS/ScriptHighlight.cpp</code>); no chest, reward sting or command acknowledgement</td>
+</tr>
+<tr>
+<td>The hand at the edge of the world</td>
+<td>todo</td>
+<td>no camera bounds in our tree, so the out-of-bounds sound is never played</td>
+</tr>
+<tr>
+<td>The advisors' slapstick (knocking the glass, slapping, a fart, a gun)</td>
+<td>todo</td>
+<td>the advisors' own sound effects are not played; see voices_and_speech.md</td>
+</tr>
+<tr>
+<td>Windmills and running water</td>
+<td>partial</td>
+<td>the running water ambience bank (<code>src/Audio/Services/SoundMap.cpp</code>) and the water flow tags of script markers (<code>src/ECS/DesignedScenery.cpp</code>); windmills are silent</td>
+</tr>
+<tr>
+<td>The story's own sound effects bank</td>
+<td>done</td>
+<td>the script bank (ScriptSfx) through PLAY_SOUND_EFFECT (<code>src/Audio/Services/ScriptSound.cpp</code>); test <code>ScriptSoundTest.PlayOwnsItsChannelByTheSampleNumber</code></td>
+</tr>
+<tr>
+<td>The menu's button click</td>
+<td>done</td>
+<td><code>src/Gui/GameInterface.cpp</code>; test <code>UiSfxTest.InGameRecordsOfTheInterface</code></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

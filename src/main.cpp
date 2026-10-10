@@ -7,9 +7,16 @@
  * openblack is licensed under the GNU General Public License version 3.
  *******************************************************************************/
 
+#include <algorithm>
+#include <array>
 #include <iostream>
 #include <map>
 #include <memory>
+#include <optional>
+#include <span>
+#include <string_view>
+#include <typeinfo>
+#include <utility>
 
 #include <SDL_messagebox.h>
 #include <cxxopts.hpp>
@@ -22,6 +29,8 @@
 // clang-format on
 #endif
 
+#include "Common/CrashHandler.h"
+#include "Debug/TestbedOptions.h"
 #include "EngineConfig.h"
 #include "Game.h"
 
@@ -46,11 +55,15 @@ bool parseOptions(int argc, char** argv, openblack::Arguments& args, int& return
 	options.add_options()
 		("h,help", "Display this help message.")
 		("g,game-path", "Path to the Data/ and Scripts/ directories of the original Black & White game. (Required)", cxxopts::value<std::string>())
-		("W,width", "Window resolution in the x axis.", cxxopts::value<uint16_t>()->default_value("1280"))
-		("H,height", "Window resolution in the y axis.", cxxopts::value<uint16_t>()->default_value("1024"))
+		("W,width", "Window resolution in the x axis (0: fit the desktop).", cxxopts::value<uint16_t>()->default_value("0"))
+		("H,height", "Window resolution in the y axis (0: fit the desktop).", cxxopts::value<uint16_t>()->default_value("0"))
 		("u,ui-scale", "Scaling of the GUI", cxxopts::value<float>()->default_value("1.0"))
 		("s,start-level", "Level that is loaded at start-up", cxxopts::value<std::string>()->default_value("Land1.txt"))
-		("V,vsync", "Enable Vertical Sync.")
+		("testbed", "Start on the flat testbed, a plane with a lake, instead of a level.")
+		("creature-file", "The profile's creature: a mind file in Scripts/CreatureMind, loaded when a land asks for the player's creature. Empty for none.",
+		    cxxopts::value<std::string>()->default_value(std::string(openblack::k_DefaultProfileCreatureFile)))
+		("no-vsync", "Draw frames as fast as possible instead of waiting for the screen's refresh, as the original does by default.")
+		("detail-level", "Graphics detail level of the original, 0..6 (4 is the original's default, 5 custom, 6 top).", cxxopts::value<uint16_t>()->default_value("4"))
 		("m,window-mode", "Which mode to run window.", cxxopts::value<std::string>()->default_value("windowed"))
 		("b,backend-type", "Which backend to use for rendering.", cxxopts::value<std::string>())
 		("n,num-frames-to-simulate", "Number of frames to simulate before quitting.", cxxopts::value<uint32_t>()->default_value("0"))
@@ -59,6 +72,13 @@ bool parseOptions(int argc, char** argv, openblack::Arguments& args, int& return
 		    cxxopts::value<std::vector<std::string>>()->default_value("all=debug"))
 		("screenshot-frame", "Request a screenshot of the backbuffer at a certain frame number.", cxxopts::value<uint32_t>())
 		("screenshot-path", "Path of the request a screenshot of the backbuffer.", cxxopts::value<std::filesystem::path>()->default_value("screenshot.png"))
+		("crash-dialogs", "Show the system's and C runtime's crash dialogs (Abort/Retry/Ignore) instead of writing a crash report to crashes/ and exiting.")
+		("frame-stats", "Log the average and 95th percentile frame time and the profiler stages every so many frames (0 for never).", cxxopts::value<uint32_t>()->default_value("0"))
+		("frame-stats-views", "With --frame-stats, also profile and log the GPU time of each render view.")
+		("scenario", "Start on the testbed and run the testbed scenario of this id, such as benchmark.creatures_100.", cxxopts::value<std::string>())
+		("benchmark-warmup", "With --scenario, the frames a benchmark's crowd settles for once spawned, before it is measured.", cxxopts::value<uint32_t>()->default_value("120"))
+		("benchmark-frames", "With --scenario, the frames of a benchmark measured, after which the game quits.", cxxopts::value<uint32_t>()->default_value("600"))
+		("benchmark-out", "With --scenario, where a benchmark writes its results (with .json and .csv after it); nothing is written without it.", cxxopts::value<std::string>())
 	;
 	// clang-format on
 
@@ -83,8 +103,10 @@ bool parseOptions(int argc, char** argv, openblack::Arguments& args, int& return
 		// allow user to specify a renderer
 		if (result.count("backend-type") != 0)
 		{
-			auto rendererIter = openblack::k_GraphicsBackendStringLookup.find(result["backend-type"].as<std::string>());
-			if (rendererIter != openblack::k_GraphicsBackendStringLookup.cend())
+			const auto& backends = openblack::k_GraphicsBackendStringLookup;
+			const auto rendererIter = std::ranges::find(backends, std::string_view {result["backend-type"].as<std::string>()},
+			                                            &std::pair<std::string_view, openblack::GraphicsBackend>::first);
+			if (rendererIter != backends.cend())
 			{
 				graphicsBackend = rendererIter->second;
 			}
@@ -94,15 +116,17 @@ bool parseOptions(int argc, char** argv, openblack::Arguments& args, int& return
 			}
 		}
 
-		static const std::map<std::string_view, openblack::windowing::DisplayMode> displayModeLookup = {
-		    std::pair {"windowed", openblack::windowing::DisplayMode::Windowed},
-		    std::pair {"fullscreen", openblack::windowing::DisplayMode::Fullscreen},
-		    std::pair {"borderless", openblack::windowing::DisplayMode::Borderless},
-		};
+		using DisplayModeName = std::pair<std::string_view, openblack::windowing::DisplayMode>;
+		constexpr std::array<DisplayModeName, 3> k_DisplayModeLookup {{
+		    {"windowed", openblack::windowing::DisplayMode::Windowed},
+		    {"fullscreen", openblack::windowing::DisplayMode::Fullscreen},
+		    {"borderless", openblack::windowing::DisplayMode::Borderless},
+		}};
 
 		openblack::windowing::DisplayMode displayMode;
-		auto displayModeIter = displayModeLookup.find(result["window-mode"].as<std::string>());
-		if (displayModeIter != displayModeLookup.cend())
+		const auto displayModeIter = std::ranges::find(
+		    k_DisplayModeLookup, std::string_view {result["window-mode"].as<std::string>()}, &DisplayModeName::first);
+		if (displayModeIter != k_DisplayModeLookup.cend())
 		{
 			displayMode = displayModeIter->second;
 		}
@@ -150,11 +174,12 @@ bool parseOptions(int argc, char** argv, openblack::Arguments& args, int& return
 			                             RRF_RT_REG_SZ, nullptr, nullptr, &dataLen);
 			if (status == ERROR_SUCCESS)
 			{
-				char* path = new char[dataLen];
+				// Not zero-filled, like the old new char[]
+				auto path = std::make_unique_for_overwrite<char[]>(dataLen);
 				status = RegGetValue(HKEY_CURRENT_USER, "SOFTWARE\\Lionhead Studios Ltd\\Black & White", "GameDir",
-				                     RRF_RT_REG_SZ, nullptr, path, &dataLen);
+				                     RRF_RT_REG_SZ, nullptr, path.get(), &dataLen);
 
-				args.gamePath = std::string(path);
+				args.gamePath = std::string(path.get());
 			}
 			else
 #endif
@@ -176,13 +201,22 @@ bool parseOptions(int argc, char** argv, openblack::Arguments& args, int& return
 		args.windowWidth = result["width"].as<uint16_t>();
 		args.windowHeight = result["height"].as<uint16_t>();
 		args.guiScale = result["ui-scale"].as<float>();
-		args.vsync = result["vsync"].as<bool>();
+		args.vsync = !result["no-vsync"].as<bool>();
+		args.detailLevel = static_cast<uint8_t>(std::min<uint16_t>(result["detail-level"].as<uint16_t>(), 6));
 		args.displayMode = displayMode;
 		args.graphicsBackend = graphicsBackend;
 		args.numFramesToSimulate = result["num-frames-to-simulate"].as<uint32_t>();
 		args.logFile = result["log-file"].as<std::string>();
 		args.logLevels = logLevels;
 		args.startLevel = result["start-level"].as<std::string>();
+		args.startTestbed = result.count("testbed") != 0;
+		args.creatureFile = result["creature-file"].as<std::string>();
+		args.frameStatsInterval = result["frame-stats"].as<uint32_t>();
+		args.frameStatsViews = result.count("frame-stats-views") != 0;
+		args.scenario = openblack::testbed_scenarios::MakeScenarioRequest(
+		    result.count("scenario") != 0 ? std::optional(result["scenario"].as<std::string>()) : std::nullopt,
+		    result["benchmark-warmup"].as<uint32_t>(), result["benchmark-frames"].as<uint32_t>(),
+		    result.count("benchmark-out") != 0 ? std::optional(result["benchmark-out"].as<std::string>()) : std::nullopt);
 	}
 	catch (cxxopts::exceptions::parsing& err)
 	{
@@ -198,6 +232,12 @@ bool parseOptions(int argc, char** argv, openblack::Arguments& args, int& return
 
 int main(int argc, char* argv[]) noexcept
 {
+	const bool crashDialogs = openblack::crash_handler::WantsCrashDialogs(std::span(argv, static_cast<size_t>(argc)));
+	if (!crashDialogs)
+	{
+		openblack::crash_handler::Install();
+	}
+
 	// clang-format off
 	std::cout <<
 	    "==============================================================================\n"
@@ -214,6 +254,7 @@ int main(int argc, char* argv[]) noexcept
 		{
 			return returnCode;
 		}
+		openblack::crash_handler::SetLogFile(args.logFile);
 		auto game = std::make_unique<openblack::Game>(std::move(args));
 		if (!game->Initialize())
 		{
@@ -223,9 +264,15 @@ int main(int argc, char* argv[]) noexcept
 		{
 			return EXIT_FAILURE;
 		}
+		game.reset();
 	}
 	catch (std::exception& e)
 	{
+		if (!crashDialogs)
+		{
+			openblack::crash_handler::ReportFatal(openblack::crash_report::CrashKind::UncaughtException, e.what(), {}, 0,
+			                                      typeid(e).name());
+		}
 		std::cerr << e.what() << std::endl;
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Fatal error", e.what(), nullptr);
 		return EXIT_FAILURE;

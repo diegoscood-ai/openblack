@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Main menu — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="here" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#main-menu">Main menu</a><ul>
+<li><a href="#opening-and-closing">Opening and closing</a></li>
+<li><a href="#the-first-page">The first page</a></li>
+<li><a href="#before-play-starts">Before play starts</a></li>
+<li><a href="#dialog-look-and-controls">Dialog look and controls</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="main-menu">Main menu</h1>
+<p>The menu Escape brings up over the game (continue, skirmish, online, options, quit, with a statistics tab), the boxes
+the game shows before play starts (choosing or making a player), and the dialog controls all of them are built from.</p>
+<p><strong>Progress: 19/36 done, 3 partial — 57%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../hand-and-interface.html">The hand and the interface</a>.</p>
+<h2 id="opening-and-closing">Opening and closing</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Escape brings the menu up over the game, and the game's dialogs take the mouse and keys while it is open</td>
+<td>done</td>
+<td><code>src/Gui/GameInterface.cpp</code>, <code>src/Gui/GameMenu.cpp</code>; the Escape rules (<code>gui::EscapeBlocked</code>) tested in <code>MenuEscape.*</code></td>
+</tr>
+<tr>
+<td>The menu fades in over half a second and out over a fifth</td>
+<td>done</td>
+<td><code>k_FadeInSeconds</code>, <code>k_FadeOutSeconds</code> in <code>src/Gui/GameMenu.cpp</code></td>
+</tr>
+<tr>
+<td>The game is paused while the menu is open and goes back to how it was when it closes</td>
+<td>done</td>
+<td><code>Game::HandleInterfaceAction</code> in <code>src/Game.cpp</code> pauses while open (not when opened inside the temple, which holds the pause)</td>
+</tr>
+<tr>
+<td>Escape backs out of an options page to the first page, and closes the menu from there</td>
+<td>done</td>
+<td><code>GameMenu::Escape</code>; tests <code>MenuEscape.OverAQuestion</code>, <code>MenuEscape.PageAfterAnAnswer</code></td>
+</tr>
+<tr>
+<td>The menu draws its own mouse pointer, over the debug windows too</td>
+<td>done</td>
+<td><code>GameInterface::Draw</code> (<code>DialogPainter::DrawPointer</code>)</td>
+</tr>
+<tr>
+<td>Inside the temple the options' first tab is the World Room, which closes them</td>
+<td>done</td>
+<td><code>GameMenu::SetInsideTemple</code>, called from <code>src/3D/Implementations/TempleInterior.cpp</code></td>
+</tr>
+<tr>
+<td>Some boxes can't be closed with Escape (asked per box), and the menu can't be reopened while a box forbids it</td>
+<td>partial</td>
+<td>Escape is refused with Shift or Ctrl, over a film, under a script's wide screen and within 300 ms of closing (<code>gui::EscapeBlocked</code>, test <code>MenuEscape.FilmWideScreenAndDebounce</code>); no box forbids it yet</td>
+</tr>
+<tr>
+<td>Closing the options writes the settings back so they are there next time</td>
+<td>todo</td>
+<td>nothing is saved; see <a href="options.html">options.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-first-page">The first page</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Greets the player by their profile's name above the buttons</td>
+<td>partial</td>
+<td>greets by <code>OPENBLACK_PLAYER_NAME</code> or the computer's login name (<code>Game.cpp</code>); openblack has no profiles (<a href="profiles.html">profiles.md</a>)</td>
+</tr>
+<tr>
+<td>Continue Game closes the menu</td>
+<td>done</td>
+<td><code>GameMenu::Action::Continue</code></td>
+</tr>
+<tr>
+<td>Start Skirmish Game</td>
+<td>todo</td>
+<td>logs "This part of the menu is not available yet" (<code>Game::HandleInterfaceAction</code>); see <a href="../multiplayer/skirmish.html">../multiplayer/skirmish.md</a></td>
+</tr>
+<tr>
+<td>Join Online Game</td>
+<td>todo</td>
+<td>logs "This part of the menu is not available yet"; see ../multiplayer/</td>
+</tr>
+<tr>
+<td>The first button reads Leave Skirmish Game during a skirmish and Exit Online Game during a network game</td>
+<td>todo</td>
+<td>noted in <code>GameMenu::BuildMain</code>, not done; see <a href="../multiplayer/skirmish.html">../multiplayer/skirmish.md</a></td>
+</tr>
+<tr>
+<td>Options opens the options' pages</td>
+<td>done</td>
+<td><code>GameMenu::OptionsTabs</code>, <code>ShowPage</code></td>
+</tr>
+<tr>
+<td>Quit asks "are you sure" in a smaller opaque box with Yes and No arrows; Yes quits</td>
+<td>done</td>
+<td><code>GameMenu::Ask</code> with the Yes and No arrows; Yes sets <code>config.running</code> false (<code>Game::HandleInterfaceAction</code>)</td>
+</tr>
+<tr>
+<td>The Statistics tab opens the game's statistics</td>
+<td>todo</td>
+<td>logs "This part of the menu is not available yet"; see <a href="statistics.html">statistics.md</a></td>
+</tr>
+<tr>
+<td>Laid out as the original: box, five tabs, button places and text sizes</td>
+<td>done</td>
+<td><code>GameMenu::GetButtonRect</code>, <code>BuildMain</code> (box, five tabs, button places and text sizes)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="before-play-starts">Before play starts</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The game starts on a front end that asks which player is playing before the first land</td>
+<td>todo</td>
+<td>openblack loads straight into a land</td>
+</tr>
+<tr>
+<td>A first run asks for a new player's name in its own box</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A skirmish game is set up in its own box (land, opponents) before it starts</td>
+<td>todo</td>
+<td>see <a href="../multiplayer/skirmish.html">../multiplayer/skirmish.md</a></td>
+</tr>
+<tr>
+<td>Changing the player during a game asks to restart</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>A box tells the player the game is being saved while it saves</td>
+<td>todo</td>
+<td>see ../engine/ for saving itself</td>
+</tr>
+<tr>
+<td>The front end has its own pointer and turns the hand off while a box is up</td>
+<td>partial</td>
+<td>the menu's pointer is drawn; there is no front end yet</td>
+</tr>
+</tbody>
+</table>
+<h2 id="dialog-look-and-controls">Dialog look and controls</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dialogs are laid out in an 800 by 600 space, centred, and scaled down on smaller screens</td>
+<td>done</td>
+<td><code>DialogPainter::k_Size</code> in <code>src/Gui/DialogPainter.h</code></td>
+</tr>
+<tr>
+<td>Boxes, bevels, tabs and shadows are drawn from the front end atlas, text in the game's font</td>
+<td>done</td>
+<td><code>DialogPainter</code> (<code>Front_end_buttons.raw</code>), <code>src/Gui/GameFont.cpp</code>; tests <code>GameFontLoaderTest.*</code></td>
+</tr>
+<tr>
+<td>The control under the pointer lights up orange; a control acts when the button is let go over the one it went down on</td>
+<td>done</td>
+<td><code>src/Gui/Dialog.cpp</code> (the pressed and hovered control)</td>
+</tr>
+<tr>
+<td>Activating a control plays the menu button sound</td>
+<td>done</td>
+<td><code>PlayButtonSound</code> in <code>src/Gui/GameInterface.cpp</code> (sample 159)</td>
+</tr>
+<tr>
+<td>Buttons, big arrow buttons and square buttons</td>
+<td>done</td>
+<td><code>Button</code>, <code>BigButton</code> in <code>src/Gui/Controls.cpp</code></td>
+</tr>
+<tr>
+<td>Sliders step by clicks or follow the knob as it is dragged</td>
+<td>done</td>
+<td><code>Slider</code> in <code>src/Gui/Controls.cpp</code></td>
+</tr>
+<tr>
+<td>Check boxes and radio-style selectors</td>
+<td>done</td>
+<td><code>CheckBox</code> and the menu's selectors (<code>src/Gui/Controls.cpp</code>, <code>GameMenu.cpp</code>)</td>
+</tr>
+<tr>
+<td>Edit boxes take typed text with a caret</td>
+<td>done</td>
+<td><code>EditBox</code> in <code>src/Gui/Controls.cpp</code>; test <code>EditBoxCaret.BlinksEveryQuarterSecond</code></td>
+</tr>
+<tr>
+<td>Lists scroll with the wheel and a bar, and select rows</td>
+<td>done</td>
+<td><code>List</code> in <code>src/Gui/Controls.cpp</code></td>
+</tr>
+<tr>
+<td>A colour picker (for the tattoo colours)</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Line and bar graphs (the statistics)</td>
+<td>todo</td>
+<td>see <a href="statistics.html">statistics.md</a></td>
+</tr>
+<tr>
+<td>Tab and the arrow keys move the focus between controls; Enter acts</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Controls show a tooltip when the pointer rests on them</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

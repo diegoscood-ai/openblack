@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Worshippers and dancing — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="here" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#worshippers-and-dancing">Worshippers and dancing</a><ul>
+<li><a href="#going-to-worship">Going to worship</a></li>
+<li><a href="#the-dance">The dance</a></li>
+<li><a href="#what-worship-costs-the-dancers">What worship costs the dancers</a></li>
+<li><a href="#other-worship">Other worship</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="worshippers-and-dancing">Worshippers and dancing</h1>
+<p>The villagers who leave their town to dance at the worship site. The player sets how many of a town worship; the
+dancers chant prayer power, tire, get hungry and can die of it.</p>
+<p><strong>Progress: 10/23 done, 5 partial — 54%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../magic.html">Magic: the core of the miracles</a>.</p>
+<h2 id="going-to-worship">Going to worship</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each town has a totem whose height sets the share of its people who worship; the player holds it with the hand and pulls it up or down</td>
+<td>partial</td>
+<td>the town's worship percentage (<code>worship::percentage::SetWorshipPercentage</code>, <code>src/Worship/WorshipPercentage.cpp</code>) sets the share and raises the totem; land scripts set it (<code>src/LHScriptX/FeatureScriptCommands.cpp</code>); dragging the totem with the hand is not wired</td>
+</tr>
+<tr>
+<td>The totem eases smoothly to its new height, with a sound as it moves</td>
+<td>done</td>
+<td>the totem's rise with its rising loop and stop sound (<code>percentage::ProcessTotem</code>, <code>src/Worship/WorshipPercentage.cpp</code>)</td>
+</tr>
+<tr>
+<td>A town's worshippers are drawn from its people who aren't busy, up to the share</td>
+<td>done</td>
+<td><code>percentage::AdjustWorshipersWorshipping</code>: available villagers, nearest first by distance and life; tests <code>WorshipTest.WorshipersNeeded</code>, <code>WorshipScoreFallsOffWithTheDistance</code></td>
+</tr>
+<tr>
+<td>Worshippers walk from their town to the site, at the worship walking speed</td>
+<td>done</td>
+<td><code>villager_worship::GotoWorshipSiteForWorship</code> (<code>src/ECS/Systems/Implementations/VillagerWorship.cpp</code>), the speed from the state table (<code>src/ECS/VillagerSpeed.cpp</code>)</td>
+</tr>
+<tr>
+<td>A worshipper that can't reach the site doesn't go</td>
+<td>done</td>
+<td><code>CanIGetToTheWorshipSite</code>: within the town info's distance</td>
+</tr>
+<tr>
+<td>A site too far to walk to is still reached through the player's teleport stones</td>
+<td>done</td>
+<td>(added) <code>CanIGetToTheWorshipSite</code> and <code>teleport::FindRouteStone</code> (<code>src/ECS/Systems/Implementations/VillagerWorship.cpp</code>); <a href="../../miracles.html#the-villagers-go-to-the-worship-site-through-the-stones-faithful">our wiki</a></td>
+</tr>
+<tr>
+<td>Worshippers ask to go home when tired or hungry, and the site lets them go in turn</td>
+<td>done</td>
+<td>below the life threshold a worshipper joins the site's go-home queue, sorted by its desire for life (<code>CheckRequestGoHome</code>, <code>CheckVillagerGoBackToTownFromWorship</code>)</td>
+</tr>
+<tr>
+<td>Worshippers go home to sleep, or sleep at the site (unconfirmed)</td>
+<td>done</td>
+<td>state 248 goes home, sleeping in a tent on the way when it must (<code>src/ECS/Systems/Implementations/LivingActionSystem.cpp</code>)</td>
+</tr>
+<tr>
+<td>A town in danger stops worshipping, and its worship comes back once the danger is over</td>
+<td>done</td>
+<td>(added) <code>src/ECS/Town/TownEmergency.cpp</code> saves the percentage and sets it to 0, then puts it back</td>
+</tr>
+<tr>
+<td>A villager dropped on the site by the hand becomes a worshipper disciple</td>
+<td>todo</td>
+<td>no worship disciple; see <code>../villager/</code> for disciples</td>
+</tr>
+<tr>
+<td>Scripts can make villagers dance and stop them</td>
+<td>todo</td>
+<td><code>DANCE_CREATE</code> is a stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-dance">The dance</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dancers move in group shapes and paths set out in the game's dance files</td>
+<td>partial</td>
+<td>the dancers stand on a ring round the dance centre (<code>site::DancePosition</code>, <code>src/Worship/WorshipSite.cpp</code>); the dance files are not ported</td>
+</tr>
+<tr>
+<td>Each dancer plays its tribe's dance animations</td>
+<td>todo</td>
+<td>the dance clip needs a dance group, so dancers stand (<code>src/ECS/VillagerAnimations.cpp</code>)</td>
+</tr>
+<tr>
+<td>The dance goes faster the more prayer power is drawn from the site</td>
+<td>partial</td>
+<td>the intensity is worked out (<code>magic::EndWorshipTurn</code>, <code>src/Magic/WorshipBattery.cpp</code>, then <code>site::SetDanceIntensity</code>; tests <code>WorshipTest.EndOfTurnDanceIntensityAndBattery</code>, <code>WorshipBattery.drawingSpeedsTheDanceAndDrainsTheBattery</code>), but nothing plays the dance faster</td>
+</tr>
+<tr>
+<td>A dance takes a few turns to get going before it counts</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Coloured lights follow the dancers</td>
+<td>n/a</td>
+<td>the game keeps them but never draws them; see <a href="../rendering/light_beams.html">../rendering/light_beams.md</a></td>
+</tr>
+<tr>
+<td>The chanting is heard, louder with more worshippers</td>
+<td>done</td>
+<td>the nearest site's chant music, the voiced chant above eight dancers (<code>GameMusic::ProcessChantMusic</code>, <code>src/Audio/Services/GameMusic.cpp</code>)</td>
+</tr>
+<tr>
+<td>A strain sound plays when the miracles ask more than the dancers give</td>
+<td>partial</td>
+<td>the strain's sound fraction is kept (<code>src/Worship/Citadel.cpp</code>) and read by the advisors' worship remark (<code>src/ECS/AudioQueries.cpp</code>, <code>src/Audio/Services/Guidance.cpp</code>); no strain sound of its own plays</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-worship-costs-the-dancers">What worship costs the dancers</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The more a dancer chants, the more life it loses</td>
+<td>done</td>
+<td><code>ReduceVillagerLifeByChant</code> (<code>src/ECS/Systems/Implementations/VillagerWorship.cpp</code>)</td>
+</tr>
+<tr>
+<td>Dancers get hungry and eat the site's food</td>
+<td>todo</td>
+<td>villagers have no belly yet</td>
+</tr>
+<tr>
+<td>Worshippers starving or worn out die, and their town counts the deaths</td>
+<td>partial</td>
+<td>a worshipper chanted to death dies and its town counts it (<code>TownDeaths</code>, read by <code>GET_TOWN_WORSHIP_DEATHS</code>); starving at the site is not modelled</td>
+</tr>
+<tr>
+<td>Dancers rest at the altar to get their strength back</td>
+<td>todo</td>
+<td>the rest at the site is not ported (<code>CheckAllowedToRestAtWorshipSite</code> always says no)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="other-worship">Other worship</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Villagers who are impressed enough by a creature worship it, dancing round it (unconfirmed exact trigger)</td>
+<td>todo</td>
+<td></td>
+</tr>
+<tr>
+<td>Villagers dance round an artefact in their town</td>
+<td>todo</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>The camera that watches a dance is in <code>../camera/</code>.</p>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

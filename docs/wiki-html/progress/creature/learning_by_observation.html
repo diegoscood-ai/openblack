@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Learning by observation — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="here" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#learning-by-observation">Learning by observation</a><ul>
+<li><a href="#skills-learnt-from-villagers">Skills learnt from villagers</a></li>
+<li><a href="#miracles-learnt-by-seeing-them">Miracles learnt by seeing them</a></li>
+<li><a href="#copying-the-player">Copying the player</a></li>
+<li><a href="#deeds-the-creature-notices">Deeds the creature notices</a></li>
+<li><a href="#what-it-thinks-its-god-wants">What it thinks its god wants</a></li>
+<li><a href="#watching-others">Watching others</a></li>
+<li><a href="#teaching-by-scripts-and-computer-gods">Teaching by scripts and computer gods</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="learning-by-observation">Learning by observation</h1>
+<p>Besides the hand's rewards, the creature learns by watching. It picks up ordinary skills (building, fishing, dancing and
+so on) by watching villagers practise them, learns miracles by seeing them cast often enough, and copies what its god
+does: it notices a deed, does it itself, and may come to want what its god seemed to want. What it sees its god do also
+tells it what its god wants.</p>
+<p><strong>Progress: 14/80 done, 22 partial — 31%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../creature.html">The creature: groundwork, random streams and what is unknown</a>.</p>
+<h2 id="skills-learnt-from-villagers">Skills learnt from villagers</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>There are six ordinary skills to learn by watching: building, using a field, using a totem, using the storehouse, fishing and dancing</td>
+<td>done</td>
+<td>read from the game's tables in <code>src/Creature/CreatureMindTables.cpp</code></td>
+</tr>
+<tr>
+<td>Each skill needs the creature grown up to a stage first: fields, fishing and dancing early, the totem later, building and the storehouse late</td>
+<td>partial</td>
+<td><code>SkillRule::minPhase</code> in <code>creature_watching::SeeSkill</code> (<code>src/Creature/CreatureWatching.cpp</code>); dormant: <code>CreatureMindSystem::SeeSkill</code> is only called from the debug spawner</td>
+</tr>
+<tr>
+<td>A skill is learnt once the creature has watched it for six or seven seconds from first seeing it</td>
+<td>partial</td>
+<td><code>SkillRule::watchSeconds</code>; test <code>CreatureWatching.LearnsASkillOnceWatchedLongEnough</code>; dormant: only the debug spawner shows a skill</td>
+</tr>
+<tr>
+<td>How often it has seen each skill and when it first did are kept and saved in its mind</td>
+<td>done</td>
+<td><code>creature_watching::Knowledge</code>, kept with the mind (<code>src/Creature/CreatureMindModel.cpp</code>, <code>components/creaturemind</code> <code>MindFile</code>)</td>
+</tr>
+<tr>
+<td>Villagers practising a skill where creatures can see it teach them</td>
+<td>partial</td>
+<td><code>CreatureMindSystem::SeeSkill</code> (<code>src/ECS/Systems/Implementations/CreatureMindLearning.cpp</code>) works, but no villager job reports what it practises; only the debug spawner calls it</td>
+</tr>
+<tr>
+<td>Only creatures near enough and able to see it learn</td>
+<td>partial</td>
+<td>a fixed reach of 150 (<code>k_ViewDistance</code> in <code>CreatureMindLearning.cpp</code>), not the creature's sight; only reached from the debug spawner</td>
+</tr>
+<tr>
+<td>Knowing a skill lets it do the actions that need it (help build, fish, dance, use the storehouse or a totem)</td>
+<td>todo</td>
+<td>those actions aren't carried out; see <a href="town_actions.html">town_actions.md</a></td>
+</tr>
+<tr>
+<td>A skill seen too young to learn is ignored</td>
+<td>partial</td>
+<td><code>Progress::ignored</code> in <code>creature_watching::SeeSkill</code>; only reached from the debug spawner</td>
+</tr>
+<tr>
+<td>The player is told when it has learnt a skill, nearly has, or is too young to</td>
+<td>todo</td>
+<td>only a thought in the mind's log (<code>creature_mind_model::Think</code>); see <a href="lessons_and_help.html">lessons_and_help.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="miracles-learnt-by-seeing-them">Miracles learnt by seeing them</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A creature learns a miracle by seeing it cast near it, whoever casts it</td>
+<td>partial</td>
+<td><code>CreatureMindSystem::SeeMiracle</code> (<code>CreatureMindLearning.cpp</code>) works, but no miracle reports a sighting; only the debug spawner's "Cast it near" calls it</td>
+</tr>
+<tr>
+<td>Each miracle needs seeing a set number of times (water 9, food 12, heal and wood 15, fireball 18, lightning and shield 21, tornado 39; the explosion so many it only comes from a script)</td>
+<td>partial</td>
+<td><code>MiracleRule::timesToSee</code> from the tables (<code>CreatureMindTables.cpp</code>); dormant: sightings only come from the debug spawner</td>
+</tr>
+<tr>
+<td>Some species need to see miracles more often than others</td>
+<td>partial</td>
+<td><code>creature_mind_tables::MiracleMultiplier</code>, <code>creature_watching::TimesNeeded</code> (the float product, not rounded); tests <code>CreatureWatching.LearnsAMiracleBySightingsAndSpecies</code>, <code>CreatureWatching.TheTimesNeededAreAFloatProduct</code>; dormant: sightings only from the debug spawner</td>
+</tr>
+<tr>
+<td>A sighting counts again only five seconds after the last</td>
+<td>partial</td>
+<td>more than <code>k_MiracleSightingTurns</code> (50 turns) after the last sighting, counted or not (<code>src/Creature/CreatureWatching.cpp</code>); test <code>CreatureWatching.AMiracleCountsOnlyMoreThanFiftyTurnsAfterItWasLastSeen</code>; the turn is the mind's, not the game's (<a href="../../creature.html#pending">creature.md</a>); sightings only from the debug spawner</td>
+</tr>
+<tr>
+<td>On the learning leash each sighting counts three times</td>
+<td>partial</td>
+<td><code>CreatureLeash</code> sets <code>mind.leash.miracleSightingWeight</code> (<code>LeashSystem.cpp</code>), read by <code>SeeMiracle</code>; sightings only from the debug spawner; see <a href="leash.html">leash.md</a></td>
+</tr>
+<tr>
+<td>Miracles need the creature grown up to a stage (the explosion line later than the rest)</td>
+<td>partial</td>
+<td><code>MiracleRule::minPhase</code> in <code>creature_watching::SeeMiracle</code>; sightings only from the debug spawner</td>
+</tr>
+<tr>
+<td>A power-up teaches nothing until its miracle is known; the storm with lightning needs the storm, the tornado needs that; the thirst and itch spells need the building skill</td>
+<td>partial</td>
+<td><code>creature_watching::MiraclePrerequisite</code>, the game's table; tests <code>CreatureWatching.APowerUpTeachesNothingBeforeItsMiracle</code>, <code>CreatureWatching.EveryMiraclesPrerequisiteIsTheGames</code>; sightings only from the debug spawner</td>
+</tr>
+<tr>
+<td>The lightning bolt's second power-up is never learnt by watching</td>
+<td>todo</td>
+<td>no such rule in our tree</td>
+</tr>
+<tr>
+<td>A frozen creature learns nothing from what it sees</td>
+<td>partial</td>
+<td><code>CreatureMindSystem::SeeSkill</code> and <code>SeeMiracle</code> skip a paused mind, which the freeze spell sets; test <code>CreatureMindSystemTest.AStilledMindLearnsNothingByWatching</code>; sightings only from the debug spawner</td>
+</tr>
+<tr>
+<td>Some miracles are flagged as known from the start, which only the computer gods use to choose what to teach</td>
+<td>done</td>
+<td><code>MiracleRule::knownAtStart</code> read (<code>CreatureMindTables.cpp</code>); it makes nothing known: <code>creature_watching::StartKnowledge</code> starts with nothing known</td>
+</tr>
+<tr>
+<td>Once it has seen a miracle half the times it needs, it may try it; tries count as sightings</td>
+<td>todo</td>
+<td>the creature casts no miracle; see <a href="creature_casting.html">creature_casting.md</a></td>
+</tr>
+<tr>
+<td>It keeps counting sightings after it has learnt a miracle</td>
+<td>partial</td>
+<td><code>creature_watching::SeeMiracle</code> goes on counting and tells it again; sightings only from the debug spawner</td>
+</tr>
+<tr>
+<td>Three quarters of the way there it is "nearly" there, and a meter of how far along it is moves</td>
+<td>partial</td>
+<td><code>Progress::event</code> (<code>LearningEvent::NearlyLearnt</code>) and <code>Progress::meter</code>, returned as data that nothing shows yet; how far along it is shows as a percentage on the Creature Cave's magic scroll</td>
+</tr>
+<tr>
+<td>The miracles it knows about appear on the Creature Cave's magic scroll, however little learnt</td>
+<td>done</td>
+<td><code>CreatureCaveSystem</code> snapshot (<code>knownAbout</code>, the percent cut short from the float share), <code>creature_cave::FactsOf</code>, drawn by the temple's creature room (<code>src/3D/Implementations/TempleInterior.cpp</code>); test <code>CreatureCaveSystemTest.TheMagicScrollListsTheMiraclesItKnowsAboutHoweverLittleLearnt</code>; see <a href="creature_cave.html">creature_cave.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="copying-the-player">Copying the player</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Copying goes in stages: noticing the deed, doing it itself, then (for some deeds) wanting what the player wanted</td>
+<td>done</td>
+<td><code>creature_watching::StepMimicry</code>, stepped in <code>CreatureMindSystem::LearnTurn</code> (<code>CreatureMindLearning.cpp</code>); test <code>CreatureWatching.MimicryStages</code></td>
+</tr>
+<tr>
+<td>It copies only once past the third stage of growing up</td>
+<td>done</td>
+<td><code>k_MinMimicPhase</code> (3) in <code>creature_watching::StartMimicry</code></td>
+</tr>
+<tr>
+<td>It copies only while the player holds the learning leash in the hand that did the deed, except playing with a toy</td>
+<td>done</td>
+<td><code>MimicRule::needsLearningLeash</code>, <code>MimicConditions::learningLeashInHand</code> (from <code>LeashSystem</code>)</td>
+</tr>
+<tr>
+<td>It doesn't copy while it reacts to something pressing</td>
+<td>partial</td>
+<td>the rule exists (<code>k_MaxReactionPriorityToMimic</code>) but <code>PlayerDid</code> always passes no reaction</td>
+</tr>
+<tr>
+<td>It must be able to see where the deed was done</td>
+<td>partial</td>
+<td>a fixed reach of 150 (<code>k_ViewDistance</code>) rather than the creature's sight</td>
+</tr>
+<tr>
+<td>Each deed has its own chance of being copied (stealing and sacrifice very likely, planting a tree unlikely)</td>
+<td>done</td>
+<td><code>MimicRule::chance</code> from the tables, drawn in <code>creature_watching::StartMimicry</code></td>
+</tr>
+<tr>
+<td>Already copying, a new deed takes over only if it is as likely or more, and different</td>
+<td>done</td>
+<td><code>creature_watching::StartMimicry</code></td>
+</tr>
+<tr>
+<td>Each stage lasts a number of steps from the tables, plus a little at random, a step a second</td>
+<td>done</td>
+<td><code>MimicRule::stageSteps</code>, a step every <code>k_MimicStepTurns</code> (10 turns) in <code>CreatureMindLearning.cpp</code></td>
+</tr>
+<tr>
+<td>Noticing, it plays an action for the kind of deed: helpful, aggressive, neutral, stealing or playful</td>
+<td>partial</td>
+<td>our tree only turns it to look at the spot for two seconds (<code>CreatureMindSystem::PlayerDid</code>)</td>
+</tr>
+<tr>
+<td>It does the deed itself, to the same thing or one like it</td>
+<td>partial</td>
+<td><code>CreatureMindSystem::LearnTurn</code> adopts the copy actions; only with the plan actions our tree carries out (<code>src/Creature/CreaturePlanActions.cpp</code>)</td>
+</tr>
+<tr>
+<td>For some deeds it then comes to want the desire behind it above all</td>
+<td>done</td>
+<td><code>MimicStage::CopyDesire</code> then <code>creature_learning::MakeFullyDominant</code> in <code>CreatureMindLearning.cpp</code></td>
+</tr>
+<tr>
+<td>Stroked while copying, it skips straight to doing the deed and wants to follow its god more</td>
+<td>done</td>
+<td><code>creature_watching::StrokedWhileMimicking</code>, <code>k_MimicStrokeBoost</code> in <code>CreatureMindLearning.cpp</code></td>
+</tr>
+<tr>
+<td>Only the player's own leashable creature copies that player</td>
+<td>done</td>
+<td><code>CreatureMindSystem::PlayerDid</code> takes the player and only creatures it owns watch; test <code>CreatureMimicTest.OnlyThePlayersOwnCreatureWatchesAndDraws</code></td>
+</tr>
+<tr>
+<td>Being too young to copy is shown to the player</td>
+<td>todo</td>
+<td>see <a href="lessons_and_help.html">lessons_and_help.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="deeds-the-creature-notices">Deeds the creature notices</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Putting food in a worship site by hand</td>
+<td>todo</td>
+<td>not reported</td>
+</tr>
+<tr>
+<td>Casting food at a worship site</td>
+<td>todo</td>
+<td>the creature is told of no miracle hit</td>
+</tr>
+<tr>
+<td>Putting food in the storehouse by hand</td>
+<td>todo</td>
+<td>not reported</td>
+</tr>
+<tr>
+<td>Casting food into the storehouse</td>
+<td>todo</td>
+<td>the creature is told of no miracle hit</td>
+</tr>
+<tr>
+<td>Putting wood in the storehouse by hand</td>
+<td>todo</td>
+<td>not reported</td>
+</tr>
+<tr>
+<td>Casting wood into the storehouse</td>
+<td>todo</td>
+<td>the creature is told of no miracle hit</td>
+</tr>
+<tr>
+<td>Building a house</td>
+<td>todo</td>
+<td>not reported</td>
+</tr>
+<tr>
+<td>Putting wood on a building site by hand</td>
+<td>todo</td>
+<td>not reported</td>
+</tr>
+<tr>
+<td>Casting wood by a building site</td>
+<td>todo</td>
+<td>the creature is told of no miracle hit</td>
+</tr>
+<tr>
+<td>Putting wood in the workshop, or casting wood by it</td>
+<td>todo</td>
+<td>not reported. Our wiki differs: the original never reports the casting part; wood cast on a workshop counts as cast into a storehouse (<a href="../../creature.html#deed-table-complete-for-w120">creature.md</a>)</td>
+</tr>
+<tr>
+<td>Planting a tree</td>
+<td>done</td>
+<td>the hand's replanting reports it (<code>HandSystem::Replant</code> in <code>src/ECS/Systems/Implementations/HandTrees.cpp</code>, <code>ecs::creature_mimic::Consider</code>)</td>
+</tr>
+<tr>
+<td>Shielding a town</td>
+<td>n/a</td>
+<td>the original never reports this deed. Our wiki differs: the shield miracle gives no deed (<a href="../../creature.html#deed-table-complete-for-w120">creature.md</a>)</td>
+</tr>
+<tr>
+<td>Bringing people to worship</td>
+<td>n/a</td>
+<td>the original never reports this deed. Our wiki differs: no call site reports it (<a href="../../creature.html#deed-table-complete-for-w120">creature.md</a>)</td>
+</tr>
+<tr>
+<td>Making an artefact</td>
+<td>todo</td>
+<td>not reported; artefacts not ported</td>
+</tr>
+<tr>
+<td>Damaging something by throwing, or throwing something at it</td>
+<td>partial</td>
+<td>only a building hit with the building's own body thrown from the hand is reported (<code>src/ECS/Physics/Buildings.cpp</code>; test <code>CreatureMimicDecision.ABuildingHitCountsOnlyWithAPlayerAndItsOwnBodyFromTheHand</code>); a thrown thing's own damage is not</td>
+</tr>
+<tr>
+<td>Damaging something with fire</td>
+<td>todo</td>
+<td>the creature is told of no miracle hit</td>
+</tr>
+<tr>
+<td>Damaging something with magic</td>
+<td>todo</td>
+<td>the creature is told of no miracle hit</td>
+</tr>
+<tr>
+<td>Impressing by throwing</td>
+<td>n/a</td>
+<td>the original never reports this deed. Our wiki differs: no call site reports it (<a href="../../creature.html#deed-table-complete-for-w120">creature.md</a>)</td>
+</tr>
+<tr>
+<td>Impressing with magic</td>
+<td>todo</td>
+<td>the creature is told of no miracle hit</td>
+</tr>
+<tr>
+<td>Throwing something into the sea</td>
+<td>partial</td>
+<td>a villager that sinks reports it for the hand that last dropped it (<code>src/ECS/VillagerDrowning.cpp</code>, <code>creature_mimic::ConsiderThrownInTheSea</code>; test <code>CreatureMimicTest.AVillagerInTheSeaReportsTheHandThatLastDroppedIt</code>); an animal does not</td>
+</tr>
+<tr>
+<td>Making a disciple of each kind: farmer, forester, fisherman, builder, breeder, protector, missionary, craftsman, house changer, worshipper</td>
+<td>todo</td>
+<td>not reported; see <a href="../villager/index.html">../villager/</a></td>
+</tr>
+<tr>
+<td>Taking something home</td>
+<td>todo</td>
+<td>not reported</td>
+</tr>
+<tr>
+<td>Casting water on crops</td>
+<td>partial</td>
+<td>a water miracle on a player's field reports it (<code>src/Magic/Spells/SpellWater.cpp</code>; test <code>CreatureMimicSiteTest.AFieldWateredByAPlayersMiracleIsTheirDeed</code>); the miracle-hit path for other things is not ported</td>
+</tr>
+<tr>
+<td>Casting water to put out a fire</td>
+<td>todo</td>
+<td>the creature is told of no miracle hit</td>
+</tr>
+<tr>
+<td>Stealing something and putting it in a town, or by the temple</td>
+<td>todo</td>
+<td>not reported</td>
+</tr>
+<tr>
+<td>Breaking rocks</td>
+<td>todo</td>
+<td>not reported</td>
+</tr>
+<tr>
+<td>Throwing the football into the goal, or catching it</td>
+<td>n/a</td>
+<td>the original never reports these deeds; see <a href="../town/football.html#the-player-and-the-creature">../town/football.md</a>. Our wiki differs: neither is reported anywhere (<a href="../../creature.html#deed-table-complete-for-w120">creature.md</a>)</td>
+</tr>
+<tr>
+<td>Sacrificing</td>
+<td>todo</td>
+<td>not reported</td>
+</tr>
+<tr>
+<td>Playing with a toy</td>
+<td>todo</td>
+<td>not reported; the toys: <a href="../nature/toys.html">../nature/toys.md</a></td>
+</tr>
+<tr>
+<td>Healing</td>
+<td>todo</td>
+<td>the creature is told of no miracle hit</td>
+</tr>
+<tr>
+<td>Stealing food from a farm</td>
+<td>todo</td>
+<td>not reported</td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-it-thinks-its-god-wants">What it thinks its god wants</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each miracle it sees its god cast shows it the desires the miracle answers, and the town desire it helps</td>
+<td>done</td>
+<td><code>magic::base::InitWithPos</code> (<code>src/Magic/Core/Spell.cpp</code>) into <code>CreatureMindSystem::EmpathiseWithPlayer</code> / <code>EmpathiseWithTownDesire</code>; <code>src/Creature/PerceivedDesires.cpp</code></td>
+</tr>
+<tr>
+<td>It only takes in what it can see: within about two thirds of a half turn of where it looks, or in its own patch of land</td>
+<td>done</td>
+<td><code>creature_perceived_desires::CanSeePos</code> and <code>LookYaw</code>; the body's yaw from our heading is inferred (creature.md Pending)</td>
+</tr>
+<tr>
+<td>What it thinks fades slowly</td>
+<td>done</td>
+<td><code>creature_perceived_desires::Fade</code> in the mind turn (its rings of past values come with the mind save)</td>
+</tr>
+<tr>
+<td>What it thinks its god wants drives its desire to follow its god's wishes</td>
+<td>todo</td>
+<td>nothing feeds that desire's source; see <a href="desires.html">desires.md</a></td>
+</tr>
+<tr>
+<td>What it thinks its god wants most is read by the Creature Cave's personality scroll, which forgets it each time</td>
+<td>done</td>
+<td><code>CreatureCaveSystem::TakeGodsDesire</code> through <code>TempleScrolls::Write</code>; as the original, only a line end shows for it; tests <code>TempleScrolls.TheMindScrollAsksForItsGodsDesireAndOnlyEndsALineForIt</code>, <code>CreatureCaveSystemTest.AskingForTheGodsDesireForgetsWhatItThinksItsGodWants</code>; see <a href="creature_cave.html">creature_cave.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="watching-others">Watching others</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Watching its god be nice, nasty or impressive stirs its own compassion, anger or wish to impress</td>
+<td>todo</td>
+<td>the desire sources exist but nothing feeds them from watching; see <a href="desires.html">desires.md</a></td>
+</tr>
+<tr>
+<td>Watching villagers play or eat stirs its own wish to play or eat</td>
+<td>todo</td>
+<td>as above</td>
+</tr>
+<tr>
+<td>Seeing an action done, it updates its desires as if it had done it</td>
+<td>todo</td>
+<td>not modelled</td>
+</tr>
+<tr>
+<td>A friendly creature can teach it what it knows, and it can ask a friend to teach it</td>
+<td>todo</td>
+<td>see <a href="friends_and_other_creatures.html">friends_and_other_creatures.md</a></td>
+</tr>
+<tr>
+<td>It follows a friend doing something worth copying</td>
+<td>todo</td>
+<td>see <a href="friends_and_other_creatures.html">friends_and_other_creatures.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="teaching-by-scripts-and-computer-gods">Teaching by scripts and computer gods</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scripts can make it learn everything, or everything but some actions</td>
+<td>todo</td>
+<td><code>CREATURE_LEARN_EVERYTHING</code>, <code>CREATURE_LEARN_EVERYTHING_EXCLUDING</code> are stubs in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>Scripts can set whether it knows a single action</td>
+<td>todo</td>
+<td><code>CREATURE_SET_KNOWS_ACTION</code> is a stub in <code>src/CHLApi.cpp</code></td>
+</tr>
+<tr>
+<td>Scripts can give it the most skill at one miracle or power-up</td>
+<td>todo</td>
+<td>not modelled</td>
+</tr>
+<tr>
+<td>The developer cheats to learn everything, learn ordinary things, or move to the next stage</td>
+<td>todo</td>
+<td>not present; the debug spawner can show a skill, cast a miracle or do a deed near a creature (<code>src/Debug/CreatureSpawnerMind.cpp</code>)</td>
+</tr>
+<tr>
+<td>Computer gods teach their creatures skills, miracles and the use of totems, and lead them on the leash to things</td>
+<td>todo</td>
+<td>no computer gods; see <a href="../story/index.html">../story/</a> and <a href="../multiplayer/index.html">../multiplayer/</a></td>
+</tr>
+<tr>
+<td>A computer god's creature's knowledge is balanced to the land's difficulty</td>
+<td>todo</td>
+<td>not modelled</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

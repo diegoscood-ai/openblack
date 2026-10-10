@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shadows — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="here" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#shadows">Shadows</a><ul>
+<li><a href="#shadows-on-the-land">Shadows on the land</a></li>
+<li><a href="#creature-shadow">Creature shadow</a></li>
+<li><a href="#hand-shadow">Hand shadow</a></li>
+<li><a href="#ground-blobs">Ground blobs</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="shadows">Shadows</h1>
+<p>The shadows the game draws: the fixed shadows of trees, rocks and buildings on the land, the creature's and the hand's
+moving shadows, and the villagers' small ground blobs. Cloud shadows are in <a href="../sky/index.html">../sky/</a>; particle effects that
+darken the land are in <a href="particles.html">particles.md</a>.</p>
+<p><strong>Progress: 13/18 done, 2 partial — 78%</strong></p>
+<p>How the original does it, in our wiki: <a href="../../rendering-objects.html">Model rendering: original versus openblack</a>, <a href="../../parity.html">Graphics engine parity: original versus openblack</a>, <a href="../../rendering.html">World rendering: original versus openblack</a>.</p>
+<h2 id="shadows-on-the-land">Shadows on the land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Trees, rocks, buildings and features cast shadows onto the land from a fixed far sun, as long as they are high</td>
+<td>done</td>
+<td>the static shadow pass of the whole island (<code>RenderPass::StaticShadow</code>, <code>vs_static_shadow_instanced</code>, <code>fs_static_shadow</code>, the casters in <code>RenderingSystem.cpp</code>); the game bakes them into the block textures, openblack into one texture over the island</td>
+</tr>
+<tr>
+<td>Where shadows overlap the land gets no darker; a fully covered spot is half as bright</td>
+<td>done</td>
+<td><code>fs_static_shadow</code> (max of the coverage), x 0.5 in <code>fs_terrain</code></td>
+</tr>
+<tr>
+<td>Shadows follow objects as they are built, felled or moved</td>
+<td>done</td>
+<td>the static shadow pass is drawn each frame (<code>Renderer.cpp</code>)</td>
+</tr>
+<tr>
+<td>At night homes, the village centre, storehouse, trees and totems cast shadows from the lights</td>
+<td>todo</td>
+<td>the game marks which objects cast shadows at night (unconfirmed how they are drawn)</td>
+</tr>
+<tr>
+<td>Shadows projected over other objects, not only the land</td>
+<td>done</td>
+<td>the projected shadow list (<code>src/Graphics/ShadowList.cpp</code>, <code>RendererShadows.cpp</code>): the hand, the creature and the boat also onto the objects behind them; tests <code>ShadowMath.*</code>, <code>ShadowReceiver.*</code></td>
+</tr>
+<tr>
+<td>The land's own baked shadow map</td>
+<td>todo</td>
+<td>our static shadow pass covers the objects' shadows only; what this baked map is is not in our wiki</td>
+</tr>
+<tr>
+<td>Short-lived shadows the game keeps for a while</td>
+<td>todo</td>
+<td>the high-detail villagers' temporary shadows are not ported</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creature-shadow">Creature shadow</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The creature's silhouette, seen from the light, is drawn into a soft small texture and projected onto the land and what stands on it</td>
+<td>done</td>
+<td><code>shadow_list</code> complex caster with the creature's light (<code>src/Graphics/ShadowList.cpp</code>, <code>ShadowMath.cpp</code>), onto the land and what stands on it</td>
+</tr>
+<tr>
+<td>The light is kept at least 45 degrees up and no closer than three of the creature's radii</td>
+<td>done</td>
+<td><code>shadow_math::LightCreature</code>; test <code>ShadowMath.Lights</code></td>
+</tr>
+<tr>
+<td>The shadow fades out as the camera pulls away, between 50 and 80 creature radii</td>
+<td>done</td>
+<td>the fade by distance in <code>src/Graphics/ShadowMath.cpp</code>; test <code>ShadowMath.FadeByDistance</code></td>
+</tr>
+<tr>
+<td>The creature's hair casts no shadow</td>
+<td>partial</td>
+<td>the creature's body is the caster (<code>ShadowList.cpp</code>); whether its hair is left out is unchecked</td>
+</tr>
+<tr>
+<td>Creature shadows don't fall on creatures themselves</td>
+<td>done</td>
+<td>creatures are not receivers (<code>src/ECS/ShadowReceiver.h</code>); test <code>ShadowReceiver.ACreatureDoesNotReceive</code></td>
+</tr>
+<tr>
+<td>Several creatures' shadows at once, the nearest first</td>
+<td>partial</td>
+<td>every drawn creature gets a shadow, with no cap (<code>ShadowList.cpp</code>); the game's limit is unconfirmed</td>
+</tr>
+</tbody>
+</table>
+<h2 id="hand-shadow">Hand shadow</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hand's silhouette is projected onto the land, darkening it</td>
+<td>done</td>
+<td>the hand's 32x32 silhouette with its vertical light, as the original's (<code>shadow_list</code>, compared against captures of the original); test <code>ShadowMath.HandRestPose</code></td>
+</tr>
+<tr>
+<td>The hand's shadow fades as the camera pulls away from the ground below it</td>
+<td>done</td>
+<td><code>shadow_math</code> fade (<code>src/Graphics/ShadowMath.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="ground-blobs">Ground blobs</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Each villager's foot has a short dark blob stretched over the land away from a low light, fading as it goes</td>
+<td>done</td>
+<td><code>src/Graphics/GroundBlobs.cpp</code> from the posed feet; test <code>test/test_ground_blobs.cpp</code></td>
+</tr>
+<tr>
+<td>Things in the sea or very low have no blobs</td>
+<td>done</td>
+<td><code>GroundBlobs.h</code>; test <code>test/test_ground_blobs.cpp</code></td>
+</tr>
+<tr>
+<td>Animals have ground blobs</td>
+<td>done</td>
+<td>the land animals' blobs from their mesh's bone points (<code>src/Graphics/Renderer.cpp</code> with <code>GroundBlobs.cpp</code>)</td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

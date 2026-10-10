@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nemesis — Black &amp; White notes</title>
+<link rel="stylesheet" href="../../wiki.css">
+</head>
+<body>
+<nav id="side">
+  <h1><a href="../../index.html" style="color:inherit;text-decoration:none">Black &amp; White notes</a></h1>
+  <span class="tag">openblack — progress, row by row</span>
+  <input id="q" type="search" placeholder="Search (press /)" autocomplete="off">
+  <div id="hits"></div>
+  <div id="nav"><h2>Wiki</h2>
+<a href="../../index.html">Black &amp; White notes</a>
+<h2>Progress</h2>
+<a class="" href="../../progress/README.html">About the progress notes</a>
+<a class="" href="../../progress/INDEX.html">Progress index</a>
+<h2>Domains</h2>
+<a class="" href="../../progress/animal/index.html">animal</a>
+<a class="" href="../../progress/audio/index.html">audio</a>
+<a class="" href="../../progress/building/index.html">building</a>
+<a class="" href="../../progress/camera/index.html">camera</a>
+<a class="" href="../../progress/creature/index.html">creature</a>
+<a class="" href="../../progress/debug/index.html">debug</a>
+<a class="" href="../../progress/easter_eggs/index.html">easter eggs</a>
+<a class="" href="../../progress/engine/index.html">engine</a>
+<a class="" href="../../progress/gesture/index.html">gesture</a>
+<a class="" href="../../progress/hand/index.html">hand</a>
+<a class="" href="../../progress/interface/index.html">interface</a>
+<a class="" href="../../progress/miracles/index.html">miracles</a>
+<a class="" href="../../progress/multiplayer/index.html">multiplayer</a>
+<a class="" href="../../progress/nature/index.html">nature</a>
+<a class="" href="../../progress/ocean/index.html">ocean</a>
+<a class="" href="../../progress/pc_integration/index.html">pc integration</a>
+<a class="" href="../../progress/physics/index.html">physics</a>
+<a class="" href="../../progress/rendering/index.html">rendering</a>
+<a class="" href="../../progress/resources/index.html">resources</a>
+<a class="here" href="../../progress/rival_gods/index.html">rival gods</a>
+<a class="" href="../../progress/scripts/index.html">scripts</a>
+<a class="" href="../../progress/sky/index.html">sky</a>
+<a class="" href="../../progress/story/index.html">story</a>
+<a class="" href="../../progress/temple/index.html">temple</a>
+<a class="" href="../../progress/terrain/index.html">terrain</a>
+<a class="" href="../../progress/town/index.html">town</a>
+<a class="" href="../../progress/vanilla_bugs/index.html">vanilla bugs</a>
+<a class="" href="../../progress/video/index.html">video</a>
+<a class="" href="../../progress/villager/index.html">villager</a>
+<a class="" href="../../progress/weather/index.html">weather</a>
+<a class="" href="../../progress/worship/index.html">worship</a></div>
+</nav>
+<main>
+<details id="toc"><summary>On this page</summary><div class="toc">
+<ul>
+<li><a href="#nemesis">Nemesis</a><ul>
+<li><a href="#on-the-fifth-land">On the fifth land</a></li>
+<li><a href="#his-creature">His creature</a></li>
+<li><a href="#his-arrival">His arrival</a></li>
+<li><a href="#holding-his-towns">Holding his towns</a></li>
+<li><a href="#defending-his-last-town">Defending his last town</a></li>
+<li><a href="#the-final-fight">The final fight</a></li>
+<li><a href="#on-other-lands">On other lands</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h1 id="nemesis">Nemesis</h1>
+<p>The game's final enemy: a god who wants to be the only one. He kills Khazar on the second land, is behind Lethys and the
+curses that follow, and on the fifth land is the second player, whose four towns and temple the player must win before
+facing his creature.</p>
+<p><strong>Progress: 6/41 done, 8 partial — 24%</strong></p>
+<p>See <a href="../story/land_5.html">../story/land_5.md</a> for the land's challenges and curses, <a href="khazar.html">khazar.md</a> for Khazar's death,
+and <a href="ai.html">ai.md</a>, <a href="magic.html">magic.md</a>, <a href="towns_and_influence.html">towns_and_influence.md</a> and
+<a href="creatures.html">creatures.md</a> for how every computer god works.</p>
+<h2 id="on-the-fifth-land">On the fifth land</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The land script makes the second player a computer player before anything else</td>
+<td>partial</td>
+<td><code>TOGGLE_COMPUTER_PLAYER</code> adds the player (<code>PlayerArchetype</code>) with no mind</td>
+</tr>
+<tr>
+<td>His temple stands at the land's far side, with Japanese, Greek, Tibetan and Aztec worship sites round it</td>
+<td>done</td>
+<td>the temple with its owner (<code>CitadelArchetype</code>) and the sites (<code>magic::script::CreateWorshipSite</code>)</td>
+</tr>
+<tr>
+<td>His Aztec home town has lightning (and its second power-up), the beam explosion (and second power-up), food, storm (and second power-up), water (and power-up) and the strong creature miracle</td>
+<td>partial</td>
+<td>the town and its owner are made (<code>TownArchetype</code>) and it holds its miracles (<code>magic::script::CreateNewTownSpell</code>); no god casts them</td>
+</tr>
+<tr>
+<td>A Tibetan town of his has fire, lightning, the beam explosion, heal (each with power-ups), teleport and nature</td>
+<td>partial</td>
+<td>the town and its owner are made (<code>TownArchetype</code>) and it holds its miracles (<code>magic::script::CreateNewTownSpell</code>); no god casts them</td>
+</tr>
+<tr>
+<td>His Greek town has lightning, heal, storm (with power-ups), shield, physical shield and wood</td>
+<td>partial</td>
+<td>the town and its owner are made (<code>TownArchetype</code>) and it holds its miracles (<code>magic::script::CreateNewTownSpell</code>); no god casts them</td>
+</tr>
+<tr>
+<td>A second Tibetan town has fire, lightning, the beam explosion, heal (with power-ups), teleport and nature</td>
+<td>partial</td>
+<td>the town and its owner are made (<code>TownArchetype</code>) and it holds its miracles (<code>magic::script::CreateNewTownSpell</code>); no god casts them</td>
+</tr>
+<tr>
+<td>His towns start believing 1 in him</td>
+<td>done</td>
+<td><code>SET_TOWN_BELIEF</code> (<code>ecs::town_belief::SetBeliefInPlayer</code>); see <a href="../town/belief_and_conversion.html">../town/belief_and_conversion.md</a></td>
+</tr>
+<tr>
+<td>A neutral Celtic town believes 5 in him and 5 in no one, so it is hard to win</td>
+<td>done</td>
+<td><code>SET_TOWN_BELIEF</code> for him and for the neutral slot</td>
+</tr>
+<tr>
+<td>His influence rings his temple and towns in his player colour</td>
+<td>done</td>
+<td>the influence of his temple and towns (<code>src/ECS/Influence</code>), drawn in his colour (<code>influence::k_CircleColours</code>)</td>
+</tr>
+<tr>
+<td>He is not the player's ally</td>
+<td>done</td>
+<td>no alliance exists in our tree, which matches</td>
+</tr>
+<tr>
+<td>His attitude to the player is set to 2 (kept doubled inside, as 4)</td>
+<td>todo</td>
+<td><code>SET_COMPUTER_PLAYER_ATTITUDE</code> is a stub; see <a href="ai.html">ai.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="his-creature">His creature</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A lion loaded from his mind file near his temple, drawn twice its auto-scaled size</td>
+<td>todo</td>
+<td><code>LOAD_CREATURE</code> is a stub; see <a href="creatures.html">creatures.md</a></td>
+</tr>
+<tr>
+<td>Named from the game's text (the script's note calls it Ichor), fully grown, every skill and nearly every miracle known</td>
+<td>todo</td>
+<td><code>SET_CREATURE_NAME</code>, <code>CREATURE_AUTOSCALE</code> and <code>CREATURE_SET_KNOWS_ACTION</code> are stubs</td>
+</tr>
+<tr>
+<td>Once the player has a creature it takes the opposite alignment</td>
+<td>todo</td>
+<td>the creature is never loaded</td>
+</tr>
+<tr>
+<td>In the final fight it is turned invisible and replaced by a creature of the player's own species from his mind file</td>
+<td>todo</td>
+<td>see <a href="#the-final-fight">The final fight</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="his-arrival">His arrival</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>His mind is paused while his hand flies at speed 400 to meet the player, to his own music</td>
+<td>todo</td>
+<td>the music exists (<code>MUSIC_TYPE_SCRIPT_NEMESIS</code>), but the story never reaches Land 5 (<code>LOAD_MAP</code> is empty) and his hand's natives are stubs</td>
+</tr>
+<tr>
+<td>He drifts closer at speed 8 while the camera lens widens to 100 over 15 seconds</td>
+<td>todo</td>
+<td>the story never reaches Land 5 (<code>LOAD_MAP</code> is empty); his hand's natives are stubs</td>
+</tr>
+<tr>
+<td>He promises to be the embodiment of good or of evil, whichever the player isn't</td>
+<td>todo</td>
+<td>the story never reaches Land 5 (<code>LOAD_MAP</code> is empty); the script reads the player's alignment (<code>GET_ALIGNMENT</code> works)</td>
+</tr>
+<tr>
+<td>Two short scenes show him moving (one with a storm and the time of day set to 16:30) and give his hand back afterwards (unconfirmed when they run: nothing in the land scripts starts them)</td>
+<td>todo</td>
+<td>the story never reaches Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="holding-his-towns">Holding his towns</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>In the land's first phase (unconfirmed what ends it), any belief the player wins in his home town above 0.1 is set back to 0, and the good advisor explains why when the town is in view</td>
+<td>todo</td>
+<td>the story never reaches Land 5 (<code>LOAD_MAP</code> is empty); see <a href="../story/land_5.html">../story/land_5.md</a></td>
+</tr>
+<tr>
+<td>The first time the player wins each of his three other towns, his hand appears in a scene and an explosion falls from 30 metres above</td>
+<td>todo</td>
+<td>the story never reaches Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Winning his second Tibetan town also brings a tornado on it (radius 25, 30 seconds) and starts the "fire on high" challenge</td>
+<td>partial</td>
+<td>dormant: the tornado can be cast by script (<code>SPELL_AT_POS</code>), but the story never reaches Land 5 (<code>LOAD_MAP</code> is empty); see <a href="../miracles/tornado.html">../miracles/tornado.md</a></td>
+</tr>
+<tr>
+<td>The "throw through the shield" challenge is started by the land's control script as the land begins; its spiritual shield guards the Tibetan village that holds the third Wonder</td>
+<td>todo</td>
+<td>the story never reaches Land 5 (<code>LOAD_MAP</code> is empty); <a href="../story/gold_scrolls/nemesis_shielded_village.html">../story/gold_scrolls/nemesis_shielded_village.md</a></td>
+</tr>
+<tr>
+<td>If he takes a town back, the land notices and the scene can play again (unconfirmed)</td>
+<td>todo</td>
+<td>the story never reaches Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>While he still holds any of the four other towns, the player's belief in his home town is held at 0 and they are told so</td>
+<td>todo</td>
+<td>the story never reaches Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>When he holds none of them, the home town can be won, and a line says so</td>
+<td>todo</td>
+<td>the story never reaches Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Winning his home town ends his resistance</td>
+<td>todo</td>
+<td>the story never reaches Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="defending-his-last-town">Defending his last town</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>While the player's creature is within 200 metres of his home town, a burning rock is fired from a cannon high on his land every 6 seconds (the first after 10)</td>
+<td>todo</td>
+<td>the story never reaches Land 5 (<code>LOAD_MAP</code> is empty); <a href="../story/gold_scrolls/nemesis_shielded_village.html#nemesiss-last-village">../story/gold_scrolls/nemesis_shielded_village.md</a></td>
+</tr>
+<tr>
+<td>Each rock is half size, set on fire, at 2000 degrees, out of the wind, aimed within 30 metres of a point in front of the town and trailing smoke</td>
+<td>todo</td>
+<td>the story never reaches Land 5 (<code>LOAD_MAP</code> is empty); see <a href="../physics/index.html">../physics/</a></td>
+</tr>
+<tr>
+<td>A physical shield of radius 75 is raised over the town for 30 seconds, every 30 seconds</td>
+<td>partial</td>
+<td>dormant: the shield can be cast by script (<code>SPELL_AT_POS</code>), but the story never reaches Land 5 (<code>LOAD_MAP</code> is empty); see <a href="../miracles/physical_shield.html">../miracles/physical_shield.md</a></td>
+</tr>
+<tr>
+<td>Every 15 seconds one of four is picked at random: a beam of blocks thrown at one of the three towns he lost, if the player owns it, or at the player's temple</td>
+<td>todo</td>
+<td>the story never reaches Land 5 (<code>LOAD_MAP</code> is empty); <a href="../story/gold_scrolls/nemesis_shielded_village.html#nemesiss-blast-barrages">../story/gold_scrolls/nemesis_shielded_village.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-final-fight">The final fight</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every other script on the land stops and his hand is set over the arena</td>
+<td>todo</td>
+<td>the story never reaches Land 5 (<code>LOAD_MAP</code> is empty); <code>SET_COMPUTER_PLAYER_POSITION</code> is a stub</td>
+</tr>
+<tr>
+<td>His lion is made invisible and a creature of the player's species is loaded from his mind file at the arena</td>
+<td>todo</td>
+<td><code>LOAD_CREATURE</code> is a stub</td>
+</tr>
+<tr>
+<td>The double is scaled to the player's creature and given full strength</td>
+<td>todo</td>
+<td><code>LOAD_CREATURE</code> and <code>CREATURE_AUTOSCALE</code> are stubs</td>
+</tr>
+<tr>
+<td>Both creatures are forced to fight once the player's comes within 300 metres</td>
+<td>partial</td>
+<td>dormant: the creature fight exists (<code>CreatureFightSystem</code>, see <a href="../creature/fighting.html">../creature/fighting.md</a>), but the story never reaches Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Whenever the double falls below half its fighting health, it is healed by a level-two heal and put back to full, at most four times</td>
+<td>todo</td>
+<td>the story never reaches Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>If the player's creature ends with more fighting health, the double dies for good</td>
+<td>todo</td>
+<td>the story never reaches Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Otherwise the player's creature falls, the double heals 1% every 6 seconds until it is next in a fight (10 minutes to full), and the player may try again</td>
+<td>todo</td>
+<td>the story never reaches Land 5 (<code>LOAD_MAP</code> is empty)</td>
+</tr>
+<tr>
+<td>Then his creature goes to the volcano, his temple is destroyed and he is switched off</td>
+<td>todo</td>
+<td>the story never reaches Land 5 (<code>LOAD_MAP</code> is empty); <code>ENABLE_DISABLE_COMPUTER_PLAYER</code> is a stub</td>
+</tr>
+<tr>
+<td>The villagers wave the player off</td>
+<td>todo</td>
+<td>the story never reaches Land 5 (<code>LOAD_MAP</code> is empty); see <a href="../story/land_5.html">../story/land_5.md</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="on-other-lands">On other lands</h2>
+<table>
+<thead>
+<tr>
+<th>Behaviour</th>
+<th>Status</th>
+<th>Where / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>He is never a player on the second, third or fourth land; his attacks there are scripted from the vortex or from points in the sky</td>
+<td>n/a</td>
+<td>there is no Nemesis player to judge; see <a href="khazar.html">khazar.md</a> and <a href="../story/land_4.html">../story/land_4.md</a></td>
+</tr>
+<tr>
+<td>A script for a step-by-step battle plan (impress, destroy, defend, attack the creature) exists but nothing runs it</td>
+<td>n/a</td>
+<td>unused in the shipped game; see <a href="challenge_scripts.html">challenge_scripts.md</a></td>
+</tr>
+<tr>
+<td>His mind file also supplies the creatures of one skirmish land</td>
+<td>done</td>
+<td><code>CREATE_CREATURE_FROM_FILE</code> loads it for Island Wars' gods; see <a href="skirmish_opponents.html">skirmish_opponents.md</a></td>
+</tr>
+</tbody>
+</table>
+</main>
+<script>window.WIKI_ROOT = "../../";</script>
+<script src="../../search.js"></script>
+<script src="../../progress/progress.js"></script>
+</body>
+</html>

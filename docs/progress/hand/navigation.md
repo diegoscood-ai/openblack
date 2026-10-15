@@ -51,16 +51,16 @@ How the original does it, in our wiki: [The hand and the interface](../../bw1-no
 | While turning, the hand keeps its normal hover on the line of sight through the frozen cursor | partial | The middle button counts as a grip for the hand (`input::HandGripping`), so the hand takes the grip, not its hover |
 | Both buttons zoom with up and down, and turn only once the mouse has moved far enough across | done | Both buttons zoom dy × 1.9 and turn dx × 1.9 once the mouse has moved 2.5 % of the width, as the original's state 22, gated on JustZoom (0x20) (`DefaultWorldCameraModel::HandleActions` through `camera_drag::TwoButtonTurn`; tests `WorldCameraMouse.BothButtons*`) |
 | Both buttons never grip the land | done | `GameActionMap::Frame` clears the MOVE binding while both buttons are held, so the camera does not drag |
-| Holding both the zoom and rotate modifiers eases in the clear view, during which the hand grips | partial | `DefaultWorldCameraModel.cpp`: the camera's glide over half a second; the hand's grip is not ported |
+| Holding both the zoom and rotate modifiers eases in the clear view, during which the hand grips | partial | `DefaultWorldCameraModel.cpp`: the camera's glide over half a second; dragging, the hand grips while it is shown (`GetHandCues().clearViewGrip`, `HandSystem::NavigationPose`); the hand is not moved to the object the clear view looks at |
 
 ## The hand's hints while navigating
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Hovering by the sides or bottom with nothing under it, the hand takes its turning pose; at the top, its tilting pose | todo | Not in our tree: the Crotate and Cpitch hint clips are not ported (`HandSystem::Update`) |
-| The hint poses stand the hand up towards where the camera looks | todo | Not in our tree |
-| Dragging, the hand grips while panning, and shows turning or tilting while it does those | partial | Gripping plays Cgrip (`HandSystem::Update`); the turning and tilting poses are not ported |
-| Showing that it turns the camera, the hand is drawn a third of its height higher | todo | Not in our tree |
+| Hovering by the sides or bottom with nothing under it, the hand takes its turning pose; at the top, its tilting pose | done | `HandSystem::HoverPose` (`hand_navigation_pose::WhileHovering`, `src/3D/HandNavigationPose.h`), not while a script camera, a camera path or a hand demo has the camera; tests `HandNavigationPose.HoveringAtTheEdgeOffersTurning` |
+| The hint poses stand the hand up towards where the camera looks | done | `hand_navigation_pose::UpTowardsFocus` (0.3 of the way up, as the original), in `HandSystem::UpdateNormalUp` and the camera branch of `HandSystem::Place`; tests `HandNavigationPose.StandsUpTowardsTheFocusByThreeTenths`, `HandNavigationPose.TheLengthsSumYThenXThenZ` |
+| Dragging, the hand grips while panning, and shows turning or tilting while it does those | done | `HandSystem::NavigationPose` (`hand_navigation_pose::WhileDragging`); until it grips, the hand stays on the cursor's line (`HandSystem::Place`); tests `HandNavigationPose.DraggingByTheEdgeShowsTurningTiltingOrZooming` |
+| Showing that it turns the camera, the hand is drawn a third of its height higher | done | `hand_navigation_pose::RotateLift` in `HandSystem::Place`; test `HandNavigationPose.TheTurningLiftIsAThirdOfTheHandsHeight` |
 | Every change of state or pose fades the hand from where it was drawn over 0.13 seconds | done | The 0.13 s state blend at each change of the hand's state (`HandCrossFade` (`src/3D/HandCrossFade.h`, the hand system's `_stateBlend`), started in `HandSystem::Update`); test `HandCrossFade.FadesAtAnEvenPaceOverATenthAndAThirdOfASecond`. Our wiki differs: the original blends only at a change of the hand's state, not at a change of clip inside a state ([page](../../bw1-notes/hand-and-interface.md#the-hands-clip-handstatenormal)) |
 
 ## Recorded hand demos

@@ -75,7 +75,7 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 |-----------|--------|---------------|
 | At no fight health a creature faints; the other wins | done | `CreatureFightSystem`; test `CreatureFight.OutcomesAndStarting` |
 | A quarter of the fight health lost comes off the creature's real life | done | `fight::LifeAfterFight` in `CreatureFightSystem`; test `CreatureFight.HealthStaminaAndLife` |
-| The loser lies out cold for a while by its size, is carried home (fading out and in), rests until healthy enough and gets up | done | `CreatureFightSystem::KnockOut`, `CreatureKnockedOut`, `HomeOf`; test `CreatureFightTurnsTest.KnockedOutItIsTakenHomeAtOnce` |
+| The loser lies out cold for a while by its size, is carried home (fading out and in), rests until healthy enough and gets up | done | `CreatureFightSystem::KnockOut`, `CreatureKnockedOut`, `HomeOf`, the fizz through `CreatureFizzSystem`; tests `CreatureFightTurnsTest.KnockedOutItIsTakenHomeAtOnce`, `CreatureFightCarriedHomeTest.ItFizzesOutWhereItLiesAndBackInAtHome` |
 | Spells on a knocked-out creature are brought to their end | todo | `CreatureFightSystem::KnockOut` leaves its spells as they are |
 | After the fight each creature responds: the winner celebrates, the loser sulks, and they remember how they feel about each other | partial | the winner plays its finish and celebrates (`CreatureFighting::Stage::Celebrate`); the loser's response and the change of attitude are todo |
 | Creatures never die in a fight; only a script kills one for good | partial | fights never kill; `CreatureFightSystem::KillPermanently` exists but only the debug spawner calls it |

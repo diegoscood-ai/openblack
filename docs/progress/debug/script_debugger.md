@@ -1,10 +1,11 @@
 # Script debugger
 
-The debug bar's Scripts window and the editor's Log tab: a reader and debugger for the game's compiled challenge
-scripts, as they run in openblack's virtual machine. The scripts and their functions are in ../story/ and the virtual
-machine in ../engine/.
+The editor's Scripts and Log tabs, and the debug bar's Scripts window, which shows the editor's same Scripts panel while
+the editor is closed (opened while the editor is open, it gives way to the editor's tab): a reader and debugger for the
+game's compiled challenge scripts, as they run in openblack's virtual machine. The scripts and their functions are in
+../story/ and the virtual machine in ../engine/.
 
-**Progress: 18/21 done, 1 partial — 88%**
+**Progress: 19/21 done, 1 partial — 93%**
 
 How the original does it, in our wiki: [openblack internals](../../bw1-notes/openblack-internals.md).
 
@@ -13,7 +14,7 @@ How the original does it, in our wiki: [openblack internals](../../bw1-notes/ope
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | Lists the loaded program's scripts by kind, searched, with how many tasks run each | done | `src/Editor/Panels/ScriptsPanel.cpp`, `src/Editor/Scripts/ScriptModel.cpp`; tests `EditorScripts.*` |
-| Opens another compiled program, or goes back to the game's own | todo | the panel shows the game's own program only (`src/Editor/Panels/ScriptsPanel.cpp`) |
+| Opens another compiled program, or goes back to the game's own | done | "Open program..." and "Game's program" (`src/Editor/Panels/ScriptsPanel.cpp`), both read through the blob cache; tests `CompiledProgramTest.*` (decompile, recompile, syntax error) |
 | A script's details, and starting it as the game starts scripts | done | "Script" side tab, "Start a task" |
 
 ## Reading code

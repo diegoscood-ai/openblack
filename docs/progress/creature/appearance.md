@@ -58,7 +58,7 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 | Only the nearest few creatures cast shadows | todo | every drawn creature casts a shadow (`src/Graphics/ShadowList.cpp`); there is no limit |
 | The hair casts no shadow | done | the shadow is cast from the body mesh only (`src/Graphics/ShadowList.cpp`) |
 | A frozen creature looks icy, a dark blue sheen growing over it as it freezes | partial | the freeze is kept (`creature_spells::FrozenTint`, `components::CreatureSpells::freeze`) but the renderer does not draw the tint |
-| An invisible creature dissolves into static and casts no shadow | partial | the fizz is kept (`components::CreatureSpells::fizz`) but nothing draws the static, and the creature still casts its shadow |
+| An invisible creature dissolves into static and casts no shadow | partial | a fizzing body is drawn in two passes through the static (`Renderer::DrawCreatureBody`, `DrawFizzed`, fs_object_creature.sc), as the game draws it; the creature still casts its shadow and its reflection is drawn as before |
 | Creatures far from the camera are drawn with simpler meshes | todo | (unconfirmed whether the game has level of detail for creatures) |
 | Species-specific extras: eyes, eyelids and hair tufts | done | see [face_eyes_hair.md](face_eyes_hair.md) |
 | Each player's creature can be told apart by its tattoos and colours | partial | tattoos are drawn; see [creature_tattoos.md](creature_tattoos.md) |

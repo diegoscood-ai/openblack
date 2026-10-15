@@ -1,8 +1,9 @@
 # Editor
 
-openblack's in-game editor, toggled with F2: a tool bar, an outliner, an inspector and tabs for the palette and the
-scripts' log, round the view of the world, where the mouse picks, moves, turns and places things. The Log tab and the
-debug bar's Scripts window are in [script_debugger.md](script_debugger.md).
+openblack's in-game editor, toggled with F2: a tool bar, an outliner, an inspector and tabs for the palette, the
+testbed's scenarios, the scripts and the scripts' log, round the view of the world, where the mouse picks, moves, turns
+and places things. The Scripts tab holds the one Scripts panel, which the debug bar's Scripts window shows while the
+editor is closed; the Scripts and Log tabs are in [script_debugger.md](script_debugger.md).
 
 **Progress: 25/32 done, 1 partial — 80%**
 

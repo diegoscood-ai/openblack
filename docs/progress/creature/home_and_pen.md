@@ -53,7 +53,7 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | A creature that passes out (from damage, hunger or tiredness) is carried to its pen to come round | done | `CreatureMindSystem::ProcessTurn` knocks out a fainting creature (`physiology::ShouldFaint`) through `CreatureFightSystem::KnockOut`, which carries it to `HomeOf` (the temple's pen point); test `CreatureMode.PassesOutWhenAStatusReachesAHundredPercent` |
-| A creature knocked out in a fight lies out cold, then fades out and in at home | done | `CreatureFightSystem::KnockOut`, `HomeOf`, the `CreatureKnockedOut` stages (lying, fading out, fading in, waiting); test `CreatureFightTurnsTest.KnockedOutItIsTakenHomeAtOnce` |
+| A creature knocked out in a fight lies out cold, then fades out and in at home | done | `CreatureFightSystem::KnockOut`, `HomeOf`, the `CreatureKnockedOut` stages (lying, fading out, fading in, waiting); 20 turns out with the teleport's energise sound and 20 in, through `CreatureFizzSystem`, coming round as it is moved; tests `CreatureFightTurnsTest.KnockedOutItIsTakenHomeAtOnce`, `CreatureFightCarriedHomeTest` |
 | It rests at home until healthy enough, then gets up | done | `CreatureKnockedOut` resting and getting up (`CreatureFightSystem`) |
 | The player is told their creature was carried home | todo | see [lessons_and_help.md](lessons_and_help.md) |
 | Scripts can call the player's creature home | todo | `CALL_PLAYER_CREATURE` only hands the creature to the script (`src/CHLApi.cpp`); nothing calls it home |

@@ -8,24 +8,34 @@ The source of truth is the maintainer's local repository; `AI-Decompiled` is upd
 Pull requests are reviewed here, imported locally, verified with the full fidelity checks (they need the original
 game's data) and land in `AI-Decompiled` with the next publish, after which they are closed.
 
-The port target is raffclar's `master` at `0222f9f5`: of the 161 rows of the port audit, 86 are closed (2026-10-15).
+The port target is raffclar's `master` at `0222f9f5`: of the 161 rows of the port audit, 90 are closed (2026-10-16).
 
 ## In progress here (do not start these)
 
-- **Creature:** script-driven creature actions (play, move and face, do action), the creature's fizz and the
-  invisible spell with its drawn body, eyes and hair, the sway a hit drives, the creature's Creed hand glows, the
-  footstep dust, eating a magic food pile by portions, the creature's copy posed and drawn in the creature room.
-- **Camera:** the camera zones (kept inside the fence and under the height limit), the double click flying to the
-  object under the hand, and the player's follow mode after a double click on a creature.
-- **Physics:** the Bullet library removed (the camera's land under a pixel is the island's own ray).
-- **Villagers and towns:** the fish farm's shoals, scoop and timers; the virtual influence; script natives
-  (GET_TOWN_WITH_ID, BELIEF_FOR_PLAYER, SET_FOCUS on objects, IS_ACTIVE, GET_OBJECT_CLICKED, FLOCK_MEMBER,
-  OBJECT_DELETE); the football's pick-up reaction; the hand demo's recorded camera hints.
-- **Rendering and interface:** the land's level of detail per block, the bodies' light as the original's animated
-  objects, the advisors' series, the moon window, the loading screens and start-up logos.
-- **Animals:** the birds' way over missing land blocks, the script's POPULATE_CONTAINER.
+- **Creature:** the turn on the spot as the original's spins, the lean onto the slope, catching what is thrown, the
+  eye blink on the local random stream, looking and pointing at the camera (also in a script's wide screen), the
+  alignment sparkles, eating from fields, trees and storage pits, the copy in the creature room turning, looking at
+  the pointer and idling.
+- **Camera:** the land under a pixel as the island's own ray, the double click flying to the object under the hand.
+- **Physics:** the Bullet library removed; the "in the physics" mark as raffclar's tag, with hanging objects and
+  the trees a tornado lets go; the weights of homes, stores and fragments.
+- **Villagers and towns:** the walk round obstacles (the wall hug, its circles and its lookahead), the doors of the
+  homes, the temple's destruction and the heart's blows, SET_FOCUS turning objects (the singing stones), the virtual
+  influence, the hand's pose buffers and blend.
+- **Rendering and interface:** the high meshes at the top detail level, the fade of things given to a store, the
+  sea reflection of a held body in its pose, a burning tree's forced alpha reference, the moon window, the loading
+  screens and start-up logos, the fireflies' colour.
+- **Animals:** the grazers' search distance.
 
-## Done since the last update (joints 99 to 105)
+## Done since the last update (joints 99 to 106)
+
+- joint106: the debug bar only with the game's menu and the system pointer hidden; the editor's Scripts tab sharing
+  one Scripts panel; the advisors' faces, eyes, pointing arm, spacing and rainbow trail; the creature's scripted
+  plays, moves and actions, its fizz in and out of sight with its eyes and hair, its sway when struck, its footstep
+  dust and its eating a magic food pile by portions; the hand's pose at the screen's edge and the demos' camera
+  hints; the fish farms' shoals, fish and puzzle; animals fleeing as the original; POPULATE_CONTAINER,
+  BELIEF_FOR_PLAYER and GET_TOWN_WITH_ID; the miracle globe's drawn alpha; a testbed hand that casts miracles; a
+  per-entity state trace for the checks.
 
 - A test run's fixed cursor in place from its first frame (joint105).
 
@@ -49,13 +59,12 @@ The port target is raffclar's `master` at `0222f9f5`: of the 161 rows of the por
 Issues for these are filed as `agent-task`; nothing else in them is touched on this side:
 - the editor additions and script decompile/recompile in the editor;
 - the creature status and fight panels;
-- the debug GUI's menu-bar hiding and mouse-over gating;
 - the visible new particle effects (belief sprites, electric arcs, the hand glow, camera-distance scaling);
-- an untextured rock on Land 5 (issue #128);
 - a wonder built with fences instead of its mesh (issue #129).
 
 The flowers (issue #124) and the hand catching and feeding fireballs (issues #114 to #116) were done on this side;
-those issues are being checked and closed.
+those issues are being checked and closed. The Land 5 rock (issue #128) was read on this side: its skin is
+white in the game's data, so it is drawn as the original draws it.
 
 ## Being done by raffclar's agents (pull requests open)
 

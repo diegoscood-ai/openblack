@@ -12,8 +12,6 @@ The port target is raffclar's `master` at `0222f9f5`: of the 161 rows of the por
 
 ## In progress here (do not start these)
 
-- **Test runs:** the fixed test cursor applied from the first frame (it moves every check's first frame; it goes in
-  alone, before the rest).
 - **Creature:** script-driven creature actions (play, move and face, do action), the creature's fizz and the
   invisible spell with its drawn body, eyes and hair, the sway a hit drives, the creature's Creed hand glows, the
   footstep dust, eating a magic food pile by portions, the creature's copy posed and drawn in the creature room.
@@ -27,7 +25,9 @@ The port target is raffclar's `master` at `0222f9f5`: of the 161 rows of the por
   objects, the advisors' series, the moon window, the loading screens and start-up logos.
 - **Animals:** the birds' way over missing land blocks, the script's POPULATE_CONTAINER.
 
-## Done since the last update (joints 99 to 104)
+## Done since the last update (joints 99 to 105)
+
+- A test run's fixed cursor in place from its first frame (joint105).
 
 - The flowers of CREATE_FLOWERS (raffclar's code), the football ball from a script's CREATE, his partly built cap,
   his store rules, his testbed physics scenes and his gesture and data tools.

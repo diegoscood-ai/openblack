@@ -5,7 +5,7 @@ angry, hungry, frightened, tired, ill, thirsty, itchy). Each eases the creature 
 time and eases it back. This file also covers creatures learning miracles by watching and casting miracles themselves.
 The creature's own body, mind and leash are in [../creature/](../creature/).
 
-**Progress: 16/72 done, 24 partial — 39%**
+**Progress: 17/72 done, 23 partial — 40%**
 
 How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/miracles.md).
 
@@ -25,12 +25,12 @@ How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/mir
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| A spell waits two seconds, eases in over its start time, holds, then eases out over its finish time | partial | Eases in, holds and eases out (`creature_spells::Step`, `src/Creature/CreatureSpells.cpp`; `test/creature/test_creature_spells.cpp` `ASpellEasesInHoldsForItsTimeAndEasesOut`); it starts on the next turn, not after two seconds |
-| Start and finish times differ per spell (freeze 2 s, size and strength 4 s, invisible 5 s, compassion 3 s, others 1 s) | done | Read from the creature miracle rows in `spell_creature::ProcessTurn`, `src/Magic/Spells/SpellCreature.cpp`; `test/creature/test_creature_spells.cpp` `TimesAreWholeTurns` |
-| Casting the same spell again adds its time and takes over from the older miracle | done | `creature_spells::Receive`, `src/Creature/CreatureSpells.cpp`; `test/creature/test_creature_spells.cpp` `CastingTheSameSpellAgainAddsItsTimeAndTakesTheNewMiracle`; `test/creature/test_spell_creature.cpp` `CastAgainItIsExtendedAndTheFirstMiracleIsClosedDown` |
+| A spell waits two seconds, eases in over its start time, holds, then eases out over its finish time | done | `creature_spells::Receive` and `Step` (`k_StartDelaySeconds`, `src/Creature/CreatureSpells.cpp`): it waits two seconds of whole turns, also when it was waiting for another of its kind, then eases in, holds and eases out; `test/test_creature_spells.cpp` `ASpellEasesInHoldsForItsTimeAndEasesOut`, `TimesAreWholeTurns`; `test/creature/test_spell_creature.cpp` `ATurnOfAFreezeStopsTheCreaturePausesItsMindAndSoundsFromTheCreatureBank` |
+| Start and finish times differ per spell (freeze 2 s, size and strength 4 s, invisible 5 s, compassion 3 s, others 1 s) | done | Read from the creature miracle rows in `spell_creature::ProcessTurn`, `src/Magic/Spells/SpellCreature.cpp`; `test/test_creature_spells.cpp` `TimesAreWholeTurns` |
+| Casting the same spell again adds its time and takes over from the older miracle | done | `creature_spells::Receive`, `src/Creature/CreatureSpells.cpp`; `test/test_creature_spells.cpp` `CastingTheSameSpellAgainAddsItsTimeAndTakesTheNewMiracle`; `test/creature/test_spell_creature.cpp` `CastAgainItIsExtendedAndTheFirstMiracleIsClosedDown` |
 | The same spell cast while it is wearing off waits and starts again afterwards | done | `creature_spells::Receive` queues it while finishing, `src/Creature/CreatureSpells.cpp` |
-| An opposing spell of the same kind cuts the first short and waits for it | done | `test/creature/test_creature_spells.cpp` `TheOpposingSpellCutsTheFirstShortAndWaitsForIt` |
-| Spells of different kinds run together | done | `test/creature/test_creature_spells.cpp` `SpellsOfDifferentKindsRunTogether` |
+| An opposing spell of the same kind cuts the first short and waits for it | done | `test/test_creature_spells.cpp` `TheOpposingSpellCutsTheFirstShortAndWaitsForIt` |
+| Spells of different kinds run together | done | `test/test_creature_spells.cpp` `SpellsOfDifferentKindsRunTogether` |
 | A spell whose miracle disappears ends early | todo | A closed miracle is only unlinked from the creature's spell (`CreatureCloseDown`, `src/Magic/Spells/SpellCreature.cpp`); the spell runs on |
 | A creature that faints brings every spell to its end | todo | Nothing ends the spells on a faint |
 | With reversion turned off by a script, a spell stops where it is and never puts the creature back | done | `CREATURE_SPELL_REVERSION` (`src/CHLApi.cpp`) sets `creature_spells::Spells::reversion` through `spell_creature::SetReversion` (`src/Magic/Spells/SpellCreature.cpp`); without it a spell that has held its time goes straight to off, the creature kept as the spell made it, and its miracle is let go (`creature_spells::Step`, `src/Creature/CreatureSpells.cpp`); tests `CreatureSpells.WithoutReversionASpellStopsWhereItIs`, `CreatureSpells.WithoutReversionASpellThatStopsLeavesTheOneWaitingForItWaiting`. No Land 1 or Land 2 script calls it |
@@ -43,9 +43,9 @@ How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/mir
 |-----------|--------|---------------|
 | Freeze: the creature gives up what it was doing, stops, and its mind stops planning and learning | done | The start stops its locomotion and pauses its mind (`creature_spells::Apply`, `src/Creature/CreatureSpells.cpp`); `test/creature/test_spell_creature.cpp` `FreezeStopsTheCreatureAndPausesItsMindUntilItThaws` |
 | Freeze: its animation slows to a statue as it freezes and speeds up as it thaws | done | `playbackScale` eased by the freeze, used by `src/ECS/Systems/Implementations/CreatureAnimationSystem.cpp` |
-| Freeze: an icy environment-mapped sheen is added over it by how frozen it is | todo | `creature_spells::FrozenTint` is worked out (`test/creature/test_creature_spells.cpp` `TheFrozenLookTintsTowardsIcyBlue`) but the frozen look is not drawn |
-| Small: shrinks the creature to its smallest size (less in a fight, by the size it began the fight with) | partial | `creature_spells::SizeTarget` (`src/Creature/CreatureSpells.cpp`; `test/creature/test_creature_spells.cpp` `TheBodySpellsTargets`); no fight adjustment |
-| Big: grows the creature to its largest size (more in a fight), never shrinking it | partial | `creature_spells::SizeTarget`, never shrinking; no fight adjustment |
+| Freeze: an icy environment-mapped sheen is added over it by how frozen it is | todo | `creature_spells::FrozenTint` is worked out (`test/test_creature_spells.cpp` `TheFrozenLookTintsTowardsIcyBlue`) but the frozen look is not drawn |
+| Small: shrinks the creature to its smallest size (less in a fight, by the size it began the fight with) | partial | `creature_spells::SizeTarget` to the creature's smallest size, 0.2 or what a script set with `CREATURE_MIN_SIZE` (`ecs::components::CreatureSizeLimits`; `test/test_creature_spells.cpp` `TheBodySpellsTargets`, `test/creature/test_spell_creature.cpp` `TheSizeSpellsTakeItToItsOwnSmallestAndLargest`), never making it bigger; nothing for a creature in an activity with another (wiki Pending) |
+| Big: grows the creature to its largest size (more in a fight), never shrinking it | partial | `creature_spells::SizeTarget` to the creature's largest size, 2.4 or what a script set with `CREATURE_MAX_SIZE` (`test/creature/test_spell_creature.cpp` `BigTakesTheCreatureToTheLargestAScriptGaveIt`), never shrinking it; nothing for a creature in an activity with another (wiki Pending) |
 | Small and Big put the creature back to its size from before, losing growth made meanwhile | done | The finish puts the size from before back, `src/Creature/CreatureSpells.cpp`; `test/creature/test_spell_creature.cpp` `SizeStartsEasesHoldsAndIsPutBack` |
 | Weak takes strength down to a tenth; Strong raises it to full; both put it back | done | `k_WeakStrength`, `k_StrongStrength` targets and the value put back, `src/Creature/CreatureSpells.cpp` |
 | Fat and Thin move how fat the creature wants to be up or down, then back | partial | They ease the creature's fatness itself to fixed targets and back (`src/Creature/CreatureSpells.cpp`), not how fat it wants to be |
@@ -56,7 +56,7 @@ How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/mir
 | Compassion and Angry swing the creature's alignment fully good or evil, then back | done | `k_NiceAlignment`, `k_NastyAlignment` targets and the value put back, `src/Creature/CreatureSpells.cpp` |
 | Compassion and Angry switch a leashed creature to the compassion or aggression leash | todo | Nothing changes the leash type |
 | As they wear off the mood is wanted least, and the hold on the other desires is released (kept on a player's creature led on a mood leash) | partial | The finish makes the desire the least wanted (`src/Creature/CreatureSpells.cpp`); there is no hold on the other desires to release |
-| Hungry, Frightened, Tired, Ill and Thirsty make that need the only one wanted, without changing the body | partial | The need is made the top desire each turn, the body unchanged (`src/Creature/CreatureSpells.cpp`; `test/creature/test_creature_spells.cpp` `TheMoodSpellsMakeTheirDesireDominant`); the others are not held down |
+| Hungry, Frightened, Tired, Ill and Thirsty make that need the only one wanted, without changing the body | partial | The need is made the top desire each turn, the body unchanged (`src/Creature/CreatureSpells.cpp`; `test/test_creature_spells.cpp` `TheMoodSpellsMakeTheirDesireDominant`); the others are not held down |
 | The need spells' hold on the other desires lasts its own time after they wear off | todo | No hold on the other desires |
 | Itchy: the creature gives up its action and wants only to scratch, again each turn | partial | The scratch desire is set to its top each turn (`src/Creature/CreatureSpells.cpp`); the action is not dropped |
 | Itchy: the leash comes off each turn while it lasts | done | The leash stops working while it holds (`LeashSystem::SetWorks`); `test/creature/test_spell_creature.cpp` `ItchyKeepsTheLeashFromWorkingWhileItHolds` |

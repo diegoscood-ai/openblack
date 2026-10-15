@@ -14,7 +14,7 @@ All challenge script functions live in `src/CHLApi.cpp`; land script commands in
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Making a player a computer god (`TOGGLE_COMPUTER_PLAYER`, with a player name and 1) | partial | `FeatureScriptCommands::ToggleComputerPlayer` adds the player (`PlayerArchetype`) and ignores the on or off; nothing marks it as a computer god or gives it a mind |
+| Making a player a computer god (`TOGGLE_COMPUTER_PLAYER`, with a player name and 1) | partial | `FeatureScriptCommands::ToggleComputerPlayer` adds the player if it has none (`PlayerArchetype`) and, with on, marks it a computer player (`PlayerMagic::playerType` 2; off leaves it, as the original); nothing gives it a mind |
 | Loading a god's creature from a mind file, of a species, at a place (`CREATE_CREATURE_FROM_FILE`) | partial | `FeatureScriptCommands::CreateCreatureFromFile` (`CreatureArchetype`, the mind through the resource cache); it faces a fixed way and takes our starting size |
 | Sizing a god's creature like another player's (`SET_COMPUTER_PLAYER_CREATURE_LIKE`) | todo | `SetComputerPlayerCreatureLike` is empty; see [skirmish_opponents.md](skirmish_opponents.md) |
 | Setting a god's personality weight from the land file | todo | `FeatureScriptCommands::SetComputerPlayerPersonality` is empty (no shipped land uses it) |

@@ -4,7 +4,7 @@ How the player moves the camera over the island: the movement, turn, tilt and zo
 button, both buttons together, dragging round the edge of the screen, and double clicking to fly somewhere. Dragging the
 land itself with the hand is in [../hand/navigation.md](../hand/navigation.md).
 
-**Progress: 11/31 done, 16 partial — 61%**
+**Progress: 13/31 done, 15 partial — 66%**
 
 ## Keys
 
@@ -17,7 +17,7 @@ land itself with the hand is in [../hand/navigation.md](../hand/navigation.md).
 | Ctrl with the arrow keys zooms in and out | partial | `ZOOM_ON` handled in `DefaultWorldCameraModel::HandleActions`; no recorded run of the keys themselves |
 | The turn keys turn the camera left and right | partial | `ROTATE_LEFT`, `ROTATE_RIGHT` bound in `src/Input/KeyBindings.h`; not compared with a recording of the game |
 | The tilt keys tilt the camera up and down | partial | `TILT_UP`, `TILT_DOWN` bound; not compared with a recording of the game |
-| Holding Ctrl and Shift together eases in the clear view over half a second, and the hand grips while it does | todo | the world camera has no clear view in our tree; only the creature's camera has one (see [follow_cameras.md](follow_cameras.md)) |
+| Holding Ctrl and Shift together eases in the clear view over half a second, and the hand grips while it does | partial | `_clearView` / `PlanClearView` in `DefaultWorldCameraModel`: the camera glides to a close view of the hand's point and back, tests `WorldCameraMouse.CtrlAndShift*`; the hand's grip and the object under the hand are not ported |
 | Moving, turning and zooming keys do nothing while a script's cinema bars are in or the camera is not the player's | partial | the keys are skipped while a script's camera drives or a hand demo plays (`src/Game.cpp`); a script's cinema bars alone do not stop them |
 | A setting to speed the movement keys up or down | n/a | openblack-only (editor camera speed), `src/Camera/KeyboardMoveSpeed.h`; see `../debug/` |
 
@@ -25,12 +25,12 @@ land itself with the hand is in [../hand/navigation.md](../hand/navigation.md).
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The wheel zooms towards and away from what the camera looks at, a fixed step per notch | done | `ZOOM_IN`, `ZOOM_OUT` with `k_WheelZoomFactor` in `DefaultWorldCameraModel.cpp`; recorded run `ZoomOutIn` |
+| The wheel zooms towards and away from what the camera looks at, a fixed step per notch | done | `k_WheelZoomPerNotch` in `DefaultWorldCameraModel.cpp`; tests `WorldCameraMouse.TheWheelZoomsSixtyANotchWhateverTheFrameTime`, `WorldCameraMouse.AZoomKeyIsANotchAFrameAndTheWheelWithoutOneIsLost` |
 | Zooming speeds up with height, so a notch covers about the same share of the view at any altitude | done | the zoom scale from the height between camera and focus, 60 to 240 or 2000, in `DefaultWorldCameraModel::Update` (as our [script camera](../../bw1-notes/script-camera.md#player-camera-features-camerahelp) page says); recorded runs `ZoomOutIn`, `TiltDownZoomOut` |
 | Holding the middle button turns and tilts the camera round the point under the mouse | done | `Mode::ArcBall`; recorded run `MiddleDragRightUp` |
 | Holding both buttons and moving up and down zooms | done | `TWO_BUTTON_CLICK` with the second zoom bit; recorded run `TwoButtonZoomOutIn` |
-| Holding both buttons and moving across turns the camera, once the mouse has moved far enough across | partial | `camera_drag::TwoButtonTurn` (`CameraDrag.BothButtonsTurnOnlyOnceMovedFarEnoughAcross`, `test/camera/test_camera_drag.cpp`) is not wired yet |
-| While the mouse turns the camera the cursor and the hand stay where they were, and the pointer is put back there after | partial | only for the middle button: relative mouse mode while held and the pointer put back where it was pressed (`src/Game.cpp`); not for both buttons |
+| Holding both buttons and moving across turns the camera, once the mouse has moved far enough across | done | `camera_drag::TwoButtonTurn`; `CameraDrag.BothButtonsTurnOnlyOnceMovedFarEnoughAcross`, `WorldCameraMouse.BothButtonsZoomAndTurnOnceTheMouseHasMovedFarEnoughAcross` |
+| While the mouse turns the camera the cursor and the hand stay where they were, and the pointer is put back there after | done | `src/Input/CursorFreeze.cpp`; `test/input/test_cursor_freeze.cpp` |
 | Double clicking the land flies the camera there along a curved flight | done | `Mode::FlyingToPoint`, `CharterFlight`; recorded run `DoubleClickFlyTo` |
 | The flight picks the heading that gives the clearest look at the place, avoiding hills in the way | done | the flight scores 32 headings in `DefaultWorldCameraModel::UpdateModeFlying`; recorded run `DoubleClickFlyTo` |
 | A flight plays one of four whoosh sounds as it starts | done | `DefaultWorldCameraModel::PlayWoosh` (one of four whooshes by the tick count), from the double click's flight and `SetFlight` beyond 150 |

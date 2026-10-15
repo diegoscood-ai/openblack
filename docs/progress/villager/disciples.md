@@ -13,7 +13,7 @@ How the original does it, in our wiki: [Villagers: data, state machine and speed
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Dropping a villager from the hand onto a place makes it a disciple of the work there | todo | the hand picks up and drops villagers, but the landing makes no disciple (TODO in `src/ECS/LivingPhysics.cpp`) |
+| Dropping a villager from the hand onto a place makes it a disciple of the work there | todo | the hand picks up and drops villagers, but the landing makes no disciple (TODO in `src/ECS/Systems/Implementations/VillagerPhysics.cpp`) |
 | The disciple's work is chosen from what the drop point is (field, forest, sea, building site, workshop, storage pit, worship site, villager, other town) | todo | the disciple table is read (`src/ECS/Villager/VillagerDisciple.cpp`) but no drop point chooses a type |
 | Only an adult in its own town (or a missionary in another) can be made a disciple | todo |  |
 | A disciple shows its icon above its head when the hand is near | todo |  |
@@ -21,7 +21,7 @@ How the original does it, in our wiki: [Villagers: data, state machine and speed
 | Making a disciple moves the player's alignment as the town tables say | todo | See ../worship/ |
 | Disciples interacted with by the hand ask what state they would take up | todo |  |
 | Disciples with nothing to do look for their work, then wait | partial | `DISCIPLE_NOTHING_TO_DO` and `DiscipleDecideWhatToDo` are ported (`src/ECS/Villager/VillagerDisciple.cpp`), but dormant: nothing makes a disciple |
-| Picking a disciple up and dropping it back in town frees it | todo | the hand's reset of a disciple is a TODO (`src/ECS/LivingPhysics.cpp`) |
+| Picking a disciple up and dropping it back in town frees it | todo | the hand's reset of a disciple is a TODO (`src/ECS/Systems/Implementations/VillagerPhysics.cpp`) |
 | The town takes back its disciples when it changes owner | todo |  |
 
 ## Each discipline

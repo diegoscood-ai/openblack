@@ -2,39 +2,39 @@
 
 Every domain and feature file, with its score (done = 1, partial = ½, todo = 0, n/a left out). Generated from the files' own rows; regenerate after editing.
 
-**Overall: 5092 done, 2139 partial, 6705 todo, 1045 n/a across 14981 rows in 377 files — 44%**
+**Overall: 5172 done, 2155 partial, 6624 todo, 1045 n/a across 14996 rows in 377 files — 45%**
 
 | Domain | Files | Rows | Score |
 |---|---|---|---|
 | [ocean](ocean/) | 4 | 58 | 94% |
 | [audio](audio/) | 6 | 105 | 88% |
-| [sky](sky/) | 8 | 185 | 85% |
+| [sky](sky/) | 8 | 185 | 87% |
 | [physics](physics/) | 8 | 339 | 83% |
 | [animal](animal/) | 5 | 99 | 81% |
 | [terrain](terrain/) | 7 | 123 | 81% |
+| [debug](debug/) | 8 | 220 | 78% |
 | [miracles](miracles/) | 19 | 795 | 77% |
 | [scripts](scripts/) | 21 | 1642 | 73% |
 | [video](video/) | 2 | 85 | 73% |
 | [resources](resources/) | 5 | 127 | 71% |
+| [weather](weather/) | 6 | 128 | 71% |
+| [gesture](gesture/) | 6 | 126 | 70% |
 | [nature](nature/) | 8 | 248 | 69% |
-| [gesture](gesture/) | 6 | 126 | 68% |
-| [weather](weather/) | 6 | 128 | 68% |
 | [building](building/) | 7 | 244 | 65% |
+| [camera](camera/) | 9 | 191 | 65% |
 | [temple](temple/) | 9 | 96 | 64% |
-| [camera](camera/) | 9 | 191 | 63% |
-| [rendering](rendering/) | 9 | 188 | 63% |
-| [worship](worship/) | 6 | 137 | 63% |
-| [hand](hand/) | 21 | 675 | 62% |
-| [debug](debug/) | 8 | 212 | 60% |
-| [engine](engine/) | 8 | 266 | 60% |
+| [worship](worship/) | 6 | 137 | 64% |
+| [hand](hand/) | 21 | 677 | 63% |
+| [rendering](rendering/) | 9 | 189 | 63% |
+| [engine](engine/) | 8 | 266 | 61% |
 | [villager](villager/) | 11 | 393 | 58% |
 | [town](town/) | 8 | 223 | 49% |
+| [creature](creature/) | 29 | 1627 | 46% |
 | [multiplayer](multiplayer/) | 14 | 400 | 46% |
-| [creature](creature/) | 29 | 1623 | 45% |
 | [interface](interface/) | 10 | 339 | 40% |
 | [pc_integration](pc_integration/) | 4 | 213 | 20% |
 | [rival_gods](rival_gods/) | 9 | 428 | 17% |
-| [easter_eggs](easter_eggs/) | 6 | 121 | 12% |
+| [easter_eggs](easter_eggs/) | 6 | 121 | 13% |
 | [story](story/) | 94 | 5172 | 11% |
 | [vanilla_bugs](vanilla_bugs/) | 10 | 0 | 0% |
 
@@ -71,11 +71,11 @@ Every domain and feature file, with its score (done = 1, partial = ½, todo = 0,
 | [Fields and fish farms](building/fields_and_fish_farms.md) | 15 | 13 | 0 | 2 | 0 | 87% |
 | [Workshop and scaffolds](building/workshop_and_scaffolds.md) | 117 | 53 | 25 | 37 | 2 | 57% |
 
-## [camera](camera/) — 63%
+## [camera](camera/) — 65%
 
 | File | Rows | Done | Partial | Todo | n/a | Score |
 |---|---|---|---|---|---|---|
-| [Camera help](camera/camera_help.md) | 18 | 6 | 6 | 6 | 0 | 50% |
+| [Camera help](camera/camera_help.md) | 18 | 9 | 6 | 3 | 0 | 67% |
 | [Camera limits and collision](camera/camera_limits.md) | 15 | 4 | 8 | 3 | 0 | 53% |
 | [Camera paths](camera/camera_paths.md) | 18 | 4 | 3 | 11 | 0 | 31% |
 | [Cinematics](camera/cinematics.md) | 15 | 11 | 2 | 2 | 0 | 80% |
@@ -83,9 +83,9 @@ Every domain and feature file, with its score (done = 1, partial = ½, todo = 0,
 | [Places and bookmarks](camera/places_and_bookmarks.md) | 20 | 3 | 10 | 7 | 0 | 40% |
 | [Script camera](camera/script_camera.md) | 28 | 22 | 1 | 5 | 0 | 80% |
 | [Temple camera](camera/temple_camera.md) | 26 | 24 | 1 | 1 | 0 | 94% |
-| [World camera controls](camera/world_camera_controls.md) | 32 | 11 | 16 | 4 | 1 | 61% |
+| [World camera controls](camera/world_camera_controls.md) | 32 | 13 | 15 | 3 | 1 | 66% |
 
-## [creature](creature/) — 45%
+## [creature](creature/) — 46%
 
 | File | Rows | Done | Partial | Todo | n/a | Score |
 |---|---|---|---|---|---|---|
@@ -96,7 +96,7 @@ Every domain and feature file, with its score (done = 1, partial = ½, todo = 0,
 | [The Creature Cave](creature/creature_cave.md) | 31 | 17 | 4 | 10 | 0 | 61% |
 | [Creature Mode and the status panel](creature/creature_mode.md) | 31 | 16 | 11 | 4 | 0 | 69% |
 | [Creature tattoos](creature/creature_tattoos.md) | 58 | 24 | 13 | 19 | 2 | 54% |
-| [Decision making](creature/decision_making.md) | 64 | 18 | 21 | 24 | 1 | 45% |
+| [Decision making](creature/decision_making.md) | 65 | 20 | 20 | 24 | 1 | 47% |
 | [Desires](creature/desires.md) | 71 | 22 | 29 | 20 | 0 | 51% |
 | [Development phases](creature/development_phases.md) | 48 | 6 | 12 | 29 | 1 | 26% |
 | [Face, eyes and hair](creature/face_eyes_hair.md) | 45 | 32 | 6 | 7 | 0 | 78% |
@@ -106,33 +106,33 @@ Every domain and feature file, with its score (done = 1, partial = ½, todo = 0,
 | [Growth and size](creature/growth_and_size.md) | 36 | 27 | 2 | 7 | 0 | 78% |
 | [Home and pen](creature/home_and_pen.md) | 36 | 8 | 8 | 20 | 0 | 33% |
 | [Idle behaviour](creature/idle_behaviour.md) | 68 | 23 | 15 | 30 | 0 | 45% |
-| [Learning by observation](creature/learning_by_observation.md) | 84 | 14 | 19 | 47 | 4 | 29% |
-| [Learning from feedback](creature/learning_from_feedback.md) | 77 | 49 | 17 | 11 | 0 | 75% |
-| [Leash](creature/leash.md) | 51 | 30 | 8 | 13 | 0 | 67% |
+| [Learning by observation](creature/learning_by_observation.md) | 84 | 18 | 22 | 40 | 4 | 36% |
+| [Learning from feedback](creature/learning_from_feedback.md) | 77 | 50 | 17 | 10 | 0 | 76% |
+| [Leash](creature/leash.md) | 53 | 32 | 9 | 12 | 0 | 69% |
 | [Lessons and creature help](creature/lessons_and_help.md) | 85 | 0 | 9 | 75 | 1 | 5% |
 | [Creature locomotion](creature/locomotion.md) | 50 | 33 | 4 | 13 | 0 | 70% |
 | [Wounds, burns and blood](creature/marks.md) | 23 | 15 | 2 | 6 | 0 | 70% |
 | [Object actions](creature/object_actions.md) | 123 | 57 | 17 | 49 | 0 | 53% |
-| [Creature physiology](creature/physiology.md) | 52 | 35 | 8 | 9 | 0 | 75% |
+| [Creature physiology](creature/physiology.md) | 53 | 36 | 8 | 9 | 0 | 75% |
 | [Reactions](creature/reactions.md) | 42 | 1 | 1 | 40 | 0 | 4% |
 | [Creature saves and files](creature/saves_and_files.md) | 39 | 14 | 8 | 15 | 2 | 49% |
 | [Species and choosing a creature](creature/species_choice.md) | 50 | 26 | 9 | 13 | 2 | 64% |
 | [Town actions](creature/town_actions.md) | 67 | 4 | 8 | 55 | 0 | 12% |
 
-## [debug](debug/) — 60%
+## [debug](debug/) — 78%
 
 | File | Rows | Done | Partial | Todo | n/a | Score |
 |---|---|---|---|---|---|---|
 | [Command-line tools](debug/command_line_tools.md) | 23 | 13 | 0 | 10 | 0 | 57% |
 | [Creature tools](debug/creature_tools.md) | 29 | 26 | 2 | 1 | 0 | 93% |
-| [Debug windows](debug/debug_windows.md) | 31 | 22 | 8 | 1 | 0 | 84% |
+| [Debug windows](debug/debug_windows.md) | 32 | 23 | 8 | 1 | 0 | 84% |
 | [Diagnostics](debug/diagnostics.md) | 19 | 15 | 3 | 1 | 0 | 87% |
 | [Editor](debug/editor.md) | 32 | 25 | 1 | 6 | 0 | 80% |
 | [Script debugger](debug/script_debugger.md) | 21 | 18 | 1 | 2 | 0 | 88% |
-| [Testbed](debug/testbed.md) | 23 | 0 | 1 | 22 | 0 | 2% |
-| [Testbed scenarios](debug/testbed_scenarios.md) | 34 | 0 | 0 | 34 | 0 | 0% |
+| [Testbed](debug/testbed.md) | 28 | 18 | 7 | 3 | 0 | 77% |
+| [Testbed scenarios](debug/testbed_scenarios.md) | 36 | 16 | 11 | 9 | 0 | 60% |
 
-## [easter_eggs](easter_eggs/) — 12%
+## [easter_eggs](easter_eggs/) — 13%
 
 | File | Rows | Done | Partial | Todo | n/a | Score |
 |---|---|---|---|---|---|---|
@@ -141,37 +141,37 @@ Every domain and feature file, with its score (done = 1, partial = ½, todo = 0,
 | [Hidden keys and cheats](easter_eggs/hidden_keys_and_cheats.md) | 18 | 0 | 1 | 4 | 13 | 10% |
 | [Launch switches and stray files](easter_eggs/launch_switches_and_files.md) | 17 | 0 | 1 | 12 | 4 | 4% |
 | [Secret behaviours](easter_eggs/secret_behaviours.md) | 17 | 1 | 4 | 12 | 0 | 18% |
-| [Unused content](easter_eggs/unused_content.md) | 27 | 0 | 0 | 2 | 25 | 0% |
+| [Unused content](easter_eggs/unused_content.md) | 27 | 0 | 1 | 1 | 25 | 25% |
 
-## [engine](engine/) — 60%
+## [engine](engine/) — 61%
 
 | File | Rows | Done | Partial | Todo | n/a | Score |
 |---|---|---|---|---|---|---|
-| [Asset formats](engine/asset_formats.md) | 44 | 30 | 2 | 9 | 3 | 76% |
+| [Asset formats](engine/asset_formats.md) | 44 | 30 | 3 | 8 | 3 | 77% |
 | [File system and packs](engine/file_system_and_packs.md) | 20 | 11 | 6 | 2 | 1 | 74% |
-| [Game loop and clock](engine/game_loop_and_clock.md) | 39 | 27 | 8 | 4 | 0 | 79% |
-| [Info tables](engine/info_tables.md) | 36 | 7 | 24 | 5 | 0 | 53% |
+| [Game loop and clock](engine/game_loop_and_clock.md) | 39 | 28 | 8 | 3 | 0 | 82% |
+| [Info tables](engine/info_tables.md) | 36 | 7 | 25 | 4 | 0 | 54% |
 | [Options and settings](engine/options_and_settings.md) | 24 | 7 | 9 | 8 | 0 | 48% |
 | [Platforms and performance](engine/platforms_and_performance.md) | 27 | 17 | 3 | 3 | 4 | 80% |
 | [Saving and loading](engine/saving_and_loading.md) | 39 | 2 | 5 | 30 | 2 | 12% |
 | [Script virtual machine](engine/script_vm.md) | 37 | 14 | 20 | 2 | 1 | 67% |
 
-## [gesture](gesture/) — 68%
+## [gesture](gesture/) — 70%
 
 | File | Rows | Done | Partial | Todo | n/a | Score |
 |---|---|---|---|---|---|---|
 | [Creature gestures](gesture/creature_gestures.md) | 8 | 0 | 0 | 7 | 1 | 0% |
-| [Gesture trails and effects](gesture/gesture_effects.md) | 26 | 19 | 2 | 3 | 2 | 83% |
+| [Gesture trails and effects](gesture/gesture_effects.md) | 26 | 21 | 1 | 2 | 2 | 90% |
 | [Leash gestures](gesture/leash_gestures.md) | 16 | 0 | 0 | 15 | 1 | 0% |
 | [Miracle gestures](gesture/miracle_gestures.md) | 26 | 19 | 2 | 4 | 1 | 80% |
 | [Gesture recognition](gesture/recognition.md) | 35 | 29 | 3 | 2 | 1 | 90% |
 | [The scribble](gesture/scribble.md) | 15 | 11 | 1 | 3 | 0 | 77% |
 
-## [hand](hand/) — 62%
+## [hand](hand/) — 63%
 
 | File | Rows | Done | Partial | Todo | n/a | Score |
 |---|---|---|---|---|---|---|
-| [Clicking and activating](hand/clicking_and_activating.md) | 44 | 26 | 6 | 12 | 0 | 66% |
+| [Clicking and activating](hand/clicking_and_activating.md) | 46 | 28 | 6 | 12 | 0 | 67% |
 | [Creature contact](hand/creature_contact.md) | 48 | 24 | 7 | 15 | 2 | 60% |
 | [Hand animations](hand/hand_animations.md) | 39 | 19 | 5 | 11 | 4 | 61% |
 | [Hand effects and glows](hand/hand_effects_and_glows.md) | 45 | 30 | 6 | 9 | 0 | 73% |
@@ -181,7 +181,7 @@ Every domain and feature file, with its score (done = 1, partial = ½, todo = 0,
 | [Holding](hand/holding.md) | 28 | 20 | 1 | 7 | 0 | 73% |
 | [Look and morph](hand/look_and_morph.md) | 11 | 11 | 0 | 0 | 0 | 100% |
 | [Scooping handfuls](hand/multi_pickup.md) | 24 | 20 | 2 | 2 | 0 | 88% |
-| [Navigation](hand/navigation.md) | 40 | 17 | 16 | 7 | 0 | 62% |
+| [Navigation](hand/navigation.md) | 40 | 32 | 3 | 5 | 0 | 84% |
 | [Other players' hands](hand/other_players_hands.md) | 28 | 0 | 12 | 16 | 0 | 21% |
 | [Picking up](hand/picking_up.md) | 35 | 24 | 5 | 6 | 0 | 76% |
 | [Placement](hand/placement.md) | 29 | 17 | 6 | 6 | 0 | 69% |
@@ -214,7 +214,7 @@ Every domain and feature file, with its score (done = 1, partial = ½, todo = 0,
 |---|---|---|---|---|---|---|
 | [Blast](miracles/blast.md) | 42 | 33 | 6 | 3 | 0 | 86% |
 | [Casting and globes](miracles/casting_and_globes.md) | 55 | 41 | 9 | 4 | 1 | 84% |
-| [Creature spells](miracles/creature_spells.md) | 72 | 16 | 24 | 32 | 0 | 39% |
+| [Creature spells](miracles/creature_spells.md) | 72 | 17 | 23 | 32 | 0 | 40% |
 | [Dispensers and one-off seeds](miracles/dispensers_and_seeds.md) | 27 | 19 | 4 | 2 | 2 | 84% |
 | [Fireball](miracles/fireball.md) | 47 | 33 | 8 | 6 | 0 | 79% |
 | [Flocks](miracles/flocks.md) | 50 | 46 | 1 | 3 | 0 | 93% |
@@ -289,7 +289,7 @@ Every domain and feature file, with its score (done = 1, partial = ½, todo = 0,
 | [Collisions](physics/collisions.md) | 33 | 30 | 3 | 0 | 0 | 95% |
 | [Explosions](physics/explosions.md) | 43 | 31 | 6 | 6 | 0 | 79% |
 | [Fire](physics/fire.md) | 77 | 62 | 10 | 5 | 0 | 87% |
-| [Impact damage](physics/impact_damage.md) | 47 | 23 | 7 | 17 | 0 | 56% |
+| [Impact damage](physics/impact_damage.md) | 47 | 24 | 7 | 16 | 0 | 59% |
 | [Object dynamics](physics/object_dynamics.md) | 43 | 36 | 6 | 1 | 0 | 91% |
 | [Throwing and landing](physics/throwing_and_landing.md) | 45 | 35 | 5 | 5 | 0 | 83% |
 | [Thrown villagers, animals and the creature](physics/thrown_living.md) | 24 | 18 | 4 | 2 | 0 | 83% |
@@ -299,12 +299,12 @@ Every domain and feature file, with its score (done = 1, partial = ½, todo = 0,
 
 | File | Rows | Done | Partial | Todo | n/a | Score |
 |---|---|---|---|---|---|---|
-| [Display and frame rate](rendering/display_and_frame_rate.md) | 11 | 3 | 5 | 0 | 3 | 69% |
+| [Display and frame rate](rendering/display_and_frame_rate.md) | 11 | 4 | 4 | 0 | 3 | 75% |
 | [Level of detail](rendering/level_of_detail.md) | 15 | 6 | 4 | 2 | 3 | 67% |
 | [Beams and lights of worship](rendering/light_beams.md) | 38 | 1 | 6 | 30 | 1 | 11% |
 | [Models and lighting](rendering/models_and_lighting.md) | 26 | 16 | 5 | 5 | 0 | 71% |
 | [Particles](rendering/particles.md) | 33 | 24 | 4 | 5 | 0 | 79% |
-| [Render pipeline](rendering/render_pipeline.md) | 16 | 13 | 2 | 1 | 0 | 88% |
+| [Render pipeline](rendering/render_pipeline.md) | 17 | 13 | 3 | 1 | 0 | 85% |
 | [Shadows](rendering/shadows.md) | 18 | 13 | 2 | 3 | 0 | 78% |
 | [Special effects](rendering/special_effects.md) | 18 | 12 | 2 | 4 | 0 | 72% |
 | [Sprites and billboards](rendering/sprites_and_billboards.md) | 13 | 10 | 0 | 2 | 1 | 83% |
@@ -342,12 +342,12 @@ Every domain and feature file, with its score (done = 1, partial = ½, todo = 0,
 | [Challenge natives: creatures](scripts/challenge_natives_creature.md) | 64 | 11 | 5 | 48 | 0 | 21% |
 | [Challenge natives: game flow, time and scripts](scripts/challenge_natives_game_flow.md) | 62 | 33 | 10 | 19 | 0 | 61% |
 | [Challenge natives: miracles, influence and weather](scripts/challenge_natives_magic_and_weather.md) | 38 | 28 | 1 | 9 | 0 | 75% |
-| [Challenge natives: objects, villagers and the world](scripts/challenge_natives_objects_and_world.md) | 122 | 31 | 18 | 73 | 0 | 33% |
+| [Challenge natives: objects, villagers and the world](scripts/challenge_natives_objects_and_world.md) | 122 | 31 | 19 | 72 | 0 | 33% |
 | [Challenge natives: sound and music](scripts/challenge_natives_sound_and_music.md) | 26 | 26 | 0 | 0 | 0 | 100% |
 | [Challenge natives: towns, players and rival gods](scripts/challenge_natives_towns_and_players.md) | 49 | 8 | 1 | 40 | 0 | 17% |
 | [Challenge scripts](scripts/challenge_scripts.md) | 144 | 41 | 71 | 32 | 0 | 53% |
 | [Creature mind scripts](scripts/creature_mind_scripts.md) | 15 | 3 | 6 | 5 | 1 | 43% |
-| [Dance scripts](scripts/dance_scripts.md) | 54 | 0 | 9 | 23 | 22 | 14% |
+| [Dance scripts](scripts/dance_scripts.md) | 54 | 0 | 15 | 17 | 22 | 23% |
 | [Info scripts and tables](scripts/info_scripts.md) | 21 | 11 | 4 | 5 | 1 | 65% |
 | [Land 1 script](scripts/land1_script.md) | 67 | 63 | 4 | 0 | 0 | 97% |
 | [Land 2 script](scripts/land2_script.md) | 69 | 65 | 2 | 2 | 0 | 96% |
@@ -359,7 +359,7 @@ Every domain and feature file, with its score (done = 1, partial = ½, todo = 0,
 | [Map, demo and test scripts](scripts/map_and_demo_scripts.md) | 57 | 49 | 1 | 3 | 4 | 93% |
 | [Playground scripts](scripts/playground_scripts.md) | 364 | 325 | 31 | 8 | 0 | 94% |
 
-## [sky](sky/) — 85%
+## [sky](sky/) — 87%
 
 | File | Rows | Done | Partial | Todo | n/a | Score |
 |---|---|---|---|---|---|---|
@@ -368,7 +368,7 @@ Every domain and feature file, with its score (done = 1, partial = ½, todo = 0,
 | [Lighting by time of day](sky/lighting.md) | 16 | 15 | 1 | 0 | 0 | 97% |
 | [Mist and haze](sky/mist.md) | 17 | 12 | 0 | 5 | 0 | 71% |
 | [The moon](sky/moon.md) | 37 | 34 | 1 | 2 | 0 | 93% |
-| [The sky dome](sky/sky_dome.md) | 16 | 11 | 1 | 4 | 0 | 72% |
+| [The sky dome](sky/sky_dome.md) | 16 | 14 | 2 | 0 | 0 | 94% |
 | [The sun](sky/sun.md) | 43 | 33 | 4 | 6 | 0 | 81% |
 | [Sun and moon](sky/sun_and_moon.md) | 13 | 8 | 1 | 3 | 1 | 71% |
 
@@ -539,7 +539,7 @@ Every domain and feature file, with its score (done = 1, partial = ½, todo = 0,
 | [Villager daily routine](villager/daily_routine.md) | 38 | 28 | 8 | 0 | 2 | 89% |
 | [Villager death](villager/death.md) | 28 | 24 | 3 | 1 | 0 | 91% |
 | [Disciples](villager/disciples.md) | 22 | 1 | 7 | 13 | 1 | 21% |
-| [Villagers in the hand and under script](villager/held_and_scripted.md) | 16 | 8 | 6 | 2 | 0 | 69% |
+| [Villagers in the hand and under script](villager/held_and_scripted.md) | 16 | 8 | 7 | 1 | 0 | 72% |
 | [Villager jobs](villager/jobs.md) | 31 | 18 | 3 | 6 | 4 | 72% |
 | [Villager life cycle](villager/life_cycle.md) | 28 | 24 | 2 | 2 | 0 | 89% |
 | [Villager looks, voices and special villagers](villager/looks_and_voices.md) | 20 | 8 | 5 | 6 | 1 | 55% |
@@ -548,7 +548,7 @@ Every domain and feature file, with its score (done = 1, partial = ½, todo = 0,
 | [Special villagers](villager/special_villagers.md) | 79 | 15 | 7 | 55 | 2 | 24% |
 | [Villager tools and carried items](villager/tools_and_carried_items.md) | 67 | 56 | 2 | 8 | 1 | 86% |
 
-## [weather](weather/) — 68%
+## [weather](weather/) — 71%
 
 | File | Rows | Done | Partial | Todo | n/a | Score |
 |---|---|---|---|---|---|---|
@@ -556,10 +556,10 @@ Every domain and feature file, with its score (done = 1, partial = ½, todo = 0,
 | [Rain](weather/rain.md) | 20 | 14 | 3 | 3 | 0 | 78% |
 | [Scripted and real-world weather](weather/scripted_weather.md) | 16 | 6 | 1 | 8 | 1 | 43% |
 | [Snow](weather/snow.md) | 21 | 5 | 1 | 15 | 0 | 26% |
-| [Storms and thunder](weather/storms.md) | 27 | 18 | 4 | 4 | 1 | 77% |
+| [Storms and thunder](weather/storms.md) | 27 | 22 | 3 | 1 | 1 | 90% |
 | [Wind](weather/wind.md) | 15 | 9 | 3 | 3 | 0 | 70% |
 
-## [worship](worship/) — 63%
+## [worship](worship/) — 64%
 
 | File | Rows | Done | Partial | Todo | n/a | Score |
 |---|---|---|---|---|---|---|
@@ -568,4 +568,4 @@ Every domain and feature file, with its score (done = 1, partial = ½, todo = 0,
 | [Influence](worship/influence.md) | 23 | 21 | 0 | 1 | 1 | 95% |
 | [Prayer power](worship/prayer_power.md) | 22 | 12 | 5 | 5 | 0 | 66% |
 | [Worship sites](worship/worship_sites.md) | 25 | 10 | 4 | 11 | 0 | 48% |
-| [Worshippers and dancing](worship/worshippers.md) | 24 | 10 | 5 | 8 | 1 | 54% |
+| [Worshippers and dancing](worship/worshippers.md) | 24 | 10 | 6 | 7 | 1 | 57% |

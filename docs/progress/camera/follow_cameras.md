@@ -9,7 +9,7 @@ the game has. Script-driven following is in [script_camera.md](script_camera.md)
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| A key locks the camera onto the player's creature and lets go again | done | `CreatureModeSystem::PressCreatureKey` (`src/ECS/Systems/Implementations/CreatureModeSystem.cpp`) with `CreatureCameraModel` (`src/Camera/CreatureCameraModel.cpp`); `CreatureMode.CreatureKeyLocksOntoYourCreatureAndLetsGo` (`test/creature/test_creature_follow.cpp`). Whether the game's key follows or only flies there is unconfirmed |
+| A key locks the camera onto the player's creature and lets go again | done | `CreatureModeSystem::PressCreatureKey` (`src/ECS/Systems/Implementations/CreatureModeSystem.cpp`) with `CreatureCameraModel` (`src/Camera/CreatureCameraModel.cpp`); `CreatureMode.CreatureKeyLocksOntoYourCreatureAndLetsGo` (`test/test_creature_mode.cpp`). Whether the game's key follows or only flies there is unconfirmed |
 | A double click on a creature locks onto it, another god's too | done | `CreatureModeSystem::ReadKeys` enters on a double click on any creature under the hand, when the double-click flight is allowed |
 | The camera starts the creature's viewing distance away, or as close as it already is, looking at its middle | done | `src/Camera/CreatureFollow.cpp`; `CreatureFollow.StartsAtTheViewingDistanceFromAfar`, `StaysAboutAsCloseWhenAlreadyClose`, `LooksAtTheMiddleOfTheCreature`; `CreatureCameraModel.StartsOnTheCreaturesMiddleWithTheFollowsView` (`test/camera/test_creature_camera_model.cpp`) |
 | It eases after the creature, arriving two seconds later at first and one second once settled | done | `CreatureFollow.EasesInTwoSecondsAtFirstAndOneLater`, `CreatureCameraModel.TheEaseSettlesToASecondAfterTwo` |
@@ -34,7 +34,7 @@ the game has. Script-driven following is in [script_camera.md](script_camera.md)
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| A camera that follows behind a thing, keeping to its heading | partial | only the script camera's follow does it (`CAMERA_PROPERTIES` with behind, `script_camera::FollowHeading`; `ScriptCameraFollow.HeadingBehindAWallHug` in `test/test_script_camera.cpp`); no other camera uses it |
+| A camera that follows behind a thing, keeping to its heading | partial | only the script camera's follow does it (`CAMERA_PROPERTIES` with behind, `script_camera::FollowHeading`; `ScriptCameraFollow.HeadingBehindAWallHug` in `test/test_script_camera_mode.cpp`); no other camera uses it |
 | A camera that watches a worship dance | todo | not in our tree (unconfirmed when the game uses it) |
 | The camera that zooms in to the temple from outside as the player interacts with it | todo | entering the temple is a cut in our tree (`TempleInterior::Activate`, `src/3D/Implementations/TempleInterior.cpp`); see [temple_camera.md](temple_camera.md) |
 | The editor's orbit and follow cameras | n/a | openblack-only, `src/Camera/EditorCameraModel.cpp`; see `../debug/` |

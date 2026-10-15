@@ -4,7 +4,7 @@ What the player sees and hears when drawing gestures: the glowing chain behind t
 of sparkles and light a recognised gesture leaves on the land in the player's colour. Also gestures drawn by scripts and
 the tutorial.
 
-**Progress: 19/24 done, 2 partial — 83%**
+**Progress: 21/24 done, 1 partial — 90%**
 
 How the original does it, in our wiki: [Magic: the core of the miracles](../../bw1-notes/magic.md).
 
@@ -26,8 +26,8 @@ How the original does it, in our wiki: [Magic: the core of the miracles](../../b
 | The trail is revealed from both ends | done | `Gesture.cpp`: alpha from the two ends |
 | The sparkles wiggle, each in its own way, then disperse and shrink away | done | `Gesture.cpp`: value noise at shuffled phases (`src/Particles/Noise.cpp`), dispersal after DispersalTime |
 | After a couple of seconds the sparkles flash and the hand glows in the player's colour, both dying away | partial | The collection's alpha pulse is in `Gesture.cpp`; the hand's colour pulse is not ported |
-| A sheet of starry light rises along the shape and fades over its life | partial | The light sheet's data are kept in `Gesture.cpp`, but it is not drawn |
-| The sheet of light is drawn additively, from both sides, its stars sliding along it | todo | The light sheet is not drawn |
+| A sheet of starry light rises along the shape and fades over its life | done | `Gesture.cpp` starts the `particles::LightSheet` (`src/Particles/LightSheet.cpp`), the particle service moves it on every frame |
+| The sheet of light is drawn additively, from both sides, its stars sliding along it | done | `particles::draw::AddLightSheets` (`src/Particles/ParticleDrawFrame.cpp`), one Z object per sheet, drawn in one pass by `Renderer::DrawParticleSurface` (`src/Graphics/RendererRevolvedSurface.cpp`) |
 | Gestures drawn in quick succession each leave their own trail | done | Records queue in `utility::PendingRecognised` (`Utility.cpp`), one taken per step by the rule |
 
 ## The chain behind the drawing hand

@@ -7,7 +7,7 @@ heated it, glows, sets things alight around it and cools slowly. This file goes 
 [../physics/collisions.md](../physics/collisions.md) and [../physics/fire.md](../physics/fire.md); the fire model itself
 (heat, spreading, cooling, water) is in the fire file.
 
-openblack: `src/ECS/Rocks.cpp` (splitting and the tap), `src/ECS/Physics/PhysicsObjects.cpp` (the knocks),
+openblack: `src/ECS/ObjectPhysics.cpp` (splitting and the tap), `src/ECS/Physics/PhysicsObjects.cpp` (the knocks),
 `src/Fire/FireModel.cpp` and `src/ECS/Fire/FireEffect.cpp` (heat). The creature's blow is not ported.
 
 **Progress: 34/51 done, 3 partial — 70%**
@@ -16,8 +16,8 @@ openblack: `src/ECS/Rocks.cpp` (splitting and the tap), `src/ECS/Physics/Physics
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Everything the game's tables class as a rock can split: the three boulders and the flat, long, plain, sharp and square rocks in chalk, limestone, sandstone and volcanic stone, the scripts' plain rock and the meteor | done | `Rocks::IsRock` (the info's rock class, `src/ECS/Rocks.cpp`) |
-| Singing stones, the weeping stone, the idol, lanterns, gate totems, the altar and toys are other kinds and never split | done | `Rocks::IsRock` (other classes are not rocks) |
+| Everything the game's tables class as a rock can split: the three boulders and the flat, long, plain, sharp and square rocks in chalk, limestone, sandstone and volcanic stone, the scripts' plain rock and the meteor | done | `object_physics::IsRock` (the info's rock class, `src/ECS/ObjectPhysics.cpp`) |
+| Singing stones, the weeping stone, the idol, lanterns, gate totems, the altar and toys are other kinds and never split | done | `object_physics::IsRock` (other classes are not rocks) |
 | Dead trees are handled like rocks in many ways but never split: a blow only lets a wood store take them, and they can't be tapped | done | Dead trees are not of the rock class; a wood store takes them (`HandPhysics.cpp`); see [trees.md](trees.md) |
 | A bonfire is never worn by knocks or broken by a tap | done | A bonfire is a mobile static of its own info (`BonfireArchetype`), not of the rock class |
 
@@ -25,15 +25,15 @@ openblack: `src/ECS/Rocks.cpp` (splitting and the tap), `src/ECS/Physics/Physics
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The rock is replaced by two rocks of the same kind, each 0.7935 of its scale (about half its volume, so half its weight), turned to its heading, at full life | done | `Rocks::SplitInTwo` (the Y angle kept, new rocks at full life) |
-| The halves lie either side of where it was, along a line at a random angle (from the game's random numbers), each 0.7935 of its width from the centre, at its height | done | `Rocks::SplitInTwo` (a synced random angle, 0.7935 of its 2D radius, its altitude) |
-| A flying rock's halves fly on at its speed with half its spin; a resting rock's halves start still and drop | done | `ReactToPhysicsImpact` in `src/ECS/Physics/PhysicsObjects.cpp` passes them to `Rocks::SplitInTwo` |
+| The rock is replaced by two rocks of the same kind, each 0.7935 of its scale (about half its volume, so half its weight), turned to its heading, at full life | done | `object_physics::SplitRock` (the Y angle kept, new rocks at full life) |
+| The halves lie either side of where it was, along a line at a random angle (from the game's random numbers), each 0.7935 of its width from the centre, at its height | done | `object_physics::SplitRock` (a synced random angle, 0.7935 of its 2D radius, its altitude) |
+| A flying rock's halves fly on at its speed with half its spin; a resting rock's halves start still and drop | done | `ReactToPhysicsImpact` in `src/ECS/Physics/PhysicsObjects.cpp` passes them to `object_physics::SplitRock` |
 | A flying rock the physics has lost track of doesn't split | done | Only a rock in the physics list takes the impact |
-| A burning or hot rock's halves both carry its heat | done | `fire::CopyFire` from `Rocks::SplitInTwo`; see [../physics/fire.md](../physics/fire.md) |
+| A burning or hot rock's halves both carry its heat | done | `fire::CopyFire` from `object_physics::SplitRock`; see [../physics/fire.md](../physics/fire.md) |
 | The halves keep the rock's owner (the player who last threw it) | todo | Rocks keep no owner in our tree |
 | The halves are new rocks: if the rock was a town's artefact, that is lost with it | todo | No town artefacts in our tree; see [../town/artefacts.md](../town/artefacts.md) |
-| Nothing limits how often a rock can be split; only the hand's tap and knocks stop at rocks 0.7 m tall or less | done | `Rocks::ValidToTap` and the wear test both need a height over 0.7 |
-| A split from a knock has no dust, particles or sound of its own; only the tap and the creature's blow play a sound | done | `ReactToPhysicsImpact` plays nothing; `Rocks::Tap` plays the tap's sound |
+| Nothing limits how often a rock can be split; only the hand's tap and knocks stop at rocks 0.7 m tall or less | done | `object_physics::CanTapRock` and the wear test both need a height over 0.7 |
+| A split from a knock has no dust, particles or sound of its own; only the tap and the creature's blow play a sound | done | `ReactToPhysicsImpact` plays nothing; `object_physics::TapRock` plays the tap's sound |
 
 ## Knocks and landings
 
@@ -50,7 +50,7 @@ openblack: `src/ECS/Rocks.cpp` (splitting and the tap), `src/ECS/Physics/Physics
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Tapping a rock taller than 0.7 m in the player's influence splits it, with one of four cracking sounds in turn, and the player's creature sees the player playing | partial | `Rocks::Tap` from `HandSystem.cpp` (one of four cracking sounds in turn); the influence test before the tap and the creature's reaction are not there ([physics.md](../../bw1-notes/physics.md#pending)); see [../hand/clicking_and_activating.md](../hand/clicking_and_activating.md) |
+| Tapping a rock taller than 0.7 m in the player's influence splits it, with one of four cracking sounds in turn, and the player's creature sees the player playing | partial | `object_physics::TapRock` from `HandSystem.cpp` (one of four cracking sounds in turn); the influence test before the tap and the creature's reaction are not there ([physics.md](../../bw1-notes/physics.md#pending)); see [../hand/clicking_and_activating.md](../hand/clicking_and_activating.md) |
 | The tooltip over a tappable rock says "hit to break" | done | `HandToolTips.cpp` (the rock's own tap tooltip) |
 | At the blow of its smash, the creature splits the rock it hits, with one of four smashing sounds in turn | todo | The creature's knock-down action takes homes, trees and mobile objects, not rocks (`CreatureObjectActionSystem::CanDestroy`) |
 | The creature's blow on a villager or animal does nothing (the game's smash only breaks rocks and buildings) | done | `CreatureObjectActionSystem::CanDestroy` refuses villagers and animals |

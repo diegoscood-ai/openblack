@@ -33,7 +33,7 @@ How the original does it, in our wiki: [Map loading and script functions](../../
 | Searches walk a square spiral of cells out from the centre | done | `map_coords::Spiral`; tests `MapCoords.SpiralSequence`, `SpiralIncrementAndSizes` |
 | Each map cell keeps the objects standing in it, buildings first, so searches find things near a point | done | `src/ECS/MapCells.cpp`; tests `MapCells.FixedListHeadForFixedTailForObjects` and the rest of `test/test_map_cells.cpp` |
 | Buildings mark the cells their outline covers | done | `src/ECS/MapCells.cpp`; test `MapCells.MultiCellObjectInEveryCellOfItsShape` |
-| A point on the screen is turned into a point on the land (for the hand and the camera) | partial | The mouse ray is a Bullet ray cast against the land blocks (`DynamicsSystem::RayCastClosestHit` from `src/Camera/Camera.cpp`); the game's land line test is ported (`LandIslandInterface::RayCast`) but not used for it |
+| A point on the screen is turned into a point on the land (for the hand and the camera) | partial | The mouse ray is a Bullet ray cast against the land blocks (`PickingSystem::RayCastClosestHit` from `src/Camera/Camera.cpp`); the game's land line test is ported (`LandIslandInterface::RayCast`) but not used for it |
 | Region questions: does an area hold coast, water, land, hill, forest, field, town or citadel, and where exactly | partial | Water, coast, stream and drinking-water searches (`src/ECS/WaterQueries.cpp`) and dry land (`pot_resource::IsDryLand`); hill, field and town region searches are todo |
 | Land is told apart as dry land, coast and water by its cell bits | done | `components/lnd` cell properties, `src/ECS/SeaCells.cpp` |
 

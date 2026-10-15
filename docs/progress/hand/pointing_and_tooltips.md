@@ -17,7 +17,7 @@ How the original does it, in our wiki: [The hand and the interface](../../bw1-no
 | A tooltip with no button to show is shown as words only | done | An action of -1 gives row 3: no picture (`help::tooltips::ProcessTurn`) |
 | A shown tooltip lingers for its display time after the hand moves off, if its info says so | done | `help::tooltips::ProcessTurn`: a text nobody submits stays its afterFocus turns; no unit test |
 | The hand over a debug window shows no tooltip | todo | Not found in our tree (openblack's own debug windows) |
-| No tooltips while a script's cinematic has the interface or the menu is open | done | `help::tooltips::ProcessTurn` deletes it while a script holds the widescreen; `help::tooltips::Frame` while paused outside the temple |
+| No tooltips while a script's cinematic has the interface or the menu is open | done | `help::tooltips::ProcessTurn` deletes it while a script holds the widescreen, and in a turn paused outside the temple; between turns a pause leaves it drawn. Not done: an open menu box hiding its draw |
 | Showing a tooltip triggers the help system's matching help event | todo | Not in `help::tooltips` |
 
 ## Over things in the world
@@ -90,4 +90,4 @@ How the original does it, in our wiki: [The hand and the interface](../../bw1-no
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | In the temple, the tooltips of its rooms, doors, scrolls and creature | done | `src/3D/TempleToolTips.cpp` (`UpdateTempleToolTip`, from `TempleInterior`); test `TempleToggles.SayWhatTheyShowWhenHovered` (`test/temple/test_temple_toggles.cpp`); see [../temple/](../temple/) |
-| Over the player's creature, or holding it, the creature's status panel shows its needs and the hand's reward | partial | `src/Creature/CreatureStatusPanel.cpp` and test `test/creature/test_creature_status_panel.cpp` exist, but nothing in the game uses the panel yet |
+| Over the player's creature, or holding it, the creature's status panel shows its needs and the hand's reward | partial | `src/Creature/CreatureStatusPanel.cpp` and test `test/test_creature_status_panel.cpp` exist, but nothing in the game uses the panel yet |

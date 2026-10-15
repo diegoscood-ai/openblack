@@ -14,7 +14,7 @@ See [ai.md](ai.md) for how they decide, [creatures.md](creatures.md) for their c
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Every player slot has a computer god's mind, switched off. The land script's `TOGGLE_COMPUTER_PLAYER` switches it on and marks that player as a computer player | partial | the command adds the player (`FeatureScriptCommands::ToggleComputerPlayer`, `PlayerArchetype`); there is no mind to switch on |
+| Every player slot has a computer god's mind, switched off. The land script's `TOGGLE_COMPUTER_PLAYER` switches it on and marks that player as a computer player | partial | the command adds the player (`FeatureScriptCommands::ToggleComputerPlayer`, `PlayerArchetype`) and marks it a computer player (`PlayerMagic::playerType` 2); there is no mind to switch on |
 | The switch is ignored while a network game's map is being loaded, so the people's slots stay theirs | todo | our tree has no network play; see [../multiplayer/network_play.md](../multiplayer/network_play.md) |
 | A temple on a skirmish land whose player isn't switched on gets no god: nothing plays it | partial | nothing plays such a temple in our tree, as in the game, but nothing plays any other god's temple either |
 | There is no difficulty setting anywhere. A computer god's strength comes only from its land and from matching the person's creature (below) | partial | our tree has no difficulty setting either; the sizing to the person's creature is not done (below) |

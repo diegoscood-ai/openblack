@@ -36,7 +36,7 @@ How the original does it, in our wiki: [Day, night and weather in the original](
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The mesh is the weather folder's sun model: one square about 9928 units across, facing along its own z | done | `sun.l3d` loaded by the sky (`src/3D/Implementations/Sky.cpp`) |
+| The mesh is the weather folder's sun model: one square about 9928 units across, facing along its own z | done | `sun.l3d` loaded by the sky (`src/ECS/Systems/Implementations/SkySystem.cpp`) |
 | Its texture is a 256 by 256 picture (sun.raw); the square shows the part from 0.5 to 0.75 across and from 0.25 down | done | `raw/sun` in `Renderer::DrawSun`; the texture coordinates come from the mesh |
 | The texture is cut to 5 bits a channel as the game stores it | done | The raw texture load |
 | It is tinted a warm 0x957C63, with the strength as its alpha | done | `Renderer::DrawSun` |

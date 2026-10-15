@@ -5,7 +5,7 @@ the body, and what the creature is told when the hand lets go. What the creature
 [../creature/](../creature/). Giving the creature something to hold or eat is in
 [holding.md](holding.md).
 
-**Progress: 24/46 done, 7 partial — 60%**
+**Progress: 20/46 done, 11 partial — 55%**
 
 How the original does it, in our wiki: [The hand and the interface](../../bw1-notes/hand-and-interface.md).
 
@@ -43,10 +43,10 @@ How the original does it, in our wiki: [The hand and the interface](../../bw1-no
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| On the body the hand plays its tickling cycle as it strokes | partial | Our hand keeps the normal state's clip over a creature (Cstroke), not the tickle cycle; the creature state's own clip is not traced |
+| On the body the hand plays its tickling cycle as it strokes | partial | Our hand keeps the normal state's clip over a creature (Cstroke). The original plays the wiggle off the body, the tickle on it and the slap when moving fast (queued as a fix) |
 | The hand must rest on the body for a second, with the button held, before it strokes | done | `creature_feedback::k_StrokeHoldMs` (1000 ms) in `CreatureHandSystem::Update` |
 | A stroke lands on the nearest of nine parts of the body: the head, each armpit, the belly, the groin, each foot and each hand | done | `creature_feedback::NearestPart` with the rig's action points; test `CreatureFeedback.AStrokeLandsOnTheNearestPart` |
-| A new stroke needs another part than the last and two seconds since the last | done | `creature_feedback::StrokeDue`; test `CreatureFeedback.StrokesNeedANewPartAndTime` |
+| A new stroke needs another part than the last and two seconds since the last | partial | `creature_feedback::StrokeDue`; test `CreatureFeedback.StrokesNeedANewPartAndTime`. The original's wait runs from the last stroke or slap and is shorter the more the creature was enjoying itself; ours is two seconds from the last stroke (queued as a fix) |
 | The creature plays the pleased animation of the part stroked, mirrored for the left side | done | `creature_feedback::k_RewardAnimations`, `k_RewardMirrored`, played through `CreatureMindSystem::ForceAction` |
 | It pulls a face for two seconds: an aah for the head and belly, an ooh for the groin, a smile elsewhere | done | `creature_feedback::k_RewardFaces`, `RewardFace` (2 s) |
 | A stroke doesn't interrupt an action less than 0.8 of the way through | done | `creature_feedback::k_StrokeInterruptsAfter` passed to `ForceAction` |
@@ -56,16 +56,16 @@ How the original does it, in our wiki: [The hand and the interface](../../bw1-no
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The hand moving across the creature faster than five of its heights a second shows the slapping cycle | partial | The slap is classed by speed (`creature_feedback::k_SlapSpeed`) and kept 0.3 s, but nothing reads the pose's slapping flag: the hand does not change its clip |
+| The hand moving across the creature faster than five of its heights a second shows the slapping cycle | partial | The slap is classed by speed (`creature_feedback::k_SlapSpeed`) and kept 0.3 s, but nothing reads the pose's slapping flag: the hand does not change its clip (queued as a fix) |
 | A slap needs the hand between the ground and 1.1 of the creature's height | done | `creature_feedback::k_SlapAbove` in `ClassifySlap` |
 | Below 0.4 of its height a slap hits the feet, below 0.7 the waist, above that the head | done | `creature_feedback::ClassifySlap`; test `CreatureFeedback.SlapsAreClassedByHeightAndSpeed` |
-| Faster than nine heights a second it is a hard slap, slower a gentle one, with the gentle animations | done | `creature_feedback::k_SlapSpeed`, `k_HardSlapSpeed`, `k_GentleOffset` |
-| The slap plays to the side the hand swept towards | done | `ClassifySlap` mirrors by the cursor's sweep (`CreatureHandSystem::Update`) |
-| Slaps are at least a second apart | done | `creature_feedback::k_SlapIntervalMs` |
-| The hand's sweep only counts as a slap as the cursor crosses the middle of the screen | todo | (unconfirmed reading of the game's test) |
+| Faster than nine heights a second it is a hard slap, slower a gentle one, with the gentle animations | partial | `creature_feedback::k_SlapSpeed`, `k_HardSlapSpeed`, `k_GentleOffset`: the original's numbers, but the original measures the cursor's sweep at the hand's depth, not eased; ours the hand's eased speed (queued as a fix) |
+| The slap plays to the side the hand swept towards | partial | `ClassifySlap` mirrors by the cursor's sweep (`CreatureHandSystem::Update`); the original mirrors a sweep to the left, ours a sweep to the right (queued as a fix) |
+| Slaps are at least a second apart | partial | `creature_feedback::k_SlapIntervalMs`; the original's second runs from taking hold or the last stroke, not from the last slap (queued as a fix) |
+| The hand's sweep only counts as a slap as the cursor crosses the middle of the screen | todo | the original tests a slap only as the hand comes onto the body or as the cursor crosses the screen's middle; ours tests it every frame on the body (queued as a fix) |
 | A slap doesn't interrupt an action less than 0.35 of the way through | done | `creature_feedback::k_SlapInterruptsAfter` |
 | A gentle slap takes 0.1 off the sum and a hard one 0.2, twice as much if the creature was enjoying itself (sum past 0.25), never below -1 | done | `creature_feedback::AfterSlap`; test `CreatureFeedback.StrokesAndSlapsAddUp` |
-| Every third hard slap in a row throws up an effect on the creature, stronger the harder the slap | todo | Not ported |
+| Every third hard slap in a row throws up an effect on the creature, stronger the harder the slap | todo | in the original the third and later hard slap in a row at one height costs the creature a little life and knocks its body; not ported (queued as a fix) |
 | With a force-feedback mouse a gentle and a hard slap each have their own jolt | todo | No force feedback |
 | In a network game a hard slap knocks the creature's body about | todo | No network game. (unconfirmed) |
 | Punching the creature | n/a | the punch cycle is in the hand's animations but the game never plays it |

@@ -60,7 +60,7 @@ See [../creature/](../creature/) for how any creature thinks and acts, especiall
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | It judges how important it is to teach an ordinary skill, aggressive, compassionate or impressive magic | todo | no computer god mind in our tree |
-| It only teaches miracles its creature doesn't know, choosing among those marked known from the start | partial | the filter is read (`MiracleRule::knownAtStart`, `creature_watching::StartKnowledge`; see [../creature/learning_by_observation.md](../creature/learning_by_observation.md)); no god uses it |
+| It only teaches miracles its creature doesn't know, choosing among those marked known from the start | partial | the filter is read (`MiracleRule::knownAtStart`, which makes nothing known; see [../creature/learning_by_observation.md](../creature/learning_by_observation.md)); no god uses it |
 | To teach a skill it leads the creature on the leash and does the action in front of it | todo | no computer god mind in our tree |
 | To teach a miracle it casts it in front of the creature | todo | no computer god mind in our tree |
 | It teaches its creature to use the town's totem | todo | no computer god mind in our tree |

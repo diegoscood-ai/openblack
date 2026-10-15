@@ -9,7 +9,7 @@ its own decoder and player in `src/Video/` (no FFmpeg), and `SET_AVI_SEQUENCE` p
 film (`src/CHLApi.cpp`); there is still no start-up sequence or loading screen. What each video is for is in
 [bink_videos.md](bink_videos.md).
 
-**Progress: 45/54 done, 3 partial — 86%**
+**Progress: 44/54 done, 4 partial — 85%**
 
 How the original does it, in our wiki: [Bink videos (.bik)](../../bw1-notes/video.md).
 
@@ -19,12 +19,12 @@ How the original does it, in our wiki: [Bink videos (.bik)](../../bw1-notes/vide
    rule): reads the 44-byte header, the frame index (keyframe bit, offsets) and one packet per frame. Diego's
    `BikFile` (checked on all five files) is the starting point; it moves out of `src/` into its own component with tests.
 2. **The decoder** — take Diego's own Bink 1 decoder from `AI-Decompiled` (`BinkDecoder` with its bit reader, Huffman
-   trees, the nine per-plane bundles and the ten block types, `src/Video/Bink*`), behind a decoder interface with a
+   trees, the nine per-plane bundles and the ten block types, `components/bink`), behind a decoder interface with a
    black-frame fallback for tests. It matches the original on all 5,353 frames, in order and by seeking, with no
    dependency to build; its constant tables follow FFmpeg's decoder (LGPL-2.1-or-later, credited, used under GPL-3).
    What makes it exact: plane order Y, V, U; pixel stores wrap modulo 256 with no clamping; the inverse DCT wraps at
    32 bits and rounds rows with (x + 127) >> 8; a motion vector is only checked against the plane's block area; the
-   first frame is its own reference. His build option `OPENBLACK_USE_BINK` (on by default) and the debug menu's "Game
+   first frame is its own reference. His build option `OPENBLACK_BINK_DECODER` (on by default) and the debug menu's "Game
    films" switch let films be turned off. The FFmpeg route (the `bw-clean` branch) is the fallback if the decoder is
    not taken.
 3. **The colours** — the original converts YUV 4:2:0 to RGB with its own integer tables (chroma not interpolated, one
@@ -46,24 +46,24 @@ How the original does it, in our wiki: [Bink videos (.bik)](../../bw1-notes/vide
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| All five are Bink 1 (revision i) with no audio track; every sound comes from the game's own audio | done | `src/Video/BikFile.cpp` reads all five; the sounds come from the game's audio (`src/Video/FallingSpellVideo.cpp`); test `BikFile.GameFiles` (logo 768x512 15 fps 2 frames; pre_intro 768x512 25 fps 2515 frames; INTRO 640x360 24 fps 1601 frames; tips 768x512 15 fps 35 frames; fall 640x360 24 fps 1200 frames) |
-| INTRO, pre_intro and fall have a single keyframe (frame 0), so they only play from the start; logo and tips are all keyframes, so any frame can be shown | done | `BikFile` key frame flags; `BinkDecoder` goes back to the last key frame; tests `BinkDecoder.GoesBackToTheKeyFrame`, `BinkDecoder.LogoAndTipsMatchTheOriginalInAnyOrder` |
+| All five are Bink 1 (revision i) with no audio track; every sound comes from the game's own audio | done | `components/bink/src/BinkFile.cpp` reads all five; the sounds come from the game's audio (`src/Video/FallingSpellVideo.cpp`); test `BikFile.GameFiles` (logo 768x512 15 fps 2 frames; pre_intro 768x512 25 fps 2515 frames; INTRO 640x360 24 fps 1601 frames; tips 768x512 15 fps 35 frames; fall 640x360 24 fps 1200 frames) |
+| INTRO, pre_intro and fall have a single keyframe (frame 0), so they only play from the start; logo and tips are all keyframes, so any frame can be shown | done | `BikFile` key frame flags; `BinkDecoder` goes back to the last key frame; tests `VideoBinkDecoder.GoesBackToTheKeyFrame`, `VideoBinkDecoder.LogoAndTipsMatchTheOriginalInAnyOrder` |
 | Videos are looked for on the CD first when the game runs from the CD | n/a | openblack reads the install folder |
 
 ## Container and decoding
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Read the header, frame index and per-frame packets, rejecting a malformed file | done | `src/Video/BikFile.cpp`; tests `BikFile.ParsesTheLayout`, `BikFile.RejectsBadFiles` |
-| Decode Bink 1 revision i: planes Y, V, U on 32-bit boundaries, nine Huffman-coded bundles per plane read before each block row, ten block types (skip, scaled, motion, run, residue, intra DCT, fill, inter DCT, pattern, raw) | done | our own decoder: `src/Video/BinkDecoder.cpp`, `BinkBitReader.h`, `BinkHuffman.cpp`, `BinkBundles.cpp`, `BinkBlocks.cpp`; tests `BinkBitReader.*`, `BinkHuffman.*`, `BinkBundles.*`, `BinkBlocks.*`, `BinkDecoder.*` |
-| Integer behaviour exactly as the original: stores wrap modulo 256, the inverse DCT wraps at 32 bits and rounds (x + 127) >> 8, motion vectors checked only against the block area, the first frame is its own reference | done | `src/Video/BinkBlocks.cpp`, `BinkDecoder.cpp`; tests `BinkBlocks.PutAndAddWrapAround`, `BinkDecoder.IntroMatchesTheOriginal`, `FallMatchesTheOriginal`, `PreIntroMatchesTheOriginal` (CRCs of the original's frames in `test/BinkGolden.h`) |
-| Films can be switched off (build option and a debug switch), skipping them as if absent | done | the `OPENBLACK_USE_BINK` build option (on by default) and the "Game films" switch of the debug Video window; test `VideoFilms.TheGameHooksFollowTheSwitch` |
+| Read the header, frame index and per-frame packets, rejecting a malformed file | done | `components/bink/src/BinkFile.cpp`; tests `BikFile.ParsesTheLayout`, `BikFile.RejectsBadFiles` |
+| Decode Bink 1 revision i: planes Y, V, U on 32-bit boundaries, nine Huffman-coded bundles per plane read before each block row, ten block types (skip, scaled, motion, run, residue, intra DCT, fill, inter DCT, pattern, raw) | done | our own decoder: `components/bink/src/BinkDecoder.cpp`, `BinkBitReader.h`, `BinkHuffman.cpp`, `BinkBundles.cpp`, `BinkBlocks.cpp`; tests `BinkBitReader.*`, `BinkHuffman.*`, `BinkBundles.*`, `BinkBlocks.*`, `BinkDecoder.*` |
+| Integer behaviour exactly as the original: stores wrap modulo 256, the inverse DCT wraps at 32 bits and rounds (x + 127) >> 8, motion vectors checked only against the block area, the first frame is its own reference | done | `components/bink/src/BinkBlocks.cpp`, `BinkDecoder.cpp`; tests `BinkBlocks.PutAndAddWrapAround`, `VideoBinkDecoder.IntroMatchesTheOriginal`, `FallMatchesTheOriginal`, `PreIntroMatchesTheOriginal` (CRCs of the original's frames in `test/BinkGolden.h`) |
+| Films can be switched off (build option and a debug switch), skipping them as if absent | done | the `OPENBLACK_BINK_DECODER` build option (on by default) and the "Game films" switch of the debug Video window; test `VideoFilms.TheGameHooksFollowTheSwitch` |
 | A debug window plays any of the five films with play, pause, step and restart | done | `src/Debug/VideoViewer.cpp`, `src/Debug/VideoPlayback.h`; tests `VideoPlayback.*` |
 | The integer frame rate is the header's fraction rounded down (a failed open counts as 1 fps, 0 frames) | done | `BikFile::Fps`, `VideoPlayer::Play`; tests `BikFile.FpsIsTruncated`, `VideoPlayerTest.MissingFileEndsOnTheNextFrame` |
-| Decode frames in order; showing an arbitrary frame decodes from the nearest keyframe before it | done | `BinkDecoder::DecodeNext`; test `BinkDecoder.GoesBackToTheKeyFrame` |
-| A frame that fails to decode keeps the previous picture | done | `src/Video/VideoPlayer.cpp`; tests `VideoPlayerTest.AFailedFrameKeepsThePicture`, `BinkDecoder.ADamagedFrameKeepsTheReference` |
+| Decode frames in order; showing an arbitrary frame decodes from the nearest keyframe before it | done | `BinkDecoder::DecodeNext`; test `VideoBinkDecoder.GoesBackToTheKeyFrame` |
+| A frame that fails to decode keeps the previous picture | done | `src/Video/VideoPlayer.cpp`; tests `VideoPlayerTest.AFailedFrameKeepsThePicture`, `VideoBinkDecoder.ADamagedFrameKeepsTheReference` |
 | Frames are never skipped when running late: each due frame is decoded | done | `VideoPlayer::Process` decodes every frame due by the wall clock; test `VideoPlayerTest.ACatchUpShowsTheLastFrameDecoded` |
-| YUV to RGB with the original player's exact integer tables (no chroma interpolation) | done | `src/Video/BinkYuv.h`; tests `BinkYuv.Tables`, `BinkYuv.NearestChroma` |
+| YUV to RGB with the original player's exact integer tables (no chroma interpolation) | done | `components/bink/include/BinkYuv.h`; tests `VideoBinkYuv.Tables`, `VideoBinkYuv.NearestChroma` |
 | The picture goes through a 16-bit (555, or 565 on cards without 555) surface before it is drawn | done | the 555 or 565 copy kept, as the original shows it (`src/Graphics/Rgb16.h`); test `VideoPlayerTest.FrameGoesThrough16Bits` |
 | Builds without the decoder still run every video's timing, pause and skip, showing black | done | `NullVideoDecoder` in `src/Video/VideoDecoder.h` (black, with the same pause, fade and skip); test `VideoPlayerTest.NullDecoderIsBlack` |
 
@@ -91,7 +91,7 @@ How the original does it, in our wiki: [Bink videos (.bik)](../../bw1-notes/vide
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| ESC skips: if already fading, the video ends at once; otherwise it fades out over 48 frames (2 s at 24 fps) and the game resumes | done | `VideoPlayer::EscapeKey`, `Skip` (ESC routed from `src/Game.cpp`); tests `VideoPlayerTest.SkipFadesOver48Frames`, `SkipNearTheEnd` |
+| ESC skips: if already fading, the video ends at once; otherwise it fades out over 48 frames (2 s at 24 fps) and the game resumes | partial | `VideoPlayer::EscapeKey`, `Skip` (ESC routed from `src/Game.cpp`); tests `VideoPlayerTest.SkipFadesOver48Frames`, `SkipNearTheEnd`. In the original ESC does not reach the skip inside the temple or while a box or the tutorial takes the key; ours skips in every case (queued as a fix) |
 | ESC with Shift or Ctrl held does nothing | done | test `VideoPlayerTest.EscapeKey` |
 | Skipping releases the script's music | done | `VideoPlayer::EscapeKey` calls the script music stop hook (`GameMusic::ScriptStopMusic`) |
 | The first video of a new profile can't be skipped | partial | the no-skip flag exists and is cleared at the end (test `VideoPlayerTest.NoSkipClearedByTheEnd`), but nothing sets it: there are no profiles (`../interface/profiles.md`) |
@@ -133,6 +133,6 @@ How the original does it, in our wiki: [Bink videos (.bik)](../../bw1-notes/vide
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | Container parsing on synthetic and the game's files | done | `test/video/test_bik_file.cpp` |
-| Decoding and colours against golden frames | done | `test/video/test_bink_decoder.cpp`, `test_bink_yuv.cpp`, `test_bink_blocks.cpp`, `test_bink_bitstream.cpp` |
+| Decoding and colours against golden frames | done | `test/video/test_video_bink_decoder.cpp`, `test_video_bink_yuv.cpp`, `test/bink/test_bink_blocks.cpp`, `test/bink/test_bink_bitstream.cpp` |
 | Player timing, fade, schedule, skip and pause rules | done | `test/video/test_video_player.cpp` |
 | Falling spell timeline | done | `test/video/test_falling_spell_video.cpp`, `test_falling_spell.cpp` |

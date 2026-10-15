@@ -2,7 +2,7 @@
 
 Every land of Black & White, the tutorial, the skirmish playgrounds and the developers' test lands is built by a plain text land script in `Scripts/`: one command a line, read from top to bottom when the land loads. The game knows 106 such commands for building a land and 25 more for the map script that picks the land. The command names below are the words written in the shipped files. Counts are lines in the shipped `Land1`–`Land5`, `LandT`, the seven `Playgrounds` scripts and `demo2`, `comp` and `dance`. openblack reads them in `src/LHScriptX/` (`FeatureScriptCommands.cpp`, `MapScriptCommands.cpp`, `Script.cpp`, `Lexer.cpp`). What each land builds is in the per-land files of this folder.
 
-**Progress: 76/134 done, 13 partial — 62%**
+**Progress: 77/134 done, 13 partial — 62%**
 
 How the original does it, in our wiki: [Writing land-script lines: SaveObject and WriteCommand](../../bw1-notes/land-script-save.md), [Map loading and script functions](../../bw1-notes/map-loading.md).
 
@@ -107,7 +107,7 @@ How the original does it, in our wiki: [Writing land-script lines: SaveObject an
 | `CREATE_DEAD_TREE`: Creates a dead tree of a kind, leaning; used 18 times (story 3, demo and test 15) | done | `DeadTreeArchetype` with its life and three angles |
 | `CREATE_BIG_FOREST`: Creates a big forest model (older form); not used by the shipped scripts | done | through `CreateNewBigForest` |
 | `CREATE_FEATURE`: Creates a feature (pillars, statues, rocks) by number; not used by the shipped scripts | done | `FeatureArchetype` |
-| `CREATE_FLOWERS`: Creates flowers; not used by the shipped scripts | todo | empty |
+| `CREATE_FLOWERS`: Creates flowers; not used by the shipped scripts | done | `FeatureScriptCommands::CreateFlowers` → `FlowersArchetype` |
 | `CREATE_TREE`: Creates a tree (older form); not used by the shipped scripts | done | through `CreateNewTree` |
 
 ## Fields and food
@@ -177,7 +177,7 @@ How the original does it, in our wiki: [Writing land-script lines: SaveObject an
 |-----------|--------|---------------|
 | `CREATE_CREATURE_FROM_FILE`: Creates a rival god's creature of a species from a mind file; used 16 times (playgrounds 16) | partial | `CreatureArchetype` with the mind loaded; faces a fixed way, its size from openblack's starting tables |
 | `SET_COMPUTER_PLAYER_CREATURE_LIKE`: Makes a rival god's creature like another player; used 16 times (playgrounds 16) | todo | empty |
-| `TOGGLE_COMPUTER_PLAYER`: Turns a rival god (computer player) on or off; used 16 times (story 4, playgrounds 11, demo and test 1) | partial | adds the player to the player system; the on or off is ignored. In the game it switches on that player's computer god mind and marks it a computer player, and is ignored while a network game's map loads: see [../rival_gods/skirmish_opponents.md](../rival_gods/skirmish_opponents.md) |
+| `TOGGLE_COMPUTER_PLAYER`: Turns a rival god (computer player) on or off; used 16 times (story 4, playgrounds 11, demo and test 1) | partial | adds the player to the player system if it has none, and with on marks it a computer player (`PlayerMagic::playerType` 2; off leaves the type, as the original). In the game it also switches on that player's computer god mind and marks it a computer player, and is ignored while a network game's map loads: see [../rival_gods/skirmish_opponents.md](../rival_gods/skirmish_opponents.md) |
 | `CREATE_CREATURE`: Creates a creature (older form); used 1 times (demo and test 1) | todo | `FeatureScriptCommands::CreateCreature` logs "not implemented" |
 | `LOAD_COMPUTER_PLAYER_PERSONALLTY`: Loads a rival god's personality; not used by the shipped scripts | todo | empty |
 | `SET_COMPUTER_PLAYER_PERSONALLTY`: Sets a rival god's personality; not used by the shipped scripts | todo | empty |

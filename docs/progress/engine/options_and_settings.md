@@ -11,7 +11,7 @@ options screens themselves are in [../interface/](../interface/).
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | The game finds its install folder through the registry | done | `src/main.cpp` and `src/FileSystem/DefaultFileSystem.cpp` read the GameDir registry value on Windows; `--game-path` elsewhere |
-| The setup program's graphics choices (screen mode, resolution, device, vertical sync) are kept in the registry and used at start | partial | openblack takes them from its command line (`-W`, `-H`, `--window-mode`, `--backend-type`, `--vsync`) and does not read the registry's |
+| The setup program's graphics choices (screen mode, resolution, device, vertical sync) are kept in the registry and used at start | partial | openblack takes them from its command line (`-W`, `-H`, `--window-mode`, `--backend-type`, `--no-vsync` (on by default, as the original)) and does not read the registry's |
 | A sound override setting in the registry changes how the audio starts (unconfirmed what it sets) | todo | not read; see ../audio/ |
 | The game can be started straight into a land | done | `--start-level` in `src/main.cpp` (openblack's own switch) |
 
@@ -42,7 +42,7 @@ options screens themselves are in [../interface/](../interface/).
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Every game action has a default key or mouse binding | done | `src/Input/KeyBindings.cpp`; test `test/test_key_bindings.cpp` |
+| Every game action has a default key or mouse binding | done | `src/Input/KeyBindings.cpp`; test `test/input/test_key_bindings.cpp` |
 | The player can rebind an action and set the defaults back | done | `GameActionMap::SetKeyBinding`, `ResetKeyBindings` (`src/Input/GameActionMap.cpp`); the key bindings debug window (`src/Debug/KeyBindingsWindow.cpp`); see ../interface/ |
 | Bindings are kept between runs | todo | held in memory only |
 

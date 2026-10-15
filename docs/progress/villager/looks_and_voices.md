@@ -36,7 +36,7 @@ How the original does it, in our wiki: [Skeletal animation (villagers and animal
 |-----------|--------|---------------|
 | Now and then a created villager is a special one with its own look and name (hermit, sculptor, piper, sailor, priest, healer and the rest) | todo | the roll is drawn (`RollSpecialVillager`) but a normal villager is always made; see [special_villagers.md](special_villagers.md) |
 | Special villagers speak with a speech bubble | todo |  |
-| Story characters are villagers driven by the challenge scripts | partial | the scripts move, animate and release villagers (`src/ECS/Villager/VillagerScript.cpp`) and draw the intro family in high detail (`src/ECS/SuperVillager.cpp`); See ../story/ |
+| Story characters are villagers driven by the challenge scripts | partial | the scripts move, animate and release villagers (`src/ECS/Systems/Implementations/VillagerScript.cpp`) and draw the intro family in high detail (`src/ECS/SuperVillager.cpp`); See ../story/ |
 
 ## Voices and speech
 

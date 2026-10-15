@@ -16,10 +16,10 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 | It grows fast while young, at full speed until a share of its growing-up time, then falls to its slowest | done | `creature_physiology::Growth`, run by `CreaturePhysiologySystem`; test `YoungCreaturesGrowFastThenSlowly` |
 | It grows more with energy to spare | done | `creature_physiology::Growth` |
 | It grows three times as fast asleep | done | `creature_physiology::k_SleepGrowthFactor` |
-| It only grows while standing still | done | `creature_physiology::TickTurn`; test `ItGrowsOnlyStandingStillAndUpToFullSize` |
+| It grows standing still or moving (the original's moving test is patched out) | done | `creature_physiology::TickTurn`; test `ItGrowsStandingStillOrMovingAndUpToFullSize` |
 | It grows by itself up to size 2 and no further | done | `creature_physiology::k_MaxGrownSize`; same test |
 | It only grows from the third stage of growing up | done | `creature_physiology::k_GrowingPhase` |
-| A creature made bigger by other means stays as it is rather than growing on | done | `creature_physiology::TickTurn` |
+| A creature made bigger than 2 by other means is put back to 2 by its next turn's growth | done | `creature_physiology::Grow`; tests `ItGrowsStandingStillOrMovingAndUpToFullSize`, `AGrowthStepKeepsTheSizeWithinNoneAndFullSize` |
 | The game's growth runs on game turns, so a faster game makes it grow faster | done | `CreaturePhysiologySystem` runs once a game turn (`ecs::creature_loop::ProcessTurn`) |
 
 ## Size limits and how it is shown
@@ -57,8 +57,8 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The big and small creature spells ease the creature to a bigger or smaller size for a while, then back | done | `creature_spells::SizeTarget`, run by `src/Magic/Spells/SpellCreature.cpp`; see [../miracles](../miracles/) |
-| Those spells keep it between a smallest and largest size | done | between `creature_locomotion::k_MinSize` and `k_MaxSize` (`src/Creature/CreatureSpells.cpp`) |
+| The big and small creature spells ease the creature to a bigger or smaller size for a while, then back | done | `creature_spells::SizeTarget`, to the creature's largest or smallest size (`ecs::components::CreatureSizeLimits`, else 2.4 and 0.2), run by `src/Magic/Spells/SpellCreature.cpp`; see [../miracles](../miracles/) |
+| Those spells take it to its own smallest or largest size (0.2 and 2.4 unless a script sets them), leaving a creature already past it as it is | done | `creature_spells::SizeTarget` and `SizeLimits` (`src/Creature/CreatureSpells.cpp`), the creature's own in `ecs::components::CreatureSizeLimits`; `test/test_creature_spells.cpp` `TheBodySpellsTargets` |
 | Scripts can scale a creature automatically to a size, or stop doing so | todo | `CREATURE_AUTOSCALE` is a stub |
 | Scripts can read a creature's grown-up size | todo | `ID_ADULT_SIZE` is a stub |
 | Scripts can set the size when a creature is made | partial | creatures loaded by `LOAD_MY_CREATURE` keep their file's size (`src/ECS/PlayerCreature.cpp`, `CreatureMindFileBody`); script creation of creatures is in [saves_and_files.md](saves_and_files.md) |

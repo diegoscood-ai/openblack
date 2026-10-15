@@ -12,7 +12,7 @@ How the original does it, in our wiki: [openblack internals](../../bw1-notes/ope
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | Point the game at the original's files, pick the land to start on, or the testbed | partial | `--game-path` and `--start-level` (`src/main.cpp`); no testbed in our tree |
-| Window size, window mode, renderer backend, vertical sync, interface scale | done | `-W`, `-H`, `--window-mode`, `--backend-type`, `--vsync`, `--ui-scale` (`src/main.cpp`) |
+| Window size, window mode, renderer backend, vertical sync, interface scale | done | `-W`, `-H`, `--window-mode`, `--backend-type`, `--no-vsync` (on by default, as the original), `--ui-scale` (`src/main.cpp`) |
 | The original's detail level, 0 to 6 | done | `--detail-level` |
 | Run a set number of frames and quit, for automated runs | done | `--num-frames-to-simulate` |
 | A screenshot at a given frame, to a given path | done | `--screenshot-frame`, `--screenshot-path` |

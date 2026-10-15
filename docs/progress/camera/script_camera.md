@@ -12,7 +12,7 @@ How the original does it, in our wiki: [Script camera (GCamera and CameraModeScr
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| A script starts camera control, taking the camera from the player (only one script at a time) | done | `START_CAMERA_CONTROL` (`src/CHLApi.cpp`): `script_camera::BeginFrom` (`src/Camera/ScriptCamera.cpp`) and `help::script_control::StartCameraControl`; `ScriptCamera.OneScriptModeAtATime`, `BeginStartsFromTheDrawnCamera` (`test/test_script_camera.cpp`) |
+| A script starts camera control, taking the camera from the player (only one script at a time) | done | `START_CAMERA_CONTROL` (`src/CHLApi.cpp`): `script_camera::BeginFrom` (`src/Camera/ScriptCamera.cpp`) and `help::script_control::StartCameraControl`; `ScriptCamera.OneScriptModeAtATime`, `BeginStartsFromTheDrawnCamera` (`test/test_script_camera_mode.cpp`) |
 | Ending camera control gives the camera back to the player | done | `END_CAMERA_CONTROL` and the task stop call `script_camera::End`: the player's camera goes on from the script's zoomers, the lens back to 70 degrees in 0.5 s; `ScriptCameraDual.EndReleasesOneDualThenTheScriptMode` |
 | A script stores the camera's position and focus and restores them later | done | `STORE_CAMERA_DETAILS`, `RESTORE_CAMERA_DETAILS` in `src/CHLApi.cpp` (restore also sets the player's camera without a script mode: inferred) |
 | Scripts read the stored position and focus | done | `GET_STORED_CAMERA_POSITION`, `GET_STORED_CAMERA_FOCUS` push `script_camera::Get().storedPosition` and `storedFocus` |
@@ -38,7 +38,7 @@ How the original does it, in our wiki: [Script camera (GCamera and CameraModeScr
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | Set or glide the camera to a named position from the game's camera library | done | `CONVERT_CAMERA_POSITION`, `CONVERT_CAMERA_FOCUS` read segment Cam%d of `Data/camera.edt` (`src/3D/CameraTracks.cpp`); the scripts then set or move the camera there |
-| Create a marker at a named camera position | done | a marker is made at any point (`MarkerArchetype` through `CREATE` in `src/CHLApi.cpp`), the point taken from `CONVERT_CAMERA_POSITION` |
+| Create a marker at a named camera position | done | a marker is made at any point (`ScriptMarkerArchetype` through `CREATE` in `src/CHLApi.cpp`), the point taken from `CONVERT_CAMERA_POSITION` |
 | Run a recorded camera track by name | done | `RUN_CAMERA_PATH` to `script_camera::RunPath` on track Track%d of `Data/camera.edt`; see [camera_paths.md](camera_paths.md) |
 
 ## Following

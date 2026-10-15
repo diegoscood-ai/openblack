@@ -13,7 +13,7 @@ How the original does it, in our wiki: [The hand and the interface](../../bw1-no
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Holding the Action button on a totem locks the hand onto it until the button is let go | todo | Not in our tree: the town centre's totem (`components::TotemStatue`, made by `AbodeArchetype`) is only drawn; the hand's TOTEM state exists in `HandSystem::RequiredHandState` but no press reaches it |
+| Holding the Action button on a totem locks the hand onto it until the button is let go | todo | Not in our tree: the town centre's totem (`components::VillageTotem`, made by `AbodeArchetype`) is only drawn; the hand's TOTEM state exists in `HandSystem::RequiredHandState` but no press reaches it |
 | Only a totem of the player's own village can be worked | todo | Not in our tree |
 | Only a totem that is ready to be used, and where the player may act, can be worked | todo | Not in our tree |
 | Taking hold, the hand moves to the top of the pole, 0.7 of its size above the pole's base | todo | Not in our tree |

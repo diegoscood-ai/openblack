@@ -21,7 +21,7 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 | Inspect another creature: walks up and looks it over | todo |  |
 | Look at another creature with a friend | todo |  |
 | A creature only reacts to another again after a while | todo | see [reactions.md](reactions.md) |
-| Being led together on a leash makes two creatures warmer (compassion leash) or cooler (aggression leash) to each other | done | `LeashSystem` with `creature_leash::AttitudeChange`; test `LeashRules.LeashedCreaturesWarmOrCoolToEachOther` |
+| Being led together on a leash makes two creatures warmer (compassion leash) or cooler (aggression leash) to each other | done | `LeashSystem` with `creature_leash::AttitudeStepDue` and `AttitudeStep`: at once, then after more than 600 turns, the turn kept on the other creature (`CreatureLeashAttitude`); tests `LeashRules.LeashedCreaturesWarmOrCoolToEachOther`, `TheFirstAttitudeStepIsAtOnceThenAfterMoreThan600Turns`, `LeashSystemTest.LeashedToAnotherCreatureTheyWarmAtOnceThenByTheOthersLastStep` |
 | Scripts can force two creatures to be friends | todo | `CREATURE_FORCE_FRIENDS` is a stub in `src/CHLApi.cpp` |
 
 ## Asking and answering

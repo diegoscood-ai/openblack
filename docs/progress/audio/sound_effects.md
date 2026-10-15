@@ -41,8 +41,8 @@ How the original does it, in our wiki: [Audio: the engine, the banks, the music,
 | Crowds impressed, or losing belief | todo | the impressed reactions are not ported (`LivingActionSystem.cpp` lists them as todo) |
 | Animals: their calls and footsteps by species | done | the same clip sound events as the villagers, with each species' sound group (`src/Audio/Services/AnimationSounds.cpp`); see ../animal/ |
 | The creature: breath, footsteps by ground, roars, snores, sneezes, eating, pooing, fight blows | done | `src/ECS/Systems/Implementations/CreatureAudioSystem.cpp`, `src/Creature/CreatureAudio.cpp`, run by `src/ECS/CreatureLoop.cpp`; tests `CreatureAudio.*`, `CreatureAudioSystemTest.*` |
-| Objects landing and breaking by what they are and what they hit | done | `src/ECS/Physics/CollisionSounds.cpp` (editor bank key by what hits what), `src/ECS/Rocks.cpp`, building crash in `src/ECS/Abodes.cpp`; see ../physics/ |
-| Rewards, chests, the reward sting and the acknowledgement of a command | partial | the scroll and signpost taps play (`src/ECS/ScriptHighlight.cpp`); no chest, reward sting or command acknowledgement |
+| Objects landing and breaking by what they are and what they hit | done | `src/ECS/Systems/Implementations/DynamicsSystem.cpp` (editor bank key by what hits what), `src/ECS/ObjectPhysics.cpp`, building crash in `src/ECS/Abodes.cpp`; see ../physics/ |
+| Rewards, chests, the reward sting and the acknowledgement of a command | partial | the scroll and signpost taps play (`src/ECS/ScriptHighlight.cpp`) and a chest from the sky thumps down (`RewardSystem::Update`); no chest is opened, and no reward sting or command acknowledgement |
 | The hand at the edge of the world | todo | no camera bounds in our tree, so the out-of-bounds sound is never played |
 | The advisors' slapstick (knocking the glass, slapping, a fart, a gun) | todo | the advisors' own sound effects are not played; see voices_and_speech.md |
 | Windmills and running water | partial | the running water ambience bank (`src/Audio/Services/SoundMap.cpp`) and the water flow tags of script markers (`src/ECS/DesignedScenery.cpp`); windmills are silent |

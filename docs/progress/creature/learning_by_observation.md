@@ -5,7 +5,7 @@ so on) by watching villagers practise them, learns miracles by seeing them cast 
 does: it notices a deed, does it itself, and may come to want what its god seemed to want. What it sees its god do also
 tells it what its god wants.
 
-**Progress: 14/80 done, 19 partial — 29%**
+**Progress: 18/80 done, 22 partial — 36%**
 
 How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../bw1-notes/creature.md).
 
@@ -29,18 +29,18 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 |-----------|--------|---------------|
 | A creature learns a miracle by seeing it cast near it, whoever casts it | partial | `CreatureMindSystem::SeeMiracle` (`CreatureMindLearning.cpp`) works, but no miracle reports a sighting; only the debug spawner's "Cast it near" calls it |
 | Each miracle needs seeing a set number of times (water 9, food 12, heal and wood 15, fireball 18, lightning and shield 21, tornado 39; the explosion so many it only comes from a script) | partial | `MiracleRule::timesToSee` from the tables (`CreatureMindTables.cpp`); dormant: sightings only come from the debug spawner |
-| Some species need to see miracles more often than others | partial | `creature_mind_tables::MiracleMultiplier`, `creature_watching::TimesToLearn`; test `CreatureWatching.LearnsAMiracleBySightingsAndSpecies`; dormant: sightings only from the debug spawner |
-| A sighting counts again only five seconds after the last | partial | `k_MiracleSightingTurns` (50 turns) in `src/Creature/CreatureWatching.h`; sightings only from the debug spawner |
+| Some species need to see miracles more often than others | partial | `creature_mind_tables::MiracleMultiplier`, `creature_watching::TimesNeeded` (the float product, not rounded); tests `CreatureWatching.LearnsAMiracleBySightingsAndSpecies`, `CreatureWatching.TheTimesNeededAreAFloatProduct`; dormant: sightings only from the debug spawner |
+| A sighting counts again only five seconds after the last | partial | more than `k_MiracleSightingTurns` (50 turns) after the last sighting, counted or not (`src/Creature/CreatureWatching.cpp`); test `CreatureWatching.AMiracleCountsOnlyMoreThanFiftyTurnsAfterItWasLastSeen`; the turn is the mind's, not the game's ([creature.md](../../bw1-notes/creature.md#pending)); sightings only from the debug spawner |
 | On the learning leash each sighting counts three times | partial | `CreatureLeash` sets `mind.leash.miracleSightingWeight` (`LeashSystem.cpp`), read by `SeeMiracle`; sightings only from the debug spawner; see [leash.md](leash.md) |
 | Miracles need the creature grown up to a stage (the explosion line later than the rest) | partial | `MiracleRule::minPhase` in `creature_watching::SeeMiracle`; sightings only from the debug spawner |
-| A power-up teaches nothing until its miracle is known; the storm with lightning needs the storm, the tornado needs that; the thirst and itch spells need the building skill | todo | no prerequisite rule in `src/Creature/CreatureWatching` |
+| A power-up teaches nothing until its miracle is known; the storm with lightning needs the storm, the tornado needs that; the thirst and itch spells need the building skill | partial | `creature_watching::MiraclePrerequisite`, the game's table; tests `CreatureWatching.APowerUpTeachesNothingBeforeItsMiracle`, `CreatureWatching.EveryMiraclesPrerequisiteIsTheGames`; sightings only from the debug spawner |
 | The lightning bolt's second power-up is never learnt by watching | todo | no such rule in our tree |
-| A frozen creature learns nothing from what it sees | todo | `SeeMiracle` does not check the freeze spell |
-| Some miracles are flagged as known from the start, which only the computer gods use to choose what to teach | done | `MiracleRule::knownAtStart` read (`CreatureMindTables.cpp`); `creature_watching::StartKnowledge` |
+| A frozen creature learns nothing from what it sees | partial | `CreatureMindSystem::SeeSkill` and `SeeMiracle` skip a paused mind, which the freeze spell sets; test `CreatureMindSystemTest.AStilledMindLearnsNothingByWatching`; sightings only from the debug spawner |
+| Some miracles are flagged as known from the start, which only the computer gods use to choose what to teach | done | `MiracleRule::knownAtStart` read (`CreatureMindTables.cpp`); it makes nothing known: `creature_watching::StartKnowledge` starts with nothing known |
 | Once it has seen a miracle half the times it needs, it may try it; tries count as sightings | todo | the creature casts no miracle; see [creature_casting.md](creature_casting.md) |
-| It keeps counting sightings after it has learnt a miracle | todo | `creature_watching::SeeMiracle` stops counting once the miracle is known |
-| Three quarters of the way there it is "nearly" there, and a meter of how far along it is moves | partial | how far along it is (`Progress::share`) shows as a percentage on the Creature Cave's magic scroll; there is no "nearly" moment |
-| Learnt miracles appear on the Creature Cave's magic scroll | done | `CreatureCaveSystem` snapshot, drawn by the temple's creature room (`src/3D/Implementations/TempleInterior.cpp`); see [creature_cave.md](creature_cave.md) |
+| It keeps counting sightings after it has learnt a miracle | partial | `creature_watching::SeeMiracle` goes on counting and tells it again; sightings only from the debug spawner |
+| Three quarters of the way there it is "nearly" there, and a meter of how far along it is moves | partial | `Progress::event` (`LearningEvent::NearlyLearnt`) and `Progress::meter`, returned as data that nothing shows yet; in the original the meter is a percentage that rises over the creature's head and fades over six seconds, at most once every 100 turns (queued as a fix); how far along it is shows as a percentage on the Creature Cave's magic scroll |
+| The miracles it knows about appear on the Creature Cave's magic scroll, however little learnt | done | `CreatureCaveSystem` snapshot (`knownAbout`, the percent cut short from the float share), `creature_cave::FactsOf`, drawn by the temple's creature room (`src/3D/Implementations/TempleInterior.cpp`); test `CreatureCaveSystemTest.TheMagicScrollListsTheMiraclesItKnowsAboutHoweverLittleLearnt`; see [creature_cave.md](creature_cave.md) |
 
 ## Copying the player
 
@@ -79,7 +79,7 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 | Shielding a town | n/a | the original never reports this deed. Our wiki differs: the shield miracle gives no deed ([creature.md](../../bw1-notes/creature.md#deed-table-complete-for-w120)) |
 | Bringing people to worship | n/a | the original never reports this deed. Our wiki differs: no call site reports it ([creature.md](../../bw1-notes/creature.md#deed-table-complete-for-w120)) |
 | Making an artefact | todo | not reported; artefacts not ported |
-| Damaging something by throwing, or throwing something at it | partial | only a building hit with the building's own body thrown from the hand is reported (`src/ECS/Physics/Buildings.cpp`; test `CreatureMimicDecision.ABuildingHitCountsOnlyWithAPlayerAndItsOwnBodyFromTheHand`); a thrown thing's own damage is not |
+| Damaging something by throwing, or throwing something at it | partial | only a building hit with the building's own body thrown from the hand is reported (`src/ECS/Systems/Implementations/BuildingDamageSystem.cpp`; test `CreatureMimicDecision.ABuildingHitCountsOnlyWithAPlayerAndItsOwnBodyFromTheHand`); a thrown thing's own damage is not |
 | Damaging something with fire | todo | the creature is told of no miracle hit |
 | Damaging something with magic | todo | the creature is told of no miracle hit |
 | Impressing by throwing | n/a | the original never reports this deed. Our wiki differs: no call site reports it ([creature.md](../../bw1-notes/creature.md#deed-table-complete-for-w120)) |
@@ -101,11 +101,11 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Each miracle it sees its god cast shows it the desires the miracle answers, and the town desire it helps | todo | no perceived desires in our tree; `src/Magic/Core/Spell.cpp` leaves it as a TODO |
-| It only takes in what it can see: within about two thirds of a half turn of where it looks, or in its own patch of land | todo | no perceived desires in our tree |
-| What it thinks fades slowly | todo | no perceived desires in our tree |
+| Each miracle it sees its god cast shows it the desires the miracle answers, and the town desire it helps | done | `magic::base::InitWithPos` (`src/Magic/Core/Spell.cpp`) into `CreatureMindSystem::EmpathiseWithPlayer` / `EmpathiseWithTownDesire`; `src/Creature/PerceivedDesires.cpp` |
+| It only takes in what it can see: within about two thirds of a half turn of where it looks, or in its own patch of land | done | `creature_perceived_desires::CanSeePos` and `LookYaw`; the body's yaw from our heading is inferred (creature.md Pending) |
+| What it thinks fades slowly | done | `creature_perceived_desires::Fade` in the mind turn (its rings of past values come with the mind save) |
 | What it thinks its god wants drives its desire to follow its god's wishes | todo | nothing feeds that desire's source; see [desires.md](desires.md) |
-| What it thinks its god wants most is shown in the Creature Cave | todo | no perceived desires in our tree; see [creature_cave.md](creature_cave.md) |
+| What it thinks its god wants most is read by the Creature Cave's personality scroll, which forgets it each time | done | `CreatureCaveSystem::TakeGodsDesire` through `TempleScrolls::Write`; as the original, only a line end shows for it; tests `TempleScrolls.TheMindScrollAsksForItsGodsDesireAndOnlyEndsALineForIt`, `CreatureCaveSystemTest.AskingForTheGodsDesireForgetsWhatItThinksItsGodWants`; see [creature_cave.md](creature_cave.md) |
 
 ## Watching others
 

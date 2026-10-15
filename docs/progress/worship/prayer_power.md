@@ -46,5 +46,5 @@ How the original does it, in our wiki: [Magic: the core of the miracles](../../b
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Infinite prayer power | partial | each site's infinite flag (`WorshipSite::infiniteChants`, read by `site::Available`), set from the debug Miracles window (`src/Debug/Miracles.cpp`); test `WorshipTest.InfiniteChantsCheat` |
-| Free upkeep for running miracles | partial | each site's free maintenance flag (`site::MaintainSpell`), set from the debug Miracles window |
+| Infinite prayer power | partial | each site's infinite flag (`WorshipSite::infiniteChants`, read by `site::Available`), set from the debug Magic window's Running tab (`src/Debug/MagicMiracles.cpp`); test `WorshipTest.InfiniteChantsCheat` |
+| Free upkeep for running miracles | partial | each site's free maintenance flag (`site::MaintainSpell`), set from the debug Magic window's Running tab |

@@ -64,8 +64,8 @@ How the original does it, in our wiki: [The hand and the interface](../../bw1-no
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Tap house: played once where the hand is when it knocks on a house's roof, then the hand goes back to its state | done | `abodes::InterfaceTap` -> `HandSystem::StartFixedPosAnimation("Ctap_house")`: the play-anim state plays it once, then back to NORMAL |
-| Knocking also plays one of nine knocking sounds in turn | done | `abodes::InterfaceTap`: InGame sample 110 plus the knock counter (0..8); see [hand_sounds.md](hand_sounds.md) |
+| Tap house: played once where the hand is when it knocks on a house's roof, then the hand goes back to its state | done | `AbodeKnockSystem::Tap` -> `HandSystem::StartFixedPosAnimation("Ctap_house")`: the play-anim state plays it once, then back to NORMAL |
+| Knocking also plays one of nine knocking sounds in turn | done | `AbodeKnockSystem::Tap`: InGame sample 110 plus the knock counter (0..8); see [hand_sounds.md](hand_sounds.md) |
 | While a set animation plays, the hand stays upright at the place it started | done | `HandPlacement.cpp`: in the play-anim state the hand is pinned at the animation's point with the world up |
 | Beckon | todo | Loaded but never chosen (unconfirmed when the game plays it) |
 

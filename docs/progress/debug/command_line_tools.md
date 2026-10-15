@@ -2,6 +2,8 @@
 
 The small programs in `apps/` for looking inside the game's files and making new ones, each built on the file-format
 component in `components/` that the game reads the same files with.
+The game's own switches for the testbed (`--testbed`, `--scenario`, `--benchmark-*`) are in
+[testbed.md](testbed.md); none of them is a tool of its own.
 
 **Progress: 13/23 done, 0 partial — 57%**
 
@@ -37,5 +39,5 @@ How the original does it, in our wiki: [Tools and formats](../../bw1-notes/tooli
 | Raw images (the game's textures outside packs) | todo | read by `components/rawimage`, no tool |
 | The game's info tables | todo | read by `src/Parsers/InfoFile.cpp`, no tool |
 | The game's fonts | todo | read by `src/Graphics/GameFont.cpp`, no tool |
-| Saved games and profiles | todo | not read at all yet |
+| Saved games and profiles | todo | no tool; the profile's creature is read and written as a mind file in `Scripts/CreatureMind` (`--creature-file`, `components/creaturemind`), saved games are not read yet |
 | Sound banks outside packs, and the dance and footpath files | todo | (unconfirmed which of these need their own tool) |

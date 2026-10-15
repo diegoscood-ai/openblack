@@ -36,13 +36,13 @@ How the original does it, in our wiki: [Day, night and weather in the original](
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | Once faded in, hot or overcast storms flash now and then, at waits drawn from their climate | done | The fork and sheet timers in `src/ECS/Weather/Storms.cpp` start the flash (`flash::Start`) |
-| Bright flashes come with thunder, dim ones with a forked bolt | partial | The flashes of 1.0 and 0.5 are there (`src/ECS/Weather/Storms.cpp`); the thunder and the bolt callbacks are empty ([day-night-weather.md](../../bw1-notes/day-night-weather.md#pending)) |
+| Bright flashes come with thunder, dim ones with a forked bolt | done | The flashes of 1.0 and 0.5 (`src/ECS/Weather/Storms.cpp`); the audio sets the thunder callback, the game's services the bolt one (`src/Locator.cpp`) |
 | A flash lasts a moment, flickering down between a tenth and half a second | done | `flash::Age`, `flash::Frame` (`src/ECS/Weather/LightningFlash.cpp`); tests `Lightning.FlashFlickersAsItFades`, `BoltsFlashAtHalfStrength` |
 | The flash lights the land and sky while the camera is inside the storm | partial | `weather::LightningFlashAtCamera` lights the land through the light table; the sky's dome takes no flash. See ../sky/sky_dome.md |
 | Lightning glows on the ground where it struck | done | The flash's land light stamp (`flash::Frame`, `src/3D/LandColourStamps.cpp`) |
-| The thunder is one of eleven claps, heard once the sound has travelled to the camera | todo | The natural storms' thunder callback is empty (`storms::SetSheetCallback` is never given one) |
-| The forked bolt is drawn from the cloud to the ground | todo | The natural storms' bolt callback is empty (`storms::SetForkCallback` is never given one) |
-| A bolt that reaches the ground strikes what is there (unconfirmed for natural storms) | todo | No bolt for the natural storms |
+| The thunder is one of eleven claps, heard once the sound has travelled to the camera | done | `audio::tags::Thunder`, set as the sheet callback when the audio starts (`src/Audio/Game/AudioSystem.cpp`) |
+| The forked bolt is drawn from the cloud to the ground | done | The fork callback queues the point (`psys::lightning_strike::Queue`, set in `src/Locator.cpp`); `UR_LightningStrike` makes the strike (`src/Particles/Rules/Lightning.cpp`); test `WeatherTest.StormForkEventCallsTheForkCallback` |
+| A bolt that reaches the ground strikes what is there (unconfirmed for natural storms) | done | With no spell behind it each fork tip applies the weather lightning effect (burn 10000 within 1 m): `psys::lightning::StrikeTip` / `NoSpellTipValues` / `TipMapPosition` in `src/Particles/Rules/Lightning.cpp`; tests `Lightning.strikeTipChoosesTheSpellOrTheWeatherLightning`, `Lightning.noSpellTipTakesTheWeatherLightningRow`, `Lightning.noSpellTipMapPosition` |
 | Rain and wind sound under a storm | done | `src/Audio/Services/SoundMap.cpp`; see ../audio/ |
 
 ## Storm clouds

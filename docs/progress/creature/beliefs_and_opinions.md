@@ -69,7 +69,7 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 | It sees the player's deeds only within two thirds of a half turn either way, or in its own cell | todo | nothing models what the creature sees of the player's desires |
 | It is cross with the player and shows it | todo | |
 | It shows the player how nice it thinks he is | todo | |
-| Its opinion of its god shows in the Creature Cave | done | `creature_cave` (`opinionOfGod`) from `CreatureCaveSystem`; test file `test/temple/test_creature_cave.cpp`; see [creature cave](creature_cave.md) |
+| Its opinion of its god shows in the Creature Cave | done | `creature_cave` (`opinionOfGod`) from `CreatureCaveSystem`; test file `test/test_creature_mode.cpp`; see [creature cave](creature_cave.md) |
 | Its attitude is saved in its mind file | partial | read from the file in `CreatureMindSystem::TakeUpFile`; `creature_mind_model::ToFile` writes it, but nothing in the game saves the mind |
 
 ## How it feels about other creatures

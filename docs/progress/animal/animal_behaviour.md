@@ -34,7 +34,7 @@ How the original does it, in our wiki: [Animals: AI, states and clips](../../bw1
 | Animals flee from fire, falling trees, flying objects and fights | partial | the predators flee what the hand throws (`animal_ai::SpreadFlyingObjectReaction`); the fire reaction is not ported. Our wiki differs: only predators react to flying objects, no code makes the falling-tree reaction and no animal reacts to fights ([animals](../../bw1-notes/animals.md#reactions)) |
 | Animals look at miracles and flee the frightening ones | todo | the spell and look reactions are not ported for animals (`src/ECS/AnimalFlee.cpp`) |
 | Animals look at and go to food and wood the hand or a miracle put down | done | the hungry grazers go to a food pot the hand puts down and eat 50 of it (`animal_ai::SetupPotReaction`, `src/ECS/AnimalFlee.cpp`). Our wiki differs: the magic food piles of the hand and the miracles draw no animal, and no animal reacts to wood ([animals](../../bw1-notes/animals.md#reactions)) |
-| Animals react to being picked up and dropped by the hand | done | `IN_HAND` with its clip, then the flight and the landing (`src/ECS/AnimalAI.cpp`, `src/ECS/LivingPhysics.cpp`) |
+| Animals react to being picked up and dropped by the hand | done | `IN_HAND` with its clip, then the flight and the landing (`src/ECS/AnimalAI.cpp`, `src/ECS/Systems/Implementations/VillagerPhysics.cpp`) |
 | Animals react to the creature's gifts and to the creature itself | todo | the creature reaction is not ported for animals |
 | Animals react to a shield, a teleport and a magic tree | n/a | Our wiki differs: no animal reacts to a shield, a teleport or a magic tree ([animals](../../bw1-notes/animals.md#reactions)) |
 | Animals look at a death and at someone fainting | n/a | Our wiki differs: no animal reacts to a death or a fainting ([animals](../../bw1-notes/animals.md#reactions)) |
@@ -45,8 +45,8 @@ How the original does it, in our wiki: [Animals: AI, states and clips](../../bw1
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | The hand picks up the animals the table allows; held, they play their in-hand clip | done | by the species' `playerCanPickUp`, leaving its flock, with the in-hand clip (`src/ECS/AnimalAI.cpp`, `src/ECS/AnimalAnimations.cpp`); see ../hand/picking_up.md |
-| Thrown animals fly, land and play their landed clip, hurt by a hard landing | done | `FLYING`, the landing pose, heading and clip, hurt by a hard landing (`src/ECS/LivingPhysics.cpp`, `src/ECS/AnimalAI.cpp`); see ../physics/thrown_living.md |
-| Animals drown in deep water | done | an animal in the sea sinks and is deleted (`src/ECS/LivingPhysics.cpp`) |
+| Thrown animals fly, land and play their landed clip, hurt by a hard landing | done | `FLYING`, the landing pose, heading and clip, hurt by a hard landing (`src/ECS/Systems/Implementations/VillagerPhysics.cpp`, `src/ECS/AnimalAI.cpp`); see ../physics/thrown_living.md |
+| Animals drown in deep water | done | an animal in the sea sinks and is deleted (`src/ECS/Systems/Implementations/VillagerPhysics.cpp`) |
 | Hurting or helping an animal moves the player's alignment (kind or nasty) | done | a miracle's effect on an animal moves its caster's alignment (`alignment::Update`, `src/ECS/Effects/Alignment.cpp`) |
 | Scripts take control of an animal, play its clips and let it go | done | the script states, MOVE_GAME_THING and the release (`src/ECS/AnimalScript.cpp`, `src/ECS/ScriptHeld.cpp`) |
 

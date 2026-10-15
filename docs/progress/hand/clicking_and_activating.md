@@ -4,7 +4,7 @@ What the Action button does when the hand isn't picking something up: tapping th
 rocks, breaking scaffolds, opening reward chests, starting challenges), activating them (the temple's entrance, miracle
 bubbles and icons, leash posts), double clicks, locked selection, and the force-feedback mouse the game supported.
 
-**Progress: 26/44 done, 6 partial — 66%**
+**Progress: 28/46 done, 6 partial — 67%**
 
 How the original does it, in our wiki: [The hand and the interface](../../bw1-notes/hand-and-interface.md).
 
@@ -14,27 +14,29 @@ How the original does it, in our wiki: [The hand and the interface](../../bw1-no
 |-----------|--------|---------------|
 | A quick press and release of the Action button over a thing taps it rather than taking hold | done | `HandSystem::Update` (the grab state): a release within 225 ms sends `HandSystem::SendTap`; tappable classes are registered in `ecs::hand_tap` (rocks, abodes, scaffolds, spell icons, one-shot orbs, "Did you know?" signs, the temple's entrance); test `test_hand_press_chain` |
 | Each kind of thing says whether it can be tapped at all; a thing that can't is left alone | done | `ecs::hand_tap` (`src/ECS/Systems/HandTap.h`): each owner registers its classes, an unregistered class is not tappable; `hand_tap::SendsTap` also checks the influence and the cannot-be-picked-up flag |
-| Village centres, dead trees and bonfires can't be tapped | done | Dead trees and bonfires register no tap handler. A town centre is an abode in our tree and passes the abode's tap test, but its tap does nothing (no inhabitants, no knock) |
+| Village centres, dead trees and bonfires can't be tapped | done | Dead trees and bonfires register no tap handler. A town centre is an abode in our tree, and the abode's tap test refuses it (`abodes::InterfaceValidToTap` with `abode_knock::IsTappable`), so a press on it is not a tap |
 | Taps are applied at the next game turn, from the place the hand reported, so every player sees the same | done | `HandSystem::SendTap` pushes a tap packet (`game_packets`), applied at the next turn's start (`HandTurn.cpp` `ApplyTap`), which checks validity again. No multiplayer |
 
 ## Houses
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Any house can be tapped | done | `abodes::InterfaceValidToTap` is always true for an abode (`src/ECS/Abodes.cpp`), tapped through the press's tap-only branch (`hand_press::Branch::TapOnly`) |
-| Tapping a house knocks on it: everyone inside comes out to see who knocked | done | `abodes::InterfaceTap` calls `villager::SetStateWhenTappedOnAbode` for each inhabitant at home: they walk out (`src/ECS/Villager/VillagerEmergency.cpp`) |
-| The knock counts the people living there, for the town's figures | todo | Not ported: `abodes::InterfaceTap` says "(not ported) remembering the town and counting the knock" |
-| On a finished house, the player's own hand plays its tap-house animation where it is | done | `abodes::InterfaceTap`: for living quarters tapped by the local player, `HandSystem::StartFixedPosAnimation("Ctap_house", ...)` (the play-anim state) |
-| On a finished house, one of nine knocking sounds plays at the hand, in turn | done | `abodes::InterfaceTap`: living-quarters abodes only, InGame sample 110 plus `audio::Counter::KnockRoof` (0..8 in turn), 3D at the hand's point |
+| Any house can be tapped | done | `abodes::InterfaceValidToTap` is true for every abode but the village centre (`src/ECS/Abodes.cpp`, `abode_knock::IsTappable`; the tap also needs it begun), tapped through the press's tap-only branch (`hand_press::Branch::TapOnly`) |
+| Tapping a house knocks on it: everyone inside comes out to see who knocked | done | `AbodeKnockSystem::Tap` calls `villager::SetStateWhenTappedOnAbode` for each inhabitant at home: they walk out (`src/ECS/Villager/VillagerEmergency.cpp`) |
+| The knock shows how many people live in each of the town's drawn buildings for 8 s: a gold person per adult, a green one per free place | done | `AbodeKnockSystem` (`Tap`, `Update` on game time, `PeopleOver`), `Renderer::DrawKnockRow`, each row right after its building; float products as the original's FPU (`test/test_abode_knock.cpp`) |
+| While a villager is held, its home shows one teal person over itself | done | IN_HAND marks the home every turn and its exit unmarks it when the hand lets the villager go (`components::Abode::heldVillagersHome`, `villager::MarkHomeOfHeld`); `AbodeKnockSystem::PeopleOver`; tests `test_abode_knock`, `test_villager_home`, `test_living_turn` |
+| Holding a villager near one of your houses brings the population read-out up | todo | not in our tree: it goes with the disciples (see ../villager/disciples.md) |
+| On a finished house, the player's own hand plays its tap-house animation where it is | done | `AbodeKnockSystem::Tap`: for living quarters tapped by the local player, `HandSystem::StartFixedPosAnimation("Ctap_house", ...)` (the play-anim state) |
+| On a finished house, one of nine knocking sounds plays at the hand, in turn | done | `AbodeKnockSystem::Tap`: living-quarters abodes only, InGame sample 110 plus `audio::Counter::KnockRoof` (0..8 in turn), 3D at the hand's point |
 
 ## Rocks
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| A rock can be tapped only when it is taller than 0.7 m (a rock too wide for the hand to lift, over 3.6, is tapped at once on a press; a liftable one by a short press), inside the player's influence | done | `Rocks::ValidToTap` (height > 0.7), `Rocks::ValidForPlaceInHand` (2D radius <= 3.6); a rock that can't be lifted is tapped at once (`HandSystem::Update`, Hovered branch), a liftable one by a short press; the hand must be in the influence (`SendTap`) |
-| Tapping a rock splits it in two | done | `Rocks::Tap` then `Rocks::SplitInTwo` (`src/ECS/Rocks.cpp`): two halves of 0.7935 scale, the fire copied to both |
-| Splitting a rock plays one of four cracking sounds at the hand, in turn | done | `Rocks::Tap`: InGame sample 130 plus `audio::Counter::RockTap` (0..3 in turn), 3D at the hand's point |
-| The player's creature is shown the deed and leans towards copying it (a mild empathy of one half) | todo | TODO in `Rocks::Tap`: the creature's empathy waits for creature desires |
+| A rock can be tapped only when it is taller than 0.7 m (a rock too wide for the hand to lift, over 3.6, is tapped at once on a press; a liftable one by a short press), inside the player's influence | done | `object_physics::CanTapRock` (height > 0.7), `object_physics::RockValidForPlaceInHand` (2D radius <= 3.6); a rock that can't be lifted is tapped at once (`HandSystem::Update`, Hovered branch), a liftable one by a short press; the hand must be in the influence (`SendTap`) |
+| Tapping a rock splits it in two | done | `object_physics::TapRock` then `object_physics::SplitRock` (`src/ECS/ObjectPhysics.cpp`): two halves of 0.7935 scale, the fire copied to both |
+| Splitting a rock plays one of four cracking sounds at the hand, in turn | done | `object_physics::TapRock`: InGame sample 130 plus `audio::Counter::RockTap` (0..3 in turn), 3D at the hand's point |
+| The player's creature is shown the deed and leans towards copying it (a mild empathy of one half) | todo | TODO in `object_physics::TapRock`: the creature's empathy waits for creature desires |
 
 ## Scaffolds
 

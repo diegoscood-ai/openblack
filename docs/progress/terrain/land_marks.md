@@ -19,7 +19,7 @@ and scars left by blasts.
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The creature leaves a print under its lower foot as each footstep falls | done | `FootprintSystem` (`src/ECS/Systems/Implementations/FootprintSystem.cpp`); test `CreatureFootprints.LowerFootGetsThePrint` (`test/creature/test_creature_footprints.cpp`) |
+| The creature leaves a print under its lower foot as each footstep falls | done | `FootprintSystem` (`src/ECS/Systems/Implementations/FootprintSystem.cpp`); test `CreatureFootprints.LowerFootGetsThePrint` (`test/test_creature_footprints.cpp`) |
 | Each species has its own print, sized to the creature | done | test `CreatureFootprints.SpeciesCells` |
 | Left and right feet print mirrored | done | test `CreatureFootprints.LeftFootFlipsThePicture` |
 | Prints fade away over about five seconds, in steps | done | tests `CreatureFootprints.GoneInAboutFiveSeconds`, `FadesInStepsOfAtLeast200Ms` |

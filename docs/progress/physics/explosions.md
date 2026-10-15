@@ -86,7 +86,7 @@ How the original does it, in our wiki: [Physics: thrown objects, collisions, dam
 | Fireworks go up and burst with their own sounds, started by scripts and when a player takes a town | partial | Scripts can start the fireworks spot visuals (`src/Particles/PSysManager.cpp`); a town changing hands starts none |
 | A temple whose heart is destroyed goes through a destruction sequence with explosions and plasma | todo | Nothing in our tree. See [../temple/](../temple/) and [../multiplayer/](../multiplayer/) |
 | A failed miracle cast gives a small puff | done | `FailApply` in `src/ECS/Systems/Implementations/HandSpellSeed.cpp` (the fail spot visual and sound). See [../miracles/casting_and_globes.md](../miracles/casting_and_globes.md) |
-| The creature smashes rocks in half by hand | todo | Only the hand taps rocks (`Rocks::Tap` from `HandSystem.cpp`); the creature's actions do not split rocks |
+| The creature smashes rocks in half by hand | todo | Only the hand taps rocks (`object_physics::TapRock` from `HandSystem.cpp`); the creature's actions do not split rocks |
 
 ## Saving
 

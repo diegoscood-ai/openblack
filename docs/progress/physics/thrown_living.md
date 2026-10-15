@@ -10,8 +10,8 @@ What a villager carries, and the log it lets fall when it is launched, is in [..
 openblack: villagers and animals fly in the game's physics with their own 12-point bodies
 (`SetUpLivingBody`, `src/ECS/Physics/PhysicsObjects.cpp`). A villager thrown, dropped or knocked enters FLYING; on landing it takes the
 game's posture and heading, plays its landing (or dies of the fall, or drowns on water) and decides afresh
-(`src/ECS/LivingPhysics.cpp`); animals land, die of the fall and move their flock's home
-(`src/ECS/LivingPhysics.cpp`, `src/ECS/AnimalAI.cpp`); the creature is struck but not hurt (a stand-in ball body,
+(`src/ECS/Systems/Implementations/VillagerPhysics.cpp`); animals land, die of the fall and move their flock's home
+(`src/ECS/Systems/Implementations/VillagerPhysics.cpp`, `src/ECS/AnimalAI.cpp`); the creature is struck but not hurt (a stand-in ball body,
 `src/ECS/CreaturePhysics.cpp`). Tests: `test/test_living_landing.cpp`. The creature's catching, its hurt and its sway
 aren't ported.
 
@@ -23,9 +23,9 @@ How the original does it, in our wiki: [Physics: thrown objects, collisions, dam
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| A villager or animal put down gently on ground that is not too steep stands where it is put, without flying, and goes to its landed state | done | `from_hand::InitialisePhysicsFromHand` takes it out of the physics at once and its end of physics runs to LANDED (`src/ECS/LivingPhysics.cpp`) |
+| A villager or animal put down gently on ground that is not too steep stands where it is put, without flying, and goes to its landed state | done | `from_hand::InitialisePhysicsFromHand` takes it out of the physics at once and its end of physics runs to LANDED (`src/ECS/Systems/Implementations/VillagerPhysics.cpp`) |
 | A thrown villager or animal goes into its flying state and plays its kind's thrown animation (villagers: thrown, thrown dead, thrown by a vortex; each animal kind its own) | partial | FLYING with the thrown or thrown-dead clip (`src/ECS/VillagerAnimations.cpp`) and each animal kind's thrown clip (`src/ECS/AnimalAnimations.cpp`); the vortex clip is not used |
-| A thrown villager drops what it was carrying, which flies on separately with the same speed and hits no other object | done | `villager::CreateDroppedResource` (from `FromHand.cpp` and `ECS/LivingPhysics.cpp`) with `PhysicsObjects::AddDroppedObject` and no object collisions |
+| A thrown villager drops what it was carrying, which flies on separately with the same speed and hits no other object | done | `villager::CreateDroppedResource` (from `FromHand.cpp` and `ECS/Systems/Implementations/VillagerPhysics.cpp`) with `PhysicsObjects::AddDroppedObject` and no object collisions |
 | Animals taken from a flock leave it for a flock of their own; on landing, that flock's home moves to where they came down | done | `animal_ai::PlaceInHand` takes it off its flock; on landing the flock centres where it fell, predators recompute their lair (`src/ECS/AnimalAI.cpp`) |
 
 ## Flying
@@ -34,24 +34,24 @@ How the original does it, in our wiki: [Physics: thrown objects, collisions, dam
 |-----------|--------|---------------|
 | Their bodies are simple 12-point shapes (head, waist and feet) with twice the air drag of objects | done | `SetUpLivingBody` in `src/ECS/Physics/PhysicsObjects.cpp` (drag x 2) |
 | Villagers are heavy and grippy (density just under water's, the highest friction); animals are lighter and slide more | done | Constants rows 7 and 8 (`PhysicsObjects::ConstantsType`, `Data/PhysicsConstants.txt`) |
-| They tumble only from what they hit and the hand's twist after release | done | `PhysicsBody` contacts and the release twist in `src/ECS/Physics/FromHand.cpp` |
-| A villager or animal hit by a flying object while standing is knocked into flight | done | `Result::Pushed` and the class's `initialisePhysicsKnocked` (`src/ECS/LivingPhysics.cpp`) |
+| They tumble only from what they hit and the hand's twist after release | done | `Body` contacts and the release twist in `src/ECS/Physics/FromHand.cpp` |
+| A villager or animal hit by a flying object while standing is knocked into flight | done | `Result::Pushed` and the class's `initialisePhysicsKnocked` (`src/ECS/Systems/Implementations/VillagerPhysics.cpp`) |
 
 ## Landing and getting up
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | They land on their back, on their front or on their feet, by which way their body leans sideways at the end of the flight | done | `VillagerEndPhysics`, `AnimalEndPhysics` from the turn-start rows; tests `LivingLanding.VillagerPoseThresholds`, `AnimalLandTypeIsReversed` |
-| On landing they are stood up facing the way they were heading, on the ground | done | `src/ECS/LivingPhysics.cpp` (the heading into `SetYAngle`); tests `LivingLanding.VillagerSetYAngle`, `ObjectYAngle` |
+| On landing they are stood up facing the way they were heading, on the ground | done | `src/ECS/Systems/Implementations/VillagerPhysics.cpp` (the heading into `SetYAngle`); tests `LivingLanding.VillagerSetYAngle`, `ObjectYAngle` |
 | They then play a landing animation (each animal kind its own) and get up to decide what to do next | done | The landed clips by land type (`VillagerLandedClip`, the animal kinds' clips), then they decide (`villager::Landed`, `AnimalAI.cpp`) |
-| Nothing special happens to a breeder that lands: it decides afresh what to do | done | It decides afresh after its landing (`src/ECS/LivingPhysics.cpp`) |
+| Nothing special happens to a breeder that lands: it decides afresh what to do | done | It decides afresh after its landing (`src/ECS/Systems/Implementations/VillagerPhysics.cpp`) |
 | One that lands on water starts drowning instead | done | A villager in a water cell goes to DROWNING (`VillagerEndPhysics`, `src/ECS/VillagerDrowning.cpp`). Our wiki differs: animals have no drowning state; in the sea they sink and are deleted ([animals.md](../../bw1-notes/animals.md#hand-flight-and-death)) |
 
 ## Dying from a fall
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Hits harder than 2 G hurt them; how much is in [impact_damage.md](impact_damage.md) | done | `LivingReactToPhysicsImpact` (`src/ECS/LivingPhysics.cpp`); see [impact_damage.md](impact_damage.md) |
+| Hits harder than 2 G hurt them; how much is in [impact_damage.md](impact_damage.md) | done | `LivingReactToPhysicsImpact` (`src/ECS/Systems/Implementations/VillagerPhysics.cpp`); see [impact_damage.md](impact_damage.md) |
 | A villager whose life runs out in the air dies only when it lands, killed by the player who threw it | partial | It dies where it lands (`VillagerEndPhysics`); the impact damage does not keep the thrower's player |
 | A villager's corpse that is thrown lands dead again | done | `VillagerEndPhysics` (an already dead one goes back to its dead state) |
 | An animal whose life runs out in the air starts dying when it lands | done | `AnimalEndPhysics` to `animal_ai` dying |

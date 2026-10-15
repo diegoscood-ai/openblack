@@ -28,7 +28,7 @@ How the original does it, in our wiki: [Skeletal animation (villagers and animal
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Standing, the creature breathes: once every five seconds at size 1, more slowly the bigger it is | done | `creature_animation::BreathPeriod` in `CreatureAnimationSystem`; tests `BreathingTakesFiveSecondsAtSizeOne`, `TheBreathingPeriodEasesToItsTarget`, `CreatureAnimationSystemTest.ProcessTurnEasesTheFatnessAndTheBreathing` |
+| Standing, the creature breathes: once every five seconds at size 1, more slowly the bigger it is | done | `creature_animation::BreathPeriod` in `CreatureAnimationSystem`; tests `BreathingTakesFiveSecondsAtSizeOne`, `TheBreathingPeriodEasesToItsTarget`, `CreatureAnimationSystemTest.ProcessTurnEasesTheBreathingButNotTheFatnessShown` |
 | Its breathing quickens fast and calms slowly | done | `creature_animation::EaseBreathPeriod`; test `BreathingCalmsSlowlyAndQuickensFast` |
 | An action plays once, then the body stands again; nothing new starts while one plays | done | `creature_layers::AdvanceBody`; test `AnActionPlaysOnceThenTheBodyStands` |
 | Sitting, sleeping, pooing, being sick and casting are a start, a loop for as long as wanted, and an end | done | test `ASitStartsLoopsUntilToldThenEnds`; the agendas in `src/Creature/CreatureIdleMind.cpp` |

@@ -26,7 +26,7 @@ How the original does it, in our wiki: [Magic: the core of the miracles](../../b
 | Planting a tree with the water miracle is good | done | `src/Magic/Spells/SpellWater.cpp` calls `alignment::UpdateForTree` for the tree it plants |
 | Pulling up a tree or planting one by hand | done | uprooting with the hand is evil (`src/ECS/Systems/Implementations/HandHolding.cpp`), replanting good (`HandTrees.cpp`): `alignment::UpdateForTree` |
 | Each villager death moves its killer by how it died (thrown, burnt, drowned, eaten …) | done | `alignment::UpdateForDeath` from `villager::VillagerDead` (`src/ECS/Villager/VillagerDeath.cpp`): the death reason table, doubled for a child |
-| Throwing or squashing villagers and animals | partial | a villager the hand throws or drowns to death moves its owner by that reason (`src/ECS/LivingPhysics.cpp`, `src/ECS/VillagerDrowning.cpp`); an animal's death keeps no reason (`src/ECS/AnimalAI.cpp`) |
+| Throwing or squashing villagers and animals | partial | a villager the hand throws or drowns to death moves its owner by that reason (`src/ECS/Systems/Implementations/VillagerPhysics.cpp`, `src/ECS/VillagerDrowning.cpp`); an animal's death keeps no reason (`src/ECS/AnimalAI.cpp`) |
 | Sacrificing at the worship site | todo | no sacrifice yet: a totem does not take a held object (`src/ECS/HeldApply.cpp`); see [prayer power](prayer_power.md) |
 | Feeding and giving wood to villagers by hand | done | `alignment::UpdateForResource` from `src/ECS/ObjectResources.cpp`: the change in the town's desire, times the give or take multiplier |
 | What disciples do moves their god (unconfirmed which jobs) | todo |  |

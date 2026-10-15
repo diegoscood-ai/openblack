@@ -9,7 +9,7 @@ the zones a land keeps it out of or inside, and how near it draws.
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The camera keeps within a disc around the island and is pushed back when it strays outside | done | `Camera::UpdateZoomers` pulls a position destination more than 3500 from the centre back to it in 3 s, in every mode but the temple's (`script_camera::k_DiscRadiusSquared`); `ScriptCamera.DiscOfTheWorld` (`test/test_script_camera.cpp`). The player model also clamps to a 5120 disc (`DefaultWorldCameraModel::ConstrainDisc`) |
+| The camera keeps within a disc around the island and is pushed back when it strays outside | done | `Camera::UpdateZoomers` pulls a position destination more than 3500 from the centre back to it in 3 s, in every mode but the temple's (`script_camera::k_DiscRadiusSquared`); `ScriptCamera.DiscOfTheWorld` (`test/test_script_camera_mode.cpp`). The player model also clamps to a 5120 disc (`DefaultWorldCameraModel::ConstrainDisc`) |
 | The camera never rises above a ceiling height | partial | the 30 000 ceiling (`k_MaxAltitude`) only bounds the arc-ball tilt step in `DefaultWorldCameraModel::ComputeDistanceFromBoundY`; nothing stops the camera rising past it |
 | The camera floats at least a little above the land or sea under it | partial | the player model keeps 3 over the land (`ConstrainAltitude`, `k_FloatingHeight`), matching the recorded runs of `test/camera/test_camera.cpp`; the drawn camera's 1 m clearance (`script_camera::DrawnCamera`) only applies while a script drives. Not checked on steep land |
 | The camera's tilt is kept between looking slightly up and nearly straight down | done | pitch clamp in `DefaultWorldCameraModel::TiltZoom`; recorded runs `TiltUpDown`, `TiltDownZoomOut` (`test/camera/scenarios`) |
@@ -29,7 +29,7 @@ the zones a land keeps it out of or inside, and how near it draws.
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | A land can have exclusion domes the camera cannot enter, and the camera is eased out of one it strays into | partial | `SET_CAMERA_ZONE` reads the zone's exclusions (`player_camera::SetCameraZone`, `src/Camera/PlayerCameraScript.cpp`; tests in `test/test_script_camera_dual.cpp`), but the player camera does not keep out of them yet |
-| Scripts can set an inclusion zone that keeps the camera inside an area, as the first land's tutorial does in stages | partial | `SET_CAMERA_ZONE` loads the inclusion polygon and `player_camera::InsideInclusion` tests it, but the player camera does not use it yet; `GET_INCLUSION_DISTANCE` stays at its start value |
+| Scripts can set an inclusion zone that keeps the camera inside an area, as the first land's tutorial does in stages | partial | `SET_CAMERA_ZONE` loads the inclusion polygon and `camera_zones::CrossFence` tests it, but the player camera does not use it yet; `GET_INCLUSION_DISTANCE` stays at its start value |
 | Clearing a land's zones as a new land loads | todo | `player_camera::Reset` has no caller: the zone is not cleared when a land loads |
 
 ## Drawing distance

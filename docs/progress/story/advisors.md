@@ -4,7 +4,7 @@ The good and evil advisors, the player's two consciences, who hover at the edges
 point, act and talk in the voices of the game's recorded lines, arguing over what the player should do; and the story's
 other speaking characters. Which messages the help system sends is in ../interface/help_system.md; this file is who says
 them and how. openblack draws them, moves them and plays their lines (`src/Help`, `src/Graphics/RendererSpirits.cpp`,
-`src/Audio/Services/Advisor.h`); what it still lacks is in the rows.
+`src/Help/AdvisorVoices.h`); what it still lacks is in the rows.
 
 **Progress: 39/71 done, 23 partial — 71%**
 
@@ -49,12 +49,12 @@ them and how. openblack draws them, moves them and plays their lines (`src/Help`
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | Every advisor line has its own recording; the good advisor's and evil advisor's lines come from the advisors' bank | partial | voice routing by narrator in `Help/HelpSystem` (`VoiceRoute`) and `Audio/Services/Advisor`; the dialogue banks load lazily; not checked line by line against the original |
-| An advisor starts speaking up to half a second late, the further it is from its rest place | done | `Audio/Services/Advisor.h` `SaySentence`: a delay of up to 500 ms from the advisor's hover distance |
+| An advisor starts speaking up to half a second late, the further it is from its rest place | done | `Help/AdvisorVoices.h` `SaySentence`: a delay of up to 500 ms from the advisor's hover distance |
 | The line shows in a strip above the bottom of the screen, the good advisor's in pale yellow, the evil one's in pink, others in white | partial | the strip is `Help/HelpTextDisplay` (drawn by `Renderer::DrawHelpText`), coloured by narrator; its look is not yet checked against the original |
 | A line is read when the voice has finished (or, without a voice, after a time by its words and the reading speed) | done | `HelpSystem::IsTextRead`: the voice's end, or the reading time from the words and the reading speed; `test/test_help_system.cpp` |
 | Clicking ends the line being read | done | `HelpSystem::ProcessInterface` (a click ends the text) |
 | Six recent lines stay on screen, older ones shrinking and dimming | done | `Help/HelpTextDisplay`: a ring of six entries, older ones shrinking and dimming |
-| Their voice isn't ducked under the music | done | the advisors' sentences play straight on the sample player, outside the sound filters (`Audio/Services/Advisor.h`) |
+| Their voice isn't ducked under the music | done | the advisors' sentences play straight on the sample player, outside the sound filters (`Help/AdvisorVoices.h`) |
 
 ## What they talk about
 
@@ -98,8 +98,8 @@ them and how. openblack draws them, moves them and plays their lines (`src/Help`
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | A more important message stops the running one | partial | `StopHelpScriptsForNewHelp` stops a running help script for a new one; the help priorities are not all ported |
-| Interrupted, the good advisor coughs and the evil one grumbles a bitter remark | partial | `audio::advisor::Interrupt` is ported; as in the original, the interruption line is never actually said (the sample's progress is read after the stop). Our wiki differs: in the shipped game the interruption line is never said, because the sample's progress is read after it is stopped ([audio.md](../../bw1-notes/audio.md#how-it-works)) |
-| Their own lines for being interrupted, and for being interrupted in the temple | partial | the interruption texts are picked in `audio::advisor::Interrupt`; never said, as in the original |
+| Interrupted, the good advisor coughs and the evil one grumbles a bitter remark | partial | `help::AdvisorVoices::Interrupt` is ported; as in the original, the interruption line is never actually said (the sample's progress is read after the stop). Our wiki differs: in the shipped game the interruption line is never said, because the sample's progress is read after it is stopped ([audio.md](../../bw1-notes/audio.md#how-it-works)) |
+| Their own lines for being interrupted, and for being interrupted in the temple | partial | the interruption texts are picked in `help::AdvisorVoices::Interrupt`; never said, as in the original |
 
 ## Spooky voices
 

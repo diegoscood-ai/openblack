@@ -4,7 +4,7 @@ The game's heartbeat: the world moves on in fixed game turns, ten a second, whil
 can be. A game clock that runs at the game's speed and stops while paused decides when a turn is due; between turns the
 frame works out how far through the turn it is. Two random number streams keep the game's rules repeatable.
 
-**Progress: 27/39 done, 8 partial — 79%**
+**Progress: 28/39 done, 8 partial — 82%**
 
 How the original does it, in our wiki: [The engine loop: game turns and frames (original and openblack)](../../bw1-notes/engine-loop.md), [Coordinates, terrain, object size, game clock, matrices and Zoomer](../../bw1-notes/engine-math.md).
 
@@ -31,7 +31,7 @@ How the original does it, in our wiki: [The engine loop: game turns and frames (
 | Each frame knows how far it is through the current turn (0 to 0.99), so moving things can be drawn between their turn positions | done | `game_clock::TurnFraction` (clamped at 0.99; test `GameClockTest.RemainderClampedAt99AndFrameMsAtMost199`), used to draw villagers and animals between turns (`src/ECS/MobileDrawing`), fire, magic, particles and shields |
 | The frame's real time is whole milliseconds of the wall clock and never zero | done | `game_clock::FrameRealMs`; test `GameClockTest.RealClockAndSelectors` |
 | The hand and the camera move by real time, except during a script's cut scene, when they keep to game time | done | `game_clock::CameraFrameMs` (`src/GameClock.cpp`) |
-| While the window is minimised the game keeps running but draws nothing | todo | nothing skips the drawing while minimised |
+| While the window is minimised the whole game waits (no turn, no frame, no drawing) until it is restored; the game clock is not stopped, so a long time away is dropped by the turn rule for lag | done | `Game::Update` waits on the window's events while `windowing::WaitsForWindow` (`src/Windowing/WindowAway.h`); tests `WindowAway.*` |
 | Quitting is noticed between frames and ends the loop cleanly once help is not mid-sequence | partial | `Game::Run` ends on quit; the help-sequence guard is not there |
 
 ## Pausing

@@ -45,6 +45,6 @@ How the original does it, in our wiki: [Magic: the core of the miracles](../../b
 | In danger, a town's villagers run to the site to hide | todo | the hiding place is used only by worshippers beyond the site's room; a town in danger stops worshipping instead (`src/ECS/Town/TownEmergency.cpp`) |
 | A site with more worshippers than it has room for is overloaded; only so many dancers are drawn | done | beyond `maxDancersVisible` a worshipper waits at the hiding place (`src/ECS/Systems/Implementations/VillagerWorship.cpp`) |
 | The creature can be sent to the site, and treats it as a place to work, e.g. casting food there | todo | see `../creature/` |
-| A cheat gives a site endless prayer power | partial | each site's infinite flag, set from the debug Miracles window (`src/Debug/Miracles.cpp`) |
+| A cheat gives a site endless prayer power | partial | each site's infinite flag, set from the debug Magic window's Running tab (`src/Debug/MagicMiracles.cpp`) |
 
 The miracle icons round the site, and summoning from them, are in `../miracles/`.

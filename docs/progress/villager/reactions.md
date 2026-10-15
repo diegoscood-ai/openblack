@@ -59,7 +59,7 @@ How the original does it, in our wiki: [Villagers: data, state machine and speed
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | Approach the hand when it is near | todo | `APPROACH_HAND_REACTION` is a TODO row |
-| React to a villager in the hand | todo | the alarm at a villager in the hand is a TODO in `InterfaceSetInMagicHand` (`src/ECS/LivingPhysics.cpp`) |
+| React to a villager in the hand | todo | the alarm at a villager in the hand is a TODO in `InterfaceSetInMagicHand` (`src/ECS/Systems/Implementations/VillagerPhysics.cpp`) |
 | React to something dropped by the hand, or put in the storage pit | todo |  |
 | Watch and point at a flying object thrown overhead | todo | the flying-object reaction is spread (`animal_ai::SpreadFlyingObjectReaction`), but no villager handles it; see [../physics/thrown_living.md](../physics/thrown_living.md) |
 | Get out of the way of a falling tree | todo |  |

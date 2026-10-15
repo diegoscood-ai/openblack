@@ -5,7 +5,7 @@ until they go under, and villagers and animals drowning. The sea itself is in [.
 does to a villager's family and town is in [../villager/](../villager/).
 
 openblack floats and sinks bodies in the game's own physics: the sea test, buoyancy, water drag and
-soaking are in `PhysicsBody::GroundAndWater` (`src/ECS/Physics/PhysicsBody.cpp`), `src/ECS/Physics/CollisionSounds.cpp`
+soaking are in `Body::TouchGround` (`src/Physics/Body.cpp`), `src/ECS/Systems/Implementations/DynamicsSystem.cpp`
 makes the water rings (`ecs::AddWaterRing`), the foam puffs and the water sound of a splash, and `Substep` makes the
 bobbing rings. A sunk villager drowns for its type's drowning time and dies (`VillagerEndPhysicsInWater`,
 `VillagerDrowningState`, `src/ECS/VillagerDrowning.cpp`), a sunk animal dies and is gone (`ecs::HasSunk`), and a tree
@@ -20,30 +20,30 @@ How the original does it, in our wiki: [Water in the game](../../bw1-notes/water
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| A body is in the water when the land under its centre is at sea level, its centre is less than one radius above the sea, and the map cell under its first point has no land | done | `PhysicsBody::GroundAndWater` and `PhysicsBody::IsLandUnder` (`src/ECS/Physics/PhysicsBody.cpp`); tests `PhysicsBodyWaterTest.NearestCellDecides`, `NoCellIsWater` |
-| Only the sea at height 0 counts as water for the physics: raised lakes are not water to it | done | `PhysicsBody::GroundAndWater` (the surface is height 0) |
-| Hitting deep water plays the water collision sound, six foam puffs and a ring, and makes fish within 8 m dart away | done | `CollisionSounds::AttemptToAddSoundEvent` (water sound, foam, ring) and `ecs::SplashWater`, which scares the fish shoals (`src/ECS/FishShoals.cpp`) |
-| Hitting the water makes a ring that grows to twice the body's radius, faster for small bodies | done | `CollisionSounds.cpp` (ring at y 0.1, growth 2 R, rate 1 / R) into `ecs::AddWaterRing` |
-| Six foam-coloured puffs rise where it hits the water | done | `CollisionSounds.cpp` and `src/ECS/Physics/Dust.cpp` (the foam colour) |
-| Over the shallow shore it makes both a ring and dust, with the ground's sound | done | `CollisionSounds.cpp` (dry land, shore and deep tests) |
+| A body is in the water when the land under its centre is at sea level, its centre is less than one radius above the sea, and the map cell under its first point has no land | done | `Body::TouchGround` (`src/Physics/Body.cpp`) and `PhysicsGround::IsSeaCell` (`src/ECS/PhysicsGround.cpp`); tests `PhysicsBodyWaterTest.NearestCellDecides`, `NoCellIsWater` |
+| Only the sea at height 0 counts as water for the physics: raised lakes are not water to it | done | `Body::TouchGround` (the surface is height 0) |
+| Hitting deep water plays the water collision sound, six foam puffs and a ring, and makes fish within 8 m dart away | done | `AttemptCollisionSound` (water sound, foam, ring) and `ecs::SplashWater`, which scares the fish shoals (`src/ECS/FishShoals.cpp`) |
+| Hitting the water makes a ring that grows to twice the body's radius, faster for small bodies | done | `DynamicsSystem.cpp` (ring at y 0.1, growth 2 R, rate 1 / R) into `ecs::AddWaterRing` |
+| Six foam-coloured puffs rise where it hits the water | done | `src/ECS/Systems/Implementations/DynamicsSystem.cpp` (the foam colour) |
+| Over the shallow shore it makes both a ring and dust, with the ground's sound | done | `DynamicsSystem.cpp` (dry land, shore and deep tests) |
 
 ## Floating
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The water lifts a body by how deep its centre is (as a share of its size) times its weight, divided by its density: lighter than water floats, heavier sinks | done | `PhysicsBody::GroundAndWater` (buoyancy fraction x m g / density) |
-| The water slows a body a hundred times more than the air does, by how much of it is under | done | `PhysicsBody::GroundAndWater` (drag x 100) |
-| The water's push acts at the centre; only its turning effect is shared among the points under the surface, so floating things tilt and settle | done | `PhysicsBody::GroundAndWater` |
+| The water lifts a body by how deep its centre is (as a share of its size) times its weight, divided by its density: lighter than water floats, heavier sinks | done | `Body::TouchGround` (buoyancy fraction x m g / density) |
+| The water slows a body a hundred times more than the air does, by how much of it is under | done | `Body::TouchGround` (drag x 100) |
+| The water's push acts at the centre; only its turning effect is shared among the points under the surface, so floating things tilt and settle | done | `Body::TouchGround` |
 | A floating body bobs; whenever its vertical speed turns round while its centre is below half its radius above the sea, it makes a small ring | done | `Substep` in `src/ECS/Physics/PhysicsObjects.cpp` (`AddRipple`) |
-| Floating things drift only with their own speed: there are no currents or wind | done | No current or wind force in `PhysicsBody` |
-| While under the sea a body never touches the sea floor | done | `PhysicsBody::GroundAndWater` (no contact with the bottom) |
+| Floating things drift only with their own speed: there are no currents or wind | done | No current or wind force in `Body` |
+| While under the sea a body never touches the sea floor | done | `Body::TouchGround` (no contact with the bottom) |
 
 ## Soaking and sinking
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Things soak up water: their density rises a little every step they are in it (about 0.013 a second), so floating things sink in the end | done | `PhysicsBody::GroundAndWater` (density rises each submerged substep) |
-| How long things float: wood in the hand about 15 s, trees about 20 s, carried food about 30 s, the lightest toys over a minute; animals go under in a few seconds and villagers almost at once; rocks sink straight away | done | Follows from the materials and the soaking rate (`Data/PhysicsConstants.txt`, `PhysicsBody`); see [../nature/toys.md](../nature/toys.md) |
+| Things soak up water: their density rises a little every step they are in it (about 0.013 a second), so floating things sink in the end | done | `Body::TouchGround` (density rises each submerged substep) |
+| How long things float: wood in the hand about 15 s, trees about 20 s, carried food about 30 s, the lightest toys over a minute; animals go under in a few seconds and villagers almost at once; rocks sink straight away | done | Follows from the materials and the soaking rate (`Data/PhysicsConstants.txt`, `Body`); see [../nature/toys.md](../nature/toys.md) |
 | Something has sunk when it is denser than water and its centre is less than half its radius above the sea | done | `Substep` (centre below half its radius and density over 1, then the class's `hasSunk` or `ecs::HasSunk`) |
 | Ordinary objects that sink keep going down and are deleted deep under the sea | done | `ecs::HasSunk` is false for them (`src/ECS/VillagerDrowning.cpp`); deleted below minus four radii |
 | An animal that sinks dies and is gone (the creature may learn "throw in the sea" from it) | partial | `ecs::HasSunk` sets it dying and deletes it; the creature does not learn from an animal yet (only from a villager) |

@@ -17,7 +17,7 @@ fades, and the advisors and characters acting them out.
 |-----------|--------|---------------|
 | A cut scene takes the camera and brings the cinema bars in | done | `StartCameraControl`, `SetWidescreen` (`src/CHLApi.cpp`, `ScreenFade`); checked in the Land 1 intro |
 | The camera is set to a place and focus at once | done | `SetCameraPosition`, `SetCameraFocus` (`src/CHLApi.cpp`, `Camera/ScriptCamera`) |
-| The camera glides to a place and focus over a time | done | `MoveCameraPosition`, `MoveCameraFocus`, `HasCameraArrived` (`Camera/ScriptCamera`, `test/test_script_camera.cpp`); checked in the Land 1 intro; see ../camera/script_camera.md |
+| The camera glides to a place and focus over a time | done | `MoveCameraPosition`, `MoveCameraFocus`, `HasCameraArrived` (`Camera/ScriptCamera`, `test/test_script_camera_mode.cpp`); checked in the Land 1 intro; see ../camera/script_camera.md |
 | The camera follows or faces an object | done | `FocusFollow`, `PositionFollow`, `SetCameraToFaceObject`, `MoveCameraToFaceObject` (`src/CHLApi.cpp`); the intro's follow shots checked; see ../camera/follow_cameras.md |
 | The camera runs a recorded camera path | partial | `RunCameraPath` is real (`CameraPathSystem`); its scenes (the creatures in the glade) are not checked in game; see ../camera/camera_paths.md |
 | The picture fades to a colour and back between shots | done | `SetFade`, `SetFadeIn`, `FadeFinished` (`ScreenFade`); see ../camera/cinematics.md |

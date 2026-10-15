@@ -5,7 +5,7 @@ comes from one file of tables, `Scripts/info.dat`, loaded once when the game sta
 from the same tables. A table is counted done here only when openblack reads it and its systems use it; how well each
 system follows it is in that system's own domain.
 
-**Progress: 7/36 done, 24 partial — 53%**
+**Progress: 7/36 done, 25 partial — 54%**
 
 ## Loading
 
@@ -47,7 +47,7 @@ system follows it is in that system's own domain.
 | The town, its desires and belief | partial | `src/ECS/Town` (desires, belief); see ../town/ |
 | Worship sites, prayer sites and icons, worship site upgrades | partial | worship sites used (`src/Worship/WorshipSite.cpp`); prayer sites, icons and upgrades not; see ../worship/ |
 | Alignment, influence, the player and reactions | partial | used (`src/ECS/Effects/Alignment.cpp`, `src/ECS/Influence`, `src/ECS/Effects/Reactions.cpp`); see ../worship/ |
-| Dances | todo | read, not used |
+| Dances | partial | read; the dance system takes each row's file and whether it starts on its own (`DanceSystem::Create`); see ../scripts/dance_scripts.md |
 | Totem statues | partial | read by `src/ECS/Archetypes/AbodeArchetype.cpp` when the totem is made; the totem's own behaviour: see ../worship/ |
 
 ## Nature and objects

@@ -33,7 +33,7 @@ How the original does it, in our wiki: [The hand and the interface](../../bw1-no
 | Soft glows behind the mouse and the words | done | the soft blob panels from `atmos.raw` behind the icon and the text (`Renderer::DrawKeyOrMouse`) |
 | Right of the hand, or left of it near the right of the screen | done | the side with its hysteresis in `Renderer::DrawKeyOrMouse` |
 | Numbers filled into the words, as in "Food Amount: 120" | done | `help::tooltips::Numbers` and the text builder: "Food Amount", "Wood Amount", "Food Stored ... Wood ...", the town's believers and population |
-| The tooltip hides while the menu or a script's cinema bars are up | done | under a script's wide screen with an owner none is shown (`ProcessTurn`); while paused outside the temple the icon is deleted (`help::tooltips::Frame`), so the menu's pause hides it |
+| The tooltip hides while the menu or a script's cinema bars are up | done | under a script's wide screen with an owner none is shown (`ProcessTurn`); a turn paused outside the temple deletes it, and between turns a pause leaves it drawn, as the original. Not done: an open menu box hiding its draw |
 
 ## Where tooltips are offered
 

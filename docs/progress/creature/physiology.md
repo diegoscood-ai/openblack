@@ -4,7 +4,7 @@ A creature's body lives through time: it gets hungry, tired, thirsty, hot or col
 work and fatter from overeating, is healed by sleep and faints when exhausted, starved or out of life. Each species has
 its own rates, from the game's creature tables.
 
-**Progress: 35/52 done, 8 partial — 75%**
+**Progress: 36/53 done, 8 partial — 75%**
 
 How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../bw1-notes/creature.md).
 
@@ -26,7 +26,7 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | Energy runs down over time at the species' rate; hunger is energy missing | done | `creature_physiology` `TickTurn`, `Hunger`; test `CreaturePhysiology.EnergyRunsDownSlowerForBigOrSleepingCreatures` |
-| Bigger creatures use energy more slowly, down to half as fast at size 2, and much more slowly asleep or resting | done | `k_EnergySizeFactor`, `k_RestingEnergyDivisor`; test `CreaturePhysiology.EnergyRunsDownSlowerForBigOrSleepingCreatures` |
+| Bigger creatures use energy more slowly, down to half as fast at size 2, and much more slowly sleeping at home or resting to get better (by the action it carries out) | done | `k_EnergySizeFactor`, `k_RestingEnergyDivisor`, `creature_physiology::SlowsEnergy`, the action taken from the mind at the body's turn (`CreatureMindSystemInterface::CurrentActionOf`); tests `CreaturePhysiology.EnergyRunsDownSlowerForBigOrSleepingCreatures`, `CreaturePhysiology.WhichActionsCountAsAsleep`, `CreaturePhysiologySystemTest.ItGoesByTheActionItsMindCarriesOutAtItsOwnTurn` |
 | Below half energy it burns fat, getting thinner | done | test `CreaturePhysiology.HungryCreaturesBurnFat` |
 | Eating fills it by the food's value, up to its size; a big meal pushes energy past full | done | `creature_physiology::Eat`, called through `CreaturePhysiologySystem::Eat` when `CreatureObjectActionSystem` eats; test `CreaturePhysiology.EatingFillsItUpFattensAndBuildsPoo` |
 | Overeating makes it fatter by the species' factor | done | test `CreaturePhysiology.EatingFillsItUpFattensAndBuildsPoo` |
@@ -44,7 +44,8 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 | Actions cost energy and tiredness by the table, less for bigger creatures | done | `creature_physiology::ApplyActionCost`, through `CreaturePhysiologySystem`; test `CreaturePhysiology.ActionsCostEnergyAndBuildStrength` |
 | Casting miracles costs energy and tires it | todo | the creature casts no miracle; see [creature_casting.md](creature_casting.md) |
 | Exhausted, it moves only slowly | done | test `CreatureLocomotion.ExhaustedCreaturesGoSlowly` |
-| Asleep it rests at the species' rate; it never wakes in the first few turns, wakes fully rested in the day or nearly rested after sleeping long enough for its size | done | `creature_physiology::SleepTurn`; test `CreaturePhysiology.SleepHealsAndRestsThenWakes` |
+| Asleep it rests at the species' rate; it never wakes in the first few turns, wakes fully rested in the day or nearly rested after sleeping long enough for its size and the day's length | done | `creature_physiology::SleepTurn`, `LongEnoughAsleep` (the day from `DayNightClock::GetDuration`); tests `CreaturePhysiology.SleepHealsAndRestsThenWakes`, `CreaturePhysiologySystemTest.HowLongItSleepsFollowsTheDaysLengthOnTheClock` |
+| Sitting rests it a fifth as much as sleep | done | `creature_physiology::SitTurn`, through `CreaturePhysiologySystem::Sit`, which the mind calls once a turn while the body plays the sit loop (`CreatureNeeds::sitting`); tests `CreaturePhysiology.SittingRestsAFifthAsMuchAsSleep`, `CreaturePhysiologySystemTest.SittingRestsItAFifthAsMuchAsSleep` |
 | Night makes it sleepy | partial | the body drives the night tiredness source from the sky's clock (`SourceValue`); see [desires.md](desires.md) |
 | Fully exhausted, it faints | done | `creature_physiology::ShouldFaint` |
 
@@ -52,8 +53,8 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Thirst builds up over the species' time to dehydrate, once grown enough | done | test `CreaturePhysiology.ThirstBuildsUpOnceGrownEnough` |
-| Drinking quenches it fully | done | `creature_physiology::Drink`, from the mind's `DrinkFromTheSea` (`CreatureMindSystem`) |
+| Thirst builds up over the species' time to dehydrate, once grown enough, the turns cut to whole numbers | done | tests `CreaturePhysiology.ThirstBuildsUpOnceGrownEnough`, `TheTurnsToDehydrateAreCutToWholeNumbers` |
+| Drinking quenches it fully and cools it to 0, putting out a fire on it | done | `creature_physiology::Drink` and the fire system's `SetTemperature`, from the mind's `DrinkFromTheSea` (`CreatureMindSystem`); test `CreaturePhysiologySystemTest.DrinkingQuenchesItAndCoolsItToZero` |
 | Eating builds up poo by the energy gained | done | `creature_physiology::Eat`; test `CreaturePhysiology.EatingFillsItUpFattensAndBuildsPoo` |
 | Having a poo empties it and leaves a lump on the ground behind it, sized by the creature | partial | `CreaturePhysiologySystem::Poo` makes a lump of poo behind it, sized by the creature; the game throws the lump back along the ground, here it is set down there |
 | Being sick throws drops from its mouth that lie on the land a while and fade | done | `CreaturePhysiologySystem::Puke` |
@@ -83,10 +84,10 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| It ages a tick per species' length of game time | done | test `CreaturePhysiology.ItAgesOncePerTickOfGameTime` |
+| It ages a tick per species' length of game time, counted in whole turns a second | done | tests `CreaturePhysiology.ItAgesOncePerTickOfGameTime`, `CreaturePhysiology.ItsAgeTickCountsWholeTurnsASecond` |
 | A new creature starts with its species' energy and warmth | done | `creature_physiology::Start`; test `CreaturePhysiology.ANewBodyStartsFromItsSpecies` |
-| The body changes nothing before the first stages of growing up | done | test `CreaturePhysiology.NothingChangesBeforeTheBodyStage` |
-| Only creatures owned by a player and grown far enough faint | done | `creature_physiology::ShouldFaint`; test `CreaturePhysiology.FaintingOnlyForGrownUpOwnedCreatures` |
+| Before the first stages of growing up the body only counts its turns, which count towards its age | done | tests `CreaturePhysiology.OnlyItsTurnsAreCountedBeforeTheBodyStage`, `CreaturePhysiology.TurnsBeforeTheBodyStageCountTowardsItsAge` |
+| Only creatures owned by a player and grown far enough faint, never one a script controls or the computer's | done | `creature_physiology::ShouldFaint` with `FaintGates`; tests `CreaturePhysiology.FaintingOnlyForGrownUpOwnedCreatures`, `CreaturePhysiologySystemTest.OnlyACreatureNoScriptControlsAndNoComputerPlaysFaints`; nothing sets the computer's player type yet |
 | Fainted, it lies still, is carried to its pen and comes round no longer quite exhausted, starved or parched | done | `CreaturePhysiologySystem::WakeFromFaint`; `CreatureFightSystem` carries a knocked-out creature home; see [home_and_pen.md](home_and_pen.md) |
 | How far a creature sees depends on its size | done | `src/Creature/CreatureLook` range, used by `CreatureMindSystem`; see [idle_behaviour.md](idle_behaviour.md) |
 | The body drives the desire sources: hunger, tiredness, thirst, poo, warmth, itch, health | done | `SourceValue`; tests `CreaturePhysiology.TheBodyDrivesItsDesireSources`, `LeftAloneItsBodyDrivesItsHungerThirstAndPoo` |

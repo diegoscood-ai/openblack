@@ -34,7 +34,7 @@ How the original does it, in our wiki: [The hand and the interface](../../bw1-no
 | Animals can be picked up only if their species allows it | done | `ecs::animal_ai::ValidForPlaceInHand` (the species' playerCanPickUp) in `FindObjectUnderHand` |
 | Loose mobile objects (pots, logs, branches, toys, balls) can be picked up | done | Mobile objects, pots and mobile statics pass the class filter (`FindObjectUnderHand`); the holds per kind in `ComputeHoldParameters` |
 | Among fixed things only trees can be picked up (not bushes or features) | partial | Trees, dead trees, big forests, fields and piles pass the filter; bushes are trees in our tree too (the 22 tree types, trees.md), features do not |
-| Rocks can be picked up unless they are wider than 3.6 units | done | `Rocks::ValidForPlaceInHand` (2D radius at most 3.6); a bigger rock is tapped (split) instead |
+| Rocks can be picked up unless they are wider than 3.6 units | done | `object_physics::RockValidForPlaceInHand` (2D radius at most 3.6); a bigger rock is tapped (split) instead |
 | A field can be grabbed only while it has food in it | done | `HandSystem::FieldValidForLockedSelect` (growth above 0 and food above 1, `HandFish.cpp`) |
 | A fish farm can be grabbed only while it has fish in it | done | `ecs::FindFishFarmAt` only finds a farm by one of its visible fish (`src/ECS/FishShoals.cpp`); the fish farm branch of `hand_press::Choose` |
 | A food or wood pile or store can be grabbed only while it has some of what it holds | done | `HandSystem::PickUp` takes min(the hand pot's first amount, what the pile or store has) and nothing when it has none |
@@ -50,7 +50,7 @@ How the original does it, in our wiki: [The hand and the interface](../../bw1-no
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| A villager in the hand is marked as held, remembers what it was doing and goes into its in-hand state | partial | `ecs::living::InterfaceSetInMagicHand` (`src/ECS/LivingPhysics.cpp`) marks it held and sets IN_HAND; its previous state is not stored at the pick-up |
+| A villager in the hand is marked as held, remembers what it was doing and goes into its in-hand state | partial | `ecs::villager_physics::InterfaceSetInMagicHand` (`src/ECS/Systems/Implementations/VillagerPhysics.cpp`) marks it held and sets IN_HAND; its previous state is not stored at the pick-up |
 | Picking up a villager of the hand's player in its breeding years alarms those around it | todo | Not in our tree (a TODO in `InterfaceSetInMagicHand`) |
 | Villagers and animals in the hand switch to their in-hand animation and cry out | partial | Villagers scream (`HandSystem::GenericPickupSounds`) and take IN_HAND's clip; animals take their in-hand clip (`src/ECS/AnimalAnimations.cpp`); no animal cry found |
 | An animal picked up is taken out of its flock into a flock of its own (the old flock goes when empty) | done | `ecs::animal_ai::PlaceInHand` (`src/ECS/AnimalAI.cpp`): out of its flock into a flock of its own, the old one deleted when empty unless a script's |

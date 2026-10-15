@@ -7,7 +7,7 @@ challenge compiler work in openblack's research folder) against the 514 scripts 
 `Scripts/Quests/challenge.chl`. Unused puzzle kinds and the best-known cut games (cow bowling, whack-a-villager, the
 cup final and so on) are listed in [../story/minigames.md](../story/minigames.md); they are not repeated here.
 
-**Progress: 0/2 done, 0 partial — 0%**
+**Progress: 0/2 done, 1 partial — 25%**
 
 ## Challenges never compiled into the game
 
@@ -41,7 +41,7 @@ cup final and so on) are listed in [../story/minigames.md](../story/minigames.md
 | The creature's "watch telly" and "fart" actions exist but are empty: choosing them does nothing | n/a | nothing to port |
 | "Tell a friend a joke" is fully built (it walks up fluttering its eyelids, talks, and its friend reacts) but is missing from the game's table of actions, so it can never be chosen | todo | not in our tree; could be added as an extra; not in [secret_behaviours.md](secret_behaviours.md) for that reason |
 | The developers' key menus and nine named key layouts | n/a | see [hidden_keys_and_cheats.md](hidden_keys_and_cheats.md) |
-| The dance formations can lay dancers out as shapes: circle, heart, spiral, octagon, square, triangle, wavy circle, lines, random scatter, a figure eight, lightning, a star, a man, a fish, a cockerel and the letters of the alphabet (`Data/Letter*.DAN` and friends) | todo | our tree has no reader for the dance files (`Data/Letter*.DAN` and friends); which shipped dances use the shapes is unconfirmed; see [../scripts/dance_scripts.md](../scripts/dance_scripts.md) |
+| The dance formations can lay dancers out as shapes: circle, heart, spiral, octagon, square, triangle, wavy circle, lines, random scatter, a figure eight, lightning, a star, a man, a fish, a cockerel and the letters of the alphabet (`Data/Letter*.DAN` and friends) | partial | the computed shapes (circle, spiral, wavy circle, lines and the others) are in our tree (`src/ECS/DanceShapes.cpp`), but not the triangle and the heart, nor the random scatter's points; the shapes read from `Data/*.DAN` (the letters, the man, the fish and the rest) are not read, so those dancers stand at the centre; no dance file uses the random scatter; see [../scripts/dance_scripts.md](../scripts/dance_scripts.md) |
 
 ## Data nothing loads
 

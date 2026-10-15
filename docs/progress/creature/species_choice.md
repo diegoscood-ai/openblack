@@ -48,7 +48,7 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 | Each species leaves its own footprints | done | `src/Creature/CreatureFootprints` per-species prints, drawn by `FootprintSystem`; test `CreatureFootprints.SpeciesCells` |
 | Each species has its own places for tattoos | done | see [creature_tattoos.md](creature_tattoos.md) |
 | Some species have hair that moves | done | `CreatureHairSystem`; see [face_eyes_hair.md](face_eyes_hair.md) |
-| The ogre can never be held by the hand | done | `creature_hand::MayHold` (`src/Creature/CreatureHandRules.cpp`); test `CreatureHand.ACreatureOfAnyPlayerLetsTheHandHoldIt` |
+| The ogre can never be held by the hand | done | `creature_hand::MayHold` (`src/Creature/CreatureHandRules.cpp`); test `CreatureHand.TheHandHoldsAnyPlayersCreature` |
 | Other ogre limits (unconfirmed which) | todo |  |
 | The hand's tooltip and the creature's help texts name its species | todo | the hand's tooltip on a creature (`HandToolTips.cpp`) does not name the species |
 

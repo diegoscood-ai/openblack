@@ -19,8 +19,8 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 | Something out of reach of the four animations makes it step closer and try again, then give up | done | tests `CreatureReach.StretchingPastTheCornersExtrapolatesThenFails`, `CreatureIdleMind.AnObjectStepWaitsForTheHandsAndGivesUpWhenTheyFail` |
 | The thing is taken hold of at the moment of the animation set for the species | done | `CreatureObjectActionSystem::Moment`, at the take-hold time of the species' animations |
 | What it holds rides in its hand, held by its middle, turned with the hand | done | `components::CreatureHeldObject`, drawn by `CreatureObjectActionSystem::UpdateHeldDraw`; test `CreatureObjectActionSystemTest.TakenHoldOfAndLetGoOfThingsAreDrawnAtOnceWhereTheyAre` |
-| Only light enough things can be picked up; the heavier the creature is the more it can lift | partial | anything mobile, villagers, animals that may be put in a hand, and food pots can be picked up (`CreatureObjectActionSystem::CanPickUp`); no weight limit by size (see [physiology.md](physiology.md)); scaffolds have their own pick-up and stealing rules (see [../building/workshop_and_scaffolds.md](../building/workshop_and_scaffolds.md)) |
-| A villager picked up stops what it was doing | done | `CreatureObjectActionSystem::Moment` takes it out of the physics and the map as the player's hand does (`ecs::living::InterfaceSetInMagicHand`) |
+| Only light enough things can be picked up; the heavier the creature is the more it can lift | partial | birds by their own test (less than a metre above the land); other animals, villagers and mobile objects by the game's test of things in general: within the creature's reach, no heavier than 0.8 of its weight, not its leash's, not a worshipper of its own (`CreatureObjectActionSystem::CanPickUp`, `creature_pick_up::CreatureMayPickUp`; testbed `creature.pick_up_by_size`, `creature.pick_up_villagers`, `creature.pick_up_mobile_objects`); food pots still by the earlier rule, lifted whole (port row N-C-8 B4e); scaffolds have their own pick-up and stealing rules (see [../building/workshop_and_scaffolds.md](../building/workshop_and_scaffolds.md)) |
+| A villager picked up stops what it was doing | done | `CreatureObjectActionSystem::Moment` takes it out of the physics and the map as the player's hand does (`ecs::villager_physics::InterfaceSetInMagicHand`) |
 | Carrying something heavy makes the creature stronger over time | done | `CreatureObjectActionSystem::ProcessTurn` with the species' carrying rate; test `CreaturePhysiology.CarryingMakesItStronger` |
 | A young creature that hasn't learnt to pick things up can't, and is told so | todo | see [development_phases.md](development_phases.md) |
 | The player can give the creature something by dropping it into its hand, and it takes it | todo | the hand can't hand things to a creature; see [../hand](../hand/) and [feeding_and_thrown_things.md](feeding_and_thrown_things.md) |
@@ -52,13 +52,13 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 | Eating fills it, fattens it if it overeats, and builds up poo | done | `CreaturePhysiologySystem::Eat`; see [physiology.md](physiology.md) |
 | Stomp and eat: stamps on something first, then eats it | todo |  |
 | Stone and eat: kills something with a thrown stone, then eats it | todo |  |
-| Eat from the storehouse's food pile where it lies | partial | plan action `EatFromFoodPile` eats pots and piles of food it can pick up; eating from the storehouse in place is todo |
+| Eat from the storehouse's food pile where it lies | partial | plan action `EatFromFoodPile` lifts pots and piles of food whole; the game never lifts a pile, it eats a wheat portion made in its hand (`creature_eating::PortionAmount`, `PortionPoint`, not called yet; port rows N-C-8 B4f-4, B4g); eating from the storehouse in place is todo |
 | Eat from a field, pulling up the crops | todo | see [../resources](../resources/) |
 | Eat from a tree, shaking fruit down | todo |  |
-| Eat from a magic food pile | partial | magic food piles count as food pots in `FoodValueOf` (unconfirmed they are all eaten the same way) |
+| Eat from a magic food pile | partial | magic food piles count as food pots in `FoodValueOf` and are lifted whole; the game eats a magic pile outside its town's storage pit by portions (`creature_eating::IsFoodPileOutsideStoragePit`, not called yet; port row N-C-8 B4f-4) |
 | Fish and eat: wades in, scoops up fish and eats them | todo |  |
 | Food it can't pick up is given up uneaten | done | test `CreatureNeedsMind.FoodItCantPickUpIsGivenUpUneaten` |
-| Poisoned food makes it sick and holds back its hunger for a while | todo | see [feeding_and_thrown_things.md](feeding_and_thrown_things.md) |
+| Poisoned food makes it sick and holds back its hunger for a while | done | `CreatureObjectActionSystem::EndMeal` judges the meal as it ends (`creature_eating::JudgeMeal`); `CreatureMindSystem::EndMeal` holds the hunger back 20 s and makes it sick; tests `CreatureObjectActionSystemTest.WhatIsEatenIsJudgedOnceTheEatingIsOver`, `CreatureMindSystemTest.AMealEndsByWhatItWas` |
 | Drink from the sea: goes to the water's edge, kneels and drinks | done | plan action `DrinkFromTheSea`; test `CreatureNeedsMind.ItDrinksAtTheWatersEdge` |
 | Drinking quenches its thirst and it doesn't want water again for a while | done | `CreatureMindSystem` (`k_WaterSuppressSeconds`) |
 | Eats the grain from fields only when the time is ripe | todo | (unconfirmed what "ripe" means here) |

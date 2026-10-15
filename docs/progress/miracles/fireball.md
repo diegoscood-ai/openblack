@@ -63,7 +63,7 @@ How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/mir
 | The point event carries the ball's last drawn movement | partial | `src/Particles/Rules/Fireball.cpp` sends the step's move (velocity times the step, inferred), not the drawn movement |
 | People nearby react to the miracle once, the first time it has an effect | done | `src/Magic/Core/SpellEvent.cpp` (the reaction on the first event), `src/ECS/Effects/Reactions.cpp` |
 | The player's creature may copy the fireball where it lands near a town | todo | The per-event creature mimic is a TODO in `src/Magic/Core/SpellEvent.cpp`; only the water miracle calls `src/ECS/CreatureMimic.cpp` |
-| A creature learns the fireball by watching; it must know the plain one before the power-ups | partial | The rules are in `src/Creature/CreatureWatching.cpp` (`test/creature/test_creature_learning.cpp`), but a cast never tells the creature: `SeeMiracle` is only called from the debug creature spawner. See ../creature/ |
+| A creature learns the fireball by watching; it must know the plain one before the power-ups | partial | The rules are in `src/Creature/CreatureWatching.cpp` (`test/test_creature_learning.cpp`), but a cast never tells the creature: `SeeMiracle` is only called from the debug creature spawner. See ../creature/ |
 
 ## Catching and absorbing
 

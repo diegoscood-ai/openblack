@@ -3,7 +3,7 @@
 What the world's camera lets the player do, as the land's scripts allow it. The tutorials take most camera features away
 and give them back one by one, can make the camera tilt itself, and show the player which key or button to use.
 
-**Progress: 6/18 done, 6 partial — 50%**
+**Progress: 9/18 done, 6 partial — 67%**
 
 ## Features the scripts allow
 
@@ -11,7 +11,7 @@ and give them back one by one, can make the camera tilt itself, and show the pla
 |-----------|--------|---------------|
 | Each tutorial interface level sets which camera features (zoom, turn, tilt, move, turn round the mouse) the player has | done | `help::interface_interaction::Set` (`src/Help/InterfaceInteraction.cpp`) writes `camera_help::EnableCameraFeatures` (`src/Camera/CameraHelp.cpp`) for every `SET_INTERFACE_INTERACTION` level; `InterfaceInteractionTest.EveryLevelAsTheJumpTable` (`test/gui/test_interface_interaction.cpp`) |
 | Without a feature its controls do nothing | done | `DefaultWorldCameraModel::Update` zeroes the zoom, turn and tilt input without their bits, and `HandleActions` needs the double-click and land-grab bits for the flight and the drag |
-| Turning round the mouse with the middle or both buttons needs its own feature | partial | the turn round the mouse (`Mode::ArcBall`) has no bit of its own: only its turn and tilt are cut by the Rotate and Pitch bits. Our wiki knows no separate bit for it (the meaning of two of the feature bits is not read) |
+| Turning round the mouse with the middle or both buttons needs its own feature | done | `camera_help::Feature::JustZoom` (0x20) in `DefaultWorldCameraModel::HandleActions` and `src/Game.cpp`'s cursor freeze; `WorldCameraMouse.WithoutTheirFeatureTheMiddleButtonAndBothButtonsDoNothing` |
 | Interface levels can take the camera keys away, or just the keys that fly to the temple, the creature and the realm | partial | the levels store the camera-moves and realm-zoom switches (`interface_interaction::IsActionBlocked`, `InterfaceInteractionTest.ControlMapActionGate`), but only the bookmark number keys read them (`KeyShortcutsEnabled` in `src/Game.cpp`); `IsActionBlocked` has no caller in the game |
 | The first tutorial level shortens how far from the camera the hand reaches | done | `interface_interaction::LevelHandReach` hands the reach to `HandSystem::SetHandReach`, which clamps the hand's distance in `HandPlacement.cpp`; `InterfaceInteractionTest.InvalidLevelsLeaveTheReach` |
 | Unknown levels change nothing | done | `InterfaceInteractionTest.InvalidLevelsOnlyStoreTheLevel` |
@@ -22,9 +22,9 @@ and give them back one by one, can make the camera tilt itself, and show the pla
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The camera tilts itself towards a set pitch, a tenth of the way at most each frame, while the land isn't dragged | todo | the auto-pitch bit and its angle and distance are stored (`camera_help::SetAutoPitch`) but `DefaultWorldCameraModel` never reads them |
-| While self-tilting the camera keeps to a set height over the land | todo | nothing in `DefaultWorldCameraModel` reads `camera_help::GetAutoPitchDistance` |
-| Scripts set the pitch and height the camera tilts to | todo | only the tutorial levels 1, 2 and 10 store fixed values (`k_TutorialAutoPitchAngle`, `k_TutorialAutoPitchDistance` in `src/Help/InterfaceInteraction.cpp`), and the camera does not use them |
+| The camera tilts itself towards a set pitch, a fifth of the way at most each frame, while the land isn't gripped, and the player can't tilt it meanwhile | done | `camera_help::AutoPitchInput`, `DefaultWorldCameraModel::HandleActions`; `CameraHelp.TheSelfTiltingCameraTiltsAFifthOfTheWayAtMostTheFramesSeconds`, `WorldCameraMouse.TheSelfTilting*` |
+| While self-tilting, or with nothing done, the camera keeps to a set height over the land | done | `DefaultWorldCameraModel::Update`; `WorldCameraMouse.TheSelfTiltingCameraTiltsAFifthOfTheWayAndKeepsToItsHeight` |
+| Scripts set the pitch and height the camera tilts to | partial | only the tutorial levels 1, 2 and 10 store fixed values (`k_TutorialAutoPitchAngle`, `k_TutorialAutoPitchDistance` in `src/Help/InterfaceInteraction.cpp`), which the camera uses; no script sets its own values |
 
 ## Fixed rotation
 

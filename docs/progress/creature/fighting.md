@@ -4,7 +4,7 @@ Creatures fight each other in duels inside a circular arena. The player directs 
 clicking the opponent's body high, middle or low to strike, their own creature to block and the ground to step, or
 leaves it to fight by itself as it has learnt to. Nobody dies in a fight: the loser faints, is carried home and recovers.
 
-**Progress: 22/56 done, 16 partial — 54%**
+**Progress: 20/56 done, 18 partial — 52%**
 
 How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../bw1-notes/creature.md).
 
@@ -12,13 +12,13 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| An angry creature can choose to fight another creature it sees | done | `CreatureFightSystem::ProcessTurn` starts a fight when an angry creature has another near (`fight::WantsToFight`); test `CreatureFightSystemTest.WhatStartsAFight`; see [decision_making.md](decision_making.md) |
+| An angry creature can choose to fight another creature it sees | done | `CreatureFightSystem::ProcessTurn` starts a fight when an angry creature has another near (`fight::WantsToFight`); test `CreatureFightTurnsTest.WhatStartsAFight`; see [decision_making.md](decision_making.md) |
 | Tying the leash from the player's creature to another creature starts a fight | done | `CreatureFightSystem` takes the leash's act-on list (`CreatureMindState::leash.actOn`, filled by `LeashSystem`); see [leash.md](leash.md) |
 | A creature too badly hurt won't start a fight | done | `creature_fight` health threshold; test `CreatureFight.OutcomesAndStarting` |
 | Asked to fight, the other creature can refuse, and the player is told why | todo | the help text of refusals is in [lessons_and_help.md](lessons_and_help.md) |
 | Neither creature may already be fighting or lying knocked out | done | `CreatureFightSystem::StartFight` returns `StartResult::Busy` |
-| The creature that starts it makes an arena between the two, sized by the bigger creature, with a cap | done | test `CreatureFight.ArenaIsSizedByTheBiggerCreatureAndCapped` |
-| An arena already near is reused rather than a new one made | todo | (unconfirmed how near) |
+| The creature that starts it makes an arena between the two, sized by the bigger creature, with a cap | partial | test `CreatureFight.ArenaIsSizedByTheBiggerCreatureAndCapped`. The original sizes it by the size the creatures are drawn at, smaller in a temple's pen; ours by their own size (queued as a fix) |
+| An arena already near is reused rather than a new one made | todo | the original reuses the nearest arena within a set distance at the smaller of the two sizes, and otherwise shrinks a new one until it finds free ground; not ported (queued as a fix) |
 | The arena is marked out on the land and shown while the fight lasts | todo |  |
 | The creatures walk to their places on either side, point at the arena, and play their fight start | partial | they walk to their places, taunt and play the start (`CreatureFighting` stages approach, taunt, ready in `CreatureFightSystem`); pointing at the arena is todo |
 | Scripts can start a fight and set where the loser goes | todo | only the debug spawner calls `StartFight`; `SET_FIGHT_EXIT`, `GET_ARENA` are stubs in `src/CHLApi.cpp` |
@@ -27,10 +27,10 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Clicking the opponent's body strikes at the band clicked: high, middle or low | partial | `CreatureFightSystem::Press` and `fight::BandAt` (tests `CreatureFight.ClickHeightPicksTheBand`, `CreatureFightSystemTest.APressChargesOnThePlayersFighter`), but no hand code calls `Press`, so the player cannot click in a fight |
+| Clicking the opponent's body strikes at the band clicked: high, middle or low | partial | `CreatureFightSystem::Press` and `fight::BandAt` (tests `CreatureFight.ClickHeightPicksTheBand`, `CreatureFightTurnsTest.APressChargesOnThePlayersFighter`), but no hand code calls `Press`, so the player cannot click in a fight |
 | Clicking their own creature blocks | partial | in `CreatureFightSystem::Press`, which the hand never calls |
 | Clicking the ground steps forward, back or sideways, by the longer axis of the click | partial | test `CreatureFight.GroundClickStepsAlongTheLongerAxis`; not reached from the hand |
-| Stepping back or sideways is only allowed within the arena; forward always | done | test `CreatureFight.StepsBackOrSidewaysOnlyWithinRange` |
+| Stepping back or sideways is only allowed within the arena; forward always | partial | test `CreatureFight.StepsBackOrSidewaysOnlyWithinRange`. The original refuses those steps while the creature stands beyond the arena's range and moves a block's recoil only inside it; ours starts every step and keeps the movement within the range (queued as a fix) |
 | Holding the click charges a blow, up to 1.2 seconds, playing a power-up while it waits | partial | test `CreatureFight.ChargeRunsToOnePointTwoSeconds`; not reached from the hand |
 | Moves queue up, at most twelve; a click can replace the queue | done | test `CreatureFight.QueueHoldsTwelveAndAClickReplacesIt` |
 | Being hit takes away a charged blow still waiting | done | test `CreatureFight.GettingHitTakesAWaitingBlowAway` |
@@ -53,7 +53,7 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 | A blow throws the victim back or reels it to the side, top or bottom by where it lands, with a wobble | done | test `CreatureFight.RecoilsByHeightAndDirection` (top or bottom for high blows is a guess, noted in `src/Creature/CreatureFight.h`) |
 | Blows cut, bruise or graze, leaving wounds, some bleeding | partial | `CreatureFightSystem` adds a wound at a random place on the skin (`CreatureSkinSystem::AddWound`); test `CreatureFight.WoundsByTheBlow`; which wound each blow leaves is guessed (see [marks.md](marks.md)) |
 | Sparkles fly where blows land | todo |  |
-| Blow and block sounds, the crowd's cheers, and fight music | partial | blow sounds play from the animations (`CreatureAudioSystem`, [animation.md](animation.md)); cheers and fight music are todo ([../audio](../audio/)) |
+| Blow and block sounds, the crowd's cheers, and fight music | partial | blow sounds play from the animations (`CreatureAudioSystem`, [animation.md](animation.md)); the cheers are todo; the fight music's rule is read (while the player watches their creature fight, or near an arena it fights in) but nothing sets it (queued as a fix; [../audio](../audio/)) |
 | Miracles cast at a fighter make it reel | todo | no miracle reaches a fighter |
 | Stamina comes back slowly each turn | done | `fight::RegainStamina` in `CreatureFightSystem` |
 | The game keeps counts of attacks, blocks and steps for the statistics | todo | kept in the player's help record and shown on Tech Stats ([../interface/statistics_counted.md](../interface/statistics_counted.md)) |
@@ -75,7 +75,7 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 |-----------|--------|---------------|
 | At no fight health a creature faints; the other wins | done | `CreatureFightSystem`; test `CreatureFight.OutcomesAndStarting` |
 | A quarter of the fight health lost comes off the creature's real life | done | `fight::LifeAfterFight` in `CreatureFightSystem`; test `CreatureFight.HealthStaminaAndLife` |
-| The loser lies out cold for a while by its size, is carried home (fading out and in), rests until healthy enough and gets up | done | `CreatureFightSystem::KnockOut`, `CreatureKnockedOut`, `HomeOf`; test `CreatureFightSystemTest.KnockedOutItIsTakenHomeAtOnce` |
+| The loser lies out cold for a while by its size, is carried home (fading out and in), rests until healthy enough and gets up | done | `CreatureFightSystem::KnockOut`, `CreatureKnockedOut`, `HomeOf`; test `CreatureFightTurnsTest.KnockedOutItIsTakenHomeAtOnce` |
 | Spells on a knocked-out creature are brought to their end | todo | `CreatureFightSystem::KnockOut` leaves its spells as they are |
 | After the fight each creature responds: the winner celebrates, the loser sulks, and they remember how they feel about each other | partial | the winner plays its finish and celebrates (`CreatureFighting::Stage::Celebrate`); the loser's response and the change of attitude are todo |
 | Creatures never die in a fight; only a script kills one for good | partial | fights never kill; `CreatureFightSystem::KillPermanently` exists but only the debug spawner calls it |

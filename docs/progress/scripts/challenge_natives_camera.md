@@ -8,9 +8,9 @@ The challenge scripts' functions for the camera: setting and gliding it, followi
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Puts the camera's eye at a position at once: *set camera position to ‹position›* (called 307 times in 85 scripts) | done | `SetCameraPosition` in `src/CHLApi.cpp`: `script_camera::SetPosition` (`src/Camera/ScriptCamera.cpp`), only in the script camera mode, as the original; `test/test_script_camera.cpp` |
+| Puts the camera's eye at a position at once: *set camera position to ‹position›* (called 307 times in 85 scripts) | done | `SetCameraPosition` in `src/CHLApi.cpp`: `script_camera::SetPosition` (`src/Camera/ScriptCamera.cpp`), only in the script camera mode, as the original; `test/test_script_camera_mode.cpp` |
 | Points the camera at a position at once: *set camera focus to ‹position›* (called 290 times in 85 scripts) | done | `SetCameraFocus`: `script_camera::SetFocus`, only in the script camera mode |
-| Glides the camera's eye to a position over a number of seconds: *move camera position to ‹position› time ‹time›* (called 769 times in 162 scripts) | done | `MoveCameraPosition`: `script_camera::MovePosition`, in seconds of the wall clock; `test/test_script_camera.cpp` |
+| Glides the camera's eye to a position over a number of seconds: *move camera position to ‹position› time ‹time›* (called 769 times in 162 scripts) | done | `MoveCameraPosition`: `script_camera::MovePosition`, in seconds of the wall clock; `test/test_script_camera_mode.cpp` |
 | Glides the camera's point of view to a position over a number of seconds: *move camera focus to ‹position› time ‹time›* (called 737 times in 161 scripts) | done | `MoveCameraFocus`: `script_camera::MoveFocus` |
 | Gives the camera's current eye position: *camera position* (called 561 times in 171 scripts) | done | `GetCameraPosition`: the drawn camera's position |
 | Gives the position the camera is looking at: *camera focus* (called 263 times in 111 scripts) | done | `GetCameraFocus`: the drawn camera's focus |
@@ -20,7 +20,7 @@ The challenge scripts' functions for the camera: setting and gliding it, followi
 | Gives the camera back to the player at the end of a cut scene: *end cinema / end camera (closing the block)* (called 450 times in 238 scripts) | done | `EndCameraControl`: `help::script_control::EndCameraControl` then `script_camera::End` (the player's mode from where the camera is, the lens back to 70 degrees); a stopped task gives it back too |
 | Brings the black cinema bars in or out: *the cinema block's bars (opening and closing it)* (called 754 times in 235 scripts) | done | `SetWidescreen`: `help::script_control::SetWideScreen` for the holding task; the bars slide in the help system's wide-screen time (`src/3D/ScreenFade.cpp`) |
 | Whether the camera has finished a glide: *camera ready* (called 493 times in 153 scripts) | done | `HasCameraArrived`: `script_camera::ScriptArrived` in the script mode, else the player's zoomers against their destinations |
-| Keeps the camera's point of view on a moving object: *move camera focus follow ‹target›* (called 4 times in 3 scripts) | done | `FocusFollow`: `script_camera::FocusFollow`; `ScriptCameraFollow` tests in `test/test_script_camera.cpp` |
+| Keeps the camera's point of view on a moving object: *move camera focus follow ‹target›* (called 4 times in 3 scripts) | done | `FocusFollow`: `script_camera::FocusFollow`; `ScriptCameraFollow` tests in `test/test_script_camera_mode.cpp` |
 | Takes a picture of the camera's view for the challenge log in the temple: *snapshot (a challenge log picture)* (called 137 times in 76 scripts) | todo | `Snapshot` logs "not implemented" (no challenge log) |
 | Gives one of the camera positions placed in the landscape by name: *camera position named in the landscape* (called 13 times in 11 scripts) | done | `ConvertCameraPosition`: the "Cam" entry of the land's `camera.edt` |
 | Gives one of the camera focus positions placed in the landscape by name: *camera ‹camera enum›* (called 19 times in 13 scripts) | done | `ConvertCameraFocus`: the "Cam" entry's focus |

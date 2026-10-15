@@ -10,9 +10,9 @@ monuments, gates, and the small things the land scripts scatter.
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | The land scripts place rocks and boulders (flat, long, sharp, square and round) in chalk, limestone, sandstone and volcanic stone | done | `MobileStaticArchetype` (`src/ECS/Archetypes/MobileStaticArchetype.cpp`) |
-| Rocks can be picked up by the hand and thrown | done | `Rocks::ValidForPlaceInHand` (2D radius up to 3.6, `src/ECS/Rocks.cpp`), thrown into the physics (`src/ECS/Physics/FromHand.cpp`); see ../hand/ |
+| Rocks can be picked up by the hand and thrown | done | `object_physics::RockValidForPlaceInHand` (2D radius up to 3.6, `src/ECS/ObjectPhysics.cpp`), thrown into the physics (`src/ECS/Physics/FromHand.cpp`); see ../hand/ |
 | A thrown rock tumbles, lands and hurts what it hits | done | `src/ECS/Physics/PhysicsObjects.cpp` and the impact reactions; see ../physics/ |
-| A rock hit hard enough splits in two | done | `Rocks::SplitInTwo` from the impact and `Rocks::Tap` from the hand (`HandSystem.cpp`); the creature's blow does not split them; detail in [rocks_splitting_and_heat.md](rocks_splitting_and_heat.md) |
+| A rock hit hard enough splits in two | done | `object_physics::SplitRock` from the impact and `object_physics::TapRock` from the hand (`HandSystem.cpp`); the creature's blow does not split them; detail in [rocks_splitting_and_heat.md](rocks_splitting_and_heat.md) |
 | The creature picks up rocks, throws them and attacks with them | partial | The creature's object actions pick up and throw what it may lift (`CreatureObjectActionSystem.cpp`); attacking with rocks is not checked; see ../creature/ |
 | Footpaths go round rocks | done | An obstacle entering the map cells sends the footpaths round it (`footpaths::RerouteFootpathsAroundObstacle` from `src/ECS/MapCells.cpp`); see ../terrain/footpaths.md |
 | Challenge scripts make rocks | done | CHL CREATE of a mobile static makes a rock (`src/CHLApi.cpp`) |

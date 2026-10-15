@@ -20,7 +20,7 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 | Its fatness runs from thin to fat | done | test `FatnessRunsFromThinToFat` |
 | Its strength, with its species' own strength counted in, runs from weak to strong | done | test `StrengthCountsFourTimesTheSpecies` |
 | Each axis pulls every vertex and normal from the base towards the mesh on its side | done | drawn by `src/Graphics/CreatureDraw.cpp`; tests `EachAxisPullsTowardsTheMeshOnItsSide`, `BlendMovesTheBaseTowardsEachMesh`, `CreatureDrawBodies.TheShapeIsBlendedTowardsTheLoadedMeshesByHowFarAlongEachAxis` |
-| The fatness the body shows follows the creature's fatness by at most a hundredth a turn | done | `CreatureAnimationSystem` (`shownFatness`); test `ShownFatnessFollowsByAHundredthATurn` |
+| The fatness the body shows follows the creature's fatness by at most a hundredth a turn, last in the creature turn (after the actions), kept within 0 and 1 | done | `CreaturePhysiologySystem::ProcessShownFatness` (`shownFatness`); tests `ShownFatnessFollowsByAHundredthATurn`, `ShownFatnessStaysWithinNoneAndFull`, `TheFatnessShownStepsAfterTheTurnTowardsTheFatness` |
 | The body is only redrawn once an axis has moved far enough | done | test `SmallChangesDoNotRedrawTheBody` |
 | A new alignment redraws every axis; a new fatness the fatness and strength; a new strength only the vertices | done | tests `ANewAlignmentRedrawsEveryAxis`, `ANewFatnessRedrawsFatnessAndStrength`, `ANewStrengthOnlyReshapesTheVertices` |
 | The rest pose and the animations follow the evil to good and thin to fat axes | done | see [animation.md](animation.md) |

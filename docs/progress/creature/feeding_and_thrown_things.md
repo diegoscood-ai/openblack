@@ -103,8 +103,8 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 | Its fear and its anger from being damaged rise by the harm | todo |  |
 | When the blow is put down to its own player, it thinks less of its player by the harm | todo |  |
 | It doesn't turn on the thrower: no plan or reaction is aimed at whoever threw | done | no plan or reaction is aimed at the thrower |
-| The collision sounds as for any blow, by the two materials | partial | the creature has a physics body (`creature_physics::RegisterPhysicsHandlers`), so collisions take the generic impact path; the creature's material was not checked; see [../physics/impact_damage.md](../physics/impact_damage.md) |
-| Its creature learns "damage by throwing at" from the player's throws | partial | the deed is reported for a thrown thing that damages a building (`src/ECS/Physics/Buildings.cpp`, `ecs::creature_mimic`); not for throws at other things; see [../physics/impact_damage.md](../physics/impact_damage.md) |
+| The collision sounds as for any blow, by the two materials | partial | the creature has a physics body (`creature_physics::SetUpBody`, through `ecs::PhysicsGameHooks`), so collisions take the generic impact path; the creature's material was not checked; see [../physics/impact_damage.md](../physics/impact_damage.md) |
+| Its creature learns "damage by throwing at" from the player's throws | partial | the deed is reported for a thrown thing that damages a building (`src/ECS/Systems/Implementations/BuildingDamageSystem.cpp`, `ecs::creature_mimic`); not for throws at other things; see [../physics/impact_damage.md](../physics/impact_damage.md) |
 | The life lost shows on the status panel, and at no life it faints | partial | nothing takes its life (above); with no life left it faints (`physiology::ShouldFaint`); see [physiology.md](physiology.md) |
 
 ## People given or thrown

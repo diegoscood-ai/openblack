@@ -3,7 +3,7 @@
 The flying animals: crows, doves, swallows, pigeons, seagulls, bats and vultures, flying in flocks over the land, and
 the doves or bats that circle each temple. The flock miracle's doves and bats are in `../miracles/`.
 
-**Progress: 11/15 done, 2 partial — 80%**
+**Progress: 12/15 done, 2 partial — 87%**
 
 How the original does it, in our wiki: [Animals: AI, states and clips](../../bw1-notes/animals.md), [Skeletal animation (villagers and animals)](../../bw1-notes/animation.md).
 
@@ -14,7 +14,7 @@ How the original does it, in our wiki: [Animals: AI, states and clips](../../bw1
 | The land scripts make flocks of birds and the birds in them | done | CREATE_FLOCK, CREATE_ANIMAL and CREATE_NEW_ANIMAL (`src/LHScriptX/FeatureScriptCommands.cpp`, `src/ECS/Archetypes/AnimalArchetype.cpp`) |
 | Each kind has its own models, clips (fly, stand, eat, sleep, thrown, dead) and table values | done | the table values and each kind's clips, flapping or gliding at random (`BirdClip`, `src/ECS/AnimalAnimations.cpp`) |
 | A bird is born at a random age and sized for it | done | the random age and the scale for it (`src/ECS/AnimalAI.cpp`); `test/test_animal_age.cpp` |
-| Doves circle a good player's temple, bats an evil one's, changing as the alignment changes (unconfirmed exact rule) | todo | the temple's dove and bat kinds are in the tables only |
+| Doves circle a good player's temple, bats an evil one's, changing as the alignment changes (unconfirmed exact rule) | done | every 100 turns a bird more or fewer, up to the heart's most by the alignment, the other kind gone at once (`src/Worship/Citadel.cpp`, `src/Animals/BirdRules.cpp`); `test/test_bird_rules.cpp`; [magic](../../bw1-notes/magic.md#the-temples-doves-or-bats) |
 | Seagulls keep to the coast (unconfirmed) | n/a | Our wiki differs: every bird kind flies the same legs from where it is; nothing keeps seagulls to the coast ([animals](../../bw1-notes/animals.md#birds-crow-dove-swallow-rock-dove-seagull-bat)) |
 
 ## Flying

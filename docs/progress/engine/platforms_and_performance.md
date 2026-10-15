@@ -32,7 +32,7 @@ performance are counted here too; its debug windows are in [../debug/](../debug/
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Frames are drawn as fast as they can be, or held to the screen's refresh | done | `--vsync`; the turn rate is separate, see game_loop_and_clock.md |
+| Frames are drawn as fast as they can be, or held to the screen's refresh | done | `--no-vsync` (on by default, as the original); the turn rate is separate, see game_loop_and_clock.md |
 | Average and slowest (95th percentile) frame times can be logged | done | `src/Common/FrameStats.cpp`, `--frame-stats`; test `test/test_frame_stats.cpp` |
 | The cost of each part of a frame can be measured, with the GPU's time per render view | done | `src/Profiler.cpp`, `--frame-stats-views` |
 | Crowds of creatures and villagers can be benchmarked and the results written out | partial | the benchmark recorder exists (`src/Debug/BenchmarkRecorder.cpp`, test `test/test_benchmark.cpp`) but nothing in the game starts it; no crowd scenarios in our tree |

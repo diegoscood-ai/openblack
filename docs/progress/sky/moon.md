@@ -33,7 +33,7 @@ How the original does it, in our wiki: [Day, night and weather in the original](
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The mesh is the weather folder's moon model, a half sphere about 100 units in radius | done | The sky's moon mesh (`SkyInterface`, `src/3D/Implementations/Sky.cpp`) |
+| The mesh is the weather folder's moon model, a half sphere about 100 units in radius | done | The sky's moon mesh (`SkySystemInterface`, `src/ECS/Systems/Implementations/SkySystem.cpp`) |
 | Its axes are built square to the line from the camera and kept upright, then scaled by 4 | done | `moon::Basis`; tests `Moon.FacesTheCamera`, `Moon.FacesTheEyeInTheView` |
 | The mesh leans back by 7.5 degrees (0.1309 radians) | done | `moon::Model` (`k_Tilt`) |
 | It is turned about its upright axis by the phase plus half a turn | done | `moon::Model` |

@@ -5,7 +5,7 @@ the loading screen and the film behind the creature's fall at the end of the gam
 when the game shows it; how they are decoded and drawn is in [bink_playback.md](bink_playback.md). openblack plays the
 intro and the falling-spell film; the other three are only decoded, for the debug Video window.
 
-**Progress: 10/29 done, 8 partial — 48%**
+**Progress: 9/29 done, 9 partial — 47%**
 
 How the original does it, in our wiki: [Bink videos (.bik)](../../bw1-notes/video.md).
 
@@ -13,11 +13,11 @@ How the original does it, in our wiki: [Bink videos (.bik)](../../bw1-notes/vide
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| `Data/logo.bik`: the publisher's and studio's pictures, two still frames | partial | decoded by our Bink decoder and playable in the debug Video window (test `BinkDecoder.LogoAndTipsMatchTheOriginalInAnyOrder`); the game never shows it (no start-up sequence); see [bink_playback.md](bink_playback.md) |
-| `Data/pre_intro.bik`: the pre-intro film, about 100 seconds | partial | decoded by our Bink decoder and playable in the debug Video window (test `BinkDecoder.PreIntroMatchesTheOriginal`); the game never plays it (no front end or profiles); see [bink_playback.md](bink_playback.md) |
-| `Data/INTRO.bik`: the story's intro film, about 67 seconds | done | played by SET_AVI_SEQUENCE sequence 1 (`src/CHLApi.cpp`, `src/Video/VideoPlayer.cpp`); test `BinkDecoder.IntroMatchesTheOriginal`; see [bink_playback.md](bink_playback.md) |
-| `Data/tips.bik`: 35 still pictures for the loading screen's tips | partial | decoded by our Bink decoder (test `BinkDecoder.LogoAndTipsMatchTheOriginalInAnyOrder`); no loading screen shows it; see [bink_playback.md](bink_playback.md) |
-| `Data/Spells/fall/fall.bik`: the film behind the creature's fall, 50 seconds | done | `src/Video/FallingSpellVideo.cpp`; test `BinkDecoder.FallMatchesTheOriginal`; see [bink_playback.md](bink_playback.md) |
+| `Data/logo.bik`: the publisher's and studio's pictures, two still frames | partial | decoded by our Bink decoder and playable in the debug Video window (test `VideoBinkDecoder.LogoAndTipsMatchTheOriginalInAnyOrder`); the game never shows it (no start-up sequence); see [bink_playback.md](bink_playback.md) |
+| `Data/pre_intro.bik`: the pre-intro film, about 100 seconds | partial | decoded by our Bink decoder and playable in the debug Video window (test `VideoBinkDecoder.PreIntroMatchesTheOriginal`); the game never plays it (no front end or profiles); see [bink_playback.md](bink_playback.md) |
+| `Data/INTRO.bik`: the story's intro film, about 67 seconds | done | played by SET_AVI_SEQUENCE sequence 1 (`src/CHLApi.cpp`, `src/Video/VideoPlayer.cpp`); test `VideoBinkDecoder.IntroMatchesTheOriginal`; see [bink_playback.md](bink_playback.md) |
+| `Data/tips.bik`: 35 still pictures for the loading screen's tips | partial | decoded by our Bink decoder (test `VideoBinkDecoder.LogoAndTipsMatchTheOriginalInAnyOrder`); no loading screen shows it; see [bink_playback.md](bink_playback.md) |
+| `Data/Spells/fall/fall.bik`: the film behind the creature's fall, 50 seconds | done | `src/Video/FallingSpellVideo.cpp`; test `VideoBinkDecoder.FallMatchesTheOriginal`; see [bink_playback.md](bink_playback.md) |
 | No other videos ship with the game; Creature Isle is not supported | n/a | searched `C:\projects\black`; no expansion videos |
 | The videos have no sound of their own: every sound with them comes from the game's music and sound banks | done | the films' sounds and music come from the game's banks (`src/Video/FallingSpellVideo.cpp`, `src/Audio`); see [bink_playback.md](bink_playback.md) |
 
@@ -65,6 +65,6 @@ How the original does it, in our wiki: [Bink videos (.bik)](../../bw1-notes/vide
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Escape skips a film (fading it out) | done | `VideoPlayer::EscapeKey`; tests `VideoPlayerTest.SkipFadesOver48Frames`, `FallingSpellVideoTest.EscapeSkips`; see [bink_playback.md](bink_playback.md) |
+| Escape skips a film (fading it out) | partial | `VideoPlayer::EscapeKey`; tests `VideoPlayerTest.SkipFadesOver48Frames`, `FallingSpellVideoTest.EscapeSkips`; not inside the temple or under a box in the original (queued as a fix); see [bink_playback.md](bink_playback.md) |
 | The video option in the game's options | todo | (unconfirmed what it changes; see ../interface/options.md) |
 | Films run while the world is paused; the land's ambience is hushed | done | the game is paused while a film plays and the ambience mix is skipped while `video::IsPlaying` (`src/Video/VideoPlayer.cpp`, `src/Audio/Game/AudioSystem.cpp`) |

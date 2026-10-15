@@ -58,7 +58,7 @@ How the original does it, in our wiki: [Physics: thrown objects, collisions, dam
 | A thing held in the hand over a fire catches from the fires in its cell | done | `fire::CheckToSeeIfObjectIsNearOnFireObject` from `HandTurn.cpp`, only inside the holder's influence. See [../hand/holding.md](../hand/holding.md) |
 | Picking up a burning object takes it out of its blaze; villagers flee a burning object carried in the hand (reach 30, running 20–50 m) | partial | `fire::StartedMoving` from `HandHolding.cpp` takes it out of its group and gives it the burning-object-in-hand reaction, but no villager reacts to that reaction |
 | A burning object flying through the air keeps burning and heats villagers fighting fires | done | `fire::StartedMoving` when it starts physics (`src/ECS/Physics/PhysicsObjects.cpp`); flying things are off the map for fire |
-| When a rock splits, both halves keep its fire | done | `Rocks::SplitInTwo` calls `fire::CopyFire` (`src/ECS/Rocks.cpp`); see [../nature/rocks_splitting_and_heat.md](../nature/rocks_splitting_and_heat.md) |
+| When a rock splits, both halves keep its fire | done | `object_physics::SplitRock` calls `fire::CopyFire` (`src/ECS/ObjectPhysics.cpp`); see [../nature/rocks_splitting_and_heat.md](../nature/rocks_splitting_and_heat.md) |
 | A bonfire burns for ever and never hurts | done | `BonfireArchetype` (`src/ECS/Archetypes/BonfireArchetype.cpp`): a rock with an endless bonfire spot visual and no fire |
 | Villagers hidden in a building, at home, held or dying never catch | partial | Hidden and held villagers are out of the map cells, so the spread does not find them; there is no own test for dying villagers |
 

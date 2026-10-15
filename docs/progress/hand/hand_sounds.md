@@ -29,7 +29,7 @@ How the original does it, in our wiki: [The hand and the interface](../../bw1-no
 | Putting a tree back in the ground plays a planting sound, one of three | done | `HandPhysics.cpp`: a tree landed and replanted plays G_PlantTree_01 + tick count % 3 at the tree |
 | Pulling a tree out of the ground plays a tree breaking sound | done | `HandHolding.cpp`: uprooting plays a random one of three G_TreeBreak samples at the tree; see [tug.md](tug.md) |
 | A scaffold taken into the hand plays its appearing sound, and its vanishing sound when it leaves | todo | Not found in our tree (scaffolds have tap, combine and plant sounds only) |
-| Something thrown at another thing plays an impact sound where it hits | done | `src/ECS/Physics/CollisionSounds.cpp`: the collision sound by the surfaces hit (ground, water, fragment, objects) |
+| Something thrown at another thing plays an impact sound where it hits | done | `src/ECS/Systems/Implementations/DynamicsSystem.cpp`: the collision sound by the surfaces hit (ground, water, fragment, objects) |
 | A thrown rock or fireball whooshing past the camera plays one of five rock or fireball whooshes | done | `PhysicsObjects.cpp`: a body entering 10 m of the camera faster than 20 m/s plays one of G_RockPast_01..05; the fireball's own whoosh is in `src/Particles/Rules/Fireball.cpp` |
 | Dropping an animal from a height squashes it with one of four squash sounds | todo | (unconfirmed it is the hand's drop that plays it) |
 
@@ -37,7 +37,7 @@ How the original does it, in our wiki: [The hand and the interface](../../bw1-no
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Knocking on houses, tapping rocks and scaffolds, opening reward chests | partial | Houses (`abodes::InterfaceTap`), rocks (`Rocks::Tap`) and scaffolds (`scaffolds::Tap`) play their tap sounds; no reward chests. See [clicking_and_activating.md](clicking_and_activating.md) |
+| Knocking on houses, tapping rocks and scaffolds, opening reward chests | partial | Houses (`AbodeKnockSystem::Tap`), rocks (`object_physics::TapRock`) and scaffolds (`scaffolds::Tap`) play their tap sounds; no reward chests. See [clicking_and_activating.md](clicking_and_activating.md) |
 | Tapping a one-shot miracle bubble pops it | done | `magic::one_off::InterfaceTap` (`src/Magic/Core/OneOffSpellSeed.cpp`): G_SpellBubblePop_04 at the hand |
 | Tapping a leash post clicks | todo | No leash posts in our tree |
 | Opening a reward chest plays the chest and reward stings | todo | No reward chests |

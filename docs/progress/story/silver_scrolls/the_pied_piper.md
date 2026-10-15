@@ -15,8 +15,8 @@ Sources: the quest's challenge script (the original source text, checked against
 the executable (how a scroll record and its alignment are applied). openblack's state is judged on this tree: the land's
 control script starts this quest only in a game that skips the creature training (the start-up box's fourth answer; see
 [../../scripts/land1_script.md](../../scripts/land1_script.md)), and of the 93 script functions the quest and the shared
-scripts it runs (notice, reward, did-you-know) call, 13 only log "not implemented" in `src/CHLApi.cpp` (among them the
-held-object read, the creature's actions, a dance and making a random villager). The 80 that work include the camera
+scripts it runs (notice, reward, did-you-know) call, 12 only log "not implemented" in `src/CHLApi.cpp` (among them the
+held-object read, the creature's actions and making a random villager). The 81 that work include the camera
 set/read commands, widescreen, music start and stop, distance and position reads, random numbers, the game time,
 stopping a script, the fire/indestructible/pick-up/moveable flags, the leash question and the leash key, and making
 rocks, mobile statics, villagers and dispensers. Every row below is todo unless the notes say otherwise.
@@ -65,14 +65,14 @@ rocks, mobile statics, villagers and dispensers. Every row below is todo unless 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | He starts at the back of his cave, plays his summoning animation, the cave opens and he walks out slowly; the cave shuts behind him | partial | the clips, `MOVE_GAME_THING` and the cave sounds work; the cave doors (`SET_OPEN_CLOSE`) are a stub |
-| He walks to a piping spot near the crèche, faces the crèche, dances on the spot and his piping tune plays from him; a dance ring of up to 30 seconds is set up around him | partial | the walk, `SET_FOCUS`, the clip and `ATTACH_MUSIC` (the tune) work; `DANCE_CREATE` is a stub |
+| He walks to a piping spot near the crèche, faces the crèche, dances on the spot and his piping tune plays from him; a dance ring of up to 30 seconds is set up around him | partial | the walk, `SET_FOCUS`, the clip and `ATTACH_MUSIC` (the tune) work; `DANCE_CREATE` makes the dance ring (not checked in game) |
 | He looks for a Norse child within 100 of him that no script is using; the child leaves the village and joins his flock (following him) | todo | `CALL_IN_NEAR` is a stub: he never finds a child, so he never takes one |
-| If the hand picks the child up on its way, he loses it and plays a disappointed animation | todo | never happens: he never finds a child (`CALL_IN_NEAR` is a stub); `DANCE_CREATE` and `SET_OPEN_CLOSE` are stubs too |
-| When the child reaches him (within 10) it joins his dance and he spins twice; he then waits 10 seconds before looking for the next one (3 seconds if none was found) | todo | never happens: he never finds a child (`CALL_IN_NEAR` is a stub); `DANCE_CREATE` and `SET_OPEN_CLOSE` are stubs too |
-| He leaves for his cave once five children are dancing (after another 15 seconds), or, after ten minutes from the quest's start, as soon as two are dancing | todo | never happens: he never finds a child (`CALL_IN_NEAR` is a stub); `DANCE_CREATE` and `SET_OPEN_CLOSE` are stubs too |
-| He dances the children up to his cave entrance, spins there for at least 15 seconds until they are all close, summons, and the cave opens | todo | never happens: he never finds a child (`CALL_IN_NEAR` is a stub); `DANCE_CREATE` and `SET_OPEN_CLOSE` are stubs too |
-| One by one the children walk to the back of the cave and fade away; each adds one to the count shut in the cave | todo | never happens: he never finds a child (`CALL_IN_NEAR` is a stub); `DANCE_CREATE` and `SET_OPEN_CLOSE` are stubs too |
-| He walks in after them, the cave tune plays from him, the cave shuts and 10 seconds later the round begins again | todo | never happens: he never finds a child (`CALL_IN_NEAR` is a stub); `DANCE_CREATE` and `SET_OPEN_CLOSE` are stubs too |
+| If the hand picks the child up on its way, he loses it and plays a disappointed animation | todo | never happens: he never finds a child (`CALL_IN_NEAR` is a stub); `SET_OPEN_CLOSE` is a stub too |
+| When the child reaches him (within 10) it joins his dance and he spins twice; he then waits 10 seconds before looking for the next one (3 seconds if none was found) | todo | never happens: he never finds a child (`CALL_IN_NEAR` is a stub); `SET_OPEN_CLOSE` is a stub too |
+| He leaves for his cave once five children are dancing (after another 15 seconds), or, after ten minutes from the quest's start, as soon as two are dancing | todo | never happens: he never finds a child (`CALL_IN_NEAR` is a stub); `SET_OPEN_CLOSE` is a stub too |
+| He dances the children up to his cave entrance, spins there for at least 15 seconds until they are all close, summons, and the cave opens | todo | never happens: he never finds a child (`CALL_IN_NEAR` is a stub); `SET_OPEN_CLOSE` is a stub too |
+| One by one the children walk to the back of the cave and fade away; each adds one to the count shut in the cave | todo | never happens: he never finds a child (`CALL_IN_NEAR` is a stub); `SET_OPEN_CLOSE` is a stub too |
+| He walks in after them, the cave tune plays from him, the cave shuts and 10 seconds later the round begins again | todo | never happens: he never finds a child (`CALL_IN_NEAR` is a stub); `SET_OPEN_CLOSE` is a stub too |
 | The children in the cave cry, muffled while the cave is shut and normally while it is open, more often the more children there are | partial | the cries play at random (`PLAY_SOUND_EFFECT`), muffled since the cave never opens (`SET_OPEN_CLOSE` is a stub); only for the five pretend children |
 | Children following him laugh now and then, more often the more he has | todo | he never has followers |
 | Clicking the piper makes him say "Prod me. I don't care. I won't believe in you." at most once every 15 seconds | partial | `GAME_THING_CLICKED`, `CLEAR_CLICKED_OBJECT`, `GAME_PLAY_SAY_SOUND_EFFECT` and the timer work; not checked in game |

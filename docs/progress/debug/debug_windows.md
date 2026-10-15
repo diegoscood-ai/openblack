@@ -4,7 +4,7 @@ openblack's own debug interface: the menu bar along the top of the screen and th
 the game while it runs. None of this is in the original game; it is tracked because it is part of openblack's progress.
 The creature tools, the testbed, the editor and the diagnostics have their own files.
 
-**Progress: 22/31 done, 8 partial — 84%**
+**Progress: 23/32 done, 8 partial — 84%**
 
 How the original does it, in our wiki: [openblack internals](../../bw1-notes/openblack-internals.md).
 
@@ -34,12 +34,13 @@ How the original does it, in our wiki: [openblack internals](../../bw1-notes/ope
 | Texture viewer: every texture of the packs | done | `src/Debug/TextureViewer.cpp` |
 | Console: the log, and land script commands typed in with completion and history; what is under the mouse | done | `src/Debug/Console.cpp` (completion and history) |
 | Land: block and country counts, the small bump strength, and dumping the land's textures and height map | done | `src/Debug/LandIsland.cpp` |
+| The object draw list: its size against the cap, the pass, the rebuilds, what it leaves out of the frame and why, and a switch for drawing only what it draws | done | `src/Debug/LandIsland.cpp` ("Object draw list", closed by default; `EngineConfig::drawFollowsList`) |
 | Path finding: send a picked villager somewhere by teleport, straight walk or footpath | done | `src/Debug/PathFinding.cpp` |
 | Audio: every sound and music pack to play, the emitters, the voice banks, and the ambient loops, one-shots, climates and storms | done | the Audio Player (`src/Debug/Audio.cpp`: Sound, Music and Channels tabs, the game sound and music switches), Audio banks (`src/Debug/AudioBanks.cpp`); the ambience's climates and storms in the Weather window |
 | Temple: go to each room of the temple | done | `src/Debug/Temple.cpp` |
 | Camera: run the game's camera paths | done | `src/Debug/Camera.cpp` |
 | Weather: force rain, snow and storms over the island from presets or by hand | done | `src/Debug/Weather.cpp` (presets, "Made to measure", "Storms") |
-| Magic: running miracles, any miracle cast or powered up, prayer power, dispensers and bubbles, creatures' spells, particles | done | `src/Debug/Magic.cpp` ("Miracle", "All miracles", "Particles"), `src/Debug/Miracles.cpp`, `MiraclesCaster.cpp`, `src/Debug/Vortices.cpp` |
+| Magic: running miracles, any miracle cast or powered up, prayer power, dispensers and bubbles, creatures' spells, particles | done | `src/Debug/Magic.cpp` ("Running", "Miracle", "All miracles", "Particles"), `src/Debug/MagicMiracles.cpp`, `MiraclesCaster.cpp`, `src/Debug/Vortices.cpp` |
 | Gestures: the path drawn, its best template and score, drawing or sending gestures | partial | `src/Debug/Gestures.cpp`: the path over the screen, what is looked for, the templates that match now and the last one recognised, and "Draw it" plays a template's stroke through the recogniser; no score is shown |
 | Key bindings: every action, its binding and whether it is built yet; rebinding and pressing actions | partial | `src/Debug/KeyBindingsWindow.cpp` lists every action with its key and mouse binding, whether it is held, and bindings two actions share; it does not rebind or press actions, nor say whether one is built (the action map can be rebound in memory, `src/Input/GameActionMap.cpp`) |
 | A music window showing the land's music, its tracks and what plays next | done | the Music window (`src/Debug/Music.cpp`): the main volume, the six channels, a player for any music type and the game music's state |

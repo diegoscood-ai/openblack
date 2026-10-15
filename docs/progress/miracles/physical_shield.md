@@ -39,7 +39,7 @@ How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/mir
 | A blow by a rock costs the dome by the rock's speed and mass | done | `map_shield::ReactToPhysicsImpact` (`MapShield.cpp`): pays speed x mass x chantCostPerImpactMomentum x 0.0001, forced |
 | A blow counts a small good deed at the point and marks the thrower as the town's attacker | done | `map_shield::ReactToPhysicsImpact`: a spell event at the hitter's point, and the town's aggressor and turn recorded (the per-player aggression slots are not ported) |
 | Fireballs and other particle miracles pass through it | done | correctly absent: the physical shield makes no deflection sphere (`src/Particles/Rules/Shield.cpp`) |
-| The hand can't pick up or feel the dome | partial | the hand does not feel a shield's mesh (`src/ECS/Systems/Implementations/HandPlacement.cpp`); `HandSystem::ValidForPlaceInHand` does not exclude shields, so whether one could be grabbed is not settled |
+| The hand can't pick up or feel the dome | partial | the hand does not feel a shield's mesh (`src/ECS/Systems/Implementations/HandPlacement.cpp`); `HandSystem::ValidForPlaceInHand` is an allowlist that does not name shields, so a shield never goes into the hand, as in the original |
 
 ## Reactions
 
@@ -64,7 +64,7 @@ How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/mir
 |-----------|--------|---------------|
 | A sound when it is made | done | data-driven particle sound (`src/Particles/Rules/Sound.cpp`, `src/Audio/Services/SpellSounds.cpp`) |
 | A looping hum, let go to ring out when the dome is deleted | done | `src/Audio/Services/SpellSounds.cpp` (release of the loop when its atom dies) |
-| A collision sound when things hit it | done | `src/ECS/Physics/CollisionSounds.cpp` (`TypeOf`: the shield row's collide sound) |
+| A collision sound when things hit it | done | `src/ECS/Systems/Implementations/DynamicsSystem.cpp` (`CollideSoundType`: the shield row's collide sound) |
 
 ## Saving
 

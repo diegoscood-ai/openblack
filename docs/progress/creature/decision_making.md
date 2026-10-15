@@ -21,7 +21,8 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 | An action not done for a long time gets a little extra novelty | done | `creature_planner::Novelty`, `k_NoveltyTurns`; test `CreaturePlanner.ActionPriorityAndNovelty` |
 | A plan's priority is the desire's strength times how useful the goal, action and things used are | done | `creature_planner::Priority`; test `CreaturePlanner.PriorityAndSwitching` |
 | The creature changes what it does only for a plan more than twice as pressing | done | `creature_planner::ShouldSwitch`; test `CreaturePlanner.ChoosesOnlyWhatIsPressingEnough` |
-| A plan must reach a minimum priority to be taken up at all | partial | `k_MinPlanPriority` (15) in `CreatureMindLearning.cpp`, a stand-in for the idle activities the game weighs through its planner (unconfirmed) |
+| A plan's priority is the game's product, in its order and rounding, with a goal only for the desires that look for one | done | `creature_planner::Priority`, `PlanDesire`, `PlanWithoutGoal`, `MayPlan`; tests `CreaturePlanner.*` |
+| A plan is taken up when its priority is above nothing (there is no other minimum) | done | `creature_planner::Best`, `Choose`; test `CreaturePlanner.ChoosesOnlyWhatIsPressingEnough` |
 | Actions are weighed by the kind of thing they are done to, so each has a goal it can be done to | done | groups by `creature_plan_actions::Target` in `CreatureMindSystem::PlanCreature` |
 | Actions it can't do now (no water near, no target, can't afford a miracle) are left out | partial | `creature_plan_actions::Possible` (no water near, no hurl target); creatures cast no miracles in our tree, so there is no miracle cost check |
 | Only actions the creature knows can be chosen | partial | every action with an executor can be chosen; there is no per-creature known-action list, and creatures cast no miracles in our tree (see [creature casting](creature_casting.md)) |

@@ -65,7 +65,7 @@ How the original does it, in our wiki: [Villagers: data, state machine and speed
 | A villager walking with any object except a saw, hammer or ball uses the carrying walk clip; running or sprinting with one uses the carrying run clip; men and women share both | done | the carrying walk and run clips for any object but the saw, the hammer and the ball (`src/ECS/VillagerAnimations.cpp`) |
 | A wounded villager crawls or limps instead, whatever it carries | done | the wounded clips come first (`src/ECS/VillagerAnimations.cpp`) |
 | The landing clip has a variant for landing on the feet while carrying, but landing itself always holds nothing, so the plain one is always played (outside scripts) | done | `VillagerLandedClip` with nothing carried (`src/ECS/VillagerAnimations.cpp`) |
-| Picking up and putting down loads have their own clips: picking up sticks at the storage pit, putting them down at a building site, picking up and putting down a bag; a drop-off at the pit always uses the bag clip, even for wood | done | the states' own clips from info.dat and the animation table (`src/ECS/VillagerAnimationTable.h`) |
+| Picking up and putting down loads have their own clips: picking up sticks at the storage pit, putting them down at a building site, picking up and putting down a bag; a drop-off at the pit always uses the bag clip, even for wood | done | the states' own clips from info.dat and the clip rules of each state (`src/ECS/VillagerAnimation.cpp`) |
 
 ## Sounds of tool use
 
@@ -82,9 +82,9 @@ How the original does it, in our wiki: [Villagers: data, state machine and speed
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Picking a villager up with the hand takes nothing from it: it keeps its wood and food while held, and a gentle put-down leaves them with it | done | the pick-up takes nothing (`ecs::living::InterfaceSetInMagicHand`, `src/ECS/LivingPhysics.cpp`); a gentle put-down lands it with its load |
+| Picking a villager up with the hand takes nothing from it: it keeps its wood and food while held, and a gentle put-down leaves them with it | done | the pick-up takes nothing (`ecs::villager_physics::InterfaceSetInMagicHand`, `src/ECS/Systems/Implementations/VillagerPhysics.cpp`); a gentle put-down lands it with its load |
 | A villager the hand lets go of so that it flies, rather than being set down, lets its wood fall as a log that flies on beside it with the villager's speed | done | `villager::CreateDroppedResource` from `src/ECS/Physics/FromHand.cpp`; see ../physics/thrown_living.md |
-| Anything else that launches a villager does the same first: being knocked by a flying object or an explosion, thrown or spat out by a creature, or taken by a tornado or vortex | done | the same from the knock and the other launches (`src/ECS/LivingPhysics.cpp`) |
+| Anything else that launches a villager does the same first: being knocked by a flying object or an explosion, thrown or spat out by a creature, or taken by a tornado or vortex | done | the same from the knock and the other launches (`src/ECS/Systems/Implementations/VillagerPhysics.cpp`) |
 | A log falls only when the villager shows a load or a tool and holds more than 50 wood; a villager holding nothing visible keeps its wood through the throw | done | `DroppedLogFor`: a shown object and more than 50 wood (`src/ECS/Villager/VillagerResources.cpp`) |
 | Food is never dropped by a throw: the villager keeps it and still has it when it lands | done | only the wood falls (`CreateDroppedResource`) |
 | Tools are never dropped, lost or picked up: they are only drawn, and come back as soon as the villager returns to its work | done | tools are only the drawn prop (`src/ECS/CarriedProps.cpp`) |

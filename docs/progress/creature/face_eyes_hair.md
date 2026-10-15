@@ -4,7 +4,7 @@ A creature's face shows what it is doing and feeling: it smiles, grimaces, growl
 laughs, and says ooh and aah. Its eyes look about and blink, its head turns towards what interests it, and some species
 have tufts of hair that swing as they move and change with their alignment.
 
-**Progress: 32/45 done, 6 partial — 78%**
+**Progress: 31/45 done, 7 partial — 77%**
 
 How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../bw1-notes/creature.md).
 
@@ -38,7 +38,7 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 | Small creatures have bigger eyes for their size | done | test `SmallCreaturesHaveBiggerEyesForTheirSize` |
 | The eyes look where the creature looks, or ahead, never back into the head | done | tests `EyesNeverLookBackIntoTheHead`, `TheEyeballFacesAwayFromWhereItLooks` |
 | Open eyes turn faster | done | test `OpenEyesTurnFaster` |
-| The lids blink every few seconds, closing and opening over 200 milliseconds each | done | `creature_eyes::AdvanceBlink` in `CreatureAnimationSystem`; tests `BlinksCloseAndOpenOverTwoHundredMillisecondsEach`, `CreatureAnimationSystemTest.TheEyesBlinkByTheTurnOnTheRuntimesNumbers` |
+| The lids blink every few seconds, closing and opening over 200 milliseconds each | partial | `creature_eyes::AdvanceBlink` in `CreatureAnimationSystem`; tests `BlinksCloseAndOpenOverTwoHundredMillisecondsEach`, `CreatureAnimationSystemTest.TheEyesBlinkByTheTurnOnTheRuntimesNumbers`. The original's numbers, but it draws the wait on the local random stream and times it by the body's animation clock; ours on another stream once a turn (queued as a fix) |
 | While calm the lids follow the pupils up and down | done | tests `CalmLidsSwingShutOverABlink`, `LidAnglesByMode` |
 | Closed while asleep or knocked out | done | `CreatureMindSystem` (sleep) and `CreatureFightSystem` (knocked out) set `creature_eyes::Mode::Closed` |
 | Wide open when frightened | partial | `creature_eyes::Mode::Wide` exists (test `LidAnglesByMode`); nothing sets it |

@@ -3,7 +3,7 @@
 Every kind of file Black & White reads from its install, and whether openblack reads it and uses what is in it. A
 format only counts as done when the game's use of it works too; reading the file alone is partial.
 
-**Progress: 30/41 done, 2 partial — 76%**
+**Progress: 30/41 done, 3 partial — 77%**
 
 How the original does it, in our wiki: [Tools and formats](../../bw1-notes/tooling.md).
 
@@ -31,7 +31,7 @@ How the original does it, in our wiki: [Tools and formats](../../bw1-notes/tooli
 | The hand's animation bank (`hh.hbn`) and its spec (`hndspec5.txt`) | done | `src/ECS/Systems/Implementations/HandSystem.cpp`, `src/3D/HandAnimator.cpp` |
 | The mesh and sound-action name headers (`AllMeshes.h`, `SoundAction.h`) the particle files refer to | done | `EnumHeaderLoader` (`psys::EnumNames`, `src/Resources/Loaders.cpp`) |
 | Recorded hand demonstrations (`Data/HandDemo/*.hnd`) played by the tutorial | done | `src/Input/HandDemo.cpp` (PLAY_HAND_DEMO); see ../story/tutorial.md |
-| Dance and letter shape files (`.DAN`, `Scripts/Dance/*.dat`) | todo | the dance files are not read (the real dances are not ported) |
+| Dance and letter shape files (`.DAN`, `Scripts/Dance/*.dat`) | partial | the dance files are read as the game reads them (`components/dance`, `DanceFileLoader`; tests `test_dance_file`, `DanceFile.TheGamesDancesRead`); the `.DAN` shape files are not read yet |
 | The falling-spell camera file (`.cm2`) | done | `falling_spell::CameraPath::Parse` (`src/Magic/Objects/FallingSpell.cpp`); test `FallingSpell.RealFallCm2`; its camera is not applied yet, see ../video/bink_videos.md |
 
 ## Images and fonts
@@ -40,7 +40,7 @@ How the original does it, in our wiki: [Tools and formats](../../bw1-notes/tooli
 |-----------|--------|---------------|
 | Raw textures (`.raw`, with a separate alpha file) | done | `components/rawimage`, `Texture2DLoader` |
 | 16-bit images (`.16b`) used by the temple outside and sky | done | `src/Common/Bitmap16B.cpp`, used by `TempleExteriorSystem.cpp` |
-| Sky images in 555 colour (`.555`) | done | `src/3D/Implementations/Sky.cpp`; see ../sky/ |
+| Sky images in 555 colour (`.555`) | done | `src/ECS/Systems/Implementations/SkySystem.cpp`; see ../sky/ |
 | Player symbols and tattoo palette (`PlayersSymbols.raw`, `tattoocols.raw`) | done | `CreatureSkinArtLoader`, the player symbols in `src/Game.cpp` |
 | Creature portrait sets (`.cps`) and the colour lookup and contrast tables (`.clut`, `.cnv`) | todo | not read; the computer players' symbols use the symbol sheet instead (`src/Particles/TownBelief.cpp`) |
 | Light glows (`.glw`) placed in the temple and lands | partial | `LightLoader`, `src/3D/Light.cpp`; every `.glw` is loaded (`src/Game.cpp`) but only the temple places its glows; see ../rendering/ |
@@ -66,7 +66,7 @@ How the original does it, in our wiki: [Tools and formats](../../bw1-notes/tooli
 | Music stored in banks as MPEG audio | done | `src/Audio/Engine/MusicBank.cpp` with our own MPEG decoder (`src/Audio/Codec/MpegAudio.cpp`); see ../audio/ |
 | Loose wave files (`.wav`) | n/a | our wave decoder reads them (`src/Audio/Codec/WaveFile.cpp`), but the game has none to read. Our wiki differs: the original plays no loose wave files, every sound is in a bank ([audio](../../bw1-notes/audio.md#sas-and-animation-tables)) |
 | The small sounds bank (`SmallSounds.SAS`) | done | `src/Audio/Services/AnimationSounds.cpp` (the clips' sound events); see ../audio/ |
-| Films (`.bik`): intro, the falling spell and others | done | `src/Video/BikFile.cpp`, our own Bink decoder (`src/Video/BinkDecoder.cpp`); see ../video/ |
+| Films (`.bik`): intro, the falling spell and others | done | `components/bink/src/BinkFile.cpp`, our own Bink decoder (`components/bink/src/BinkDecoder.cpp`); see ../video/ |
 
 ## Scripts, text and minds
 

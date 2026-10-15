@@ -11,7 +11,7 @@ How the original does it, in our wiki: [The hand and the interface](../../bw1-no
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The game's default keys and mouse inputs for each of its 33 actions, in the order the options list them | done | `src/Input/KeyBindings.h` (`k_DefaultKeyBindings`); tests `KeyBindings.TableIsTheGamesActionMap`, `KeyBindings.EveryActionOnce`, `KeyBindings.DefaultsDoNotConflict` |
+| The game's default keys and mouse inputs for each of its 33 actions, in the order the options list them | done | `src/Input/KeyBindings.h` (`k_DefaultKeyBindings`); tests `KeyBindings.TableIsTheGamesActionMap`, `KeyBindings.EveryActionIsInTheTableOnce`, `KeyBindings.DefaultsDoNotConflict` |
 | A key can need a held Ctrl, Shift or Alt; either side's modifier counts | done | `src/Input/KeyBindings.cpp`; tests `KeyBindings.EitherSidesModifierKeyCounts`, `KeyBindings.EitherSideOfAModifier` |
 | A binding with a modifier wins over the same key without one (Ctrl+S saves rather than showing details) | done | tests `KeyBindings.ModifierBindingWinsOverPlainOne`, `GameActionMap.ChordReplacesThePlainKey` |
 | Letting go of a key ends every action bound to it | done | test `KeyBindings.LettingGoOfAKeyEndsAllItsActions` |

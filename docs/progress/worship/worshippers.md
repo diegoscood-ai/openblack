@@ -21,7 +21,7 @@ How the original does it, in our wiki: [Magic: the core of the miracles](../../b
 | Worshippers go home to sleep, or sleep at the site (unconfirmed) | done | state 248 goes home, sleeping in a tent on the way when it must (`src/ECS/Systems/Implementations/LivingActionSystem.cpp`) |
 | A town in danger stops worshipping, and its worship comes back once the danger is over | done | (added) `src/ECS/Town/TownEmergency.cpp` saves the percentage and sets it to 0, then puts it back |
 | A villager dropped on the site by the hand becomes a worshipper disciple | todo | no worship disciple; see `../villager/` for disciples |
-| Scripts can make villagers dance and stop them | todo | `DANCE_CREATE` is a stub in `src/CHLApi.cpp` |
+| Scripts can make villagers dance and stop them | partial | `DANCE_CREATE` makes the dance and the attached villagers and animals dance in it (`src/CHLApi.cpp`, `src/ECS/Systems/Implementations/VillagerDance.cpp`); the script's reminder, the creatures and two of the moves are not done (docs/bw1-notes/dances.md, Pending); not checked in game |
 
 ## The dance
 

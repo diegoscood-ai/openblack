@@ -74,7 +74,7 @@ and making rocks and mobile statics. Every row below is todo unless the notes sa
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | Throw rocks at the pillar on the shore until the boulder on top is knocked more than 2 away from its spot; the script checks every 2 seconds | partial | picking up and throwing rocks work; the script's distance test on the boulder uses working natives; not checked in game |
-| Hitting the pillar while the boulder stays on top (checked 2 seconds after the hit): a film looking at the pillar; the evil advisor: "You're doing well but you have to knock the rock clean off." The record moves to 50% with the reminder "Can you knock the rock off the top? Eh?" This happens once only | todo | `GAME_THING_HIT` is a stub |
+| Hitting the pillar while the boulder stays on top (checked 2 seconds after the hit): a film looking at the pillar; the evil advisor: "You're doing well but you have to knock the rock clean off." The record moves to 50% with the reminder "Can you knock the rock off the top? Eh?" This happens once only | todo | `GAME_THING_HIT` now reads the physics' hit record (`src/CHLApi.cpp`); not yet seen in a run |
 | There is no time limit, no limit on throws and no way to fail; damaging houses only upsets the fisherman | partial | nothing in our tree adds a limit; the fisherman part is not working (see above) |
 
 ## Success

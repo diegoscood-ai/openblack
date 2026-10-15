@@ -3,7 +3,7 @@
 What a creature does with itself when nothing presses: it idles, sits, hangs about, looks around at whatever catches its
 eye, explores the land, shows the player how it feels, and is moved by the music.
 
-**Progress: 23/68 done, 15 partial — 45%**
+**Progress: 22/68 done, 16 partial — 44%**
 
 How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../bw1-notes/creature.md).
 
@@ -40,7 +40,7 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Looking about, its head turns to the most interesting thing it can see, the nearer the better | done | `src/Creature/CreatureLook`, from `CreatureMindSystem::ProcessTurn`; test `CreatureLook.TheNearerAndTheMoreInterestingWins` |
+| Looking about, its head turns to the most interesting thing it can see, the nearer the better | partial | `src/Creature/CreatureLook`, from `CreatureMindSystem::ProcessTurn`; test `CreatureLook.TheNearerAndTheMoreInterestingWins`. The original offers every object in the cells it looks over, skips the ones not in play, and looks at each at the ground plus its own height; ours offers six kinds at its own heights (queued as fixes) |
 | Things interest it by kind: doves most, then temples, creatures, animals, villagers, homes, trees, and fixed things least | done | `creature_look::InterestOf`; test `CreatureLook.DovesAndTheCitadelCatchTheEyeMostAndFixedThingsLeast` |
 | Bigger creatures see further | done | test `CreatureLook.BiggerCreaturesSeeFurther` |
 | It only sees what is in front of it | done | test `CreatureLook.CreaturesSeeAheadOfThemAndWhateverIsOnTopOfThem` |

@@ -16,7 +16,7 @@ How the original does it, in our wiki: [Water in the game](../../bw1-notes/water
 | Rings keep the land's light of when they were made | done | `ecs::AddWaterRing` fixes the colour; test `LandLightTable.RingColourFixedAtCreation` |
 | Rings stop growing while the game is paused | done | The rings age with the game time (`src/ECS/WaterRings.cpp`) |
 | The hand splashes where it grips the land at the water | done | `src/ECS/Systems/Implementations/HandFish.cpp`, from the grip (`HandPlacement.cpp`) |
-| Things thrown or dropped into the sea splash and ring | done | The water hit's ring, foam and sound (`src/ECS/Physics/CollisionSounds.cpp`) and the bobbing ripples (`src/ECS/Physics/PhysicsObjects.cpp`); see ../physics/ |
+| Things thrown or dropped into the sea splash and ring | done | The water hit's ring, foam and sound (`src/ECS/Systems/Implementations/DynamicsSystem.cpp`) and the bobbing ripples (`src/ECS/Physics/PhysicsObjects.cpp`); see ../physics/ |
 | Rain makes rings on the water | todo | Not in our tree; see ../weather/rain.md |
 | The water miracle splashes and ripples where it falls | partial | see ../miracles/water.md |
 | Big splashes of spray when something heavy lands in the sea | todo | Not in our tree |
@@ -33,7 +33,7 @@ How the original does it, in our wiki: [Water in the game](../../bw1-notes/water
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Objects thrown into the sea float or sink | done | `PhysicsBody::GroundAndWater`; see ../physics/water_physics.md |
+| Objects thrown into the sea float or sink | done | `Body::TouchGround`; see ../physics/water_physics.md |
 | Villagers thrown into the sea drown | done | `src/ECS/VillagerDrowning.cpp`; see ../physics/water_physics.md |
 | Sharks swim off the coast and take what falls in | done | `src/ECS/Sharks.cpp` (moved by the script's walk path, with their wake). Our wiki differs: the sharks have no AI and take nothing; the script moves them ([water.md](../../bw1-notes/water.md#sharks-class-whale)) |
 | Seagulls fly over the coast | done | The birds (`src/ECS/AnimalBirds.cpp`); see ../animal/ |

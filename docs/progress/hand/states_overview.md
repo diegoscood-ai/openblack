@@ -45,7 +45,7 @@ How the original does it, in our wiki: [The hand and the interface](../../bw1-no
 |-----------|--------|---------------|
 | A spring-damped copy of the cursor trails it by at most 80 pixels on each axis, with a stiffness of 20 | done | `HandSystem::Update`: the smoothed mouse clamped to 80 pixels, the velocity's 20 and 0.03 per second |
 | The trailing gap leans the hand sideways and back and forth through its lean animations, unless smaller than a ten-thousandth | done | `HandSystem::Update` (the lean layers), skipped below 0.0001 |
-| The hand's alignment is held between -1 and 1 and its morph updated every frame | done | `HandSystem::UpdateMorphing` (`HandMorph.cpp`) over `hand_morph::Advance` (`src/3D/HandMorph.cpp`): the local player's alignment clamped to -1..1, re-morphed when it moves 0.03; see [look_and_morph.md](look_and_morph.md) |
+| The hand's alignment is held between -1 and 1 and its morph updated every frame | done | `HandSystem::UpdateAlignmentMorph` (`HandMorph.cpp`) over `hand_morph::Advance` (`src/3D/HandMorph.cpp`): the local player's alignment clamped to -1..1, re-morphed when it moves 0.03; see [look_and_morph.md](look_and_morph.md) |
 | The hand's time runs on the camera's clock, or the frame's while in the temple | done | `game_clock::CameraFrameMs` (the game time while a hand demo plays), `game_clock::FrameRealMs` inside the temple |
 | The hand points along the line of sight through the cursor, turned only when the cursor has moved | done | `HandSystem::HandMatrixRotation`; the up target taken only when the mouse's x changed (`HandSystem::UpdateNormalUp`) |
 | Whether the camera's edge hints show depends on the state: the normal, camera and holding states allow them | todo | The camera's tricons are not ported |

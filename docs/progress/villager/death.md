@@ -29,7 +29,7 @@ How the original does it, in our wiki: [Villagers: data, state machine and speed
 | Brought down and eaten by a predator | done | the predators' kill (`src/ECS/AnimalPredators.cpp`, reason Animal) and `BEING_EATEN`; see ../animal/wild_animals.md |
 | Eaten, crushed or thrown by the creature | partial | eaten: killed with the creature's cause (`CreatureObjectActionSystem.cpp`); crushed and thrown through the physics; See ../creature/ |
 | Drowned when dropped or thrown into the sea | done | `DROWNING` and the drown death credited to the dropper (`src/ECS/VillagerDrowning.cpp`, reason PlayerInteractionDrown) |
-| Killed by a fall from a throw | done | a hard landing kills with the thrower's player and reason PlayerInteraction (`src/ECS/LivingPhysics.cpp`) |
+| Killed by a fall from a throw | done | a hard landing kills with the thrower's player and reason PlayerInteraction (`src/ECS/Systems/Implementations/VillagerPhysics.cpp`) |
 | Dies of old age | done | old age (`src/ECS/Villager/VillagerAge.cpp`, reason OldAge); `test/test_villager_age.cpp` |
 | Dies of hunger | done | starving (`src/ECS/Villager/VillagerFood.cpp`, reason Starving) |
 | Sacrificed at the altar | todo | no sacrifice yet (the reason exists); See ../worship/ |

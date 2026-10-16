@@ -21,8 +21,12 @@ The port target is raffclar's `master` at `0222f9f5`: of the 161 rows of the por
 - **Rendering and interface:** the totem's gate and light, the draw order of the object list's tail.
 - **Animals:** the detours round obstacles, the birds' first clip.
 
-## Done since the last update (joints 99 to 109)
+## Done since the last update (joints 99 to 110)
 
+- joint110: the creature's eyes blinking on the game's local random stream at its turn's end; its per-turn sound
+  queue; the advisors' animation sounds, the fight music and the heartbeat; the windmill's hum and the creche's
+  children; the missionaries' song with its karaoke box; animals' reaction turns and landscape circles; sharks'
+  fins above the water; the replanted tree's mimicry and forest spot.
 - joint109: the villagers' walk aimed and set up as the original's wall hug; the footpath walk rules; the
   temple's heart destroyed and passing its blows on; the creature's turn on the spot, lean onto the slope, catch of
   thrown things and scripted focus; lightning arcs over what a bolt strikes; hanging objects and fragments coming

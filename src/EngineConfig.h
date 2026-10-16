@@ -19,7 +19,7 @@ namespace openblack
 
 enum class GraphicsBackend : uint8_t
 {
-	Noop,
+	Noop, // TODO(bwrsandman): Test Noop
 	Direct3D12,
 	Metal,
 	Vulkan,
@@ -34,7 +34,6 @@ static const std::map<std::string_view, GraphicsBackend> k_GraphicsBackendString
 
 struct EngineConfig
 {
-	bool wireframe {false};
 	bool showVillagerNames {false};
 	bool debugVillagerNames {false};
 	bool debugVillagerStates {false};
@@ -50,7 +49,7 @@ struct EngineConfig
 	bool drawFootpaths {false};
 	bool drawStreams {false};
 
-	bool vsync {false};
+	bool vsync {false}; // TODO(bwrsandman): Tell renderer and gui
 	bool running {false};
 
 	float timeOfDay {12.0f};

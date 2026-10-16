@@ -9,8 +9,9 @@
 
 #include "MeshViewer.h"
 
-#include <SDL_events.h>
-#include <bgfx/bgfx.h>
+#include <algorithm>
+
+#include <SDL3/SDL_events.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/euler_angles.hpp>
@@ -25,15 +26,12 @@
 #include "3D/L3DSubMesh.h"
 #include "3D/LandIslandInterface.h"
 #include "Camera/Camera.h"
-#include "Debug/ImGuiUtils.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/HandSystemInterface.h"
-#include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/IndexBuffer.h"
 #include "Graphics/RendererInterface.h"
-#include "Graphics/ShaderManager.h"
-#include "Graphics/Texture2D.h"
+#include "Graphics/Texture2d.h"
 #include "Graphics/VertexBuffer.h"
 #include "Locator.h"
 #include "Resources/ResourcesInterface.h"
@@ -45,9 +43,8 @@ MeshViewer::MeshViewer() noexcept
     : Window("MeshPack Viewer", ImVec2(950.0f, 780.0f))
     , _selectedMesh(resources::HashIdentifier(MeshId::Dummy))
     , _boundingBox(graphics::DebugLines::CreateBox(glm::vec4(1.0f, 0.0f, 0.0f, 0.5f)))
-    , _frameBuffer(std::make_unique<graphics::FrameBuffer>("MeshViewer", static_cast<uint16_t>(512), static_cast<uint16_t>(512),
-                                                           graphics::TextureFormat::RGBA8,
-                                                           graphics::TextureFormat::Depth24Stencil8))
+    , _frameBuffer(Locator::rendererInterface::value().CreateFrameBuffer(
+          "MeshViewer", {512, 512}, graphics::TextureFormat::RGBA8, graphics::TextureFormat::Depth24Stencil8))
 {
 }
 
@@ -159,6 +156,13 @@ void MeshViewer::Draw() noexcept
 		}
 	}
 
+	if (mesh->GetSubMeshes().empty())
+	{
+		ImGui::TextUnformatted("No submeshes");
+		ImGui::Columns(1);
+		ImGui::EndChild();
+		return;
+	}
 	ImGui::Text("%zu submeshes", mesh->GetSubMeshes().size());
 	ImGui::SliderInt("submesh", &_selectedSubMesh, 0, static_cast<int>(mesh->GetSubMeshes().size()) - 1);
 	ImGui::DragFloat3("position", &_cameraPosition[0], 0.5f);
@@ -197,7 +201,7 @@ void MeshViewer::Draw() noexcept
 	}
 
 	auto const& graphicsMesh = submesh->GetMesh();
-	ImGui::Text("Vertices %u, Indices %u", graphicsMesh.GetVertexBuffer().GetCount(), graphicsMesh.GetIndexBuffer().GetCount());
+	ImGui::Text("Vertices %u, Indices %u", graphicsMesh.GetVertexBuffer().vertexCount, graphicsMesh.GetIndexBuffer().count);
 
 	if (_selectedSubMesh >= 0 && ImGui::TreeNodeEx("Spawn"))
 	{
@@ -219,25 +223,26 @@ void MeshViewer::Draw() noexcept
 
 	ImGui::NextColumn();
 
-	if (mesh->ContainsLandscapeFeature() && ImGui::TreeNodeEx("Footprint", ImGuiTreeNodeFlags_DefaultOpen))
+	if (mesh->ContainsLandscapeFeature() && !mesh->GetFootprints().empty() &&
+	    ImGui::TreeNodeEx("Footprint", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		ImGui::SliderInt("index", &_selectedFootprint, 0, static_cast<int>(mesh->GetFootprints().size() - 1));
-		if (_selectedFootprint > static_cast<int>(mesh->GetFootprints().size()))
+		if (_selectedFootprint >= static_cast<int>(mesh->GetFootprints().size()))
 		{
 			_selectedFootprint = static_cast<int>(mesh->GetFootprints().size()) - 1;
 		}
 		const auto& footprint = mesh->GetFootprints().at(_selectedFootprint);
-		ImGui::Image(toBgfx(footprint.texture->GetNativeHandle()), ImVec2(128, 128));
+		ImGui::Image(static_cast<ImTextureID>(footprint.texture->handle.id), ImVec2(128, 128));
 		ImGui::TreePop();
 	}
 
-	if (_selectedAnimation)
+	if (_selectedAnimation && !animations.Handle(*_selectedAnimation)->GetFrames().empty())
 	{
 		auto const& animation = animations.Handle(*_selectedAnimation);
 		ImGui::Text("%zu frames", animation->GetFrames().size());
 		ImGui::Text("Duration %u frames", animation->GetDuration());
 		ImGui::SliderInt("frame", &_selectedFrame, 0, static_cast<int>(animation->GetFrames().size() - 1));
-		if (_selectedFrame > static_cast<int>(animation->GetFrames().size()))
+		if (_selectedFrame >= static_cast<int>(animation->GetFrames().size()))
 		{
 			_selectedFrame = static_cast<int>(animation->GetFrames().size()) - 1;
 		}
@@ -249,7 +254,7 @@ void MeshViewer::Draw() noexcept
 	}
 	ImGui::Columns(1);
 
-	ImGui::Image(toBgfx(_frameBuffer->GetColorAttachment().GetNativeHandle()), ImVec2(512, 512));
+	ImGui::Image(static_cast<ImTextureID>(_frameBuffer->colorAttachment.id), ImVec2(512, 512));
 
 	ImGui::EndChild();
 
@@ -293,40 +298,8 @@ void MeshViewer::Update() noexcept
 
 	auto const& meshes = Locator::resources::value().GetMeshes();
 	auto const& animations = Locator::resources::value().GetAnimations();
-	auto& shaderManager = renderer.GetShaderManager();
-	const auto* objectShader = shaderManager.GetShader("Object");
-	const auto* debugShader = shaderManager.GetShader("DebugLine");
-
-	// TODO(bwrsandman): use camera class
-	glm::mat4 perspective = glm::perspective(glm::radians(70.0f), 1.0f, 1.0f, 1024.0f);
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4305)
-#endif
-	glm::mat4 view = glm::lookAt(_cameraPosition, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
-	bgfx::setViewTransform(static_cast<bgfx::ViewId>(k_ViewId), &view, &perspective);
-
-	_frameBuffer->Bind(k_ViewId);
-	// TODO(bwrsandman): The setting of viewport and clearing should probably be
-	// done in framebuffer bind
-	static const uint32_t clearColor = 0x274659ff;
-	bgfx::setViewClear(static_cast<bgfx::ViewId>(k_ViewId), BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, clearColor, 1.0f, 0);
-	uint16_t width;
-	uint16_t height;
-	_frameBuffer->GetSize(width, height);
-	bgfx::setViewRect(static_cast<bgfx::ViewId>(k_ViewId), 0, 0, width, height);
-
-	// clang-format off
-	const uint64_t state = 0u
-		| BGFX_STATE_WRITE_MASK
-		| BGFX_STATE_DEPTH_TEST_LESS
-		| BGFX_STATE_CULL_CCW // TODO(bwrsandman): Some meshes wind one way and
-		                      //                   some others (i.e. rocks, gate)
-		| BGFX_STATE_MSAA;
-	// clang-format on
+	Camera camera;
+	camera.SetOrigin(_cameraPosition).SetFocus(glm::vec3(0.0f)).SetProjectionMatrixPerspective(70.0f, 1.0f, 1.0f, 1024.0f);
 
 	const auto& mesh = meshes.Handle(_selectedMesh);
 	if (_selectedSubMesh >= 0 && static_cast<uint32_t>(_selectedSubMesh) < mesh->GetSubMeshes().size())
@@ -334,8 +307,9 @@ void MeshViewer::Update() noexcept
 		const auto identity = glm::mat4(1.0f);
 		graphics::RendererInterface::L3DMeshSubmitDesc desc = {};
 		desc.viewId = k_ViewId;
-		desc.program = objectShader;
-		desc.state = state;
+		desc.camera = &camera;
+		desc.frameBuffer = _frameBuffer.get();
+		desc.boundingBox = _viewBoundingBox ? _boundingBox.get() : nullptr;
 		desc.modelMatrices = &identity;
 		desc.matrixCount = 1;
 		desc.drawAll = true;
@@ -347,12 +321,16 @@ void MeshViewer::Update() noexcept
 			if (_selectedAnimation.has_value() && _matchBones)
 			{
 				const auto& frames = animations.Handle(*_selectedAnimation)->GetFrames();
-				for (uint32_t i = 0; i < frames[_selectedFrame].bones.size(); ++i)
+				if (!frames.empty())
 				{
-					bones[i] = frames[_selectedFrame].bones[i];
-					if (boneParents[i] != std::numeric_limits<uint32_t>::max())
+					_selectedFrame = std::clamp(_selectedFrame, 0, static_cast<int>(frames.size()) - 1);
+					for (uint32_t i = 0; i < std::min(frames[_selectedFrame].bones.size(), bones.size()); ++i)
 					{
-						bones[i] = bones[boneParents[i]] * bones[i];
+						bones[i] = frames[_selectedFrame].bones[i];
+						if (boneParents[i] < bones.size())
+						{
+							bones[i] = bones[boneParents[i]] * bones[i];
+						}
 					}
 				}
 			}
@@ -360,15 +338,6 @@ void MeshViewer::Update() noexcept
 			desc.matrixCount = static_cast<uint8_t>(bones.size());
 		}
 		renderer.DrawMesh(*mesh, desc, static_cast<uint8_t>(_selectedSubMesh));
-		if (_viewBoundingBox)
-		{
-			auto box = mesh->GetBoundingBox();
-			auto model = glm::translate(box.Center()) * glm::scale(box.Size());
-			bgfx::setTransform(glm::value_ptr(model));
-			_boundingBox->GetVertexBuffer().Bind();
-			bgfx::setState(BGFX_STATE_DEFAULT | BGFX_STATE_PT_LINES, 0);
-			bgfx::submit(static_cast<bgfx::ViewId>(k_ViewId), toBgfx(debugShader->GetRawHandle()));
-		}
 	}
 
 	// Get hand position for spawn location
@@ -390,7 +359,7 @@ void MeshViewer::ProcessEventOpen(const SDL_Event& event) noexcept
 	{
 	default:
 		break;
-	case SDL_MOUSEBUTTONDOWN:
+	case SDL_EVENT_MOUSE_BUTTON_DOWN:
 	{
 		if (!io.WantCaptureMouse)
 		{

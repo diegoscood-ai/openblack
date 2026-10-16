@@ -23,7 +23,6 @@ class Camera;
 namespace openblack::graphics
 {
 class DebugLines;
-class ShaderManager;
 } // namespace openblack::graphics
 
 namespace openblack::ecs
@@ -49,6 +48,7 @@ public:
 	template <typename It>
 	void Destroy(It first, It last)
 	{
+		SetDirty();
 		_registry.destroy(first, last);
 	}
 	template <typename Component, typename... Args>

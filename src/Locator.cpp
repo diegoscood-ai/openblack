@@ -42,7 +42,7 @@
 #include "LHVM.h"
 #include "Profiler.h"
 #include "Resources/Resources.h"
-#include "Windowing/Sdl2WindowingSystem.h"
+#include "Windowing/Sdl3WindowingSystem.h"
 #if __ANDROID__
 #include "FileSystem/AndroidFileSystem.h"
 #else
@@ -74,11 +74,11 @@ using openblack::input::GameActionMap;
 using openblack::lhvm::LHVM;
 using openblack::resources::Resources;
 using openblack::windowing::DisplayMode;
-using openblack::windowing::Sdl2WindowingSystem;
+using openblack::windowing::Sdl3WindowingSystem;
 
 void openblack::InitializeWindow(const std::string& title, int width, int height, DisplayMode displayMode, uint32_t extraFlags)
 {
-	Locator::windowing::emplace<Sdl2WindowingSystem>(title, width, height, displayMode, extraFlags);
+	Locator::windowing::emplace<Sdl3WindowingSystem>(title, width, height, displayMode, extraFlags);
 }
 
 bool openblack::InitializeEngine(GraphicsBackend backend, bool vsync) noexcept
@@ -94,7 +94,7 @@ bool openblack::InitializeEngine(GraphicsBackend backend, bool vsync) noexcept
 		SPDLOG_LOGGER_CRITICAL(spdlog::get("graphics"), "Failed to create renderer");
 		return false;
 	}
-	Locator::debugGui::reset(DebugGuiInterface::Create(graphics::RenderPass::ImGui).release());
+	Locator::debugGui::reset(DebugGuiInterface::Create().release());
 	Locator::events::emplace<EventManager>();
 
 #if __ANDROID__
@@ -154,7 +154,7 @@ void openblack::ShutDownServices()
 		Locator::audio::value().Stop();
 	}
 
-	// Manually delete the assets here before BGFX renderer clears its buffers resulting in invalid handles in our assets
+	// Release assets before destroying the GPU device that owns their resources.
 	if (Locator::resources::has_value())
 	{
 		auto& resources = Locator::resources::value();

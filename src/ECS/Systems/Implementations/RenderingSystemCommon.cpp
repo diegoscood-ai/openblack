@@ -21,31 +21,14 @@
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
 #include "Graphics/DebugLines.h"
-#include "Graphics/GraphicsHandleBgfx.h"
-#include "Graphics/ShaderManager.h"
 #include "Locator.h"
 #include "Resources/ResourcesInterface.h"
 
 using namespace openblack::ecs::systems;
 using namespace openblack::ecs::components;
 
-RenderContext::RenderContext()
-    : instanceUniformBuffer(BGFX_INVALID_HANDLE)
-    , treeInstanceUniformBuffer(BGFX_INVALID_HANDLE)
-{
-}
-RenderContext::~RenderContext()
-{
-	for (const auto& handle : {instanceUniformBuffer, treeInstanceUniformBuffer})
-	{
-		if (bgfx::isValid(toBgfx(handle)))
-		{
-			bgfx::destroy(toBgfx(handle));
-			bgfx::frame();
-			bgfx::frame();
-		}
-	}
-}
+RenderContext::RenderContext() = default;
+RenderContext::~RenderContext() = default;
 
 RenderingSystemCommon::~RenderingSystemCommon() = default;
 

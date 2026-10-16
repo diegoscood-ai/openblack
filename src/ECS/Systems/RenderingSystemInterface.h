@@ -10,11 +10,11 @@
 #pragma once
 
 #include <map>
+#include <tuple>
 
 #include <entt/fwd.hpp>
 #include <glm/mat4x4.hpp>
 
-#include "Graphics/GraphicsHandle.h"
 #include "Graphics/Mesh.h"
 
 namespace openblack::ecs::systems
@@ -58,23 +58,21 @@ struct RenderContext
 	/// CPU-side buffer of tree instance data (matrix + sway params)
 	std::vector<TreeInstanceData> treeInstanceData;
 
+	struct InstancedDrawKey
+	{
+		entt::id_type meshId;
+		bool morphWithTerrain;
+		bool operator<(const InstancedDrawKey& other) const
+		{
+			return std::tie(meshId, morphWithTerrain) < std::tie(other.meshId, other.morphWithTerrain);
+		}
+	};
+
 	/// Stores information for rendering which is prepared at \ref PrepareDraw.
-	std::map<entt::id_type, InstancedDrawDesc> instancedDrawDescs;
+	std::map<InstancedDrawKey, InstancedDrawDesc> instancedDrawDescs;
 	std::map<entt::id_type, InstancedDrawDesc> treeInstancedDrawDescs;
 
-	/// Not an actual vertex buffer, but a dynamic general purpose buffer which
-	/// stores uniform data as a GPU-side copy of \ref _instanceUniforms and
-	/// which is populated in \ref PrepareDraw and consumed in \ref DrawModels.
-	/// This buffer will resize if the size of \ref _instanceUniforms exceeds
-	/// its allocated size. It will never shrink.
-	/// The values stored are a list of uniforms (model matrix) needed for both
-	/// the instances of entities and their bounding boxes.
-	graphics::DynamicVertexBufferHandle instanceUniformBuffer;
-
-	/// Dynamic buffer for tree instance data (contains both matrix and sway params)
-	graphics::DynamicVertexBufferHandle treeInstanceUniformBuffer;
-
-	/// Kept for backward compatibility, will be removed once shader is updated
+	/// Prepared CPU instance data uploaded by the renderer.
 	std::vector<glm::mat4> treeInstanceUniforms;
 	std::vector<glm::vec4> treeSwayParams;
 

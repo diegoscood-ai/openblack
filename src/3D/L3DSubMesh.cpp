@@ -9,16 +9,18 @@
 
 #include "L3DSubMesh.h"
 
-#include <bgfx/bgfx.h>
+#include <vector>
+
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/component_wise.hpp>
 #include <glm/gtx/vec_swizzle.hpp>
 #include <spdlog/spdlog.h>
 
 #include "Graphics/IndexBuffer.h"
-#include "Graphics/ShaderProgram.h"
+#include "Graphics/RendererInterface.h"
 #include "Graphics/VertexBuffer.h"
 #include "L3DMesh.h"
+#include "Locator.h"
 
 using namespace openblack::graphics;
 
@@ -108,16 +110,15 @@ bool L3DSubMesh::Load(const l3d::L3DFile& l3d, uint32_t meshIndex) noexcept
 	}
 
 	// Get vertices
-	const bgfx::Memory* verticesMem = bgfx::alloc(sizeof(EnhancedL3DVertex) * nVertices);
-	auto* verticesMemAccess = reinterpret_cast<EnhancedL3DVertex*>(verticesMem->data);
+	auto vertices = std::vector<EnhancedL3DVertex>(nVertices);
 	for (uint32_t i = 0; i < nVertices; ++i)
 	{
-		verticesMemAccess[i].pos = glm::make_vec3(&verticesSpan[i].position.x);
-		verticesMemAccess[i].uv = glm::make_vec2(&verticesSpan[i].texCoord.x);
+		vertices[i].pos = glm::make_vec3(&verticesSpan[i].position.x);
+		vertices[i].uv = glm::make_vec2(&verticesSpan[i].texCoord.x);
 		// TODO(bwrsandman): build normals from mesh
-		verticesMemAccess[i].norm = glm::make_vec3(&verticesSpan[i].normal.x);
-		verticesMemAccess[i].index.x = -1;
-		verticesMemAccess[i].index.y = -1;
+		vertices[i].norm = glm::make_vec3(&verticesSpan[i].normal.x);
+		vertices[i].index.x = -1;
+		vertices[i].index.y = -1;
 	}
 
 	if (nIndices == 0)
@@ -126,8 +127,7 @@ bool L3DSubMesh::Load(const l3d::L3DFile& l3d, uint32_t meshIndex) noexcept
 	}
 
 	// Get Indices
-	const bgfx::Memory* indicesMem = bgfx::alloc(sizeof(uint16_t) * nIndices);
-	auto* indices = reinterpret_cast<uint16_t*>(indicesMem->data);
+	auto indices = std::vector<uint16_t>(nIndices);
 
 	// Fill bone index
 	uint32_t vertexIndex = 0;
@@ -135,8 +135,8 @@ bool L3DSubMesh::Load(const l3d::L3DFile& l3d, uint32_t meshIndex) noexcept
 	{
 		for (uint32_t i = 0; i < vertexGroupSpan.vertexCount; ++i)
 		{
-			verticesMemAccess[vertexIndex].index[0] = vertexGroupSpan.boneIndex;
-			verticesMemAccess[vertexIndex].index[1] = -1;
+			vertices[vertexIndex].index[0] = vertexGroupSpan.boneIndex;
+			vertices[vertexIndex].index[1] = -1;
 			vertexIndex++;
 		}
 	}
@@ -211,9 +211,13 @@ bool L3DSubMesh::Load(const l3d::L3DFile& l3d, uint32_t meshIndex) noexcept
 	decl.emplace_back(VertexAttrib::Attribute::Indices, static_cast<uint8_t>(2), VertexAttrib::Type::Int16);
 
 	// build our buffers
-	auto* vertexBuffer = new VertexBuffer(_l3dMesh.GetDebugName(), verticesMem, decl);
-	auto* indexBuffer = new IndexBuffer(_l3dMesh.GetDebugName(), indicesMem, IndexBuffer::Type::Uint16);
-	_mesh = std::make_unique<graphics::Mesh>(vertexBuffer, indexBuffer);
+	auto& renderer = Locator::rendererInterface::value();
+	auto vertexBuffer = renderer.CreateVertexBuffer(
+	    _l3dMesh.GetDebugName(), {reinterpret_cast<uint8_t*>(vertices.data()), vertices.size() * sizeof(vertices[0])}, decl);
+	auto indexBuffer = renderer.CreateIndexBuffer(
+	    _l3dMesh.GetDebugName(), {reinterpret_cast<uint8_t*>(indices.data()), indices.size() * sizeof(indices[0])},
+	    IndexBuffer::Type::Uint16);
+	_mesh = std::make_unique<graphics::Mesh>(std::move(vertexBuffer), std::move(indexBuffer));
 
 	SPDLOG_LOGGER_DEBUG(spdlog::get("game"), "{} submesh {} with {} verts and {} indices", _l3dMesh.GetDebugName(), meshIndex,
 	                    nVertices, nIndices);

@@ -12,7 +12,7 @@
 #include <string>
 
 #include <LHVM.h>
-#include <SDL.h>
+#include <SDL3/SDL.h>
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/euler_angles.hpp>
@@ -125,52 +125,50 @@ Game::~Game() noexcept
 
 bool Game::ProcessEvents(const SDL_Event& event) noexcept
 {
-	static bool leftMouseButton = false;
-	static bool middleMouseButton = false;
-
-	if ((event.type == SDL_MOUSEBUTTONDOWN || event.type == SDL_MOUSEBUTTONUP) && event.button.button == SDL_BUTTON_LEFT)
+	if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN || event.type == SDL_EVENT_MOUSE_BUTTON_UP)
 	{
-		leftMouseButton = !leftMouseButton;
+		const bool isDown = event.type == SDL_EVENT_MOUSE_BUTTON_DOWN;
+		if (event.button.button == SDL_BUTTON_LEFT)
+		{
+			_leftMouseButtonDown = isDown;
+		}
+		else if (event.button.button == SDL_BUTTON_MIDDLE)
+		{
+			_middleMouseButtonDown = isDown;
+		}
+		_handGripping = _leftMouseButtonDown || _middleMouseButtonDown;
 	}
-	if ((event.type == SDL_MOUSEBUTTONDOWN || event.type == SDL_MOUSEBUTTONUP) && event.button.button == SDL_BUTTON_MIDDLE)
-	{
-		middleMouseButton = !middleMouseButton;
-	}
-
-	_handGripping = middleMouseButton || leftMouseButton;
 
 	auto& window = Locator::windowing::value();
 	auto& camera = Locator::camera::value();
 
 	switch (event.type)
 	{
-	case SDL_QUIT:
+	case SDL_EVENT_QUIT:
 		return false;
-	case SDL_WINDOWEVENT:
-		if (event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == window.GetID())
+	case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+		if (event.window.windowID == window.GetID())
 		{
 			return false;
 		}
-		else if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
-		{
-			const auto resolution = glm::u16vec2(event.window.data1, event.window.data2);
-			Locator::rendererInterface::value().Reset(resolution);
-			Locator::rendererInterface::value().ConfigureView(graphics::RenderPass::Main, resolution, 0x274659ff);
-
-			auto aspect = window.GetAspectRatio();
-			const auto& config = Locator::config::value();
-			camera.SetProjectionMatrixPerspective(config.cameraXFov, aspect, config.cameraNearClip, config.cameraFarClip);
-		}
 		break;
-	case SDL_KEYDOWN:
-		switch (event.key.keysym.sym)
+	case SDL_EVENT_WINDOW_RESIZED:
+	case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+	{
+		auto aspect = window.GetAspectRatio();
+		const auto& config = Locator::config::value();
+		camera.SetProjectionMatrixPerspective(config.cameraXFov, aspect, config.cameraNearClip, config.cameraFarClip);
+	}
+	break;
+	case SDL_EVENT_KEY_DOWN:
+		switch (event.key.key)
 		{
 		case SDLK_ESCAPE:
 			return false;
-		case SDLK_f:
+		case SDLK_F:
 			window.SetDisplayMode(windowing::DisplayMode::Fullscreen);
 			break;
-		case SDLK_p:
+		case SDLK_P:
 			_paused = !_paused;
 			break;
 		case SDLK_F1:
@@ -184,9 +182,9 @@ bool Game::ProcessEvents(const SDL_Event& event) noexcept
 		case SDLK_6:
 		case SDLK_7:
 		case SDLK_8:
-			if ((event.key.keysym.mod & KMOD_CTRL) != 0)
+			if ((event.key.mod & SDL_KMOD_CTRL) != 0)
 			{
-				const auto index = static_cast<uint8_t>(event.key.keysym.sym - SDLK_1);
+				const auto index = static_cast<uint8_t>(event.key.key - SDLK_1);
 				const auto positions = Locator::handSystem::value().GetPlayerHandPositions();
 				if (positions[static_cast<size_t>(ecs::systems::HandSystemInterface::Side::Left)] ||
 				    positions[static_cast<size_t>(ecs::systems::HandSystemInterface::Side::Right)])
@@ -201,7 +199,7 @@ bool Game::ProcessEvents(const SDL_Event& event) noexcept
 			else
 			{
 				const auto& entitiesRegistry = Locator::entitiesRegistry::value();
-				const size_t index = event.key.keysym.sym - SDLK_1;
+				const size_t index = event.key.key - SDLK_1;
 				const auto& bookmarkEntities = Locator::cameraBookmarkSystem::value().GetBookmarks();
 				const auto entity = bookmarkEntities.at(index);
 				const auto [transform, bookmark] =
@@ -212,20 +210,23 @@ bool Game::ProcessEvents(const SDL_Event& event) noexcept
 				}
 			}
 			break;
+		default:
+			break;
 		}
 		break;
-	case SDL_MOUSEMOTION:
+	case SDL_EVENT_MOUSE_MOTION:
 	{
 		SDL_GetMouseState(&_mousePosition.x, &_mousePosition.y);
 		break;
 	}
-	case SDL_MOUSEBUTTONUP:
+	case SDL_EVENT_MOUSE_BUTTON_UP:
 		switch (event.button.button)
 		{
 		case SDL_BUTTON_MIDDLE:
 		{
-			const glm::ivec2 screenSize = window.GetSize();
-			SDL_SetRelativeMouseMode((event.type == SDL_MOUSEBUTTONDOWN) ? SDL_TRUE : SDL_FALSE);
+			const glm::vec2 screenSize = window.GetSize();
+			SDL_SetWindowRelativeMouseMode(static_cast<SDL_Window*>(window.GetHandle()),
+			                               event.type == SDL_EVENT_MOUSE_BUTTON_DOWN);
 			SDL_WarpMouseInWindow(static_cast<SDL_Window*>(window.GetHandle()), screenSize.x / 2, screenSize.y / 2);
 		}
 		break;
@@ -361,55 +362,19 @@ bool Game::Update() noexcept
 	{
 		auto profilerScopedUpdateUniforms = profiler.BeginScoped(Profiler::Stage::UpdateUniforms);
 
-		// Update Hand and intersection point
-		ecs::components::Transform intersectionTransform {};
+		if (!_handGripping)
 		{
-			const auto screenSize =
-			    Locator::windowing::has_value() ? Locator::windowing::value().GetSize() : glm::zero<glm::ivec2>();
-			const auto scale = glm::vec3(50.0f, 50.0f, 50.0f);
-			if (screenSize.x > 0 && screenSize.y > 0)
+			if (const auto intersection = camera.RaycastMouseToLand(true))
 			{
-				glm::vec3 rayOrigin;
-				glm::vec3 rayDirection;
-				camera.DeprojectScreenToWorld(static_cast<glm::vec2>(_mousePosition) / static_cast<glm::vec2>(screenSize),
-				                              rayOrigin, rayDirection);
-				auto& dynamicsSystem = Locator::dynamicsSystem::value();
-
-				if (!glm::any(glm::isnan(rayOrigin) || glm::isnan(rayDirection)))
-				{
-					if (auto hit = dynamicsSystem.RayCastClosestHit(rayOrigin, rayDirection, 1e10f))
-					{
-						intersectionTransform = hit->first;
-					}
-					else // For the water
-					{
-						float intersectDistance = 0.0f;
-						const auto planeOrigin = glm::vec3(0.0f, 0.0f, 0.0f);
-						const auto planeNormal = glm::vec3(0.0f, 1.0f, 0.0f);
-						if (glm::intersectRayPlane(rayOrigin, rayDirection, planeOrigin, planeNormal, intersectDistance))
-						{
-							intersectionTransform.position = rayOrigin + rayDirection * intersectDistance;
-							intersectionTransform.rotation = glm::mat3(1.0f);
-						}
-					}
-				}
-				intersectionTransform.scale = scale;
-			}
-
-			if (!_handGripping)
-			{
-				const glm::vec3 handOffset(0, 1.5f, 0);
-				const glm::mat4 modelRotationCorrection = glm::eulerAngleX(glm::radians(90.0f));
-
+				constexpr glm::vec3 k_HandOffset {0.0f, 1.5f, 0.0f};
+				const auto modelRotationCorrection = glm::mat3(glm::eulerAngleX(glm::radians(90.0f)));
 				const auto handEntity =
 				    Locator::handSystem::value()
 				        .GetPlayerHands()[static_cast<size_t>(ecs::systems::HandSystemInterface::Side::Left)];
 				auto& handTransform = Locator::entitiesRegistry::value().Get<ecs::components::Transform>(handEntity);
-				// TODO(#480): move using velocity rather than snapping hand to intersectionTransform
-				handTransform.position = intersectionTransform.position;
-				handTransform.rotation = glm::eulerAngleY(camera.GetRotation().y) * modelRotationCorrection;
-				handTransform.rotation = intersectionTransform.rotation * handTransform.rotation;
-				handTransform.position += intersectionTransform.rotation * handOffset;
+				handTransform.position = intersection->position + intersection->rotation * k_HandOffset;
+				handTransform.rotation =
+				    intersection->rotation * glm::mat3(glm::eulerAngleY(camera.GetRotation().y)) * modelRotationCorrection;
 				Locator::entitiesRegistry::value().SetDirty();
 			}
 		}
@@ -418,7 +383,8 @@ bool Game::Update() noexcept
 		// Update Entities
 		{
 			auto updateEntities = profiler.BeginScoped(Profiler::Stage::UpdateEntities);
-			if (config.drawEntities)
+			if (config.drawEntities || config.drawIsland || config.drawVegetation || config.drawBoundingBoxes ||
+			    config.drawFootpaths || config.drawStreams)
 			{
 				Locator::rendereringSystem::value().PrepareDraw(config.drawBoundingBoxes, config.drawFootpaths,
 				                                                config.drawStreams);
@@ -592,7 +558,7 @@ bool Game::Initialize() noexcept
 	const auto& textures = pack.GetTextures();
 	for (auto const& [name, g3dTexture] : textures)
 	{
-		textureManager.Load(g3dTexture.header.id, resources::Texture2DLoader::FromPackTag {}, name, g3dTexture);
+		textureManager.Load(g3dTexture.header.id, resources::Texture2dLoader::FromPackTag {}, name, g3dTexture);
 	}
 
 	pack::PackFile animationPack;
@@ -629,20 +595,23 @@ bool Game::Initialize() noexcept
 		}
 	});
 
-	// Load loose one-off assets
-	{
-		using AFromDiskTag = resources::L3DAnimLoader::FromDiskTag;
-		animationManager.Load("coffre", AFromDiskTag {}, fileSystem.GetPath<Path::Misc>() / "coffre.anm");
+	meshManager.Load("hand", resources::L3DLoader::FromDiskTag {},
+	                 fileSystem.GetPath<Path::CreatureMesh>() / "Hand_Boned_Base2.l3d");
 
-		using LFromDiskTag = resources::L3DLoader::FromDiskTag;
-		meshManager.Load("hand", LFromDiskTag {}, fileSystem.GetPath<Path::CreatureMesh>() / "Hand_Boned_Base2.l3d");
-		meshManager.Load("coffre", LFromDiskTag {}, fileSystem.GetPath<Path::Misc>() / "coffre.l3d");
-		meshManager.Load("cone", LFromDiskTag {}, fileSystem.GetPath<Path::Data>() / "cone.l3d");
-		meshManager.Load("marker", LFromDiskTag {}, fileSystem.GetPath<Path::Data>() / "marker.l3d");
-		meshManager.Load("river", LFromDiskTag {}, fileSystem.GetPath<Path::Data>() / "river.l3d");
-		meshManager.Load("river2", LFromDiskTag {}, fileSystem.GetPath<Path::Data>() / "river2.l3d");
-		meshManager.Load("metre_sphere", LFromDiskTag {}, fileSystem.GetPath<Path::Data>() / "metre_sphere.l3d");
-	}
+	// Load loose one-off assets
+	// {
+	// 	using AFromDiskTag = resources::L3DAnimLoader::FromDiskTag;
+	// 	animationManager.Load("coffre", AFromDiskTag {}, fileSystem.GetPath<Path::Misc>() / "coffre.anm");
+
+	// 	using LFromDiskTag = resources::L3DLoader::FromDiskTag;
+	// 	meshManager.Load("hand", LFromDiskTag {}, fileSystem.GetPath<Path::CreatureMesh>() / "Hand_Boned_Base2.l3d");
+	// 	meshManager.Load("coffre", LFromDiskTag {}, fileSystem.GetPath<Path::Misc>() / "coffre.l3d");
+	// 	meshManager.Load("cone", LFromDiskTag {}, fileSystem.GetPath<Path::Data>() / "cone.l3d");
+	// 	meshManager.Load("marker", LFromDiskTag {}, fileSystem.GetPath<Path::Data>() / "marker.l3d");
+	// 	meshManager.Load("river", LFromDiskTag {}, fileSystem.GetPath<Path::Data>() / "river.l3d");
+	// 	meshManager.Load("river2", LFromDiskTag {}, fileSystem.GetPath<Path::Data>() / "river2.l3d");
+	// 	meshManager.Load("metre_sphere", LFromDiskTag {}, fileSystem.GetPath<Path::Data>() / "metre_sphere.l3d");
+	// }
 
 	// TODO(raffclar): #400: Parse level files within the resource loader
 	// TODO(raffclar): #405: Determine campaign levels from the challenge script file
@@ -773,7 +742,7 @@ bool Game::Initialize() noexcept
 			SPDLOG_LOGGER_DEBUG(spdlog::get("game"), "Loading raw texture: {}", f.stem().string());
 			try
 			{
-				textureManager.Load(fmt::format("raw/{}", f.stem().string()), resources::Texture2DLoader::FromDiskTag {}, f);
+				textureManager.Load(fmt::format("raw/{}", f.stem().string()), resources::Texture2dLoader::FromDiskTag {}, f);
 			}
 			catch (std::runtime_error& err)
 			{
@@ -825,27 +794,6 @@ bool Game::Run() noexcept
 	// Initialize the Acceleration Structure
 	Locator::entitiesMap::value().Rebuild();
 
-	if (Locator::windowing::has_value())
-	{
-		const auto size = static_cast<glm::u16vec2>(Locator::windowing::value().GetSize());
-		Locator::rendererInterface::value().ConfigureView(graphics::RenderPass::Main, size, 0x274659ff);
-	}
-
-	{
-		uint16_t width;
-		uint16_t height;
-		Locator::oceanSystem::value().GetReflectionFramebuffer().GetSize(width, height);
-		Locator::rendererInterface::value().ConfigureView(graphics::RenderPass::Reflection, {width, height}, 0x274659ff);
-	}
-
-	if (config.drawIsland)
-	{
-		uint16_t width;
-		uint16_t height;
-		Locator::terrainSystem::value().GetFootprintFramebuffer().GetSize(width, height);
-		Locator::rendererInterface::value().ConfigureView(graphics::RenderPass::Footprint, {width, height}, 0x00000000);
-	}
-
 	Game::SetTime(config.timeOfDay);
 	Locator::time::value().Start();
 
@@ -875,39 +823,21 @@ bool Game::Run() noexcept
 			    .drawSprites = config.drawSprites,
 			    .drawVegetation = config.drawVegetation,
 			    .drawBoundingBoxes = config.drawBoundingBoxes,
+			    .drawFootpaths = config.drawFootpaths,
+			    .drawStreams = config.drawStreams,
 			    .cullBack = false,
-			    .wireframe = config.wireframe,
 			};
-			Locator::rendererInterface::value().DrawScene(drawDesc);
-		}
-
-		{
-			auto section = profiler.BeginScoped(Profiler::Stage::GuiDraw);
-			const bool screenshotThisFrame = _requestScreenshot.has_value() && _requestScreenshot->first == _frameCount;
-			// Skip drawing Debug UI for screenshots
-			if (screenshotThisFrame)
+			if (_requestScreenshot && _requestScreenshot->first <= _frameCount)
 			{
-				SPDLOG_LOGGER_INFO(spdlog::get("game"), "Requesting a screenshot at frame {}...", _frameCount);
 				Locator::rendererInterface::value().RequestScreenshot(_requestScreenshot->second);
+				_requestScreenshot.reset();
 			}
-			else
-			{
-				Locator::debugGui::value().Draw();
-			}
+			Locator::rendererInterface::value().DrawScene(drawDesc);
 		}
 
 		{
 			auto section = profiler.BeginScoped(Profiler::Stage::RendererFrame);
 			Locator::rendererInterface::value().Frame();
-		}
-
-		// Clear the stale screenshot request
-		if (_requestScreenshot.has_value())
-		{
-			if (_requestScreenshot->first <= _frameCount)
-			{
-				_requestScreenshot = std::nullopt;
-			}
 		}
 
 		_frameCount++;

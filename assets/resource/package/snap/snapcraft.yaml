@@ -44,6 +44,8 @@ parts:
       - -DOPENBLACK_USE_VCPKG=ON
     override-build: |
       set -xe
+      # core24's default GCC 13 lacks C++23 <print>
+      export CC=gcc-14 CXX=g++-14
       for file in $SNAPCRAFT_PART_SRC/vcpkg/triplets/*.cmake $SNAPCRAFT_PART_SRC/vcpkg/triplets/community/*.cmake; do
         echo "set(VCPKG_BUILD_TYPE release)" >> "$file"
       done
@@ -63,16 +65,20 @@ parts:
       - unzip
       - tar
       - build-essential
+      - g++-14
       - ninja-build
       - pkg-config
+      - autoconf
+      - autoconf-archive
       - automake
       - libltdl-dev
       - libtool
-      # bgfx
+      - python3-venv
+      # SDL video dependencies
       - libgl1-mesa-dev
       - x11proto-core-dev
       - libx11-dev
-      # sdl2
+      # SDL input and windowing dependencies
       - python3-jinja2
       - libxft-dev
       - libxext-dev

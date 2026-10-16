@@ -24,10 +24,10 @@ namespace openblack::graphics
 {
 class L3DMesh;
 class Mesh;
-class ShaderProgram;
 
 class L3DSubMesh
 {
+public:
 	struct Primitive
 	{
 		enum class BlendMode : uint8_t
@@ -48,7 +48,6 @@ class L3DSubMesh
 		float alphaCutoutThreshold;
 	};
 
-public:
 	explicit L3DSubMesh(graphics::L3DMesh& mesh) noexcept;
 	~L3DSubMesh() noexcept;
 

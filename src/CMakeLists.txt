@@ -10,58 +10,44 @@ endif ()
 
 set(OPENBLACK_RC ${CMAKE_SOURCE_DIR}/assets/resource/icon/openblack.rc)
 
-file(GLOB OPENBLACK_IMGUI_VS_SHADERS
-     "${CMAKE_SOURCE_DIR}/assets/shaders/imgui/vs_*.sc"
-)
-file(GLOB OPENBLACK_IMGUI_FS_SHADERS
-     "${CMAKE_SOURCE_DIR}/assets/shaders/imgui/fs_*.sc"
-)
-bgfx_compile_shaders(
-  AS_HEADERS
-  TYPE VERTEX
-  SHADERS ${OPENBLACK_IMGUI_VS_SHADERS}
-  VARYING_DEF ${CMAKE_SOURCE_DIR}/assets/shaders/imgui/varying.def.sc
-  OUTPUT_DIR ${CMAKE_BINARY_DIR}/include/generated/shaders/imgui
-)
-bgfx_compile_shaders(
-  AS_HEADERS
-  TYPE FRAGMENT
-  SHADERS ${OPENBLACK_IMGUI_FS_SHADERS}
-  VARYING_DEF ${CMAKE_SOURCE_DIR}/assets/shaders/imgui/varying.def.sc
-  OUTPUT_DIR ${CMAKE_BINARY_DIR}/include/generated/shaders/imgui
-)
+function (compile_shaders)
+  set(options "")
+  set(oneValueArgs OUTPUT_DIR)
+  set(multiValueArgs SHADERS)
+  cmake_parse_arguments(
+    ARGS "${options}" "${oneValueArgs}" "${multiValueArgs}" "${ARGN}"
+  )
 
-file(GLOB OPENBLACK_VERTEX_SHADERS "${CMAKE_SOURCE_DIR}/assets/shaders/vs_*.sc")
-file(GLOB OPENBLACK_FRAGMENT_SHADERS
-     "${CMAKE_SOURCE_DIR}/assets/shaders/fs_*.sc"
-)
-file(GLOB OPENBLACK_VARYING_DEF_FILE
-     "${CMAKE_SOURCE_DIR}/assets/shaders/varying.def.sc"
-)
+  set(OUTPUTS "")
+  foreach (SHADER_FILE IN LISTS ARGS_SHADERS)
+    source_group("Shaders" FILES "${SHADER_FILE}")
+    get_filename_component(SHADER_FILE_BASENAME "${SHADER_FILE}" NAME)
+    set(OUTPUT "${ARGS_OUTPUT_DIR}/${SHADER_FILE_BASENAME}.spv.h")
+    add_custom_command(
+      OUTPUT "${OUTPUT}"
+      COMMAND ${CMAKE_COMMAND} -E make_directory "${ARGS_OUTPUT_DIR}"
+      COMMAND $<TARGET_FILE:slang-sdl3-gpu-compiler> "${SHADER_FILE}" -o
+              "${ARGS_OUTPUT_DIR}"
+      MAIN_DEPENDENCY "${SHADER_FILE}"
+      DEPENDS slang-sdl3-gpu-compiler
+      VERBATIM
+    )
+    list(APPEND OUTPUTS "${OUTPUT}")
+  endforeach ()
+  set(OPENBLACK_GENERATED_SHADERS
+      ${OUTPUTS}
+      PARENT_SCOPE
+  )
+endfunction ()
 
-bgfx_compile_shaders(
-  AS_HEADERS
-  TYPE VERTEX
-  SHADERS ${OPENBLACK_VERTEX_SHADERS}
-  VARYING_DEF ${OPENBLACK_VARYING_DEF_FILE}
+file(GLOB OPENBLACK_SHADERS CONFIGURE_DEPENDS
+     "${CMAKE_SOURCE_DIR}/assets/shaders/*.slang"
+)
+compile_shaders(
+  SHADERS ${OPENBLACK_SHADERS}
   OUTPUT_DIR ${CMAKE_BINARY_DIR}/include/generated/shaders
 )
-bgfx_compile_shaders(
-  AS_HEADERS
-  TYPE FRAGMENT
-  SHADERS ${OPENBLACK_FRAGMENT_SHADERS}
-  VARYING_DEF ${OPENBLACK_VARYING_DEF_FILE}
-  OUTPUT_DIR ${CMAKE_BINARY_DIR}/include/generated/shaders
-)
-
-list(APPEND OPENBLACK_SHADERS ${OPENBLACK_IMGUI_VS_SHADERS})
-list(APPEND OPENBLACK_SHADERS ${OPENBLACK_IMGUI_FS_SHADERS})
-list(APPEND OPENBLACK_SHADERS
-     ${CMAKE_SOURCE_DIR}/assets/shaders/imgui/varying.def.sc
-)
-list(APPEND OPENBLACK_SHADERS ${OPENBLACK_VERTEX_SHADERS})
-list(APPEND OPENBLACK_SHADERS ${OPENBLACK_FRAGMENT_SHADERS})
-list(APPEND OPENBLACK_SHADERS ${OPENBLACK_VARYING_DEF_FILE})
+add_custom_target(openblack_shaders DEPENDS ${OPENBLACK_GENERATED_SHADERS})
 
 if (ANDROID)
   add_library(openblack_lib SHARED)
@@ -72,22 +58,18 @@ else ()
   add_library(openblack_lib STATIC)
 endif ()
 
+add_dependencies(openblack_lib openblack_shaders)
 target_sources(
   openblack_lib
-  PRIVATE ${OPENBLACK_SOURCES}
-          ${OPENBLACK_HEADERS}
-          ${OPENBLACK_RC}
-          ${OPENBLACK_SHADERS}
-          ${OPENBLACK_VERTEX_SHADERS}
-          ${OPENBLACK_FRAGMENT_SHADERS}
-          ${OPENBLACK_VARYING_DEF_FILE}
+  PRIVATE ${OPENBLACK_SOURCES} ${OPENBLACK_HEADERS} ${OPENBLACK_RC}
+          ${OPENBLACK_SHADERS} ${OPENBLACK_GENERATED_SHADERS}
 )
 set_target_properties(openblack_lib PROPERTIES LINKER_LANGUAGE CXX)
 
 target_include_directories(
   openblack_lib
   PUBLIC ${CMAKE_CURRENT_LIST_DIR}
-         ${CMAKE_BINARY_DIR}/include # For shaders and other bin2c
+         ${CMAKE_BINARY_DIR}/include # Generated shader headers
          ${BULLET_INCLUDE_DIR} ${Stb_INCLUDE_DIR} ${DRLIBS_INCLUDE_DIRS}
 )
 if (NOT VCPKG_TARGET_ANDROID)
@@ -113,7 +95,6 @@ target_link_libraries(
           ScriptLibrary
           glm::glm
           EnTT::EnTT
-          bgfx::bgfx
           OpenAL::OpenAL
           Bullet3Common
           BulletDynamics
@@ -144,25 +125,16 @@ if (OPENBLACK_CLANG_TIDY_CHECKS)
   endif ()
 endif ()
 
-if (ANDROID)
-  target_link_libraries(openblack_lib PRIVATE EGL)
-elseif (UNIX)
-  find_library(WAYLAND wayland-egl)
-  if (WAYLAND)
-    target_link_libraries(openblack_lib PRIVATE ${WAYLAND})
-  endif ()
-endif ()
-
 if (VCPKG_TARGET_ANDROID)
-  # openblack_lib need to forward the JNI exports from SDL2 so the Activity can start main
+  # openblack_lib need to forward the JNI exports from SDL3 so the Activity can start main
   target_link_libraries(
-    openblack_lib PUBLIC -Wl,--whole-archive SDL2::SDL2 -Wl,--no-whole-archive
+    openblack_lib PUBLIC -Wl,--whole-archive SDL3::SDL3 -Wl,--no-whole-archive
   )
 else ()
   target_link_libraries(
     openblack_lib
-    PUBLIC $<TARGET_NAME_IF_EXISTS:SDL2::SDL2main>
-           $<IF:$<TARGET_EXISTS:SDL2::SDL2>,SDL2::SDL2,SDL2::SDL2-static>
+    PUBLIC $<TARGET_NAME_IF_EXISTS:SDL3::SDL3main>
+           $<IF:$<TARGET_EXISTS:SDL3::SDL3>,SDL3::SDL3,SDL3::SDL3-static>
   )
 endif ()
 

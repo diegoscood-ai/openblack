@@ -11,12 +11,16 @@
 
 #include <filesystem>
 #include <memory>
+#include <span>
 
 #include <glm/mat4x4.hpp>
 #include <glm/vec2.hpp>
 
-#include "InstanceDesc.h"
+#include "FrameBuffer.h"
+#include "IndexBuffer.h"
 #include "RenderPass.h"
+#include "Texture2d.h"
+#include "VertexBuffer.h"
 
 #include "../EngineConfig.h"
 
@@ -36,9 +40,7 @@ class Registry;
 namespace openblack::graphics
 {
 class L3DMesh;
-class FrameBuffer;
-class ShaderManager;
-class ShaderProgram;
+class Mesh;
 
 class RendererInterface
 {
@@ -60,22 +62,19 @@ public:
 		bool drawSprites;
 		bool drawVegetation;
 		bool drawBoundingBoxes;
+		bool drawFootpaths;
+		bool drawStreams;
 		bool cullBack;
-		bool wireframe;
 	};
 
 	struct L3DMeshSubmitDesc
 	{
+		const Camera* camera {};
+		const FrameBuffer* frameBuffer {};
+		const Mesh* boundingBox {};
 		graphics::RenderPass viewId;
-		const graphics::ShaderProgram* program;
-		uint64_t state;
-		uint32_t rgba;
 		const glm::mat4* modelMatrices;
 		uint8_t matrixCount;
-		std::unique_ptr<const graphics::InstanceDesc> instanceDesc;
-		uint32_t instanceStart;
-		uint32_t instanceCount;
-		bool isSky;
 		bool drawAll; ///< For use in the mesh viewer
 		bool morphWithTerrain;
 	};
@@ -84,9 +83,8 @@ public:
 
 	virtual ~RendererInterface() noexcept = default;
 
-	virtual void ConfigureView(graphics::RenderPass viewId, glm::u16vec2 resolution, uint32_t clearColor) const noexcept = 0;
-	virtual void Reset(glm::u16vec2 resolution) const noexcept = 0;
-	virtual void DrawScene(const DrawSceneDesc& drawDesc) const noexcept = 0;
+	[[nodiscard]] virtual void* GetDevice() const noexcept = 0;
+	virtual void DrawScene(const DrawSceneDesc& drawDesc) noexcept = 0;
 	virtual void Frame() noexcept = 0;
 	virtual void RequestScreenshot(const std::filesystem::path& filepath) noexcept = 0;
 	[[nodiscard]] virtual bool GetDebug() const noexcept = 0;
@@ -96,8 +94,18 @@ public:
 
 	// TODO: Remove this function. All renderables should be drawn through RenderingSystem with Components
 	virtual void DrawMesh(const L3DMesh& mesh, const L3DMeshSubmitDesc& desc, uint8_t subMeshIndex) const noexcept = 0;
-	// TODO: Should shader manager be available through Locator as a service?
-	[[nodiscard]] virtual graphics::ShaderManager& GetShaderManager() const noexcept = 0;
+
+	[[nodiscard]] virtual VertexBufferUniquePtr CreateVertexBuffer(std::string name, std::span<const uint8_t> memory,
+	                                                               VertexDecl decl) noexcept = 0;
+	[[nodiscard]] virtual IndexBufferUniquePtr CreateIndexBuffer(std::string name, std::span<const uint8_t> memory,
+	                                                             IndexBuffer::Type type) noexcept = 0;
+	[[nodiscard]] virtual Texture2dUniquePtr CreateTexture2d(std::string name, std::span<const uint8_t> memory,
+	                                                         glm::u16vec2 resolution, uint16_t layers, TextureFormat format,
+	                                                         Wrapping wrapping, Filter filter) noexcept = 0;
+
+	[[nodiscard]] virtual std::unique_ptr<FrameBuffer>
+	CreateFrameBuffer(std::string name, glm::u16vec2 resolution, TextureFormat colorFormat,
+	                  std::optional<TextureFormat> depthStencilFormat = {}) noexcept = 0;
 };
 
 } // namespace openblack::graphics

@@ -11,10 +11,10 @@
 
 #include <memory>
 
-#include "Graphics/RenderPass.h"
-
 struct SDL_Window;
 struct SDL_Cursor;
+struct SDL_GPUCommandBuffer;
+struct SDL_GPUTexture;
 union SDL_Event;
 
 namespace openblack::graphics
@@ -27,13 +27,13 @@ namespace openblack::debug::gui
 class DebugGuiInterface
 {
 public:
-	static std::unique_ptr<DebugGuiInterface> Create(graphics::RenderPass viewId) noexcept;
+	static std::unique_ptr<DebugGuiInterface> Create() noexcept;
 
 	virtual ~DebugGuiInterface() noexcept = default;
 	[[nodiscard]] virtual bool StealsFocus() const noexcept = 0;
 	virtual void SetScale(float scale) noexcept = 0;
 	virtual bool ProcessEvents(const SDL_Event& event) noexcept = 0;
 	virtual bool Loop() noexcept = 0;
-	virtual void Draw() noexcept = 0;
+	virtual void Draw(SDL_GPUCommandBuffer* cmdBuf, SDL_GPUTexture* targetTexture) noexcept = 0;
 };
 } // namespace openblack::debug::gui

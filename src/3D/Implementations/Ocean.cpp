@@ -7,27 +7,27 @@
  * openblack is licensed under the GNU General Public License version 3.
  *******************************************************************************/
 
+#include "Locator.h"
 #define LOCATOR_IMPLEMENTATIONS
 
-#include "Ocean.h"
-
-#include <bgfx/bgfx.h>
 #include <glm/vec2.hpp>
 
 #include "Graphics/FrameBuffer.h"
 #include "Graphics/IndexBuffer.h"
 #include "Graphics/Mesh.h"
-#include "Graphics/Texture2D.h"
+#include "Graphics/RendererInterface.h"
+#include "Graphics/Texture2d.h"
 #include "Graphics/VertexBuffer.h"
+#include "Locator.h"
+#include "Ocean.h"
 
 using namespace openblack;
 using namespace openblack::graphics;
 
 Ocean::Ocean() noexcept
 {
-	_reflectionFrameBuffer =
-	    std::make_unique<FrameBuffer>("Reflection", static_cast<uint16_t>(1024), static_cast<uint16_t>(1024),
-	                                  graphics::TextureFormat::RGBA8, graphics::TextureFormat::Depth24Stencil8);
+	_reflectionFrameBuffer = Locator::rendererInterface::value().CreateFrameBuffer(
+	    "Reflection", {1024, 1024}, TextureFormat::RGBA8, TextureFormat::Depth24Stencil8);
 	CreateMesh();
 }
 Ocean::~Ocean() noexcept = default;
@@ -47,10 +47,11 @@ void Ocean::CreateMesh()
 
 	static constexpr std::array<uint16_t, 6> k_Indices = {2, 1, 0, 0, 3, 2};
 
-	const auto* mem = bgfx::makeRef(k_Points.data(), static_cast<uint32_t>(k_Points.size() * sizeof(k_Points[0])));
-	auto* vertexBuffer = new VertexBuffer("Water", mem, decl);
-	auto* indexBuffer =
-	    new IndexBuffer("Water", k_Indices.data(), static_cast<uint32_t>(k_Indices.size()), IndexBuffer::Type::Uint16);
+	auto& renderer = Locator::rendererInterface::value();
+	const auto memVtx = std::span(reinterpret_cast<const uint8_t*>(k_Points.data()), k_Points.size() * sizeof(k_Points[0]));
+	auto vertexBuffer = renderer.CreateVertexBuffer("Water", memVtx, decl);
+	const auto memIdx = std::span(reinterpret_cast<const uint8_t*>(k_Indices.data()), k_Indices.size() * sizeof(k_Indices[0]));
+	auto indexBuffer = renderer.CreateIndexBuffer("Water", memIdx, IndexBuffer::Type::Uint16);
 
-	_mesh = std::make_unique<Mesh>(vertexBuffer, indexBuffer, graphics::Mesh::Topology::TriangleList);
+	_mesh = std::make_unique<Mesh>(std::move(vertexBuffer), std::move(indexBuffer), graphics::Mesh::Topology::TriangleList);
 }

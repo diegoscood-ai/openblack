@@ -8,27 +8,26 @@ The source of truth is the maintainer's local repository; `AI-Decompiled` is upd
 Pull requests are reviewed here, imported locally, verified with the full fidelity checks (they need the original
 game's data) and land in `AI-Decompiled` with the next publish, after which they are closed.
 
-The port target is raffclar's `master` at `0222f9f5`: of the 161 rows of the port audit, 90 are closed (2026-10-16).
+The port target is raffclar's `master` at `0222f9f5`: of the 161 rows of the port audit, 100 are closed (2026-10-16).
 
 ## In progress here (do not start these)
 
-- **Creature:** the turn on the spot as the original's spins, the lean onto the slope, catching what is thrown, the
-  eye blink on the local random stream, looking and pointing at the camera (also in a script's wide screen), the
-  alignment sparkles, eating from fields, trees and storage pits, the copy in the creature room turning, looking at
-  the pointer and idling.
-- **Camera:** the land under a pixel as the island's own ray, the double click flying to the object under the hand.
-- **Physics:** the Bullet library removed; the "in the physics" mark as raffclar's tag, with hanging objects and
-  the trees a tornado lets go; the weights of homes, stores and fragments.
-- **Villagers and towns:** the walk round obstacles (the wall hug, its circles and its lookahead), the doors of the
-  homes, the temple's destruction and the heart's blows, SET_FOCUS turning objects (the singing stones), the virtual
-  influence, the hand's pose buffers and blend.
-- **Rendering and interface:** the high meshes at the top detail level, the fade of things given to a store, the
-  sea reflection of a held body in its pose, a burning tree's forced alpha reference, the moon window, the creature's
-  sea reflection, the totem's gate and light.
-- **Animals:** the grazers' search distance.
+- **Creature:** the turn on the spot as the original's spins, catching what is thrown, the lean onto the slope, the
+  eye blink on the local stream, the alignment sparkles, the falling-spell film, eating from fields, trees and stores.
+- **Villagers and towns:** the walk round obstacles (the wall hug and its circles), footpaths, the temple's
+  destruction, the first clip of a new living, the trees' tug and replanting, villagers fleeing from predators.
+- **Physics:** the "in the physics" tag with hanging objects, fragments coming to rest, the dead list's deferral, the
+  vortex's pull.
+- **Rendering and interface:** the totem's gate and light, the draw order of the object list's tail.
+- **Animals:** the detours round obstacles, the birds' first clip.
 
-## Done since the last update (joints 99 to 107)
+## Done since the last update (joints 99 to 108)
 
+- joint108: the Bullet library removed (the land under a pixel is the island's own ray); the tattoo editor's
+  creature copy; the towns' belief rising as sparkles; the storm in the hand flashing; SET_FOCUS turning objects;
+  the homes' doors; the grazers' search; weights and body masses; IS_ACTIVE, GET_OBJECT_CLICKED, FLOCK_MEMBER;
+  the hand's pose blend; the high meshes at the top detail level; the creature's sea reflection; a burning tree's
+  alpha reference; things given to a store dissolving as the original's ghost.
 - joint107: the advisors' lip sync and gestures from their cue labels and their trail's sparks; the sky's dome, sun
   and moon as entities; the start-up logos, pre-intro film, tips and loading screens; the believers a town gains
   floating up; a held or flying body mirrored in the sea in its pose; one bone palette for posed villagers and

@@ -9,7 +9,7 @@ What a villager carries, and the log it lets fall when it is launched, is in [..
 openblack tests the game's own way: each body's points against the land (`Body::TouchGround`)
 and against other bodies' faces (`Body::TouchFaces`, `src/Physics/Body.cpp`), with the pair
 rules and the turn in `src/ECS/Physics/PhysicsObjects.cpp`; the creature is a stand-in ball, not its bones' ellipsoids.
-Bullet is still linked but never stepped: it only answers ray casts (`PickingSystem`). Tests:
+No other physics library is linked. Tests:
 `test/test_physics_body_pose.cpp`, `test/test_physics_body_water.cpp`.
 
 **Progress: 30/33 done, 3 partial — 95%**

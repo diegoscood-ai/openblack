@@ -33,7 +33,7 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 | It plays its last shown desire again on request | todo |  |
 | It waves at the player, points at the camera, howls at the player, is pathetic to get attention | partial | these emotes exist as plan actions facing the camera (`WaveAtPlayer`, `PointAtCamera`, `HowlAtPlayer`, `BePatheticToPlayer` in `CreaturePlanActions.cpp`); the attention sources are stand-ins (see [desires](desires.md)) |
 | It watches the player while the player has its attention | todo |  |
-| It looks at the camera in wide screen during cut scenes | todo |  |
+| It looks at the camera in wide screen during cut scenes | done | `LookAtCameraInWideScreen`, forced on every creature not under a script's control while a script's cinema bars are in (`CreatureMindSystem::ProcessTurn`) |
 | A sound tells its mood when it shows it | todo | see [../audio/](../audio/) |
 
 ## Looking about
@@ -56,7 +56,7 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 | It looks down a cliff | todo |  |
 | It looks at something without going up to it, or stares for ever | todo |  |
 | It follows things flying through the air with its eyes | todo |  |
-| It looks at the player's hand, and at the camera | partial | `LookAtHand` and `PointAtCamera` emotes exist; its head doesn't track the hand |
+| It looks at the player's hand, and at the camera | partial | `LookAtHand` emote exists; `PointAtCamera` and `LookAtCamera` are the original's, the head on the camera; its head doesn't track the hand |
 | It looks at its feet, down, frightened, stoned, or just woken | partial | the eyes have wide, closed, calm, stoned and ahead modes (`creature_eyes::Mode`; see [face, eyes and hair](face_eyes_hair.md)); looking at its feet or down are missing |
 | It sees important things far away and turns to them | todo |  |
 | It tells the player something interesting is happening off screen | todo | see [lessons and help](lessons_and_help.md) |

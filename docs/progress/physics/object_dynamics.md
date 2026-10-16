@@ -14,8 +14,7 @@ openblack runs the game's own simulation: the bodies are `src/Physics/Body.cpp` 
 `PhysicsObjects::LoadConstants` reading `Data/PhysicsConstants.txt` through the resource caches),
 and `PhysicsObjects` (`src/ECS/Physics/PhysicsObjects.cpp`) steps them once a game turn and draws moving
 bodies between turns. Each kind's material, weight and shape are in `PhysicsObjects.cpp` too. Tests:
-`test/test_physics_body_pose.cpp`, `test/test_physics_body_water.cpp`. Bullet is still linked but never stepped:
-it only answers the ray casts of the hand, the camera and the console (`PickingSystem`).
+`test/test_physics_body_pose.cpp`, `test/test_physics_body_water.cpp`. No other physics library is linked.
 
 **Progress: 36/43 done, 6 partial — 91%**
 

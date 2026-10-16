@@ -146,11 +146,11 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | Point at something, low or high, to its left or right, turning to it first | partial | `CreatureObjectActionSystem::PointAt` (`Kind::Point`), but only the debug spawner starts it; no plan action points |
-| Point at the camera, at the hand, or at something off-screen to show the player | partial | plan action `PointAtCamera` turns to the camera and plays its look-at-me animation; pointing at the hand or off-screen things is todo |
+| Point at the camera, at the hand, or at something off-screen to show the player | partial | plan action `PointAtCamera` turns to the camera (with a player) and points at it for a second, amazed, as the original; pointing at the hand or off-screen things is todo |
 | Wave at the player | done | plan action `WaveAtPlayer` |
 | Wave at something | todo |  |
-| Look at the hand, look at the camera | done | plan actions `LookAtHand`, `PointAtCamera` (face the camera and emote) |
-| Look at the camera in wide screen, during cut scenes | todo |  |
+| Look at the hand, look at the camera | done | plan actions `LookAtHand` (face the camera and emote), `LookAtCamera` (watches the camera five seconds, curious, its head on it, as the original) |
+| Look at the camera in wide screen, during cut scenes | done | plan action `LookAtCameraInWideScreen`, forced while a script's cinema bars are in: it may point at the camera, watches it 21 turns, may wave, talk or look confused and talk, then watches again, as the original |
 | Pull silly faces | done | plan action `PullSillyFaces` |
 | Show an impressive animation | done | plan action `ShowImpressiveAnimation` |
 | Be sad, be frightened on the spot | done | plan actions `BeSad`, `BeFrightenedOnTheSpot` |

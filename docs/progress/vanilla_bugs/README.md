@@ -28,7 +28,7 @@ physics research spec. New research adds its findings to the area files below.
 | Silver quests and the shared swap offer | [silver_quests.md](silver_quests.md) | 71 | 5 |
 | Creature | [creature.md](creature.md) | 3 | 0 |
 | Villagers and towns (tools, sounds, football) | [villagers_and_towns.md](villagers_and_towns.md) | 8 | 0 |
-| Physics and objects | [physics_and_objects.md](physics_and_objects.md) | 7 | 0 |
+| Physics and objects | [physics_and_objects.md](physics_and_objects.md) | 6 | 0 |
 | Miracles and dispensers | [miracles.md](miracles.md) | 2 | 0 |
 | Interface, help and text | [interface_and_text.md](interface_and_text.md) | 11 | 0 |
 | Multiplayer and skirmish | [multiplayer_and_skirmish.md](multiplayer_and_skirmish.md) | 9 | 1 |

@@ -8,7 +8,7 @@ The source of truth is the maintainer's local repository; `AI-Decompiled` is upd
 Pull requests are reviewed here, imported locally, verified with the full fidelity checks (they need the original
 game's data) and land in `AI-Decompiled` with the next publish, after which they are closed.
 
-The port target is raffclar's `master` at `0222f9f5`: of the 161 rows of the port audit, 100 are closed (2026-10-16).
+The port target is raffclar's `master` at `0222f9f5`: of the 161 rows of the port audit, 105 are closed (2026-10-16).
 
 ## In progress here (do not start these)
 
@@ -21,8 +21,13 @@ The port target is raffclar's `master` at `0222f9f5`: of the 161 rows of the por
 - **Rendering and interface:** the totem's gate and light, the draw order of the object list's tail.
 - **Animals:** the detours round obstacles, the birds' first clip.
 
-## Done since the last update (joints 99 to 110)
+## Done since the last update (joints 99 to 111)
 
+- joint111: villagers walking round obstacles on the original's circles; animals leaving a circle whose thing left
+  the map; the ambience loops fading in (they started silent); pause, dead voices, volcano and small sound rules;
+  the temple's challenge list, room and picture click; the creature's motes, eyelids, falling-film copy, its body
+  posed from the turn's layer times and the hand resting on it; the tree tug as the original's spring; the audio
+  device owned with RAII; the spirit meshes through the cache.
 - joint110: the creature's eyes blinking on the game's local random stream at its turn's end; its per-turn sound
   queue; the advisors' animation sounds, the fight music and the heartbeat; the windmill's hum and the creche's
   children; the missionaries' song with its karaoke box; animals' reaction turns and landscape circles; sharks'

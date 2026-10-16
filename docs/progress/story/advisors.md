@@ -19,9 +19,9 @@ them and how. openblack draws them, moves them and plays their lines (`src/Help`
 | Sent out into the world they are drawn in the world instead, blending between the two | done | `Help/Spirits` in-world blend; drawn in the world at a blend of 0.5 or more |
 | They fade in at three times a second's alpha, out at twice | done | `Help/Spirits` alpha fade, +3 per second in, -2 out |
 | The good one glows with a halo; both leave a sparkling rainbow trail and a puff of smoke when they appear | done | the halo (good only), the smoke puff and the rainbow trail in `Help/Spirits` and `Graphics/RendererSpirits` |
-| Their faces blink each eye, and show smiles, frowns, sadness, shock, a raised eyebrow and anger | partial | blinks and the face records per emotion are ported (`Help/Spirits`); the emotions are set by the voice tags, which are not fed, so they rarely change; the eye-bone scales are pending |
-| Their mouths move with their voice: three vowel shapes picked by analysing the sound as it plays | done | the mouth poses from the advisor lip-sync (`Audio/Services/Advisor.h` `LipSyncThisFrame`, `Help/Spirits`) |
-| Gestures and emotions while talking come from cue marks in each line's recording | partial | the tag parser and walker exist (`Help/Spirits.h` `ParseAudioTags`), but the recordings' cue labels are not read, so no tag reaches them |
+| Their faces blink each eye, and show smiles, frowns, sadness, shock, a raised eyebrow and anger | partial | blinks and the face records per emotion are ported (`Help/Spirits`); the emotions are set by the voice tags of each line; the eye-bone scales are pending |
+| Their mouths move with their voice: three vowel shapes picked by analysing the sound as it plays | done | the mouth poses from the advisor lip-sync (`Audio/LipSync.h`, `Help/AdvisorVoices.h` `ApplyLipSync`, run from each spirit's update in `Help/Spirits`) |
+| Gestures and emotions while talking come from cue marks in each line's recording | done | the recordings' cue labels (`Audio/WaveCueLabels`) give each line its tags (`Help/Spirits.h` `ParseAudioTags`), which fire on the speaker as the line's time passes them |
 | They have no idle gestures of their own: between lines they just hover | done | no idle gestures, as in the original: `Help/Spirits` hovers on the base pose clip |
 
 ## Where they are and how they move
@@ -48,7 +48,7 @@ them and how. openblack draws them, moves them and plays their lines (`src/Help`
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Every advisor line has its own recording; the good advisor's and evil advisor's lines come from the advisors' bank | partial | voice routing by narrator in `Help/HelpSystem` (`VoiceRoute`) and `Audio/Services/Advisor`; the dialogue banks load lazily; not checked line by line against the original |
+| Every advisor line has its own recording; the good advisor's and evil advisor's lines come from the advisors' bank | partial | voice routing by narrator in `Help/HelpSystem` (`VoiceRoute`) and `Help/AdvisorVoices`; the dialogue banks load lazily; not checked line by line against the original |
 | An advisor starts speaking up to half a second late, the further it is from its rest place | done | `Help/AdvisorVoices.h` `SaySentence`: a delay of up to 500 ms from the advisor's hover distance |
 | The line shows in a strip above the bottom of the screen, the good advisor's in pale yellow, the evil one's in pink, others in white | partial | the strip is `Help/HelpTextDisplay` (drawn by `Renderer::DrawHelpText`), coloured by narrator; its look is not yet checked against the original |
 | A line is read when the voice has finished (or, without a voice, after a time by its words and the reading speed) | done | `HelpSystem::IsTextRead`: the voice's end, or the reading time from the words and the reading speed; `test/test_help_system.cpp` |

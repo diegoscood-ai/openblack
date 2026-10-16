@@ -25,7 +25,7 @@ How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/mir
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Searches a square of map cells twice the reach across, cell by cell outward, fixed objects before moving ones | done | `src/Particles/Rules/Lightning.cpp` (SearchAround: a spiral of 4 ceil(R/10) squared cells, each cell's fixed list first) |
+| Searches a square of map cells twice the reach across, cell by cell outward, fixed objects before moving ones | done | `src/Particles/Rules/Lightning.cpp` (SearchAround, each cell's fixed list first), `src/Particles/LightningMaths.cpp` (`StrikeSearchCells`: a spiral of 4 ceil(R/10) squared cells); `test/test_lightning_maths.cpp` |
 | Anything available is a target (people, creatures, animals, trees, buildings, fields, rocks…), but not miracle seeds or dying villagers | done | `src/Particles/Rules/Lightning.cpp` (IsAvailable, CanBeStruck) |
 | Only objects inside the cone ahead are taken, up to 6 / 12 / 28 on the first search | done | `src/Particles/Rules/Lightning.cpp` (the SplitAngle cone, MaxLightningObjects) |
 | Missing targets are made up with points on the ground ahead, up to 3 / 8 / 15 | done | `src/Particles/Rules/Lightning.cpp` (AddGroundPoints) |
@@ -53,7 +53,7 @@ How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/mir
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | A spiritual shield stops a fork at its surface, costs the shield 10 / 20 / 30 a hit and sparks | done | `src/Particles/Rules/Lightning.cpp` (a shield test on each fork segment, an event to the shield's spell and a spark), `src/Particles/Rules/Shield.cpp` |
-| Two hand-cast bolts pointing the same way meet at a clash point | done | `src/Particles/Rules/Lightning.cpp` (FindClash); test `Lightning.twoBoltsClash` (`test/test_lightning.cpp`) |
+| Two hand-cast bolts pointing the same way meet at a clash point | done | `src/Particles/Rules/Lightning.cpp` (FindClash), `src/Particles/LightningMaths.cpp` (`ClashPoint`); tests `Lightning.twoBoltsClash` (`test/test_lightning.cpp`), `test/test_lightning_maths.cpp` |
 | A clash glows at the meeting point, the older bolt carries on three times as thick, and both strike at double strength | done | `src/Particles/Rules/Lightning.cpp` (the common glow, the fork three times as thick, strength 2 to both spells); test `Lightning.twoBoltsClash` |
 
 ## Bolts not cast by hand

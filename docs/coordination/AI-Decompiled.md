@@ -23,12 +23,16 @@ The port target is raffclar's `master` at `0222f9f5`: of the 161 rows of the por
   homes, the temple's destruction and the heart's blows, SET_FOCUS turning objects (the singing stones), the virtual
   influence, the hand's pose buffers and blend.
 - **Rendering and interface:** the high meshes at the top detail level, the fade of things given to a store, the
-  sea reflection of a held body in its pose, a burning tree's forced alpha reference, the moon window, the loading
-  screens and start-up logos, the fireflies' colour.
+  sea reflection of a held body in its pose, a burning tree's forced alpha reference, the moon window, the creature's
+  sea reflection, the totem's gate and light.
 - **Animals:** the grazers' search distance.
 
-## Done since the last update (joints 99 to 106)
+## Done since the last update (joints 99 to 107)
 
+- joint107: the advisors' lip sync and gestures from their cue labels and their trail's sparks; the sky's dome, sun
+  and moon as entities; the start-up logos, pre-intro film, tips and loading screens; the believers a town gains
+  floating up; a held or flying body mirrored in the sea in its pose; one bone palette for posed villagers and
+  animals; blended models drawn in the object list's order; the totem's see-through copy; the fireflies' blue.
 - joint106: the debug bar only with the game's menu and the system pointer hidden; the editor's Scripts tab sharing
   one Scripts panel; the advisors' faces, eyes, pointing arm, spacing and rainbow trail; the creature's scripted
   plays, moves and actions, its fizz in and out of sight with its eyes and hair, its sway when struck, its footstep

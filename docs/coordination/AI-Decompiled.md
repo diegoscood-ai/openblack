@@ -23,6 +23,9 @@ The port target is raffclar's `master` at `0222f9f5`: of the 161 rows of the por
 
 ## Done since the last update (joints 99 to 111)
 
+- tools and notes (6d5bd1d35): our reverse-engineering tools published in tools/re/ (xref, oracle, precheck, hashdiff)
+  with usage docs; the wiki states that the original is v1.42 with the Infinite Drawing Distance and Creature Growth
+  community patches.
 - wiki rebuilt (757301889): the research wiki now lives in docs/wiki/ by game system, read through one viewer page
   (docs/index.html, or docs/open_wiki.bat locally) with a progress dashboard; docs/progress moved to
   docs/wiki/project/progress/ and docs/bw1-notes and docs/wiki-html are gone.

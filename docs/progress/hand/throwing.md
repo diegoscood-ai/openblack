@@ -31,7 +31,7 @@ How the original does it, in our wiki: [The hand and the interface](../../bw1-no
 | A handful of food or wood let go at a speed squared of at most 5 is poured out where the hand is, adding to stores and piles within 3×3 cells or making a pile, lost in water, and the handful is gone | done | `from_hand::Throw` (speed squared at most 5) then `HandSystem::PutDownHandPot` (`HandResources.cpp`): the 3 x 3 cells' stores and pots, else a pile; lost off the map |
 | Faster than that, the handful is thrown as a pot | done | `from_hand::Throw` throws it as a pot otherwise |
 | A thrown villager drops what it was carrying, which flies on as its own thing | done | `InitialisePhysicsFromHand` calls `ecs::villager::CreateDroppedResource` when a villager does not land |
-| Anything thrown or dropped that doesn't land is offered to creatures nearby to catch | todo | `PhysicsObjects::CheckAllCreaturesForCatching` only calls a hook nobody sets (`SetCreatureCatchHook`) |
+| Anything thrown or dropped that doesn't land is offered to creatures nearby to catch | done | `CheckAllCreaturesForCatching` calls `PhysicsClassHooks::OfferToCatchingCreatures`; [../creature/feeding_and_thrown_things.md](../creature/feeding_and_thrown_things.md) |
 | Anything thrown or dropped that doesn't land sends a flying-object reaction out; any animal nearer than twice its speed runs from it | done | `animal_ai::SpreadFlyingObjectReaction` from `InitialisePhysicsFromHand` when it does not land |
 | The first throw of the player's triggers a help message | done | `HandSystem::ThrowObjectFromHand` triggers `help_profile::Trigger` with Throw |
 | A put-down toy can teach the creature to play with it | todo | A TODO in `InitialisePhysicsFromHand` |

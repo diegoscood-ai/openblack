@@ -114,7 +114,7 @@ and it is taller than a villager.
 | Any static, toys included, may be thrown into the sea for fun | todo | see [../creature/object_actions.md](../creature/object_actions.md) |
 | These are the creature's ways to play: kicking a ball, throwing a toy at something, taking a toy home, stroking a toy and throwing a die are all on its list of things to do when it wants to play | partial | The plan actions exist for kicking and throwing at things, but none uses a toy; see [../creature/desires.md](../creature/desires.md) |
 | Copying the player playing with a toy: likely (0.9), needs no leash, first a look of noticing the playful deed, then one of: throw a die, stroke a toy, take a toy home, a throwing game with the player, throw it about, kick a ball; feeds the wish to play, about three times | partial | The deed is in the creature's table (`creature_watching::Deed::PlayWithToy`, `src/Creature/CreatureDeeds.h`); nothing reports it; see [../creature/learning_by_observation.md](../creature/learning_by_observation.md) |
-| Catching a toy thrown at it | todo | The catch hook of `PhysicsObjects::CheckAllCreaturesForCatching` is never set; see [../physics/throwing_and_landing.md](../physics/throwing_and_landing.md) |
+| Catching a toy thrown at it | done | as any thing that may be picked up ([../creature/feeding_and_thrown_things.md](../creature/feeding_and_thrown_things.md)); the football can't be, as in the game |
 
 ## Villagers
 

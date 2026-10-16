@@ -78,14 +78,14 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Every thing that starts to fly, thrown or knocked, is offered to every creature to catch | todo | the physics runs its catch check, but the creature's part (`SetCreatureCatchHook`) is never set, so nothing is caught; see [../physics/throwing_and_landing.md](../physics/throwing_and_landing.md) |
-| A creature tries only when not fighting or set on a fight, not under a script's control, not already catching, and free to react | todo | no catching (above) |
+| Every thing that starts to fly, thrown or knocked, is offered to every creature to catch | done | `PhysicsClassHooks::OfferToCatchingCreatures` walks the creatures (`ecs::creature_catch_walk`), from both of the physics' starts; the creatures are asked by entity number, not in the game's list order; [creature.md](../../bw1-notes/creature.md#the-creatures-catch) |
+| A creature tries only when not fighting or set on a fight, not under a script's control, not already catching, and free to react | done | `creature_catch::MayTry`; no script sets an only desire in openblack |
 | The thing must weigh less than eight tenths of the creature and be able to be picked up | todo |  |
-| It never catches what it threw itself; a throw by a god not allied to its player it catches only three times in a hundred | todo | no catching (above) |
-| It must be moving across the land at 1 m/s or more and come closest within 5 seconds, late enough for the catch to be started, and pass within the catch's reach | todo | no catching (above) |
-| Catching, it drops what it was doing, stops, smiles and goes to catch it | todo | no catching (above) |
-| It catches with a blend of four catching animations, high or low and left or right, by the thing's height and side, the other hand mirrored | todo | no catching (above) |
-| At the catch's moment, if the thing is still within reach, it is taken out of the air into the creature's hand; otherwise it is missed and flies on | todo | no catching (above) |
+| It never catches what it threw itself; a throw by a god not allied to its player it catches only three times in a hundred | partial | done for the player's hand's throws; which other throws carry a god is not read, and no gods are allied in openblack |
+| It must be moving across the land at 1 m/s or more and come closest within 5 seconds, late enough for the catch to be started, and pass within the catch's reach | done | `creature_catch::Reaches`, bit for bit with the original (oracle cases in `test_creature_catch`) |
+| Catching, it drops what it was doing, stops, smiles and goes to catch it | done | a forced plan of play to catch, score 1; the original's hurried end of the action it was playing is not ported, as openblack's forced plans end it at once |
+| It catches with a blend of four catching animations, high or low and left or right, by the thing's height and side, the other hand mirrored | done | `CreatureCatching`, a turn at a time; it turns to the thing, waits, steps across when it will pass out of reach |
+| At the catch's moment, if the thing is still within reach, it is taken out of the air into the creature's hand; otherwise it is missed and flies on | done | |
 | A person caught goes into the held state, an animal plays its held animation | todo | see [../physics/thrown_living.md](../physics/thrown_living.md) |
 | Food caught isn't eaten as part of the catch; what it does with the thing afterwards is its next ordinary choice | todo |  |
 | The "catch a fireball and throw it back" action is listed but always fails, so creatures never do it | done | the game never does it; openblack neither |
@@ -120,7 +120,7 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | Another god can't feed your creature unless allied | todo | see "Giving from the hand" |
-| Another god's throws at your creature are caught only three times in a hundred | todo | no catching (above) |
+| Another god's throws at your creature are caught only three times in a hundred | partial | as above: the player's hand's throws only |
 | Another god's blows hurt, frighten and anger it but don't change its feeling for its own player | todo | blows do nothing to a creature, and there are no other gods' hands |
 
 ## The tutorial and the advisors

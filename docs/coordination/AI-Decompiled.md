@@ -21,8 +21,12 @@ The port target is raffclar's `master` at `0222f9f5`: of the 161 rows of the por
 - **Rendering and interface:** the totem's gate and light, the draw order of the object list's tail.
 - **Animals:** the detours round obstacles, the birds' first clip.
 
-## Done since the last update (joints 99 to 108)
+## Done since the last update (joints 99 to 109)
 
+- joint109: the villagers' walk aimed and set up as the original's wall hug; the footpath walk rules; the
+  temple's heart destroyed and passing its blows on; the creature's turn on the spot, lean onto the slope, catch of
+  thrown things and scripted focus; lightning arcs over what a bolt strikes; hanging objects and fragments coming
+  to rest; a new villager's first clip; the totem's gate and light; the object list's tail in the original's order.
 - joint108: the Bullet library removed (the land under a pixel is the island's own ray); the tattoo editor's
   creature copy; the towns' belief rising as sparkles; the storm in the hand flashing; SET_FOCUS turning objects;
   the homes' doors; the grazers' search; weights and body masses; IS_ACTIVE, GET_OBJECT_CLICKED, FLOCK_MEMBER;

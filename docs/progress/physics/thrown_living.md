@@ -12,8 +12,8 @@ openblack: villagers and animals fly in the game's physics with their own 12-poi
 game's posture and heading, plays its landing (or dies of the fall, or drowns on water) and decides afresh
 (`src/ECS/Systems/Implementations/VillagerPhysics.cpp`); animals land, die of the fall and move their flock's home
 (`src/ECS/Systems/Implementations/VillagerPhysics.cpp`, `src/ECS/AnimalAI.cpp`); the creature is struck but not hurt (a stand-in ball body,
-`src/ECS/CreaturePhysics.cpp`). Tests: `test/test_living_landing.cpp`. The creature's catching, its hurt and its sway
-aren't ported.
+`src/ECS/CreaturePhysics.cpp`). Tests: `test/test_living_landing.cpp`. The creature catches what flies at it
+([../creature/feeding_and_thrown_things.md](../creature/feeding_and_thrown_things.md)); its hurt and its sway aren't ported.
 
 **Progress: 18/24 done, 4 partial — 83%**
 
@@ -61,7 +61,7 @@ How the original does it, in our wiki: [Physics: thrown objects, collisions, dam
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | Villagers nearby point at or run from things flying by (the game never uses its watch state for this) | todo | The flying-object reaction is spread (`animal_ai::SpreadFlyingObjectReaction`), but villagers have no handler for it |
-| The creature watches flying objects and may learn from the player's throwing of people | todo | The catch hook of `PhysicsObjects::CheckAllCreaturesForCatching` is never set and no throw of people teaches the creature |
+| The creature watches flying objects and may learn from the player's throwing of people | todo | The creature catches what flies at it ([../creature/feeding_and_thrown_things.md](../creature/feeding_and_thrown_things.md)), but no throw of people teaches it |
 
 ## The creature
 

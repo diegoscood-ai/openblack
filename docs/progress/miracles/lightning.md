@@ -46,7 +46,7 @@ How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/mir
 | Each strike counts towards the caster's alignment and the town's grudge | done | `src/ECS/Effects/EffectValues.cpp` (`alignment::Update`, the town's aggressor), `src/ECS/Effects/Alignment.cpp`; see `../worship/` for alignment |
 | Struck villagers are not shown as skeletons by the bolt itself | done | Correctly absent |
 | A bolt striking only a creature leaves nearby villagers in a valid state (no crash) | done | `src/ECS/Systems/Implementations/VillagerReactions.cpp` |
-| Electric arcs crawl over struck objects; an object still struck is arced again after each search, at most 100 arcs alive | todo | No arc rule in our tree; our wiki does not describe them |
+| Electric arcs crawl over struck objects; an object still struck is arced again after each search, at most 100 arcs alive | done | `src/Particles/ParticleArcRules.cpp` (UR_ObjectArcer, queued from `StrikeTarget` in `src/Particles/Rules/Lightning.cpp`), `src/Particles/LightningMaths.cpp` (the arc's maths); `test/test_object_arcer.cpp`, `test/test_lightning_maths.cpp` (pinned to the original's code). Only objects whose model is not animated get arcs ([page](../../bw1-notes/miracles.md#lightning-magic_type-4-6-seed-6-lightning_bolt-particlesruleslightningcpp)) |
 
 ## Shields and clashing bolts
 

@@ -112,7 +112,7 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 | Throw stones into the sea with a friend | todo | see [friends_and_other_creatures.md](friends_and_other_creatures.md) |
 | Throw something at the camera | todo |  |
 | Throw a ball at something, kick a ball around | partial | plan actions `ThrowBallAtObject` and `KickBallAround` throw what it picks up nearby; balls aren't special; the toy actions in full: [../nature/toys.md](../nature/toys.md) |
-| Catch something thrown at it and hold it (catching a fireball to throw back always fails in the game, so it never happens) | todo | the physics' creature catch hook (`PhysicsObjects::SetCreatureCatchHook`) is never set, so no creature catches; see [../physics/throwing_and_landing.md](../physics/throwing_and_landing.md) and [physics.md](../../bw1-notes/physics.md#pending) |
+| Catch something thrown at it and hold it (catching a fireball to throw back always fails in the game, so it never happens) | done | `CreatureObjectActionSystem::Catch` and the walk of [feeding_and_thrown_things.md](feeding_and_thrown_things.md); [creature.md](../../bw1-notes/creature.md#the-creatures-catch) |
 | Put down: sets what it holds down gently | done | `Kind::PutDown` in `CreatureObjectActionSystem` |
 | Discard: tosses what it holds away, with some of the hand's swing | done | `Kind::Discard`; test `CreatureThrow.TossingKeepsSomeOfTheHandsSpeed` |
 | Lob gently | done | `Kind::Lob`, the gentle lob animation (`creature_throw::k_GentleLob`) |

@@ -8,7 +8,7 @@ Given by gold scroll: [The Workshop](../story/gold_scrolls/the_workshop.md).
 
 **Progress: 32/41 done, 0 partial — 78%**
 
-How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/miracles.md).
+How the original does it, in our wiki: [Miracles one by one](../../../magic/forest.md).
 
 ## Casting and cost
 
@@ -42,7 +42,7 @@ How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/mir
 |-----------|--------|---------------|
 | While the caster can't afford all the trees, every tree withers each turn and goes at nothing | done | `src/Magic/Spells/SpellForest.cpp` (Process: fewer wanted than there are, every tree shrinks 0.05 a turn) |
 | When the miracle ends every tree withers away within about two seconds; magic trees never stay | done | `src/Magic/Spells/SpellForest.cpp` (CloseDown drops the creator, so no tree is wanted and all shrink 0.05 a turn) |
-| A forest left alone lasts two minutes | done | The timers from the NATURE row (`src/Magic/MagicTables.cpp`), aged in `src/Magic/Core/Spell.cpp`. Our wiki differs: 120 s is a one-shot miracle's time; a player's forest has no time limit and lasts while it is paid for ([page](../../bw1-notes/miracles.md#forest-magicspellsspellforest-magicobjectsmagictree-ecstrees)) |
+| A forest left alone lasts two minutes | done | The timers from the NATURE row (`src/Magic/MagicTables.cpp`), aged in `src/Magic/Core/Spell.cpp`. Our wiki differs: 120 s is a one-shot miracle's time; a player's forest has no time limit and lasts while it is paid for ([page](../../../magic/forest.md#forest)) |
 
 ## Effects on the world
 

@@ -26,7 +26,7 @@ land itself with the hand is in [../hand/navigation.md](../hand/navigation.md).
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | The wheel zooms towards and away from what the camera looks at, a fixed step per notch | done | `k_WheelZoomPerNotch` in `DefaultWorldCameraModel.cpp`; tests `WorldCameraMouse.TheWheelZoomsSixtyANotchWhateverTheFrameTime`, `WorldCameraMouse.AZoomKeyIsANotchAFrameAndTheWheelWithoutOneIsLost` |
-| Zooming speeds up with height, so a notch covers about the same share of the view at any altitude | done | the zoom scale from the height between camera and focus, 60 to 240 or 2000, in `DefaultWorldCameraModel::Update` (as our [script camera](../../bw1-notes/script-camera.md#player-camera-features-camerahelp) page says); recorded runs `ZoomOutIn`, `TiltDownZoomOut` |
+| Zooming speeds up with height, so a notch covers about the same share of the view at any altitude | done | the zoom scale from the height between camera and focus, 60 to 240 or 2000, in `DefaultWorldCameraModel::Update` (as our [script camera](../../../camera/player-camera.md#player-camera-features-camerahelp) page says); recorded runs `ZoomOutIn`, `TiltDownZoomOut` |
 | Holding the middle button turns and tilts the camera round the point under the mouse | done | `Mode::ArcBall`; recorded run `MiddleDragRightUp` |
 | Holding both buttons and moving up and down zooms | done | `TWO_BUTTON_CLICK` with the second zoom bit; recorded run `TwoButtonZoomOutIn` |
 | Holding both buttons and moving across turns the camera, once the mouse has moved far enough across | done | `camera_drag::TwoButtonTurn`; `CameraDrag.BothButtonsTurnOnlyOnceMovedFarEnoughAcross`, `WorldCameraMouse.BothButtonsZoomAndTurnOnceTheMouseHasMovedFarEnoughAcross` |

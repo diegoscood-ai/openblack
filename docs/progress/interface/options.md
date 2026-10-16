@@ -6,7 +6,7 @@ settings take effect and are kept. The player's page is in [profiles.md](profile
 
 **Progress: 5/20 done, 12 partial — 55%**
 
-How the original does it, in our wiki: [The hand and the interface](../../bw1-notes/hand-and-interface.md).
+How the original does it, in our wiki: [The in-game menu's options and pause](../../../interface/screen-and-readouts.md#the-in-game-menus-options-and-pause).
 
 ## The pages
 

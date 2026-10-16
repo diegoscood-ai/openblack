@@ -8,7 +8,7 @@ can be switched off in the options. The general help system and advisors belong 
 
 **Progress: 0/84 done, 9 partial — 5%**
 
-How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../bw1-notes/creature.md).
+How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../../creature/overview.md).
 
 ## How creature help is shown
 

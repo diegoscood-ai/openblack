@@ -5,7 +5,7 @@ world shows it back: the sky, the hand, the temple, the land and the music.
 
 **Progress: 12/18 done, 2 partial — 72%**
 
-How the original does it, in our wiki: [Magic: the core of the miracles](../../bw1-notes/magic.md).
+How the original does it, in our wiki: [Magic: the core of the miracles](../../../magic/influence-and-alignment.md).
 
 ## The value
 
@@ -38,6 +38,6 @@ How the original does it, in our wiki: [Magic: the core of the miracles](../../b
 |-----------|--------|---------------|
 | The sky turns dark or bright with the alignment of whoever holds the land at the camera | done | the alignment of the most influential player at the camera (`alignment::UpdateInterfaceAlignment`, `src/ECS/Effects/Alignment.cpp`), the sky steps towards it (`AlignmentSystem::Update`); `test_alignment_system`; see `../sky/` |
 | Crops and trees grow faster on good land | done | the land's alignment (`alignment::LandAlignmentAt`) feeds the fields (`src/ECS/Fields.cpp`) and the trees (`src/ECS/Trees.cpp`) |
-| Doves circle a good temple, bats an evil one | todo | the temple's alignment flock is not ported (`src/Worship/Citadel.cpp`; [our wiki](../../bw1-notes/magic.md#the-temples-outside-alignment-and-size)); see `../animal/birds.md` |
+| Doves circle a good temple, bats an evil one | todo | the temple's alignment flock is not ported (`src/Worship/Citadel.cpp`; [our wiki](../../../magic/temple-and-citadel.md#the-temples-outside-alignment-and-size)); see `../animal/birds.md` |
 
 How the hand, the temple and the music change with alignment is in `../hand/`, `../temple/` and `../audio/`.

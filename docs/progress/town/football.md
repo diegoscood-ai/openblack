@@ -6,7 +6,7 @@ for all of it ships in the game. The add-on only switches it on.
 
 **Progress: 6/53 done, 5 partial — 16%**
 
-How the original does it, in our wiki: [Buildings, building sites and towns (the building side)](../../bw1-notes/buildings.md).
+How the original does it, in our wiki: [Buildings, building sites and towns (the building side)](../../../world/buildings.md).
 
 ## The add-on and its switch
 

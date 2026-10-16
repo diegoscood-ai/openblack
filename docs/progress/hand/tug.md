@@ -10,7 +10,7 @@ No unit test covers the pull yet.
 
 **Progress: 9/22 done, 8 partial — 59%**
 
-How the original does it, in our wiki: [The hand and the interface](../../bw1-notes/hand-and-interface.md).
+How the original does it, in our wiki: [The hand and the interface](../../../hand/grab-hold-and-throw.md).
 
 ## Taking hold
 
@@ -47,4 +47,4 @@ How the original does it, in our wiki: [The hand and the interface](../../bw1-no
 | Things that aren't trees come free at once | done | Same path as the previous row (`HandSystem::Update`) |
 | Once free, the thing is held as anything else | done | See [holding.md](holding.md); `HandHolding.cpp` |
 | Uprooting a tree plays its creak and counts towards the player's alignment | done | `HandHolding.cpp`: a random tree-break sound and `ecs::effects::alignment::UpdateForTree` (evil); no unit test |
-| Letting go before it comes free leaves it rooted, leaning and stretched as it was last drawn, until its next growth step redraws it | done | `UpdateTug`'s end removes the tree's `HandDrawPose`, so it is drawn upright from its logic on the next frame, as our wiki says the original does. Our wiki differs: a release before the uproot draws the tree upright again on the next frame, since the tug never wrote its pose ([page](../../bw1-notes/trees.md#tug-handstatetug-enter-0x5b7df0--update-0x5b8070-in-handtreescpp)) |
+| Letting go before it comes free leaves it rooted, leaning and stretched as it was last drawn, until its next growth step redraws it | done | `UpdateTug`'s end removes the tree's `HandDrawPose`, so it is drawn upright from its logic on the next frame, as our wiki says the original does. Our wiki differs: a release before the uproot draws the tree upright again on the next frame, since the tug never wrote its pose ([page](../../../hand/grab-hold-and-throw.md#tug)) |

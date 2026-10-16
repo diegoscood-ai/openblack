@@ -7,7 +7,7 @@ player.
 
 **Progress: 22/71 done, 29 partial — 51%**
 
-How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../bw1-notes/creature.md).
+How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../../creature/mimicry.md).
 
 ## How desires work
 
@@ -18,7 +18,7 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 | How hard a source drives its desire follows the game's sigmoid of how far its value is past its threshold (a table of 41 steps) | done | `creature_desires::Sigmoid` (the game's 41 floats, `gutils::SigmoidThreshold`); test `CreatureDesires.TheSigmoidSteps` |
 | A desire grows by its sources' drive over its species' growing time, never past its maximum | done | `creature_desires::UpdateDesires` in `CreatureMindSystem::ProcessTurn`; test `CreatureDesires.ADesireGrowsByItsDriveOverItsIncreaseTime` |
 | A desire nothing drives fades by its decay each turn | done | `creature_desires::UpdateDesires`; test `CreatureDesires.ADesireWithoutDriveFades` |
-| Each creature's decay is picked at random within its species' range when it is made | done | `creature_desires::Create` with a synchronised `GameFloatRange` draw per desire in desire order; test `CreatureDesires.EachDesireDrawsItsDecayOnceInDesireOrder`. Our wiki differs: the range is the desire's own, the same for every species, and whether the drawn number is a decay or a starting value is still open ([creature.md](../../bw1-notes/creature.md#the-creature-tables-in-infodat)) |
+| Each creature's decay is picked at random within its species' range when it is made | done | `creature_desires::Create` with a synchronised `GameFloatRange` draw per desire in desire order; test `CreatureDesires.EachDesireDrawsItsDecayOnceInDesireOrder`. Our wiki differs: the range is the desire's own, the same for every species, and whether the drawn number is a decay or a starting value is still open ([creature.md](../../../formats/info-dat.md#the-creature-tables-in-infodat)) |
 | Sources that follow the creature's state are read again every turn; the rest fade by their own multiplier | done | `creature_desires::UpdateSources` with `ReadSource` in `CreatureMindSystem::ProcessTurn`; test `CreatureDesires.SourcesReadTheirStateThenFade` |
 | Events push sources up or down (a stroke, a slap, a nasty miracle, a fizzled miracle) | partial | `creature_desires::ChangeSource` from `CreatureMindSystem::LearnFromFeedback`: only the stroke, slap and copying pushes exist; nasty miracles, fizzles, the player's deeds, villagers and deserving objects push nothing; test `CreatureDesires.FeedbackPushesEverySourceOfAType` |
 | A desire can be held back for a while, during which it only fades | done | `creature_desires::Suppress`; test `CreatureDesires.ASuppressedDesireOnlyFades` |

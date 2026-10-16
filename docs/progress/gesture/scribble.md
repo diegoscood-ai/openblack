@@ -5,7 +5,7 @@ takes the leash off and closes the pickers. What it does depends on what the han
 
 **Progress: 14/15 done, 1 partial — 97%**
 
-How the original does it, in our wiki: [Magic: the core of the miracles](../../bw1-notes/magic.md).
+How the original does it, in our wiki: [Magic: the core of the miracles](../../../magic/hand-casting.md).
 
 ## Recognising a scribble
 

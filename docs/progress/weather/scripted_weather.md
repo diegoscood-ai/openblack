@@ -5,7 +5,7 @@ lays, and the real weather of the player's home town, fetched over the internet.
 
 **Progress: 6/15 done, 1 partial — 43%**
 
-How the original does it, in our wiki: [Day, night and weather in the original](../../bw1-notes/day-night-weather.md).
+How the original does it, in our wiki: [Day, night and weather in the original](../../../world/weather.md).
 
 ## Weather objects from challenge scripts
 

@@ -6,7 +6,7 @@ of network play are in [../multiplayer/](../multiplayer/).
 
 **Progress: 0/28 done, 12 partial — 21%**
 
-How the original does it, in our wiki: [The hand and the interface](../../bw1-notes/hand-and-interface.md).
+How the original does it, in our wiki: [The hand and the interface](../../../hand/animation-and-placement.md).
 
 ## Each player's hand
 
@@ -38,7 +38,7 @@ How the original does it, in our wiki: [The hand and the interface](../../bw1-no
 | It takes food and wood out of stores to use | todo | Not in our tree |
 | How long each of these takes is estimated before it is started | todo | Not in our tree |
 | Another god's fireball can be caught by the player's hand | todo | No magic fireball in our tree |
-| Another god's creature can be held and stroked or slapped by the player's hand | todo | Our hand holds only the player's own creature (`creature_hand::IsFriendlyTo`); our tree has no alliances. Our wiki differs: the original holds only its own or an allied player's creature, not any god's ([page](../../bw1-notes/hand-and-interface.md#the-hand-on-a-creature)) |
+| Another god's creature can be held and stroked or slapped by the player's hand | todo | Our hand holds only the player's own creature (`creature_hand::IsFriendlyTo`); our tree has no alliances. Our wiki differs: the original holds only its own or an allied player's creature, not any god's ([page](../../../hand/states.md#the-hand-on-a-creature)) |
 
 ## Network play
 

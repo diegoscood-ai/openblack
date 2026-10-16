@@ -6,7 +6,7 @@ A town can be lost again if belief in its owner falls behind another's.
 
 **Progress: 13/25 done, 7 partial — 66%**
 
-How the original does it, in our wiki: [Buildings, building sites and towns (the building side)](../../bw1-notes/buildings.md).
+How the original does it, in our wiki: [Buildings, building sites and towns (the building side)](../../../beings/towns.md).
 
 ## Belief
 
@@ -20,7 +20,7 @@ How the original does it, in our wiki: [Buildings, building sites and towns (the
 | Towns grow bored of the same kind of deed seen again and again | partial | the fold steps every reaction's boredom multiplier (`town_belief::Fold`), but no impression reads it yet, as impressions feed no belief |
 | Recent belief given fades every turn | done | recent belief times the decay every fold (`town_belief::Fold`) |
 | Belief from miracles, from the creature, from artefacts, from scaffolds and buildings given, from disciples and missionaries | partial | only food and wood given by the hand to a town (`town_stores::AddToBelief` from `src/ECS/ObjectResources.cpp`); miracles, the creature, artefacts, scaffolds (TODO in `scaffolds::ImpressTowns`, `src/ECS/Scaffolds.cpp`) and disciples give none |
-| Taking a town's resources lowers its belief for a while | done | taking marks the turn (`town_stores::SetGameTurnResourceLastRemoved`) and giving that resource back earns less for 1000 turns (`GetGameTurnResourceLastRemovedModifier`, `src/ECS/Town/TownStores.cpp`, used in `src/ECS/ObjectResources.cpp`). Our wiki differs: taking lowers no belief at once; it cuts the belief later gifts of that resource earn, for up to 1000 turns ([buildings](../../bw1-notes/buildings.md#resources-held-by-objects)) |
+| Taking a town's resources lowers its belief for a while | done | taking marks the turn (`town_stores::SetGameTurnResourceLastRemoved`) and giving that resource back earns less for 1000 turns (`GetGameTurnResourceLastRemovedModifier`, `src/ECS/Town/TownStores.cpp`, used in `src/ECS/ObjectResources.cpp`). Our wiki differs: taking lowers no belief at once; it cuts the belief later gifts of that resource earn, for up to 1000 turns ([buildings](../../../world/buildings.md#resources-held-by-objects)) |
 | A town believing in a player moves faster as the land's belief speed scale says | partial | the villagers' speed takes the land balance's speed scale (`src/ECS/VillagerSpeed.cpp`); the town's belief term is fixed at 1 |
 | How impressed a town is shows over it (the belief bar or tooltip) | partial | the belief symbols over each town centre, sized by each player's belief (`psys::town_belief`, `src/Particles/TownBelief.cpp`); no belief tooltip on the town; See ../interface/ |
 | Every ten turns the believers count for the tooltip | done | every ten turns the local player's believers gained go to the tooltip (`town_belief::ProcessOncePerTurn`, `events::TownBeliefToolTip`, from `src/Game.cpp`); the floating number by the hand is not drawn |
@@ -29,7 +29,7 @@ How the original does it, in our wiki: [Buildings, building sites and towns (the
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Each town needs a set amount of belief to be won over, by its size | done | the town goes to whichever player it believes in most (`town_belief::Fold`). Our wiki differs: there is no set amount by size; the town changes hands when another player's belief is the largest, a tie going to the higher player slot ([buildings](../../bw1-notes/buildings.md#the-towns-belief)) |
+| Each town needs a set amount of belief to be won over, by its size | done | the town goes to whichever player it believes in most (`town_belief::Fold`). Our wiki differs: there is no set amount by size; the town changes hands when another player's belief is the largest, a tie going to the higher player slot ([buildings](../../../beings/towns.md#the-towns-belief)) |
 | When belief in a player passes what is needed, the town becomes that player's | done | the fold's conversion and `town_belief::TakeOverTown` change the owner and the owner lists (`src/ECS/Town/TownBelief.cpp`) |
 | A won town celebrates, with fireworks and its villagers cheering | todo | the take-over's sound, fireworks and symbols are not ported (`TakeOverTown`) |
 | A won town joins its new owner's worship site and influence, and its spells go to the player | partial | the influence follows the new owner (`src/ECS/Influence/Influence.cpp` reads `Town::owner`); the worship site, the spells and the rest of the take-over are pending in `TakeOverTown`; See ../worship/ |

@@ -5,7 +5,7 @@ people, plans new buildings as it grows, and grows outwards when the player give
 
 **Progress: 20/24 done, 3 partial — 90%**
 
-How the original does it, in our wiki: [Buildings, building sites and towns (the building side)](../../bw1-notes/buildings.md).
+How the original does it, in our wiki: [Buildings, building sites and towns (the building side)](../../../beings/towns.md).
 
 ## The town
 
@@ -38,8 +38,8 @@ How the original does it, in our wiki: [Buildings, building sites and towns (the
 |-----------|--------|---------------|
 | The town keeps planned buildings: outlines where it means to build | done | the town's plan list (`ecs::plans`, `src/ECS/Town/BuildingSites.cpp`), filled by CREATE_PLANNED_ABODE, destroyed buildings and scaffolds |
 | When it wants abodes or civic buildings it picks the best plan and opens a building site | done | `building_sites::RequestBestPlanned` and `GetDesireToBeBuilt`, asked by the builders' desires (`src/ECS/Villager/VillagerBuild.cpp`); See ../building/construction.md |
-| It asks for a new abode when there is no plan | done | `building_sites::RequestANewAbode` takes the best house plan (`src/ECS/Town/BuildingSites.cpp`). Our wiki differs: the town never invents a plan; without a house plan no abode is asked for ([buildings](../../bw1-notes/buildings.md#plans-and-building-sites)) |
-| It looks for clear ground suited to a building in its area | done | the plan's spot is checked (`town_placement::IsSuitableForFixedAbodeInTown`, `src/ECS/Town/TownPlacement.cpp`). Our wiki differs: the town searches for no ground of its own; only a plan's spot, a scaffold's or the rival's is checked ([buildings](../../bw1-notes/buildings.md#plans-and-building-sites)) |
+| It asks for a new abode when there is no plan | done | `building_sites::RequestANewAbode` takes the best house plan (`src/ECS/Town/BuildingSites.cpp`). Our wiki differs: the town never invents a plan; without a house plan no abode is asked for ([buildings](../../../world/building-sites.md#plans-and-building-sites)) |
+| It looks for clear ground suited to a building in its area | done | the plan's spot is checked (`town_placement::IsSuitableForFixedAbodeInTown`, `src/ECS/Town/TownPlacement.cpp`). Our wiki differs: the town searches for no ground of its own; only a plan's spot, a scaffold's or the rival's is checked ([buildings](../../../world/building-sites.md#plans-and-building-sites)) |
 | A script forces a planned building to be built | done | BUILD_BUILDING (`src/CHLApi.cpp`) through `building_sites::ForceBuildingOfPlannedAtPos` |
 | A new building changes the town's area and stats and draws villagers' attention | partial | the town area is redone when a structure joins or leaves (`src/ECS/Archetypes/AbodeArchetype.cpp`, `src/ECS/Abodes.cpp`) and the stats each turn; the new building reaction is not made yet (only logged in `abodes::Built`) |
 | Scaffolds dropped by the player in the town become its buildings | done | a scaffold offers the building the town wants and, put down, becomes its site (`src/ECS/Scaffolds.cpp`); See ../building/workshop_and_scaffolds.md |

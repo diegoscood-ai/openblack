@@ -6,7 +6,7 @@ and afterwards gather in the town.
 
 **Progress: 5/16 done, 4 partial — 44%**
 
-How the original does it, in our wiki: [Buildings, building sites and towns (the building side)](../../bw1-notes/buildings.md).
+How the original does it, in our wiki: [Buildings, building sites and towns (the building side)](../../../world/buildings.md).
 
 ## Aggression
 

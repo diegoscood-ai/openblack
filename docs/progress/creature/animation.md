@@ -7,7 +7,7 @@ own version for the evil, good, thin and fat meshes, blended as the body is.
 
 **Progress: 39/56 done, 5 partial — 74%**
 
-How the original does it, in our wiki: [Skeletal animation (villagers and animals)](../../bw1-notes/animation.md), [The creature: groundwork, random streams and what is unknown](../../bw1-notes/creature.md).
+How the original does it, in our wiki: [Skeletal animation (villagers and animals)](../../../beings/animation.md), [The creature: groundwork, random streams and what is unknown](../../../creature/pose-and-animation.md).
 
 ## Playing animations on the body
 

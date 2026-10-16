@@ -5,7 +5,7 @@ stands on its own and is also hosted in the editor's inspector for a picked crea
 
 **Progress: 26/29 done, 2 partial — 93%**
 
-How the original does it, in our wiki: [openblack internals](../../bw1-notes/openblack-internals.md).
+How the original does it, in our wiki: [openblack internals](../../internals.md).
 
 ## Spawning and picking
 

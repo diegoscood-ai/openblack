@@ -5,7 +5,7 @@ site or anyone else, which the creature watches and may copy.
 
 **Progress: 12/16 done, 2 partial — 81%**
 
-How the original does it, in our wiki: [Objects and resources](../../bw1-notes/objects-and-resources.md).
+How the original does it, in our wiki: [Objects and resources](../../../world/objects.md).
 
 ## Taking
 

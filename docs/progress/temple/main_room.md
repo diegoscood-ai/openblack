@@ -9,7 +9,7 @@ map shows, a scroll of the world's statistics, and doors to every other room.
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The room is drawn with its floor reflecting it | done | `Renderer::DrawTempleReflection` (`src/Graphics/RendererTemple.cpp`), `RenderingSystemTemple`; only the main room is mirrored. Our wiki differs: the original also mirrors the save game room, and draws the main room's reflection only with the CitadelReflections and CitadelLightmaps options on ([rendering.md](../../bw1-notes/rendering.md#pending)) |
+| The room is drawn with its floor reflecting it | done | `Renderer::DrawTempleReflection` (`src/Graphics/RendererTemple.cpp`), `RenderingSystemTemple`; only the main room is mirrored. Our wiki differs: the original also mirrors the save game room, and draws the main room's reflection only with the CitadelReflections and CitadelLightmaps options on ([rendering.md](../../../rendering/frame.md#pending)) |
 | The pool shimmers, drawn twice over itself, turned | done | `Renderer::DrawTemplePool`, timed by `TempleInterior::GetPoolTime` |
 | The temple is lit by the alignment of the realm the player came in from: red pulse for evil, slow rainbow for good | done | `src/3D/TempleLight.cpp`; test `test_temple_light` |
 | The doors swing open as the camera walks through them, with door sounds | done | `src/3D/TempleDoors.cpp`; test `test_temple_doors` |

@@ -4,14 +4,14 @@ What all animals share: their needs, how they move and react, how they are drawn
 
 **Progress: 23/28 done, 2 partial — 86%**
 
-How the original does it, in our wiki: [Animals: AI, states and clips](../../bw1-notes/animals.md), [Skeletal animation (villagers and animals)](../../bw1-notes/animation.md).
+How the original does it, in our wiki: [Animals: AI, states and clips](../../../beings/animal-life.md), [Skeletal animation (villagers and animals)](../../../beings/animal-life.md).
 
 ## Needs
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Animals get hungry, thirsty and tired, and need to breed, each at its kind's rate | done | the needs counters (hunger, sleep, breeding) up to their info.dat maximum, in the states that have the needs flag (`src/ECS/AnimalAI.cpp`). Our wiki differs: the needs are hunger, sleep and breeding; there is no thirst ([animals](../../bw1-notes/animals.md#herbivores-sheep-tortoise-cow-horse-pig)) |
-| Each need is met by looking for food, water, a place to sleep or a mate in the cells around | done | the grazing spot found in a spiral in front of it, the flock's sleep cell, a birth in the flock (`src/ECS/AnimalAI.cpp`). Our wiki differs: no animal looks for water or a mate; it sleeps at its flock's sleep cell and gives birth when the flock is short ([animals](../../bw1-notes/animals.md#herbivores-sheep-tortoise-cow-horse-pig)) |
+| Animals get hungry, thirsty and tired, and need to breed, each at its kind's rate | done | the needs counters (hunger, sleep, breeding) up to their info.dat maximum, in the states that have the needs flag (`src/ECS/AnimalAI.cpp`). Our wiki differs: the needs are hunger, sleep and breeding; there is no thirst ([animals](../../../beings/animals.md#herbivores-sheep-tortoise-cow-horse-pig)) |
+| Each need is met by looking for food, water, a place to sleep or a mate in the cells around | done | the grazing spot found in a spiral in front of it, the flock's sleep cell, a birth in the flock (`src/ECS/AnimalAI.cpp`). Our wiki differs: no animal looks for water or a mate; it sleeps at its flock's sleep cell and gives birth when the flock is short ([animals](../../../beings/animals.md#herbivores-sheep-tortoise-cow-horse-pig)) |
 | Animals eat what their kind eats: meat, plants, grass or any | done | the grazers graze, the predators hunt and eat animals (`src/ECS/AnimalPredators.cpp`), and a food pile draws only the hungry ones whose food kinds take it (`src/ECS/AnimalFlee.cpp`) |
 | A starving animal dies | todo | no animal dies of hunger in our tree |
 
@@ -31,14 +31,14 @@ How the original does it, in our wiki: [Animals: AI, states and clips](../../bw1
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Animals flee from fire, falling trees, flying objects and fights | partial | the predators flee what the hand throws (`animal_ai::SpreadFlyingObjectReaction`); the fire reaction is not ported. Our wiki differs: only predators react to flying objects, no code makes the falling-tree reaction and no animal reacts to fights ([animals](../../bw1-notes/animals.md#reactions)) |
+| Animals flee from fire, falling trees, flying objects and fights | partial | the predators flee what the hand throws (`animal_ai::SpreadFlyingObjectReaction`); the fire reaction is not ported. Our wiki differs: only predators react to flying objects, no code makes the falling-tree reaction and no animal reacts to fights ([animals](../../../beings/animal-life.md#reactions)) |
 | Animals look at miracles and flee the frightening ones | todo | the spell and look reactions are not ported for animals (`src/ECS/AnimalFlee.cpp`) |
-| Animals look at and go to food and wood the hand or a miracle put down | done | the hungry grazers go to a food pot the hand puts down and eat 50 of it (`animal_ai::SetupPotReaction`, `src/ECS/AnimalFlee.cpp`). Our wiki differs: the magic food piles of the hand and the miracles draw no animal, and no animal reacts to wood ([animals](../../bw1-notes/animals.md#reactions)) |
+| Animals look at and go to food and wood the hand or a miracle put down | done | the hungry grazers go to a food pot the hand puts down and eat 50 of it (`animal_ai::SetupPotReaction`, `src/ECS/AnimalFlee.cpp`). Our wiki differs: the magic food piles of the hand and the miracles draw no animal, and no animal reacts to wood ([animals](../../../beings/animal-life.md#reactions)) |
 | Animals react to being picked up and dropped by the hand | done | `IN_HAND` with its clip, then the flight and the landing (`src/ECS/AnimalAI.cpp`, `src/ECS/Systems/Implementations/VillagerPhysics.cpp`) |
 | Animals react to the creature's gifts and to the creature itself | todo | the creature reaction is not ported for animals |
-| Animals react to a shield, a teleport and a magic tree | n/a | Our wiki differs: no animal reacts to a shield, a teleport or a magic tree ([animals](../../bw1-notes/animals.md#reactions)) |
-| Animals look at a death and at someone fainting | n/a | Our wiki differs: no animal reacts to a death or a fainting ([animals](../../bw1-notes/animals.md#reactions)) |
-| Animals chase a ball (unconfirmed) | n/a | Our wiki differs: no animal reacts to a ball ([animals](../../bw1-notes/animals.md#reactions)) |
+| Animals react to a shield, a teleport and a magic tree | n/a | Our wiki differs: no animal reacts to a shield, a teleport or a magic tree ([animals](../../../beings/animal-life.md#reactions)) |
+| Animals look at a death and at someone fainting | n/a | Our wiki differs: no animal reacts to a death or a fainting ([animals](../../../beings/animal-life.md#reactions)) |
+| Animals chase a ball (unconfirmed) | n/a | Our wiki differs: no animal reacts to a ball ([animals](../../../beings/animal-life.md#reactions)) |
 
 ## Hand, physics and scripts
 

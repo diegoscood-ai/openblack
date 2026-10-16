@@ -6,7 +6,7 @@ darken the land are in [particles.md](particles.md).
 
 **Progress: 13/18 done, 2 partial — 78%**
 
-How the original does it, in our wiki: [Model rendering: original versus openblack](../../bw1-notes/rendering-objects.md), [Graphics engine parity: original versus openblack](../../bw1-notes/parity.md), [World rendering: original versus openblack](../../bw1-notes/rendering.md).
+How the original does it, in our wiki: [Model rendering: original versus openblack](../../../rendering/shadows-and-reflections.md), [Graphics engine parity: original versus openblack](../../../rendering/frame.md), [World rendering: original versus openblack](../../../rendering/shadows-and-reflections.md).
 
 ## Shadows on the land
 

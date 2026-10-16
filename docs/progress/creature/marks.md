@@ -6,7 +6,7 @@ they are old enough.
 
 **Progress: 15/23 done, 2 partial — 70%**
 
-How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../bw1-notes/creature.md).
+How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../../creature/overview.md).
 
 ## The marks
 

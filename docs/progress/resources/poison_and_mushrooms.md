@@ -7,7 +7,7 @@ cured by the heal miracle. Scripts poison people and stores directly, as Lethys 
 
 **Progress: 27/47 done, 3 partial — 61%**
 
-How the original does it, in our wiki: [Objects and resources](../../bw1-notes/objects-and-resources.md).
+How the original does it, in our wiki: [Objects and resources](../../../world/objects.md).
 
 ## The plain mushroom
 

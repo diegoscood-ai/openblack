@@ -7,7 +7,7 @@ kind again.
 
 **Progress: 1/42 done, 1 partial — 4%**
 
-How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../bw1-notes/creature.md).
+How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../../creature/mimicry.md).
 
 ## How reactions are taken up
 

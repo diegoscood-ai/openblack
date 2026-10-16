@@ -23,7 +23,7 @@ say otherwise.
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The land's control script starts the quest in the background right after the land's opening, with no other condition | todo | `LandControl4` never runs: `LOAD_MAP` is empty ([map-loading](../../../bw1-notes/map-loading.md#pending)); see [../../scripts/land4_script.md](../../scripts/land4_script.md) |
+| The land's control script starts the quest in the background right after the land's opening, with no other condition | todo | `LandControl4` never runs: `LOAD_MAP` is empty ([map-loading](../../../../scripts/map-script-reader.md#pending)); see [../../scripts/land4_script.md](../../scripts/land4_script.md) |
 | A Japanese farmer is made a few paces from his spot on the shore and walks to it; he is made a boy by setting his age to 11 | todo | `Create` makes villagers, `MoveGameThing` and the age property work for villagers; the quest never starts: no Land 4 (`LOAD_MAP` is empty) |
 | A flock of five tortoises is made beside him (gathering within 5, roaming up to 10) | todo | `FlockCreate` and `ChangeInnerOuterProperties` work, `PopulateContainer` is a stub |
 | A silver scroll appears on the shore next to him | todo | `CreateHighlight` works (`src/ECS/ScriptHighlight.cpp`); the quest never starts: no Land 4 (`LOAD_MAP` is empty) |
@@ -36,7 +36,7 @@ say otherwise.
 |-----------|--------|---------------|
 | Clicking the scroll starts a cinematic (letterbox); the camera glides over three to four seconds to look down on the boy, who faces it | partial | the letterbox, the camera glides and `SetFocus` on villagers work (`SetWidescreen`, `MoveCameraPosition`, `MoveCameraFocus`); the scene never runs |
 | Boy: "I want to be a fisherman like my dad, instead of a turtle farmer." | todo | `RunText`, `TextRead` work; the quest never starts: no Land 4 (`LOAD_MAP` is empty) |
-| The fish puzzle is made out in the bay | partial | `CreateWithAngleAndScale` makes puzzle game 14 and its bait, net and two shoals (`src/ECS/PuzzleGames.cpp`, `src/ECS/FishPuzzle.cpp`; hook `OPENBLACK_TEST_FISH_PUZZLE`), faithful per our wiki ([water](../../../bw1-notes/water.md#fish-puzzle)); the quest never starts: no Land 4 (`LOAD_MAP` is empty) |
+| The fish puzzle is made out in the bay | partial | `CreateWithAngleAndScale` makes puzzle game 14 and its bait, net and two shoals (`src/ECS/PuzzleGames.cpp`, `src/ECS/FishPuzzle.cpp`; hook `OPENBLACK_TEST_FISH_PUZZLE`), faithful per our wiki ([water](../../../../world/sea-life-and-scenery.md#fish-puzzle)); the quest never starts: no Land 4 (`LOAD_MAP` is empty) |
 | Boy: "My dad said I'd never be any good. Maybe he's right." | todo | `RunText` works; the quest never starts: no Land 4 (`LOAD_MAP` is empty) |
 | The camera cuts to look down on the puzzle | partial | `SetCameraPosition`, `SetCameraFocus` work; the scene never runs |
 | Boy: "When you tap the water, the fish will swim away from your hand." | todo | `RunText` works; the quest never starts: no Land 4 (`LOAD_MAP` is empty) |
@@ -47,8 +47,8 @@ say otherwise.
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The player taps the water to herd the fish away from the hand and into the boy's net; there is no time limit and no limit on tries | partial | the herding works: the hand's splash scares the shoals and 30 fish in the net for 0.5 s close it (`ecs::UpdateFishShoals`, `src/ECS/FishShoals.cpp`; [water](../../../bw1-notes/water.md#the-net-the-bait-and-the-shoals)); reached only through the test hook, as Land 4 never loads |
-| The quest waits until the puzzle reports it has been played to the end | partial | `Played` on puzzle 14 answers once the net has closed (`IsPuzzleGamePlayed`, `src/ECS/PuzzleGames.cpp`), which settles "played" for this puzzle ([water](../../../bw1-notes/water.md#the-script-side-puzzlegame-14-and-played)); the quest never starts: no Land 4 (`LOAD_MAP` is empty) |
+| The player taps the water to herd the fish away from the hand and into the boy's net; there is no time limit and no limit on tries | partial | the herding works: the hand's splash scares the shoals and 30 fish in the net for 0.5 s close it (`ecs::UpdateFishShoals`, `src/ECS/FishShoals.cpp`; [water](../../../../world/sea-life-and-scenery.md#the-net-the-bait-and-the-shoals)); reached only through the test hook, as Land 4 never loads |
+| The quest waits until the puzzle reports it has been played to the end | partial | `Played` on puzzle 14 answers once the net has closed (`IsPuzzleGamePlayed`, `src/ECS/PuzzleGames.cpp`), which settles "played" for this puzzle ([water](../../../../world/sea-life-and-scenery.md#the-script-side)); the quest never starts: no Land 4 (`LOAD_MAP` is empty) |
 | If the boy dies while the puzzle is being played, the good advisor says once: "Oh no. You've killed the fisherman. I despair." The puzzle goes on | todo | the health property is not ported |
 
 ## Success

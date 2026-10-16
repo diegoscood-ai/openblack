@@ -6,7 +6,7 @@ and the game's text database and fonts that all of it comes from. The script fun
 
 **Progress: 12/24 done, 6 partial — 62%**
 
-How the original does it, in our wiki: [The hand and the interface](../../bw1-notes/hand-and-interface.md).
+How the original does it, in our wiki: [The hand and the interface](../../../interface/screen-and-readouts.md).
 
 ## Text and fonts
 

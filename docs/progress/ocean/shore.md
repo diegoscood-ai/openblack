@@ -5,7 +5,7 @@ shallows can be waded.
 
 **Progress: 9/10 done, 0 partial — 90%**
 
-How the original does it, in our wiki: [Water in the game](../../bw1-notes/water.md).
+How the original does it, in our wiki: [Water in the game](../../../world/water.md).
 
 ## Coast
 

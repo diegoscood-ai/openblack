@@ -7,7 +7,7 @@ hand from where it was drawn.
 
 **Progress: 26/39 done, 8 partial — 77%**
 
-How the original does it, in our wiki: [The hand and the interface](../../bw1-notes/hand-and-interface.md).
+How the original does it, in our wiki: [The hand and the interface](../../../hand/states.md).
 
 ## Choosing the state
 
@@ -24,7 +24,7 @@ How the original does it, in our wiki: [The hand and the interface](../../bw1-no
 | A set animation started by a tap (knocking on a house) puts it in the play-animation state until the animation ends | done | `HandSystem::StartFixedPosAnimation` (an abode's tap, `src/ECS/Abodes.cpp`) gives PLAY_ANIM |
 | While the interface is switched off (cinematics, some script moments) the hand is hidden | done | `RequiredHandState` gives INVISIBLE for the interface's modes 1, 2, 12 and 25 (an inactive interface); `HandSystem::Update` marks the hand `NotDrawn` |
 | Otherwise it is in the camera state while a drag of the camera is under way, and the normal state when not | partial | Gripping takes the camera state (`HandSystem::Place`); the CAMERA state of the camera mode's tricons is pending (`RequiredHandState`) |
-| Scooping several things up puts it in the scooping state | done | `RequiredHandState`: a pile in its locked select is HOLDING. Our wiki differs: the original has no scooping state; a pile being scooped is the HOLDING state ([page](../../bw1-notes/hand-and-interface.md#the-hands-state-the-spring-the-held-object-power-ups-and-roots)) |
+| Scooping several things up puts it in the scooping state | done | `RequiredHandState`: a pile in its locked select is HOLDING. Our wiki differs: the original has no scooping state; a pile being scooped is the HOLDING state ([page](../../../hand/states.md#the-hands-state-the-spring-the-held-object-power-ups-and-roots)) |
 
 ## Changing state
 
@@ -32,7 +32,7 @@ How the original does it, in our wiki: [The hand and the interface](../../bw1-no
 |-----------|--------|---------------|
 | On a change, the old state is left and the new one entered, each resetting what it eases | partial | The state change starts the blend; the zoomers are reset per case (the normal state's up zoomers on entering it, the grain state on entering it), not by one Enter and Exit per state |
 | Every change of state blends the hand's bones and place from where they were drawn over 0.13 seconds | done | `HandCrossFade` (`src/3D/HandCrossFade.h`, the hand system's `_stateBlend`) blends the bones from `_stateBlendFromWorld` and the place from where it was drawn (`HandSystem::Update`, `HandPlacement.cpp`), 0.13 s; tests `HandCrossFade.*` (`test/hand/test_hand_cross_fade.cpp`) |
-| A change of animation inside a state blends the same way | done | No blend for a change of clip inside a state, as the original. Our wiki differs: a clip change inside a state is not blended ([page](../../bw1-notes/hand-and-interface.md#the-hands-clip-handstatenormal)) |
+| A change of animation inside a state blends the same way | done | No blend for a change of clip inside a state, as the original. Our wiki differs: a clip change inside a state is not blended ([page](../../../hand/animation-and-placement.md#the-hands-clip)) |
 | Entering the normal state starts the hand's up straight and its distance where it was | done | `HandSystem::Place` snaps the up zoomers to (0, 1, 0) on entering the normal state; the hand distance zoomer carries on |
 | Entering the hidden state keeps the last drawn bones, so the hand blends back in from them | done | While hidden nothing updates the pose (`HandSystem::Place` returns), so the blend back starts from the last drawn bones |
 | Leaving the creature state tells the creature how it was treated, held between -1 and 1 | done | Leaving the CREATURE state sends the feedback packet with the clamped value (`ecs/CreatureHandPackets.h`); test `HandCreatureFrame.ALongHoldSendsOnlyTheFeedback` |

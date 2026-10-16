@@ -24,7 +24,7 @@ is todo unless the notes say otherwise.
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The land's control script starts a watcher for this quest along with the land's other challenge watchers | todo | `LandControl2` never runs: `LOAD_MAP` is empty, so the story never reaches Land 2 ([map-loading](../../../bw1-notes/map-loading.md#pending)) |
+| The land's control script starts a watcher for this quest along with the land's other challenge watchers | todo | `LandControl2` never runs: `LOAD_MAP` is empty, so the story never reaches Land 2 ([map-loading](../../../../scripts/map-script-reader.md#pending)) |
 | The watcher waits 4 minutes, then checks whether both Town6 (the Indian town near Lethys's snowy edge, which has no challenge of its own) and Town2 (the Indian town where the scroll appears) belong to the player; if not, it waits another 4 minutes and checks again, for ever | todo | the town owner read (`GetProperty` player) is not ported; the quest never starts: no Land 2 (`LOAD_MAP` is empty) |
 | Once both towns are the player's, the quest starts once and the watcher ends; nothing can start it a second time | todo | the quest never starts: no Land 2 (`LOAD_MAP` is empty) |
 | Before the scroll appears, the bay around the swimming spot is ringed with an anti-influence area of radius 30, so the player's hand has no influence there (and so can't reach the children directly) | todo | `InfluencePosition` with the anti flag works (`src/Magic/Script/CHLInfluence.cpp`); the quest never starts: no Land 2 (`LOAD_MAP` is empty) |

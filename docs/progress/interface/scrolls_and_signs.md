@@ -6,7 +6,7 @@ inside the temple are in ../temple/.
 
 **Progress: 9/18 done, 4 partial — 61%**
 
-How the original does it, in our wiki: [The hand and the interface](../../bw1-notes/hand-and-interface.md).
+How the original does it, in our wiki: [Screen, text and read-outs](../../../interface/screen-and-readouts.md).
 
 ## Challenge scrolls
 
@@ -19,7 +19,7 @@ How the original does it, in our wiki: [The hand and the interface](../../bw1-no
 | All scrolls pulse together, smoothly, once every turn of a shared clock | partial | the shared pulse is stepped every turn (`StepPulse`, test `ScriptHighlight.PulseOfProcessHighlights`), but the active glow it drives is not drawn (`ExtrasOf` has no caller) |
 | Tapping a scroll starts its challenge, shown by its active sparkles | partial | a tap lights the scroll and starts its active effect (`InterfaceTap`, `SetActivated`); starting the challenge through the temple's challenge room is pending |
 | A started scroll stays as a reminder: tapping it again replays the challenge's last message | partial | a tap on a scroll with a challenge counts the help record's Reminder event (`InterfaceTap`); replaying the challenge's message is pending with the challenge room |
-| The hand can only tap a scroll inside the player's influence (unless the scroll says otherwise) | done | a highlight is tapped wherever the hand is (`hand_tap::SendsTap`; test `ScriptHighlight.TappedOutsideTheInfluence`). Our wiki differs: a highlight's influence test is always off, so the original taps it outside the influence too ([hand and interface](../../bw1-notes/hand-and-interface.md#tapping-objects)) |
+| The hand can only tap a scroll inside the player's influence (unless the scroll says otherwise) | done | a highlight is tapped wherever the hand is (`hand_tap::SendsTap`; test `ScriptHighlight.TappedOutsideTheInfluence`). Our wiki differs: a highlight's influence test is always off, so the original taps it outside the influence too ([hand and interface](../../../hand/grab-hold-and-throw.md#tapping-objects)) |
 | Scrolls can't be picked up, burnt, crushed or knocked over, and the creature leaves them alone | partial | never placed in the hand (`HandSystem` keeps a highlight out of the pick-up); burning, crushing, knocking over and the creature not checked |
 | A scroll can be set to draw at a height and turned on or off by scripts | done | `SET_PROPERTY` YPOS (`script_highlight::SetYPos`), `SET_ACTIVE`, and `SET_DRAW_HIGHLIGHT` hiding the scrolls (`help::script_control`) |
 | The advisors point the scroll out when it comes up, or at random later | todo | only the first did-you-know tap runs "FirstDYKExplained"; see [help_system.md](help_system.md) |
@@ -31,7 +31,7 @@ How the original does it, in our wiki: [The hand and the interface](../../bw1-no
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | "Did you know" scrolls in the world give a tip when tapped | done | `script_highlight::InterfaceTap` opens the help bubble with the sign's text and marks it read (`src/Help/Bubble.cpp`); tests `HelpSystem.BubbleOpensWithEachTappedSignsTextAndTheSameSignClosesIt`, `DidYouKnowBubble.*` |
-| A building whose info names a did-you-know gets the sign by its door | done | (added) `abodes::CreateAbodeSurroundingObjects` in `src/ECS/Abodes.cpp` makes the did-you-know highlight at the entrance point ([intro](../../bw1-notes/intro.md#script-highlights)) |
+| A building whose info names a did-you-know gets the sign by its door | done | (added) `abodes::CreateAbodeSurroundingObjects` in `src/ECS/Abodes.cpp` makes the did-you-know highlight at the entrance point ([intro](../../../interface/script-highlights.md#script-highlights)) |
 | A scroll can be the way into the land's vortex to the next land | todo | see ../story/ |
 | Signposts that show their words when the hand is over them | todo | (unconfirmed which lands have them and what they say); the did-you-know signs are read by tapping, above |
 | The temple's room signs, lit for the door under the hand | done | `src/3D/TempleSigns.cpp`; see ../temple/ |

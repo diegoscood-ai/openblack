@@ -5,7 +5,7 @@ nets, and what floats or sinks.
 
 **Progress: 16/19 done, 1 partial — 87%**
 
-How the original does it, in our wiki: [Water in the game](../../bw1-notes/water.md).
+How the original does it, in our wiki: [Water in the game](../../../world/water.md).
 
 ## Rings and splashes
 
@@ -27,7 +27,7 @@ How the original does it, in our wiki: [Water in the game](../../bw1-notes/water
 |-----------|--------|---------------|
 | At night the hand's light glows warm on the water under it | done | `src/Graphics/HandWaterGlow.cpp`; test `HandWaterGlow.WarmsThePaletteColourTowardsOrange` |
 | The glow only shows where there is water near the hand and the hand's light is strong enough | done | `src/Graphics/HandWaterGlow.cpp`; test `HandWaterGlow.ShowsOnlyNearWater` |
-| Lightning lights the sea as it lights the land | done | The sea takes the light table's last entry, which the flash lifts (`LandLightTable::Build`), as our wiki describes ([day-night-weather.md](../../bw1-notes/day-night-weather.md#climate)) |
+| Lightning lights the sea as it lights the land | done | The sea takes the light table's last entry, which the flash lifts (`LandLightTable::Build`), as our wiki describes ([day-night-weather.md](../../../world/weather.md#climate)) |
 
 ## Life and objects at sea
 
@@ -35,7 +35,7 @@ How the original does it, in our wiki: [Water in the game](../../bw1-notes/water
 |-----------|--------|---------------|
 | Objects thrown into the sea float or sink | done | `Body::TouchGround`; see ../physics/water_physics.md |
 | Villagers thrown into the sea drown | done | `src/ECS/VillagerDrowning.cpp`; see ../physics/water_physics.md |
-| Sharks swim off the coast and take what falls in | done | `src/ECS/Sharks.cpp` (moved by the script's walk path, with their wake). Our wiki differs: the sharks have no AI and take nothing; the script moves them ([water.md](../../bw1-notes/water.md#sharks-class-whale)) |
+| Sharks swim off the coast and take what falls in | done | `src/ECS/Sharks.cpp` (moved by the script's walk path, with their wake). Our wiki differs: the sharks have no AI and take nothing; the script moves them ([water.md](../../../world/sea-life-and-scenery.md#sharks)) |
 | Seagulls fly over the coast | done | The birds (`src/ECS/AnimalBirds.cpp`); see ../animal/ |
 | Shoals of fish scatter round things in the water | done | `src/ECS/FishShoals.cpp` (a splash scares them) |
 | Fishermen's nets and fish farms stand in the water, cut by the sea plane | done | `src/ECS/FishFarms.cpp`, `DrawFishPlots` (`src/Graphics/RendererFishPlot.cpp`); see ../resources/ and ../building/ |

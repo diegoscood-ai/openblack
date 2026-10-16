@@ -6,7 +6,7 @@ the tutorial.
 
 **Progress: 21/24 done, 1 partial — 90%**
 
-How the original does it, in our wiki: [Magic: the core of the miracles](../../bw1-notes/magic.md).
+How the original does it, in our wiki: [Magic: the core of the miracles](../../../magic/gestures.md).
 
 ## A recognised gesture's trail
 

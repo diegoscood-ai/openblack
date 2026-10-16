@@ -22,7 +22,7 @@ notes say otherwise. The reward scene calls 28 (none missing; `BuildBuilding` wo
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The land's control script starts the quest in the background as soon as the land begins, alongside the creature's rescue, the swap to an ape and the tree puzzle | todo | `LandControl3` never runs: `LOAD_MAP` is empty ([map-loading](../../../bw1-notes/map-loading.md#pending)); see [../../scripts/land3_script.md](../../scripts/land3_script.md) |
+| The land's control script starts the quest in the background as soon as the land begins, alongside the creature's rescue, the swap to an ape and the tree puzzle | todo | `LandControl3` never runs: `LOAD_MAP` is empty ([map-loading](../../../../scripts/map-script-reader.md#pending)); see [../../scripts/land3_script.md](../../scripts/land3_script.md) |
 | The guru is made at once, at his temple on the mountain, as a special "Shaolin" villager | todo | `Create` makes villagers (`CreateScriptObject` in `src/CHLApi.cpp`); the quest never starts: no Land 3 (`LOAD_MAP` is empty) |
 | He cannot be picked up by the hand, hurt by fire or set alight for the whole quest | partial | the three flag commands work (`SetIdPickupable`, `SetHurtByFire`, `SetSetOnFire` in `src/CHLApi.cpp`), but there is no guru to set them on |
 | He walks slowly to his standing place just outside the temple and waits there | todo | `MoveGameThing` works for villagers; the quest never starts: no Land 3 (`LOAD_MAP` is empty) |

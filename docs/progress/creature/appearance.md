@@ -7,7 +7,7 @@ noble.
 
 **Progress: 25/35 done, 4 partial — 77%**
 
-How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../bw1-notes/creature.md).
+How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../../creature/body.md).
 
 ## The body's shape
 

@@ -6,7 +6,7 @@ go into a storage pit, a workshop or a building site. There is no extreme versio
 
 **Progress: 17/23 done, 4 partial — 83%**
 
-How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/miracles.md).
+How the original does it, in our wiki: [Miracles one by one](../../../magic/food-wood-water-heal.md).
 
 ## Casting and paying
 

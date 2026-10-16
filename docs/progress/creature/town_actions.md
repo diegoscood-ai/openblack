@@ -7,7 +7,7 @@ in [../villager](../villager/) and [../town](../town/).
 
 **Progress: 4/67 done, 8 partial — 12%**
 
-How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../bw1-notes/creature.md).
+How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../../creature/mimicry.md).
 
 ## Feeding and supplying a town
 

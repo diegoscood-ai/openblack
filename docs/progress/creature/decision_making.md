@@ -6,7 +6,7 @@ gods can also take control of a creature.
 
 **Progress: 18/63 done, 21 partial — 45%**
 
-How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../bw1-notes/creature.md).
+How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../../creature/mimicry.md).
 
 ## Planning
 
@@ -89,7 +89,7 @@ The script language is the story domain's: see [../story/](../story/).
 | A script asks whether a thing is in a creature's hand | todo | IN_CREATURE_HAND is a `NotImplemented` stub in `src/CHLApi.cpp` |
 | A script creates a creature next to another | todo | CREATURE_CREATE_RELATIVE_TO_CREATURE is a `NotImplemented` stub in `src/CHLApi.cpp` |
 | A script gives a creature to another player, or swaps creatures | todo | CREATURE_SET_PLAYER and SWAP_CREATURE are `NotImplemented` stubs in `src/CHLApi.cpp` |
-| A script calls the player's creature to a place | done | CALL_PLAYER_CREATURE (`CallPlayerCreature` in `src/CHLApi.cpp`) hands the script the creature the player leads, through the leash service. Our wiki differs: the native only finds the player's creature for the script, it does not call it to a place ([creature.md](../../bw1-notes/creature.md#the-players-creature)) |
+| A script calls the player's creature to a place | done | CALL_PLAYER_CREATURE (`CallPlayerCreature` in `src/CHLApi.cpp`) hands the script the creature the player leads, through the leash service. Our wiki differs: the native only finds the player's creature for the script, it does not call it to a place ([creature.md](../../../creature/players-creature.md#the-players-creature)) |
 | A script puts a creature in its mind's development stage | partial | SET_CREATURE_DEV_STAGE (`src/CHLApi.cpp`, `player_creature::SetDevelopmentStage`) sets the stage; the desires follow at the mind's next turn, the original's at once; see [development phases](development_phases.md) |
 | The computer gods command their creatures to do things and teach them | todo | |
 | The computer gods' creatures have their knowledge balanced for the difficulty | todo | |

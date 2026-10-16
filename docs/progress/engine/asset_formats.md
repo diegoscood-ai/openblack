@@ -5,7 +5,7 @@ format only counts as done when the game's use of it works too; reading the file
 
 **Progress: 30/41 done, 3 partial — 77%**
 
-How the original does it, in our wiki: [Tools and formats](../../bw1-notes/tooling.md).
+How the original does it, in our wiki: [Tools and formats](../../../formats/land-and-script-files.md).
 
 ## World and lands
 
@@ -64,7 +64,7 @@ How the original does it, in our wiki: [Tools and formats](../../bw1-notes/tooli
 |-----------|--------|---------------|
 | Sound banks (`.sad`) with their sample tables | done | `src/Audio/Game/Banks.cpp`, `SoundLoader`; behaviour: see ../audio/ |
 | Music stored in banks as MPEG audio | done | `src/Audio/Engine/MusicBank.cpp` with our own MPEG decoder (`src/Audio/Codec/MpegAudio.cpp`); see ../audio/ |
-| Loose wave files (`.wav`) | n/a | our wave decoder reads them (`src/Audio/Codec/WaveFile.cpp`), but the game has none to read. Our wiki differs: the original plays no loose wave files, every sound is in a bank ([audio](../../bw1-notes/audio.md#sas-and-animation-tables)) |
+| Loose wave files (`.wav`) | n/a | our wave decoder reads them (`src/Audio/Codec/WaveFile.cpp`), but the game has none to read. Our wiki differs: the original plays no loose wave files, every sound is in a bank ([audio](../../../formats/media-files.md#sas-and-animation-tables)) |
 | The small sounds bank (`SmallSounds.SAS`) | done | `src/Audio/Services/AnimationSounds.cpp` (the clips' sound events); see ../audio/ |
 | Films (`.bik`): intro, the falling spell and others | done | `components/bink/src/BinkFile.cpp`, our own Bink decoder (`components/bink/src/BinkDecoder.cpp`); see ../video/ |
 

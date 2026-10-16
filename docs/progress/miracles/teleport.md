@@ -6,7 +6,7 @@ villager dropped on a stone jumps at once. There is no camera or hand travel thr
 
 **Progress: 22/29 done, 5 partial — 84%**
 
-How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/miracles.md).
+How the original does it, in our wiki: [Miracles one by one](../../../magic/teleport.md).
 
 ## The stone
 
@@ -21,13 +21,13 @@ How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/mir
 | The stone lives while its prayer power lasts (one a turn), and costs to create as the game's tables say | done | `src/Magic/Core/Chants.cpp` (one a turn from the initial chants, no player timer), effect tables in `src/Magic/MagicTables.cpp` |
 | When the miracle ends the stone, its pool and its reaction go | done | `SpellTeleport.cpp` (`TeleportCloseDown` sets the stone dying), `teleport::ToBeDeleted` (`MagicTeleport.cpp`: reactions, effect, list) |
 | New buildings can't be placed on a stone | done | stones are multi-cell statics in their map cells, which the placement test refuses (`src/ECS/Town/TownPlacement.cpp`) |
-| A stone can't be burned, picked up, thrown or used by the creature | partial | not thrown and not used by the creature; the hand picks the pool up when its spell has a seed (`HandSystem::ValidForPlaceInHand` and `SeedToPlaceInHand`, `src/ECS/Systems/Implementations/HandSystem.cpp`), the seed going back to the hand; no explicit rule keeps fire or miracle effects off a stone. Our wiki differs: the original lets the hand pick up a pool whose spell has a seed ([miracles](../../bw1-notes/miracles.md#the-hand-and-the-stones-faithful)) |
+| A stone can't be burned, picked up, thrown or used by the creature | partial | not thrown and not used by the creature; the hand picks the pool up when its spell has a seed (`HandSystem::ValidForPlaceInHand` and `SeedToPlaceInHand`, `src/ECS/Systems/Implementations/HandSystem.cpp`), the seed going back to the hand; no explicit rule keeps fire or miracle effects off a stone. Our wiki differs: the original lets the hand pick up a pool whose spell has a seed ([miracles](../../../magic/teleport.md#the-hand-and-the-stones)) |
 
 ## Who travels
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Villagers and the creature of the stone's player walking within reach of a stone may react; animals never | partial | villagers: `src/ECS/Systems/Implementations/VillagerTeleport.cpp` (`ReactToTeleportPriority`); the creature's teleport reaction is not ported; animals take none. Our wiki differs: the reaction is spread only once, when the stone is made, so only those already moving then react ([miracles](../../bw1-notes/miracles.md#who-uses-a-stone)) |
+| Villagers and the creature of the stone's player walking within reach of a stone may react; animals never | partial | villagers: `src/ECS/Systems/Implementations/VillagerTeleport.cpp` (`ReactToTeleportPriority`); the creature's teleport reaction is not ported; animals take none. Our wiki differs: the reaction is spread only once, when the stone is made, so only those already moving then react ([miracles](../../../magic/teleport.md#who-uses-a-stone)) |
 | They turn aside only when going via the stones beats the walk by enough (walk more than 1.2 times the stone route) | done | `teleport::ShouldLivingThingReact` (`MagicTeleport.cpp`, the 1.2 rule); `test/test_teleport.cpp` (WorthTheDetour) |
 | Taking up the stone competes with any other reaction they hold, by the reaction table's priority | done | `src/ECS/Systems/Implementations/VillagerReactions.cpp` (priority and switching), `VillagerTeleport.cpp` |
 | A villager heading off to decide what to do never turns aside | done | follows from the reaction contest (`VillagerReactions.cpp`) |

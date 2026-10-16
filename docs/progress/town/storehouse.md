@@ -6,7 +6,7 @@ temporary pots and its abodes' own stores.
 
 **Progress: 15/21 done, 4 partial — 81%**
 
-How the original does it, in our wiki: [Buildings, building sites and towns (the building side)](../../bw1-notes/buildings.md).
+How the original does it, in our wiki: [Buildings, building sites and towns (the building side)](../../../world/buildings.md).
 
 ## The store
 
@@ -31,7 +31,7 @@ How the original does it, in our wiki: [Buildings, building sites and towns (the
 |-----------|--------|---------------|
 | The hand can take food or wood from the pit | done | the hand scoops from the pit's piles (`HandSystem::PickUp`, `src/ECS/Systems/Implementations/HandResources.cpp`); See ../resources/ |
 | Dropping food or wood into the pit by hand adds it, and villagers react | partial | a handful put on the pit goes in, with the town's alignment and belief (`src/ECS/HeldApply.cpp`, `src/ECS/ObjectResources.cpp`); the town's spoken answer is pending (`src/ECS/Town/TownStores.cpp`) |
-| Taking from a town's pit lowers its belief in the taker for a while | done | the turn of the taking is kept (`town_stores::SetGameTurnResourceLastRemoved`) and later gifts of that resource earn less belief (`src/ECS/ObjectResources.cpp`). Our wiki differs: taking lowers no belief at once; it cuts what later gifts of that resource earn, for up to 1000 turns ([buildings](../../bw1-notes/buildings.md#resources-held-by-objects)) |
+| Taking from a town's pit lowers its belief in the taker for a while | done | the turn of the taking is kept (`town_stores::SetGameTurnResourceLastRemoved`) and later gifts of that resource earn less belief (`src/ECS/ObjectResources.cpp`). Our wiki differs: taking lowers no belief at once; it cuts what later gifts of that resource earn, for up to 1000 turns ([buildings](../../../world/buildings.md#resources-held-by-objects)) |
 | A pit belonging to another player gives its belief to that player when touched | done | giving to a town that is not the giver's earns the giver belief, times the non-owner multiplier (`DoResourceAdding`, `src/ECS/ObjectResources.cpp`) |
 | Food in the pit can be poisoned, harming those who eat it | done | the piles keep their poison (`StoragePitStore::AddResource`), and a villager who eats poisoned food loses life and shows it (`SHOW_POISONED`, `src/ECS/Villager/VillagerFood.cpp`); see [../resources/poison_and_mushrooms.md](../resources/poison_and_mushrooms.md) |
 | Magic food in the pit speeds up those who take from it, with a sparkle | partial | the pile's speed-up sparkle (`pot_resource::SetSpeedUp`) and the villagers' food speed-up rule (`src/ECS/VillagerSpeed.cpp`, `ProcessFoodSpeedup`) exist, but nothing gives a villager the speed-up; see ../villager/daily_routine.md |

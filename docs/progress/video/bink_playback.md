@@ -1,7 +1,7 @@
 # Bink video playback
 
 How Black & White plays its five Bink videos, and how openblack can play them. The research is done: Diego's
-`docs/bw1-notes/video.md`, checked bit for bit against the game's own Bink 1.0w player. His newest branch,
+`docs/wiki/video/bink.md`, checked bit for bit against the game's own Bink 1.0w player. His newest branch,
 `diegoscood/AI-Decompiled` (fetched 2026-10-07, one commit rebuilding his fork on upstream openblack), has a complete
 player in `src/Video/` with **his own Bink 1 decoder, identical to the game's on every one of the 5,353 frames of the
 five videos**; FFmpeg is gone from it. The earlier `bw-clean` branch used a trimmed FFmpeg instead. openblack now has
@@ -11,7 +11,7 @@ film (`src/CHLApi.cpp`); there is still no start-up sequence or loading screen. 
 
 **Progress: 44/54 done, 4 partial — 85%**
 
-How the original does it, in our wiki: [Bink videos (.bik)](../../bw1-notes/video.md).
+How the original does it, in our wiki: [Bink videos (.bik)](../../../video/playback.md).
 
 ## How to play them in openblack (the plan)
 

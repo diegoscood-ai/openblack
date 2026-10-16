@@ -5,13 +5,13 @@ characters that wander the lands, and the voices of villagers talking and praisi
 
 **Progress: 8/19 done, 5 partial — 55%**
 
-How the original does it, in our wiki: [Skeletal animation (villagers and animals)](../../bw1-notes/animation.md), [Villagers: data, state machine and speed](../../bw1-notes/villagers.md).
+How the original does it, in our wiki: [Skeletal animation (villagers and animals)](../../../beings/animation.md), [Villagers: data, state machine and speed](../../../beings/villager-states.md).
 
 ## Models and drawing
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Each villager draws its tribe's model for its job, high or low detail by distance | n/a | the job's mesh of the tribe (`src/ECS/Archetypes/VillagerArchetype.cpp`). Our wiki differs: in this version of the original the level of detail loading is disabled, so models always draw their first level ([rendering-objects](../../bw1-notes/rendering-objects.md#villager-blobs-object-reflections-and-lod)) |
+| Each villager draws its tribe's model for its job, high or low detail by distance | n/a | the job's mesh of the tribe (`src/ECS/Archetypes/VillagerArchetype.cpp`). Our wiki differs: in this version of the original the level of detail loading is disabled, so models always draw their first level ([rendering-objects](../../../rendering/meshes-and-lod.md#villager-blobs-object-reflections-and-lod)) |
 | Women, men and children each have their own models | done | the info's adult and child meshes (`src/ECS/Archetypes/VillagerArchetype.cpp`, `villager::SetAge`) |
 | Villagers animate: walking synced to the ground covered, working, eating, dancing, idling, dying | done | the state's clip, the walk synced to the ground covered (`src/ECS/VillagerAnimations.cpp`, `src/ECS/Animations.cpp`); `test/test_villager_draw_golden.cpp` |
 | Clips play into and out of states, and the state waits for them | done | the into and out-of clips, with the state waiting for them (`src/ECS/VillagerAnimations.cpp`) |

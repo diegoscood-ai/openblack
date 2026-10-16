@@ -6,7 +6,7 @@ interface the hand may use. The script language itself is in [../story/](../stor
 
 **Progress: 19/39 done, 4 partial — 54%**
 
-How the original does it, in our wiki: [The hand and the interface](../../bw1-notes/hand-and-interface.md).
+How the original does it, in our wiki: [The hand and the interface](../../../hand/animation-and-placement.md).
 
 ## Where the hand is and what it is over
 

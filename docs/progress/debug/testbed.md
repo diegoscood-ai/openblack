@@ -3,11 +3,11 @@
 The creature testbed: a flat land with a lake, made by openblack rather than loaded from the game, and the scenario
 runner that sets it up and plays a scripted timeline on it, from the debug window, the editor or the command line. What
 the scenarios cover is in [testbed_scenarios.md](testbed_scenarios.md); how to write and run one is in
-[SCENARIOS.md](../../refactor/SCENARIOS.md).
+[SCENARIOS.md](../../scenarios.md).
 
 **Progress: 18/28 done, 7 partial — 77%**
 
-How the original does it, in our wiki: [openblack internals](../../bw1-notes/openblack-internals.md).
+How the original does it, in our wiki: [openblack internals](../../internals.md).
 
 ## The testbed land
 

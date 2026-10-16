@@ -5,7 +5,7 @@ script sets the length of the day and how much of it is night; challenge scripts
 
 **Progress: 20/24 done, 2 partial — 88%**
 
-How the original does it, in our wiki: [Day, night and weather in the original](../../bw1-notes/day-night-weather.md), [World rendering: original versus openblack](../../bw1-notes/rendering.md).
+How the original does it, in our wiki: [Day, night and weather in the original](../../../world/day-and-night.md), [World rendering: original versus openblack](../../../world/sea-coast-and-rivers.md).
 
 ## The clock
 

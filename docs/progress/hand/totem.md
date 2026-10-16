@@ -7,7 +7,7 @@ button is held. Worship itself is in [../worship/](../worship/). Khazar teaches 
 
 **Progress: 0/26 done, 0 partial — 0%**
 
-How the original does it, in our wiki: [The hand and the interface](../../bw1-notes/hand-and-interface.md).
+How the original does it, in our wiki: [The hand and the interface](../../../magic/village-totem.md).
 
 ## Taking hold
 

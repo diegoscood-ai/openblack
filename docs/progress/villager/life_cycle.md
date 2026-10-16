@@ -5,7 +5,7 @@ in an abode with a family.
 
 **Progress: 24/28 done, 2 partial — 89%**
 
-How the original does it, in our wiki: [Villagers: data, state machine and speed](../../bw1-notes/villagers.md).
+How the original does it, in our wiki: [Villagers: data, state machine and speed](../../../beings/villager-life.md).
 
 ## Creation
 

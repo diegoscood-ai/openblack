@@ -7,7 +7,7 @@ editor is closed; the Scripts and Log tabs are in [script_debugger.md](script_de
 
 **Progress: 25/32 done, 1 partial — 80%**
 
-How the original does it, in our wiki: [openblack internals](../../bw1-notes/openblack-internals.md).
+How the original does it, in our wiki: [openblack internals](../../internals.md).
 
 ## Layout
 

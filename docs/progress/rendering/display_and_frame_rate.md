@@ -6,7 +6,7 @@ debug wireframe are in [../debug/](../debug/).
 
 **Progress: 4/8 done, 4 partial — 75%**
 
-How the original does it, in our wiki: [Graphics engine parity: original versus openblack](../../bw1-notes/parity.md), [World rendering: original versus openblack](../../bw1-notes/rendering.md).
+How the original does it, in our wiki: [Graphics engine parity: original versus openblack](../../../rendering/frame.md), [World rendering: original versus openblack](../../../rendering/frame.md).
 
 ## Window and device
 
@@ -25,6 +25,6 @@ How the original does it, in our wiki: [Graphics engine parity: original versus 
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Gamma or brightness setting | n/a | no gamma or brightness setting in openblack. Our wiki differs: the original has no gamma, post-processing or fog setting in its frame ([parity](../../bw1-notes/parity.md)) |
+| Gamma or brightness setting | n/a | no gamma or brightness setting in openblack. Our wiki differs: the original has no gamma, post-processing or fog setting in its frame ([parity](../../../rendering/frame.md)) |
 | Taking a screenshot | partial | `--screenshot-frame` and `--screenshot-path` take one at a frame; no key in game (unconfirmed the game has one) |
 | Vertical sync | done | `--no-vsync` (on by default, as the original) (`src/main.cpp`, `EngineConfig`) |

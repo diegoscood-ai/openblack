@@ -8,7 +8,7 @@ box and how it is reached; what each figure counts, when, and what is saved is i
 
 **Progress: 0/46 done, 2 partial — 2%**
 
-How the original does it, in our wiki: [The hand and the interface](../../bw1-notes/hand-and-interface.md).
+How the original does it, in our wiki: [Screen, text and read-outs](../../../interface/screen-and-readouts.md).
 
 ## Getting there
 

@@ -5,7 +5,7 @@ to the creature is in [../creature/leash.md](../creature/leash.md).
 
 **Progress: 12/15 done, 2 partial — 87%**
 
-How the original does it, in our wiki: [Magic: the core of the miracles](../../bw1-notes/magic.md).
+How the original does it, in our wiki: [Magic: the core of the miracles](../../../magic/gestures.md).
 
 A scribble takes the leash off or closes the picker: see [scribble.md](scribble.md).
 

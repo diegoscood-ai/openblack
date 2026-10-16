@@ -5,7 +5,7 @@ and tiredness, goes home at night and sleeps, and fills idle time by sitting out
 
 **Progress: 28/36 done, 8 partial — 89%**
 
-How the original does it, in our wiki: [Villagers: data, state machine and speed](../../bw1-notes/villagers.md).
+How the original does it, in our wiki: [Villagers: data, state machine and speed](../../../beings/villager-decisions.md).
 
 ## Deciding what to do
 
@@ -46,8 +46,8 @@ How the original does it, in our wiki: [Villagers: data, state machine and speed
 |-----------|--------|---------------|
 | Villagers get hungry over time | done | the hunger check drops the villager's food over the turns (`src/ECS/Villager/VillagerFood.cpp`); `test/test_villager_food.cpp` |
 | Hungry villagers go and eat: at home, from the storage pit, or outside | done | `ChangeStateToFindFoodToEat`: at home, from the storage pit or what it carries (`src/ECS/Villager/VillagerFood.cpp`) |
-| Housewives fetch food from the storage pit, make dinner, serve it and clear it away | n/a | the housewife's states are TODO rows. Our wiki differs: the housewife's day (fetching food, cooking, serving and clearing dinner, housework, gossip) is dead code in this version of the original ([villagers](../../bw1-notes/villagers.md#pregnancy-and-births)); See jobs.md |
-| Villagers sit down to dinner at home, waiting for it when the housewife is late | n/a | `SITS_DOWN_TO_DINNER` and `WAIT_FOR_DINNER` are TODO rows. Our wiki differs: the housewife's meal call, which makes villagers wait for dinner, is dead code in this version of the original ([villagers](../../bw1-notes/villagers.md#pregnancy-and-births)) |
+| Housewives fetch food from the storage pit, make dinner, serve it and clear it away | n/a | the housewife's states are TODO rows. Our wiki differs: the housewife's day (fetching food, cooking, serving and clearing dinner, housework, gossip) is dead code in this version of the original ([villagers](../../../beings/villager-life.md#pregnancy-and-births)); See jobs.md |
+| Villagers sit down to dinner at home, waiting for it when the housewife is late | n/a | `SITS_DOWN_TO_DINNER` and `WAIT_FOR_DINNER` are TODO rows. Our wiki differs: the housewife's meal call, which makes villagers wait for dinner, is dead code in this version of the original ([villagers](../../../beings/villager-life.md#pregnancy-and-births)) |
 | A meal takes the villager's meal amount of food from the abode | done | `GetFoodFromHome` takes the meal's amount from the abode (`src/ECS/Villager/VillagerFood.cpp`) |
 | Hungry adults walk slower | done | `src/ECS/VillagerSpeed.cpp`, reading the villager's food |
 | Starving villagers lose life and lie weak on the ground | partial | a hungry villager loses life (`src/ECS/Villager/VillagerFood.cpp`); `WEAK_ON_GROUND` is a TODO row |

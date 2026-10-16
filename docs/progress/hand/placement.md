@@ -5,7 +5,7 @@ cursor at all times, hanging over the land, the sea, the object or the temple wa
 
 **Progress: 17/29 done, 6 partial — 69%**
 
-How the original does it, in our wiki: [The hand and the interface](../../bw1-notes/hand-and-interface.md).
+How the original does it, in our wiki: [The hand and the interface](../../../hand/animation-and-placement.md).
 
 ## Where the hand sits
 
@@ -22,7 +22,7 @@ How the original does it, in our wiki: [The hand and the interface](../../bw1-no
 | Over a worship icon it hangs at the icon, a set distance short of it | done | `ResolveCursorPoint`: a spell icon's point and altitude, the depth target 3.2 x the hand's size short of it |
 | Gripping the land it stays on the gripped point and moves with it | done | `HandSystem::Place` (the camera state): the hand stays on the gripped land point |
 | Dragging by the edge it holds its distance from the camera over 0.4 seconds, never past the land | todo | No edge drag in the wired camera (raffclar's `camera_drag` is in our tree, not wired); see [navigation.md](navigation.md) |
-| It moves by the frame's real time, or by the game's time while a script holds the cinema bars | done | The hand's dt is the camera time step: the frame's real time, or the game time while a hand demo plays (`game_clock::CameraFrameMs`), the real time inside the temple. Our wiki differs: the game's time is used while a hand demo plays back, not while a script holds the bars ([page](../../bw1-notes/hand-and-interface.md#holding-spring-and-throwing-handstateholdingupdate-0x5b3c70)) |
+| It moves by the frame's real time, or by the game's time while a script holds the cinema bars | done | The hand's dt is the camera time step: the frame's real time, or the game time while a hand demo plays (`game_clock::CameraFrameMs`), the real time inside the temple. Our wiki differs: the game's time is used while a hand demo plays back, not while a script holds the bars ([page](../../../hand/grab-hold-and-throw.md#holding-spring-and-throwing)) |
 | Its speed and direction of movement are measured each frame for throws and spins | done | The holding spring and the grain state's measure (`HandPlacement.cpp`, `HandHolding.cpp`) |
 | Held to a creature it rests on the creature's body under the cursor | partial | The CREATURE state puts the hand where the creature hand puts it (`HandSystem::Place`, approximate: `_creaturePose`); see [creature_contact.md](creature_contact.md) |
 | In the temple it hangs a little short of the room's surface and turns to face it | partial | The world's placement is used inside the temple, with the room meshes picked as objects; see [temple_hand.md](temple_hand.md) |

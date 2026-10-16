@@ -5,7 +5,7 @@ land, the worship chants, the temple's music, fight music, and the pieces the st
 
 **Progress: 22/26 done, 2 partial — 88%**
 
-How the original does it, in our wiki: [Audio: the engine, the banks, the music, the voices and the script](../../bw1-notes/audio.md).
+How the original does it, in our wiki: [Audio: the engine, the banks, the music, the voices and the script](../../../audio/music.md).
 
 ## Choosing what plays
 
@@ -40,7 +40,7 @@ How the original does it, in our wiki: [Audio: the engine, the banks, the music,
 | Worship chants: each tribe's chant and its sung version while its people worship | done | `GameMusic::ProcessChantMusic` with the nearest dancing worship site (`ChantSite` in `src/ECS/AudioQueries.cpp`); tests `ChantMusic.Table`, `GameMusicTest.ChantMusicAtTheDance` |
 | Creature fight music, and the big fight's own music | todo | the fight branch is in `GameMusic::ProcessTurn`, but nothing registers `GameQueries::creatureFightMusic`; see ../creature/fighting.md |
 | Music while the creature dances | todo | the dance branch is in `GameMusic::ProcessTurn`, but nothing registers `GameQueries::creatureDanceMusic` |
-| The creature's mood shapes the music | n/a | Our wiki differs: the original has no mood-driven music; what looks like a music mood controller is network packets ([audio](../../bw1-notes/audio.md#intro-trailer-outro-videos-and-menu)) |
+| The creature's mood shapes the music | n/a | Our wiki differs: the original has no mood-driven music; what looks like a music mood controller is network packets ([audio](../../../audio/music.md#intro-trailer-outro-videos-and-menu)) |
 | Music attached to an object, heard by distance (the pied piper's tune) | done | `src/Audio/Services/ThingMusic.cpp`, ATTACH_MUSIC, DETACH_MUSIC, MOVE_MUSIC in `src/CHLApi.cpp`; tests `GameMusicTest.PiperOfTheGame`, `GameMusicTest.ThingMusicPlays3DEveryTurnAndBlocksTheAlignment`, `ThingMusic.PlayPositionQuantised` |
 | The intro and outro music | partial | the intro and outro pieces are started by the story scripts (START_MUSIC); the trailer music that plays with the pre-intro film is not played; see ../story/ending.md; the outro plays over the credits: [../story/gold_scrolls/so_this_is_a_fight_to_the_death.md](../story/gold_scrolls/so_this_is_a_fight_to_the_death.md#the-credits) |
 | Music from the CD's audio tracks | n/a | the game's own banks are used |

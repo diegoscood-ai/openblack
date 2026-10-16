@@ -9,7 +9,7 @@ fades, and the advisors and characters acting them out.
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The start-up logos, the pre-intro, the intro film, the loading screen's tip pictures and the creature's fall | partial | the intro film (`SET_AVI_SEQUENCE`, `src/Video/VideoPlayer`, our own Bink decoder) and the creature's fall (`src/Video/FallingSpellVideo`) play; the logos, the pre-intro and the tip pictures are not shown (no front end or loading screen); see ../video/bink_videos.md and [video.md](../../bw1-notes/video.md#startup-and-loading-screen) |
+| The start-up logos, the pre-intro, the intro film, the loading screen's tip pictures and the creature's fall | partial | the intro film (`SET_AVI_SEQUENCE`, `src/Video/VideoPlayer`, our own Bink decoder) and the creature's fall (`src/Video/FallingSpellVideo`) play; the logos, the pre-intro and the tip pictures are not shown (no front end or loading screen); see ../video/bink_videos.md and [video.md](../../../video/playback.md#startup-and-loading-screen) |
 
 ## Scripted cut scenes
 

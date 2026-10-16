@@ -6,7 +6,7 @@ The creature tools, the testbed, the editor and the diagnostics have their own f
 
 **Progress: 23/32 done, 8 partial — 84%**
 
-How the original does it, in our wiki: [openblack internals](../../bw1-notes/openblack-internals.md).
+How the original does it, in our wiki: [openblack internals](../../internals.md).
 
 ## Menu bar
 

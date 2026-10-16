@@ -31,7 +31,7 @@ player drops on the land to fly back to, and where the camera starts on a land.
 | A bookmark on a moving thing follows it | todo | not in our tree (unconfirmed) |
 | The camera can go back to where it was before jumping to a bookmark | todo | not in our tree |
 | Bookmarks are kept in saved games | todo | no saved games; see `../engine/` |
-| Scripts can turn the bookmark keys off and on, and a script restart turns them back on | done | (added) `PLAY_JC_SPECIAL` 14 and 15 (`src/CHLApi.cpp`) call `CameraBookmarkSystem::SetEnabled`, the bookmark keys in `src/Game.cpp` check it, and the script reboot sets it again ([intro](../../bw1-notes/intro.md#jc-specials-and-the-confirmation-sounds)) |
+| Scripts can turn the bookmark keys off and on, and a script restart turns them back on | done | (added) `PLAY_JC_SPECIAL` 14 and 15 (`src/CHLApi.cpp`) call `CameraBookmarkSystem::SetEnabled`, the bookmark keys in `src/Game.cpp` check it, and the script reboot sets it again ([intro](../../../scripts/land1-intro.md#jc-specials-and-the-confirmation-sounds)) |
 
 ## Start of a land
 

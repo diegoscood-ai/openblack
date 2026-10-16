@@ -6,7 +6,7 @@ their town belief. Each reaction has a reach, an urgency and a time from the rea
 
 **Progress: 11/44 done, 5 partial — 31%**
 
-How the original does it, in our wiki: [Villagers: data, state machine and speed](../../bw1-notes/villagers.md).
+How the original does it, in our wiki: [Villagers: data, state machine and speed](../../../beings/villager-reactions.md).
 
 ## How reactions work
 

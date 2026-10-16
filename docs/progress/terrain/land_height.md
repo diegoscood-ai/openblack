@@ -5,7 +5,7 @@ flattened, and the queries everything uses to stand on the ground.
 
 **Progress: 9/12 done, 3 partial — 88%**
 
-How the original does it, in our wiki: [Coordinates, terrain, object size, game clock, matrices and Zoomer](../../bw1-notes/engine-math.md).
+How the original does it, in our wiki: [Coordinates, terrain, object size, game clock, matrices and Zoomer](../../../world/terrain.md).
 
 ## Height
 

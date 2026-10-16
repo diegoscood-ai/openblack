@@ -56,7 +56,7 @@ Every row is todo unless the notes say otherwise. The script program as a whole 
 | The accordion tune is moved to the third seat's sailor, who plays the accordion for the rest of the challenge; the second sits down and sways to the song; the first beckons, looks lost, then gossips | partial | `DetachMusic`, `AttachMusic` and the villager animation commands work; not checked in game |
 | The camera cuts between close shots of the singers every 3 seconds, then the second sailor stands and despairs, and the camera sweeps along the ark and back to the fire | partial | the camera natives work; not checked in game |
 | The scene ends only when the song's words have finished; then the first two sailors go back to idling | partial | not checked in game |
-| The idle loop, at random: walk to the fire and prod it, whittle a stick, shrug, look puzzled or despair, then sit down, sway to a sailing song for 4 to 8 loops and stand up; it ends when the sailor dies | todo | (inferred) cut short: `GetProperty` has no health and answers 0, so the sailors are taken for dead at the first check after the first verse (see the deaths below) |
+| The idle loop, at random: walk to the fire and prod it, whittle a stick, shrug, look puzzled or despair, then sit down, sway to a sailing song for 4 to 8 loops and stand up; it ends when the sailor dies | todo | 🔍 inferred cut short: `GetProperty` has no health and answers 0, so the sailors are taken for dead at the first check after the first verse (see the deaths below) |
 | After the first verse, the evil advisor: "How dare they leave? After all we've done for them?"; the good advisor: "What have we done for them, exactly? Perhaps we should help them out. It might be nice." | partial | `StartDialogue`, `RunText`, `TextRead` work; not checked in game |
 
 ## The three verses (words on screen)
@@ -66,15 +66,15 @@ Every row is todo unless the notes say otherwise. The script program as a whole 
 | Each verse's twelve lines are shown one at a time, each when the music reaches that line, or after 10 seconds if the music gives no cue; the last waits until read | partial | `LastMusicLine` works; the word highlight that follows the song is not drawn (`src/Help`); not checked in game |
 | Verse one (wood): "Ooooh, we've got this notion" / "That we'd quite like to sail the ocean" / "So we're buildin' a big boat to leave here for good." / "We're not keen on sinkin'" / "So we're all sittin' here a thinkin'" / "Cos we built it too big and we've run out of wood." / "eidle eidle eee" / "eidle eidle eee" / "we simply can't leave til we get some more wood." / "Oooh, we're not keen on sinkin'" / "so that's why we're sittin' thinkin'" / "cos we simply can't leave til we get some more wood." | partial | sung in the sailors' (man's) voice; the first verse plays; not checked in game |
 | Verse two (grain): "Ooooh, the boat is now finished" / "But there's still somethin' on the wish-list" / "To keep us all goin' through the wind and the rain." / "There's no food on the table" / "And we can't sail unless we're able" / "So we ain't goin' nowhere 'til we get some grain." / "eidle eidle eee" / "eidle eidle eee" / "we simply can't leave until we get some grain." / "Therrrre's no food on the table" / "And we can't sail unless we're able" / "So we ain't goin' nowhere 'til we get some grain." | todo | never reached (inferred, see the deaths below) |
-| Verse three (meat): "Ooooh, We're not complainin'" / "but there's still one more thing remaining" / "Cos bread is quite borin' if that's all you eat." / "We need some flavour" / "So do us all a little favour" / "Cos, we ain't goin' nowhere 'til we get some meat." / "eidle eidle eee" / "eidle eidle eee" / "we simply can't leave until we've got some meat." / "Sooooo, Do us a favour" / "find somethin' with a little flavour" / "Cos we're goin' nowhere 'til we've got some meat." | todo | never reached (inferred) |
+| Verse three (meat): "Ooooh, We're not complainin'" / "but there's still one more thing remaining" / "Cos bread is quite borin' if that's all you eat." / "We need some flavour" / "So do us all a little favour" / "Cos, we ain't goin' nowhere 'til we get some meat." / "eidle eidle eee" / "eidle eidle eee" / "we simply can't leave until we've got some meat." / "Sooooo, Do us a favour" / "find somethin' with a little flavour" / "Cos we're goin' nowhere 'til we've got some meat." | todo | never reached 🔍 inferred |
 | The songs are shown as known dialogue, so they don't wait for the player to click on through them | partial | not checked in game |
 
 ## Wood: finishing the boat
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Gifts are only looked for while all three sailors are alive | todo | never reached (inferred): the sailors count as dead |
-| Every 3 seconds the script looks for a wood store (a pile of wood dropped by the hand) within 40 of the ark | todo | never reached (inferred); `CallNear` works |
+| Gifts are only looked for while all three sailors are alive | todo | never reached 🔍 inferred: the sailors count as dead |
+| Every 3 seconds the script looks for a wood store (a pile of wood dropped by the hand) within 40 of the ark | todo | never reached 🔍 inferred; `CallNear` works |
 | If one is there and no sailor is in either hand, its wood is counted and the pile fades away | todo | never reached; `GetResource` is a stub |
 | Each 1,500 wood builds a whole ark's worth; the ark starts a fifth built, so 1,200 wood in all finishes it; the target is capped at fully built | todo | never reached |
 | The building scene: the sailors walk at 0.4 to three spots along the ark and hammer, look overworked, saw, carve or swing a sledgehammer at random (1 to 5 loops, then a 4 to 10 second pause) until the ark is fully built | todo | never reached |
@@ -90,12 +90,12 @@ Every row is todo unless the notes say otherwise. The script program as a whole 
 |-----------|--------|---------------|
 | When the ark is fully built, verse two plays (if no sailor is held) and grain becomes the next need | todo | never reached; the cap at fully built was not traced |
 | Sailors that are flying are waited for, the others are put on their seats; all are drawn in high detail | todo | never reached |
-| The camera glides to the start of a recorded camera path and follows it while the second verse's music plays | partial | the music, `RunCameraPath` and the camera conversions work; never reached (inferred) |
+| The camera glides to the start of a recorded camera path and follows it while the second verse's music plays | partial | the music, `RunCameraPath` and the camera conversions work; never reached 🔍 inferred |
 | The first sailor sits and sways, the accordion keeps playing; at the fourth line the second sailor is put on the ark's deck, walks along it, faces the camera and looks unimpressed, then is put back beside the ark and walks back to his seat to gossip | todo | never reached |
 | The challenge is recorded again: success 0.4, alignment 0.2, with verse two as the reminder | todo | never reached; `Snapshot` is a stub |
 | The camera closes in on the fire with cuts every 3 seconds; when the words end, the first two sailors go back to idling | todo | never reached |
 | Every 3 seconds the script looks for a food store within 40 of the ark; its food is added up and the pile fades away | todo | never reached; `GetResource` is a stub |
-| While the player answers, the interface is limited to moving the hand | partial | the interaction level works (`SetInterfaceInteraction`); never reached (inferred) |
+| While the player answers, the interface is limited to moving the hand | partial | the interaction level works (`SetInterfaceInteraction`); never reached 🔍 inferred |
 | Under 300 food in all: "That's good grain. Please can we have more?"; 300 or more: "We're grateful for the grain, Holy One." | todo | never reached |
 
 ## Verse three: meat
@@ -103,13 +103,13 @@ Every row is todo unless the notes say otherwise. The script program as a whole 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | At 300 food, verse three plays (if no sailor is held) and meat becomes the last need | todo | never reached |
-| The sailors are put back on their seats as in the first verse; the third verse's music starts and the words follow | partial | the music works (`StartMusic`); never reached (inferred) |
+| The sailors are put back on their seats as in the first verse; the third verse's music starts and the words follow | partial | the music works (`StartMusic`); never reached 🔍 inferred |
 | The first sits and sways, the accordion plays, the second gossips; the record is updated to success 0.5, alignment 0.1, with verse three as the reminder | todo | never reached; `UpdateSnapshot` is a stub |
 | The camera glides round the fire with cuts every 3 seconds, then cuts on the seventh, ninth and tenth lines of the song, ending in two quick moves | todo | never reached |
 | Every 3 seconds the script looks within 40 of the ark for a cow, a sheep, a horse or a pig, in that order, and takes one per check, fading it away | todo | never reached (`CallNear`, `ObjectDelete` work) |
 | A cow: "Great. Cattle to eat."; a sheep: "A sheep. Lovely. Sheep have many uses. And the voyage is long."; a pig: "A pig. Yeah, we'll have that."; after the first animal: "We need more meat, though." | todo | never reached |
 | Two animals are needed; the scroll is then taken away and a sailor says "Thanks for all this meat." | todo | never reached |
-| The interface is limited to moving the hand while they talk | partial | the interaction level works; never reached (inferred) |
+| The interface is limited to moving the hand while they talk | partial | the interaction level works; never reached 🔍 inferred |
 | Quirk: a horse gets no line of its own; as the first animal it is answered "Thanks for all this meat." and then "We need more meat, though." | todo | never reached |
 
 ## Extra hands: villagers, a woman and a galley boy
@@ -132,12 +132,12 @@ Every row is todo unless the notes say otherwise. The script program as a whole 
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Every pass of the main loop checks each sailor for having died or vanished, whatever killed him (hand, creature, miracle) | todo | `ThingValid` works but `GetProperty` has no health and answers 0, so (inferred) every sailor counts as dead at the first check |
-| The first seat's sailor dying: "Oh my god. You killed Kenneth!"; the others: "You killed my shipmate! Outrageous!" (not said for the last of the three) | partial | (inferred) the lines play, but wrongly, right after the first verse (see above); not checked in game |
+| Every pass of the main loop checks each sailor for having died or vanished, whatever killed him (hand, creature, miracle) | todo | `ThingValid` works but `GetProperty` has no health and answers 0, so 🔍 inferred every sailor counts as dead at the first check |
+| The first seat's sailor dying: "Oh my god. You killed Kenneth!"; the others: "You killed my shipmate! Outrageous!" (not said for the last of the three) | partial | 🔍 inferred the lines play, but wrongly, right after the first verse (see above); not checked in game |
 | A death records success at the dead share (a third per sailor) and alignment -0.2, then at once 0.3 and -0.4 if the second sailor still lives, or -0.6 if only the third does | todo | `UpdateSnapshot` is a stub |
-| If the accordion player dies, the tune moves: a surviving sailor is swapped for an accordion player in the same seat, who plays on | todo | not checked: with every sailor taken for dead at once (inferred) |
+| If the accordion player dies, the tune moves: a surviving sailor is swapped for an accordion player in the same seat, who plays on | todo | not checked: with every sailor taken for dead at once 🔍 inferred |
 | With a sailor dead, the reminder becomes "They haven't got enough shipmates." (good advisor) and no gifts are accepted until a man replaces him | todo | the reminder needs `Snapshot`, a stub |
-| All three dead: the evil advisor: "You killed all the explorers!" / "But I can't get their stupid song out of my brain."; the record is set to success 1, alignment -1, and the challenge ends with no reward | partial | (inferred) this ending plays, wrongly, right after the first verse; the record is a stub (`UpdateSnapshot`); the ark, the campfire and the scroll stay |
+| All three dead: the evil advisor: "You killed all the explorers!" / "But I can't get their stupid song out of my brain."; the record is set to success 1, alignment -1, and the challenge ends with no reward | partial | 🔍 inferred this ending plays, wrongly, right after the first verse; the record is a stub (`UpdateSnapshot`); the ark, the campfire and the scroll stay |
 
 ## Running out of time
 

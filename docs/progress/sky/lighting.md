@@ -5,7 +5,7 @@ warm colour and the moon's colour, which light the land, the models and the sea,
 
 **Progress: 15/16 done, 1 partial — 97%**
 
-How the original does it, in our wiki: [Day, night and weather in the original](../../bw1-notes/day-night-weather.md), [World rendering: original versus openblack](../../bw1-notes/rendering.md).
+How the original does it, in our wiki: [Day, night and weather in the original](../../../world/sky.md), [World rendering: original versus openblack](../../../world/haze-and-mist.md).
 
 ## The land's light
 
@@ -31,4 +31,4 @@ How the original does it, in our wiki: [Day, night and weather in the original](
 | At night, village lights, lanterns, the hand and fires light the cells around them | partial | `night_lights::Update` (`src/3D/NightLights.cpp`: the hand, the street lanterns and the gate's lamps), run by `VillageLightSystem::Update` (`Locator::villageLightSystem`) once a frame; the temple's lanterns are not lit; see ../town/ and ../rendering/ |
 | The light at night is the moon's colour | done | `src/3D/LandLightTable.cpp` |
 | Inside the temple the light comes from the temple's own lights, not the time of day | done | `src/3D/TempleLight.cpp`; see ../temple/ |
-| Shadows of objects fall away from the sun | done | The static shadows are sheared along the fixed sun direction and the projected ones use the fixed sun point (`src/Graphics/ShadowMath.cpp`), as our wiki describes ([rendering.md](../../bw1-notes/rendering.md#shadows-three-systems-in-the-original)); see ../rendering/ |
+| Shadows of objects fall away from the sun | done | The static shadows are sheared along the fixed sun direction and the projected ones use the fixed sun point (`src/Graphics/ShadowMath.cpp`), as our wiki describes ([rendering.md](../../../rendering/shadows-and-reflections.md#shadows-three-systems-in-the-original)); see ../rendering/ |

@@ -4,7 +4,7 @@ Every land of Black & White, the tutorial, the skirmish playgrounds and the deve
 
 **Progress: 77/134 done, 13 partial — 62%**
 
-How the original does it, in our wiki: [Writing land-script lines: SaveObject and WriteCommand](../../bw1-notes/land-script-save.md), [Map loading and script functions](../../bw1-notes/map-loading.md).
+How the original does it, in our wiki: [Writing land-script lines: SaveObject and WriteCommand](../../../scripts/land-change-and-saving.md), [Map loading and script functions](../../../scripts/script-commands.md).
 
 ## Reading the scripts
 
@@ -91,7 +91,7 @@ How the original does it, in our wiki: [Writing land-script lines: SaveObject an
 | `CREATE_VILLAGER_POS`: Creates a villager of a tribe and job of an age, living in the house at a place; used 2248 times (story 618, tutorial 8, playgrounds 1299, demo and test 323) | done | `VillagerArchetype` through `CreateVillagerAtAbode` (`src/LHScriptX/VillagerCommands.cpp`); `test/test_script_villager_commands.cpp` |
 | `CREATE_TOWN_VILLAGER`: Creates a villager of a tribe and job of an age in a town; used 46 times (story 2, playgrounds 15, demo and test 29) | done | `CreateVillagerInTown` with the villager named by the line |
 | `CREATE_SPECIAL_TOWN_VILLAGER`: Creates one of the game's named villagers in a town; not used by the shipped scripts | done | `CreateVillagerInTown` with the villager number itself |
-| `CREATE_VILLAGER`: Creates a villager at a place, going to a place; not used by the shipped scripts | done | the original's odd reading kept: no villager is named, so nothing is made. Our wiki differs: the original reads the villager's kind from the second argument, a position, so it never makes a villager ([map-loading](../../bw1-notes/map-loading.md#villagers-from-the-map-script)) |
+| `CREATE_VILLAGER`: Creates a villager at a place, going to a place; not used by the shipped scripts | done | the original's odd reading kept: no villager is named, so nothing is made. Our wiki differs: the original reads the villager's kind from the second argument, a position, so it never makes a villager ([map-loading](../../../scripts/map-script-reader.md#villagers-from-the-map-script)) |
 
 ## Nature
 
@@ -137,7 +137,7 @@ How the original does it, in our wiki: [Writing land-script lines: SaveObject an
 | `CREATE_MOBILE_STATIC`: Creates a static object (rocks, fences, toys, totems, gates) with its height, angles and scale; used 2101 times (story 1522, tutorial 105, playgrounds 280, demo and test 194) | done | `MobileStaticArchetype::CreateWithXYZAngles` |
 | `CREATE_STREET_LANTERN`: Creates a street or country lantern; used 302 times (story 89, tutorial 6, playgrounds 207) | done | `StreetLanternArchetype` |
 | `CREATE_MOBILEOBJECT`: Creates a moveable object (mushrooms, barrels, carts, poo) with its angle and scale; used 159 times (story 97, playgrounds 45, demo and test 17) | done | `MobileObjectArchetype`, nothing on top of another object |
-| `CREATE_BONFIRE`: Creates a bonfire; used 11 times (story 6, tutorial 1, playgrounds 4) | done | `BonfireArchetype`; the temperature is not used on creation, as in the original ([map-loading](../../bw1-notes/map-loading.md#map-script-objects-street-lanterns-bonfires-dead-trees-gates)) |
+| `CREATE_BONFIRE`: Creates a bonfire; used 11 times (story 6, tutorial 1, playgrounds 4) | done | `BonfireArchetype`; the temperature is not used on creation, as in the original ([map-loading](../../../scripts/map-script-objects.md#map-script-objects-street-lanterns-bonfires-dead-trees-gates)) |
 | `CREATE_ANIMATED_STATIC`: Creates an animated object (gates, cave entrances) by name; used 7 times (story 7) | done | `AnimatedStaticArchetype` |
 | `CREATE_STREET_LIGHT`: Creates a street light; used 1 times (playgrounds 1) | partial | `StreetLanternArchetype` as a town lantern; the street light itself is not decoded (no land uses it) |
 | `CREATE_MOBILESTATIC`: Creates a static object (older form); not used by the shipped scripts | done | `MobileStaticArchetype::CreateFromInfo` |

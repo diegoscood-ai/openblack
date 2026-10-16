@@ -17,7 +17,7 @@ game's posture and heading, plays its landing (or dies of the fall, or drowns on
 
 **Progress: 18/24 done, 4 partial — 83%**
 
-How the original does it, in our wiki: [Physics: thrown objects, collisions, damage and rocks that split](../../bw1-notes/physics.md).
+How the original does it, in our wiki: [Physics: thrown objects, collisions, damage and rocks that split](../../../physics/physics.md).
 
 ## Being let go
 
@@ -45,7 +45,7 @@ How the original does it, in our wiki: [Physics: thrown objects, collisions, dam
 | On landing they are stood up facing the way they were heading, on the ground | done | `src/ECS/Systems/Implementations/VillagerPhysics.cpp` (the heading into `SetYAngle`); tests `LivingLanding.VillagerSetYAngle`, `ObjectYAngle` |
 | They then play a landing animation (each animal kind its own) and get up to decide what to do next | done | The landed clips by land type (`VillagerLandedClip`, the animal kinds' clips), then they decide (`villager::Landed`, `AnimalAI.cpp`) |
 | Nothing special happens to a breeder that lands: it decides afresh what to do | done | It decides afresh after its landing (`src/ECS/Systems/Implementations/VillagerPhysics.cpp`) |
-| One that lands on water starts drowning instead | done | A villager in a water cell goes to DROWNING (`VillagerEndPhysics`, `src/ECS/VillagerDrowning.cpp`). Our wiki differs: animals have no drowning state; in the sea they sink and are deleted ([animals.md](../../bw1-notes/animals.md#hand-flight-and-death)) |
+| One that lands on water starts drowning instead | done | A villager in a water cell goes to DROWNING (`VillagerEndPhysics`, `src/ECS/VillagerDrowning.cpp`). Our wiki differs: animals have no drowning state; in the sea they sink and are deleted ([animals.md](../../../beings/animal-life.md#hand-flight-and-death)) |
 
 ## Dying from a fall
 

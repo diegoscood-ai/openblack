@@ -23,6 +23,9 @@ The port target is raffclar's `master` at `0222f9f5`: of the 161 rows of the por
 
 ## Done since the last update (joints 99 to 111)
 
+- wiki rebuilt (757301889): the research wiki now lives in docs/wiki/ by game system, read through one viewer page
+  (docs/index.html, or docs/open_wiki.bat locally) with a progress dashboard; docs/progress moved to
+  docs/wiki/project/progress/ and docs/bw1-notes and docs/wiki-html are gone.
 - joint111: villagers walking round obstacles on the original's circles; animals leaving a circle whose thing left
   the map; the ambience loops fading in (they started silent); pause, dead voices, volcano and small sound rules;
   the temple's challenge list, room and picture click; the creature's motes, eyelids, falling-film copy, its body

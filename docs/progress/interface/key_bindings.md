@@ -5,7 +5,7 @@ and the one-press shortcuts. What each camera or hand action does once pressed b
 
 **Progress: 10/26 done, 11 partial — 60%**
 
-How the original does it, in our wiki: [The hand and the interface](../../bw1-notes/hand-and-interface.md).
+How the original does it, in our wiki: [The hand and the interface](../../../interface/tooltips.md).
 
 ## The bindings
 

@@ -6,7 +6,7 @@ it moves the camera; the camera's own keys, zoom, limits, paths and focusing are
 
 **Progress: 32/40 done, 3 partial — 84%**
 
-How the original does it, in our wiki: [The hand and the interface](../../bw1-notes/hand-and-interface.md).
+How the original does it, in our wiki: [The hand and the interface](../../../hand/animation-and-placement.md).
 
 ## Gripping and dragging the land
 
@@ -61,7 +61,7 @@ How the original does it, in our wiki: [The hand and the interface](../../bw1-no
 | The hint poses stand the hand up towards where the camera looks | done | `hand_navigation_pose::UpTowardsFocus` (0.3 of the way up, as the original), in `HandSystem::UpdateNormalUp` and the camera branch of `HandSystem::Place`; tests `HandNavigationPose.StandsUpTowardsTheFocusByThreeTenths`, `HandNavigationPose.TheLengthsSumYThenXThenZ` |
 | Dragging, the hand grips while panning, and shows turning or tilting while it does those | done | `HandSystem::NavigationPose` (`hand_navigation_pose::WhileDragging`); until it grips, the hand stays on the cursor's line (`HandSystem::Place`); tests `HandNavigationPose.DraggingByTheEdgeShowsTurningTiltingOrZooming` |
 | Showing that it turns the camera, the hand is drawn a third of its height higher | done | `hand_navigation_pose::RotateLift` in `HandSystem::Place`; test `HandNavigationPose.TheTurningLiftIsAThirdOfTheHandsHeight` |
-| Every change of state or pose fades the hand from where it was drawn over 0.13 seconds | done | The 0.13 s state blend at each change of the hand's state (`HandCrossFade` (`src/3D/HandCrossFade.h`, the hand system's `_stateBlend`), started in `HandSystem::Update`); test `HandCrossFade.FadesAtAnEvenPaceOverATenthAndAThirdOfASecond`. Our wiki differs: the original blends only at a change of the hand's state, not at a change of clip inside a state ([page](../../bw1-notes/hand-and-interface.md#the-hands-clip-handstatenormal)) |
+| Every change of state or pose fades the hand from where it was drawn over 0.13 seconds | done | The 0.13 s state blend at each change of the hand's state (`HandCrossFade` (`src/3D/HandCrossFade.h`, the hand system's `_stateBlend`), started in `HandSystem::Update`); test `HandCrossFade.FadesAtAnEvenPaceOverATenthAndAThirdOfASecond`. Our wiki differs: the original blends only at a change of the hand's state, not at a change of clip inside a state ([page](../../../hand/animation-and-placement.md#the-hands-clip)) |
 
 ## Recorded hand demos
 

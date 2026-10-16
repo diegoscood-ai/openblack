@@ -7,7 +7,7 @@ over the whole picture. The sea's reflections are in [../ocean/](../ocean/), rai
 
 **Progress: 12/18 done, 2 partial — 72%**
 
-How the original does it, in our wiki: [Graphics engine parity: original versus openblack](../../bw1-notes/parity.md), [World rendering: original versus openblack](../../bw1-notes/rendering.md).
+How the original does it, in our wiki: [Graphics engine parity: original versus openblack](../../../rendering/frame.md), [World rendering: original versus openblack](../../../rendering/frame.md).
 
 ## Lights and glows
 
@@ -17,7 +17,7 @@ How the original does it, in our wiki: [Graphics engine parity: original versus 
 | Windows shed a volume of light drawn out from their edges, fading to nothing | done | `MakeVolumeLight` in `src/Graphics/LightBeams.cpp`, drawn by the temple; test `test/graphics/test_light_beams.cpp` |
 | At night the hand carries a light that brightens the land around it, coming up as the land darkens | done | `src/Graphics/HandLight.cpp`; test `test/graphics/test_hand_light.cpp` |
 | At night the hand's light glows warm on the water beneath it | done | `src/Graphics/HandWaterGlow.cpp`; test `test/graphics/test_hand_water_glow.cpp` |
-| Village lanterns and campfires light the land around them at night, flickering | partial | street and country lanterns and the gate's lamps (`src/3D/NightLights.cpp`, run by `VillageLightSystem::Update`, `Locator::villageLightSystem`; `StreetLanternArchetype`) light the land cells at night, flickering; the temple door's lanterns are missing. Our wiki differs: the lit "campfires" are country lanterns drawn with the campfire mesh; a bonfire itself has no lantern light ([map-loading.md](../../bw1-notes/map-loading.md#map-script-objects-street-lanterns-bonfires-dead-trees-gates)) |
+| Village lanterns and campfires light the land around them at night, flickering | partial | street and country lanterns and the gate's lamps (`src/3D/NightLights.cpp`, run by `VillageLightSystem::Update`, `Locator::villageLightSystem`; `StreetLanternArchetype`) light the land cells at night, flickering; the temple door's lanterns are missing. Our wiki differs: the lit "campfires" are country lanterns drawn with the campfire mesh; a bonfire itself has no lantern light ([map-loading.md](../../../scripts/map-script-objects.md#map-script-objects-street-lanterns-bonfires-dead-trees-gates)) |
 
 The columns of light over village centres and temples, the light round worship sites' altars, the glow of disciples,
 the scroll and vortex beams and the falling-spell bursts are in [light_beams.md](light_beams.md).

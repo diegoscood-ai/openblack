@@ -5,7 +5,7 @@ sea itself are in `../ocean/`.
 
 **Progress: 9/13 done, 1 partial — 73%**
 
-How the original does it, in our wiki: [Animals: AI, states and clips](../../bw1-notes/animals.md), [Skeletal animation (villagers and animals)](../../bw1-notes/animation.md).
+How the original does it, in our wiki: [Animals: AI, states and clips](../../../beings/animal-life.md), [Skeletal animation (villagers and animals)](../../../beings/animation.md).
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|

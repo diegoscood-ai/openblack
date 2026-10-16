@@ -6,7 +6,7 @@ frame works out how far through the turn it is. Two random number streams keep t
 
 **Progress: 28/39 done, 8 partial — 82%**
 
-How the original does it, in our wiki: [The engine loop: game turns and frames (original and openblack)](../../bw1-notes/engine-loop.md), [Coordinates, terrain, object size, game clock, matrices and Zoomer](../../bw1-notes/engine-math.md).
+How the original does it, in our wiki: [The engine loop: game turns and frames (original and openblack)](../../../engine/loop.md), [Coordinates, terrain, object size, game clock, matrices and Zoomer](../../../engine/game-clock.md).
 
 ## Game turns
 

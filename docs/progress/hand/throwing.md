@@ -14,7 +14,7 @@ The first land teaches throwing with a silver scroll, [Throwing Stones](../story
 
 **Progress: 20/30 done, 0 partial — 67%**
 
-How the original does it, in our wiki: [The hand and the interface](../../bw1-notes/hand-and-interface.md).
+How the original does it, in our wiki: [The hand and the interface](../../../hand/grab-hold-and-throw.md).
 
 ## Putting down or throwing
 

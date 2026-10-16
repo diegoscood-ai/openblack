@@ -74,9 +74,9 @@ the quest around it is [silver_scrolls/stanley_the_wolf.md](silver_scrolls/stanl
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Two shoals of 15 fish each are made in the sea, 11 m across, swimming at 7 (the unit is unconfirmed) | todo | ported: two shoals of 15 at the bait, a net of seven floats (`CreateFishPuzzle`, `components::FishBait`), checked with a test hook ([water.md](../../bw1-notes/water.md#fish-puzzle)); Land 4 itself is never reached |
-| The fish swim away from the hand, so the player herds them by tapping the water | todo | the puzzle shoals are fish-farm shoals, which our tree scares away from the hand; Land 4 is never reached ([water.md](../../bw1-notes/water.md#fish-puzzle)) |
-| Solved when the shoal reaches where the boy fishes (the exact test is unconfirmed) | todo | ported: solved when 30 fish are inside the net together for half a second (`IsPuzzleGamePlayed`); Land 4 is never reached. Our wiki differs: the test is 30 fish within 11 of the bait at once for 0.5 s, not the shoal reaching the boy ([water.md](../../bw1-notes/water.md#fish-puzzle)) |
+| Two shoals of 15 fish each are made in the sea, 11 m across, swimming at 7 (the unit is unconfirmed) | todo | ported: two shoals of 15 at the bait, a net of seven floats (`CreateFishPuzzle`, `components::FishBait`), checked with a test hook ([water.md](../../../world/sea-life-and-scenery.md#fish-puzzle)); Land 4 itself is never reached |
+| The fish swim away from the hand, so the player herds them by tapping the water | todo | the puzzle shoals are fish-farm shoals, which our tree scares away from the hand; Land 4 is never reached ([water.md](../../../world/sea-life-and-scenery.md#fish-puzzle)) |
+| Solved when the shoal reaches where the boy fishes (the exact test is unconfirmed) | todo | ported: solved when 30 fish are inside the net together for half a second (`IsPuzzleGamePlayed`); Land 4 is never reached. Our wiki differs: the test is 30 fish within 11 of the bait at once for 0.5 s, not the shoal reaching the boy ([water.md](../../../world/sea-life-and-scenery.md#fish-puzzle)) |
 | The prize, while the boy lives: a tortoise creature to swap for; five tortoises wander with him | todo | never reached: `LOAD_MAP` is an empty native; the swap needs creature natives (stubs); see [land_4.md](land_4.md) and [silver_scrolls/the_fish_puzzle.md](silver_scrolls/the_fish_puzzle.md) |
 
 ## Shaking mushrooms (land 1)

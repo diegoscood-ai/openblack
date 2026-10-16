@@ -6,7 +6,7 @@ Some slots in the spec are spare and never used.
 
 **Progress: 19/35 done, 5 partial — 61%**
 
-How the original does it, in our wiki: [The hand and the interface](../../bw1-notes/hand-and-interface.md).
+How the original does it, in our wiki: [The hand and the interface](../../../hand/animation-and-placement.md).
 
 ## How they play
 
@@ -19,7 +19,7 @@ How the original does it, in our wiki: [The hand and the interface](../../bw1-no
 | Its back-and-forth lean range is blended in by the vertical gap | done | `HandSystem::Update`: clamp(mouse y - smoothed y, -80, 80) for the `L*_fb` layer |
 | A lean smaller than a ten-thousandth is left out | done | `HandSystem::Update`: a lag of 0.0001 or less (or a smoothed y that small) is left out |
 | Moving the camera, the sideways lean goes the other way | done | `HandSystem::Update`: while gripping the land the sideways lag is mouse x - smoothed x |
-| Changing animation blends from the last pose over 0.13 seconds | done | `HandCrossFade` (`src/3D/HandCrossFade.h`, the hand system's `_stateBlend`): 0.13 s, linear, in world space, only at a change of the hand's state; test `HandCrossFade.FadesAtAnEvenPaceOverATenthAndAThirdOfASecond`. Our wiki differs: the original blends only when the hand's state changes; a change of clip inside a state is not blended ([page](../../bw1-notes/hand-and-interface.md#the-hands-clip-handstatenormal)) |
+| Changing animation blends from the last pose over 0.13 seconds | done | `HandCrossFade` (`src/3D/HandCrossFade.h`, the hand system's `_stateBlend`): 0.13 s, linear, in world space, only at a change of the hand's state; test `HandCrossFade.FadesAtAnEvenPaceOverATenthAndAThirdOfASecond`. Our wiki differs: the original blends only when the hand's state changes; a change of clip inside a state is not blended ([page](../../../hand/animation-and-placement.md#the-hands-clip)) |
 | Holding something takes a still frame of a hold, picked by how big the thing is for the hand, without leaning | partial | `HandSystem::Update`: `Chold_above` / `Chold_side` held at a frame set by the hold radius against the hand's size, for every held object; the hold's lean layers are still applied when the file has them |
 | A right hand plays the same animations on the mirrored mesh | todo | Our hand is drawn unmirrored and has no left-handed mode (`HandSystem::Initialize` notes it as pending) |
 | The bones keep their lengths, and the palm stays at rest in the standing pose | done | `HandAnimator` applies rotations on the bind skeleton, the layers rotation-only (translation only for `Cgrip`); no test in our tree |

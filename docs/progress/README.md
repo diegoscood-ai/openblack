@@ -52,6 +52,6 @@ Bugs in the original game that the research has found are logged, unscored, in [
 
 ## Tools
 
-- `python docs/progress/tools/progress_score.py <file>...` rewrites each file's Progress line from its rows.
-- `python docs/progress/tools/progress_index_regen.py docs/progress` regenerates `INDEX.md`, sub-folders included.
-- `python docs/progress/tools/vanilla_bugs_count.py docs/progress/vanilla_bugs` rewrites the bug files' count lines.
+- `python docs/tools/progress_score.py <file>...` rewrites each file's Progress line from its rows.
+- `python docs/tools/progress_index_regen.py docs/wiki/project/progress` regenerates `INDEX.md`, sub-folders included.
+- `python docs/tools/vanilla_bugs_count.py docs/wiki/project/progress/vanilla_bugs` rewrites the bug files' count lines.

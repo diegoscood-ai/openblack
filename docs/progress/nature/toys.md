@@ -95,7 +95,7 @@ and it is taller than a villager.
 | Toys are thrown and put down like any loose object | done | `src/ECS/Physics/FromHand.cpp`; see [../hand/throwing.md](../hand/throwing.md) |
 | A toy the player's hand lets go of, thrown or put down (not one a creature threw), makes the player's creature consider copying "play with a toy" | todo | Not reported (a TODO in `src/ECS/Physics/FromHand.cpp`) |
 | A toy put down gently near a town becomes one of its artefacts; toys count 0.0001 and the bowling ball 0.0002 | todo | No town artefacts in our tree; see [../town/artefacts.md](../town/artefacts.md) |
-| A toy thrown into a land's exit vortex (or lying within its reach) is taken in, as any thing that can fly is, and comes out of the next land's arrival vortex as the same toy; a toy that is an artefact stays an artefact of the same god with the same worth | partial | The vortex takes in what can fly and writes the crossing file (`src/ECS/Vortex.cpp`, `VortexSave.cpp`); going to the next land is not ported ([vortex.md](../../bw1-notes/vortex.md#what-is-ported-and-what-is-pending)); see [../story/portals.md](../story/portals.md#what-goes-in-kind-by-kind) |
+| A toy thrown into a land's exit vortex (or lying within its reach) is taken in, as any thing that can fly is, and comes out of the next land's arrival vortex as the same toy; a toy that is an artefact stays an artefact of the same god with the same worth | partial | The vortex takes in what can fly and writes the crossing file (`src/ECS/Vortex.cpp`, `VortexSave.cpp`); going to the next land is not ported ([vortex.md](../../../world/vortex.md#what-is-ported-and-what-is-pending)); see [../story/portals.md](../story/portals.md#what-goes-in-kind-by-kind) |
 
 ## The creature
 

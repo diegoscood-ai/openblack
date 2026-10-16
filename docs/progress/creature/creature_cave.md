@@ -7,7 +7,7 @@ editor ([creature_tattoos.md](creature_tattoos.md)). The temple itself is in [..
 
 **Progress: 17/31 done, 4 partial — 61%**
 
-How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../bw1-notes/creature.md).
+How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../../creature/overview.md).
 
 ## Getting there and moving about
 

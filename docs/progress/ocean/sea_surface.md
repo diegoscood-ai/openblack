@@ -5,7 +5,7 @@ fading with distance, coloured by the land's light, blended over the mirrored wo
 
 **Progress: 16/16 done, 0 partial — 100%**
 
-How the original does it, in our wiki: [Water in the game](../../bw1-notes/water.md).
+How the original does it, in our wiki: [Water in the game](../../../world/sea-life-and-scenery.md).
 
 ## Drawing the sea
 
@@ -22,9 +22,9 @@ How the original does it, in our wiki: [Water in the game](../../bw1-notes/water
 | The sea's texture repeats more finely at higher detail levels | done | `detail_level::Level::waterTiling`, `Level::SeaPeriod` (`src/Graphics/DetailLevel.h`) |
 | At the lowest detail the sea is a still square, its texture repeated 50 times, fully opaque | done | The level 0 sea in `src/Graphics/RendererSea.cpp` |
 | Ambient wind would drift the sea's texture | n/a | The game's ambient wind is always 0 in play, so the drift never shows; our tree keeps the drift code (`sea::Drift`) |
-| The sea is drawn after the land so the land's coast fades into it | done | The sea is drawn before the land, which blends over it (`src/Graphics/Renderer.cpp`). Our wiki differs: the original draws the sea first, then the land over it with its coast alpha ([rendering.md](../../bw1-notes/rendering.md#sea-skyraw--skyaraw)) |
+| The sea is drawn after the land so the land's coast fades into it | done | The sea is drawn before the land, which blends over it (`src/Graphics/Renderer.cpp`). Our wiki differs: the original draws the sea first, then the land over it with its coast alpha ([rendering.md](../../../world/sea-coast-and-rivers.md#sea)) |
 | The sea is not drawn inside the temple, which has its own pool | done | The temple pass draws no sea; see ../temple/ |
-| The sea is hazed with distance like the land | done | The sea takes no haze, only its distance fade. Our wiki differs: the original's distance haze is not applied to the sea ([rendering.md](../../bw1-notes/rendering.md#distance-haze-original-fog-detail-levels-36)) |
+| The sea is hazed with distance like the land | done | The sea takes no haze, only its distance fade. Our wiki differs: the original's distance haze is not applied to the sea ([rendering.md](../../../world/haze-and-mist.md#distance-haze-original-fog-detail-levels-36)) |
 | The view under the sea is drawn at the size of the view | done | The reflection target follows the main view (`Renderer::UpdateReflectionTarget`) |
 
 ## Sounds of the sea

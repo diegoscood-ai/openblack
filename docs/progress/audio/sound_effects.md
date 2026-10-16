@@ -5,7 +5,7 @@ from the game's sound banks and most placed in the world.
 
 **Progress: 23/32 done, 6 partial — 81%**
 
-How the original does it, in our wiki: [Audio: the engine, the banks, the music, the voices and the script](../../bw1-notes/audio.md).
+How the original does it, in our wiki: [Audio: the engine, the banks, the music, the voices and the script](../../../audio/world-sounds.md).
 
 ## How effects play
 

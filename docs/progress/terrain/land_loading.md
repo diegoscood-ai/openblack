@@ -5,7 +5,7 @@ script, with a fixed-point grid of map positions that everything in the game sta
 
 **Progress: 15/23 done, 6 partial — 78%**
 
-How the original does it, in our wiki: [Map loading and script functions](../../bw1-notes/map-loading.md).
+How the original does it, in our wiki: [Map loading and script functions](../../../scripts/land-change-and-saving.md).
 
 ## Opening a land
 

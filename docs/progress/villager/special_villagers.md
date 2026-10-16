@@ -11,7 +11,7 @@ towns to preach. Ordinary looks and voices are in [looks_and_voices.md](looks_an
 
 **Progress: 15/77 done, 7 partial — 24%**
 
-How the original does it, in our wiki: [Villagers: data, state machine and speed](../../bw1-notes/villagers.md).
+How the original does it, in our wiki: [Villagers: data, state machine and speed](../../../beings/villager-states.md).
 
 ## The table of names
 

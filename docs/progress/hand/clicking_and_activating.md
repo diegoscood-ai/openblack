@@ -6,7 +6,7 @@ bubbles and icons, leash posts), double clicks, locked selection, and the force-
 
 **Progress: 28/46 done, 6 partial — 67%**
 
-How the original does it, in our wiki: [The hand and the interface](../../bw1-notes/hand-and-interface.md).
+How the original does it, in our wiki: [The hand and the interface](../../../hand/grab-hold-and-throw.md).
 
 ## Tapping in general
 

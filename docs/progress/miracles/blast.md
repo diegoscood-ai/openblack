@@ -9,7 +9,7 @@ see [../nature/fireflies.md](../nature/fireflies.md#the-lands-reward-table)). (P
 
 **Progress: 33/42 done, 6 partial — 86%**
 
-How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/miracles.md).
+How the original does it, in our wiki: [Miracles one by one](../../../creature/casting.md).
 
 ## Casting
 
@@ -49,9 +49,9 @@ How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/mir
 | Up to 15 things are shattered into flying pieces and up to 15 removed | done | `src/Particles/Rules/Explosion.cpp` (MaxObjectsToExplode, MaxObjectsToDelete) |
 | Creatures are never shattered or removed | done | `src/Particles/Rules/Explosion.cpp` (`CanBeDestroyedBySpell` says no for creatures, fields and the citadel) |
 | Trees, statues and small things are shattered and gone | done | `src/Particles/Rules/Explosion.cpp` (pieces, then `DestroyedByBeam` deletes them), `src/Particles/Rules/ExplodeObject.cpp` |
-| Buildings and spell dispensers are shattered but left standing with no life | done | `src/Particles/Rules/Explosion.cpp` (`DestroyedByBeam` to `src/ECS/Abodes.cpp` ReduceLife: all its life, and a building site when it has a town). Our wiki differs: a building with a town is then drawn at 0 % and disappears from view as a building site until repaired; only without a town is it drawn whole ([page](../../bw1-notes/miracles.md#ur_explosion-initcollection-0x67e200-modifyatomcollection-0x67ece0-update-0x67e900)) |
-| Villagers are not shattered: the blast's heat sets those nearest alight and they burn to death | partial | `src/Particles/Rules/Explosion.cpp` (`DestroyedByBeam` deletes a villager the ring reaches, with no death: approximate). Our wiki differs: villagers the ring reaches are destroyed by the beam like other objects, not left to burn ([page](../../bw1-notes/miracles.md#ur_explosion-initcollection-0x67e200-modifyatomcollection-0x67ece0-update-0x67e900)) |
-| Animals in the wave fall dead | done | `src/Particles/Rules/Explosion.cpp` (`DestroyedByBeam` removes the animal). Our wiki differs: an animal the ring reaches is removed by the beam, it does not fall dead ([page](../../bw1-notes/miracles.md#ur_explosion-initcollection-0x67e200-modifyatomcollection-0x67ece0-update-0x67e900)) |
+| Buildings and spell dispensers are shattered but left standing with no life | done | `src/Particles/Rules/Explosion.cpp` (`DestroyedByBeam` to `src/ECS/Abodes.cpp` ReduceLife: all its life, and a building site when it has a town). Our wiki differs: a building with a town is then drawn at 0 % and disappears from view as a building site until repaired; only without a town is it drawn whole ([page](../../../magic/lightning-explosion.md#ur_explosion)) |
+| Villagers are not shattered: the blast's heat sets those nearest alight and they burn to death | partial | `src/Particles/Rules/Explosion.cpp` (`DestroyedByBeam` deletes a villager the ring reaches, with no death: approximate). Our wiki differs: villagers the ring reaches are destroyed by the beam like other objects, not left to burn ([page](../../../magic/lightning-explosion.md#ur_explosion)) |
+| Animals in the wave fall dead | done | `src/Particles/Rules/Explosion.cpp` (`DestroyedByBeam` removes the animal). Our wiki differs: an animal the ring reaches is removed by the beam, it does not fall dead ([page](../../../magic/lightning-explosion.md#ur_explosion)) |
 | Teleport stones and totems are spared; pots and one-off seeds are never touched | partial | `src/Particles/Rules/Explosion.cpp`: the citadel's parts, worship sites and totems say no; a totem statue loses its life like a building; teleport stones, pots and one-off seeds go through `IsEffectReceiver`, not checked. The script indestructible flag and script-held objects are not tracked |
 | Where the wave meets a shield it sparks it and pushes on it outward from the centre | done | `src/Particles/Rules/Explosion.cpp` (a target inside a shield: a spark and an event to the shield) |
 | People nearby react to the miracle once | done | `src/Magic/Core/SpellEvent.cpp` (the reaction on the first event) |

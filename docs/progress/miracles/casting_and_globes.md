@@ -7,7 +7,7 @@ side is in [prayer_cost.md](prayer_cost.md); dispensers, icons and where globes 
 
 **Progress: 41/54 done, 9 partial — 84%**
 
-How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/miracles.md).
+How the original does it, in our wiki: [Miracles one by one](../../../creature/casting.md).
 
 ## Buttons and pressing
 

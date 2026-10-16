@@ -5,7 +5,7 @@ types around the camera and changing with height, weather, time of day and the p
 
 **Progress: 11/11 done, 0 partial — 100%**
 
-How the original does it, in our wiki: [Audio: the engine, the banks, the music, the voices and the script](../../bw1-notes/audio.md).
+How the original does it, in our wiki: [Audio: the engine, the banks, the music, the voices and the script](../../../audio/world-sounds.md).
 
 ## The ambience
 

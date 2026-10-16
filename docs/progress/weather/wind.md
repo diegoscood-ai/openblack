@@ -5,7 +5,7 @@ is heard at the camera, and moves things scripts mark as caught by it.
 
 **Progress: 9/15 done, 3 partial — 70%**
 
-How the original does it, in our wiki: [Day, night and weather in the original](../../bw1-notes/day-night-weather.md).
+How the original does it, in our wiki: [Day, night and weather in the original](../../../world/day-and-night.md).
 
 ## The wind
 

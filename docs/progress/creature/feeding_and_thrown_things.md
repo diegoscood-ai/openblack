@@ -11,7 +11,7 @@ and thrown people in the air in [../physics/thrown_living.md](../physics/thrown_
 
 **Progress: 6/71 done, 11 partial — 16%**
 
-How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../bw1-notes/creature.md).
+How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../../creature/hits-and-catch.md).
 
 ## Giving from the hand
 
@@ -78,7 +78,7 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Every thing that starts to fly, thrown or knocked, is offered to every creature to catch | done | `PhysicsClassHooks::OfferToCatchingCreatures` walks the creatures (`ecs::creature_catch_walk`), from both of the physics' starts; the creatures are asked by entity number, not in the game's list order; [creature.md](../../bw1-notes/creature.md#the-creatures-catch) |
+| Every thing that starts to fly, thrown or knocked, is offered to every creature to catch | done | `PhysicsClassHooks::OfferToCatchingCreatures` walks the creatures (`ecs::creature_catch_walk`), from both of the physics' starts; the creatures are asked by entity number, not in the game's list order; [creature.md](../../../creature/hits-and-catch.md#the-creatures-catch) |
 | A creature tries only when not fighting or set on a fight, not under a script's control, not already catching, and free to react | done | `creature_catch::MayTry`; no script sets an only desire in openblack |
 | The thing must weigh less than eight tenths of the creature and be able to be picked up | todo |  |
 | It never catches what it threw itself; a throw by a god not allied to its player it catches only three times in a hundred | partial | done for the player's hand's throws; which other throws carry a god is not read, and no gods are allied in openblack |

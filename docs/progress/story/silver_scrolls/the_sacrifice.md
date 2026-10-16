@@ -24,7 +24,7 @@ so none of it happens; rows are todo unless the notes say otherwise. The script'
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The land's control script starts a watcher for the quest as soon as the land is set up | todo | `LandControl2` never runs: `LOAD_MAP` is empty, so the story never reaches Land 2 ([map-loading](../../../bw1-notes/map-loading.md#pending)) |
+| The land's control script starts a watcher for the quest as soon as the land is set up | todo | `LandControl2` never runs: `LOAD_MAP` is empty, so the story never reaches Land 2 ([map-loading](../../../../scripts/map-script-reader.md#pending)) |
 | Every 11 seconds the watcher looks for a worship site within 15 of a fixed altar spot by the player's home village (the site the player is taught to build in this land; the plague's watcher uses the same spot) | todo | the finder and the built test work (`Call`, `GetProperty` built percentage in `src/CHLApi.cpp`); the quest never starts: no Land 2 (`LOAD_MAP` is empty) |
 | The quest starts only once that worship site is fully built (built exactly 1) and the Indian village with town id 11 belongs to the player; the village is checked only after the site is built, and the watcher then stops | todo | reading the village's owner (`GetProperty` player) is not ported; the quest never starts: no Land 2 (`LOAD_MAP` is empty) |
 | The scroll is a silver scroll (a challenge highlight) beside a house about 100 north of that Indian village's centre, far west of the altar | todo | `CreateHighlight` works (`src/ECS/ScriptHighlight.cpp`); the quest never starts: no Land 2 (`LOAD_MAP` is empty) |

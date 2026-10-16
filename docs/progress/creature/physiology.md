@@ -6,7 +6,7 @@ its own rates, from the game's creature tables.
 
 **Progress: 36/53 done, 8 partial — 75%**
 
-How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../bw1-notes/creature.md).
+How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../../creature/overview.md).
 
 ## Life and damage
 

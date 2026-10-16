@@ -76,7 +76,7 @@ and the e-mail side.
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Every time a villager is made, there is a 2 in 10 chance that the game tries to make it a named villager instead | partial | the roll is drawn (`ecs::villager::RollSpecialVillager`, from `VillagerArchetype`), keeping the game's random stream, but a normal villager always comes out ([villagers](../../bw1-notes/villagers.md)) |
+| Every time a villager is made, there is a 2 in 10 chance that the game tries to make it a named villager instead | partial | the roll is drawn (`ecs::villager::RollSpecialVillager`, from `VillagerArchetype`), keeping the game's random stream, but a normal villager always comes out ([villagers](../../../beings/villager-states.md)) |
 | The name is chosen by starting at a random place in the pool and taking the first name that fits | todo | no named villagers in our tree; see ../villager/special_villagers.md |
 | A name fits if it is of the villager's sex, has not been used yet, and is not empty; the job is not checked | todo | no named villagers in our tree; see ../villager/special_villagers.md |
 | Each name is used once per land; the use counts are cleared when the land is cleared | todo | no named villagers in our tree; see ../villager/special_villagers.md |

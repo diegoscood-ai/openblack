@@ -6,7 +6,7 @@ relaxation and sleep. Idle villagers serve the most wanted. The storage pit show
 
 **Progress: 19/26 done, 2 partial — 77%**
 
-How the original does it, in our wiki: [Buildings, building sites and towns (the building side)](../../bw1-notes/buildings.md).
+How the original does it, in our wiki: [Buildings, building sites and towns (the building side)](../../../beings/towns.md).
 
 ## Working out the desires
 

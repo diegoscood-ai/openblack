@@ -5,7 +5,7 @@ side, and fall silent beyond their distance.
 
 **Progress: 10/10 done, 0 partial — 100%**
 
-How the original does it, in our wiki: [Audio: the engine, the banks, the music, the voices and the script](../../bw1-notes/audio.md).
+How the original does it, in our wiki: [Audio: the engine, the banks, the music, the voices and the script](../../../audio/engine.md).
 
 ## 3D sound
 

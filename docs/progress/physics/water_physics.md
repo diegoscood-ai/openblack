@@ -14,7 +14,7 @@ that ends in the water becomes a dead tree (the tree's end of physics in `HandPh
 
 **Progress: 25/27 done, 2 partial — 96%**
 
-How the original does it, in our wiki: [Water in the game](../../bw1-notes/water.md), [Physics: thrown objects, collisions, damage and rocks that split](../../bw1-notes/physics.md).
+How the original does it, in our wiki: [Water in the game](../../../world/water.md), [Physics: thrown objects, collisions, damage and rocks that split](../../../physics/physics-impacts.md).
 
 ## Falling into the water
 

@@ -6,7 +6,7 @@ storms flash with lightning and roll with thunder.
 
 **Progress: 18/26 done, 4 partial — 77%**
 
-How the original does it, in our wiki: [Day, night and weather in the original](../../bw1-notes/day-night-weather.md).
+How the original does it, in our wiki: [Day, night and weather in the original](../../../magic/storm-and-tornado.md).
 
 ## A storm's life
 

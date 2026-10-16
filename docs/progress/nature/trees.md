@@ -5,7 +5,7 @@ the villagers do with them.
 
 **Progress: 21/30 done, 4 partial — 77%**
 
-How the original does it, in our wiki: [Trees and forests](../../bw1-notes/trees.md).
+How the original does it, in our wiki: [Trees and forests](../../../world/trees.md).
 
 ## Kinds and placing
 
@@ -13,7 +13,7 @@ How the original does it, in our wiki: [Trees and forests](../../bw1-notes/trees
 |-----------|--------|---------------|
 | The land scripts place trees of each kind (beech, birch, cedar, conifer, oak, olive, palm, pine, cypress, bushes, copses, hedges, burnt) and their variants, turned and sized | done | `TreeArchetype` (`src/ECS/Archetypes/TreeArchetype.cpp`), CREATE_TREE and CREATE_NEW_TREE (`src/LHScriptX/FeatureScriptCommands.cpp`) |
 | A tree has a size now and a largest size it grows to | done | `components::Tree` (`src/ECS/Components/Tree.h`) |
-| Scripts mark some trees as scenery, which villagers leave alone (unconfirmed what else it changes) | done | The flag is kept (`Tree::isNonScenic`) and set again on replanting (`HandTrees.cpp`). Our wiki differs: the forester's tree search reads no such flag, so villagers do not leave those trees alone ([trees.md](../../bw1-notes/trees.md#searches-for-trees-and-forests-for-the-villagers)) |
+| Scripts mark some trees as scenery, which villagers leave alone (unconfirmed what else it changes) | done | The flag is kept (`Tree::isNonScenic`) and set again on replanting (`HandTrees.cpp`). Our wiki differs: the forester's tree search reads no such flag, so villagers do not leave those trees alone ([trees.md](../../../beings/villager-jobs.md#searches-for-trees-and-forests-for-the-villagers)) |
 | Trees stand in the way of walkers, each as a circle on the ground | done | The route planner's obstacle circles (`src/ECS/RoutePlanWorld.cpp`) |
 | Trees are lit by the land's light and drawn unlit where the game does | done | `ecs::TreeBrightness` and the cell light (`src/ECS/Trees.cpp`, `RenderingSystem.cpp`); test `test/test_tree_brightness.cpp` |
 | Trees cast shadows, including at night (unconfirmed) | done | The static shadows, trees with alpha test (`RenderPass::StaticShadow`); see ../rendering/ |
@@ -22,7 +22,7 @@ How the original does it, in our wiki: [Trees and forests](../../bw1-notes/trees
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| A tree short of its full size grows by its kind's amount every so many turns, the first wait a random part of it | done | `ProcessTreesTurn` and `GrowTree` (`src/ECS/Trees.cpp`, the first wait random). Our wiki differs: only the trees of a forest grow; the land scripts' loose trees never do ([trees.md](../../bw1-notes/trees.md#growth-treeprocess-0x74a290-treegrow-0x74a3f0)) |
+| A tree short of its full size grows by its kind's amount every so many turns, the first wait a random part of it | done | `ProcessTreesTurn` and `GrowTree` (`src/ECS/Trees.cpp`, the first wait random). Our wiki differs: only the trees of a forest grow; the land scripts' loose trees never do ([trees.md](../../../world/trees.md#growth)) |
 | Trees grow faster in the rain and on good land | done | `ecs::TreeGrowthAmount` (the rain and the land's alignment) |
 | The water miracle makes trees grow faster | done | `ecs::ApplyWaterSpell` (`src/ECS/Trees.cpp`) |
 | The water miracle plants a young tree of the same kind by a full-grown one of a forest | done | `ecs::ApplyWaterSpell` with `PlantTreeNear`; see [forests](forests.md) |
@@ -43,8 +43,8 @@ How the original does it, in our wiki: [Trees and forests](../../bw1-notes/trees
 |-----------|--------|---------------|
 | Trees catch fire and burn, their flames kept to the trunk's middle | done | `src/ECS/Fire/FireGraphic.cpp` (trees' flames in the lower half, 0.2 of the height) |
 | A burning tree is drawn burning | done | `graphic::TreeDrawColour` and the flames (`src/ECS/Fire/FireGraphic.cpp`); the foliage thinning is not ported, see [../physics/fire.md](../physics/fire.md) |
-| Fire spreads from tree to tree, each checking its neighbours now and then, with a random chance | done | Fire spreads by heat (`src/ECS/Fire/FireEffect.cpp`, the heat passed by the model's `fire::HeatTransfer` in `src/Fire/FireModel.cpp`), as our wiki describes ([trees.md](../../bw1-notes/trees.md#fire)); see ../physics/ |
-| A tree burnt down leaves a burnt tree (unconfirmed) or goes | done | It goes (`fire::traits::DestroyedByEffect`), as our wiki gives it ([trees.md](../../bw1-notes/trees.md#fire)) |
+| Fire spreads from tree to tree, each checking its neighbours now and then, with a random chance | done | Fire spreads by heat (`src/ECS/Fire/FireEffect.cpp`, the heat passed by the model's `fire::HeatTransfer` in `src/Fire/FireModel.cpp`), as our wiki describes ([trees.md](../../../world/fire.md#fire-trees)); see ../physics/ |
+| A tree burnt down leaves a burnt tree (unconfirmed) or goes | done | It goes (`fire::traits::DestroyedByEffect`), as our wiki gives it ([trees.md](../../../world/fire.md#fire-trees)) |
 | A magic tree on fire stops being something people come to look at | done | `magic_tree::StartOnFire` and `EndOnFire` (`src/Magic/Objects/MagicTree.cpp`) |
 
 ## Hand, creature and villagers

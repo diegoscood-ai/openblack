@@ -6,7 +6,7 @@ blends sorted farthest first, the near clipping plane and the distance haze. The
 
 **Progress: 13/17 done, 3 partial — 85%**
 
-How the original does it, in our wiki: [The original B&W frame (runblack.exe W120, D3D7, LH3D)](../../bw1-notes/original-frame.md), [Graphics engine parity: original versus openblack](../../bw1-notes/parity.md), [World rendering: original versus openblack](../../bw1-notes/rendering.md).
+How the original does it, in our wiki: [The original B&W frame (runblack.exe W120, D3D7, LH3D)](../../../rendering/frame.md), [Graphics engine parity: original versus openblack](../../../rendering/frame.md), [World rendering: original versus openblack](../../../rendering/frame.md).
 
 ## Frame structure
 

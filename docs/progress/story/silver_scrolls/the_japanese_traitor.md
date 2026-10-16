@@ -31,7 +31,7 @@ animations; none only logs "not implemented". Every row is todo unless the notes
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The land's control script starts it in the background as Land 5 begins, unconditionally, together with the creature curse | todo | `LandControl5` never runs: `LOAD_MAP` is empty ([map-loading](../../../bw1-notes/map-loading.md#pending)) |
+| The land's control script starts it in the background as Land 5 begins, unconditionally, together with the creature curse | todo | `LandControl5` never runs: `LOAD_MAP` is empty ([map-loading](../../../../scripts/map-script-reader.md#pending)) |
 | A bonfire is lit at once at the stranger's praying place in the forest | partial | `Create` makes the bonfire (`CreateScriptObject`, a mobile static); the script never runs |
 | Everything stops when Nemesis loses his last village (the land then stops every script but its own) | todo | the quest never starts: no Land 5 (`LOAD_MAP` is empty) |
 

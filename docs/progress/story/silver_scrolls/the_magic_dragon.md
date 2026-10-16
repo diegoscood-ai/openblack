@@ -24,7 +24,7 @@ reads and the challenge record); creating villagers, highlights, effects, timers
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Land 5's control script starts the quest in the background right after the land's opening (Nemesis's curse on the creature), together with the land's other first quests | todo | `LandControl5` never runs: `LOAD_MAP` is empty ([map-loading](../../../bw1-notes/map-loading.md#pending)); see [../../scripts/land5_script.md](../../scripts/land5_script.md) |
+| Land 5's control script starts the quest in the background right after the land's opening (Nemesis's curse on the creature), together with the land's other first quests | todo | `LandControl5` never runs: `LOAD_MAP` is empty ([map-loading](../../../../scripts/map-script-reader.md#pending)); see [../../scripts/land5_script.md](../../scripts/land5_script.md) |
 | Nothing has to be done first; the camp is there from the start of the land | todo | the quest never starts: no Land 5 (`LOAD_MAP` is empty) |
 | The quest's title is "The Magic Dragon" (title text 113) | todo | `Snapshot`, `UpdateSnapshot` and `UpdateSnapshotPicture` are stubs |
 | No other script waits for it or reads its outcome | todo | the quest never starts: no Land 5 (`LOAD_MAP` is empty) |

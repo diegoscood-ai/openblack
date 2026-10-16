@@ -6,7 +6,7 @@ and how the towns feel about it.
 
 **Progress: 17/56 done, 15 partial — 44%**
 
-How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../bw1-notes/creature.md).
+How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../../creature/overview.md).
 
 ## Decision trees
 
@@ -65,7 +65,7 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 | It judges how neglectful the player is | todo | |
 | It remembers whether the player has been nasty to it | todo | |
 | It keeps the most recent feedback the player gave it | done | `CreatureMindState::lastFeedback`, set in `CreatureMindSystem::ReceiveFeedback`; the hand's sum in `CreatureHandSystem::GetLastFeedbackSum` |
-| It guesses what the player wants from what it sees the player do, and that guess fades | todo | not in our tree: the player-desire events (`creature_mimic::EmpathiseWithTownDesire`) are published but nothing listens yet ([creature.md](../../bw1-notes/creature.md#town-and-villager-hooks)) |
+| It guesses what the player wants from what it sees the player do, and that guess fades | todo | not in our tree: the player-desire events (`creature_mimic::EmpathiseWithTownDesire`) are published but nothing listens yet ([creature.md](../../../creature/mimicry.md#town-and-villager-hooks)) |
 | It sees the player's deeds only within two thirds of a half turn either way, or in its own cell | todo | nothing models what the creature sees of the player's desires |
 | It is cross with the player and shows it | todo | |
 | It shows the player how nice it thinks he is | todo | |

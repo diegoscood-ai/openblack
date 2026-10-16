@@ -15,7 +15,7 @@ is a stub (`FeatureScriptCommands::MakeLastObjectArtifact`). Only the town centr
 
 **Progress: 3/34 done, 0 partial — 9%**
 
-How the original does it, in our wiki: [Buildings, building sites and towns (the building side)](../../bw1-notes/buildings.md).
+How the original does it, in our wiki: [Buildings, building sites and towns (the building side)](../../../world/buildings.md).
 
 ## Becoming an artefact
 
@@ -23,7 +23,7 @@ How the original does it, in our wiki: [Buildings, building sites and towns (the
 |-----------|--------|---------------|
 | A loose fixed object (a rock, a dead tree, a toy, a lantern, the idol and the like) put down gently from the hand by a player who isn't neutral becomes an artefact of the town of the nearest building within 50 m, or of the nearest worship site there | todo | no artefacts in our tree: the town turn's artefact step is a TODO (`src/ECS/Town/TownProcess.cpp`); see [../physics/throwing_and_landing.md](../physics/throwing_and_landing.md) |
 | Only kinds whose table gives an artefact multiplier above 0 qualify (all rocks 0.0002, volcanic 0.00025, singing stones and the idol 0.0003, gate totems 0.0006, the bowling ball 0.0002, other toys, lanterns, fences and dead trees 0.0001), and nothing a script is holding | todo | the multipliers are read (`src/InfoConstants.h`) but nothing uses them; toys: [../nature/toys.md](../nature/toys.md) |
-| Something thrown (faster than 2 m/s across the land as it leaves the hand), or put down by the creature, never becomes an artefact | todo | no artefacts. Our wiki differs: the creature's deed table describes an artefact as made by a thrown object that lands within 50 m of a town or worship site ([creature](../../bw1-notes/creature.md#deed-table-complete-for-w120)) |
+| Something thrown (faster than 2 m/s across the land as it leaves the hand), or put down by the creature, never becomes an artefact | todo | no artefacts. Our wiki differs: the creature's deed table describes an artefact as made by a thrown object that lands within 50 m of a town or worship site ([creature](../../../creature/mimicry.md#deed-table)) |
 | A new artefact starts worth the kind's villager-impressing value from the tables (0.01 for rocks) | todo | no artefacts |
 | An artefact belongs to the player who put it down; it joins its town's (or site's) artefacts once, and the game's list of all artefacts | todo | no artefacts |
 | An artefact sent through a vortex comes out in the next land still an artefact of the same god with the same worth; only its town is forgotten | todo | no artefacts; see [../story/portals.md](../story/portals.md#what-goes-in-kind-by-kind) |

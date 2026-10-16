@@ -7,7 +7,7 @@ Given by gold scroll: [Khazar's Shield Challenge](../story/gold_scrolls/khazars_
 
 **Progress: 23/28 done, 2 partial — 86%**
 
-How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/miracles.md).
+How the original does it, in our wiki: [Miracles one by one](../../../magic/shields.md).
 
 ## Casting and upkeep
 

@@ -81,5 +81,5 @@ fixing one would mean patching the script or the command it relies on.
    with the second column never one of the status words (done, partial, todo, n/a) so the scorer skips it.
 3. Link the progress file that describes it, and make sure that file mentions it too.
 4. Update the file's count line (or rerun
-   `python docs/progress/tools/vanilla_bugs_count.py docs/progress/vanilla_bugs`, which rewrites
+   `python docs/tools/vanilla_bugs_count.py docs/wiki/project/progress/vanilla_bugs`, which rewrites
    every file's count line) and the summary table above.

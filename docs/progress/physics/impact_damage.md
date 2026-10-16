@@ -14,7 +14,7 @@ and split (`src/ECS/ObjectPhysics.cpp`), and resources go into stores. Rocks bre
 
 **Progress: 23/47 done, 7 partial — 56%**
 
-How the original does it, in our wiki: [Physics: thrown objects, collisions, damage and rocks that split](../../bw1-notes/physics.md).
+How the original does it, in our wiki: [Physics: thrown objects, collisions, damage and rocks that split](../../../physics/physics-impacts.md).
 
 ## How a blow is measured
 
@@ -22,7 +22,7 @@ How the original does it, in our wiki: [Physics: thrown objects, collisions, dam
 |-----------|--------|---------------|
 | At the end of each game turn (after all physics steps), every body whose total force over the turn's touched steps (gravity included) is above a tiny limit gets an impact strength: that total, scaled by 0.05 | done | `EndTurn` in `src/ECS/Physics/PhysicsObjects.cpp` (the touched substeps' force sum times 0.05) |
 | Each body also remembers which other body hit it that turn, and the player whose hand threw it (taking the hitter's when it has none) | done | `EndTurn` (`PhysicsObject::hitBy`, `byPlayer` taken from the hitter) |
-| A blow is judged in multiples of the body's own weight under gravity ("how many g", about 0 for something lying still); a heavy body needs a harder blow to be hurt | done | `PhysicsObject::GLoad`, passed to each class's reaction in `ImpactInfo`. Our wiki differs: G is about 1, not 0, for a body lying on the ground ([physics.md](../../bw1-notes/physics.md#manager-physicsobjectgameturnupdate-0x644fc0)) |
+| A blow is judged in multiples of the body's own weight under gravity ("how many g", about 0 for something lying still); a heavy body needs a harder blow to be hurt | done | `PhysicsObject::GLoad`, passed to each class's reaction in `ImpactInfo`. Our wiki differs: G is about 1, not 0, for a body lying on the ground ([physics.md](../../../physics/physics.md#manager)) |
 | Every object with a model that is hit by moving things takes part in collisions while something moves near it, so a thrown rock can strike a standing villager or a house (standing trees are not hit) | done | The wake walk in `BeginTurn` makes resting proxies of what interacts (`src/ECS/Physics/PhysicsObjects.cpp`) |
 | An impact plays a collision sound picked by both materials, at one of three loudness levels by how many g it was | done | `AttemptCollisionSound` (`src/ECS/Systems/Implementations/DynamicsSystem.cpp`); see [throwing_and_landing.md](throwing_and_landing.md) |
 | A thrown thing that can be used on what it hit (an animal or a tree into a store, food or wood into a store or a pile of the same; a toadstool poisons the store's food) is used on it instead of hurting it | partial | Trees and dead trees go into a storage pit (`HandPhysics.cpp`), fences into a wood store and pots into a store or pot of their type (`ReactToPhysicsImpact`, `held_apply`), animals into a food store (`ECS/Systems/Implementations/VillagerPhysics.cpp`); mushrooms and the toadstool's poison are not handled |
@@ -79,7 +79,7 @@ How the original does it, in our wiki: [Physics: thrown objects, collisions, dam
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Thrown things do not knock trees or dead trees down; only things meant to be used on them act | done | Standing trees are not obstacles (`InteractsWithPhysicsObjects`). Our wiki differs: dead trees are obstacles, and a resting obstacle hit hard enough is knocked into flight ([physics.md](../../bw1-notes/physics.md#manager-physicsobjectgameturnupdate-0x644fc0)) |
+| Thrown things do not knock trees or dead trees down; only things meant to be used on them act | done | Standing trees are not obstacles (`InteractsWithPhysicsObjects`). Our wiki differs: dead trees are obstacles, and a resting obstacle hit hard enough is knocked into flight ([physics.md](../../../physics/physics.md#manager)) |
 | A rock that lands harder than 4 g, if taller than 0.7 m and not hit by another rock, loses a little life, (g − 4) × 0.005 | done | `ReactToPhysicsImpact` in `src/ECS/Physics/PhysicsObjects.cpp` |
 | A rock worn below 1% life splits into two smaller rocks (a burning rock's fire goes to both) | done | `object_physics::SplitRock` (`src/ECS/ObjectPhysics.cpp`: halves of 0.7935 its scale, its velocity, half its spin, `fire::CopyFire`) |
 | Broken pieces, bonfires, scaffolds and totem statues have no reaction to blows | done | No reaction for them in `ReactToPhysicsImpact` |

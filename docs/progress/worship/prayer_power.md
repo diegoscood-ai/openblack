@@ -5,7 +5,7 @@ it to be summoned, kept going and powered up.
 
 **Progress: 12/22 done, 5 partial — 66%**
 
-How the original does it, in our wiki: [Magic: the core of the miracles](../../bw1-notes/magic.md).
+How the original does it, in our wiki: [Magic: the core of the miracles](../../../magic/gestures.md).
 
 ## Making it
 

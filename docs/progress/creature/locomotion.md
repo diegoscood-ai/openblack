@@ -6,7 +6,7 @@ through shallows but not deep sea, follow things, run away, travel by teleport, 
 
 **Progress: 33/50 done, 4 partial — 70%**
 
-How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../bw1-notes/creature.md).
+How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../../creature/overview.md).
 
 ## Speed
 

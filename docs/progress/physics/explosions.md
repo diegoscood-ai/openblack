@@ -14,7 +14,7 @@ openblack: the explosion rules and the wave's effect on objects in `src/Particle
 
 **Progress: 31/43 done, 6 partial — 79%**
 
-How the original does it, in our wiki: [Physics: thrown objects, collisions, damage and rocks that split](../../bw1-notes/physics.md).
+How the original does it, in our wiki: [Physics: thrown objects, collisions, damage and rocks that split](../../../physics/physics.md).
 
 ## The burst
 
@@ -34,12 +34,12 @@ How the original does it, in our wiki: [Physics: thrown objects, collisions, dam
 |-----------|--------|---------------|
 | A wave front runs outward at a set speed and reaches each object when it touches the object's edge | done | `src/Particles/Rules/Explosion.cpp` (the ring grows at its spread speed and reaches an object by its radius) |
 | The wave's reach grows with the caster tribe's power (1 to 5 times) | partial | The reach times the tribal power (1 to 5) is in `src/Particles/Rules/Explosion.cpp`, but the tribal power is always 1 in our tree |
-| The wave takes only things fixed on the map, at most one a turn, and only those it may destroy | done | `src/Particles/Rules/Explosion.cpp` (one object a step, the first that may be destroyed). Our wiki differs: the targets are the mobile and the fixed objects of each cell, not only the fixed ones ([miracles.md](../../bw1-notes/miracles.md#ur_explosion-initcollection-0x67e200-modifyatomcollection-0x67ece0-update-0x67e900)) |
+| The wave takes only things fixed on the map, at most one a turn, and only those it may destroy | done | `src/Particles/Rules/Explosion.cpp` (one object a step, the first that may be destroyed). Our wiki differs: the targets are the mobile and the fixed objects of each cell, not only the fixed ones ([miracles.md](../../../magic/lightning-explosion.md#ur_explosion)) |
 | Creatures, fields, temples, teleport stones, totems, totem statues, worship totems, pots and one-off seeds are never destroyed by it | partial | `explosion::CanBeDestroyedBySpell` says no for creatures, fields, the temple and its parts, worship sites and totems; teleport stones, totem statues, pots and one-off seeds are not excluded |
 | Things a script made indestructible, or that the help system holds, are spared | todo | `explosion::CanBeDestroyedBySpell` does not test `Indestructible` or the objects a script or the help holds |
-| A building reached is shattered into pieces but left standing as an empty shell with no life; this includes spell dispensers | done | `explosion::DestroyedByBeam` takes all its life through `ecs::abodes::ReduceLife` (dispensers too). Our wiki differs: a building with a town is then drawn as a building site at 0 percent until repaired ([miracles.md](../../bw1-notes/miracles.md#ur_explosion-initcollection-0x67e200-modifyatomcollection-0x67ece0-update-0x67e900)) |
+| A building reached is shattered into pieces but left standing as an empty shell with no life; this includes spell dispensers | done | `explosion::DestroyedByBeam` takes all its life through `ecs::abodes::ReduceLife` (dispensers too). Our wiki differs: a building with a town is then drawn as a building site at 0 percent until repaired ([miracles.md](../../../magic/lightning-explosion.md#ur_explosion)) |
 | Anything else reached (trees, statues, small objects) shatters and is removed | done | `explosion::DestroyedByBeam` (trees through `DeleteTree`, the rest destroyed as by an effect) after its pieces go to `src/Particles/Rules/ExplodeObject.cpp` |
-| Villagers are never shattered; they take only the burst's heat and crushing | partial | `explosion::DestroyedByBeam` deletes a villager the ring reaches, with no death. Our wiki differs: villagers the ring reaches are destroyed by the beam like other objects ([miracles.md](../../bw1-notes/miracles.md#ur_explosion-initcollection-0x67e200-modifyatomcollection-0x67ece0-update-0x67e900)) |
+| Villagers are never shattered; they take only the burst's heat and crushing | partial | `explosion::DestroyedByBeam` deletes a villager the ring reaches, with no death. Our wiki differs: villagers the ring reaches are destroyed by the beam like other objects ([miracles.md](../../../magic/lightning-explosion.md#ur_explosion)) |
 | A shield in the wave's way is struck at the point it is reached, with a spark and the wave's direction | done | `src/Particles/Rules/Explosion.cpp` (a target inside a shield: a spark and an event to the shield) |
 | At most a set number of things shatter and a set number are removed per explosion | done | `src/Particles/Rules/Explosion.cpp` (the effect file's most to explode and most to delete) |
 

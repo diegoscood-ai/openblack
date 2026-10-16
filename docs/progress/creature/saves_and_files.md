@@ -7,7 +7,7 @@ opponents also come from creature files.
 
 **Progress: 14/37 done, 8 partial — 49%**
 
-How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../bw1-notes/creature.md).
+How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../../creature/mind.md).
 
 ## Creature mind files
 

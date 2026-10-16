@@ -9,7 +9,7 @@ What each miracle does belongs to [../miracles/](../miracles/); how miracles are
 
 **Progress: 0/62 done, 3 partial — 2%**
 
-How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../bw1-notes/creature.md).
+How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../../creature/casting.md).
 
 ## Which miracles it may try
 

@@ -10,7 +10,7 @@ by [Stanley The Wolf](../story/silver_scrolls/stanley_the_wolf.md). Given by gol
 
 **Progress: 33/47 done, 8 partial — 79%**
 
-How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/miracles.md).
+How the original does it, in our wiki: [Miracles one by one](../../../magic/fireball-and-lightning.md).
 
 ## Casting and the throw
 
@@ -37,7 +37,7 @@ How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/mir
 | The ball ends when it stops rolling, falls into water, or cools below 400 degrees | done | `src/Magic/Objects/MagicFireBall.cpp` (deleted below the deletion temperature or with its atom), `src/Particles/Rules/Fireball.cpp` (EventConditionAtomCloseWater) |
 | An ended ball fades out over 1 s and is gone about 4 s later | done | The effect files' fade and death rules, `src/Particles/PSys.cpp` |
 | Rain cools a ball and makes it steam | done | `src/ECS/Fire/FireEffect.cpp` (rain cooling), `src/Particles/Rules/Fireball.cpp` (EventConditionFireBallSteam); test `FireGraphic.FireballSteamsInsteadOfFlames` (`test/test_fire.cpp`) |
-| The water miracle puts a ball out | partial | `src/Magic/Spells/SpellWater.cpp` cools fires through the map cells, but the ball never enters them (`src/ECS/MapCells.cpp`), so a water drop does not reach it. Our wiki differs: the ball is not in the map cells, so the water's area effect cannot reach it (inferred) ([page](../../bw1-notes/miracles.md#fireball-magic_type-1-3-seed-2-fire)) |
+| The water miracle puts a ball out | partial | `src/Magic/Spells/SpellWater.cpp` cools fires through the map cells, but the ball never enters them (`src/ECS/MapCells.cpp`), so a water drop does not reach it. Our wiki differs: the ball is not in the map cells, so the water's area effect cannot reach it 🔍 inferred ([page](../../../magic/fireball-and-lightning.md#fireball-magic_type-1-3-seed-2-fire)) |
 | The ball is not a physics object: it can't be tugged, knocks nothing over, and creatures can't pick it up, throw, stomp or fight it | done | `src/ECS/Components/MagicFireBall.h`, `src/Magic/Objects/MagicFireBall.cpp` (the ball only follows its atom and carries its fire) |
 
 ## Setting things alight

@@ -7,7 +7,7 @@ shadow are in [look_and_morph.md](look_and_morph.md).
 
 **Progress: 30/45 done, 6 partial — 73%**
 
-How the original does it, in our wiki: [The hand and the interface](../../bw1-notes/hand-and-interface.md).
+How the original does it, in our wiki: [The hand and the interface](../../../hand/states.md).
 
 ## Bands and bracelets of a held miracle
 
@@ -58,12 +58,12 @@ How the original does it, in our wiki: [The hand and the interface](../../bw1-no
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Spinning the hand with a tribal power miracle starts a ring in the player's colour, fully opaque | done | `hand_fx::StartTribalPowerRing` (`src/Magic/Hand/HandMagicFX.cpp`) when the seed comes into the local hand (`src/Magic/Core/SpellSeed.cpp`), in the local player's colour at full alpha; `magic::tribal_spin` (`src/Magic/TribalPowerSpin.cpp`), run by `hand_fx::Update` and drawn by `Renderer::DrawTribalPower`; test `HandFxTribalPowerTest.ARingStartsHeldAtTheCameraInTheLocalPlayersColour`. Only for a tribe whose tribal power is above 1, so it never shows in the vanilla game; not drawn inside the temple. Our wiki differs: the ring is the tribe's name spinning round the hand, started when the seed comes into the hand rather than by spinning the hand ([page](../../bw1-notes/magic.md#the-hand-handmagicfxcpp-phandfx-and-the-effect-in-the-hand)) |
+| Spinning the hand with a tribal power miracle starts a ring in the player's colour, fully opaque | done | `hand_fx::StartTribalPowerRing` (`src/Magic/Hand/HandMagicFX.cpp`) when the seed comes into the local hand (`src/Magic/Core/SpellSeed.cpp`), in the local player's colour at full alpha; `magic::tribal_spin` (`src/Magic/TribalPowerSpin.cpp`), run by `hand_fx::Update` and drawn by `Renderer::DrawTribalPower`; test `HandFxTribalPowerTest.ARingStartsHeldAtTheCameraInTheLocalPlayersColour`. Only for a tribe whose tribal power is above 1, so it never shows in the vanilla game; not drawn inside the temple. Our wiki differs: the ring is the tribe's name spinning round the hand, started when the seed comes into the hand rather than by spinning the hand ([page](../../../magic/hand-casting.md#the-hand)) |
 | The ring flies in from the camera and settles round the hand, above it | done | `tribal_spin::Runner` held: its first sample at the camera's position, flying in over the first second to round the hand, above it; tests `TribalPowerSpin.ItFliesInFromTheCamera`, `TribalPowerSpin.TheRingSettlesRoundTheHandAboveIt` |
 | Nothing shows until the ring has two samples of the spin | done | `tribal_spin::Spin` draws no letters before its second sample; test `TribalPowerSpin.NothingShowsUntilTheRingHasTwoSamples` |
 | Letting go leaves the ring rising as a column where the hand was | done | `hand_fx::ReleaseOrCreateTribalPowerRing` from the cast's post-cast step (`hand_fx::CastTribalPower`, `src/Magic/Core/SpellSeed.cpp`) lets the ring go at the hand; test `HandFxTribalPowerTest.MyCastLetsTheRingGoWhereTheHandIs` |
 | Letting go with no ring started raises the column straight away, in the player's colour | done | `hand_fx::CreateTribalPowerColumn` at the hand in the local player's colour; another player's cast raises one at the cast's position in its colour; tests `HandFxTribalPowerTest.MyCastWithoutARingRaisesAColumnAtTheHandInTheLocalPlayersColour`, `HandFxTribalPowerTest.AnotherInterfacesCastRaisesAColumnWhereItWasCastInTheCastersColour` |
-| The column fades after three seconds and is gone after four and a half | done | `tribal_spin::Runner` released: full alpha up to 3 s, then fading, gone after 4.8 s; tests `TribalPowerSpin.TheColumnFadesAfterThreeSeconds`, `TribalPowerSpin.LetGoItRisesAsAColumnAndIsGoneAfterFourSecondsAndAHalf`. Our wiki differs: the column is gone after 4.8 seconds, not 4.5 ([page](../../bw1-notes/magic.md#the-hand-handmagicfxcpp-phandfx-and-the-effect-in-the-hand)) |
+| The column fades after three seconds and is gone after four and a half | done | `tribal_spin::Runner` released: full alpha up to 3 s, then fading, gone after 4.8 s; tests `TribalPowerSpin.TheColumnFadesAfterThreeSeconds`, `TribalPowerSpin.LetGoItRisesAsAColumnAndIsGoneAfterFourSecondsAndAHalf`. Our wiki differs: the column is gone after 4.8 seconds, not 4.5 ([page](../../../magic/hand-casting.md#the-hand)) |
 
 ## Gesture flash
 
@@ -86,10 +86,10 @@ How the original does it, in our wiki: [The hand and the interface](../../bw1-no
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Trees within the hand's reach bend away from it, from below their tops | done | `ecs::UpdateTrees` (`UpdateTreeBends`, `src/ECS/Trees.cpp`) and `RenderingSystem.cpp`, the crown bending away. Our wiki differs: the trees bend away from what the hand carries, the physics objects in flight and the creature, not from the empty hand ([page](../../bw1-notes/trees.md#drawing)) |
+| Trees within the hand's reach bend away from it, from below their tops | done | `ecs::UpdateTrees` (`UpdateTreeBends`, `src/ECS/Trees.cpp`) and `RenderingSystem.cpp`, the crown bending away. Our wiki differs: the trees bend away from what the hand carries, the physics objects in flight and the creature, not from the empty hand ([page](../../../world/trees.md#drawing)) |
 | Moving the hand quickly blows chimney smoke about | done | `chimney_smoke::UpdateHandWind` (`src/ECS/ChimneySmoke.cpp`): the hand's velocity as a wind on the smoke |
 | Gripping the land throws up a puff of dust | done | `HandSystem::UpdateGripDust` (the grip dust spot visual, `HandEffects.cpp`) |
 | Gripping the sea splashes a ring on the water | done | `HandSystem::SplashHand` (`HandFish.cpp`): a splash at the point, the next of ten hand-in-water samples, and a water ring (`ECS/WaterRings.h`) |
 | Crossing an influence border ripples the border | done | `src/ECS/Influence/InfluenceCircles.cpp`: the ripple and the sound of a hand crossing a circle, drawn by `RendererInfluence.cpp` |
-| A held object carried through trees bends them too | done | `UpdateTreeBends` takes the object the hand carries as a source (checked with `OPENBLACK_HAND_TEST_HOLD`, see [trees.md](../../bw1-notes/trees.md)) |
+| A held object carried through trees bends them too | done | `UpdateTreeBends` takes the object the hand carries as a source (checked with `OPENBLACK_HAND_TEST_HOLD`, see [trees.md](../../../hand/grab-hold-and-throw.md)) |
 | Objects whizzing past the camera after a throw make a whoosh (rocks, fireballs) | done | `PhysicsObjects.cpp`: a body entering 10 m of the camera faster than 20 m/s plays G_RockPast_01..05; the fireball's own whoosh in `src/Particles/Rules/Fireball.cpp` |

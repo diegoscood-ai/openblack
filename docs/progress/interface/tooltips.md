@@ -6,7 +6,7 @@ in ../hand/; this file is the tooltip system and the status readouts it shows.
 
 **Progress: 18/31 done, 4 partial — 65%**
 
-How the original does it, in our wiki: [The hand and the interface](../../bw1-notes/hand-and-interface.md).
+How the original does it, in our wiki: [The hand and the interface](../../../interface/tooltips.md).
 
 ## The tooltip system
 
@@ -56,5 +56,5 @@ How the original does it, in our wiki: [The hand and the interface](../../bw1-no
 | Over another god's town: the belief needed to win it, or left, or got | partial | a town centre's believers count turns into "Believers Needed" when negative (`HandToolTips.cpp`); the other readouts are not ported |
 | Over a villager: their need as a percentage | todo |  |
 | Over the temple: its health | todo | the temple's entrance offers "Enter Temple" (`worship::citadel::EntranceToolTipFor`); the heart's readout is not ported |
-| Over a pile or a field: the amount of food or wood | partial | over a pile, "Food Amount" or "Wood Amount" with its amount (`HandToolTips.cpp`). Our wiki differs: over a field the original offers "Pick Up", not an amount ([hand and interface](../../bw1-notes/hand-and-interface.md#the-text-of-each-state-table-0xbf1c10)) |
+| Over a pile or a field: the amount of food or wood | partial | over a pile, "Food Amount" or "Wood Amount" with its amount (`HandToolTips.cpp`). Our wiki differs: over a field the original offers "Pick Up", not an amount ([hand and interface](../../../interface/tooltips.md#the-text-of-each-state)) |
 | Over a signpost or a scroll: what it is and that it can be read | todo | a highlight's tap tooltip override is always 0 (`script_highlight::OverwriteTapToolTip`, test `ScriptHighlight.TapToolTip`); the script highlight texts are not ported; see [scrolls_and_signs.md](scrolls_and_signs.md) |

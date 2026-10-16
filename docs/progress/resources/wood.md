@@ -5,7 +5,7 @@ or pour the wood miracle; builders take wood from the store to building sites an
 
 **Progress: 13/17 done, 2 partial — 82%**
 
-How the original does it, in our wiki: [Objects and resources](../../bw1-notes/objects-and-resources.md).
+How the original does it, in our wiki: [Objects and resources](../../../world/objects.md).
 
 ## Where wood comes from
 
@@ -14,7 +14,7 @@ How the original does it, in our wiki: [Objects and resources](../../bw1-notes/o
 | Foresters fell trees of the town's forests and carry the logs to the store | done | `FORESTER_GOTO_FOREST`, `FORESTER_CHOPS_TREE` (`src/ECS/Villager/VillagerForester.cpp`); test `test/test_villager_forester.cpp`; see `../villager/` |
 | A tree gives wood by its kind and size | done | `ecs::TreeWoodValue` (`src/ECS/Trees.cpp`): the info table's wood value by the tree's life and scale |
 | A tree a forest miracle grew gives more wood, by its caster's tribal power | done | the multiplier kept on the tree (`magic_tree`, `Tree::woodValueMultiplier`) is read by `ecs::TreeWoodValue`, so felling it gives more |
-| Big forests give wood without being used up (unconfirmed) | done | `ecs::BigForestRemoveWood` (`src/ECS/Trees.cpp`). Our wiki differs: a big forest's wood goes down by what is taken, and with too little left the forest is deleted ([trees](../../bw1-notes/trees.md#pick-up-rules-and-bigforest)) |
+| Big forests give wood without being used up (unconfirmed) | done | `ecs::BigForestRemoveWood` (`src/ECS/Trees.cpp`). Our wiki differs: a big forest's wood goes down by what is taken, and with too little left the forest is deleted ([trees](../../../hand/grab-hold-and-throw.md#pick-up-rules-and-bigforest)) |
 | Uprooted (dead) trees and felled trunks count as wood | done | a dead tree's wood by its kind and scale (`ecs::TreeWood`, `src/ECS/Trees.cpp`) |
 | A tree pulled up by the hand is held as branches or logs by its kind (evergreen, fruit, hardwood) | todo | the hand holds the uprooted tree itself (`HandHolding.cpp`); see [handling](resource_handling.md) |
 

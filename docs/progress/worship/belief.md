@@ -5,7 +5,7 @@ god who did it; enough belief wins the town over (see `../town/` for conversion)
 
 **Progress: 11/25 done, 3 partial — 50%**
 
-How the original does it, in our wiki: [Magic: the core of the miracles](../../bw1-notes/magic.md).
+How the original does it, in our wiki: [Magic: the core of the miracles](../../../magic/worship.md).
 
 ## Being impressed
 

@@ -4,11 +4,11 @@ The ready-made scenarios of the testbed (about 200, in `src/Debug/TestbedScenari
 `src/Debug/TestbedScenario*.cpp`), grouped by what they show, and the parts of the game that have none yet. A row is
 done when there are scenarios for that part and this tree's runner plays everything they ask for; partial when some of
 what they ask for logs "not in this tree yet" and is skipped. No scenario has a reference run yet. The framework is in
-[testbed.md](testbed.md); how to write one is in [SCENARIOS.md](../../refactor/SCENARIOS.md).
+[testbed.md](testbed.md); how to write one is in [SCENARIOS.md](../../scenarios.md).
 
 **Progress: 16/36 done, 11 partial — 60%**
 
-How the original does it, in our wiki: [openblack internals](../../bw1-notes/openblack-internals.md).
+How the original does it, in our wiki: [openblack internals](../../internals.md).
 
 ## The creature
 

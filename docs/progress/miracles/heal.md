@@ -9,7 +9,7 @@ heal dispensers by [The Ogre](../story/silver_scrolls/the_ogre.md) and [The Pied
 
 **Progress: 25/35 done, 3 partial — 76%**
 
-How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/miracles.md).
+How the original does it, in our wiki: [Miracles one by one](../../../magic/food-wood-water-heal.md).
 
 ## Casting and cost
 

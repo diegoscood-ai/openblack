@@ -6,7 +6,7 @@ and what is kept in saved games and the profile. The box itself (tabs, list, gra
 
 **Progress: 1/73 done, 40 partial — 29%**
 
-How the original does it, in our wiki: [The hand and the interface](../../bw1-notes/hand-and-interface.md).
+How the original does it, in our wiki: [Screen, text and read-outs](../../../interface/screen-and-readouts.md).
 
 ## How the figures are kept
 

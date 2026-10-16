@@ -11,7 +11,7 @@ and a newly won town gets fireworks and a fountain of its owner's symbols rather
 
 **Progress: 1/37 done, 6 partial — 11%**
 
-How the original does it, in our wiki: [Graphics engine parity: original versus openblack](../../bw1-notes/parity.md), [World rendering: original versus openblack](../../bw1-notes/rendering.md).
+How the original does it, in our wiki: [Graphics engine parity: original versus openblack](../../../rendering/frame.md), [World rendering: original versus openblack](../../../rendering/frame.md).
 
 ## The column over each village centre
 

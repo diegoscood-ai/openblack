@@ -5,7 +5,7 @@ them, play animations and gather crowds. These rows cover the villager's side; t
 
 **Progress: 8/16 done, 6 partial — 69%**
 
-How the original does it, in our wiki: [Villagers: data, state machine and speed](../../bw1-notes/villagers.md).
+How the original does it, in our wiki: [Villagers: data, state machine and speed](../../../beings/villager-reactions.md).
 
 ## In the hand and thrown
 

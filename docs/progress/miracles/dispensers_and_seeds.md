@@ -19,14 +19,14 @@ land's arrival ([The Defending Ogres](../story/gold_scrolls/the_defending_ogres.
 
 **Progress: 19/25 done, 4 partial — 84%**
 
-How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/miracles.md).
+How the original does it, in our wiki: [Miracles one by one](../../../magic/fireball-and-lightning.md).
 
 ## Dispensers
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | A dispenser is a building with the miracle-creator model, holding one miracle, which may be an extreme version | done | `dispenser::Create` (an abode with a `SpellDispenser` component) and its magic's power-up level in `dispenser::CreateOneOffSpellSeed`, `src/Worship/SpellDispenser.cpp` |
-| It counts game turns only while active, holding a miracle, built and repaired, and makes its first globe after its full period (300 turns) | partial | `dispenser::StepTurn` counts only while active and holding a magic, from the town's abode pass (`src/ECS/Town/TownProcess.cpp`); built and repaired are taken as always true; scripts make the first globe at once when they activate it (`SetMagicAndPeriod`). Our wiki differs: activating a dispenser makes an orb at once, so a scripted dispenser does not wait its first period ([magic.md](../../bw1-notes/magic.md#dispensers-and-fireflies-worshipspelldispensercpp-worshipfireflyrewardcpp)) |
+| It counts game turns only while active, holding a miracle, built and repaired, and makes its first globe after its full period (300 turns) | partial | `dispenser::StepTurn` counts only while active and holding a magic, from the town's abode pass (`src/ECS/Town/TownProcess.cpp`); built and repaired are taken as always true; scripts make the first globe at once when they activate it (`SetMagicAndPeriod`). Our wiki differs: activating a dispenser makes an orb at once, so a scripted dispenser does not wait its first period ([magic.md](../../../magic/worship.md#dispensers-and-fireflies)) |
 | The globe floats at 1.2 times the dispenser's height and appears with a sparkle | done | `OrbPosition` and the orb spot visual in `dispenser::CreateOneOffSpellSeed`, `src/Worship/SpellDispenser.cpp` |
 | Once the globe is taken or moved off, the count starts again | done | `dispenser::StepTurn` (orb gone or not touching: tick back to 0), `src/Worship/SpellDispenser.cpp`; test `SpellDispenserTurn.CountsToThePeriodWhileItsOrbIsGone` |
 | A faint starry disk turns on the ground under every dispenser, always on, the same for every miracle | done | The dispenser's ground effect (particle type 0x90) started in `dispenser::Create`, `src/Worship/SpellDispenser.cpp` |

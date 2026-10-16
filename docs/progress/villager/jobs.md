@@ -6,7 +6,7 @@ put to work by the hand becomes a disciple (see disciples.md).
 
 **Progress: 18/27 done, 3 partial — 72%**
 
-How the original does it, in our wiki: [Villagers: data, state machine and speed](../../bw1-notes/villagers.md).
+How the original does it, in our wiki: [Villagers: data, state machine and speed](../../../beings/villager-jobs.md).
 
 ## Common to all jobs
 
@@ -30,7 +30,7 @@ How the original does it, in our wiki: [Villagers: data, state machine and speed
 | Shepherds find a flock, take control of it, lead it to food and water and bring it back | todo | the shepherd's states are TODO rows; `VillagerBecomesShepherd` returns 0 (`src/ECS/Villager/VillagerSatisfy.cpp`) |
 | Shepherds fetch strays and wait for the flock | todo |  |
 | Shepherds pick an animal for slaughter and slaughter it for food | todo |  |
-| Housewives fetch food from the storage pit, gossip round it, and cook dinner at home | n/a | the housewife's states are TODO rows. Our wiki differs: the housewife's day (states 100 to 109, with the storage pit, the gossip and the dinner) is dead code in this version of the original ([villagers](../../bw1-notes/villagers.md#pregnancy-and-births)) |
+| Housewives fetch food from the storage pit, gossip round it, and cook dinner at home | n/a | the housewife's states are TODO rows. Our wiki differs: the housewife's day (states 100 to 109, with the storage pit, the gossip and the dinner) is dead code in this version of the original ([villagers](../../../beings/villager-life.md#pregnancy-and-births)) |
 | Housewives do housework when nothing else needs doing | n/a | `HOUSEWIFE_DOES_HOUSEWORK` is a TODO row; part of the housewife's day, dead code in the original (row above) |
 | The town decides when it is harvest time | done | the field's activity by its growth: sow, then harvest when ripe (`fields::GetFieldActivity`, `src/ECS/Fields.cpp`) |
 
@@ -39,14 +39,14 @@ How the original does it, in our wiki: [Villagers: data, state machine and speed
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | Foresters go to the town's forest and chop trees for wood | done | `FORESTER_GOTO_FOREST`, `FORESTER_ARRIVES_AT_FOREST`, `FORESTER_CHOPS_TREE` (`src/ECS/Villager/VillagerForester.cpp`); `test/test_villager_forester.cpp` |
-| Foresters chop wood for a building site and take it there | done | a builder may fetch its wood from a forest (`DecideHowToGetWood`, `src/ECS/Villager/VillagerBuild.cpp`); the for-building chop states are never entered in the original either ([villagers](../../bw1-notes/villagers.md#builders)) |
+| Foresters chop wood for a building site and take it there | done | a builder may fetch its wood from a forest (`DecideHowToGetWood`, `src/ECS/Villager/VillagerBuild.cpp`); the for-building chop states are never entered in the original either ([villagers](../../../beings/villager-jobs.md#builders)) |
 | Villagers take wood from big forests, from rocks the game counts as wood, from pots, and from fallen trees | partial | big forests (`ARRIVES_AT_BIG_FOREST`), pots (`TAKE_WOOD_FROM_POT`), trees (`TAKE_WOOD_FROM_TREE`) and loose wood (the wood reaction, `src/ECS/Systems/Implementations/VillagerResourceReactions.cpp`); the rocks' rows are TODO |
 | Builders fetch wood from the storage pit and walk to a building site | done | `ARRIVES_AT_STORAGE_PIT_FOR_BUILDING_MATERIALS` and the walk to the site (`src/ECS/Villager/VillagerBuild.cpp`); See ../building/construction.md |
 | Builders stand round the site and build it up, using wood per stroke | done | the builders' ring and `BUILDING`, wood per cycle (`src/ECS/Villager/VillagerBuild.cpp`); `test/test_villager_build.cpp` |
 | Builders never carry scaffolds: the game leaves that empty | n/a | See [tools_and_carried_items.md](tools_and_carried_items.md) |
 | Only craftsman disciples bring wood from the storage pit to the workshop; ordinary villagers never supply it | partial | ordinary villagers never supply it, as the desire is 0 (`src/ECS/Town/TownDesire.cpp`); there are no craftsman disciples yet; see [../building/workshop_and_scaffolds.md](../building/workshop_and_scaffolds.md) and [disciples.md](disciples.md) |
 | Builders repair damaged buildings when the town wants repairs | done | a repairer is a builder (`CheckSatisfyToRepair`, `src/ECS/Villager/VillagerBuild.cpp`); `test/test_villager_repair.cpp` |
-| A villager waits for wood when the site has none and none can be found | n/a | the state is a TODO row. Our wiki differs: the wait for wood is never entered in this version of the original, as a game flag it needs is never set ([villagers](../../bw1-notes/villagers.md#builders)) |
+| A villager waits for wood when the site has none and none can be found | n/a | the state is a TODO row. Our wiki differs: the wait for wood is never entered in this version of the original, as a game flag it needs is never set ([villagers](../../../beings/villager-jobs.md#builders)) |
 
 ## Worship and trade
 

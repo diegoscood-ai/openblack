@@ -6,7 +6,7 @@ have tufts of hair that swing as they move and change with their alignment.
 
 **Progress: 31/45 done, 7 partial — 77%**
 
-How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../bw1-notes/creature.md).
+How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../../creature/overview.md).
 
 ## Faces
 

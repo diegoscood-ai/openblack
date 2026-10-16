@@ -6,7 +6,7 @@ are creature actions, in [../creature/](../creature/); the leash gestures are in
 
 **Progress: 0/7 done, 0 partial — 0%**
 
-How the original does it, in our wiki: [Magic: the core of the miracles](../../bw1-notes/magic.md).
+How the original does it, in our wiki: [Magic: the core of the miracles](../../../magic/gestures.md).
 
 ## In a creature fight
 

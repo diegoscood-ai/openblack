@@ -5,7 +5,7 @@ tracks of the camera library, and how the game's camera hands over from one kind
 
 **Progress: 4/18 done, 3 partial — 31%**
 
-How the original does it, in our wiki: [Camera tracks (`Data\camera.edt`) and `WALK_PATH`](../../bw1-notes/camera-tracks.md).
+How the original does it, in our wiki: [Camera tracks (`Data\camera.edt`) and `WALK_PATH`](../../../camera/script-camera.md).
 
 ## Miracle camera paths
 
@@ -19,7 +19,7 @@ How the original does it, in our wiki: [Camera tracks (`Data\camera.edt`) and `W
 | The hand stays free and drawn while a path has the camera | todo | no miracle path |
 | The near plane comes in close while a path has the camera | todo | no miracle path; the script close clipping is not wired either |
 | Other spells' camera paths (the tree goddess and teacher paths in the spell animations) | todo | not wired |
-| The falling spell's film takes the camera along its own recorded path | done | (added) `FallingSpell::UpdateCamera` (`src/Magic/Objects/FallingSpell.cpp`) reads `fall.cm2` and sets the camera from it while `SET_AVI_SEQUENCE` 2 plays ([video](../../bw1-notes/video.md#the-falling-spell-fallbik)) |
+| The falling spell's film takes the camera along its own recorded path | done | (added) `FallingSpell::UpdateCamera` (`src/Magic/Objects/FallingSpell.cpp`) reads `fall.cm2` and sets the camera from it while `SET_AVI_SEQUENCE` 2 plays ([video](../../../video/playback.md#the-falling-spell-fallbik)) |
 
 ## Path playback
 

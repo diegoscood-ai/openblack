@@ -49,22 +49,22 @@ function coverage in [../../scripts/challenge_scripts.md](../../scripts/challeng
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Every second the script notes where he is (or that the creature is holding him) | todo | (inferred) never reached: right after the introduction the script takes the hermit for dead, since `GetProperty` has no health and answers 0, and the death scene runs (see Killing him); `InCreatureHand` is a stub too |
+| Every second the script notes where he is (or that the creature is holding him) | todo | 🔍 inferred never reached: right after the introduction the script takes the hermit for dead, since `GetProperty` has no health and answers 0, and the death scene runs (see Killing him); `InCreatureHand` is a stub too |
 | If he is more than 75 from his spot, not flying, not held and alive, and the dialogue is free, he walks back; he tries again every 10 seconds, and starts wandering again once within 15 | todo | never reached (inferred, see above); `CreateTimer`, `MoveGameThing`, `IsDialogueReady` work, `InCreatureHand` is a stub |
-| This stops once he has set off to take revenge after the hut (see below) | todo | never reached (inferred) |
+| This stops once he has set off to take revenge after the hut (see below) | todo | never reached 🔍 inferred |
 
 ## Showing him the creature
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Every 31 passes of its loop the script reads the creature's size and checks the hermit | todo | never reached (inferred); also `GetProperty` has no scale for a creature (it answers 0) |
-| A creature larger than size 0.4, within 50 of him, while he is within 50 of his spot and not held, flying or in the creature's hand, impresses him | todo | never reached (inferred); with `GetProperty` answering 0 for the creature's scale no creature could impress him |
-| Smaller than 0.2 and within 15: the first time, a widescreen scene with his theme: the creature's leash is let go and it is walked up to him; suspense music sting; unimpressed: "Call that a Creature? I could swat him flat!"; the creature looks sad | todo | never reached (inferred); `CreatureDoAction` is a stub |
-| The same size again, after the creature has been more than 50 away and come back within 15: "That durned critter ain't no bigger than the last time I seed him!" and the creature shows off | todo | never reached (inferred) |
-| Between 0.2 and 0.4 and within 15: the first time "Ha! Not the largest beast in the land, is he?" and the creature looks embarrassed | todo | never reached (inferred) |
-| Between 0.2 and 0.4 again, after it has been away more than 50, within 30: "That durned critter ain't no bigger than the last time I seed him!" and the creature looks angry | todo | never reached (inferred) |
-| Each kind of taunt is played at most twice; during them he can't be picked up, moved or hurt | partial | the flags work; the taunts are never reached (inferred) |
-| A creature of exactly 0.2 or 0.4 gets no taunt | todo | never reached (inferred) |
+| Every 31 passes of its loop the script reads the creature's size and checks the hermit | todo | never reached 🔍 inferred; also `GetProperty` has no scale for a creature (it answers 0) |
+| A creature larger than size 0.4, within 50 of him, while he is within 50 of his spot and not held, flying or in the creature's hand, impresses him | todo | never reached 🔍 inferred; with `GetProperty` answering 0 for the creature's scale no creature could impress him |
+| Smaller than 0.2 and within 15: the first time, a widescreen scene with his theme: the creature's leash is let go and it is walked up to him; suspense music sting; unimpressed: "Call that a Creature? I could swat him flat!"; the creature looks sad | todo | never reached 🔍 inferred; `CreatureDoAction` is a stub |
+| The same size again, after the creature has been more than 50 away and come back within 15: "That durned critter ain't no bigger than the last time I seed him!" and the creature shows off | todo | never reached 🔍 inferred |
+| Between 0.2 and 0.4 and within 15: the first time "Ha! Not the largest beast in the land, is he?" and the creature looks embarrassed | todo | never reached 🔍 inferred |
+| Between 0.2 and 0.4 again, after it has been away more than 50, within 30: "That durned critter ain't no bigger than the last time I seed him!" and the creature looks angry | todo | never reached 🔍 inferred |
+| Each kind of taunt is played at most twice; during them he can't be picked up, moved or hurt | partial | the flags work; the taunts are never reached 🔍 inferred |
+| A creature of exactly 0.2 or 0.4 gets no taunt | todo | never reached 🔍 inferred |
 
 ## Impressed
 
@@ -99,9 +99,9 @@ function coverage in [../../scripts/challenge_scripts.md](../../scripts/challeng
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Any damage to the hut (its health below full) while he is alive and the dialogue is free sets off this branch, whoever caused it | todo | `GetProperty` has no health; the death scene comes first (inferred) |
-| He can't be picked up until he is put down; a second later he can be picked up, moved and hurt again | partial | the flags work; the branch is never reached (inferred) |
-| A widescreen scene with his theme, once he has landed: the camera closes in as he despairs: "No! Not my cotton-picking hut! It's my only possession! Leave me alone!" | todo | never reached (inferred) |
+| Any damage to the hut (its health below full) while he is alive and the dialogue is free sets off this branch, whoever caused it | todo | `GetProperty` has no health; the death scene comes first 🔍 inferred |
+| He can't be picked up until he is put down; a second later he can be picked up, moved and hurt again | partial | the flags work; the branch is never reached 🔍 inferred |
+| A widescreen scene with his theme, once he has landed: the camera closes in as he despairs: "No! Not my cotton-picking hut! It's my only possession! Leave me alone!" | todo | never reached 🔍 inferred |
 | A water miracle reward falls from the sky beside him | todo | never reached; `CreateReward` is a stub; see Reward |
 | The record becomes 99% done with alignment -0.4 and the reminder "The Hermit is in a bad mood with you, Leader." (good advisor) | todo | never reached; `UpdateSnapshot` is a stub |
 | He turns away towards his hut in despair; the music stops | todo | never reached |
@@ -121,9 +121,9 @@ function coverage in [../../scripts/challenge_scripts.md](../../scripts/challeng
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| If he no longer exists or is dead before being impressed or offended, and the dialogue is free, the death scene plays | partial | (inferred) it plays, but wrongly: `GetProperty` has no health and answers 0, so the death scene starts as soon as the introduction ends and the dialogue is free |
-| Good advisor: "You killed him! You uncaring, horrid, mean god!" while the camera follows his body (or faces the creature if it was holding him, or looks at where he was last seen) | partial | (inferred) plays wrongly right after the introduction (see above); `SetFocusFollow`, `SetPositionFollow`, `MoveCameraToFaceObject`, `RunText` work; not checked in game |
-| Once he has landed, five seconds of his theme | partial | the music command works; plays in the wrong death scene (inferred) |
+| If he no longer exists or is dead before being impressed or offended, and the dialogue is free, the death scene plays | partial | 🔍 inferred it plays, but wrongly: `GetProperty` has no health and answers 0, so the death scene starts as soon as the introduction ends and the dialogue is free |
+| Good advisor: "You killed him! You uncaring, horrid, mean god!" while the camera follows his body (or faces the creature if it was holding him, or looks at where he was last seen) | partial | 🔍 inferred plays wrongly right after the introduction (see above); `SetFocusFollow`, `SetPositionFollow`, `MoveCameraToFaceObject`, `RunText` work; not checked in game |
+| Once he has landed, five seconds of his theme | partial | the music command works; plays in the wrong death scene 🔍 inferred |
 | The record is closed fully done with alignment -0.6 more than it had (so -0.6 straight away, -1.0 after damaging the hut, -0.2 after impressing him) | todo | `UpdateSnapshot` is a stub |
 | Killing him after he was impressed but before the seed is found also plays the death scene | todo | never reached |
 
@@ -143,7 +143,7 @@ function coverage in [../../scripts/challenge_scripts.md](../../scripts/challeng
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The hermit is gone after any ending (into his hut, faded away, or dead) | todo | the endings are never reached; the wrong death scene does not remove him (inferred) |
+| The hermit is gone after any ending (into his hut, faded away, or dead) | todo | the endings are never reached; the wrong death scene does not remove him 🔍 inferred |
 | After the hut branch the village store keeps burning until put out | partial | fire spreads and is put out by openblack's fire system; the scene is never reached |
 | The dispenser stays by the hut and keeps recharging | partial | dispensers recharge (`src/Magic`); this one is never given |
 
@@ -164,7 +164,7 @@ function coverage in [../../scripts/challenge_scripts.md](../../scripts/challeng
 | The hermit speaks with the "man" narrator voice | partial | `RunText` plays the narrator's voice with the text (`src/Help/HelpSystem.cpp`); not checked in game |
 | Clicking the active scroll again speaks its current reminder through the advisor who owns it | todo | the reminder needs `Snapshot`, a stub |
 | Music: the hermit's theme for every scene | partial | `StartMusic` plays it from its bank (`src/Audio`); the introduction's can play |
-| Sounds: the mushroom suspense sting when the creature first faces him (impressed or first small-creature taunt) | partial | `PlaySoundEffect`, `StopSoundEffect` work; those scenes are never reached (inferred) |
+| Sounds: the mushroom suspense sting when the creature first faces him (impressed or first small-creature taunt) | partial | `PlaySoundEffect`, `StopSoundEffect` work; those scenes are never reached 🔍 inferred |
 
 ## Other modes and unused material
 

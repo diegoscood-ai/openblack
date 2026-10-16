@@ -6,7 +6,7 @@ leaves it to fight by itself as it has learnt to. Nobody dies in a fight: the lo
 
 **Progress: 20/56 done, 18 partial — 52%**
 
-How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../bw1-notes/creature.md).
+How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../../creature/pose-and-animation.md).
 
 ## Starting a fight
 

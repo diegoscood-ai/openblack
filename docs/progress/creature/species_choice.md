@@ -7,7 +7,7 @@ appetite, strength and knack for learning miracles.
 
 **Progress: 26/48 done, 9 partial — 64%**
 
-How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../bw1-notes/creature.md).
+How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../../creature/overview.md).
 
 ## The species
 

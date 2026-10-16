@@ -22,7 +22,7 @@ monuments, gates, and the small things the land scripts scatter.
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | The land scripts place features: pillars and spikes in each stone, temples, statues, pyramids, the needle, the acropolis, the mine, the ark and its dock and wreck, the whale, craters, tombstones | done | `FeatureArchetype` (`src/ECS/Archetypes/FeatureArchetype.cpp`) |
-| Features with a physics shape are solid | todo | Features are not among the obstacles of `PhysicsObjects::InteractsWithPhysicsObjects`, so thrown things pass through them; our wiki counts multi-map fixed objects as obstacles ([physics.md](../../bw1-notes/physics.md#manager-physicsobjectgameturnupdate-0x644fc0)) |
+| Features with a physics shape are solid | todo | Features are not among the obstacles of `PhysicsObjects::InteractsWithPhysicsObjects`, so thrown things pass through them; our wiki counts multi-map fixed objects as obstacles ([physics.md](../../../physics/physics.md#manager)) |
 | Planned features are built up over time (unconfirmed which) | done | `src/ECS/FeatureBuild.cpp` (BUILT_PERCENTAGE: the Land 1 ark's dry dock drawn partly built) |
 | Features catch fire and burn | done | Fire receivers by their info (combustion 2000, `src/ECS/Fire/FireObjectTraits.cpp`) |
 | Features cast shadows | done | The static shadows of fixed objects (`RenderPass::StaticShadow`) |

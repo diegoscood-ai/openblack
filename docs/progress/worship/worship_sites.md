@@ -5,7 +5,7 @@ prayer power. The site holds the tribe's miracle icons, a food store for the dan
 
 **Progress: 10/25 done, 4 partial — 48%**
 
-How the original does it, in our wiki: [Magic: the core of the miracles](../../bw1-notes/magic.md).
+How the original does it, in our wiki: [Magic: the core of the miracles](../../../magic/worship.md).
 
 ## The site in the world
 

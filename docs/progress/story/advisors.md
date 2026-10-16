@@ -12,7 +12,7 @@ them and how. openblack draws them, moves them and plays their lines (`src/Help`
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The good advisor: a white-robed, bearded old sage with a halo | done | `Help/HelpDudeFile` loads `markgood.hd` (mesh and 80 clips), drawn by `Graphics/RendererSpirits`; test `test/test_help_dude_file.cpp`; see [intro.md](../../bw1-notes/intro.md#the-advisor-spirits) |
+| The good advisor: a white-robed, bearded old sage with a halo | done | `Help/HelpDudeFile` loads `markgood.hd` (mesh and 80 clips), drawn by `Graphics/RendererSpirits`; test `test/test_help_dude_file.cpp`; see [intro.md](../../../interface/advisors-and-help.md#the-advisor-spirits) |
 | The evil advisor: a small red horned imp | done | `markevil.hd` through `Help/HelpDudeFile`, drawn by `Graphics/RendererSpirits` |
 | Their clips are layered and additive (a body pose plus face and gesture layers) | done | `Help/SpiritAnimClip` (set and additive layers), `Help/SpiritsRuntime` |
 | They are drawn after the scene, in their own view in front of everything, while near the screen | done | `Graphics/RendererSpirits`: drawn after the scene in their own view while the in-world blend is under a half |
@@ -98,7 +98,7 @@ them and how. openblack draws them, moves them and plays their lines (`src/Help`
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | A more important message stops the running one | partial | `StopHelpScriptsForNewHelp` stops a running help script for a new one; the help priorities are not all ported |
-| Interrupted, the good advisor coughs and the evil one grumbles a bitter remark | partial | `help::AdvisorVoices::Interrupt` is ported; as in the original, the interruption line is never actually said (the sample's progress is read after the stop). Our wiki differs: in the shipped game the interruption line is never said, because the sample's progress is read after it is stopped ([audio.md](../../bw1-notes/audio.md#how-it-works)) |
+| Interrupted, the good advisor coughs and the evil one grumbles a bitter remark | partial | `help::AdvisorVoices::Interrupt` is ported; as in the original, the interruption line is never actually said (the sample's progress is read after the stop). Our wiki differs: in the shipped game the interruption line is never said, because the sample's progress is read after it is stopped ([audio.md](../../../audio/voices.md#how-it-works)) |
 | Their own lines for being interrupted, and for being interrupted in the temple | partial | the interruption texts are picked in `help::AdvisorVoices::Interrupt`; never said, as in the original |
 
 ## Spooky voices

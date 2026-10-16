@@ -15,7 +15,7 @@ openblack: `src/ECS/Fire/FireEffect.cpp` (the fire list, spread, groups), `src/E
 
 **Progress: 62/77 done, 10 partial — 87%**
 
-How the original does it, in our wiki: [Physics: thrown objects, collisions, damage and rocks that split](../../bw1-notes/physics.md).
+How the original does it, in our wiki: [Physics: thrown objects, collisions, damage and rocks that split](../../../physics/physics.md).
 
 ## Heat and burning
 
@@ -89,7 +89,7 @@ How the original does it, in our wiki: [Physics: thrown objects, collisions, dam
 | A burning villager dies when its life runs out, credited to whoever made the fire | done | `fire::traits::DestroyedByEffect` to `villager::DestroyedByEffect` with the fire's player |
 | A villager leaving a fire reaction always ends up in a sensible state | done | `villager_reactions::ReactionValidate` and `villager_fire::ShutDownReaction` |
 | The town counts injured villagers as fire hurts them | todo | No count of injured villagers in our tree |
-| Animals react to fire and flee it | todo | Animals do not take the fire reaction yet ([animals.md](../../bw1-notes/animals.md)) |
+| Animals react to fire and flee it | todo | Animals do not take the fire reaction yet ([animals.md](../../../beings/animal-life.md)) |
 | Burning animals die (fall and lie) rather than vanish | done | `fire::traits::DestroyedByEffect` to `animal_ai::DestroyedByEffect` (dying) |
 
 ## The creature and fire
@@ -97,7 +97,7 @@ How the original does it, in our wiki: [Physics: thrown objects, collisions, dam
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | A creature can catch fire; it burns very slowly (it takes about 500 turns of full heat to lose all its life) and faints rather than dies | partial | A creature gets a fire record, but `fire::traits::ReduceLifeDueToBurning` gives it no harm (not ported) |
-| A creature that catches gets burn marks on its skin, not flames | todo | No burn marks and no flames on a creature (`src/ECS/Fire/FireEffect.cpp` TODO). Our wiki differs: the original gives a burning creature three flames at random points of its box ([magic.md](../../bw1-notes/magic.md#fire-srcecsfire)) |
+| A creature that catches gets burn marks on its skin, not flames | todo | No burn marks and no flames on a creature (`src/ECS/Fire/FireEffect.cpp` TODO). Our wiki differs: the original gives a burning creature three flames at random points of its box ([magic.md](../../../world/fire.md#fire)) |
 | A creature reacts to fires near it, can put fires out, set things on fire, and stop itself burning (with the water miracle if it knows it) | todo | Only its mind's beliefs see fire (`CreatureMindLearning.cpp`); see [../creature/](../creature/) |
 | A creature's warmth comes from the climate only: fires don't warm it | done | `CreaturePhysiologySystem.cpp` reads the weather's temperature; see [../creature/desires.md](../creature/desires.md) |
 
@@ -110,7 +110,7 @@ How the original does it, in our wiki: [Physics: thrown objects, collisions, dam
 | A burning tree darkens, its leaves thin as it heats, and below 0.2 life it narrows (but keeps its height) until it is gone | partial | Darkening (`graphic::TreeDrawColour`) and narrowing below 0.2 life (`RenderingSystem.cpp`) are done; the thinning of the leaves is not ported |
 | A tree burnt away is simply removed: there is no burnt-tree stump left | done | `fire::traits::DestroyedByEffect` deletes it |
 | A burnt field loses its crop and its fire | done | `fire::traits::DestroyedByEffect` (crops, growth and food to 0, the fire deleted) |
-| A burning field never lights the land around it | done | `graphic::Create` gives the glow only to multi-cell fixed objects over 2 m. Our wiki differs: every abode is such an object, a field included, so a large burning field does light the land ([magic.md](../../bw1-notes/magic.md#fire-srcecsfire)) |
+| A burning field never lights the land around it | done | `graphic::Create` gives the glow only to multi-cell fixed objects over 2 m. Our wiki differs: every abode is such an object, a field included, so a large burning field does light the land ([magic.md](../../../world/fire.md#fire)) |
 | Things that catch lose the reactions they gave (a pot's food, a dead tree's wood) and get them back when the fire ends | partial | `fire::traits::StartOnFire` and `EndOnFire` (`FireObjectTraits.cpp`): dead trees and magic trees get theirs back; a pot does not (TODO) |
 
 ## Look and sound
@@ -124,7 +124,7 @@ How the original does it, in our wiki: [Physics: thrown objects, collisions, dam
 | Burning buildings and objects darken as they char and glow red-orange with heat | done | `graphic::CharringGrey`, `CharringGlow` (the glow's noise is approximated); test `FireGraphic.CharringGreyMatchesTheExe` |
 | Big burning objects light the land around them with a flickering glow | done | `src/ECS/Fire/FireGraphic.cpp` (the fire light map on multi-cell fixed objects over 2 m) |
 | Smoke and steam puffs drift with the smoothed wind and rise | done | `src/ECS/Fire/FireGraphic.cpp` |
-| Only one fire crackle loop plays, on the burning fire nearest the camera on the ground; a farther fire never takes it over | done | `src/ECS/Fire/FireSound.cpp` plays the two nearest fires. Our wiki differs: two fires nearest the camera, with a fraction above 0.1, make sound ([magic.md](../../bw1-notes/magic.md#fire-srcecsfire)) |
+| Only one fire crackle loop plays, on the burning fire nearest the camera on the ground; a farther fire never takes it over | done | `src/ECS/Fire/FireSound.cpp` plays the two nearest fires. Our wiki differs: two fires nearest the camera, with a fraction above 0.1, make sound ([magic.md](../../../world/fire.md#fire)) |
 | The crackle stops when its fire weakens below a tenth | done | `sound::Consider` (`src/ECS/Fire/FireSound.cpp`) |
 | There is no catching, going-out or collapse sound | done | None in our tree |
 

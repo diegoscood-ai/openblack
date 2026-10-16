@@ -25,7 +25,7 @@ creature swap and the challenge log); a script can make the villager and the puz
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Land 5's control script starts the quest in the background as soon as the land's opening (Nemesis's curse on the creature) has finished, before any other silver scroll of the land | todo | `LandControl5` never runs: `LOAD_MAP` is empty, so the story never reaches Land 5 ([map-loading](../../../bw1-notes/map-loading.md#pending)); see [../../scripts/land5_script.md](../../scripts/land5_script.md) |
+| Land 5's control script starts the quest in the background as soon as the land's opening (Nemesis's curse on the creature) has finished, before any other silver scroll of the land | todo | `LandControl5` never runs: `LOAD_MAP` is empty, so the story never reaches Land 5 ([map-loading](../../../../scripts/map-script-reader.md#pending)); see [../../scripts/land5_script.md](../../scripts/land5_script.md) |
 | Nothing else needs to be done first: the puzzle, the man and his fire are there from the moment the land begins | todo | the quest never starts: no Land 5 (`LOAD_MAP` is empty) |
 | The quest's title is "Stanley The Wolf" (title text 30); the unused "Swap To Lion" scroll reuses the same title, but only this one ships | todo | `Snapshot`, `UpdateSnapshot` are stubs (`UpdateSnapshotPicture` too) |
 | The scroll belongs to no story chain: no other script waits for it or reads its outcome | todo | checked across all the land's scripts; the quest never starts: no Land 5 (`LOAD_MAP` is empty) |

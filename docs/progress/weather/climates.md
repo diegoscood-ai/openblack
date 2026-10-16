@@ -6,7 +6,7 @@ season, and a desire to rain that builds day by day until it breeds a storm.
 
 **Progress: 27/29 done, 1 partial — 95%**
 
-How the original does it, in our wiki: [Day, night and weather in the original](../../bw1-notes/day-night-weather.md).
+How the original does it, in our wiki: [Day, night and weather in the original](../../../world/weather.md).
 
 ## Climates from the land's script
 

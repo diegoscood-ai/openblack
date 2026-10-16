@@ -5,7 +5,7 @@ the piles the miracles make. The game has only these two resources.
 
 **Progress: 17/24 done, 1 partial — 73%**
 
-How the original does it, in our wiki: [Objects and resources](../../bw1-notes/objects-and-resources.md).
+How the original does it, in our wiki: [Objects and resources](../../../world/objects.md).
 
 ## The store
 

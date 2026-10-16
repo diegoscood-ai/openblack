@@ -4,7 +4,7 @@
 
 **Progress: 63/67 done, 4 partial — 97%**
 
-How the original does it, in our wiki: [The Land 1 intro and the tutorial's script side](../../bw1-notes/intro.md).
+How the original does it, in our wiki: [The Land 1 intro and the tutorial's script side](../../../scripts/land1-intro.md).
 
 ## Loading the land
 

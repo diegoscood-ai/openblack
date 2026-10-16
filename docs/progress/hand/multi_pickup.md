@@ -10,7 +10,7 @@ openblack: `HandSystem` scoops from food and wood piles, storage pits' piles inc
 
 **Progress: 20/24 done, 2 partial — 88%**
 
-How the original does it, in our wiki: [The hand and the interface](../../bw1-notes/hand-and-interface.md).
+How the original does it, in our wiki: [The hand and the interface](../../../hand/states.md).
 
 ## Starting a scoop
 

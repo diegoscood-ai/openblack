@@ -6,7 +6,7 @@ hand does. The sound system itself (banks, 3D placement, music) is in [../audio/
 
 **Progress: 22/38 done, 4 partial — 63%**
 
-How the original does it, in our wiki: [The hand and the interface](../../bw1-notes/hand-and-interface.md).
+How the original does it, in our wiki: [The hand and the interface](../../../hand/animation-and-placement.md).
 
 ## Gripping the land and the sea
 
@@ -52,7 +52,7 @@ How the original does it, in our wiki: [The hand and the interface](../../bw1-no
 | Shaking a miracle off plays the shake sound | done | `hand_fx::RemoveHandSpellVisuals`: G_ShakeHand_01 |
 | A miracle that can't be cast where it is let go plays the failure sound | done | `HandSpellSeed.cpp`: G_SpellCastFailure on a failed apply |
 | The announcer names the power-up the hand has reached | done | `seed::SetPowerUp`: SpellDialogue 10, 11 or 12 |
-| A recognised gesture plays its sound | done | The recognised gesture's sound (2D for the local interface), see [audio.md](../../bw1-notes/audio.md#the-miracles-on-channels-in-openblack); see [../gesture/gesture_effects.md](../gesture/gesture_effects.md) |
+| A recognised gesture plays its sound | done | The recognised gesture's sound (2D for the local interface), see [audio.md](../../../audio/magic-and-weather-sounds.md#the-miracles-on-channels-in-openblack); see [../gesture/gesture_effects.md](../gesture/gesture_effects.md) |
 
 ## Influence and worship
 

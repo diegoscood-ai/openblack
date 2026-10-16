@@ -5,7 +5,7 @@ dancers chant prayer power, tire, get hungry and can die of it.
 
 **Progress: 10/23 done, 5 partial — 54%**
 
-How the original does it, in our wiki: [Magic: the core of the miracles](../../bw1-notes/magic.md).
+How the original does it, in our wiki: [Magic: the core of the miracles](../../../magic/worship.md).
 
 ## Going to worship
 
@@ -16,12 +16,12 @@ How the original does it, in our wiki: [Magic: the core of the miracles](../../b
 | A town's worshippers are drawn from its people who aren't busy, up to the share | done | `percentage::AdjustWorshipersWorshipping`: available villagers, nearest first by distance and life; tests `WorshipTest.WorshipersNeeded`, `WorshipScoreFallsOffWithTheDistance` |
 | Worshippers walk from their town to the site, at the worship walking speed | done | `villager_worship::GotoWorshipSiteForWorship` (`src/ECS/Systems/Implementations/VillagerWorship.cpp`), the speed from the state table (`src/ECS/VillagerSpeed.cpp`) |
 | A worshipper that can't reach the site doesn't go | done | `CanIGetToTheWorshipSite`: within the town info's distance |
-| A site too far to walk to is still reached through the player's teleport stones | done | (added) `CanIGetToTheWorshipSite` and `teleport::FindRouteStone` (`src/ECS/Systems/Implementations/VillagerWorship.cpp`); [our wiki](../../bw1-notes/miracles.md#the-villagers-go-to-the-worship-site-through-the-stones-faithful) |
+| A site too far to walk to is still reached through the player's teleport stones | done | (added) `CanIGetToTheWorshipSite` and `teleport::FindRouteStone` (`src/ECS/Systems/Implementations/VillagerWorship.cpp`); [our wiki](../../../magic/teleport.md#the-villagers-go-to-the-worship-site-through-the-stones) |
 | Worshippers ask to go home when tired or hungry, and the site lets them go in turn | done | below the life threshold a worshipper joins the site's go-home queue, sorted by its desire for life (`CheckRequestGoHome`, `CheckVillagerGoBackToTownFromWorship`) |
 | Worshippers go home to sleep, or sleep at the site (unconfirmed) | done | state 248 goes home, sleeping in a tent on the way when it must (`src/ECS/Systems/Implementations/LivingActionSystem.cpp`) |
 | A town in danger stops worshipping, and its worship comes back once the danger is over | done | (added) `src/ECS/Town/TownEmergency.cpp` saves the percentage and sets it to 0, then puts it back |
 | A villager dropped on the site by the hand becomes a worshipper disciple | todo | no worship disciple; see `../villager/` for disciples |
-| Scripts can make villagers dance and stop them | partial | `DANCE_CREATE` makes the dance and the attached villagers and animals dance in it (`src/CHLApi.cpp`, `src/ECS/Systems/Implementations/VillagerDance.cpp`); the script's reminder, the creatures and two of the moves are not done (docs/bw1-notes/dances.md, Pending); not checked in game |
+| Scripts can make villagers dance and stop them | partial | `DANCE_CREATE` makes the dance and the attached villagers and animals dance in it (`src/CHLApi.cpp`, `src/ECS/Systems/Implementations/VillagerDance.cpp`); the script's reminder, the creatures and two of the moves are not done ([dances.md](../../../beings/dances.md#pending)); not checked in game |
 
 ## The dance
 

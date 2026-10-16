@@ -5,7 +5,7 @@ blended for the time of day and mixed by the alignment the sky shows, then tinte
 
 **Progress: 11/16 done, 1 partial — 72%**
 
-How the original does it, in our wiki: [Day, night and weather in the original](../../bw1-notes/day-night-weather.md), [World rendering: original versus openblack](../../bw1-notes/rendering.md).
+How the original does it, in our wiki: [Day, night and weather in the original](../../../world/sky.md), [World rendering: original versus openblack](../../../world/sky.md).
 
 ## Time of day
 
@@ -26,7 +26,7 @@ How the original does it, in our wiki: [Day, night and weather in the original](
 | Each alignment has its own dome; the sky mixes the two nearest by the alignment it shows | done | `src/3D/SkyDome.cpp` |
 | The alignment's opacity is cut to 255ths | done | 2fc53b3d |
 | The sky turns towards the alignment at the camera over time, none while paused | done | `AlignmentSystem` (`src/ECS/Systems/AlignmentSystemInterface.h`) |
-| A **good** sky is darkened, up to 90 (d = ftol(((1 - X/2) - 0.6) x 225), X the sky alignment 0 good to 2 evil), with the weather detail option on. Differs from raffclar's reading (an evil sky darkened): `DrawSky` 0x5E21F1..0x5E2220, `LH3DAtmos::Update3D` 0x835A2D..0x835A78; see bw1-notes day-night-weather.md, the dome's draw | done | `sky_dome::Darkness` fed X (M06) |
+| A **good** sky is darkened, up to 90 (d = ftol(((1 - X/2) - 0.6) x 225), X the sky alignment 0 good to 2 evil), with the weather detail option on. Differs from raffclar's reading (an evil sky darkened): `DrawSky` 0x5E21F1..0x5E2220, `LH3DAtmos::Update3D` 0x835A2D..0x835A78; see [sky.md](../../../world/sky.md#sky-type), the dome's draw | done | `sky_dome::Darkness` fed X (M06) |
 | Inside the temple the sky dome is still drawn (seen through its openings), without the sun | partial | openblack draws the dome in the temple but also the sun; see sun_and_moon.md and ../temple/ |
 
 ## Weather on the sky

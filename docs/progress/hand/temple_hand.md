@@ -6,7 +6,7 @@ the hand does in them are in [../temple/](../temple/).
 
 **Progress: 8/17 done, 4 partial — 59%**
 
-How the original does it, in our wiki: [The hand and the interface](../../bw1-notes/hand-and-interface.md).
+How the original does it, in our wiki: [The hand and the interface](../../../hand/animation-and-placement.md).
 
 ## Placement
 

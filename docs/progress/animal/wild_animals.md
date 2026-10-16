@@ -5,7 +5,7 @@ The animals that live wild on the lands: hunters (lions, tigers, leopards, wolve
 
 **Progress: 16/18 done, 0 partial — 89%**
 
-How the original does it, in our wiki: [Animals: AI, states and clips](../../bw1-notes/animals.md), [Skeletal animation (villagers and animals)](../../bw1-notes/animation.md).
+How the original does it, in our wiki: [Animals: AI, states and clips](../../../beings/animal-life.md), [Skeletal animation (villagers and animals)](../../../beings/animal-life.md).
 
 ## Kinds and placing
 
@@ -38,6 +38,6 @@ How the original does it, in our wiki: [Animals: AI, states and clips](../../bw1
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | Grazers look for good grass, wander there and graze | done | `LookForFoodPos`, the wander and the eating states (`src/ECS/AnimalAI.cpp`) |
-| Grazers drink at the land's drinking places | n/a | Our wiki differs: animals have no thirst and never drink ([animals](../../bw1-notes/animals.md#herbivores-sheep-tortoise-cow-horse-pig)) |
+| Grazers drink at the land's drinking places | n/a | Our wiki differs: animals have no thirst and never drink ([animals](../../../beings/animals.md#herbivores-sheep-tortoise-cow-horse-pig)) |
 | Grazers flock together and follow their leader | done | the flock steering and the leader (`src/ECS/AnimalAI.cpp`, `components::Flock`) |
 | Tortoises (unconfirmed what sets them apart) | done | a grazer of the shared class with its own table values (0.25 m/s); no meat, so it is no prey, and it takes no reactions (`src/ECS/AnimalAI.cpp`) |

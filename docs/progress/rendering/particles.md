@@ -6,7 +6,7 @@ miracle's effect looks like is in [../miracles/](../miracles/); gesture trails i
 
 **Progress: 24/33 done, 4 partial — 79%**
 
-How the original does it, in our wiki: [Particles (PSys)](../../bw1-notes/particles.md), [Graphics engine parity: original versus openblack](../../bw1-notes/parity.md), [World rendering: original versus openblack](../../bw1-notes/rendering.md).
+How the original does it, in our wiki: [Particles (PSys)](../../../physics/particle-creators.md), [Graphics engine parity: original versus openblack](../../../rendering/frame.md), [World rendering: original versus openblack](../../../physics/particles.md).
 
 ## Effect files and the engine
 

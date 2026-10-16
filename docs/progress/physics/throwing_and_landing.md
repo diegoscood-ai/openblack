@@ -15,7 +15,7 @@ chests (`CreateReward` is a stub); scaffolds land through `src/ECS/Scaffolds.cpp
 
 **Progress: 35/45 done, 5 partial — 83%**
 
-How the original does it, in our wiki: [Physics: thrown objects, collisions, damage and rocks that split](../../bw1-notes/physics.md).
+How the original does it, in our wiki: [Physics: thrown objects, collisions, damage and rocks that split](../../../physics/physics.md).
 
 ## Letting go from the hand
 
@@ -32,7 +32,7 @@ How the original does it, in our wiki: [Physics: thrown objects, collisions, dam
 | Villagers, animals and fences dropped on ground steeper than about 45 degrees are not put down but slide off in the physics | done | `from_hand::InitialisePhysicsFromHand` (normal y at least 0.7) |
 | When the hand is forced to let go, the object is put down where it is held, with no speed, and never replanted (a tree dies) | done | `from_hand::ForceDrop` (`src/ECS/Physics/FromHand.cpp`) |
 | Everything the hand throws or drops is credited to its player, for kills, drownings and impressing | partial | `PhysicsObject::byPlayer` rides on the body and passes on through hits; the impact damage of villagers and animals does not use it (see [impact_damage.md](impact_damage.md)) |
-| A thrown (not put down) object makes nearby people and animals react once: villagers look or point (reach 25 m), and any animal nearer than twice the object's speed runs off | partial | `animal_ai::SpreadFlyingObjectReaction` from `FromHand.cpp`: animals flee it; villagers do not react to it. Our wiki differs: only the predators within 25 m flee a thrown object ([animals.md](../../bw1-notes/animals.md#reactions)) |
+| A thrown (not put down) object makes nearby people and animals react once: villagers look or point (reach 25 m), and any animal nearer than twice the object's speed runs off | partial | `animal_ai::SpreadFlyingObjectReaction` from `FromHand.cpp`: animals flee it; villagers do not react to it. Our wiki differs: only the predators within 25 m flee a thrown object ([animals.md](../../../beings/animal-life.md#reactions)) |
 | There is no size limit on throwing: rocks wider than 3.6 can't be picked up at all, and anything the hand holds can be thrown | done | `object_physics::RockValidForPlaceInHand` (`src/ECS/ObjectPhysics.cpp`) |
 | A slow release of carried food or wood (speed squared at most 5) puts it straight down as a pile, or into a store close by | done | `from_hand::InitialisePhysicsFromHand` hand pot branch (the put-down effect, piles and stores, lost in water) |
 

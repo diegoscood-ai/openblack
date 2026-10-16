@@ -14,7 +14,7 @@ No other physics library is linked. Tests:
 
 **Progress: 30/33 done, 3 partial — 95%**
 
-How the original does it, in our wiki: [Physics: thrown objects, collisions, damage and rocks that split](../../bw1-notes/physics.md).
+How the original does it, in our wiki: [Physics: thrown objects, collisions, damage and rocks that split](../../../physics/physics.md).
 
 ## Against the land
 
@@ -36,9 +36,9 @@ How the original does it, in our wiki: [Physics: thrown objects, collisions, dam
 | A thrown object and its thrower pass through each other for as long as the object stays in the physics list | done | `Substep` thrower test; `ForgetThrower` when the object rests or leaves |
 | Villagers' bodies pass through things a villager pushed or kicked, and those through villagers | done | The pair skip in `Substep` (`PhysicsObject::k_PushedByLiving`), set on a forester's felled tree (`ecs::FellTree`, `src/ECS/Trees.cpp`); `PhysicsObjects::PushObject` has no caller yet, so villagers push nothing |
 | What a released villager was carrying flies without hitting other objects | done | `villager::CreateDroppedResource` (from `FromHand.cpp` and `ECS/Systems/Implementations/VillagerPhysics.cpp`) makes the log through `VillagerStores::MakeDroppedLog` and `PhysicsObjects::AddDroppedObject` with `k_NoObjectCollision` |
-| Contacts are tested 0.06 s ahead along the body's motion, so fast objects stop at thin walls such as the physical shield | done | `physics::k_LookAheadSeconds` and the predicted vertex length in `TouchFaces`; checked against a physical shield ([physics.md](../../bw1-notes/physics.md#the-physical-shield-test)); no unit test |
+| Contacts are tested 0.06 s ahead along the body's motion, so fast objects stop at thin walls such as the physical shield | done | `physics::k_LookAheadSeconds` and the predicted vertex length in `TouchFaces`; checked against a physical shield ([physics.md](../../../physics/physics.md#the-physical-shield-test)); no unit test |
 | Each body remembers what it last hit in the turn; what reacts to a hit knows what hit it, and a body thrown by nobody takes the credit of whoever threw what hit it | done | `EndTurn` in `PhysicsObjects.cpp` (`Body::lastHit`, `PhysicsObject::hitBy`, `byPlayer` passed on) |
-| How hard a hit was is the mean of the body's total force (gravity included) over the touched steps of the turn; divided by its weight it gives the G of the hit (about 0 for something lying still) | done | `EndTurn` (`impact = the length of forceSum x 0.05`), `PhysicsObject::GLoad`. Our wiki differs: G is about 1, not 0, for a body lying on the ground ([physics.md](../../bw1-notes/physics.md#manager-physicsobjectgameturnupdate-0x644fc0)) |
+| How hard a hit was is the mean of the body's total force (gravity included) over the touched steps of the turn; divided by its weight it gives the G of the hit (about 0 for something lying still) | done | `EndTurn` (`impact = the length of forceSum x 0.05`), `PhysicsObject::GLoad`. Our wiki differs: G is about 1, not 0, for a body lying on the ground ([physics.md](../../../physics/physics.md#manager)) |
 
 ## What can be hit
 
@@ -47,7 +47,7 @@ How the original does it, in our wiki: [Physics: thrown objects, collisions, dam
 | Rocks, statics, mobile objects, villagers, animals, dead trees and carried food or wood are obstacles to flying bodies | done | `PhysicsObjects::InteractsWithPhysicsObjects` (mobile statics and objects, villagers, animals, dead trees, the hand's food and wood pots) |
 | Standing trees and forests are not obstacles: thrown things pass through them | done | `PhysicsObjects::InteractsWithPhysicsObjects` (`Tree`, `BigForest` excluded) |
 | Fields are never hit | done | `PhysicsObjects::InteractsWithPhysicsObjects` (`Field` and field abodes excluded) |
-| Food and wood piles are hit, unless they are part of a storage pit | partial | `PhysicsObjects::InteractsWithPhysicsObjects`: only the hand's food and wood pots are hit; piles are never hit. Our wiki differs: piles do not interact with flying bodies at all ([physics.md](../../bw1-notes/physics.md#manager-physicsobjectgameturnupdate-0x644fc0)) |
+| Food and wood piles are hit, unless they are part of a storage pit | partial | `PhysicsObjects::InteractsWithPhysicsObjects`: only the hand's food and wood pots are hit; piles are never hit. Our wiki differs: piles do not interact with flying bodies at all ([physics.md](../../../physics/physics.md#manager)) |
 | Buildings are obstacles only while more than 10% built and still standing (life above 0.01); ruins are not. The village centre always is; worship sites, graveyards, fish farms, football pitches, lanterns, bonfires and totem statues never are | partial | `PhysicsObjects::InteractsWithPhysicsObjects` tests only the building's life (above 0.01); the more-than-10%-built test and the per-type exceptions are not there |
 | A building is a heavy obstacle that never moves; a hit damages it instead | done | Weight 2000, not dynamic (`PhysicsObjects::Weight`, `CanBecomeAPhysicsObject`); the hit goes to `BuildingDamageSystem::ReactToImpact` (`src/ECS/Systems/Implementations/BuildingDamageSystem.cpp`, `FragMesh.cpp`); see [impact_damage.md](impact_damage.md) |
 | Pieces broken off buildings hit only the land | done | Fragment bodies have no faces and are not obstacles (`SetUpBody` fragment branch, `InteractsWithPhysicsObjects`), `src/ECS/Systems/Implementations/BuildingDamageSystem.cpp` |

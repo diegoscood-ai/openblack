@@ -12,7 +12,7 @@ its wood fall as a log (`villager::CreateDroppedResource`). A script cannot yet 
 
 **Progress: 56/66 done, 2 partial — 86%**
 
-How the original does it, in our wiki: [Villagers: data, state machine and speed](../../bw1-notes/villagers.md).
+How the original does it, in our wiki: [Villagers: data, state machine and speed](../../../beings/villager-states.md).
 
 ## The objects
 
@@ -32,7 +32,7 @@ How the original does it, in our wiki: [Villagers: data, state machine and speed
 | Shepherds hold a crook through all their work: looking for a flock, taking control of it, leading it to water, food and home, waiting for it and fetching strays; the slaughter itself is not drawn | todo | the shepherd's states are TODO rows |
 | Farmers hold a spade on the way to the field and while they dig up the crop, but sow empty-handed | done | the farmer's states' rows (`src/ECS/Villager/VillagerFarmer.cpp`) |
 | Builders, at each stroke of building, pick one of three clips at random and hold its tool: hammering with a hammer, sawing with a saw, or the sledgehammer swing with a heavy mallet; an into-clip already started keeps its own tool | done | one of the three clips at random sets the hammer, the saw or the heavy mallet, unless the carried object is locked (`src/ECS/VillagerAnimations.cpp`) |
-| Housewives carry a bag from the storage pit to their home (picked up with the pot-on-the-head clip, walked home with the carrying-pot clip) | n/a | the housewife's states are TODO rows. Our wiki differs: the housewife's day, her trips to the storage pit included, is dead code in this version of the original ([villagers](../../bw1-notes/villagers.md#pregnancy-and-births)) |
+| Housewives carry a bag from the storage pit to their home (picked up with the pot-on-the-head clip, walked home with the carrying-pot clip) | n/a | the housewife's states are TODO rows. Our wiki differs: the housewife's day, her trips to the storage pit included, is dead code in this version of the original ([villagers](../../../beings/villager-life.md#pregnancy-and-births)) |
 | Villagers fighting a fire with water hold a bag while they throw the water; fetching the water and beating the flames are done empty-handed | done | the water-fighting rows give the bag (`SetStateCarriedObject`); in this version a villager fighting with water gives up at once (`src/ECS/Systems/Implementations/VillagerFire.cpp`) |
 | A footballer picking up the ball for a restart holds a ball and runs with it until it puts it down; footballers hold nothing while playing, celebrating, watching or doing the wave | todo | no football; see play_and_gossip.md; [../town/football.md](../town/football.md#the-player-and-the-creature) |
 | Traders, missionaries, worship suppliers, workshop suppliers and builders on their way to the site have no tool of their own: they show their load (a bag of food or a piece of wood) | partial | builders on their way show their load (`CarriedObjectFor`); the traders', missionaries' and suppliers' states are TODO rows |

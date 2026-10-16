@@ -26,7 +26,7 @@ partial only where the openblack function the row needs already works. The land 
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The circle is set up as the land begins: the land control script starts this quest right after the land's set-up, before the family leads the player home, and it then waits for its start signal | done | `LandControl1` starts `SingingStoneCircle` right after `SetupLand1` with every tutorial answer; the circle is assembled in game ([map-loading.md](../../../bw1-notes/map-loading.md#creation-from-chl-create-27--create_with_angle_and_scale-252)) |
+| The circle is set up as the land begins: the land control script starts this quest right after the land's set-up, before the family leads the player home, and it then waits for its start signal | done | `LandControl1` starts `SingingStoneCircle` right after `SetupLand1` with every tutorial answer; the circle is assembled in game ([map-loading.md](../../../../scripts/map-script-reader.md#creation-from-chl)) |
 | The silver scroll is offered only after the creature's first lessons (seeing its pen, learning to eat and being punished; just its pen when the creature training is skipped), at the same moment as the Immersion Mushrooms | partial | only with the fourth tutorial answer: the start flag is raised after the pen scene; with the other answers the land control script never gets there (the intro or the creature glade does not finish) |
 | The scroll (a challenge highlight) stands by the hippy's hut, about 48 from the circle's centre, not at the circle itself | partial | `CREATE_HIGHLIGHT` works (`src/ECS/ScriptHighlight.cpp`); reached with the fourth answer; not checked in game |
 | While the scroll is waiting and the camera is within 100 of it with the scroll in view, the good advisor steps out, points at it and says "Look. Something for you to do here.", at most once every 30 seconds (the first time at once) | partial | every native of the notice script works (`DLL_GETTIME`, `GAME_THING_FIELD_OF_VIEW`, `SPIRIT_EJECT`, `SPIRIT_POINT_POS`, `RUN_TEXT`, `src/Help`); not checked in game |
@@ -38,7 +38,7 @@ partial only where the openblack function the row needs already works. The land 
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The circle's centre is a fixed spot; eight holders (singing stone bases) stand around it on a ring 17.5 across from the centre, one every eighth of a turn | done | `CreateScriptObject` makes the bases (`MobileStaticArchetype`); the circle is assembled in game ([map-loading.md](../../../bw1-notes/map-loading.md#creation-from-chl-create-27--create_with_angle_and_scale-252)) |
+| The circle's centre is a fixed spot; eight holders (singing stone bases) stand around it on a ring 17.5 across from the centre, one every eighth of a turn | done | `CreateScriptObject` makes the bases (`MobileStaticArchetype`); the circle is assembled in game ([map-loading.md](../../../../scripts/map-script-reader.md#creation-from-chl)) |
 | Stones 1, 2 and 6 already stand in their holders (the first two and the sixth going round the ring) and can't be moved or picked up | partial | `CREATE`, `SET_ID_MOVEABLE`, `SET_ID_PICKUPABLE` work (`ecs::object_flags`); the hand's refusal is not checked in game |
 | The five missing stones (3, 4, 5, 7 and 8) lie scattered over the land, between about 140 and 1,175 from the circle (stone 7 close by, stones 3 and 8 at the far west) | done | `CREATE` makes them at set-up, with every tutorial answer |
 | Three wrong stones that look the same lie closer, about 280, 360 and 650 from the circle | done | `CREATE` makes them at set-up, with every tutorial answer |
@@ -50,7 +50,7 @@ partial only where the openblack function the row needs already works. The land 
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Each right stone has its own note, the eight going up a scale round the ring; all three wrong stones play the same sour note | partial | `PLAY_SOUND_EFFECT` works and the script sound bank plays in game (the intro's stone notes, [audio.md](../../../bw1-notes/audio.md)); this quest's notes not checked |
+| Each right stone has its own note, the eight going up a scale round the ring; all three wrong stones play the same sour note | partial | `PLAY_SOUND_EFFECT` works and the script sound bank plays in game (the intro's stone notes, [audio.md](../../../../audio/engine.md)); this quest's notes not checked |
 | Tapping (clicking) any of the eleven stones, wherever it is, plays its note there with a short sparkle | partial | `GAME_THING_CLICKED`, `CLEAR_CLICKED_OBJECT`, `SPECIAL_EFFECT_OBJECT`, `PLAY_SOUND_EFFECT` work; not checked in game |
 | The tap check looks at the stones in three groups (1 to 4, 5 to 8, the wrong ones), one group per script turn, and stops once the circle is complete | partial | `GAME_THING_CLICKED`, `CLEAR_CLICKED_OBJECT`, `SPECIAL_EFFECT_OBJECT`, `PLAY_SOUND_EFFECT` work; not checked in game |
 | From the moment the land begins the circle plays itself round, one holder every half second with a two-second pause before the first: the stone in each holder sounds its note (a slightly longer sparkle), empty holders are silent | partial | `CheckStonePositionsAndPlayNotes` runs from set-up with every tutorial answer, on working natives; not checked in game |

@@ -5,7 +5,7 @@ lights the land at night and casts a shadow.
 
 **Progress: 11/11 done, 0 partial — 100%**
 
-How the original does it, in our wiki: [The hand and the interface](../../bw1-notes/hand-and-interface.md).
+How the original does it, in our wiki: [The hand and the interface](../../../hand/picking.md).
 
 ## Alignment morph
 
@@ -23,7 +23,7 @@ How the original does it, in our wiki: [The hand and the interface](../../bw1-no
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The hand casts a soft shadow on the land under it | done | The hand casts a projected dynamic shadow (`graphics::shadow_list`, `src/Graphics/RendererShadows.cpp`); see [rendering.md](../../bw1-notes/rendering.md) |
+| The hand casts a soft shadow on the land under it | done | The hand casts a projected dynamic shadow (`graphics::shadow_list`, `src/Graphics/RendererShadows.cpp`); see [rendering.md](../../../interface/screen-and-readouts.md) |
 | The shadow fades as the camera pulls away from the ground under the hand | done | `src/Graphics/ShadowMath.cpp`; test `ShadowMath.FadeByDistance` (`test/test_shadow_math.cpp`) |
 | At night the hand carries a light that brightens the land around it | done | `src/Graphics/HandLight.cpp`; tests `HandLight.*` (`test/graphics/test_hand_light.cpp`) |
 | At night its light glows warm on water near it, never in the temple | done | `src/Graphics/HandWaterGlow.cpp`; tests `HandWaterGlow.*` (`test/graphics/test_hand_water_glow.cpp`) |

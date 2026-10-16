@@ -7,7 +7,7 @@ to do it to and use, and what it thinks of the action itself.
 
 **Progress: 49/77 done, 17 partial — 75%**
 
-How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../bw1-notes/creature.md).
+How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../../creature/mind.md).
 
 ## Taking hold of the creature
 
@@ -15,7 +15,7 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 |-----------|--------|---------------|
 | The hand can never pick a creature up; holding the action button on one puts the hand on it instead | done | `CreatureHandSystem::Grab` (`src/ECS/Systems/Implementations/CreatureHandSystem.cpp`), from the hand's press in `HandTurn.cpp`; tests `CreatureHandSystemTest.*` |
 | A quick click on the player's own creature, before any stroke or slap, puts the leash on instead of holding it | done | let go within 450 ms of camera time is a click (`creature_hand::IsClick`, `src/Creature/CreatureHandRules.h`), sent as the leash key (`ECS/CreatureHandPackets.cpp`); tests `CreatureHand.LetGoWithinAClicksCameraTimeIsAClick`, `CreatureHandPacketsTest.TheClickIsThePlayersLeashKey`; see [leash.md](leash.md) |
-| Any player's creature can be held, stroked and slapped, other gods' too; a creature of nobody cannot | done | `creature_hand::MayHold` refuses nobody's creature, and `creature_hand::TakesPress` takes only the pressing player's own (no alliances in openblack); tests `CreatureHand.TheHandHoldsAnyPlayersCreature`, `CreatureHand.OnlyTheOwnersHandTakesHoldOnAPress`. Our wiki differs: the hand holds only its own or an allied player's creature, not other gods' ([hand-and-interface.md](../../bw1-notes/hand-and-interface.md#the-hand-on-a-creature)) |
+| Any player's creature can be held, stroked and slapped, other gods' too; a creature of nobody cannot | done | `creature_hand::MayHold` refuses nobody's creature, and `creature_hand::TakesPress` takes only the pressing player's own (no alliances in openblack); tests `CreatureHand.TheHandHoldsAnyPlayersCreature`, `CreatureHand.OnlyTheOwnersHandTakesHoldOnAPress`. Our wiki differs: the hand holds only its own or an allied player's creature, not other gods' ([hand-and-interface.md](../../../hand/states.md#the-hand-on-a-creature)) |
 | A sleeping creature can't be held | done | `creature_hand::MayHold`; test `CreatureHandSystemTest.OnlyAPlayersCreatureMayBeHeld` |
 | A creature frozen by the freeze spell can't be held | done | `creature_hand::MayHold`, frozen from `components::CreatureSpells` in `CreatureHandSystem` |
 | Ogres can never be held | done | `creature_hand::MayHold`; test `CreatureHand.TheHandHoldsAnyPlayersCreature` |

@@ -6,7 +6,7 @@ power is in [../worship/](../worship/).
 
 **Progress: 23/25 done, 0 partial — 92%**
 
-How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/miracles.md).
+How the original does it, in our wiki: [Miracles one by one](../../../magic/teleport.md).
 
 ## Who pays
 
@@ -50,5 +50,5 @@ How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/mir
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | Tribal power is the product of the miracle's tribes' powers, kept between 0.5 and 100 | done | `magic::GetTribalPower` (`src/Magic/MagicTables.cpp`); test `MagicTables.tribalPower` |
-| A player's tribal powers grow from the tribes worshipping them | todo | Nothing writes `PlayerMagic::tribalPower` (`src/ECS/Components/PlayerMagic.h`): every tribe counts 1.0. Our wiki differs: it notes (inferred) that nothing in the original writes them either ([villagers](../../bw1-notes/villagers.md#home-food-sleep-homeless-and-age)) |
+| A player's tribal powers grow from the tribes worshipping them | todo | Nothing writes `PlayerMagic::tribalPower` (`src/ECS/Components/PlayerMagic.h`): every tribe counts 1.0. Our wiki differs: it notes 🔍 inferred that nothing in the original writes them either ([villagers](../../../beings/villager-life.md#home-food-sleep-homeless-and-age)) |
 | Spending prayer sends motes of light from the caster to the miracle, one per 100 prayer power, when the caster has a worship site | todo | the chant rules report each payment to the caster (`SpellCasterInterface::OnChantsSpent`, `src/Magic/SpellChants.h`) and `chants::Context::createSpellPoint` takes it, but `ChantContextOf` (`src/Magic/Core/Spell.cpp`) never sets it and nothing draws the motes; see [../rendering/light_beams.md](../rendering/light_beams.md) |

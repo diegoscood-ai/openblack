@@ -22,7 +22,7 @@ is in [../land_5.md](../land_5.md); the swap that ends the quest is described in
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The quest is started by the land's control script the first time the neutral Japanese village becomes the player's, however it was won | todo | `LandControl5` never runs: `LOAD_MAP` is empty ([map-loading](../../../bw1-notes/map-loading.md#pending)); reading a town's owner (`GetProperty` player) is not ported |
+| The quest is started by the land's control script the first time the neutral Japanese village becomes the player's, however it was won | todo | `LandControl5` never runs: `LOAD_MAP` is empty ([map-loading](../../../../scripts/map-script-reader.md#pending)); reading a town's owner (`GetProperty` player) is not ported |
 | It is started only once: losing the village to Nemesis and winning it back does not start it again | todo | the quest never starts: no Land 5 (`LOAD_MAP` is empty) |
 | The check sits in the land's main loop that runs while the creature is cursed, until the three wonder villages (Greek, Tibetan and Aztec) are all the player's; if the player takes all three before the Japanese village, the loop ends and this quest is never offered | todo | read from the control script: no later code starts it; the curse: [../gold_scrolls/i_have_a_surprise_for_you.md](../gold_scrolls/i_have_a_surprise_for_you.md); the quest never starts: no Land 5 (`LOAD_MAP` is empty) |
 | The control script's town checks run one after another with the cut scenes for taking the wonder villages, so the scroll can appear a little after the village is won if one of those scenes is playing | todo | the quest never starts: no Land 5 (`LOAD_MAP` is empty) |

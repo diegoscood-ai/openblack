@@ -7,7 +7,7 @@ in [../creature/](../creature/), the hand's look in [../hand/](../hand/), the sk
 
 **Progress: 16/26 done, 5 partial — 71%**
 
-How the original does it, in our wiki: [Model rendering: original versus openblack](../../bw1-notes/rendering-objects.md), [Graphics engine parity: original versus openblack](../../bw1-notes/parity.md), [World rendering: original versus openblack](../../bw1-notes/rendering.md).
+How the original does it, in our wiki: [Model rendering: original versus openblack](../../../rendering/model-lighting.md), [Graphics engine parity: original versus openblack](../../../rendering/frame.md), [World rendering: original versus openblack](../../../rendering/frame.md).
 
 ## Meshes and skinning
 

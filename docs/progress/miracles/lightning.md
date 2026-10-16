@@ -9,7 +9,7 @@ Given by silver scrolls: to a town by [The Greedy Farmer](../story/silver_scroll
 
 **Progress: 36/43 done, 2 partial — 86%**
 
-How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/miracles.md).
+How the original does it, in our wiki: [Miracles one by one](../../../magic/fireball-and-lightning.md).
 
 ## Casting and cost
 
@@ -32,7 +32,7 @@ How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/mir
 | A visible creature in the cone draws every fork to itself | todo | Not in our tree; our wiki describes no such pull (only a creature skip of unverified meaning, a TODO in `src/Particles/Rules/Lightning.cpp`) |
 | Targets are searched again every second, never more than the first count | done | `src/Particles/Rules/Lightning.cpp` (RenewSearchEvery, RenewTargetsOnMove; a search never adds more targets than there are forks) |
 | Each step strikes a random share of the targets (at most 4 / 10 / 20 at once) | done | `src/Particles/Rules/Lightning.cpp` (UpdateForkStructure) |
-| Forks are rebuilt at every search, two for each target struck at once plus two | done | `src/Particles/Rules/Lightning.cpp` (CreateForkStructure, made once); `test/test_lightning.cpp`. Our wiki differs: the forks are made once, two for each target, and are not rebuilt when the targets are searched again ([page](../../bw1-notes/miracles.md#lightning-magic_type-4-6-seed-6-lightning_bolt-particlesruleslightningcpp)) |
+| Forks are rebuilt at every search, two for each target struck at once plus two | done | `src/Particles/Rules/Lightning.cpp` (CreateForkStructure, made once); `test/test_lightning.cpp`. Our wiki differs: the forks are made once, two for each target, and are not rebuilt when the targets are searched again ([page](../../../magic/fireball-and-lightning.md#lightning)) |
 | Land between the hand and a fork's split point stops that fork for the step | done | `src/Particles/Rules/Lightning.cpp` (the land ray cast, `src/3D/Implementations/LandIsland.cpp`); tests `Lightning.landCutsTheFork`, `test/test_land_raycast.cpp` |
 
 ## Damage and effects
@@ -46,7 +46,7 @@ How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/mir
 | Each strike counts towards the caster's alignment and the town's grudge | done | `src/ECS/Effects/EffectValues.cpp` (`alignment::Update`, the town's aggressor), `src/ECS/Effects/Alignment.cpp`; see `../worship/` for alignment |
 | Struck villagers are not shown as skeletons by the bolt itself | done | Correctly absent |
 | A bolt striking only a creature leaves nearby villagers in a valid state (no crash) | done | `src/ECS/Systems/Implementations/VillagerReactions.cpp` |
-| Electric arcs crawl over struck objects; an object still struck is arced again after each search, at most 100 arcs alive | done | `src/Particles/ParticleArcRules.cpp` (UR_ObjectArcer, queued from `StrikeTarget` in `src/Particles/Rules/Lightning.cpp`), `src/Particles/LightningMaths.cpp` (the arc's maths); `test/test_object_arcer.cpp`, `test/test_lightning_maths.cpp` (pinned to the original's code). Only objects whose model is not animated get arcs ([page](../../bw1-notes/miracles.md#lightning-magic_type-4-6-seed-6-lightning_bolt-particlesruleslightningcpp)) |
+| Electric arcs crawl over struck objects; an object still struck is arced again after each search, at most 100 arcs alive | done | `src/Particles/ParticleArcRules.cpp` (UR_ObjectArcer, queued from `StrikeTarget` in `src/Particles/Rules/Lightning.cpp`), `src/Particles/LightningMaths.cpp` (the arc's maths); `test/test_object_arcer.cpp`, `test/test_lightning_maths.cpp` (pinned to the original's code). Only objects whose model is not animated get arcs ([page](../../../magic/fireball-and-lightning.md#lightning)) |
 
 ## Shields and clashing bolts
 

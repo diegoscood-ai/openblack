@@ -27,7 +27,7 @@ land is in [../land_2.md](../land_2.md), the script program in
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The land's control script watches the Greek village (town id 2, centre near 2249, 2240) from the land's start, checking every 1.7 seconds whether it belongs to the player; the first time it does, the quest starts in the background and the watch ends | todo | reading the town's owner (`GetProperty` player) is not ported; `LandControl2` never runs: `LOAD_MAP` is empty ([map-loading](../../../bw1-notes/map-loading.md#pending)) |
+| The land's control script watches the Greek village (town id 2, centre near 2249, 2240) from the land's start, checking every 1.7 seconds whether it belongs to the player; the first time it does, the quest starts in the background and the watch ends | todo | reading the town's owner (`GetProperty` player) is not ported; `LandControl2` never runs: `LOAD_MAP` is empty ([map-loading](../../../../scripts/map-script-reader.md#pending)) |
 | That village starts the land as Khazar's (player two) and is Greek in the land's map script, though the control script's comment calls it "Norse near Khazar"; the player must win it over before the quest exists | todo | the map script's town list loads (`TownArchetype`), but the quest's watch never runs |
 | No other condition: no other town, timer or story step is needed, and the quest can start at any time the village is won | todo | the quest never starts: no Land 2 (`LOAD_MAP` is empty) |
 | A silver (challenge) scroll is put 4 above the house at a fixed spot west of the village centre (near 2183, 2210) | todo | `CreateHighlight` works (`src/ECS/ScriptHighlight.cpp`); the quest never starts: no Land 2 (`LOAD_MAP` is empty) |

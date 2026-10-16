@@ -6,7 +6,7 @@ corridor, hunting and eating villagers in their way. Wild animals and livestock 
 
 **Progress: 46/50 done, 1 partial — 93%**
 
-How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/miracles.md).
+How the original does it, in our wiki: [Miracles one by one](../../../magic/flocks.md).
 
 ## Flying flock: casting
 
@@ -35,7 +35,7 @@ How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/mir
 | Birds are lit by the brightest land light | done | `src/ECS/Systems/Implementations/RenderingSystem.cpp` (the land light on objects) |
 | A bird crossing a shield into it strikes the shield, sparks, and fades if the shield holds | done | `src/Magic/Spells/SpellFlock.cpp` (`psys::shields::FindShieldCrossedInto` with the bird's 2D radius, a shield-collide event, then the fade if the shield holds) |
 | When the miracle ends every bird fades over 20 turns, but stays opaque until it vanishes | done | `src/Magic/Spells/SpellFlock.cpp` (the fade zoomer over 20 turns, the alpha only changes in the turn); test `SpellFlock.fade` |
-| The miracle lasts 25 s for a player and costs 40 a turn while its birds or effect last | done | The tables' timer and cost per turn (`src/Magic/Spells/SpellFlock.cpp`); test `SpellFlock.realInfoDat`. Our wiki differs: from a hand seed the first 5000 prayer runs out at 40 a turn after 12.5 s, before the 25 s timer ([page](../../bw1-notes/miracles.md#pending--not-faithful)) |
+| The miracle lasts 25 s for a player and costs 40 a turn while its birds or effect last | done | The tables' timer and cost per turn (`src/Magic/Spells/SpellFlock.cpp`); test `SpellFlock.realInfoDat`. Our wiki differs: from a hand seed the first 5000 prayer runs out at 40 a turn after 12.5 s, before the 25 s timer ([page](../../../magic/flocks.md#pending)) |
 | Bats frighten creatures | todo | Nothing in our tree asks whether an animal frightens a creature |
 
 ## Flying flock: effects and sound
@@ -65,7 +65,7 @@ How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/mir
 | Wolves reaching their goal fade away | done | `src/ECS/AnimalPredators.cpp` (within 30 m of the final goal, the fade) |
 | A hungry wolf hunts villagers inside the corridor and not behind it | done | `src/ECS/AnimalPredators.cpp` (IsHuntingTargetValid: inside the corridor, not behind the wolf's cell); test `SpellFlock.wolfCorridor` |
 | Once a wolf remembers prey, a new prey must be much closer to take its place | done | `src/ECS/AnimalPredators.cpp` (NearerThanStored) |
-| It chases, pounces when close and facing, and gives up when the prey gets too far | partial | `src/ECS/AnimalPredators.cpp` (chase, stalk, pounce, abandon). Our wiki notes the spell wolves circle 30 to 50 m from the prey and seldom reach the leap; not checked against the game ([page](../../bw1-notes/miracles.md#pending--not-faithful)) |
+| It chases, pounces when close and facing, and gives up when the prey gets too far | partial | `src/ECS/AnimalPredators.cpp` (chase, stalk, pounce, abandon). Our wiki notes the spell wolves circle 30 to 50 m from the prey and seldom reach the leap; not checked against the game ([page](../../../magic/flocks.md#pending)) |
 | Within a metre of the prey the pounce brings it down, again each turn it stays that close | done | `src/ECS/AnimalPredators.cpp` (TargetPounce: within 1 m the villager is downed at 0.05 life) |
 | The downed villager plays its attacked fall | done | `src/ECS/AnimalPredators.cpp` (ProcessDownedVillagers: the downed clip, then being eaten) |
 | The villager is eaten over 300 turns and then dies the normal villager death, killed by an animal | done | `src/ECS/AnimalPredators.cpp` (300 turns, then the villager's death by an animal, `ecs::villager::VillagerDead`) |
@@ -83,7 +83,7 @@ How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/mir
 | When the miracle ends the wolves turn translucent white and fade over 2 s while running on | done | `src/Magic/Spells/SpellFlock.cpp` (the fade, the animal keeps moving), drawn white with its alpha by `src/ECS/Systems/Implementations/RenderingSystem.cpp` |
 | A burning wolf is drawn charred with flames | done | `src/ECS/Systems/Implementations/RenderingSystem.cpp` (the spell wolf with a fire: the charring grey and the glow); flames from the fire graphics (`src/ECS/Fire/FireGraphic.cpp`) |
 | The player can't pick up the miracle's wolves | done | `ecs::animal_ai::ValidForPlaceInHand` (the species' pick-up rule), used by `src/ECS/Systems/Implementations/HandPlacement.cpp` |
-| The miracle lasts 60 s for a player and costs 35 a turn | done | The tables' timer and cost per turn; test `SpellFlock.realInfoDat`. Our wiki differs: from a hand seed the first 5000 prayer runs out at 35 a turn after 14.5 s, before the 60 s timer ([page](../../bw1-notes/miracles.md#pending--not-faithful)) |
+| The miracle lasts 60 s for a player and costs 35 a turn | done | The tables' timer and cost per turn; test `SpellFlock.realInfoDat`. Our wiki differs: from a hand seed the first 5000 prayer runs out at 35 a turn after 14.5 s, before the 60 s timer ([page](../../../magic/flocks.md#pending)) |
 
 ## Both flocks
 

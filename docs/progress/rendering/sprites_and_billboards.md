@@ -6,7 +6,7 @@ the moon and sun in [../sky/](../sky/); the influence ring in [../worship/](../w
 
 **Progress: 10/12 done, 0 partial — 83%**
 
-How the original does it, in our wiki: [Graphics engine parity: original versus openblack](../../bw1-notes/parity.md), [World rendering: original versus openblack](../../bw1-notes/rendering.md).
+How the original does it, in our wiki: [Graphics engine parity: original versus openblack](../../../rendering/frame.md), [World rendering: original versus openblack](../../../rendering/frame.md).
 
 ## Sprites in the world
 

@@ -31,7 +31,7 @@ rows are todo unless the notes say otherwise. Function coverage is in
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The land's control script starts a watcher on the village with town id 9 when the land is set up | todo | `LandControl2` never runs: `LOAD_MAP` is empty ([map-loading](../../../bw1-notes/map-loading.md#pending)) |
+| The land's control script starts a watcher on the village with town id 9 when the land is set up | todo | `LandControl2` never runs: `LOAD_MAP` is empty ([map-loading](../../../../scripts/map-script-reader.md#pending)) |
 | Every 1.3 seconds the watcher checks whether the village belongs to the player; the moment it does, the event starts and the watcher stops | todo | reading a town's owner (`GetProperty` player) is not ported |
 | The village is Greek: the land's map script makes town id 9 a Greek village; the control script's comment calls it Norse, and the villagers made at the end are Norse ones | n/a | naming only |
 | The healer is made as a priest villager at a house by the village centre; he joins no village and has no special protection: he can be picked up, thrown and killed | todo | `Create` makes villagers; the quest never starts: no Land 2 (`LOAD_MAP` is empty) |

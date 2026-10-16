@@ -47,7 +47,7 @@ which list the phone box as one row each.
 
 These three are not objects of the land: the program places them by land number, as loose 3D models with no shadow, so
 they cannot be picked up or harmed. Our wiki describes them in detail
-([water.md](../../bw1-notes/water.md#fixed-scenery-per-land-land-3-waterfall-land-4-ark-and-dinosaur)).
+([water.md](../../../world/sea-life-and-scenery.md#fixed-scenery-per-land-land-3-waterfall-land-4-ark-and-dinosaur)).
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|

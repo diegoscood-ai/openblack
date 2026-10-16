@@ -5,7 +5,7 @@ wood, has footpaths and is a place for creatures and animals.
 
 **Progress: 10/16 done, 1 partial — 66%**
 
-How the original does it, in our wiki: [Trees and forests](../../bw1-notes/trees.md).
+How the original does it, in our wiki: [Trees and forests](../../../world/trees.md).
 
 ## Forests of trees
 
@@ -30,7 +30,7 @@ How the original does it, in our wiki: [Trees and forests](../../bw1-notes/trees
 | The land scripts place big forest models, turned and scaled | done | `BigForestArchetype` (`src/ECS/Archetypes/BigForestArchetype.cpp`), with its own forest |
 | Big forests are lit as the game lights them | done | Drawn as the other models |
 | The creature and villagers walk round big forests | partial | The route planner takes a big forest as an obstacle (`src/ECS/RoutePlanWorld.cpp`); the creature's walk is not checked |
-| The hand tugging a big forest pulls a tree out of it | done | `HandSystem::TakeTreeFromForest` (`HandTrees.cpp`). Our wiki differs: a big forest is not tugged; grabbing it takes 350 of its wood and puts a new conifer in the hand ([trees.md](../../bw1-notes/trees.md#pick-up-rules-and-bigforest)) |
+| The hand tugging a big forest pulls a tree out of it | done | `HandSystem::TakeTreeFromForest` (`HandTrees.cpp`). Our wiki differs: a big forest is not tugged; grabbing it takes 350 of its wood and puts a new conifer in the hand ([trees.md](../../../hand/grab-hold-and-throw.md#pick-up-rules-and-bigforest)) |
 | A big forest gives wood (unconfirmed how much) | done | `ecs::BigForestRemoveWood` (its wood starts at its type's wood value times its scale) |
 
 The forest miracle's forests are in `../miracles/forest.md`.

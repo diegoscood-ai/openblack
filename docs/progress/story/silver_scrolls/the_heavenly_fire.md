@@ -25,7 +25,7 @@ otherwise.
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The challenge is started by the land's control script, only the first time the player wins the Greek village (Nemesis's village round the Greek Wonder, the land's town 4) | todo | `LandControl5` never runs: `LOAD_MAP` is empty ([map-loading](../../../bw1-notes/map-loading.md#pending)); see [../../scripts/land5_script.md](../../scripts/land5_script.md) |
+| The challenge is started by the land's control script, only the first time the player wins the Greek village (Nemesis's village round the Greek Wonder, the land's town 4) | todo | `LandControl5` never runs: `LOAD_MAP` is empty ([map-loading](../../../../scripts/map-script-reader.md#pending)); see [../../scripts/land5_script.md](../../scripts/land5_script.md) |
 | That first capture plays the land's own story scene first (a Greek farmer, the Wonder blown up by an explosion, the creature curse recorded, a tornado that carries the farmer off, the Nemesis theme); the meteors are started as that scene fades back in | todo | the scene belongs to the land's story, see [../land_5.md](../land_5.md) |
 | Losing the village to Nemesis and winning it back never starts it again (it is started once, on the first capture only) | todo | the quest never starts: no Land 5 (`LOAD_MAP` is empty) |
 | No scroll is put up: the scroll over a villager's hut and the advisor's "Your attention is required here." call are written in the script but switched off, so the player is never asked to accept it | todo | the hut is still looked up but never used; the quest never starts: no Land 5 (`LOAD_MAP` is empty) |

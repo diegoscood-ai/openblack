@@ -7,7 +7,7 @@ atmosphere texture is added round it, and a mirrored copy is drawn for the sea.
 
 **Progress: 34/37 done, 1 partial — 93%**
 
-How the original does it, in our wiki: [Day, night and weather in the original](../../bw1-notes/day-night-weather.md), [World rendering: original versus openblack](../../bw1-notes/rendering.md).
+How the original does it, in our wiki: [Day, night and weather in the original](../../../world/sky.md), [World rendering: original versus openblack](../../../world/sky.md).
 
 ## Where it stands
 
@@ -76,7 +76,7 @@ How the original does it, in our wiki: [Day, night and weather in the original](
 |-----------|--------|---------------|
 | It is drawn in the sky after the dome and the sun, before the land and everything else | done | The sky stage of the main and reflection passes (`src/Graphics/Renderer.cpp`) |
 | The land drawn later covers it | done | The moon writes no depth and the land is drawn after it |
-| A second moon is drawn for the sea's sky: the same moon with its height below the camera flipped and its lean reversed, seen through the sea | done | `Renderer::DrawMoon` in the reflection pass: the glow from the mirrored view and the mesh mirrored, as our wiki describes ([rendering.md](../../bw1-notes/rendering.md#sky-sun-moon-and-clouds-original)) |
+| A second moon is drawn for the sea's sky: the same moon with its height below the camera flipped and its lean reversed, seen through the sea | done | `Renderer::DrawMoon` in the reflection pass: the glow from the mirrored view and the mesh mirrored, as our wiki describes ([rendering.md](../../../world/sky.md#sky-sun-moon-and-clouds-original)) |
 | Moonlight: at night the land and models take the palette's moon colour | done | `src/3D/LandLightTable.cpp`; see lighting.md |
 | The creature can choose to look at the moon, only at night | partial | The plan action exists (`src/Creature/CreaturePlanActions.cpp`, LookAtMoon as a look-about); the night check is not confirmed; see ../creature/ |
 | Near a full moon, at night, the game's guidance shows a help sprite about the moon now and then | done | `guidance::RemarkOnMoonPhase` (`src/Audio/Services/Guidance.cpp`: at visual night near the full moon, then a long wait) |

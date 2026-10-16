@@ -6,7 +6,7 @@ power for as long as it stands and breaks when an attack empties it.
 
 **Progress: 30/37 done, 1 partial — 82%**
 
-How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/miracles.md).
+How the original does it, in our wiki: [Miracles one by one](../../../magic/shields.md).
 
 ## Casting and upkeep
 

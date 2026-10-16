@@ -8,7 +8,7 @@ Casting by hand is in [casting_and_globes.md](casting_and_globes.md), what a mir
 
 **Progress: 46/94 done, 16 partial — 57%**
 
-How the original does it, in our wiki: [Magic: the core of the miracles](../../bw1-notes/magic.md), [Miracles one by one](../../bw1-notes/miracles.md).
+How the original does it, in our wiki: [Magic: the core of the miracles](../../../magic/spell-core.md), [Miracles one by one](../../../magic/spell-core.md).
 
 ## A miracle's life
 
@@ -17,7 +17,7 @@ How the original does it, in our wiki: [Magic: the core of the miracles](../../b
 | A new miracle remembers who cast it and for which player; a miracle with no caster belongs to the neutral player | done | `magic::AllocSpell` and `magic::CastAtPos` (`src/Magic/Core/Spell.cpp`): no creator means `creator::NeutralPlayer()` |
 | Its strength, chants, duration and how many things it may make come from the cast | done | `base::InitWithPos` (`src/Magic/Core/Spell.cpp`) from the `SpellCastData` |
 | A miracle cast from a seed lasts the seed's time for a player cast, times the seed's multiplier (one-off seeds too) | done | `PrepareCast` in `src/Magic/Core/SpellSeed.cpp` (the player timer times the seed's multiplier; one-off seeds go through the same seed) |
-| A miracle whose effect can't start is refused; one that has no effect (shield, teleport, flocks) still lives | partial | The no-effect classes live on (`base::InitWithPos` sends their start event). A spell whose particle file is missing is cast anyway without an effect (a log line), where our wiki says the original refuses it ([life cycle](../../bw1-notes/magic.md#life-cycle-spellcpp-0x71fb40)) |
+| A miracle whose effect can't start is refused; one that has no effect (shield, teleport, flocks) still lives | partial | The no-effect classes live on (`base::InitWithPos` sends their start event). A spell whose particle file is missing is cast anyway without an effect (a log line), where our wiki says the original refuses it ([life cycle](../../../magic/spell-core.md#life-cycle)) |
 | A miracle cast on a thing starts at the thing and its effect follows it | done | `base::InitWithObject` casts at the object and adds it as the effect's target; `magic::CastAtObject` follows the seed's cast-on-object rule |
 | Miracles are processed in a fixed order each turn: shields, seeds, then every miracle kept up, then every miracle run | done | `magic::ProcessSpells` (`src/Magic/Core/Spell.cpp`): grid decay, `map_shield::ProcessShields`, `worship::ProcessSpellIcons`, every upkeep, then each spell's seed and turn |
 | A miracle ages each turn and closes when it outlives its duration | done | `ProcessMaintainRequest` in `src/Magic/Core/Spell.cpp` |
@@ -61,7 +61,7 @@ How the original does it, in our wiki: [Magic: the core of the miracles](../../b
 | A creature caster counts the things its miracles destroy | todo | TODO in `effects::ApplyEffect` |
 | The owner of a damaged thing keeps a tally of the damage each player did | todo | Not kept (`effects::ApplyEffect`: the per-player damage statistic) |
 | A town remembers which player attacked it last | done | `effects::ApplyEffect` calls `town_emergency::UpdateAggressor` with the caused player for a destructive effect on a town's villager or building |
-| Something crushed starts a "struck" reaction from the casting creature (or itself) for its owner | done | `effects::ApplyEffect`: REACT_TO_OBJECT_CRUSHED from the applier (or the object) for the object's player; (inferred) only villagers count as crushable |
+| Something crushed starts a "struck" reaction from the casting creature (or itself) for its owner | done | `effects::ApplyEffect`: REACT_TO_OBJECT_CRUSHED from the applier (or the object) for the object's player; 🔍 inferred only villagers count as crushable |
 | A creature changes its opinion of a creature whose miracles hit it, at most every minute, even in fights and for its own | todo | Creatures take no miracle hits |
 
 ## Alignment and belief from miracles
@@ -75,7 +75,7 @@ The player's alignment itself is in [../worship/](../worship/).
 | A change is softened the closer the alignment already is to that side | done | `alignment::ScaleChange`; test `SpellChants.alignmentScale` |
 | Pending alignment moves the player by at most a small step each turn, and the rest is dropped | done | `alignment::ProcessForPlayer` (the maximum change per turn times the clamped pending, then pending 0) |
 | A creature caster's own alignment changes by its own step each creature turn | todo | A creature-applied effect moves no alignment (TODO in `effects::ApplyEffect`) |
-| A history of alignment deeds is kept for statistics | n/a | Our tree keeps none. Our wiki differs: the history only feeds a debug overlay that retail never shows, so nothing in the game reads it ([alignment](../../bw1-notes/magic.md#player-alignment-galignment-gplayer-0x60-srcecseffectsalignment-componentsalignment)) |
+| A history of alignment deeds is kept for statistics | n/a | Our tree keeps none. Our wiki differs: the history only feeds a debug overlay that retail never shows, so nothing in the game reads it ([alignment](../../../magic/influence-and-alignment.md#player-alignment)) |
 | A creature tribe's power for a miracle is its player's | done | `magic::AllocSpell` gives the spell its creator's player; `GetTribalPower` uses it |
 | Tribal powers come from the worshipping tribes of each player | todo | Every tribe's power stays 1.0 (`PlayerMagic::tribalPower`); see [prayer_cost.md](prayer_cost.md) |
 
@@ -85,15 +85,15 @@ The player's alignment itself is in [../worship/](../worship/).
 |-----------|--------|---------------|
 | A miracle (on cast or on each strike, per its table) starts a reaction that spreads to the cells around it | done | `base::InitWithPos` and `spell_event::ApplyDefaultSpellEffect` call `reactions::CreateReaction` (`src/ECS/Effects/Reactions.cpp`), spread over the cells in its radius |
 | A reaction reaches further for a stronger miracle | partial | `reactions::SpreadReaction` walks the cells of the radius only; the scaling of the cell count by the spell's strength (our wiki's reading) is not applied |
-| Reactions that grow start small and widen each turn | n/a | Our tree gives a growing reaction radius 1 and spreads it once. Our wiki differs: the per-turn re-spread is behind a debug switch the game never turns on, so each reaction is offered only once ([animals](../../bw1-notes/animals.md#reactions)) |
-| One reaction is re-spread each turn in turn | n/a | Our tree spreads each reaction once, at creation. Our wiki differs: the original's re-spread is behind a debug switch the game never turns on ([animals](../../bw1-notes/animals.md#reactions)) |
+| Reactions that grow start small and widen each turn | n/a | Our tree gives a growing reaction radius 1 and spreads it once. Our wiki differs: the per-turn re-spread is behind a debug switch the game never turns on, so each reaction is offered only once ([animals](../../../beings/animal-life.md#reactions)) |
+| One reaction is re-spread each turn in turn | n/a | Our tree spreads each reaction once, at creation. Our wiki differs: the original's re-spread is behind a debug switch the game never turns on ([animals](../../../beings/animal-life.md#reactions)) |
 | Villagers and creatures within reach decide by priority: kind of reaction, distance and species | partial | Villagers and animals: `reactions::Score` with each type's priority (`VillagerReactions.cpp`, `src/ECS/AnimalFlee.cpp`); test `VillagerReactionsPure.Scores`. Creatures take no reactions (`ClassOf` in `Reactions.cpp`) |
 | Villagers flee a nasty miracle, the closer the more urgently | todo | The flee-from-spell reaction has no villager handler (`VillagerReactions.cpp` handles fire, teleport, shield, death, food and wood only) |
 | Villagers and creatures turn to look at a nice miracle | todo | The look-at-spell reactions have no handler |
 | A creature never flees its own miracle | todo | Creatures take no reactions |
 | Someone inside a shield doesn't react to a miracle outside it | done | `reactions::SpreadReaction` asks `map_shield::IsReactionBlockedByShield` for every villager and animal |
 | A villager in a shield's reaction weighs other reactions against it like any other | partial | The common switch rule (`SwitchAllowed`) covers only the food and wood reactions; a miracle reaction (fire, teleport, shield) reaching a villager in a miracle reaction goes to its own code (`DispatchMiracleReaction`, `VillagerReactions.cpp`) |
-| A reaction lasts its table's turns whatever the distance, and stops when what it reacts to goes | done | `reactions::StandardTurnsToReact` (`src/ECS/Effects/Reactions.cpp`); a gone initiator's reactions are pruned at the turn's start (`reactions::Prune`, approximate). Our wiki differs: the table's turns are lengthened for a closer villager ([reactions](../../bw1-notes/magic.md#reactions-ecseffectsreactions)) |
+| A reaction lasts its table's turns whatever the distance, and stops when what it reacts to goes | done | `reactions::StandardTurnsToReact` (`src/ECS/Effects/Reactions.cpp`); a gone initiator's reactions are pruned at the turn's start (`reactions::Prune`, approximate). Our wiki differs: the table's turns are lengthened for a closer villager ([reactions](../../../magic/influence-and-alignment.md#reactions)) |
 | A villager won't take the same reaction again too soon; the memory keeps three kinds | done | `reactions::Records` (three records, dropped after 1800 turns); test `VillagerReactionsTest.SetReactionDoneWhen` |
 | A more urgent different reaction takes over only after ten seconds (one second after being picked up) | done | `reactions::MaySwitch`; test `VillagerReactionsTest.FoodToWoodSwitchAfterTenSeconds` |
 | Only villagers and creatures free to react take it up (not dead, scripted, in a fight …) | partial | Villagers: `villager::IsAvailableForReaction` (test `VillagerReactionsTest.IsAvailableForReaction`); creatures take no reactions |

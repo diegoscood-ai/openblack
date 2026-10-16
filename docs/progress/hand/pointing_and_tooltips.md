@@ -6,7 +6,7 @@ their look belong to [../interface/](../interface/); this file covers which tool
 
 **Progress: 17/49 done, 4 partial — 39%**
 
-How the original does it, in our wiki: [The hand and the interface](../../bw1-notes/hand-and-interface.md).
+How the original does it, in our wiki: [The hand and the interface](../../../interface/tooltips.md).
 
 ## How the hand picks its tooltip
 

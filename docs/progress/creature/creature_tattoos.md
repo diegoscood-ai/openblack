@@ -7,7 +7,7 @@ they stay as it grows, changes shape and turns evil or good.
 
 **Progress: 32/56 done, 10 partial — 66%**
 
-How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../bw1-notes/creature.md).
+How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../../creature/overview.md).
 
 ## Opening the editor
 

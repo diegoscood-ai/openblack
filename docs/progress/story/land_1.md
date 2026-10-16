@@ -9,7 +9,7 @@ How the player can lose a land, and the game over: [losing_and_game_over.md](los
 
 **Progress: 1/33 done, 19 partial — 32%**
 
-How the original does it, in our wiki: [The Land 1 intro and the tutorial's script side](../../bw1-notes/intro.md).
+How the original does it, in our wiki: [The Land 1 intro and the tutorial's script side](../../../scripts/land1-intro.md).
 
 ## Opening and setup
 
@@ -19,9 +19,9 @@ How the original does it, in our wiki: [The Land 1 intro and the tutorial's scri
 | Setup places the first did-you-know scrolls, sets the starting belief of the villages and the weather | partial | `SetupLand1` places the did-you-know scrolls (`CreateHighlight`) and sets the weather; `SetVirtualInfluence`, `BeliefForPlayer` and `SetPlayerBelief` are stubs in `src/CHLApi.cpp`, so the starting belief is not set |
 | The family leads the player to their village ("follow us"); the mother waits if the hand falls behind and says so if it runs ahead | partial | `FollowUs` runs, checked in game up to the hand-over; the follow part after it is not checked; see tutorial.md |
 | The villagers finish building the temple and the advisors show the player its entrance and how to go in | partial | `CitadelGuide` calls only real natives (camera, advisors, `SetInterfaceCitadel`, `InsideTemple`), not checked in game; see [gold_scrolls/the_temple_is_finished.md](gold_scrolls/the_temple_is_finished.md), ../temple/temple_exterior.md; a cut early draft: [silver_scrolls/see_the_citadel.md](silver_scrolls/see_the_citadel.md) |
-| Camera zones keep the camera inside the parts of the land opened so far, widened as gates open | partial | `SetCameraZone` reads the zone files (`src/Camera/PlayerCameraScript`), but the player camera does not keep to them yet ([../../bw1-notes/script-camera.md](../../bw1-notes/script-camera.md#zones-and-fixed-rotation)); see ../camera/camera_limits.md |
+| Camera zones keep the camera inside the parts of the land opened so far, widened as gates open | partial | `SetCameraZone` reads the zone files (`src/Camera/PlayerCameraScript`), but the player camera does not keep to them yet ([player-camera.md](../../../camera/player-camera.md#zones-and-fixed-rotation)); see ../camera/camera_limits.md |
 | The hidden phone box of the first land, with its jokey recorded messages | todo | its script was not traced here; see ../scripts/challenge_scripts.md |
-| A new game can skip the opening (straight to choosing a creature), skip all of the first land's story, or keep the old creature (patch 1.1) | done | the SkipBox (`src/Gui/SkipBox`) with its four answers and `CanSkipTutorial`, `CanSkipCreatureTraining`, `IsKeepingOldCreature`, `CurrentProfileHasCreature` (the `--creature-file` profile creature) are real; see [../../bw1-notes/map-loading.md](../../bw1-notes/map-loading.md#skipping-the-tutorial-skipbox-and-can_skip_tutorial) |
+| A new game can skip the opening (straight to choosing a creature), skip all of the first land's story, or keep the old creature (patch 1.1) | done | the SkipBox (`src/Gui/SkipBox`) with its four answers and `CanSkipTutorial`, `CanSkipCreatureTraining`, `IsKeepingOldCreature`, `CurrentProfileHasCreature` (the `--creature-file` profile creature) are real; see [land-change-and-saving.md](../../../scripts/land-change-and-saving.md#skipping-the-tutorial-skipbox-and-can_skip_tutorial) |
 
 ## Choosing the creature (gold)
 

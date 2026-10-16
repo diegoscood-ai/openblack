@@ -7,7 +7,7 @@ in [../miracles/](../miracles/).
 
 **Progress: 18/23 done, 2 partial — 83%**
 
-How the original does it, in our wiki: [The hand and the interface](../../bw1-notes/hand-and-interface.md).
+How the original does it, in our wiki: [The hand and the interface](../../../hand/animation-and-placement.md).
 
 ## Holding a miracle
 

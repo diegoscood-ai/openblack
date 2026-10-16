@@ -9,7 +9,7 @@ Given by gold scroll: the monk's two water one-shot miracles in
 
 **Progress: 32/41 done, 6 partial — 85%**
 
-How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/miracles.md).
+How the original does it, in our wiki: [Miracles one by one](../../../magic/food-wood-water-heal.md).
 
 ## Casting and lifetime
 

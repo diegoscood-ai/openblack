@@ -7,7 +7,7 @@ The creature's own body, mind and leash are in [../creature/](../creature/).
 
 **Progress: 17/72 done, 23 partial — 40%**
 
-How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/miracles.md).
+How the original does it, in our wiki: [Miracles one by one](../../../magic/spell-core.md).
 
 ## Casting a creature spell
 
@@ -19,7 +19,7 @@ How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/mir
 | The miracle stays open until the creature lets the spell go, then closes | done | `spell_creature::Receive` lifts the miracle's time limit; `ProcessTurn` closes it when the spell ends, `src/Magic/Spells/SpellCreature.cpp`; `test/creature/test_spell_creature.cpp` `ACreatureTakesTheMiracleOnForItsTimeAndTheMiracleNoLongerRunsOut` |
 | The player's hand pours a stream of magic onto the creature for four seconds | todo | The hand can't cast creature spells yet |
 | Creature spells reach the player from worship-site icons in some towns | partial | Icons and the reverse-spiral selection handle the creature seeds like any other (`src/Worship/WorshipSpellIcon.cpp`, `src/Magic/Gestures/PowerUpSystem.cpp`), but a creature seed in the hand can't be cast |
-| Some come as one-off rewards from fireflies on Lands 2, 4 and 5 (freeze, small, big, weak, strong, invisible, compassion, angry, itchy; about 1% each); fat, thin and the five need spells are never in a firefly table | partial | The firefly reward is wired (`src/Worship/FireFlyReward.cpp`, `FIRE_FLY_SPELL_REWARD_PROB`). Our wiki differs: only Land1.txt sets firefly reward probabilities (HEAL and six player miracles), no creature spell ([magic.md](../../bw1-notes/magic.md#dispensers-and-fireflies-worshipspelldispensercpp-worshipfireflyrewardcpp)) |
+| Some come as one-off rewards from fireflies on Lands 2, 4 and 5 (freeze, small, big, weak, strong, invisible, compassion, angry, itchy; about 1% each); fat, thin and the five need spells are never in a firefly table | partial | The firefly reward is wired (`src/Worship/FireFlyReward.cpp`, `FIRE_FLY_SPELL_REWARD_PROB`). Our wiki differs: only Land1.txt sets firefly reward probabilities (HEAL and six player miracles), no creature spell ([magic.md](../../../magic/worship.md#dispensers-and-fireflies)) |
 
 ## How a spell takes hold
 

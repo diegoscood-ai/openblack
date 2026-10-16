@@ -7,14 +7,14 @@ the body, and what the creature is told when the hand lets go. What the creature
 
 **Progress: 20/46 done, 11 partial — 55%**
 
-How the original does it, in our wiki: [The hand and the interface](../../bw1-notes/hand-and-interface.md).
+How the original does it, in our wiki: [The hand and the interface](../../../hand/states.md).
 
 ## Taking hold
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | Holding the Action button over a creature takes hold of it | done | `hand_press::Branch::Creature` -> `SendStartLockedSelect`; the turn locks it (`HandTurn.cpp`, `CreatureHandSystem::Grab`), then `HandSystem::UpdateCreatureLock` / `UpdateCreatureFrame`; tests `HandCreatureLock.*`, `HandCreatureFrame.*` (`test/test_hand_creature.cpp`) |
-| Any player's creature can be held, not only the player's own, unless it is asleep or frozen; never an ogre | done | Only the player's own creature (`creature_hand::TakesPress`, `IsFriendlyTo`), not asleep or frozen, never an ogre (`creature_hand::MayHold`); test `CreatureHandSystemTest.OnlyAPlayersCreatureMayBeHeld`. Our wiki differs: the original holds only its own or an allied player's creature, not any god's ([page](../../bw1-notes/hand-and-interface.md#the-hand-on-a-creature)) |
+| Any player's creature can be held, not only the player's own, unless it is asleep or frozen; never an ogre | done | Only the player's own creature (`creature_hand::TakesPress`, `IsFriendlyTo`), not asleep or frozen, never an ogre (`creature_hand::MayHold`); test `CreatureHandSystemTest.OnlyAPlayersCreatureMayBeHeld`. Our wiki differs: the original holds only its own or an allied player's creature, not any god's ([page](../../../hand/states.md#the-hand-on-a-creature)) |
 | A press let go quickly, before stroking or slapping, is a click, which puts the leash on instead | done | A let-go within 450 ms of camera time on the own creature sends the click packet, which presses the leash key (`creature_hand::IsClick`, `hand_creature::StepFrame`, `CreatureHandPackets.cpp`); test `HandCreatureFrame.ALetGoWithinAClickOfTheOwnCreatureSendsTheClickThenTheFeedback` |
 | The nearest creature along the line of sight is the one taken hold of | done | The cursor's pick takes creatures by capsules round their posed bones (`CreatureHandSystem::CreatureAlong`, called from `HandPlacement.cpp`), the nearest wins; test `CreatureHandSystemTest.TheNearestCreatureAlongASightAndHowFar` |
 | Holding a creature can't be done while the hand holds a miracle | done | The creature branch needs an empty hand (`hand_press::EmptyHandOverNothing`), so a seed in the hand blocks it |

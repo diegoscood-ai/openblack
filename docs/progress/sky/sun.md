@@ -7,7 +7,7 @@ sea's horizon or (at some detail levels) objects hide the sun.
 
 **Progress: 33/43 done, 4 partial — 81%**
 
-How the original does it, in our wiki: [Day, night and weather in the original](../../bw1-notes/day-night-weather.md), [World rendering: original versus openblack](../../bw1-notes/rendering.md).
+How the original does it, in our wiki: [Day, night and weather in the original](../../../world/sky.md), [World rendering: original versus openblack](../../../world/sky.md).
 
 ## Where it stands
 
@@ -40,7 +40,7 @@ How the original does it, in our wiki: [Day, night and weather in the original](
 | Its texture is a 256 by 256 picture (sun.raw); the square shows the part from 0.5 to 0.75 across and from 0.25 down | done | `raw/sun` in `Renderer::DrawSun`; the texture coordinates come from the mesh |
 | The texture is cut to 5 bits a channel as the game stores it | done | The raw texture load |
 | It is tinted a warm 0x957C63, with the strength as its alpha | done | `Renderer::DrawSun` |
-| It is added to the sky behind it, using its alpha | done | `Renderer::DrawSun` (additive, source alpha and one, as our wiki gives it: [rendering.md](../../bw1-notes/rendering.md#sky-sun-moon-and-clouds-original)) |
+| It is added to the sky behind it, using its alpha | done | `Renderer::DrawSun` (additive, source alpha and one, as our wiki gives it: [rendering.md](../../../world/sky.md#sky-sun-moon-and-clouds-original)) |
 | Its colour does not change with the time of day, the alignment or the climate, only its strength | done | `Renderer::DrawSun` |
 | There are no lens flares or rings: only the disc and its glare | done | Nothing else is drawn |
 

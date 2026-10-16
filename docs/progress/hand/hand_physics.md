@@ -10,7 +10,7 @@ openblack: the spring is in `HandPlacement.cpp` (`src/ECS/Systems/Implementation
 
 **Progress: 16/21 done, 4 partial — 86%**
 
-How the original does it, in our wiki: [The hand and the interface](../../bw1-notes/hand-and-interface.md).
+How the original does it, in our wiki: [The hand and the interface](../../../hand/states.md).
 
 ## The held thing's spring
 
@@ -51,4 +51,4 @@ How the original does it, in our wiki: [The hand and the interface](../../bw1-no
 | Spinning the hand while holding a miracle gives it a spin from the hand's sideways acceleration | done | `magic::StepHandSpin` (`src/Magic/HandMotion.cpp`) from `HandHolding.cpp`: the angular velocity (0, -(a_s / v_s), 0) from the smoothed sideways acceleration |
 | Below a small speed the hand is taken as still | done | `magic::StepHandSpin`: no angular velocity at a speed of 0.0001 or less (`magic::k_HandStill`) |
 | A spring-smoothed copy of the cursor trails it, which leans the hand and tilts what it holds | done | `HandSystem::Update`: the smoothed mouse (clamped to 80 px) leans the hand, and `HandSystem::HeldSway` tilts what it holds, up to 0.3 rad (`magic::hand_hold::CursorSway`) |
-| Fast hand movement blows smoke and bends trees | done | `chimney_smoke::UpdateHandWind` (`src/ECS/ChimneySmoke.cpp`); trees bend from what the hand carries (`UpdateTreeBends`, `src/ECS/Trees.cpp`). Our wiki differs: the trees bend away from what the hand carries, not from the hand's own movement ([page](../../bw1-notes/trees.md#drawing)) |
+| Fast hand movement blows smoke and bends trees | done | `chimney_smoke::UpdateHandWind` (`src/ECS/ChimneySmoke.cpp`); trees bend from what the hand carries (`UpdateTreeBends`, `src/ECS/Trees.cpp`). Our wiki differs: the trees bend away from what the hand carries, not from the hand's own movement ([page](../../../world/trees.md#drawing)) |

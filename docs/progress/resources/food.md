@@ -5,7 +5,7 @@ store, and is eaten by villagers, worshippers and the creature. The player can g
 
 **Progress: 13/20 done, 5 partial — 78%**
 
-How the original does it, in our wiki: [Objects and resources](../../bw1-notes/objects-and-resources.md).
+How the original does it, in our wiki: [Objects and resources](../../../world/objects.md).
 
 ## Where food comes from
 

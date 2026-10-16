@@ -5,7 +5,7 @@ chill out in the evening, gossip, dance round the town's artefacts and celebrate
 
 **Progress: 4/19 done, 1 partial — 24%**
 
-How the original does it, in our wiki: [Villagers: data, state machine and speed](../../bw1-notes/villagers.md).
+How the original does it, in our wiki: [Villagers: data, state machine and speed](../../../beings/villager-states.md).
 
 ## Playtime and relaxation
 
@@ -34,7 +34,7 @@ How the original does it, in our wiki: [Villagers: data, state machine and speed
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | Villagers stop to gossip with each other | todo | `VILLAGER_GOSSIPS` is a TODO row |
-| Housewives gossip round the storage pit | n/a | `HOUSEWIFE_GOSSIPS_AROUND_STORAGE_PIT` is a TODO row. Our wiki differs: the housewife's day, the gossip included, is dead code in this version of the original ([villagers](../../bw1-notes/villagers.md#pregnancy-and-births)) |
+| Housewives gossip round the storage pit | n/a | `HOUSEWIFE_GOSSIPS_AROUND_STORAGE_PIT` is a TODO row. Our wiki differs: the housewife's day, the gossip included, is dead code in this version of the original ([villagers](../../../beings/villager-life.md#pregnancy-and-births)) |
 | Villagers tell others about something interesting they found, walking up to them | todo | the telling states (`INITIALISE_TELL_OTHERS_ABOUT_OBJECT` and the rest) are TODO rows |
 | Villagers dance round the town's artefacts, which impresses the town | todo | See ../town/artefacts.md |
 | Villagers congregate in town after an emergency | done | states 242 and 243 (`src/ECS/Villager/VillagerEmergency.cpp`); See ../town/emergencies_and_aggression.md |

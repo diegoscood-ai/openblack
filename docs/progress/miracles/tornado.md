@@ -6,13 +6,13 @@ and in-cloud lightning are described in [storm.md](storm.md).
 
 **Progress: 26/34 done, 3 partial — 81%**
 
-How the original does it, in our wiki: [Vortexes and the tornado: objects swallowed, carried and flung](../../bw1-notes/vortex.md), [Miracles one by one](../../bw1-notes/miracles.md).
+How the original does it, in our wiki: [Vortexes and the tornado: objects swallowed, carried and flung](../../../world/vortex.md), [Miracles one by one](../../../magic/storm-and-tornado.md).
 
 ## Casting and cost
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The tornado comes with the storm's clouds and rain; its in-cloud lightning does not set fires | done | `src/Particles/Rules/Storm.cpp`, `src/Magic/Spells/SpellStormAndTornado.cpp` (the info.dat rows). Our wiki differs: the tornado's row has no rain (rain amount 0), so the tornado does not rain ([page](../../bw1-notes/miracles.md#the-spell-spellstormandtornadocpp-0xf8-bytes-vtable-0x9847dc)) |
+| The tornado comes with the storm's clouds and rain; its in-cloud lightning does not set fires | done | `src/Particles/Rules/Storm.cpp`, `src/Magic/Spells/SpellStormAndTornado.cpp` (the info.dat rows). Our wiki differs: the tornado's row has no rain (rain amount 0), so the tornado does not rain ([page](../../../magic/storm-and-tornado.md#the-spell)) |
 | Upkeep each turn grows with the square of the radius, and each object picked up costs prayer power | done | `src/Magic/Spells/SpellStormAndTornado.cpp` (CostToMaintain), `src/Particles/Rules/Storm.cpp` (each pick-up asks the spell, which pays for the event) |
 | The funnel's foot pushes and hurts what it passes over a little, every step | done | `src/Particles/Rules/Storm.cpp` (an event at the base every step while not closing) |
 
@@ -40,7 +40,7 @@ How the original does it, in our wiki: [Vortexes and the tornado: objects swallo
 | Trees, villagers (dead ones too, but not those hidden in buildings), animals, rocks and other loose things, and small pots can be lifted; buildings never | done | `src/Particles/Rules/Storm.cpp` (CanSuckUp), `src/ECS/Physics/ParticleCarriedObjects.cpp`; a dying villager is not carried |
 | Only things small enough for the funnel are lifted | done | `src/Particles/Rules/Storm.cpp` (CanSuckUp: twice the base radius and the next radius larger than the object) |
 | A food or wood pile too big to lift gives up a pot of 150 to 650 by the funnel's size; a pile dropped from the hand is lifted whole | done | `src/Particles/Rules/Storm.cpp` (SplitPile: a new hand pile of 150 to 650 by the funnel's size) |
-| Storage pits are never emptied | done | `src/Particles/Rules/Storm.cpp` (SplitPile takes a store's pile from its store, as the hand does). Our wiki differs: a pile at a store gives its share from the store ([page](../../bw1-notes/miracles.md#the-tornado-ur_tornado-0x6d18b0-ctor-0x6d1680)) |
+| Storage pits are never emptied | done | `src/Particles/Rules/Storm.cpp` (SplitPile takes a store's pile from its store, as the hand does). Our wiki differs: a pile at a store gives its share from the store ([page](../../../magic/storm-and-tornado.md#the-tornado)) |
 | Only things the miracle can destroy are taken | done | `src/Particles/Rules/Storm.cpp` (the can-destroy event), `src/Particles/Rules/Explosion.cpp` (CanBeDestroyedBySpell) |
 | Field crops are lifted too | todo | openblack has no field-crop objects |
 | Things a script marks as immovable stay put | todo | The object flag is not checked (a note in CanSuckUp, `src/Particles/Rules/Storm.cpp`); script object flags are not in openblack |

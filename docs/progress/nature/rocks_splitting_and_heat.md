@@ -50,7 +50,7 @@ openblack: `src/ECS/ObjectPhysics.cpp` (splitting and the tap), `src/ECS/Physics
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Tapping a rock taller than 0.7 m in the player's influence splits it, with one of four cracking sounds in turn, and the player's creature sees the player playing | partial | `object_physics::TapRock` from `HandSystem.cpp` (one of four cracking sounds in turn); the influence test before the tap and the creature's reaction are not there ([physics.md](../../bw1-notes/physics.md#pending)); see [../hand/clicking_and_activating.md](../hand/clicking_and_activating.md) |
+| Tapping a rock taller than 0.7 m in the player's influence splits it, with one of four cracking sounds in turn, and the player's creature sees the player playing | partial | `object_physics::TapRock` from `HandSystem.cpp` (one of four cracking sounds in turn); the influence test before the tap and the creature's reaction are not there ([physics.md](../../../physics/physics.md#pending)); see [../hand/clicking_and_activating.md](../hand/clicking_and_activating.md) |
 | The tooltip over a tappable rock says "hit to break" | done | `HandToolTips.cpp` (the rock's own tap tooltip) |
 | At the blow of its smash, the creature splits the rock it hits, with one of four smashing sounds in turn | todo | The creature's knock-down action takes homes, trees and mobile objects, not rocks (`CreatureObjectActionSystem::CanDestroy`) |
 | The creature's blow on a villager or animal does nothing (the game's smash only breaks rocks and buildings) | done | `CreatureObjectActionSystem::CanDestroy` refuses villagers and animals |
@@ -84,7 +84,7 @@ openblack: `src/ECS/ObjectPhysics.cpp` (splitting and the tap), `src/ECS/Physics
 | In the open a rock cools by its surface over its 4000 units of heat, so a big rock stays hot for minutes; rain cools it faster | done | `fire::Step` and `fire::CoolingArea` (`src/Fire/FireModel.cpp`) |
 | Dropped in water (or on the shore, under 2 m up) it cools fifty times faster, hissing with steam once while hotter than 75 | partial | Fifty times faster (`fire::Step`, `src/Fire/FireModel.cpp`) and the steam above 75 (`src/ECS/Fire/FireGraphic.cpp`); no hiss sound in our tree |
 | A hot rock glows red-orange, a thousandth of full per degree with a 20% flicker, full at 1000 | done | `graphic::CharringGlow` (`src/ECS/Fire/FireGraphic.cpp`; the flicker's noise is approximated) |
-| A burning rock crackles like any fire, the nearest fire on the ground holding the loop | done | `src/ECS/Fire/FireSound.cpp`. Our wiki differs: the two fires nearest the camera hold the loop, not one ([magic.md](../../bw1-notes/magic.md#fire-srcecsfire)) |
+| A burning rock crackles like any fire, the nearest fire on the ground holding the loop | done | `src/ECS/Fire/FireSound.cpp`. Our wiki differs: the two fires nearest the camera hold the loop, not one ([magic.md](../../../world/fire.md#fire)) |
 | A script can ask whether something is on fire near a place; a rock at 500 or more counts | done | `script::IsFireNear` (`src/Magic/Script/CHLFire.cpp`) |
 
 ## The creature and hot rocks

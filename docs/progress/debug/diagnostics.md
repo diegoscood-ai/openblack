@@ -5,7 +5,7 @@ profiler, frame statistics, benchmarks, screenshots and crash reports.
 
 **Progress: 15/19 done, 3 partial — 87%**
 
-How the original does it, in our wiki: [openblack internals](../../bw1-notes/openblack-internals.md).
+How the original does it, in our wiki: [openblack internals](../../internals.md).
 
 ## Command line
 

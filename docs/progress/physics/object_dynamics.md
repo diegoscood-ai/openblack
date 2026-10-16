@@ -18,7 +18,7 @@ bodies between turns. Each kind's material, weight and shape are in `PhysicsObje
 
 **Progress: 36/43 done, 6 partial — 91%**
 
-How the original does it, in our wiki: [Physics: thrown objects, collisions, damage and rocks that split](../../bw1-notes/physics.md).
+How the original does it, in our wiki: [Physics: thrown objects, collisions, damage and rocks that split](../../../physics/physics.md).
 
 ## Simulation and timing
 
@@ -48,7 +48,7 @@ How the original does it, in our wiki: [Physics: thrown objects, collisions, dam
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| An object's mass is its info weight times its scale cubed, and never below 0.01 (trees excepted) | done | `PhysicsObjects::Weight` (at least 0.01). Our wiki differs: the minimum of 0.01 applies to every object, trees included ([physics.md](../../bw1-notes/physics.md#bodies)) |
+| An object's mass is its info weight times its scale cubed, and never below 0.01 (trees excepted) | done | `PhysicsObjects::Weight` (at least 0.01). Our wiki differs: the minimum of 0.01 applies to every object, trees included ([physics.md](../../../physics/physics.md#bodies)) |
 | Villagers weigh 82.5 at scale 1; buildings count as 2000 and never move; the temple heart and the gates 10000, the creature 1000, the physical shield 50000 times its scale cubed, all static | partial | `PhysicsObjects::Weight`: villagers from info.dat (82.5), buildings 2000, the physical shield from its info at the collision scale, the creature a stand-in 1000 (`creature_physics::k_Mass`); no temple heart or gates in the physics |
 | Each kind of object takes one of 24 material rows from `Data/PhysicsConstants.txt`: density, contact stiffness, contact damping, friction, how much spin is kept each second, and air drag | done | `PhysicsObjects::LoadConstants` reads `Data/PhysicsConstants.txt` through the resource caches |
 | Material values are clamped when loaded (density 0.05 to 3, stiffness 0 to 240, damping 0 to 10, friction 0 to 3, spin kept 0.2 to 1, drag 0 to 4); rows past the file's count copy the first one; without the file every row is zero (the game has no built-in values) | partial | `PhysicsObjects::LoadConstants` clamps each column and copies row 0 past the file's count; without the file a built-in table is used, not zeros |

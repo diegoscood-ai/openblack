@@ -7,7 +7,7 @@ intro and the falling-spell film; the other three are only decoded, for the debu
 
 **Progress: 9/29 done, 9 partial — 47%**
 
-How the original does it, in our wiki: [Bink videos (.bik)](../../bw1-notes/video.md).
+How the original does it, in our wiki: [Bink videos (.bik)](../../../video/bink.md).
 
 ## The files
 

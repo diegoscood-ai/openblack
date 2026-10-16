@@ -6,7 +6,7 @@ power-up is the tornado (see [tornado.md](tornado.md)). Weather outside miracles
 
 **Progress: 32/35 done, 2 partial — 94%**
 
-How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/miracles.md).
+How the original does it, in our wiki: [Miracles one by one](../../../magic/storm-and-tornado.md).
 
 ## Casting and cost
 
@@ -63,7 +63,7 @@ How the original does it, in our wiki: [Miracles one by one](../../bw1-notes/mir
 | Struck things catch fire and take damage, and each strike costs prayer power | done | `src/Magic/Core/SpellEvent.cpp`, `src/ECS/Effects/EffectValues.cpp` |
 | Thunder (small, medium or large at random) sounds from the land under the striking cloud, delayed by its distance at the speed of sound | done | `src/Particles/Rules/Storm.cpp` (random size, delayed by the distance and set on the ground), `src/Audio/Services/SpellSounds.cpp` |
 | Thunder far from the camera is not heard, which keeps the number of thunders down | done | `src/Audio/Services/SpellSounds.cpp` (a sample farther than its maximum distance is not started) |
-| The extreme storm is turned aside by shields it passes over | done | `src/Particles/Rules/Storm.cpp` (shield deflections of the cores only at the tornado's level). Our wiki differs: only the second power-up (the tornado) bounces its cores off shields, not the first ([page](../../bw1-notes/miracles.md#the-cores-and-the-clouds-ur_cloudmovernew-0x6d41c0-ur_cloudgather-0x6d4a70)) |
+| The extreme storm is turned aside by shields it passes over | done | `src/Particles/Rules/Storm.cpp` (shield deflections of the cores only at the tornado's level). Our wiki differs: only the second power-up (the tornado) bounces its cores off shields, not the first ([page](../../../magic/storm-and-tornado.md#the-cores-and-the-clouds)) |
 
 ## Reactions and saving
 

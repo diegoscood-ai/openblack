@@ -6,7 +6,7 @@ much it eats and how hard it hits.
 
 **Progress: 27/36 done, 2 partial — 78%**
 
-How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../bw1-notes/creature.md).
+How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../../creature/body.md).
 
 ## Growing
 
@@ -29,8 +29,8 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 | Size 1 stands about 15 units tall whatever the species' mesh | done | `creature_morph` `k_HeightAtSizeOne`; test `ACreatureOfSizeOneIsFifteenUnitsTall` |
 | The drawn size is kept between a smallest and a largest | done | `creature_morph::ClampScale`; test `SizeIsKeptBetweenItsLimits` |
 | The mesh is scaled by the creature's size and the species' own scale | done | `creature_morph` scale, `CreatureArchetype::DrawnScale` |
-| Near its player's citadel the creature is shrunk down so that it fits (unconfirmed by how much) | done | `ecs::player_creature::ShrinkInPens` (`src/ECS/PlayerCreature.cpp`, each creature turn): 0.22 within 14 m of its pen home between the pen's walls, back to its size at 16 m; drawn only (`components::CreatureDrawPose::scale`); test `CreatureDrawnBody.InItsPenTheEyesShrinkWithTheBody`. Our wiki has the numbers ([page](../../bw1-notes/creature.md#the-players-creature)) |
-| Inside the temple's creature room it is shown at the room's size | todo | the Creature Cave draws no creature yet; see [creature_cave.md](creature_cave.md). Our wiki differs: the Cave's copy of the creature takes its real size, not one of the room's ([page](../../bw1-notes/creature.md#the-players-creature)) |
+| Near its player's citadel the creature is shrunk down so that it fits (unconfirmed by how much) | done | `ecs::player_creature::ShrinkInPens` (`src/ECS/PlayerCreature.cpp`, each creature turn): 0.22 within 14 m of its pen home between the pen's walls, back to its size at 16 m; drawn only (`components::CreatureDrawPose::scale`); test `CreatureDrawnBody.InItsPenTheEyesShrinkWithTheBody`. Our wiki has the numbers ([page](../../../creature/players-creature.md#the-players-creature)) |
+| Inside the temple's creature room it is shown at the room's size | todo | the Creature Cave draws no creature yet; see [creature_cave.md](creature_cave.md). Our wiki differs: the Cave's copy of the creature takes its real size, not one of the room's ([page](../../../creature/players-creature.md#the-players-creature)) |
 | The creature's size is a value in the Creature Cave's attributes scroll | todo | the cave's snapshot and the attributes scroll have no size (`creature_cave::Snapshot`, `src/Creature/CreatureCave.cpp`) |
 
 ## What size changes

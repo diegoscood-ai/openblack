@@ -25,7 +25,7 @@ todo unless the notes say otherwise.
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The land's control script starts it as Land 5 begins, but only if the missionaries' boat sailed in the first land, a flag set at the very end of [The Explorers](./the_explorers.md) when they leave happily (after the water-miracle dispenser reward) | todo | `LandControl5` never runs: `LOAD_MAP` is empty ([map-loading](../../../bw1-notes/map-loading.md#pending)); the flag is a global of the challenge program and lives as long as the story does |
+| The land's control script starts it as Land 5 begins, but only if the missionaries' boat sailed in the first land, a flag set at the very end of [The Explorers](./the_explorers.md) when they leave happily (after the water-miracle dispenser reward) | todo | `LandControl5` never runs: `LOAD_MAP` is empty ([map-loading](../../../../scripts/map-script-reader.md#pending)); the flag is a global of the challenge program and lives as long as the story does |
 | If the boat never sailed (the challenge was ignored, failed, or the missionaries were killed) nothing at all is made: no wreck, no settlement, no scroll | todo | the quest never starts: no Land 5 (`LOAD_MAP` is empty) |
 | A single-quest test launcher that sets the flag and starts it exists in the sources but is not part of the shipped game | n/a | developer test only |
 | It is started in the background alongside the land's other challenges and has no time limit | todo | the quest never starts: no Land 5 (`LOAD_MAP` is empty) |

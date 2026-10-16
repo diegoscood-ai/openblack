@@ -21,7 +21,7 @@ swap that ends the quest is described in full in [creature_swaps.md](./creature_
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The quest's script is started by the land's control script as soon as the player has come through the vortex onto the land | todo | `LandControl3` never runs: `LOAD_MAP` is empty ([map-loading](../../../bw1-notes/map-loading.md#pending)) |
+| The quest's script is started by the land's control script as soon as the player has come through the vortex onto the land | todo | `LandControl3` never runs: `LOAD_MAP` is empty ([map-loading](../../../../scripts/map-script-reader.md#pending)) |
 | It then checks every 10 seconds whether the Egyptian village (Lethys's at the start) belongs to the player; nothing shows until it does | todo | reading a town's owner (`GetProperty` player) is not ported; no other condition, so it can appear while the creature is still Lethys's prisoner |
 | Once the Egyptian village is the player's, the challenge is registered and a silver scroll appears 4 above the lone Celtic hut, some 440 from the Egyptian village | todo | `CreateHighlight` and the height property (`SetProperty` y position) work; `Snapshot` is a stub; the quest never starts: no Land 3 (`LOAD_MAP` is empty) |
 | Until the scroll or the hut is clicked, whenever the camera is within 100 of the scroll and it is on screen, the evil advisor steps out at most every 30 seconds, points at it and says "A Silver Reward Scroll. Let's see what it's all about." | todo | the shared notify script's natives work (`SpiritEject`, `SpiritPointPos`, `RunText`); the quest never starts: no Land 3 (`LOAD_MAP` is empty) |

@@ -6,7 +6,7 @@ the aggression and compassion leashes, which make the creature angry or kind for
 
 **Progress: 28/53 done, 15 partial — 67%**
 
-How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../bw1-notes/creature.md).
+How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../../creature/leash.md).
 
 ## Which creature and which leash
 
@@ -85,7 +85,7 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Scripts can tie a creature's leash to an object, back to the hand, or take it off | partial | `ATTACH_OBJECT_LEASH_TO_OBJECT`, `ATTACH_OBJECT_LEASH_TO_HAND`, `DETACH_OBJECT_LEASH` in `src/CHLApi.cpp` through `src/Creature/LeashScript`; tests `LeashScriptTest.*`. The original refuses only a creature that does not know the learning leash, and then takes the leash off; ours refuses more and leaves it (queued as a fix) ([creature.md](../../bw1-notes/creature.md#what-openblack-does-with-the-leash-natives)) |
+| Scripts can tie a creature's leash to an object, back to the hand, or take it off | partial | `ATTACH_OBJECT_LEASH_TO_OBJECT`, `ATTACH_OBJECT_LEASH_TO_HAND`, `DETACH_OBJECT_LEASH` in `src/CHLApi.cpp` through `src/Creature/LeashScript`; tests `LeashScriptTest.*`. The original refuses only a creature that does not know the learning leash, and then takes the leash off; ours refuses more and leaves it (queued as a fix) ([creature.md](../../../creature/leash.md#what-openblack-does-with-the-leash-natives)) |
 | Scripts can ask whether a creature is leashed, to what, and on which leash | done | `IS_LEASHED`, `IS_LEASHED_TO_OBJECT`, `GET_OBJECT_LEASH_TYPE` (`src/Creature/LeashScript`); tests `LeashScriptTest.IsLeashedAsksTheLeash`, `IsLeashedToThingComparesTheTie`, `TypeOfNumbersThePickedLeashAsTheScriptsDo`; the Pied Piper is caught by tying the creature's leash to him, a person, and dragging him from his cave: [the_pied_piper.md](../story/silver_scrolls/the_pied_piper.md) |
 | Scripts can toggle a player's leash as the key does | done | `TOGGLE_LEASH`; test `LeashScriptTest.TogglePressesTheLeashKeyForTheScriptsPlayer` |
 | Computer players leash their creatures to things and to other creatures to teach or fight | todo | see [../multiplayer](../multiplayer/) and [learning_by_observation.md](learning_by_observation.md) |

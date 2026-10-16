@@ -6,7 +6,7 @@ camera controls are in [../camera](../camera/).
 
 **Progress: 16/31 done, 11 partial — 69%**
 
-How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../bw1-notes/creature.md).
+How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../../creature/overview.md).
 
 ## Locking onto a creature
 

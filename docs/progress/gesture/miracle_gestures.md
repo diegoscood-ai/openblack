@@ -6,7 +6,7 @@ miracles themselves, and what they do once cast, are in [../miracles/](../miracl
 
 **Progress: 19/25 done, 2 partial — 80%**
 
-How the original does it, in our wiki: [Magic: the core of the miracles](../../bw1-notes/magic.md).
+How the original does it, in our wiki: [Magic: the core of the miracles](../../../magic/gestures.md).
 
 ## Sizing with a circle
 

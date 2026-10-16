@@ -6,7 +6,7 @@ and with the detail options.
 
 **Progress: 8/12 done, 1 partial — 71%**
 
-How the original does it, in our wiki: [Day, night and weather in the original](../../bw1-notes/day-night-weather.md), [World rendering: original versus openblack](../../bw1-notes/rendering.md).
+How the original does it, in our wiki: [Day, night and weather in the original](../../../world/sky.md), [World rendering: original versus openblack](../../../world/sky.md).
 
 ## Day and night between them
 

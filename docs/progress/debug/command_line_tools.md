@@ -7,7 +7,7 @@ The game's own switches for the testbed (`--testbed`, `--scenario`, `--benchmark
 
 **Progress: 13/23 done, 0 partial — 57%**
 
-How the original does it, in our wiki: [Tools and formats](../../bw1-notes/tooling.md), [openblack internals](../../bw1-notes/openblack-internals.md).
+How the original does it, in our wiki: [Tools and formats](../../research-tools.md), [openblack internals](../../internals.md).
 
 ## Tools
 

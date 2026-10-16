@@ -6,7 +6,7 @@ gestures it is waiting for at that moment.
 
 **Progress: 29/34 done, 3 partial — 90%**
 
-How the original does it, in our wiki: [Magic: the core of the miracles](../../bw1-notes/magic.md).
+How the original does it, in our wiki: [Magic: the core of the miracles](../../../magic/gestures.md).
 
 ## The gesture templates
 

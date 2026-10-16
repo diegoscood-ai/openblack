@@ -9,7 +9,7 @@ order. Tests: `test/test_hand_press_chain.cpp`, `test/test_hand_pick_reject.cpp`
 
 **Progress: 24/35 done, 5 partial — 76%**
 
-How the original does it, in our wiki: [The hand and the interface](../../bw1-notes/hand-and-interface.md).
+How the original does it, in our wiki: [The hand and the interface](../../../hand/picking.md).
 
 ## When the hand may take something
 

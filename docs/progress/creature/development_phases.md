@@ -6,13 +6,13 @@ brings and takes away desires, and gates what it can learn. The first stages com
 
 **Progress: 6/47 done, 12 partial — 26%**
 
-How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../bw1-notes/creature.md).
+How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../../creature/overview.md).
 
 ## How stages work
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| A creature is at one of fourteen stages, from the first to fully mature | partial | the stage is kept (`CreatureMindState::developmentPhase`, `src/ECS/Components/CreatureMind.h`, 0 to `k_FullyGrownUp` 13), but every creature starts fully mature unless its mind file or a script says otherwise; the original's starts at the first stage ([creature.md](../../bw1-notes/creature.md#the-players-creature)) |
+| A creature is at one of fourteen stages, from the first to fully mature | partial | the stage is kept (`CreatureMindState::developmentPhase`, `src/ECS/Components/CreatureMind.h`, 0 to `k_FullyGrownUp` 13), but every creature starts fully mature unless its mind file or a script says otherwise; the original's starts at the first stage ([creature.md](../../../creature/players-creature.md#the-players-creature)) |
 | Each stage brings up to ten desires and takes away up to four, from the game's tables | done | `Phases` in `CreatureMindSystem.cpp` (from `creatureDevelopmentPhaseEntry`), `creature_desires::ActivateForPhase`; test `CreatureDesires.GrowingUpBringsAndTakesDesires` |
 | Reaching a stage, no desire stays held back | done | `creature_desires::ActivateForPhase` clears every hold first |
 | Each turn the creature checks whether it has met its stage's criteria and moves on | todo | nothing moves a creature to the next stage |

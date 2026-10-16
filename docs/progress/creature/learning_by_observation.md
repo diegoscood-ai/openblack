@@ -7,7 +7,7 @@ tells it what its god wants.
 
 **Progress: 18/80 done, 22 partial — 36%**
 
-How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../bw1-notes/creature.md).
+How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../../creature/mind.md).
 
 ## Skills learnt from villagers
 
@@ -30,7 +30,7 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 | A creature learns a miracle by seeing it cast near it, whoever casts it | partial | `CreatureMindSystem::SeeMiracle` (`CreatureMindLearning.cpp`) works, but no miracle reports a sighting; only the debug spawner's "Cast it near" calls it |
 | Each miracle needs seeing a set number of times (water 9, food 12, heal and wood 15, fireball 18, lightning and shield 21, tornado 39; the explosion so many it only comes from a script) | partial | `MiracleRule::timesToSee` from the tables (`CreatureMindTables.cpp`); dormant: sightings only come from the debug spawner |
 | Some species need to see miracles more often than others | partial | `creature_mind_tables::MiracleMultiplier`, `creature_watching::TimesNeeded` (the float product, not rounded); tests `CreatureWatching.LearnsAMiracleBySightingsAndSpecies`, `CreatureWatching.TheTimesNeededAreAFloatProduct`; dormant: sightings only from the debug spawner |
-| A sighting counts again only five seconds after the last | partial | more than `k_MiracleSightingTurns` (50 turns) after the last sighting, counted or not (`src/Creature/CreatureWatching.cpp`); test `CreatureWatching.AMiracleCountsOnlyMoreThanFiftyTurnsAfterItWasLastSeen`; the turn is the mind's, not the game's ([creature.md](../../bw1-notes/creature.md#pending)); sightings only from the debug spawner |
+| A sighting counts again only five seconds after the last | partial | more than `k_MiracleSightingTurns` (50 turns) after the last sighting, counted or not (`src/Creature/CreatureWatching.cpp`); test `CreatureWatching.AMiracleCountsOnlyMoreThanFiftyTurnsAfterItWasLastSeen`; the turn is the mind's, not the game's ([creature.md](../../../creature/overview.md#pending)); sightings only from the debug spawner |
 | On the learning leash each sighting counts three times | partial | `CreatureLeash` sets `mind.leash.miracleSightingWeight` (`LeashSystem.cpp`), read by `SeeMiracle`; sightings only from the debug spawner; see [leash.md](leash.md) |
 | Miracles need the creature grown up to a stage (the explosion line later than the rest) | partial | `MiracleRule::minPhase` in `creature_watching::SeeMiracle`; sightings only from the debug spawner |
 | A power-up teaches nothing until its miracle is known; the storm with lightning needs the storm, the tornado needs that; the thirst and itch spells need the building skill | partial | `creature_watching::MiraclePrerequisite`, the game's table; tests `CreatureWatching.APowerUpTeachesNothingBeforeItsMiracle`, `CreatureWatching.EveryMiraclesPrerequisiteIsTheGames`; sightings only from the debug spawner |
@@ -74,15 +74,15 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 | Building a house | todo | not reported |
 | Putting wood on a building site by hand | todo | not reported |
 | Casting wood by a building site | todo | the creature is told of no miracle hit |
-| Putting wood in the workshop, or casting wood by it | todo | not reported. Our wiki differs: the original never reports the casting part; wood cast on a workshop counts as cast into a storehouse ([creature.md](../../bw1-notes/creature.md#deed-table-complete-for-w120)) |
+| Putting wood in the workshop, or casting wood by it | todo | not reported. Our wiki differs: the original never reports the casting part; wood cast on a workshop counts as cast into a storehouse ([creature.md](../../../creature/mimicry.md#deed-table)) |
 | Planting a tree | done | the hand's replanting reports it (`HandSystem::Replant` in `src/ECS/Systems/Implementations/HandTrees.cpp`, `ecs::creature_mimic::Consider`) |
-| Shielding a town | n/a | the original never reports this deed. Our wiki differs: the shield miracle gives no deed ([creature.md](../../bw1-notes/creature.md#deed-table-complete-for-w120)) |
-| Bringing people to worship | n/a | the original never reports this deed. Our wiki differs: no call site reports it ([creature.md](../../bw1-notes/creature.md#deed-table-complete-for-w120)) |
+| Shielding a town | n/a | the original never reports this deed. Our wiki differs: the shield miracle gives no deed ([creature.md](../../../creature/mimicry.md#deed-table)) |
+| Bringing people to worship | n/a | the original never reports this deed. Our wiki differs: no call site reports it ([creature.md](../../../creature/mimicry.md#deed-table)) |
 | Making an artefact | todo | not reported; artefacts not ported |
 | Damaging something by throwing, or throwing something at it | partial | only a building hit with the building's own body thrown from the hand is reported (`src/ECS/Systems/Implementations/BuildingDamageSystem.cpp`; test `CreatureMimicDecision.ABuildingHitCountsOnlyWithAPlayerAndItsOwnBodyFromTheHand`); a thrown thing's own damage is not |
 | Damaging something with fire | todo | the creature is told of no miracle hit |
 | Damaging something with magic | todo | the creature is told of no miracle hit |
-| Impressing by throwing | n/a | the original never reports this deed. Our wiki differs: no call site reports it ([creature.md](../../bw1-notes/creature.md#deed-table-complete-for-w120)) |
+| Impressing by throwing | n/a | the original never reports this deed. Our wiki differs: no call site reports it ([creature.md](../../../creature/mimicry.md#deed-table)) |
 | Impressing with magic | todo | the creature is told of no miracle hit |
 | Throwing something into the sea | partial | a villager that sinks reports it for the hand that last dropped it (`src/ECS/VillagerDrowning.cpp`, `creature_mimic::ConsiderThrownInTheSea`; test `CreatureMimicTest.AVillagerInTheSeaReportsTheHandThatLastDroppedIt`); an animal does not |
 | Making a disciple of each kind: farmer, forester, fisherman, builder, breeder, protector, missionary, craftsman, house changer, worshipper | todo | not reported; see [../villager/](../villager/) |
@@ -91,7 +91,7 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 | Casting water to put out a fire | todo | the creature is told of no miracle hit |
 | Stealing something and putting it in a town, or by the temple | todo | not reported |
 | Breaking rocks | todo | not reported |
-| Throwing the football into the goal, or catching it | n/a | the original never reports these deeds; see [../town/football.md](../town/football.md#the-player-and-the-creature). Our wiki differs: neither is reported anywhere ([creature.md](../../bw1-notes/creature.md#deed-table-complete-for-w120)) |
+| Throwing the football into the goal, or catching it | n/a | the original never reports these deeds; see [../town/football.md](../town/football.md#the-player-and-the-creature). Our wiki differs: neither is reported anywhere ([creature.md](../../../creature/mimicry.md#deed-table)) |
 | Sacrificing | todo | not reported |
 | Playing with a toy | todo | not reported; the toys: [../nature/toys.md](../nature/toys.md) |
 | Healing | todo | the creature is told of no miracle hit |

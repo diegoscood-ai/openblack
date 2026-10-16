@@ -6,7 +6,7 @@ things, the named camera positions of the camera library, the lens, and shaking.
 
 **Progress: 22/28 done, 1 partial — 80%**
 
-How the original does it, in our wiki: [Script camera (GCamera and CameraModeScript)](../../bw1-notes/script-camera.md).
+How the original does it, in our wiki: [Script camera (GCamera and CameraModeScript)](../../../camera/script-camera.md).
 
 ## Taking the camera
 
@@ -29,7 +29,7 @@ How the original does it, in our wiki: [Script camera (GCamera and CameraModeScr
 | Glide the camera's focus to a point over a time | done | `MOVE_CAMERA_FOCUS` to `script_camera::MoveFocus` |
 | Set or glide position, focus and lens together | done | `SET_CAMERA_POS_FOC_LENS`, `MOVE_CAMERA_POS_FOC_LENS`, with the lens not turned into radians as in the game |
 | "camera ready": whether the camera has arrived | done | `HAS_CAMERA_ARRIVED`: `script_camera::ScriptArrived` (a track's time, or both points within 0.001), or the player's zoomers with the same rule; `ScriptCameraDual.ArrivedIgnoresThePathUnderneath` |
-| Set or glide the camera to face a thing from a distance | partial | `SET_CAMERA_TO_FACE_OBJECT`, `MOVE_CAMERA_TO_FACE_OBJECT` through `script_camera::FaceObject`; `ScriptCameraFollow.FacePosition`, `FaceObject`. A creature faces 0 for now: our tree has no creature body angle for it (approximate) |
+| Set or glide the camera to face a thing from a distance | partial | `SET_CAMERA_TO_FACE_OBJECT`, `MOVE_CAMERA_TO_FACE_OBJECT` through `script_camera::FaceObject`; `ScriptCameraFollow.FacePosition`, `FaceObject`. A creature faces 0 for now: our tree has no creature body angle for it ⚠️ approximate |
 | A point in front of the camera at a distance | done | `GET_FACING_CAMERA_POSITION`: the drawn position plus the distance towards the drawn focus (inferred unit vector) |
 | Whether a thing can see the camera within an angle | todo | `GAME_THING_CAN_VIEW_CAMERA` is a stub (always false) |
 
@@ -49,7 +49,7 @@ How the original does it, in our wiki: [Script camera (GCamera and CameraModeScr
 | Make the camera's position follow a thing, at once or gliding | done | `POSITION_FOLLOW`, `SET_POSITION_FOLLOW` (placed at once with `PlaceFollowNow`); `ScriptCameraFollow.PositionFollowTakesTheCurrentAngles`, `PlaceNowThenFollow` |
 | Follow a thing with both focus and position at a distance | done | `FOCUS_AND_POSITION_FOLLOW`, `SET_FOCUS_AND_POSITION_FOLLOW`; `ScriptCameraFollow.DistanceAndPitchLimits`, `AThingThatGoesIsDropped` |
 | Follow a computer player's hand | todo | `SET_FOCUS_FOLLOW_COMPUTER_PLAYER`, `SET_POSITION_FOLLOW_COMPUTER_PLAYER` are stubs: no computer players |
-| A dual camera keeps two things in view | done | `START_DUAL_CAMERA`, `UPDATE_DUAL_CAMERA`, `RELEASE_DUAL_CAMERA`, `CREATE_DUAL_CAMERA_WITH_POINT` (`script_camera::StartDual` and the rest); `ScriptCameraDual.*` in `test/test_script_camera_dual.cpp`. No camera mode stack: the dual always sits on the script mode (approximate) |
+| A dual camera keeps two things in view | done | `START_DUAL_CAMERA`, `UPDATE_DUAL_CAMERA`, `RELEASE_DUAL_CAMERA`, `CREATE_DUAL_CAMERA_WITH_POINT` (`script_camera::StartDual` and the rest); `ScriptCameraDual.*` in `test/test_script_camera_dual.cpp`. No camera mode stack: the dual always sits on the script mode ⚠️ approximate |
 | Focus a thing on another and release it | todo | `SET_FOCUS_ON_OBJECT`, `RELEASE_OBJECT_FOCUS` are stubs in `src/CHLApi.cpp` |
 
 ## Lens and effects
@@ -58,5 +58,5 @@ How the original does it, in our wiki: [Script camera (GCamera and CameraModeScr
 |-----------|--------|---------------|
 | Set, glide or reset the camera's lens | done | `SET_CAMERA_LENS` (70 degrees in the given time, as the game does), `MOVE_CAMERA_LENS` (degrees in seconds of game time) through `script_camera::SetFov`; `ScriptCamera.FovFollowsGameTime` |
 | Shake the camera from a point with a radius, amplitude and time | done | `SHAKE_CAMERA` to `camera_shake::StartCameraShake` (`src/Camera/CameraShake.cpp`), drawn only, by `script_camera::ApplyShake`; `CameraShake.OnlyWithinTheRadiusAndLessAndLess`, `TheNearestDecides`, `YOnlyMovesY` |
-| Explosions and particle effects shake the camera, less the further away it is | todo | only the script's shakes exist: the particle sounds' `DoCameraShake` is read but not applied (`src/Particles/Rules/Sound.cpp`). Our wiki differs: a shake is felt in full anywhere within its radius, fading only with its time, not with distance ([script camera](../../bw1-notes/script-camera.md#shake)) |
+| Explosions and particle effects shake the camera, less the further away it is | todo | only the script's shakes exist: the particle sounds' `DoCameraShake` is read but not applied (`src/Particles/Rules/Sound.cpp`). Our wiki differs: a shake is felt in full anywhere within its radius, fading only with its time, not with distance ([script camera](../../../camera/script-camera.md#shake)) |
 | Turn close clipping on and off for close shots | todo | `SET_GRAPHICS_CLIPPING` is a stub in `src/CHLApi.cpp`; `near_clipping::k_Close` (`NearClipping.ScriptsCanClipClose`) is unused |

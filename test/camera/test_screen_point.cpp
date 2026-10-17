@@ -1,0 +1,120 @@
+/******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+#include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
+#include <gtest/gtest.h>
+
+#include "3D/AffineMatrix.h"
+#include "Camera/ScreenPoint.h"
+#include "ECS/DrawList/FrameInputs.h"
+
+namespace affine = openblack::affine;
+namespace draw_list = openblack::ecs::draw_list;
+namespace screen_point = openblack::screen_point;
+
+namespace
+{
+constexpr float k_Fov = 1.2f;
+constexpr float k_Near = 7.5f;
+/// A screen whose half width and half height are powers of two, so the pixel steps divide exactly
+constexpr glm::ivec2 k_Screen {512, 256};
+/// The identity rotation and no eye: the world point is the camera-space point
+const affine::AffineMatrix k_Identity {};
+constexpr glm::vec3 k_Origin {0.0f, 0.0f, 0.0f};
+} // namespace
+
+TEST(ScreenPoint, TheNearPlaneIsHalfTheScreenAndTheNearHalfWidth)
+{
+	const auto plane = screen_point::NearPlaneOf({640, 480}, k_Fov, k_Near);
+	EXPECT_EQ(plane.halfWidth, 320.0f);
+	EXPECT_EQ(plane.halfHeight, 240.0f);
+	EXPECT_EQ(plane.nearClip, k_Near);
+	EXPECT_EQ(plane.nearHalfWidth, draw_list::NearHalfWidth(k_Fov, k_Near));
+	// the height's half is the width's over the width-to-height ratio, the ratio rounded first
+	const float ratio = 640.0f / 480.0f;
+	EXPECT_EQ(plane.nearHalfHeight, plane.nearHalfWidth / ratio);
+}
+
+TEST(ScreenPoint, TheMiddlePixelIsTheNearClipAlongTheView)
+{
+	const glm::vec3 eye(1000.0f, 120.0f, 1500.0f);
+	const auto w2c = affine::WorldToCamera(eye, {1100.0f, 40.0f, 1600.0f});
+	const auto plane = screen_point::NearPlaneOf({640, 480}, k_Fov, k_Near);
+	const auto point = screen_point::PixelPoint(w2c, eye, plane, {320, 240}, 0.0f);
+	// the view direction is the matrix's third column
+	const auto& m = w2c.m;
+	EXPECT_EQ(point.x, m[2] * k_Near + eye.x);
+	EXPECT_EQ(point.y, m[5] * k_Near + eye.y);
+	EXPECT_EQ(point.z, m[8] * k_Near + eye.z);
+}
+
+TEST(ScreenPoint, TheCornersAreTheNearPlanesHalfSizes)
+{
+	const auto plane = screen_point::NearPlaneOf(k_Screen, k_Fov, k_Near);
+	const float tn = plane.nearHalfWidth;
+	const float tm = plane.nearHalfHeight;
+	EXPECT_EQ(tm, tn / 2.0f);
+
+	const auto topLeft = screen_point::PixelPoint(k_Identity, k_Origin, plane, {0, 0}, 0.0f);
+	EXPECT_EQ(topLeft, glm::vec3(-tn, tm, k_Near));
+	const auto bottomRight = screen_point::PixelPoint(k_Identity, k_Origin, plane, k_Screen, 0.0f);
+	EXPECT_EQ(bottomRight, glm::vec3(tn, -tm, k_Near));
+}
+
+TEST(ScreenPoint, NeighbouringPixelsAtTheMiddleDiffer)
+{
+	const auto plane = screen_point::NearPlaneOf(k_Screen, k_Fov, k_Near);
+	const auto middle = screen_point::PixelPoint(k_Identity, k_Origin, plane, {256, 128}, 0.0f);
+	const auto before = screen_point::PixelPoint(k_Identity, k_Origin, plane, {255, 127}, 0.0f);
+	EXPECT_EQ(middle, glm::vec3(0.0f, 0.0f, k_Near));
+	EXPECT_EQ(before.x, -plane.nearHalfWidth / 256.0f);
+	EXPECT_EQ(before.y, plane.nearHalfHeight / 128.0f);
+	EXPECT_NE(before.x, middle.x);
+	EXPECT_NE(before.y, middle.y);
+}
+
+TEST(ScreenPoint, ADepthScalesThePointByDepthOverTheNearClip)
+{
+	const auto plane = screen_point::NearPlaneOf(k_Screen, k_Fov, k_Near);
+	const float tn = plane.nearHalfWidth;
+	const float tm = plane.nearHalfHeight;
+	// four times the near clip: an exact scale
+	EXPECT_EQ(screen_point::PixelPoint(k_Identity, k_Origin, plane, {0, 0}, 30.0f), glm::vec3(-tn * 4.0f, tm * 4.0f, 30.0f));
+	// a scale that rounds: depth / near first, then each axis times it
+	const float scale = 20.0f / k_Near;
+	EXPECT_EQ(screen_point::PixelPoint(k_Identity, k_Origin, plane, {0, 0}, 20.0f), glm::vec3(-tn * scale, tm * scale, 20.0f));
+	// any depth but 0 takes the branch, a negative one too
+	const float behind = -15.0f / k_Near;
+	EXPECT_EQ(screen_point::PixelPoint(k_Identity, k_Origin, plane, {0, 0}, -15.0f),
+	          glm::vec3(-tn * behind, tm * behind, -15.0f));
+	// 0 is the near plane
+	EXPECT_EQ(screen_point::PixelPoint(k_Identity, k_Origin, plane, {0, 0}, 0.0f), glm::vec3(-tn, tm, k_Near));
+}
+
+TEST(ScreenPoint, TheForwardTermIsSummedFirstAndTheRightTermLast)
+{
+	// A camera-space point (-1, 0.5, 1): the plane's sizes are picked so the pixel (0, 0) gives it exactly
+	const screen_point::NearPlane plane {
+	    .halfWidth = 256.0f, .halfHeight = 128.0f, .nearClip = 1.0f, .nearHalfWidth = 1.0f, .nearHalfHeight = 0.5f};
+	// Every row: right 1, up 2^-23, forward 1, so the up term is 2^-24, half a step of 1. Forward plus up rounds back
+	// to 1 and the right term then cancels it: 0. Summed right first, -1 + 2^-24 is exact and adding 1 leaves 2^-24
+	// (checked with float32 arithmetic)
+	constexpr float k_Tiny = 1.0f / 8388608.0f;
+	const affine::AffineMatrix m {{1.0f, k_Tiny, 1.0f, 1.0f, k_Tiny, 1.0f, 1.0f, k_Tiny, 1.0f, 0.0f, 0.0f, 0.0f}};
+	const auto point = screen_point::PixelPoint(m, k_Origin, plane, {0, 0}, 0.0f);
+	EXPECT_EQ(point, glm::vec3(0.0f));
+
+	const float x = -1.0f;
+	const float y = 0.5f;
+	const float z = 1.0f;
+	const float rightFirst = (1.0f * x + k_Tiny * y) + 1.0f * z;
+	EXPECT_EQ(rightFirst, k_Tiny * 0.5f);
+	EXPECT_NE(rightFirst, point.x);
+}

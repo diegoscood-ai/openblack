@@ -18,6 +18,8 @@ permissions:
 
 jobs:
   build:
+    # Pull requests labelled "ai-driven" skip CI
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'ai-driven') }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -25,11 +27,11 @@ jobs:
         # This is the matrix. They form permutations.
         triplet: [""]
         preset: [android-armeabi-v7a-vcpkg, android-arm64-v8a-vcpkg, android-x86-vcpkg, android-x86_64-vcpkg]
-        os: [ubuntu-26.04]
+        os: [ubuntu-24.04]
         # These are additional individual jobs. There are no permutations of these.
         include:
           # - triplet: x86-linux
-          #   os: ubuntu-26.04
+          #   os: ubuntu-24.04
           #   preset: ninja-multi-vcpkg
           #   setup: |
           #     sudo dpkg --add-architecture i386
@@ -37,14 +39,14 @@ jobs:
           #     sudo apt-get install -y gcc-multilib g++-multilib libx11-dev:i386 libxext-dev:i386 libgl1-mesa-dev:i386 libglu1-mesa-dev:i386 libtool autoconf libc6-dev-i386 libgpg-error-dev:i386 libltdl-dev:i386 libwayland-dev:i386 libwayland-egl-backend-dev:i386
           #   additional_args: "`-DCMAKE_C_FLAGS=-m32`, `-DCMAKE_CXX_FLAGS=-m32`, `-DOPENBLACK_CROSSCOMPILING=ON`"
           - triplet: arm64-linux
-            os: ubuntu-26.04-arm
+            os: ubuntu-24.04-arm
             preset: ninja-multi-vcpkg
             setup: |
               sudo apt-get update
               sudo apt-get install -y libgl1-mesa-dev libglu1-mesa-dev libltdl-dev libxext-dev libwayland-dev libwayland-egl-backend-dev
           # TODO(#638): Many of the emscripten dependencies conflict due to pthreads
           # - preset: emscripten-vcpkg
-          #   os: ubuntu-26.04
+          #   os: ubuntu-latest
           #   setup: |
           #     git clone https://github.com/emscripten-core/emsdk ${EMSDK}
           #     cd ${EMSDK}
@@ -56,7 +58,7 @@ jobs:
           - triplet: arm64-windows
             os: windows-latest
             preset: ninja-multi-vcpkg
-          - os: macos-26
+          - os: macos-latest
             preset: ios-arm64-vcpkg
 
     env:
@@ -72,22 +74,17 @@ jobs:
         run: git remote add upstream ${{ github.event.pull_request.base.repo.html_url }}
         if: startsWith(github.event_name, 'pull_request')
 
+      # TODO(https://github.com/bkaradzic/bgfx.cmake/issues/242): Android and Emscripten wants opengl and wayland installed on system to build bgfx
       - name: Setup (Android and Emscripten and Linux)
         run: |
           sudo apt update -y
-          sudo apt install -y autoconf autoconf-archive automake libtool libgl1-mesa-dev libglu1-mesa-dev libwayland-dev libwayland-egl-backend-dev
+          sudo apt install -y libgl1-mesa-dev libglu1-mesa-dev libwayland-dev libwayland-egl-backend-dev
           echo "ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> $GITHUB_ENV # to use C++23 on 26.2.11394342
         if: (startsWith(matrix.preset, 'android') || startsWith(matrix.preset, 'emscripten')) || startsWith(matrix.os, 'ubuntu')
 
       - name: Setup
         run: ${{ matrix.setup }}
         if: matrix.setup
-
-      - name: Select C++23 host compiler
-        run: |
-          echo "CC=gcc-14" >> "$GITHUB_ENV"
-          echo "CXX=g++-14" >> "$GITHUB_ENV"
-        if: startsWith(matrix.os, 'ubuntu')
 
       # Setup the build machine with the most recent versions of CMake and Ninja. Both are cached if not already: on subsequent runs both will be quickly restored from GitHub cache service.
       - uses: lukka/get-cmake@latest
@@ -97,22 +94,12 @@ jobs:
         with:
           vcpkgJsonGlob: 'vcpkg.json'
 
-      # Shaders compile on the build machine, so the compiler gets its own native build tree
-      - name: Build host shader compiler
-        run: |
-          cmake -S apps/slang-sdl3-gpu-compiler -B cmake-build-presets/host-tools -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake"
-          cmake --build cmake-build-presets/host-tools --config Release
-
-      - name: Locate host shader compiler
-        shell: bash
-        run: echo "HOST_TOOLS_DIR=$(pwd -W 2>/dev/null || pwd)/cmake-build-presets/host-tools" >> "$GITHUB_ENV"
-
       - name: Run CMake+vcpkg to build packages.
         id: build-packages
         uses: lukka/run-cmake@v10
         with:
           configurePreset: '${{ matrix.preset }}'
-          configurePresetAdditionalArgs: "[`-DOPENBLACK_WARNINGS_AS_ERRORS=ON`, `-DOPENBLACK_BUILD_SHADER_COMPILER=OFF`, `-Dslang-sdl3-gpu-compiler_DIR=${{ env.HOST_TOOLS_DIR }}`${{ matrix.triplet && format(', `-DVCPKG_TARGET_TRIPLET={0}`', matrix.triplet) }}${{ matrix.additional_args && format(', {0}', matrix.additional_args) }}]"
+          configurePresetAdditionalArgs: "[`-DOPENBLACK_WARNINGS_AS_ERRORS=ON`${{ matrix.triplet && format(', `-DVCPKG_TARGET_TRIPLET={0}`', matrix.triplet) }}${{ matrix.additional_args && format(', {0}', matrix.additional_args) }}]"
 
       - name: Upload logs if failed
         if: failure()
@@ -147,7 +134,7 @@ jobs:
       fail-fast: false
       matrix:
         # This is the matrix. They form permutations.
-        os: [ ubuntu-26.04, windows-latest ]
+        os: [ ubuntu-latest, windows-latest ]
     steps:
       - uses: actions/checkout@v4
       - name: Add base repo to git config

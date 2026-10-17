@@ -13,26 +13,31 @@
 #error "Locator interface implementations should only be included in Locator.cpp, use interface instead."
 #endif
 
+#include <vector>
+
 #include "Map.h"
 
 namespace openblack::ecs
 {
 
+/// The map's cells as the ordered lists of ecs::map_cells (MapCells.h), which its hooks keep as things are made, move
+/// and go; Sync takes in what the other owners did without telling them
 class MapProduction final: public MapInterface
 {
-	[[nodiscard]] const std::unordered_set<entt::entity>& GetFixedInGridCell(const CellId& cellId) const override;
-	[[nodiscard]] const std::unordered_set<entt::entity>& GetFixedInGridCell(const glm::vec3& pos) const override;
-	[[nodiscard]] const std::unordered_set<entt::entity>& GetMobileInGridCell(const CellId& cellId) const override;
-	[[nodiscard]] const std::unordered_set<entt::entity>& GetMobileInGridCell(const glm::vec3& pos) const override;
+public:
+	[[nodiscard]] std::span<const entt::entity> GetFixedInGridCell(const CellId& cellId) const override;
+	[[nodiscard]] std::span<const entt::entity> GetFixedInGridCell(const glm::vec3& pos) const override;
+	[[nodiscard]] std::span<const entt::entity> GetMobileInGridCell(const CellId& cellId) const override;
+	[[nodiscard]] std::span<const entt::entity> GetMobileInGridCell(const glm::vec3& pos) const override;
+	[[nodiscard]] std::vector<entt::entity> GetAllInCell(glm::ivec2 cell) const override;
 
-	void Rebuild() override;
+	void Sync() override;
+	void Refile(entt::entity entity) override;
 
 private:
-	void Clear() override;
-	void Build() override;
-
-	std::array<std::unordered_set<entt::entity>, k_GridSize.x * k_GridSize.y> _fixedGrid;
-	std::array<std::unordered_set<entt::entity>, k_GridSize.x * k_GridSize.y> _mobileGrid;
+	/// The lists are linked through the things in them, so a view of a cell is copied out here
+	mutable std::vector<entt::entity> _fixedView;
+	mutable std::vector<entt::entity> _mobileView;
 };
 
 } // namespace openblack::ecs

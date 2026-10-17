@@ -9,7 +9,7 @@
 
 #include "PathFinding.h"
 
-#include <SDL3/SDL.h>
+#include <SDL.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/norm.hpp>
 #include <glm/gtx/vec_swizzle.hpp>
@@ -18,17 +18,93 @@
 
 #include "3D/L3DMesh.h"
 #include "3D/LandIslandInterface.h"
+#include "ECS/Components/Animal.h"
+#include "ECS/Components/AnimalBrain.h"
+#include "ECS/Components/Footpath.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/WallHug.h"
 #include "ECS/Map.h"
+#include "ECS/MapCells.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/HandSystemInterface.h"
+#include "ECS/Villager/VillagerScript.h"
+#include "ECS/WallHugBookkeeping.h"
 #include "Locator.h"
 #include "Resources/ResourcesInterface.h"
 
 using namespace openblack::debug::gui;
+namespace map_coords = openblack::map_coords;
+
+namespace
+{
+/// A walker's move state, as the readout names it
+const char* WalkStateName(uint8_t state)
+{
+	using openblack::ecs::wall_hug::WalkState;
+	switch (static_cast<WalkState>(state))
+	{
+	case WalkState::Arrived:
+		return "arrived";
+	case WalkState::FinalStep:
+		return "final step";
+	case WalkState::Wander:
+		return "wander";
+	case WalkState::StepThrough:
+		return "step through";
+	case WalkState::Linear:
+		return "linear";
+	case WalkState::LinearClockwise:
+		return "linear, clockwise";
+	case WalkState::LinearAnticlockwise:
+		return "linear, anticlockwise";
+	case WalkState::OrbitClockwise:
+		return "going round, clockwise";
+	case WalkState::OrbitAnticlockwise:
+		return "going round, anticlockwise";
+	case WalkState::ExitAnticlockwise:
+		return "leaving, anticlockwise";
+	case WalkState::ExitClockwise:
+		return "leaving, clockwise";
+	}
+	return "other";
+}
+
+/// An animal's walk round the circles, read only: its move state, the thing whose circle it goes round, and the
+/// distance to its goal its orbit began with, which a thing of many cells leaving the map turns into "leave at once"
+void DrawAnimalWalk(entt::entity animal, const openblack::ecs::components::AnimalBrain& brain)
+{
+	ImGui::Text("Animal %u: %s (%#x)", static_cast<uint32_t>(animal), WalkStateName(brain.moveState),
+	            static_cast<uint32_t>(brain.moveState));
+	const auto& circle = brain.hugCircle;
+	if (!circle.set)
+	{
+		ImGui::Text("Circle: none");
+	}
+	else if (circle.owner == entt::null)
+	{
+		ImGui::Text("Circle: water or the land's edge at (%.2f, %.2f) r %.2f", static_cast<double>(circle.centre.x),
+		            static_cast<double>(circle.centre.y), static_cast<double>(circle.radius));
+	}
+	else
+	{
+		ImGui::Text("Circle: thing %u at (%.2f, %.2f) r %.2f", static_cast<uint32_t>(circle.owner),
+		            static_cast<double>(circle.centre.x), static_cast<double>(circle.centre.y),
+		            static_cast<double>(circle.radius));
+	}
+	if (brain.hugGoalDistance == openblack::ecs::wall_hug::k_LeaveAtOnce)
+	{
+		ImGui::Text("Entry distance: leave at once");
+	}
+	else
+	{
+		// kept as 128ths of a metre, less one
+		ImGui::Text("Entry distance: %u (%.2f m)", brain.hugGoalDistance,
+		            (static_cast<double>(brain.hugGoalDistance) + 1.0) / 128.0);
+	}
+}
+} // namespace
 
 PathFinding::PathFinding() noexcept
     : Window("Path Finding", ImVec2(400, 400))
@@ -38,7 +114,8 @@ PathFinding::PathFinding() noexcept
 void PathFinding::Draw() noexcept
 {
 	ImGui::TextWrapped(
-	    "Select Villager by left clicking on it, then select a pathfinding action and right click the destination");
+	    "Select Villager by left clicking on it, then select a pathfinding action and right click the destination. "
+	    "Left click on an animal to read its walk round the circles");
 
 	const uint8_t numChildren = 2;
 	const float rounding = 5.0f;
@@ -73,11 +150,45 @@ void PathFinding::Draw() noexcept
 			ImGui::DragFloat3("Position", glm::value_ptr(transform.position));
 			ImGui::DragFloat2("Goal", glm::value_ptr(wallHug.goal));
 			ImGui::DragFloat("Speed", &wallHug.speed);
+			// the circle it heads for or goes round: whose, which of its circles, where, and the turns to it
+			if (const auto* hugged = registry.TryGet<const WallHugObjectReference>(_selectedVillager.value());
+			    hugged != nullptr && hugged->landscape)
+			{
+				ImGui::Text("Circle: water or the land's edge, cell (%d, %d) at (%.2f, %.2f), %u turns", hugged->cell.x,
+				            hugged->cell.y, hugged->centre.x, hugged->centre.y, static_cast<uint32_t>(hugged->stepsAway));
+			}
+			else if (hugged != nullptr)
+			{
+				ImGui::Text("Circle: thing %u, circle %u at (%.2f, %.2f) r %.2f, %u turns",
+				            static_cast<uint32_t>(hugged->entity), static_cast<uint32_t>(hugged->circle), hugged->centre.x,
+				            hugged->centre.y, hugged->radius, static_cast<uint32_t>(hugged->stepsAway));
+			}
+			else
+			{
+				ImGui::Text("Circle: none");
+			}
+			ImGui::Text("Handed over to water, the land's edge or a fence this turn: %s",
+			            wallHug.needsLookahead ? "yes" : "no");
 		}
 	}
 	else
 	{
 		ImGui::Text("No villager selected");
+	}
+	if (_selectedAnimal.has_value())
+	{
+		const auto& registry = Locator::entitiesRegistry::value();
+		const auto* brain =
+		    registry.Valid(*_selectedAnimal) ? registry.TryGet<const ecs::components::AnimalBrain>(*_selectedAnimal) : nullptr;
+		ImGui::Separator();
+		if (brain != nullptr)
+		{
+			DrawAnimalWalk(*_selectedAnimal, *brain);
+		}
+		else
+		{
+			ImGui::Text("Animal %u: gone, or not yet taken a turn", static_cast<uint32_t>(*_selectedAnimal));
+		}
 	}
 	ImGui::EndChild();
 
@@ -114,11 +225,8 @@ void PathFinding::Draw() noexcept
 				ImGui::PushItemFlag(ImGuiItemFlags_Disabled, !_selectedVillager.has_value());
 				if (ImGui::Button("Execute"))
 				{
-					auto& wallHug = registry.Get<WallHug>(*_selectedVillager);
-					wallHug.goal = glm::xz(_destination);
-					registry.Remove<MoveStateLinearTag, MoveStateOrbitTag, MoveStateExitCircleTag, MoveStateStepThroughTag,
-					                MoveStateFinalStepTag, MoveStateArrivedTag>(*_selectedVillager);
-					registry.Assign<MoveStateLinearTag>(*_selectedVillager);
+					// the walk round obstacles, aimed and looking ahead at once
+					ecs::villager::SetupMobileMoveToPos(*_selectedVillager, glm::xz(_destination), MoveState::Linear);
 				}
 				ImGui::PopItemFlag();
 				ImGui::PopStyleVar();
@@ -216,10 +324,11 @@ void PathFinding::Update() noexcept
 
 		if (!found)
 		{
-			auto& map = Locator::entitiesMap::value();
-			for (const auto& entity : map.GetMobileInGridCell(_handPosition))
+			// the mobile list of the hand's map cell, from its head (ecs::map_cells)
+			for (const auto entity : ecs::map_cells::MobileInCell(map_coords::CellOf(_handPosition)))
 			{
-				if (registry.AllOf<Villager>(entity))
+				const bool animal = registry.AllOf<ecs::components::Animal>(entity);
+				if (registry.AllOf<Villager>(entity) || animal)
 				{
 					const auto& mesh = meshes.Handle(registry.Get<Mesh>(entity).id);
 					const auto& transform = registry.Get<Transform>(entity);
@@ -229,7 +338,7 @@ void PathFinding::Update() noexcept
 					point.y = bb.Center().y; // Fix to ignore altitude
 					if (bb.Contains(point))
 					{
-						_selectedVillager = entity;
+						(animal ? _selectedAnimal : _selectedVillager) = entity;
 						found = true;
 					}
 				}
@@ -282,7 +391,7 @@ void PathFinding::ProcessEventOpen(const SDL_Event& event) noexcept
 	{
 	default:
 		break;
-	case SDL_EVENT_MOUSE_BUTTON_DOWN:
+	case SDL_MOUSEBUTTONDOWN:
 	{
 		if (!io.WantCaptureMouse)
 		{

@@ -1,0 +1,106 @@
+# Idle behaviour
+
+What a creature does with itself when nothing presses: it idles, sits, hangs about, looks around at whatever catches its
+eye, explores the land, shows the player how it feels, and is moved by the music.
+
+**Progress: 33/68 done, 15 partial — 60%**
+
+How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../../creature/overview.md).
+
+## The idle agenda
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| With nothing better to do, the creature works through an idle agenda of small steps, chosen once a turn | done | `src/Creature/CreatureIdleMind` (`Think`), run once a turn by `CreatureMindSystem::ProcessTurn` |
+| Being idle is waiting a second or two, then a tired yawn, twice over | done | test `CreatureIdleMind.BeingIdleIsWaitingThenYawningTwice` |
+| Sometimes it sits down for ten seconds or so, then gets up | partial | sitting works (test `CreatureIdleMind.SometimesItSitsForAWhile`), but which idle activity is picked is a stand-in random choice (`k_ActivityLots`), not the game's weighing by the desire to rest and what it has learnt |
+| Hanging around: it walks somewhere near and sits there | partial | test `CreatureIdleMind.HangingAroundWalksSomewhereNearbyThenSits`; the game hangs around its home, here anywhere 20 to 40 away |
+| Each idle step pulls a face as it starts and again every few seconds | done | `k_FaceRepeatSeconds`; test `CreatureIdleMind.IdleStepsPullAFaceAsTheyStartAndEveryFewSeconds` |
+| Its faces vary as it goes on, never the same few | done | test `CreatureIdleMind.EachFacePulledMovesTheVarietyOn` |
+| Abandoned while sitting, it gets up | done | test `CreatureIdleMind.AnAbandonedSitEnds` |
+| With a need and the means at hand, it sees to the need before idling | done | tests `CreatureNeedsMind.ANeedComesBeforeIdling`, `TheStrongestNeedWithTheMeansAtHandIsSeenTo`; see [physiology](physiology.md) |
+| Curious, playful or angry with something near, it examines it, throws it about or hurls it at a home or tree | partial | `creature_mind::k_ActOnDesire` (0.3) is a stand-in for the planner's weighing; tests `CreatureIdleMind.ACuriousCreatureLooksSomethingOver`, `ThrowingAboutAimsFromWhereItStands` |
+| Holding something it has no use for, it puts it down | done | `Activity::PutDown`, `creature_mind::PutDownHeld` in `src/Creature/CreatureIdleMind.cpp` |
+| Its idle mind stops while it is led on the leash, fights, is knocked out or paused | done | `CreatureMindSystem::ProcessTurn`; the whole creature loop also stands still in the citadel (`creature_loop::FrozenInCitadel`) |
+
+## Showing the player how it feels
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| At most once a minute it shows its strongest desire with that desire's own animation | partial | test `CreatureIdleMind.ItShowsItsStrongestDesireOnceAMinute`; the strength needed to show it is a stand-in (0.2) for the game's planner choosing to show its state |
+| Each desire it can show has its own animation (hungry, tired, needing a poo, angry …) | done | `creature_desires::EmoteFor`; test `CreatureDesires.EachShowableDesireHasItsEmote` |
+| Within ten seconds of a stroke or slap it shows its pleasure or sorrow at it first | done | test `CreatureIdleMind.AStrokeOrASlapIsShownFirst` |
+| It plays its last shown desire again on request | todo |  |
+| It waves at the player, points at the camera, howls at the player, is pathetic to get attention | partial | these emotes exist as plan actions facing the camera (`WaveAtPlayer`, `PointAtCamera`, `HowlAtPlayer`, `BePatheticToPlayer` in `CreaturePlanActions.cpp`); the attention sources are stand-ins (see [desires](desires.md)) |
+| It watches the player while the player has its attention | todo |  |
+| It looks at the camera in wide screen during cut scenes | done | `LookAtCameraInWideScreen`, forced on every creature not under a script's control while a script's cinema bars are in (`CreatureMindSystem::ProcessTurn`) |
+| A sound tells its mood when it shows it | todo | see [../audio/](../audio/) |
+
+## Looking about
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| Looking about, its head turns to the most interesting thing it can see, the nearer the better | partial | `src/Creature/CreatureLook`, from `CreatureMindSystem::ProcessTurn`; test `CreatureLook.TheNearerAndTheMoreInterestingWins`. The original offers every object in the cells it looks over, skips the ones not in play, and looks at each at the ground plus its own height; ours offers six kinds at its own heights (queued as fixes) |
+| Things interest it by kind: doves most, then temples, creatures, animals, villagers, homes, trees, and fixed things least | done | `creature_look::InterestOf`; test `CreatureLook.DovesAndTheCitadelCatchTheEyeMostAndFixedThingsLeast` |
+| Bigger creatures see further | done | test `CreatureLook.BiggerCreaturesSeeFurther` |
+| It only sees what is in front of it | done | test `CreatureLook.CreaturesSeeAheadOfThemAndWhateverIsOnTopOfThem` |
+| The longer it watches one thing, the less else catches its eye; after twenty seconds nothing does | done | `creature_look::k_BoredSeconds`; tests `CreatureLook.WhatIsWatchedIsWatchedALittleLongerEachTurn`, `BoredomLetsSomethingLessInterestingTakeOver` |
+| What goes out of sight is dropped | done | test `CreatureLook.WhatGoesOutOfSightIsDropped` |
+| With nothing to see it looks ahead | done | test `CreatureLook.WithNothingToLookAtItLooksAhead` |
+| It also considers mountains and the sea as things to look at | todo | only objects are candidates (`GatherCandidates` in `CreatureMindSystem.cpp`) |
+| It looks at the mountains | done | plan action `LookAtMountains` turns to the nearest hill region of the map of the land and points at it one time in three (`creature_exploration::LookAtMountains`) (unverified against v1.42) |
+| It looks out to sea | done | `LookOutToSea` walks to the nearest coast region and turns to the sea nearest it, pointing one time in two (`creature_exploration::LookOutToSea`) (unverified against v1.42) |
+| It looks at the sun, only while the sun is up | partial | `LookAtSun`: generic look about; doesn't check the sun is visible |
+| It looks at the moon, only while the moon is up | partial | `LookAtMoon`: generic look about; doesn't check the moon is visible |
+| It looks at its temple | todo |  |
+| It looks down a cliff | todo |  |
+| It looks at something without going up to it, or stares for ever | todo |  |
+| It follows things flying through the air with its eyes | todo |  |
+| It looks at the player's hand, and at the camera | partial | `LookAtHand` emote exists; `PointAtCamera` and `LookAtCamera` are the original's, the head on the camera; its head doesn't track the hand |
+| It looks at its feet, down, frightened, stoned, or just woken | partial | the eyes have wide, closed, calm, stoned and ahead modes (`creature_eyes::Mode`; see [face, eyes and hair](face_eyes_hair.md)); looking at its feet or down are missing |
+| It sees important things far away and turns to them | todo |  |
+| It tells the player something interesting is happening off screen | todo | see [lessons and help](lessons_and_help.md) |
+| It keeps a single shared list of what it might look at, built once a turn | done | `GatherCandidates` in `CreatureMindSystem.cpp` |
+
+## Exploring and wandering
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| The land is split into regions; the creature remembers which it has visited and how long it stayed | partial | 64 x 64 regions of 8 x 8 cells (`creature_exploration::RegionMap`); the regions it went into are kept on the `CreatureExploration` component, but not how long it stayed (unverified against v1.42) |
+| Each region's highest point and kind (coast, hill, town) are worked out once a land is loaded | done | `RegionMap::Make` at land start (`Game::StartNewLand`): highest cell, coast, sea, town and hill of each region; tests `CreatureExploration.*` (unverified against v1.42) |
+| Wandering, it goes to the nearest region it doesn't know | done | the hill, coast and town actions prefer a region of the kind it did not go into, else unvisited land (`CreatureMindSystem::SituateExploration`, `creature_exploration::FindNearest`) (unverified against v1.42) |
+| It explores the coast | done | `ExploreCoastline` (`Build::ExploreCoast`) (unverified against v1.42) |
+| It explores the towns | done | `ExploreTowns` (`Build::ExploreTowns`) (unverified against v1.42) |
+| It goes to the top of a hill and looks about | done | `GoToHillAndLook`: walks to within two heights of the hill's highest cell (unverified against v1.42) |
+| It goes to a hill and sits | done | `GoToHillAndSit`: walks to within three heights; the game adds no sit (vanilla bug kept) (unverified against v1.42) |
+| It walks along a ridge | done | `GoToHillAndWalkAlongRidge`: the hill, then eight points on a 15 m circle, complete at the hill; scenario `creature.explore_hill_ridge` (unverified against v1.42) |
+| It sits down on the beach | done | `SitDownOnBeach`: a clear place near the nearest sea, turns to it and sits 10 to 25 s; scenario `creature.sit_on_beach` (unverified against v1.42) |
+| It explores and casts teleport to get about | todo | the creature casts no miracle; see [creature casting](creature_casting.md) |
+| It hangs around at home, and goes home | todo | see [home and pen](home_and_pen.md) |
+
+## Little things it does
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| Scratches when itchy | done | `Scratch` plan action (`CreaturePlanActions.cpp`) |
+| Shivers when cold, shows it is hot | done | `Shiver`, `ShowHotness` plan actions |
+| Sneezes | done | `Sneeze` plan action |
+| Pulls silly faces | done | `PullSillyFaces` plan action |
+| Waves at the player and at things | partial | `WaveAtPlayer` and `WaveAtFriend` exist; waving at things doesn't |
+| Practises throwing | partial | throwing things about exists (`ThrowAround`); practising throws as the game's separate action doesn't |
+| Practises dancing | todo |  |
+| Looks at its reflection in the water | todo |  |
+| Watches the telly | todo | (unconfirmed what this action shows in the game) |
+| Farts | todo |  |
+| Behaves strangely | todo |  |
+| Stands frightened on the spot, or is sad | done | `BeFrightenedOnTheSpot`, `BeSad` plan actions |
+| Shows off an impressive pose (not too often) | partial | `ShowImpressiveAnimation`; the game's rule against repeating it too soon is missing |
+| Rests, scratches and waves only if it hasn't lately | partial | the planner's novelty favours actions not done lately (`src/Creature/CreaturePlanner`); the game's explicit "not recently" checks are missing |
+
+## Music
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| Nice music cheers it, nasty music sours it, frightening music scares it | todo |  |
+| It dances to music | todo |  |
+| Its feelings choose the music that plays | todo | see [../audio/](../audio/) |

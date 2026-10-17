@@ -1,0 +1,153 @@
+/******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+#include "Texture2D.h"
+
+#include <cassert>
+
+#include <bgfx/bgfx.h>
+#include <glm/ext/vector_uint2_sized.hpp>
+#include <spdlog/spdlog.h>
+#include <stb_image_write.h>
+
+#include "Engine/GpuCommands.h"
+#include "GraphicsHandleBgfx.h"
+
+namespace bgfx
+{
+// Defined and exported by bgfx but not declared in bgfx.h: frees a Memory that is not handed to bgfx.
+void release(const Memory* _mem);
+} // namespace bgfx
+
+namespace openblack::graphics
+{
+
+Texture2D::Texture2D(std::string name)
+    : _name(std::move(name))
+    , _handle(BGFX_INVALID_HANDLE)
+{
+}
+
+Texture2D::~Texture2D()
+{
+	if (bgfx::isValid(toBgfx(_handle)))
+	{
+		engine::gpu::NoteResourceCall("Texture2D::destroy", _name);
+		bgfx::destroy(toBgfx(_handle));
+	}
+}
+
+void Texture2D::Create(uint16_t width, uint16_t height, uint16_t layers, TextureFormat format, Wrapping wrapping, Filter filter,
+                       const void* memory) noexcept
+{
+	uint64_t flags = BGFX_TEXTURE_NONE;
+	switch (wrapping)
+	{
+	case Wrapping::ClampEdge:
+		flags |= BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
+		break;
+	case Wrapping::ClampBorder:
+		flags |= BGFX_SAMPLER_U_BORDER | BGFX_SAMPLER_V_BORDER;
+		break;
+	case Wrapping::Repeat:
+		break;
+	case Wrapping::MirroredRepeat:
+		flags |= BGFX_SAMPLER_U_MIRROR | BGFX_SAMPLER_V_MIRROR;
+		break;
+	}
+	switch (filter)
+	{
+	case Filter::Nearest:
+		flags |= BGFX_SAMPLER_POINT;
+		break;
+	case Filter::Linear:
+		break;
+	default:
+		assert(false);
+	}
+
+	const auto* bgfxMemory = reinterpret_cast<const bgfx::Memory*>(memory);
+	_samplerFlags = static_cast<uint32_t>(flags & BGFX_SAMPLER_BITS_MASK);
+	engine::gpu::NoteResourceCall("Texture2D::Create", _name);
+	_handle = fromBgfx(bgfx::createTexture2D(width, height, false, layers, toBgfx(format), flags, bgfxMemory));
+	bgfx::setName(toBgfx(_handle), _name.c_str());
+
+	bgfx::TextureInfo textureInfo;
+	bgfx::calcTextureSize(textureInfo, width, height, 1, false, false, layers, toBgfx(format));
+	_resolution = glm::u16vec2(textureInfo.width, textureInfo.height);
+	_numLayers = textureInfo.numLayers;
+	_format = fromBgfx(textureInfo.format);
+	_stride = textureInfo.width * textureInfo.bitsPerPixel / 8;
+	_storageSize = textureInfo.storageSize;
+}
+
+void Texture2D::Update(const void* data, uint32_t size) noexcept
+{
+	if (!bgfx::isValid(toBgfx(_handle)) || data == nullptr)
+	{
+		return;
+	}
+	const uint16_t width = _resolution.x;
+	const uint16_t height = _resolution.y;
+	engine::gpu::NoteResourceCall("Texture2D::Update", _name);
+	bgfx::updateTexture2D(toBgfx(_handle), 0, 0, 0, 0, width, height, bgfx::copy(data, size));
+}
+
+void Texture2D::UpdateMemory(const bgfx::Memory* memory) noexcept
+{
+	if (!bgfx::isValid(toBgfx(_handle)) || memory == nullptr)
+	{
+		return;
+	}
+	const uint16_t width = _resolution.x;
+	const uint16_t height = _resolution.y;
+	engine::gpu::NoteResourceCall("Texture2D::Update", _name);
+	bgfx::updateTexture2D(toBgfx(_handle), 0, 0, 0, 0, width, height, memory);
+}
+
+bool Texture2D::IsValid() const noexcept
+{
+	return bgfx::isValid(toBgfx(_handle));
+}
+
+void Texture2D::UpdateRegion(glm::u16vec2 origin, glm::u16vec2 size, const void* data, uint32_t bytes) noexcept
+{
+	if (!bgfx::isValid(toBgfx(_handle)) || data == nullptr || size.x == 0 || size.y == 0)
+	{
+		return;
+	}
+	engine::gpu::NoteResourceCall("Texture2D::UpdateRegion", _name);
+	bgfx::updateTexture2D(toBgfx(_handle), 0, 0, origin.x, origin.y, size.x, size.y, bgfx::copy(data, bytes));
+}
+
+void Texture2D::DumpTexture() const
+{
+	assert(!_name.empty());
+	std::vector<uint8_t> pixels;
+	pixels.resize(_storageSize);
+	bgfx::readTexture(toBgfx(_handle), pixels.data());
+	bgfx::frame();
+	// TODO(bwrsandman): get the number of components from _info.format
+	const auto numComponents = 4u;
+	for (uint16_t i = 0; i < _numLayers; ++i)
+	{
+		auto filename = "dump/" + _name + "_" + std::to_string(i) + ".png";
+		SPDLOG_LOGGER_INFO(spdlog::get("graphics"), "Writing texture layer {} to {}.", i, filename.c_str());
+		auto* currentPixels = &pixels[i * _stride * _resolution.y];
+		auto writeResult =
+		    stbi_write_png(filename.c_str(), _resolution.x, _resolution.y, numComponents, currentPixels, _stride);
+		if (writeResult == 0)
+		{
+			SPDLOG_LOGGER_ERROR(spdlog::get("graphics"), "Writing texture to {} failed!", filename.c_str());
+			break;
+		}
+	}
+}
+
+} // namespace openblack::graphics

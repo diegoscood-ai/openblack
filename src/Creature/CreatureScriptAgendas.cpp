@@ -1,0 +1,252 @@
+/******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+#include "CreatureScriptAgendas.h"
+
+#include <cmath>
+
+#include <algorithm>
+#include <array>
+#include <limits>
+
+#include <glm/geometric.hpp>
+
+#include "3D/MapCoords.h"
+#include "Common/GUtilsAngle.h"
+#include "Common/GUtilsDistance.h"
+#include "Creature/CreatureLayers.h"
+
+using namespace openblack::creature_mind;
+
+namespace
+{
+/// Turning to face a thing, holding still a while once it does, its head on the thing
+Step FaceThing(uint32_t thing, float seconds)
+{
+	Step turn {.kind = Step::Kind::Move, .seconds = seconds};
+	turn.movement = {.kind = Movement::Kind::TurnToFaceObject, .object = thing};
+	turn.gaze = Gaze {.object = thing};
+	return turn;
+}
+
+/// Pointing somewhere for a while, amazed
+Step Point(ObjectOrder order, float seconds, Gaze gaze)
+{
+	order.kind = ObjectOrder::Kind::PointAt;
+	order.seconds = std::max(seconds, k_ShortestPointSeconds);
+	return {.kind = Step::Kind::Object, .order = order, .face = openblack::creature_face::Cue::Amazed, .gaze = gaze};
+}
+
+/// The eight directions about a point the ground is looked at in, in the order they are tried
+constexpr std::array<glm::vec2, 8> k_SlopeDirections {
+    glm::vec2 {1.0f, 0.0f},  glm::vec2 {1.0f, 1.0f},   glm::vec2 {0.0f, 1.0f},  glm::vec2 {-1.0f, 1.0f},
+    glm::vec2 {-1.0f, 0.0f}, glm::vec2 {-1.0f, -1.0f}, glm::vec2 {0.0f, -1.0f}, glm::vec2 {1.0f, -1.0f},
+};
+} // namespace
+
+std::vector<Step> openblack::creature_mind::LookForever(uint32_t thing)
+{
+	return {
+	    FaceThing(thing, k_FaceThingSeconds),
+	    {.kind = Step::Kind::Wait, .seconds = k_LookForeverSeconds, .gaze = Gaze {.object = thing}},
+	};
+}
+
+std::vector<Step> openblack::creature_mind::LookButDontApproach(uint32_t thing, float seconds)
+{
+	return {
+	    FaceThing(thing, k_FaceThingSeconds),
+	    {.kind = Step::Kind::Wait, .seconds = seconds, .gaze = Gaze {.object = thing, .bottom = true}},
+	};
+}
+
+std::vector<Step> openblack::creature_mind::PointAtThing(uint32_t thing)
+{
+	return {Point({.object = thing}, k_PointAtThingSeconds, {.object = thing})};
+}
+
+std::vector<Step> openblack::creature_mind::PointAtCamera(bool hasPlayer, glm::vec3 camera)
+{
+	std::vector<Step> agenda;
+	if (hasPlayer)
+	{
+		agenda.push_back({.kind = Step::Kind::Move,
+		                  .movement = {.kind = Movement::Kind::TurnToFace, .point = {camera.x, camera.z}},
+		                  .gaze = Gaze {.camera = true}});
+	}
+	agenda.push_back(
+	    Point({.point = {camera.x, camera.z}, .pointHeight = camera.y}, k_PointAtCameraSeconds, {.point = camera}));
+	return agenda;
+}
+
+std::vector<Step> openblack::creature_mind::LookAtCameraInCutScene(const std::optional<glm::vec3>& camera, const Random& random)
+{
+	namespace animations = openblack::creature_layers::animations;
+	const Gaze atCamera {.camera = true};
+	const Step watch {.kind = Step::Kind::LookAtCamera,
+	                  .turns = k_CutSceneWatchTurns,
+	                  .face = openblack::creature_face::Cue::Curiosity,
+	                  .gaze = atCamera};
+	const Step talk {.kind = Step::Kind::Overlay,
+	                 .animation = animations::k_Talk,
+	                 .face = openblack::creature_face::Cue::Curiosity,
+	                 .gaze = atCamera};
+	const auto play = [&atCamera](size_t animation) {
+		return Step {.kind = Step::Kind::Action,
+		             .animation = animation,
+		             .face = openblack::creature_face::Cue::Amazed,
+		             .gaze = atCamera};
+	};
+
+	std::vector<Step> agenda;
+	if (random(k_CutScenePointLots) == 0 && camera.has_value())
+	{
+		agenda.push_back(
+		    Point({.point = {camera->x, camera->z}, .pointHeight = camera->y}, k_PointAtCameraSeconds, {.point = *camera}));
+	}
+	agenda.push_back(watch);
+	if (random(k_CutSceneWaveLots) == 0)
+	{
+		agenda.push_back(play(animations::k_FriendlyWave));
+	}
+	if (random(k_CutSceneTalkLots) == 0)
+	{
+		agenda.push_back(talk);
+	}
+	if (random(k_CutSceneConfusedLots) == 0)
+	{
+		agenda.push_back(play(animations::k_Confused));
+		agenda.push_back(talk);
+	}
+	agenda.push_back(watch);
+	return agenda;
+}
+
+bool openblack::creature_mind::StartsLookAtCameraInCutScene(bool barsIn, uint32_t barsOwner, bool lookingAlready)
+{
+	return barsIn && barsOwner != 0 && !lookingAlready;
+}
+
+std::vector<Step> openblack::creature_mind::SitDownAt(uint32_t place, glm::vec2 point, float radius, float seconds)
+{
+	namespace animations = openblack::creature_layers::animations;
+	return {
+	    {.kind = Step::Kind::Move,
+	     .movement = {.kind = Movement::Kind::ToPoint, .point = point, .maxDistance = radius},
+	     .gaze = Gaze {.point = glm::vec3 {point.x, 0.0f, point.y}, .goingTowards = true}},
+	    FaceThing(place, k_FacePlaceSeconds),
+	    // Facing down the slope has no look of its own, and the sit looks about: the head looks about throughout both
+	    {.kind = Step::Kind::Move, .movement = {.kind = Movement::Kind::FaceDownSlope}, .gaze = Gaze {}},
+	    {.kind = Step::Kind::Static,
+	     .seconds = seconds,
+	     .animation = animations::k_Sit,
+	     .sequence = {animations::k_StartSit, animations::k_Sit, animations::k_EndSit},
+	     .gaze = Gaze {}},
+	};
+}
+
+std::vector<Step> openblack::creature_mind::FaceForScript(glm::vec3 point)
+{
+	return {{.kind = Step::Kind::Move,
+	         .movement = {.kind = Movement::Kind::FacePoint, .point = {point.x, point.z}},
+	         .gaze = Gaze {.point = point}}};
+}
+
+std::vector<Step> openblack::creature_mind::MoveForScript(glm::vec2 from, glm::vec3 point, float height, float distance)
+{
+	const glm::vec2 to {point.x, point.z};
+	auto first = distance;
+	auto second = distance;
+	if (distance == 0.0f)
+	{
+		first = glm::distance(from, to) * k_FirstLegShare;
+		first = height > first ? height : std::min(first, (k_FirstLegHeightShare * height) + k_FirstLegMost);
+		second = height;
+	}
+	const auto leg = [&to, &point](float within) {
+		return Step {.kind = Step::Kind::Move,
+		             .movement = {.kind = Movement::Kind::ToPoint, .point = to, .maxDistance = within},
+		             .gaze = Gaze {.point = point}};
+	};
+	return {leg(first), leg(second)};
+}
+
+bool openblack::creature_mind::NeedsToTurnToFace(float distance, float turn)
+{
+	return distance >= k_OnTopOf && std::abs(turn) > k_FacingWithin;
+}
+
+WalkLook openblack::creature_mind::StartWalkLook(const WalkLookInfo& info)
+{
+	return {.step = info.sweepStep, .distance = info.firstDistance, .distanceStep = info.distanceStep};
+}
+
+WalkLookAt openblack::creature_mind::LookWhileGoing(WalkLook& look, const WalkLookInfo& info, glm::vec2 from, glm::vec2 point,
+                                                    float bodyYaw, bool interesting, uint32_t turnsPerSecond)
+{
+	namespace map_coords = openblack::map_coords;
+	namespace gutils = openblack::gutils;
+	const auto distance = gutils::GetDistanceInMetres(from, point);
+	if (!(distance > k_NoWalkLookWithin))
+	{
+		return {};
+	}
+	if (!(distance > info.pointWithin))
+	{
+		return {.kind = WalkLookAt::Kind::Point};
+	}
+	WalkLookAt at {.kind = WalkLookAt::Kind::Point};
+	if (look.look == 1 && interesting)
+	{
+		at.kind = WalkLookAt::Kind::Interesting;
+	}
+	else if (look.look == 2)
+	{
+		// The sweep moves on; at either end it turns back and looks further away
+		look.angle += look.step;
+		if (!(-info.sweepAngle < look.angle) || !(look.angle < info.sweepAngle))
+		{
+			look.step = -look.step;
+			look.distance += look.distanceStep;
+			if (!(look.distance < info.farthest))
+			{
+				look.distance = info.firstDistance;
+			}
+		}
+		const auto angle = static_cast<uint16_t>(gutils::ConvertScawenAngleToGameAngle(bodyYaw + look.angle));
+		const auto here = map_coords::FromMetres(from);
+		const auto x = map_coords::ToFixedGUtils(gutils::GetXByAngle(angle, look.distance) + map_coords::ToMetres(here.x));
+		const auto z = map_coords::ToFixedGUtils(gutils::GetZByAngle(angle, look.distance) + map_coords::ToMetres(here.z));
+		at = {.kind = WalkLookAt::Kind::Sweep, .sweep = {map_coords::ToMetres(x), map_coords::ToMetres(z)}};
+	}
+	// Each look lasts two seconds and a turn, in whole turns
+	if (++look.turns > 2 * turnsPerSecond)
+	{
+		look.turns = 0;
+		look.look = (look.look + 1) % 3;
+	}
+	return at;
+}
+
+glm::vec2 openblack::creature_mind::DownSlope(glm::vec2 from, const std::function<std::optional<float>(glm::vec2)>& heightAt)
+{
+	glm::vec2 lowest {0.0f};
+	auto lowestHeight = std::numeric_limits<float>::max();
+	for (const auto& direction : k_SlopeDirections)
+	{
+		const auto point = from + (direction * k_SlopeLookDistance);
+		const auto height = heightAt(point);
+		if (height.has_value() && *height < lowestHeight)
+		{
+			lowest = point;
+			lowestHeight = *height;
+		}
+	}
+	return lowest;
+}

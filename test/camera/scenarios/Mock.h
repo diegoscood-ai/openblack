@@ -9,12 +9,16 @@
 
 #pragma once
 
+#include <algorithm>
 #include <array>
+#include <map>
 #include <optional>
+#include <vector>
 
 #include <3D/LandIslandInterface.h>
+#include <3D/LandLine.h>
 #include <Camera/Camera.h>
-#include <ECS/Systems/DynamicsSystemInterface.h>
+#include <ECS/Systems/PickingSystemInterface.h>
 #include <Input/GameActionMapInterface.h>
 #include <Locator.h>
 #include <Windowing/WindowingInterface.h>
@@ -58,23 +62,34 @@ const uint32_t k_InteractionFrames = 100;
 class MockWindowingSystem final: public openblack::windowing::WindowingInterface
 {
 	[[nodiscard]] void* GetHandle() const final { assert(false); }
+	[[nodiscard]] NativeHandles GetNativeHandles() const final { assert(false); }
 	[[nodiscard]] uint32_t GetID() const final { assert(false); }
 	[[nodiscard]] glm::ivec2 GetSize() const final { return {k_Width, k_Height}; }
 	[[nodiscard]] float GetAspectRatio() const final { return static_cast<float>(k_Width) / static_cast<float>(k_Height); }
+	[[nodiscard]] bool IsMinimised() const final { return false; }
 	WindowingInterface& SetDisplayMode(openblack::windowing::DisplayMode) final { return *this; }
 };
 
 class MockTerrain final: public openblack::LandIslandInterface
 {
 	[[nodiscard]] float GetHeightAt(glm::vec2) const final { return 0.0f; }
+	[[nodiscard]] float GetUnflattenedHeightAt(glm::vec2) const final { return 0.0f; }
 	[[nodiscard]] glm::vec3 GetNormalAt(glm::vec2) const final { return {0.0f, 1.0f, 0.0f}; }
 	[[nodiscard]] const openblack::lnd::LNDCell& GetCell(const glm::u16vec2&) const final { assert(false); }
+	// The land's ray cast reads the corners: level land at 0, as GetHeightAt
+	[[nodiscard]] std::array<uint16_t, 4> GetCellCorners(glm::u16vec2) const final { return {0, 0, 0, 0}; }
+	void DumpTextures() const final { assert(false); }
+	void DumpMaps() const final { assert(false); }
 	[[nodiscard]] std::vector<openblack::LandBlock>& GetBlocks() final { assert(false); }
 	[[nodiscard]] const std::vector<openblack::LandBlock>& GetBlocks() const final { assert(false); }
 	[[nodiscard]] const std::vector<openblack::lnd::LNDCountry>& GetCountries() const final { assert(false); }
-	[[nodiscard]] const openblack::graphics::Texture2d& GetAlbedoArray() const final { assert(false); }
-	[[nodiscard]] const openblack::graphics::Texture2d& GetBump() const final { assert(false); }
-	[[nodiscard]] const openblack::graphics::Texture2d& GetHeightMap() const final { assert(false); }
+	[[nodiscard]] const openblack::graphics::Texture2D& GetAlbedoArray() const final { assert(false); }
+	[[nodiscard]] const openblack::graphics::Texture2D& GetBump() const final { assert(false); }
+	[[nodiscard]] const openblack::graphics::Texture2D& GetSmallBump() const final { assert(false); }
+	[[nodiscard]] const openblack::graphics::Texture2D& GetHeightMap() const final { assert(false); }
+	[[nodiscard]] const openblack::graphics::Texture2D& GetCellMap() const final { assert(false); }
+	[[nodiscard]] const openblack::graphics::FrameBuffer& GetStaticShadowFramebuffer() const final { assert(false); }
+	[[nodiscard]] const openblack::graphics::FrameBuffer& GetLandAlphaFramebuffer() const final { assert(false); }
 	[[nodiscard]] const openblack::graphics::FrameBuffer& GetFootprintFramebuffer() const final { assert(false); }
 	[[nodiscard]] openblack::U16Extent2 GetIndexExtent() const final { assert(false); }
 	[[nodiscard]] glm::mat4 GetOrthoView() const final { assert(false); }
@@ -97,6 +112,7 @@ public:
 	[[nodiscard]] bool GetUnbindableRepeat(openblack::input::UnbindableActionMap) const final { return false; }
 	[[nodiscard]] glm::uvec2 GetMousePosition() const override { return k_MockMousePos; }
 	[[nodiscard]] glm::ivec2 GetMouseDelta() const override { return {}; }
+	[[nodiscard]] float GetMouseWheelDelta() const override { return 0.0f; }
 	[[nodiscard]] std::array<std::optional<glm::vec3>, 2> GetHandPositions() const override { return {}; }
 	void Frame() final {}
 	void ProcessEvent(const SDL_Event& event) final {}
@@ -105,34 +121,83 @@ public:
 };
 
 // The mock land should work perfectly well and if not, there is something wrong with the physics
-class MockDynamicsSystem: public openblack::ecs::systems::DynamicsSystemInterface
+class MockPickingSystem: public openblack::ecs::systems::PickingSystemInterface
 {
 public:
-	virtual ~MockDynamicsSystem() = default;
+	virtual ~MockPickingSystem() = default;
 
-	void Reset() override {}
-	void Update(std::chrono::microseconds& dt) override {}
-	void AddRigidBody(btRigidBody* object) override {}
-	void RegisterRigidBodies() override {}
-	void RegisterIslandRigidBodies(openblack::LandIslandInterface& island) override {}
-	void UpdatePhysicsTransforms() override {}
-	[[nodiscard]] virtual std::optional<glm::vec2> RayCastClosestHitScreenCoord(glm::u16vec2 screenCoord) const = 0;
-	[[nodiscard]] std::optional<std::pair<openblack::ecs::components::Transform, openblack::RigidBodyDetails>>
-	RayCastClosestHit(const glm::vec3& origin, [[maybe_unused]] const glm::vec3& direction,
-	                  [[maybe_unused]] float tMax) const override
+	/// The recorded land under a pixel, across x and z
+	[[nodiscard]] virtual std::optional<glm::vec2> LandAtPixel(glm::u16vec2 screenCoord) const = 0;
+
+	// The land has no cells: no line meets it, only the sea's level. The land under a pixel is the recorded one, at the
+	// pixel the line through the near plane's point shows
+	[[nodiscard]] std::optional<glm::vec3> LandAlong(glm::vec3 from, glm::vec3 to) const override
+	{
+		const auto hit = openblack::land_line::LandAlong(from, to, NoCells);
+		return hit.has_value() ? std::optional(glm::vec3(hit->x, 0.0f, hit->y)) : std::nullopt;
+	}
+	// (openblack) The camera's pan stop reads this line: the cell walk over the mock terrain, level land at 0, as the
+	// game's picking walks its island
+	[[nodiscard]] std::optional<glm::vec3> LandOrSeaAlong(glm::vec3 from, glm::vec3 to, glm::vec3 camera) const override
 	{
 		const auto& terrain = openblack::Locator::terrainSystem::value();
-		const auto screenCoord = GetWindowCoordinates(origin);
+		const auto hit = openblack::land_line::LandOrSeaAlong(from, to, camera, openblack::land_line::CellsOf(terrain),
+		                                                      terrain.GetCellsPerSide());
+		return hit.has_value() ? std::optional(glm::vec3(hit->x, terrain.GetHeightAt(*hit), hit->y)) : std::nullopt;
+	}
+	[[nodiscard]] std::optional<glm::vec3> LandUnderPixel(glm::vec3 camera, glm::vec3 nearPoint,
+	                                                      [[maybe_unused]] bool withSea) const override
+	{
+		const auto& terrain = openblack::Locator::terrainSystem::value();
+		const auto screenCoord = GetWindowCoordinates(camera + (nearPoint - camera) * 100.0f);
 		if (!screenCoord.has_value())
 		{
 			return std::nullopt;
 		}
-		auto hit = RayCastClosestHitScreenCoord(*screenCoord);
+		const auto hit = LandAtPixel(*screenCoord);
 		if (!hit.has_value())
 		{
 			return std::nullopt;
 		}
-		return {{{{hit->x, terrain.GetHeightAt(*hit), hit->y}}, {}}};
+		return glm::vec3(hit->x, terrain.GetHeightAt(*hit), hit->y);
+	}
+	// The camera's land under a pixel is the recorded one at that pixel
+	[[nodiscard]] std::optional<glm::vec3> LandFrom2DPoint(glm::ivec2 pixel, bool /*shift*/, float /*depth*/) const override
+	{
+		const auto& terrain = openblack::Locator::terrainSystem::value();
+		const auto hit = LandAtPixel(RecordedPixel(pixel));
+		if (!hit.has_value())
+		{
+			return std::nullopt;
+		}
+		return glm::vec3(hit->x, terrain.GetHeightAt(*hit), hit->y);
+	}
+	void PickUnderCursor(const Frame& /*unused*/) override {}
+	[[nodiscard]] const Pick& GetPick() const override { return _pick; }
+	[[nodiscard]] std::optional<openblack::screen_pick::MeshHit> FeelModel(entt::entity /*unused*/, glm::vec3 /*unused*/,
+	                                                                       glm::vec3 /*unused*/) const override
+	{
+		return std::nullopt;
+	}
+
+	// The recordings are keyed by the screen pixel the land was asked for. The camera's vertical line asks at the rows
+	// h * i / 16 rounded down, which the recordings have rounded to the nearest (k_ScreenCentreLine). The mouse's own
+	// pixel is the one recorded, even on one of those rows: the recordings never ask the line while the mouse is on a
+	// row it rounds up
+	[[nodiscard]] static glm::u16vec2 RecordedPixel(glm::ivec2 pixel)
+	{
+		if (pixel == glm::ivec2(openblack::Locator::gameActionSystem::value().GetMousePosition()))
+		{
+			return glm::u16vec2(pixel);
+		}
+		for (size_t i = 0; i < k_ScreenCentreLine.size(); ++i)
+		{
+			if (pixel == glm::ivec2(k_Width / 2, k_Height * static_cast<int>(i) / 16))
+			{
+				return k_ScreenCentreLine.at(i);
+			}
+		}
+		return glm::u16vec2(pixel);
 	}
 
 	[[nodiscard]] std::optional<glm::u16vec2> GetWindowCoordinates(const glm::vec3& position) const
@@ -150,6 +215,47 @@ public:
 
 	uint16_t frameNumber = 0;
 	const openblack::Camera* camera;
+
+private:
+	static std::optional<openblack::land_line::CellHeights> NoCells(int32_t /*unused*/, int32_t /*unused*/)
+	{
+		return std::nullopt;
+	}
+	Pick _pick;
+};
+
+// The raycasts a scenario recorded, read from its raycasts/<name>.json: for a screen coordinate, the first branch that
+// lists it gives the hit (or no hit) of each frame. A coordinate or frame the recording does not have is a test error
+class RecordedMockPickingSystem final: public MockPickingSystem
+{
+public:
+	struct Branch
+	{
+		std::vector<glm::u16vec2> coords;
+		std::map<uint16_t, std::optional<glm::vec2>> frames;
+	};
+
+	[[nodiscard]] std::optional<glm::vec2> LandAtPixel(glm::u16vec2 screenCoord) const override
+	{
+		for (const auto& branch : branches)
+		{
+			if (std::ranges::find(branch.coords, screenCoord) == branch.coords.end())
+			{
+				continue;
+			}
+			const auto found = branch.frames.find(frameNumber);
+			if (found != branch.frames.end())
+			{
+				return found->second;
+			}
+			assert(false); // Shouldn't be any unaccounted raycasts
+			return std::nullopt;
+		}
+		assert(false); // Shouldn't be any unaccounted raycasts
+		return std::nullopt;
+	}
+
+	std::vector<Branch> branches;
 };
 
 #if defined(_MSC_VER)

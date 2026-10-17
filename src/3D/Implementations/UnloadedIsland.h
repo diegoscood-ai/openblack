@@ -22,6 +22,11 @@ public:
 		throw std::runtime_error("Cannot get landscape before any are loaded");
 	}
 
+	[[nodiscard]] float GetUnflattenedHeightAt(glm::vec2) const override
+	{
+		throw std::runtime_error("Cannot get landscape before any are loaded");
+	}
+
 	[[nodiscard]] glm::vec3 GetNormalAt(glm::vec2) const override
 	{
 		throw std::runtime_error("Cannot get landscape before any are loaded");
@@ -36,6 +41,13 @@ public:
 	{
 		throw std::runtime_error("Cannot get landscape before any are loaded");
 	}
+
+	/// No blocks: the cell predicates (ECS/SeaCells) see the whole map as "no cell" instead of throwing
+	[[nodiscard]] bool HasBlockAt(const glm::u16vec2&) const override { return false; }
+
+	void DumpTextures() const override { throw std::runtime_error("Cannot get landscape before any are loaded"); }
+
+	void DumpMaps() const override { throw std::runtime_error("Cannot get landscape before any are loaded"); }
 
 	[[nodiscard]] std::vector<LandBlock>& GetBlocks() override
 	{
@@ -52,22 +64,42 @@ public:
 		throw std::runtime_error("Cannot get landscape before any are loaded");
 	}
 
-	[[nodiscard]] const graphics::Texture2d& GetAlbedoArray() const override
+	[[nodiscard]] const graphics::Texture2D& GetAlbedoArray() const override
 	{
 		throw std::runtime_error("Cannot get landscape before any are loaded");
 	}
 
-	[[nodiscard]] const graphics::Texture2d& GetBump() const override
+	[[nodiscard]] const graphics::Texture2D& GetBump() const override
 	{
 		throw std::runtime_error("Cannot get landscape before any are loaded");
 	}
 
-	[[nodiscard]] const graphics::Texture2d& GetHeightMap() const override
+	[[nodiscard]] const graphics::Texture2D& GetSmallBump() const override
+	{
+		throw std::runtime_error("Cannot get landscape before any are loaded");
+	}
+
+	[[nodiscard]] const graphics::Texture2D& GetHeightMap() const override
+	{
+		throw std::runtime_error("Cannot get landscape before any are loaded");
+	}
+
+	[[nodiscard]] const graphics::Texture2D& GetCellMap() const override
 	{
 		throw std::runtime_error("Cannot get landscape before any are loaded");
 	}
 
 	[[nodiscard]] const graphics::FrameBuffer& GetFootprintFramebuffer() const override
+	{
+		throw std::runtime_error("Cannot get landscape before any are loaded");
+	}
+
+	[[nodiscard]] const graphics::FrameBuffer& GetStaticShadowFramebuffer() const override
+	{
+		throw std::runtime_error("Cannot get landscape before any are loaded");
+	}
+
+	[[nodiscard]] const graphics::FrameBuffer& GetLandAlphaFramebuffer() const override
 	{
 		throw std::runtime_error("Cannot get landscape before any are loaded");
 	}

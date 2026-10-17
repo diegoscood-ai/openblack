@@ -18,7 +18,7 @@
 #include <fstream>
 #include <system_error>
 
-#include <SDL3/SDL.h>
+#include <SDL2/SDL.h>
 #include <spdlog/spdlog.h>
 
 #include "MemoryStream.h"
@@ -81,8 +81,8 @@ private:
 } // namespace
 
 AndroidFileSystem::AndroidFileSystem()
-    : _jniEnv(static_cast<JNIEnv*>(SDL_GetAndroidJNIEnv()))
-    , _jniActivity(static_cast<jobject>(SDL_GetAndroidActivity()))
+    : _jniEnv(static_cast<JNIEnv*>(SDL_AndroidGetJNIEnv()))
+    , _jniActivity(static_cast<jobject>(SDL_AndroidGetActivity()))
     , _jniInteropClass((jclass)_jniEnv->NewGlobalRef(_jniEnv->FindClass("org/openblack/app/FileSystemInterop")))
 {
 	// You need to create a global reference to use it outside the method where it was created
@@ -151,7 +151,7 @@ std::unique_ptr<Stream> AndroidFileSystem::Open(const std::filesystem::path& pat
 	jbyte* jbytesPtr = _jniEnv->GetByteArrayElements(jbytes, nullptr);
 
 	std::vector<uint8_t> bytes(jbytesPtr, jbytesPtr + length);
-	auto value = std::unique_ptr<Stream>(new MemoryStream(std::move(bytes)));
+	std::unique_ptr<Stream> value = std::make_unique<MemoryStream>(std::move(bytes));
 
 	_jniEnv->ReleaseByteArrayElements(jbytes, jbytesPtr, 0);
 	_jniEnv->DeleteLocalRef(jbytes);

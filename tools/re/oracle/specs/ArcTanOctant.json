@@ -1,0 +1,34 @@
+{
+ "function": "ArcTanOctant",
+ "symbol": "?atan360@@YAMMM@Z",
+ "addr": "0x007FA990",
+ "conv": "cdecl",
+ "ret": "st0",
+ "notes": "fn_007FA990(a, b) = atan2(b, a) by octants (the symbol is folded code). The hand-picked cases include near-ties (a / b = +-2^-24 against +-1): there the x87 rounds the exact difference once to 24 bits. Returns on the FPU stack: ret is the 80-bit value, ret_f32 / ret_f64 what a caller's fstp dword / qword stores. openblack: lh_matrix::ArcTanOctant (src/3D/ObjectMatrix.h), a double.",
+ "args": [
+  {"name": "a", "type": "f32", "gen": "v"},
+  {"name": "b", "type": "f32", "gen": "v"}
+ ],
+ "generators": {
+  "v": {"mix": [
+   [60, {"uniform": [-10, 10]}],
+   [25, {"loguniform": [1e-8, 1e8], "signed": true}],
+   [15, {"choice": [0, "-0", 1, -1, 0.5, -0.5, 2, -2, "inf", "-inf", "0x00000001", "0x80000001"]}]
+  ]}
+ },
+ "edges": {
+  "a": [0, "-0", 1, -1, "inf", "-inf", "nan", "0x00000001", "0x7F7FFFFF"],
+  "b": [0, "-0", 1, -1, "inf", "-inf", "nan", "0x00000001", "0x7F7FFFFF"]
+ },
+ "cases": [
+  {"a": 1, "b": 1}, {"a": 1, "b": -1}, {"a": -1, "b": 1}, {"a": -1, "b": -1},
+  {"a": 0, "b": 0}, {"a": "-0", "b": "-0"}, {"a": 0, "b": "-0"}, {"a": "-0", "b": 0},
+  {"a": -1, "b": "-0"}, {"a": -1, "b": 0}, {"a": 2.5, "b": "-0"}, {"a": 0, "b": 1}, {"a": 0, "b": -1},
+  {"a": 3, "b": 3}, {"a": -3, "b": 3}, {"a": 3, "b": -3}, {"a": -3, "b": -3},
+  {"a": "0x33800000", "b": -1}, {"a": "0xB3800000", "b": 1}, {"a": -1, "b": "0x33800000"}, {"a": -1, "b": "0xB3800000"},
+  {"a": "0x33800000", "b": 1}, {"a": "0xB3800000", "b": -1}, {"a": "0x34000000", "b": -1}, {"a": "0x33000000", "b": -1},
+  {"a": "0x33800000", "b": -2}, {"a": "0x34000000", "b": -2}
+ ],
+ "random_cases": 4000,
+ "seed": 103
+}

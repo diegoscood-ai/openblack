@@ -22,6 +22,10 @@ protected:
 	void Update() noexcept override;
 	void ProcessEventOpen(const SDL_Event& event) noexcept override;
 	void ProcessEventAlways(const SDL_Event& event) noexcept override;
+
+private:
+	/// The object draw list's readout and its draw switch, closed by default
+	void DrawObjectList() noexcept;
 };
 
 } // namespace openblack::debug::gui

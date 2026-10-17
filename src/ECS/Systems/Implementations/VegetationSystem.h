@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <array>
+
 #include "ECS/Systems/VegetationInterface.h"
 
 #if !defined(LOCATOR_IMPLEMENTATIONS)
@@ -17,10 +19,21 @@
 
 namespace openblack::ecs::systems
 {
-
 class VegetationSystem final: public VegetationInterface
 {
 public:
-	void Sway() override;
+	void Update(std::chrono::duration<float, std::milli> frameTime) override;
+	[[nodiscard]] float GetLean(uint8_t swaySlot) const override;
+	[[nodiscard]] glm::mat4 GetFieldMatrix(const glm::mat4& model, float scale, uint8_t swaySlot) const override;
+
+private:
+	/// Phase speed of each sway, 1 to 2, drawn again every two seconds: 0 until the first draw, so there is no sway
+	/// for the first two seconds
+	std::array<float, k_SwayCount> _speeds {};
+	std::array<float, k_SwayCount> _phases {};
+	/// Lean of each sway along the z axis, per unit of a tree's height
+	std::array<float, k_SwayCount> _leans {};
+	/// Milliseconds since the speeds last changed
+	float _speedTime {0.0f};
 };
 } // namespace openblack::ecs::systems

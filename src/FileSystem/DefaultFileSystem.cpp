@@ -92,7 +92,12 @@ bool DefaultFileSystem::IsPathValid(const std::filesystem::path& path)
 
 std::unique_ptr<Stream> DefaultFileSystem::Open(const std::filesystem::path& path, Stream::Mode mode)
 {
-	return std::unique_ptr<Stream>(new FileStream(FindPath(path), mode));
+	// a file that is written may not be there yet: then it is made where the path says, relative to the game folder
+	if (mode != Stream::Mode::Read && !path.empty() && !Exists(path))
+	{
+		return std::make_unique<FileStream>(path.is_absolute() ? path : _gamePath / path, mode);
+	}
+	return std::make_unique<FileStream>(FindPath(path), mode);
 }
 
 bool DefaultFileSystem::Exists(const std::filesystem::path& path) const

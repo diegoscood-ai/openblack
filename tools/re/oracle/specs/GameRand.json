@@ -1,0 +1,21 @@
+{
+ "function": "GameRand",
+ "symbol": "?GameRand@GRand@@SAIIPBDI@Z",
+ "addr": "0x006DE510",
+ "conv": "cdecl",
+ "ret": "u32",
+ "notes": "GRand::GameRand(max, file, line): a 2000-draw sequence of the synced stream from the campaign's initial seed 0x88F89F (each case's seed is the previous case's seed after: chain). GData::Rand 0x510650 returns 0 for max 0 without a draw, else LHRand 0x7DB600: seed = ror32(seed * 9377 + 0x24DF, 13), seed % max. The seed lives in a fake GGame (fake_game: pointer 0xD0195C, seed at +0x205A38 = 0x8A8FF0). openblack: game_random::SeededRandom / GameRandomInterface::GameRand (src/Common/GameRandom.h).",
+ "fake_game": true,
+ "args": [
+  {"name": "max", "type": "u32", "gen": {"mix": [[50, {"int": [1, 1000]}], [20, {"choice": [0, 1, 2, 3, 100, 65535, "0x7FFFFFFF", "0x80000000", "0xFFFFFFFF"]}], [30, {"bits": true}]]}},
+  {"name": "file", "type": "ptr", "value": 0},
+  {"name": "line", "type": "u32", "value": 0}
+ ],
+ "globals": [
+  {"name": "seed", "addr": "0x008A8FF0", "type": "u32", "gen": {"bits": true}, "out": true}
+ ],
+ "chain": {"seed": "seed"},
+ "cases": [{"seed": "0x0088F89F", "max": 100}],
+ "random_cases": 1999,
+ "seed": 301
+}

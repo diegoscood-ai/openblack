@@ -7,113 +7,316 @@
  * openblack is licensed under the GNU General Public License version 3.
  *******************************************************************************/
 
-#include <SDL3/SDL_gpu.h>
 #define LOCATOR_IMPLEMENTATIONS
 
+#include "Gui.h"
+
+#include <cinttypes>
 #include <cmath>
 
-#include <SDL3/SDL.h>
+#include <algorithm>
+#include <array>
+
+#include <bgfx/embedded_shader.h>
+// BGFX has support for WSL to use windows d3d. We disable it here from the BGFX_EMBEDDED_SHADER macro.
+#if BX_PLATFORM_LINUX
+#undef BGFX_EMBEDDED_SHADER_DXBC
+#define BGFX_EMBEDDED_SHADER_DXBC(...)
+#endif
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+#endif
+#include <bx/math.h>
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
+#include <LHVM.h>
+#include <SDL.h>
+#include <bx/timer.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/compatibility.hpp>
 #include <imgui.h>
-#include <imgui_impl_sdl3.h>
-#include <imgui_impl_sdlgpu3.h>
+#include <imgui_impl_sdl2.h>
 #include <imgui_internal.h>
 #include <imgui_stdlib.h>
 #include <imgui_user.h>
+#include <spdlog/spdlog.h>
 
-#include "3D/SkyInterface.h"
+#include "3D/DayNightClock.h"
+#include "3D/FlatLand.h"
+#include "3D/SkyType.h"
+#include "Advisors.h"
+#include "Artefacts.h"
 #include "Audio.h"
+#include "Audio/Audio.h"
+#include "AudioBanks.h"
+#include "Camera.h"
 #include "Camera/Camera.h"
+#include "Consciences.h"
 #include "Console.h"
+#include "CreatureSpawner.h"
 #include "ECS/Components/LivingAction.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
+#include "ECS/PlayerCreature.h"
 #include "ECS/Registry.h"
+#include "ECS/Systems/DayNightClockSystemInterface.h"
 #include "ECS/Systems/HandSystemInterface.h"
 #include "ECS/Systems/LivingActionSystemInterface.h"
+#include "ECS/Systems/RenderingSystemInterface.h"
+#include "ECS/Systems/ScreenshotRequestSystemInterface.h"
+#include "ECS/Systems/ScriptControlSystemInterface.h"
+#include "ECS/Systems/SkySystemInterface.h"
+#include "ECS/VillagerAge.h"
+#include "Editor/EditorWindow.h"
 #include "EngineConfig.h"
+#include "FileDialogWindow.h"
 #include "FileSystem/FileSystemInterface.h"
 #include "Game.h"
+#include "Gestures.h"
+#include "Graphics/GraphicsHandleBgfx.h"
 #include "Graphics/RendererInterface.h"
-#include "Gui.h"
+#include "Gui/CreatureCaveScreen.h"
+#include "Help/HelpSystem.h"
+#include "Help/SpeedIndicator.h"
+#include "ImGuiUtils.h"
+#include "IslandLoad.h"
+#include "KeyBindingsWindow.h"
 #include "LHVMViewer.h"
 #include "LandIsland.h"
 #include "Locator.h"
+#include "Magic.h"
 #include "MeshViewer.h"
+#include "ModLoaderStatus.h"
+#include "Moon.h"
+#include "Music.h"
 #include "PathFinding.h"
+#include "Physics.h"
 #include "Profiler.h"
 #include "Resources/ResourcesInterface.h"
+#include "Scripts.h"
 #include "Temple.h"
+#include "TestbedScenarios.h"
 #include "TextureViewer.h"
+#ifdef OPENBLACK_BINK_DECODER
+#include "VideoViewer.h"
+#endif
+#include "Vortices.h"
+#include "Weather.h"
 #include "Windowing/WindowingInterface.h"
+
+// Turn off formatting because it adds spaces which break the stringifying
+// clang-format off
+// NOLINTNEXTLINE(bugprone-macro-parentheses)
+#define IMGUI_SHADER_DIR imgui/
+// clang-format on
+#define SHADER_NAME vs_imgui_image
+#define SHADER_DIR IMGUI_SHADER_DIR
+#include "Graphics/ShaderIncluder.h"
+#define SHADER_DIR IMGUI_SHADER_DIR
+#define SHADER_NAME fs_imgui_image
+#include "Graphics/ShaderIncluder.h"
+
+#define SHADER_NAME vs_ocornut_imgui
+#define SHADER_DIR IMGUI_SHADER_DIR
+#include "Graphics/ShaderIncluder.h"
+#define SHADER_NAME fs_ocornut_imgui
+#define SHADER_DIR IMGUI_SHADER_DIR
+#include "Graphics/ShaderIncluder.h"
 
 using namespace openblack;
 using namespace openblack::debug::gui;
 
-std::unique_ptr<DebugGuiInterface> DebugGuiInterface::Create() noexcept
+namespace
+{
+const std::array<bgfx::EmbeddedShader, 5> k_EmbeddedShaders = {{
+    BGFX_EMBEDDED_SHADER(vs_ocornut_imgui),
+    BGFX_EMBEDDED_SHADER(fs_ocornut_imgui),
+    BGFX_EMBEDDED_SHADER(vs_imgui_image),
+    BGFX_EMBEDDED_SHADER(fs_imgui_image),
+
+    BGFX_EMBEDDED_SHADER_END(),
+}};
+
+/// What "Load Island" reaches of the game: its land loads, the script machine, and the first player's creature
+class IslandLoadOfGame
+{
+public:
+	explicit IslandLoadOfGame(Game& game)
+	    : _game(game)
+	{
+	}
+
+	bool LoadMap(const std::filesystem::path& path) { return _game.LoadMap(path); }
+	bool ChangeLand(const std::filesystem::path& path) { return _game.ChangeLand(path); }
+	void StopAllTasks()
+	{
+		if (Locator::vm::has_value())
+		{
+			Locator::vm::value().StopAllTasks();
+		}
+	}
+	void StartScript(const std::string& name)
+	{
+		if (Locator::vm::has_value())
+		{
+			Locator::vm::value().StartScript(name, lhvm::ScriptType::All);
+		}
+	}
+	[[nodiscard]] std::optional<glm::vec3> TempleCreatureHome() const
+	{
+		return ecs::player_creature::TemplePenOf(PlayerNames::PLAYER_ONE);
+	}
+	std::optional<entt::entity> LoadMyCreature(glm::vec3 home)
+	{
+		const auto creature = ecs::player_creature::LoadMyCreature(glm::vec2(home.x, home.z));
+		return creature != entt::null ? std::optional(creature) : std::nullopt;
+	}
+	void SetCreatureStage(entt::entity creature, int32_t stage)
+	{
+		ecs::player_creature::SetDevelopmentStage(Locator::entitiesRegistry::value(), creature, stage);
+	}
+	void Log(const std::string& line) { SPDLOG_LOGGER_INFO(spdlog::get("game"), "{}", line); }
+
+private:
+	Game& _game;
+};
+
+} // namespace
+
+/// The click feedback of a setup dialog (the options, save, keyboard and multiplayer boxes): when a control tells the
+/// box's control callback that it was clicked (the mouse released over the control it was pressed on, or the keyboard),
+/// the original plays G_MenuButton (InGame 159) 2D with mode 3 and starts a mouse force feedback effect (not ported:
+/// openblack has no force feedback). openblack's own dialogs are these ImGui menus, so each of their controls plays it
+/// when it reports a click. The sample's user parameter is 0, so GAudio drops it inside the citadel.
+/// Returns what it was given, to wrap the `if (ImGui::MenuItem(...))` of the menus.
+bool openblack::debug::gui::MenuClick(bool activated) noexcept
+{
+	if (activated)
+	{
+		audio::PlaySoundEffect(audio::Owner::None(), 159, 3, 0, false, false, audio::SfxBank::InGame);
+	}
+	return activated;
+}
+std::unique_ptr<DebugGuiInterface> DebugGuiInterface::Create(graphics::RenderPass viewId) noexcept
 {
 	IMGUI_CHECKVERSION();
 	auto* imgui = ImGui::CreateContext();
+	ImGui::GetIO().BackendRendererName = "imgui_impl_bgfx";
 
 	std::vector<std::unique_ptr<Window>> debugWindows;
-	debugWindows.emplace_back(new Profiler);
-	debugWindows.emplace_back(new MeshViewer);
-	debugWindows.emplace_back(new TextureViewer);
-	debugWindows.emplace_back(new Console);
-	debugWindows.emplace_back(new LandIsland);
-	debugWindows.emplace_back(new LHVMViewer);
-	debugWindows.emplace_back(new PathFinding);
-	debugWindows.emplace_back(new Audio);
-	debugWindows.emplace_back(new TempleInterior);
+	debugWindows.emplace_back(std::make_unique<Profiler>());
+	debugWindows.emplace_back(std::make_unique<MeshViewer>());
+	debugWindows.emplace_back(std::make_unique<TextureViewer>());
+	debugWindows.emplace_back(std::make_unique<Console>());
+	debugWindows.emplace_back(std::make_unique<LandIsland>());
+	debugWindows.emplace_back(std::make_unique<LHVMViewer>());
+	debugWindows.emplace_back(std::make_unique<PathFinding>());
+	debugWindows.emplace_back(std::make_unique<Audio>());
+	debugWindows.emplace_back(std::make_unique<Music>());
+	debugWindows.emplace_back(std::make_unique<AudioBanks>());
+	debugWindows.emplace_back(std::make_unique<TempleInterior>());
+	debugWindows.emplace_back(std::make_unique<Vortices>());
+	debugWindows.emplace_back(std::make_unique<Artefacts>());
+	auto spawner = std::make_unique<CreatureSpawner>();
+	auto& spawnerWindow = *spawner;
+	debugWindows.emplace_back(std::move(spawner));
+	// Closed until the testbed is loaded; it runs nothing until the game gives it its host
+	auto scenarios = std::make_unique<TestbedScenarios>(spawnerWindow);
+	auto& scenariosWindow = *scenarios;
+	debugWindows.emplace_back(std::move(scenarios));
+	// The editor owns the one Scripts panel, which the Scripts window draws while the editor is closed
+	auto editorOwner = std::make_unique<editor::EditorWindow>(scenariosWindow);
+	auto& editorWindow = *editorOwner;
+	debugWindows.emplace_back(std::make_unique<Consciences>());
+	debugWindows.emplace_back(std::make_unique<Scripts>(editorWindow));
+	debugWindows.emplace_back(std::make_unique<gui::Camera>());
+	debugWindows.emplace_back(std::make_unique<Weather>());
+	debugWindows.emplace_back(std::make_unique<Gestures>());
+	debugWindows.emplace_back(std::make_unique<KeyBindingsWindow>());
+	debugWindows.emplace_back(std::make_unique<FileDialogWindow>());
+	debugWindows.emplace_back(std::make_unique<Magic>());
+	debugWindows.emplace_back(std::move(editorOwner));
+	debugWindows.emplace_back(std::make_unique<Advisors>());
+	debugWindows.emplace_back(std::make_unique<Physics>());
+	debugWindows.emplace_back(std::make_unique<Moon>());
+#ifdef OPENBLACK_BINK_DECODER
+	debugWindows.emplace_back(std::make_unique<VideoViewer>());
+#endif
 
-	auto gui = std::unique_ptr<DebugGuiInterface>(new (std::nothrow)
-	                                                  Gui(imgui, std::move(debugWindows), !Locator::windowing::has_value()));
-	if (gui == nullptr)
+	std::unique_ptr<DebugGuiInterface> gui = std::make_unique<Gui>(imgui, static_cast<bgfx::ViewId>(viewId),
+	                                                               std::move(debugWindows), !Locator::windowing::has_value());
+
+	if (Locator::windowing::has_value())
 	{
-		ImGui::DestroyContext(imgui);
-		return nullptr;
+		auto* handle = Locator::windowing::value().GetHandle();
+		if (handle != nullptr)
+		{
+			if (!ImGui_ImplSDL2_InitForSDLRenderer(static_cast<SDL_Window*>(handle), nullptr))
+			{
+				return nullptr;
+			}
+		}
 	}
-
-	if (Locator::windowing::has_value() && Locator::rendererInterface::has_value())
-	{
-		auto& windowingSystem = Locator::windowing::value();
-		auto& renderer = Locator::rendererInterface::value();
-		auto* window = reinterpret_cast<SDL_Window*>(windowingSystem.GetHandle());
-		auto* device = reinterpret_cast<SDL_GPUDevice*>(renderer.GetDevice());
-
-		ImGui_ImplSDL3_InitForSDLGPU(window);
-		ImGui_ImplSDLGPU3_InitInfo initInfo = {
-		    .Device = device,
-		    .ColorTargetFormat = SDL_GetGPUSwapchainTextureFormat(device, window),
-		    .MSAASamples = SDL_GPU_SAMPLECOUNT_1,
-		};
-		ImGui_ImplSDLGPU3_Init(&initInfo);
-	}
+	// The system's cursor stays hidden: the game shows the hand, and its menu its own pointer
+	ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
 
 	return gui;
 }
 
-Gui::Gui(ImGuiContext* imgui, std::vector<std::unique_ptr<Window>>&& debugWindows, bool headless) noexcept
+Gui::Gui(ImGuiContext* imgui, uint16_t viewId, std::vector<std::unique_ptr<Window>>&& debugWindows, bool headless) noexcept
     : _imgui(imgui)
     , _headless(headless)
+    , _program(BGFX_INVALID_HANDLE)
+    , _imageProgram(BGFX_INVALID_HANDLE)
+    , _texture(BGFX_INVALID_HANDLE)
+    , _s_tex(BGFX_INVALID_HANDLE)
+    , _u_imageLodEnabled(BGFX_INVALID_HANDLE)
+    , _viewId(viewId)
     , _debugWindows(std::move(debugWindows))
 {
+	CreateDeviceObjectsBgfx();
 }
 
 Gui::~Gui() noexcept
 {
 	if (!_headless)
 	{
-		ImGui_ImplSDLGPU3_Shutdown();
-		ImGui_ImplSDL3_Shutdown();
+		ImGui_ImplSDL2_Shutdown();
 	}
 	ImGui::DestroyContext(_imgui);
+
+	if (bgfx::isValid(toBgfx(_u_imageLodEnabled)))
+	{
+		bgfx::destroy(toBgfx(_u_imageLodEnabled));
+	}
+	if (bgfx::isValid(toBgfx(_s_tex)))
+	{
+		bgfx::destroy(toBgfx(_s_tex));
+	}
+	if (bgfx::isValid(toBgfx(_texture)))
+	{
+		bgfx::destroy(toBgfx(_texture));
+	}
+	if (bgfx::isValid(toBgfx(_imageProgram)))
+	{
+		bgfx::destroy(toBgfx(_imageProgram));
+	}
+	if (bgfx::isValid(toBgfx(_program)))
+	{
+		bgfx::destroy(toBgfx(_program));
+	}
 }
 
 bool Gui::StealsFocus() const noexcept
 {
 	return _stealsFocus;
+}
+
+bool Gui::IsMouseOverWindow() const noexcept
+{
+	return ImGui::GetCurrentContext() != nullptr && ImGui::GetIO().WantCaptureMouse;
 }
 
 void Gui::SetScale(float scale) noexcept
@@ -126,45 +329,150 @@ bool Gui::ProcessEvents(const SDL_Event& event) noexcept
 {
 	ImGui::SetCurrentContext(_imgui);
 
+	auto takenByWindow = false;
 	for (auto& window : _debugWindows)
 	{
-		window->WindowProcessEvent(event);
+		takenByWindow = window->WindowProcessEvent(event) || takenByWindow;
 	}
 
-	ImGui_ImplSDL3_ProcessEvent(&event);
+	ImGui_ImplSDL2_ProcessEvent(&event);
 
 	const auto& io = ImGui::GetIO();
-	_stealsFocus = io.WantCaptureMouse;
+	_stealsFocus = io.WantCaptureMouse || takenByWindow;
 	switch (event.type)
 	{
 	default:
 		break;
-	case SDL_EVENT_QUIT:
+	case SDL_QUIT:
 		_stealsFocus = false;
 		break;
-	case SDL_EVENT_TEXT_INPUT:
+	case SDL_TEXTINPUT:
 		_stealsFocus = io.WantTextInput;
 		break;
-	case SDL_EVENT_KEY_DOWN:
-	case SDL_EVENT_KEY_UP:
-		_stealsFocus = io.WantCaptureKeyboard;
+	case SDL_KEYDOWN:
+	case SDL_KEYUP:
+		// A window's own keys, as the editor's tools, and typing in a field are kept from the game's keys
+		_stealsFocus = io.WantCaptureKeyboard || takenByWindow;
 		break;
-	case SDL_EVENT_WINDOW_RESIZED:
-	case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
-		_stealsFocus = false;
+	case SDL_WINDOWEVENT:
+		// the window's size, and its minimising and restoring, which hold and release the game loop, always reach the game
+		if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED || event.window.event == SDL_WINDOWEVENT_MINIMIZED ||
+		    event.window.event == SDL_WINDOWEVENT_RESTORED)
+		{
+			_stealsFocus = false;
+		}
 		break;
 	}
 	return _stealsFocus;
 }
 
+bool Gui::CreateFontsTextureBgfx() noexcept
+{
+	// Build texture atlas
+	const auto& io = ImGui::GetIO();
+	unsigned char* pixels;
+	int width;
+	int height;
+	// Load as RGBA 32-bits (75% of the memory is wasted, but
+	// default font is so small) because it is more likely to
+	// be compatible with user's existing shaders. If your
+	// ImTextureId represent a higher-level concept than just
+	// a GL texture id, consider calling GetTexDataAsAlpha8()
+	// instead to save on GPU memory.
+	io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+
+	_texture = graphics::fromBgfx(bgfx::createTexture2D(static_cast<uint16_t>(width), static_cast<uint16_t>(height), false, 1,
+	                                                    bgfx::TextureFormat::BGRA8, 0, bgfx::copy(pixels, width * height * 4)));
+
+	return true;
+}
+
+bool Gui::CreateDeviceObjectsBgfx() noexcept
+{
+	// Create shaders
+	const auto type = bgfx::getRendererType();
+	_program = graphics::fromBgfx(
+	    bgfx::createProgram(bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "vs_ocornut_imgui"),
+	                        bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "fs_ocornut_imgui"), true));
+	_imageProgram = graphics::fromBgfx(
+	    bgfx::createProgram(bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "vs_imgui_image"),
+	                        bgfx::createEmbeddedShader(k_EmbeddedShaders.data(), type, "fs_imgui_image"), true));
+
+	// Create buffers
+	_u_imageLodEnabled = graphics::fromBgfx(bgfx::createUniform("u_imageLodEnabled", bgfx::UniformType::Vec4));
+
+	_s_tex = graphics::fromBgfx(bgfx::createUniform("s_tex", bgfx::UniformType::Sampler));
+
+	CreateFontsTextureBgfx();
+
+	return true;
+}
+
 void Gui::NewFrame() noexcept
 {
 	ImGui::SetCurrentContext(_imgui);
-	ImGui_ImplSDLGPU3_NewFrame();
-	ImGui_ImplSDL3_NewFrame();
 	ImGuiIO& io = ImGui::GetIO();
+	// headless (no window, Noop): the SDL backend was never set up (its data is null); a fixed size instead of ImGui's
+	// -1 so the layout's clamps keep a valid range
+	if (_headless)
+	{
+		io.DisplaySize = ImVec2(1024.0f, 768.0f);
+	}
+	else
+	{
+		ImGui_ImplSDL2_NewFrame();
+	}
 	io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
 	ImGui::NewFrame();
+}
+
+void Gui::OpenWindow(std::string_view name) noexcept
+{
+	for (auto& window : _debugWindows)
+	{
+		if (window->GetName() == name)
+		{
+			window->Open();
+		}
+	}
+}
+
+void Gui::SetTestbedHost(testbed_scenarios::TestbedHost* host) noexcept
+{
+	_testbedHost = host;
+	for (auto& window : _debugWindows)
+	{
+		if (auto* scenarios = dynamic_cast<TestbedScenarios*>(window.get()); scenarios != nullptr)
+		{
+			scenarios->SetHost(host);
+		}
+	}
+}
+
+std::string Gui::ReadStartSettings() const noexcept
+{
+	const char* path = _imgui->IO.IniFilename;
+	if (path == nullptr)
+	{
+		return {};
+	}
+	// read as ImGui's first frame reads it
+	size_t size = 0;
+	auto* data = static_cast<char*>(ImFileLoadToMemory(path, "rb", &size));
+	if (data == nullptr)
+	{
+		return {};
+	}
+	std::string settings(data, size);
+	IM_FREE(data);
+	return settings;
+}
+
+void Gui::StartFromSettings(const std::string& settings) noexcept
+{
+	ImGui::SetCurrentContext(_imgui);
+	ImGui::GetIO().IniFilename = nullptr;
+	ImGui::LoadIniSettingsFromMemory(settings.c_str(), settings.size());
 }
 
 bool Gui::Loop() noexcept
@@ -174,7 +482,12 @@ bool Gui::Loop() noexcept
 		window->WindowUpdate();
 	}
 	NewFrame();
-	if (ShowMenu())
+	if (!_menuBarVisible)
+	{
+		// a hidden bar takes no room: the villager-name boxes no longer keep out of its way
+		_menuBarSize = ImVec2(0.0f, 0.0f);
+	}
+	if (_menuBarVisible && ShowMenu())
 	{
 		// Exit option selected
 		return true;
@@ -185,42 +498,166 @@ bool Gui::Loop() noexcept
 	}
 	ShowVillagerNames();
 	ShowCameraPositionOverlay();
+	// The game's Creature Cave screen, drawn with the debug windows' ImGui, while the cave is open
+	openblack::gui::DrawCreatureCaveScreen();
 
 	ImGui::Render();
 
 	return false;
 }
 
-void Gui::Draw(SDL_GPUCommandBuffer* cmdBuf, SDL_GPUTexture* targetTexture) noexcept
+/// Returns true if both internal transient index and vertex buffer have
+/// enough space.
+///
+/// @param[in] numVertices Number of vertices.
+/// @param[in] layout Vertex layout.
+/// @param[in] numIndices Number of indices.
+///
+inline bool checkAvailTransientBuffers(uint32_t numVertices, const bgfx::VertexLayout& layout, uint32_t numIndices) noexcept
+{
+	return numVertices == bgfx::getAvailTransientVertexBuffer(numVertices, layout) &&
+	       (0 == numIndices || numIndices == bgfx::getAvailTransientIndexBuffer(numIndices));
+}
+
+void Gui::RenderDrawDataBgfx(ImDrawData* drawData) noexcept
+{
+	// Avoid rendering when minimized, scale coordinates for retina displays (screen coordinates != framebuffer coordinates)
+	const int fbWidth = static_cast<int>(drawData->DisplaySize.x * drawData->FramebufferScale.x);
+	const int fbHeight = static_cast<int>(drawData->DisplaySize.y * drawData->FramebufferScale.y);
+	if (fbWidth <= 0 || fbHeight <= 0)
+	{
+		return;
+	}
+
+	bgfx::setViewMode(_viewId, bgfx::ViewMode::Sequential);
+
+	const bgfx::Caps* caps = bgfx::getCaps();
+	{
+		glm::mat4 ortho;
+		const float x = drawData->DisplayPos.x;
+		const float y = drawData->DisplayPos.y;
+		const float width = drawData->DisplaySize.x;
+		const float height = drawData->DisplaySize.y;
+
+		bx::mtxOrtho(glm::value_ptr(ortho), x, x + width, y + height, y, 0.0f, 1000.0f, 0.0f, caps->homogeneousDepth);
+		bgfx::setViewTransform(_viewId, nullptr, glm::value_ptr(ortho));
+		bgfx::setViewRect(_viewId, 0, 0, static_cast<uint16_t>(width), static_cast<uint16_t>(height));
+	}
+
+	const ImVec2 clipPos = drawData->DisplayPos;         // (0,0) unless using multi-viewports
+	const ImVec2 clipScale = drawData->FramebufferScale; // (1,1) unless using retina display which are often (2,2)
+
+	// Render command lists
+	for (int32_t ii = 0, num = drawData->CmdListsCount; ii < num; ++ii)
+	{
+		bgfx::TransientVertexBuffer tvb;
+		bgfx::TransientIndexBuffer tib;
+
+		const ImDrawList* drawList = drawData->CmdLists[ii];
+		const auto numVertices = static_cast<uint32_t>(drawList->VtxBuffer.size());
+		const auto numIndices = static_cast<uint32_t>(drawList->IdxBuffer.size());
+
+		bgfx::VertexLayout layout;
+		layout.begin()
+		    .add(bgfx::Attrib::Position, 2, bgfx::AttribType::Float)
+		    .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
+		    .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true)
+		    .end();
+
+		if (!checkAvailTransientBuffers(numVertices, layout, numIndices))
+		{
+			// not enough space in transient buffer just quit drawing the rest...
+			break;
+		}
+
+		bgfx::allocTransientVertexBuffer(&tvb, numVertices, layout);
+		bgfx::allocTransientIndexBuffer(&tib, numIndices, sizeof(ImDrawIdx) == 4);
+
+		auto* verts = reinterpret_cast<ImDrawVert*>(tvb.data);
+		bx::memCopy(verts, drawList->VtxBuffer.begin(), numVertices * sizeof(ImDrawVert));
+
+		auto* indices = reinterpret_cast<ImDrawIdx*>(tib.data);
+		bx::memCopy(indices, drawList->IdxBuffer.begin(), numIndices * sizeof(ImDrawIdx));
+
+		bgfx::Encoder* encoder = bgfx::begin();
+
+		for (const ImDrawCmd *cmd = drawList->CmdBuffer.begin(), *cmdEnd = drawList->CmdBuffer.end(); cmd != cmdEnd; ++cmd)
+		{
+			if (cmd->UserCallback != nullptr)
+			{
+				cmd->UserCallback(drawList, cmd);
+			}
+			else if (0 != cmd->ElemCount)
+			{
+				uint64_t state = 0                      //
+				                 | BGFX_STATE_WRITE_RGB //
+				                 | BGFX_STATE_WRITE_A   //
+				                 | BGFX_STATE_MSAA      //
+				    ;
+
+				bgfx::TextureHandle th = toBgfx(_texture);
+				bgfx::ProgramHandle program = toBgfx(_program);
+
+				if (cmd->GetTexID() != 0)
+				{
+					const union
+					{
+						ImTextureID ptr;
+						struct
+						{
+							bgfx::TextureHandle handle;
+							uint8_t flags;
+							uint8_t mip;
+						} s;
+					} texture = {cmd->GetTexID()};
+					state |= 0 != (IMGUI_FLAGS_ALPHA_BLEND & texture.s.flags)
+					             ? BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_INV_SRC_ALPHA)
+					             : BGFX_STATE_NONE;
+					th = texture.s.handle;
+					if (0 != texture.s.mip)
+					{
+						const glm::vec4 lodEnabled = {static_cast<float>(texture.s.mip), 1.0f, 0.0f, 0.0f};
+						bgfx::setUniform(toBgfx(_u_imageLodEnabled), glm::value_ptr(lodEnabled));
+						program = toBgfx(_imageProgram);
+					}
+				}
+				else
+				{
+					state |= BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_INV_SRC_ALPHA);
+				}
+
+				// Project scissor/clipping rectangles into framebuffer space
+				ImVec4 clipRect;
+				clipRect.x = (cmd->ClipRect.x - clipPos.x) * clipScale.x;
+				clipRect.y = (cmd->ClipRect.y - clipPos.y) * clipScale.y;
+				clipRect.z = (cmd->ClipRect.z - clipPos.x) * clipScale.x;
+				clipRect.w = (cmd->ClipRect.w - clipPos.y) * clipScale.y;
+
+				if (clipRect.x < fbWidth && clipRect.y < fbHeight && clipRect.z >= 0.0f && clipRect.w >= 0.0f)
+				{
+					const auto xx = static_cast<uint16_t>(bx::max(clipRect.x, 0.0f));
+					const auto yy = static_cast<uint16_t>(bx::max(clipRect.y, 0.0f));
+					encoder->setScissor(xx, yy, static_cast<uint16_t>(bx::min(clipRect.z, 65535.0f) - xx),
+					                    static_cast<uint16_t>(bx::min(clipRect.w, 65535.0f) - yy));
+
+					encoder->setState(state);
+					encoder->setTexture(0, toBgfx(_s_tex), th);
+					encoder->setVertexBuffer(0, &tvb, cmd->VtxOffset, numVertices);
+					encoder->setIndexBuffer(&tib, cmd->IdxOffset, cmd->ElemCount);
+					encoder->submit(_viewId, program);
+				}
+			}
+		}
+
+		bgfx::end(encoder);
+	}
+}
+
+void Gui::Draw() noexcept
 {
 	ImGui::SetCurrentContext(_imgui);
 
-	ImDrawData* drawData = ImGui::GetDrawData();
-	const bool isMinimized = (drawData->DisplaySize.x <= 0.0f || drawData->DisplaySize.y <= 0.0f);
-
-	if (targetTexture != nullptr && !isMinimized)
-	{
-		// This is mandatory: call Imgui_ImplSDLGPU3_PrepareDrawData() to upload the vertex/index buffer!
-		ImGui_ImplSDLGPU3_PrepareDrawData(drawData, cmdBuf);
-
-		// Setup and start a render pass
-
-		const ImVec4 clearColor = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-		SDL_GPUColorTargetInfo targetInfo = {};
-		targetInfo.texture = targetTexture;
-		targetInfo.clear_color = SDL_FColor {clearColor.x, clearColor.y, clearColor.z, clearColor.w};
-		targetInfo.load_op = SDL_GPU_LOADOP_DONT_CARE;
-		targetInfo.store_op = SDL_GPU_STOREOP_STORE;
-		targetInfo.mip_level = 0;
-		targetInfo.layer_or_depth_plane = 0;
-		targetInfo.cycle = false;
-		SDL_GPURenderPass* renderPass = SDL_BeginGPURenderPass(cmdBuf, &targetInfo, 1, nullptr);
-
-		// Render ImGui
-		ImGui_ImplSDLGPU3_RenderDrawData(drawData, cmdBuf, renderPass);
-
-		SDL_EndGPURenderPass(renderPass);
-	}
+	RenderDrawDataBgfx(ImGui::GetDrawData());
 }
 
 bool Gui::ShowMenu() noexcept
@@ -250,11 +687,12 @@ bool Gui::ShowMenu() noexcept
 			std::sort(playgrounds.begin(), playgrounds.end(),
 			          [](const Level* level1, const Level* level2) { return level1->GetName() < level2->GetName(); });
 
-			auto menuItem = [&game](const auto& label, const std::filesystem::path& path, const std::string description,
-			                        bool validLevel) {
-				if (ImGui::MenuItem(label.data(), nullptr, false, validLevel))
+			auto menuItem = [this, &game](const auto& label, const std::filesystem::path& path, const std::string description,
+			                              bool validLevel) {
+				if (MenuClick(ImGui::MenuItem(label.data(), nullptr, false, validLevel)))
 				{
-					game.LoadMap(path);
+					IslandLoadOfGame islandLoad(game);
+					LoadIsland(islandLoad, path, _islandTakesCreature);
 				}
 				if (!description.empty() && ImGui::IsItemHovered())
 				{
@@ -262,6 +700,16 @@ bool Gui::ShowMenu() noexcept
 				}
 			};
 
+			ImGui::MenuItem("Take your creature along", nullptr, &_islandTakesCreature);
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::SetTooltip(
+				    "As the game's land change does: the creature is saved to the profile, the old land's scripts "
+				    "are stopped and a story land's control script is started, which brings the creature when "
+				    "its story does (the story's lands before it are skipped, and leaving this land loads no "
+				    "next one). A playground makes the creature at your temple, fully grown. Off: only the "
+				    "island is loaded");
+			}
 			if (ImGui::BeginMenu("Story Islands"))
 			{
 				for (auto& level : campaigns)
@@ -278,6 +726,16 @@ bool Gui::ShowMenu() noexcept
 				}
 				ImGui::EndMenu();
 			}
+			ImGui::Separator();
+			if (MenuClick(ImGui::MenuItem("Creature Testbed", nullptr, false, _testbedHost != nullptr)))
+			{
+				_testbedHost->LoadTestbed(flat_land::k_Altitude);
+			}
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::SetTooltip("A flat plane over the whole map with a lake north of the middle, for trying out how "
+				                  "creatures move, are animated, drink and wade, and what the water reflects");
+			}
 			ImGui::EndMenu();
 		}
 
@@ -285,24 +743,43 @@ bool Gui::ShowMenu() noexcept
 
 		if (ImGui::BeginMenu("World"))
 		{
+			config.timeOfDay = Locator::skySystem::value().GetTime();
 			if (ImGui::SliderFloat("Time of Day", &config.timeOfDay, 0.0f, 24.0f, "%.3f"))
 			{
-				Game::Instance()->SetTime(fmodf(config.timeOfDay, 24.0f));
+				Game::SetTime(fmodf(config.timeOfDay, 24.0f));
 			}
+			ImGui::Text("Visual time %.3f", Locator::dayNightClock::value().Clock().GetVisualTime());
 
-			ImGui::Text("Sky Type Index %f", Locator::skySystem::value().GetCurrentSkyType());
+			// The frame's sky type (2 night, 1 dusk, 0 day) and the sky type the dome is built with
+			ImGui::Text("Sky type %.3f (dome %.3f)", sky_type::Frame(), sky_type::Dome().Built());
 			ImGui::SliderFloat("Sky alignment", &config.skyAlignment, -1.0f, 1.0f, "%.3f");
+			{
+				int detail = config.detailLevel;
+				if (ImGui::SliderInt("Detail level (original)", &detail, 0, 6))
+				{
+					config.detailLevel = static_cast<uint8_t>(detail);
+					// the villagers', animals' and birds' drawn mesh follows it (their high one at the top level)
+					if (Locator::rendereringSystem::has_value())
+					{
+						Locator::rendereringSystem::value().SetLayoutDirty();
+					}
+				}
+			}
 
 			ImGui::EndMenu();
 		}
 
 		if (ImGui::BeginMenu("Debug"))
 		{
+			if (MenuClick(ImGui::MenuItem("Editor", "F2")))
+			{
+				OpenWindow("Editor");
+			}
 			if (ImGui::BeginMenu("Windows"))
 			{
 				for (auto& window : _debugWindows)
 				{
-					if (ImGui::MenuItem(window->GetName().c_str()))
+					if (MenuClick(ImGui::MenuItem(window->GetName().c_str())))
 					{
 						window->Open();
 					}
@@ -312,26 +789,80 @@ bool Gui::ShowMenu() noexcept
 
 			if (ImGui::BeginMenu("Villager Names"))
 			{
-				ImGui::Checkbox("Show", &config.showVillagerNames);
-				ImGui::Checkbox("Show States", &config.debugVillagerStates);
-				ImGui::Checkbox("Debug", &config.debugVillagerNames);
+				MenuClick(ImGui::Checkbox("Show", &config.showVillagerNames));
+				MenuClick(ImGui::Checkbox("Show States", &config.debugVillagerStates));
+				MenuClick(ImGui::Checkbox("Debug", &config.debugVillagerNames));
 
 				ImGui::EndMenu();
 			}
 
 			if (ImGui::BeginMenu("View"))
 			{
-				ImGui::Checkbox("Game Detail Overlay", &config.viewDetailOverlay);
-				ImGui::Checkbox("Sky", &config.drawSky);
-				ImGui::Checkbox("Water", &config.drawWater);
-				ImGui::Checkbox("Island", &config.drawIsland);
-				ImGui::Checkbox("Entities", &config.drawEntities);
-				ImGui::Checkbox("Sprites", &config.drawSprites);
-				ImGui::Checkbox("Bounding Boxes", &config.drawBoundingBoxes);
-				ImGui::Checkbox("Footpaths", &config.drawFootpaths);
-				ImGui::Checkbox("Streams", &config.drawStreams);
+				MenuClick(ImGui::Checkbox("Game Detail Overlay", &config.viewDetailOverlay));
+				MenuClick(ImGui::Checkbox("Sky", &config.drawSky));
+				MenuClick(ImGui::Checkbox("Water", &config.drawWater));
+				MenuClick(ImGui::Checkbox("Object Tail Unplaced", &config.objectTailUnplaced));
+				MenuClick(ImGui::Checkbox("Sunk Physics Objects", &config.drawSunkPhysicsObjects));
+				MenuClick(ImGui::Checkbox("Creature Reflection", &config.drawCreatureReflection));
+				MenuClick(ImGui::Checkbox("Totem Copy Takes Solid Light", &config.totemCopyTakesSolidLight));
+				MenuClick(ImGui::Checkbox("Falling Creature", &config.drawFallingCreature));
+				MenuClick(ImGui::Checkbox("Island", &config.drawIsland));
+				MenuClick(ImGui::Checkbox("Entities", &config.drawEntities));
+				MenuClick(ImGui::Checkbox("Sprites", &config.drawSprites));
+				MenuClick(ImGui::Checkbox("Wireframe", &config.wireframe));
+				MenuClick(ImGui::Checkbox("Bounding Boxes", &config.drawBoundingBoxes));
+				MenuClick(ImGui::Checkbox("Footpaths", &config.drawFootpaths));
+				MenuClick(ImGui::Checkbox("Streams", &config.drawStreams));
+				// starts as the command line left it (--no-vsync unchecks it)
+				if (MenuClick(ImGui::Checkbox("VSync", &config.vsync)))
+				{
+					Locator::rendererInterface::value().SetVsync(config.vsync);
+				}
+				// the renderer's own statistics and text overlay, also on F11
+				if (bool rendererDebug = Locator::rendererInterface::value().GetDebug();
+				    MenuClick(ImGui::Checkbox("Renderer Debug (F11)", &rendererDebug)))
+				{
+					Locator::rendererInterface::value().SetDebug(rendererDebug);
+				}
 
 				ImGui::EndMenu();
+			}
+
+			if (ImGui::BeginMenu("Hand"))
+			{
+				MenuClick(ImGui::Checkbox("Right Handed", &config.rightHandedHand));
+				// Off: a hand demo's cursor is on the picture between the cinema bars, as the original; on: the old mapping
+				MenuClick(ImGui::Checkbox("Hand demo: whole-screen cursor (old)", &config.handDemoWholeScreenCursor));
+
+				ImGui::EndMenu();
+			}
+			if (ImGui::BeginMenu("Start-up and Loading"))
+			{
+				// starts as the command line left it (--skip-loading-screens unchecks it); the next land load reads it
+				MenuClick(ImGui::Checkbox("Loading screens", &config.drawLoadingScreens));
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip("The tips screen and the please-wait banner. Off, the land loads the same, only nothing "
+					                  "is drawn; from the next load on.");
+				}
+				// the logos play only when the game starts, and nothing keeps this switch for the next start: it shows how
+				// this game started
+				ImGui::BeginDisabled();
+				bool logos = config.startupLogos;
+				ImGui::Checkbox("Logos at start-up", &logos);
+				ImGui::EndDisabled();
+				if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+				{
+					ImGui::SetTooltip("Whether this game played the logo pictures at start-up. They play only then: start "
+					                  "with --skip-logos to leave them out (no settings file keeps this switch yet).");
+				}
+
+				ImGui::EndMenu();
+			}
+			// The tattoo editor on the player's creature, as clicking it in the Creature Cave opens it
+			if (MenuClick(ImGui::MenuItem("Tattoo Editor")))
+			{
+				openblack::gui::OpenTattooEditorOnCreature();
 			}
 
 			if (ImGui::BeginMenu("Field of View"))
@@ -340,7 +871,7 @@ bool Gui::ShowMenu() noexcept
 				float fieldOfView = glm::degrees(camera.GetHorizontalFieldOfView());
 				auto aspect = Locator::windowing::has_value() ? Locator::windowing::value().GetAspectRatio() : 1.0f;
 				ImGui::Text("Aspect Ratio %.3f", aspect);
-				if (ImGui::MenuItem("Reset"))
+				if (MenuClick(ImGui::MenuItem("Reset")))
 				{
 					camera.SetProjectionMatrixPerspective(config.cameraXFov, aspect, config.cameraNearClip,
 					                                      config.cameraFarClip);
@@ -359,15 +890,15 @@ bool Gui::ShowMenu() noexcept
 				float multiplier = game.GetGameSpeed();
 				ImGui::Text("Scaled game duration: %.3fms (%.3f Hz)", multiplier * Game::k_TurnDuration.count(),
 				            1000.0f / (multiplier * Game::k_TurnDuration.count()));
-				if (ImGui::MenuItem("Slow"))
+				if (MenuClick(ImGui::MenuItem("Slow")))
 				{
 					game.SetGameSpeed(Game::k_TurnDurationMultiplierSlow);
 				}
-				if (ImGui::MenuItem("Normal"))
+				if (MenuClick(ImGui::MenuItem("Normal")))
 				{
 					game.SetGameSpeed(Game::k_TurnDurationMultiplierNormal);
 				}
-				if (ImGui::MenuItem("Fast"))
+				if (MenuClick(ImGui::MenuItem("Fast")))
 				{
 					game.SetGameSpeed(Game::k_TurnDurationMultiplierFast);
 				}
@@ -375,7 +906,36 @@ bool Gui::ShowMenu() noexcept
 				{
 					game.SetGameSpeed(multiplier);
 				}
+				// The game speed's words near the top of the screen, as the help text draws them: read only
+				if (const auto* helpSystem = help::Get(); helpSystem != nullptr && ImGui::TreeNode("Indicator"))
+				{
+					static constexpr std::array<const char*, 4> k_States {"none", "paused", "slow", "fast"};
+					const auto name = [](help::SpeedIndicatorState state) {
+						return k_States.at(static_cast<size_t>(static_cast<int>(state) + 1));
+					};
+					const auto& indicator = helpSystem->GetSpeedIndicator();
+					const float t = help::EasedFade(indicator.Fade());
+					ImGui::Text("State: %s", name(help::StateOf(game_clock::IsPaused(), game_clock::Speed())));
+					ImGui::Text("Shown: %s", name(indicator.Shown()));
+					ImGui::Text("Fade: %.3f (eased %.3f)", indicator.Fade(), t);
+					ImGui::Text("Depth: %.2f", (t + 1.0f) * 15.0f);
+					ImGui::Text("Phase: %.3f rad", indicator.Phase());
+					// task 0 is no task: it may set the speed only while no script has it
+					const bool scriptOwns =
+					    Locator::scriptControlSystem::has_value() && !Locator::scriptControlSystem::value().MaySetGameSpeed(0);
+					ImGui::Text("A script owns the speed: %s", scriptOwns ? "yes" : "no");
+					ImGui::TreePop();
+				}
 
+				ImGui::EndMenu();
+			}
+
+			// only when the mod loader library was loaded: its version and what it said about the mods folder
+			if (Locator::modLoader::has_value() && ImGui::BeginMenu("Mods"))
+			{
+				const auto& status = Locator::modLoader::value();
+				ImGui::Text("Mod loader version %d", status.version);
+				ImGui::TextUnformatted(status.result.c_str());
 				ImGui::EndMenu();
 			}
 
@@ -384,16 +944,16 @@ bool Gui::ShowMenu() noexcept
 
 		if (ImGui::BeginMenu("Capture"))
 		{
-			if (ImGui::Button("Capture"))
+			if (MenuClick(ImGui::Button("Capture")))
 			{
-				game.RequestScreenshot(_screenshotFilename);
+				Locator::screenshotRequest::value().Request(_screenshotFilename);
 			}
 			ImGui::SameLine();
 			ImGui::InputText("Screenshot", &_screenshotFilename);
 			ImGui::EndMenu();
 		}
 
-		if (ImGui::MenuItem("Quit", "Esc"))
+		if (MenuClick(ImGui::MenuItem("Quit", "Esc")))
 		{
 			return true;
 		}
@@ -411,7 +971,7 @@ bool Gui::ShowMenu() noexcept
 void Gui::RenderArrow(const std::string& name, const ImVec2& pos, const ImVec2& size) const noexcept
 {
 	// clang-format off
-	static const auto boxOverlayFlags =
+	constexpr auto k_BoxOverlayFlags =
 		0u
 		| ImGuiWindowFlags_NoMove
 		| ImGuiWindowFlags_AlwaysAutoResize
@@ -427,7 +987,7 @@ void Gui::RenderArrow(const std::string& name, const ImVec2& pos, const ImVec2& 
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
 	ImGui::SetNextWindowBgAlpha(0.0f);
 	ImGui::SetNextWindowSize(size);
-	if (ImGui::Begin((name + " Frame").c_str(), nullptr, boxOverlayFlags))
+	if (ImGui::Begin((name + " Frame").c_str(), nullptr, k_BoxOverlayFlags))
 	{
 		const auto strId = name + " Arrow";
 		ImGuiWindow* window = ImGui::GetCurrentWindow();
@@ -443,7 +1003,7 @@ void Gui::RenderArrow(const std::string& name, const ImVec2& pos, const ImVec2& 
 				const float shaftCenterX = window->DC.CursorPos.x + size.x / 2.0f;
 				const ImVec2 shaftSize(size.x / 5.0f, bb.Max.y - bb.Min.y - tipDimensions.y);
 				const ImRect shaft(shaftCenterX - shaftSize.x, bb.Min.y, shaftCenterX + shaftSize.x, bb.Min.y + shaftSize.y);
-				window->DrawList->AddRectFilled(shaft.Min, shaft.Max, color);
+				ImGui::RenderRectFilledRangeH(window->DrawList, shaft, color, 0.0f, 1.0f, 0.0f);
 				ImGui::RenderArrowPointingAt(window->DrawList, ImVec2(bb.Max.x - size.x / 2.0f, bb.Max.y), tipDimensions,
 				                             ImGuiDir_Down, color);
 			}
@@ -601,8 +1161,9 @@ void Gui::ShowVillagerNames() noexcept
 	    glm::vec4(ImGui::GetStyle().WindowPadding.x, 0, displaySize.x - ImGui::GetStyle().WindowPadding.x, displaySize.y);
 	std::vector<glm::vec4> coveredAreas;
 	coveredAreas.reserve(Locator::entitiesRegistry::value().Size<Villager>());
+	const uint32_t turn = Locator::time::has_value() ? game_clock::Turn() : 0;
 	Locator::entitiesRegistry::value().Each<const Transform, Villager, LivingAction>(
-	    [this, &i, &coveredAreas, &camera, config, viewport] //
+	    [this, &i, &coveredAreas, &camera, config, viewport, turn] //
 	    (const Transform& transform, Villager& villager, LivingAction& action) {
 		    ++i;
 		    const float height = 2.0f * transform.scale.y; // TODO(bwrsandman): get from bounding box max y
@@ -632,7 +1193,8 @@ void Gui::ShowVillagerNames() noexcept
 		    const std::string name = "Villager #" + std::to_string(i);
 		    const std::string stateHelpText = "TODO: STATE HELP TEXT";
 		    std::string details =
-		        fmt::format("{}\nA:{} L:{}%, H:{}%", stateHelpText, villager.age, villager.health, villager.hunger);
+		        fmt::format("{}\nA:{} L:{:.0f}%, F:{:.2f}", stateHelpText, ecs::villager_age::AgeOf(turn, villager.birthTurn),
+		                    villager.life * 100.0f, villager.food);
 		    const auto& actionSystem = Locator::livingActionSystem::value();
 		    if (config.debugVillagerStates)
 		    {
@@ -655,14 +1217,20 @@ void Gui::ShowVillagerNames() noexcept
 		    std::function<void(void)> debugCallback;
 		    if (config.debugVillagerNames)
 		    {
-			    debugCallback = [&villager, &action, &actionSystem] {
+			    debugCallback = [&villager, &action, &actionSystem, turn] {
 				    if (villager.abode == entt::null)
 				    {
 					    ImGui::Text("Homeless");
 				    }
-				    ImGui::InputInt("Health", reinterpret_cast<int*>(&villager.health));
-				    ImGui::InputInt("Age", reinterpret_cast<int*>(&villager.age));
-				    ImGui::InputInt("Hunger", reinterpret_cast<int*>(&villager.hunger));
+				    ImGui::SliderFloat("Life", &villager.life, 0.0f, 1.0f);
+				    if (auto age = static_cast<int>(ecs::villager_age::AgeOf(turn, villager.birthTurn));
+				        ImGui::InputInt("Age", &age))
+				    {
+					    ecs::villager_age::SetBirthTurnForAge(villager, static_cast<uint32_t>(std::max(age, 0)));
+				    }
+				    ImGui::Text("Born on turn %u", villager.birthTurn);
+				    ImGui::InputFloat("Food", &villager.food);
+				    ImGui::Text("Flags: 0x%04X, last check turn %u", villager.flags, villager.lastCheckTurn);
 				    ImGui::Combo("Life Stage", &villager.lifeStage, Villager::k_LifeStageStrs);
 				    ImGui::Combo("Sex", &villager.sex, Villager::k_SexStrs);
 				    ImGui::Combo("Tribe", &villager.tribe, k_TribeStrs);
@@ -714,7 +1282,7 @@ void Gui::ShowVillagerNames() noexcept
 void Gui::ShowCameraPositionOverlay() noexcept
 {
 	// clang-format off
-	static const auto cameraPositionOverlayFlags =
+	constexpr auto k_CameraPositionOverlayFlags =
 		0u
 		| ImGuiWindowFlags_NoMove
 		| ImGuiWindowFlags_NoDecoration
@@ -731,7 +1299,7 @@ void Gui::ShowCameraPositionOverlay() noexcept
 
 	if (Locator::config::value().viewDetailOverlay)
 	{
-		if (ImGui::Begin("Game Details Overlay", nullptr, cameraPositionOverlayFlags))
+		if (ImGui::Begin("Game Details Overlay", nullptr, k_CameraPositionOverlayFlags))
 		{
 			const auto& camera = Locator::camera::value();
 			const auto camOrigin = camera.GetOrigin();
@@ -762,6 +1330,11 @@ void Gui::ShowCameraPositionOverlay() noexcept
 				        glm::zero<glm::vec3>()));
 				ImGui::Text("Hand Position: (%.1f,%.1f,%.1f)", position.x, position.y, position.z);
 			}
+
+			const auto* stats = bgfx::getStats();
+			const auto* caps = bgfx::getCaps();
+			ImGui::Text("Num Vertex Buffers: %u/%u", stats->numVertexBuffers, caps->limits.maxVertexBuffers);
+			ImGui::Text("Num Textures: %u/%u", stats->numTextures, caps->limits.maxTextures);
 
 			ImGui::Text("Game Turn: %u (%.3f ms)%s", game.GetTurn(), game.GetDeltaTime().count(),
 			            game.IsPaused() ? " - paused" : "");

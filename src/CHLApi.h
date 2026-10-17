@@ -9,9 +9,16 @@
 
 #pragma once
 
+#include <cstdint>
+
+#include <optional>
+#include <string_view>
 #include <vector>
 
 #include <LHVMTypes.h>
+
+#include "Help/ScriptControl.h"
+#include "ScriptHeaders/NativeStubCalls.h"
 
 namespace openblack::chlapi
 {
@@ -25,6 +32,17 @@ public:
 	CHLApi();
 
 	[[nodiscard]] const std::vector<lhvm::NativeFunction>& GetFunctionsTable();
+	/// The help system starts a help script by name, unless a script holds the dialogue: a help script holding it is
+	/// stopped first. True when it started.
+	static bool StartHelpScript(std::string_view name);
+
+	/// The scripts call a native: the one an unwritten native reports itself as
+	void EnterNative(uint32_t native) { _currentNative = native; }
+	/// The native being run isn't written (or this case of it isn't): logged the first time only, every call counted
+	void NotImplemented(std::optional<int32_t> detail = std::nullopt);
+	[[nodiscard]] const script::NativeStubCalls& GetStubCalls() const { return _stubCalls; }
+	/// Logs how often each unwritten native was called, the most called first
+	void LogStubCalls() const;
 
 private:
 	void InitFunctionsTable0();
@@ -34,6 +52,12 @@ private:
 	void InitFunctionsTable4();
 
 	std::vector<lhvm::NativeFunction> _functionsTable;
+	uint32_t _currentNative {0};
+	script::NativeStubCalls _stubCalls;
 };
+
+/// The script VM as the game's script control asks it (task number, current task's script type, script type, stop
+/// tasks of a type, push, start script) on Locator::vm
+[[nodiscard]] help::script_control::Vm ScriptVm();
 
 } // namespace openblack::chlapi

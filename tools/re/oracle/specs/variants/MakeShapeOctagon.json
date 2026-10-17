@@ -1,0 +1,9 @@
+{
+ "extends": "../MakeShapeCircle.json",
+ "function": "MakeShapeOctagon",
+ "symbol": "?MakeShapeOctagon@MakeShape@@SAXK@Z",
+ "addr": "0x00510210",
+ "notes": "MakeShape::MakeShapeOctagon (shape 10): its 256 points at DanceShapePoints + 10 * 0x800 (0x00CB2B70). See MakeShapeCircle.json.",
+ "args": [{"name": "shape", "type": "u32", "value": 10}],
+ "globals": [{"name": "points", "addr": "0x00CB2B70", "type": "i32", "count": 512, "out": true}]
+}

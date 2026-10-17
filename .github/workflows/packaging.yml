@@ -15,8 +15,10 @@ concurrency:
 
 jobs:
   aur:
+    # Pull requests labelled "ai-driven" skip CI
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'ai-driven') }}
     name: Arch Linux AUR Packaging
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-latest
     container:
       image: archlinux:base-devel
       options: --privileged
@@ -48,12 +50,26 @@ jobs:
           source ${GITHUB_WORKSPACE}/openblack-git/PKGBUILD
           export makedepends=${makedepends[@]}
           export depends=${depends[@]}
+          export makedepends=${makedepends/bgfx-cmake-git/}
           export makedepends=${makedepends/dr_libs-git/}
+          export depends=${depends/bgfx/}
           export depends=${depends/entt/}
           export depends=${depends/imgui/}
           pacman -S --noconfirm --noprogressbar --needed mesa libx11 ${makedepends} ${depends}
 
+      - name: Cache AUR Packages
+        id: cache-packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            entt/entt*.pkg.tar.*
+            bgfx-cmake-git/bgfx-cmake-git*.pkg.tar.*
+            imgui/imgui*.pkg.tar.*
+            dr_libs-git/dr_libs-git*.pkg.tar.*
+          key: ${{ runner.os }}-cmake
+
       - name: Build ${{ env.PKG }} from the AUR
+        if: steps.cache-packages.outputs.cache-hit != 'true'
         run: |
           git clone https://aur.archlinux.org/${{ env.PKG }}.git ${GITHUB_WORKSPACE}/${{ env.PKG }}
           chown -R builduser ${GITHUB_WORKSPACE}/${{ env.PKG }}
@@ -63,6 +79,17 @@ jobs:
           PKG: entt
 
       - name: Build ${{ env.PKG }} from the AUR
+        if: steps.cache-packages.outputs.cache-hit != 'true'
+        run: |
+          git clone https://aur.archlinux.org/${{ env.PKG }}.git ${GITHUB_WORKSPACE}/${{ env.PKG }}
+          chown -R builduser ${GITHUB_WORKSPACE}/${{ env.PKG }}
+          cd ${GITHUB_WORKSPACE}/${{ env.PKG }}
+          sudo -u builduser makepkg
+        env:
+          PKG: bgfx-cmake-git
+
+      - name: Build ${{ env.PKG }} from the AUR
+        if: steps.cache-packages.outputs.cache-hit != 'true'
         run: |
           git clone https://aur.archlinux.org/${{ env.PKG }}.git ${GITHUB_WORKSPACE}/${{ env.PKG }}
           chown -R builduser ${GITHUB_WORKSPACE}/${{ env.PKG }}
@@ -72,6 +99,7 @@ jobs:
           PKG: imgui
 
       - name: Build ${{ env.PKG }} from the AUR
+        if: steps.cache-packages.outputs.cache-hit != 'true'
         run: |
           git clone https://aur.archlinux.org/${{ env.PKG }}.git ${GITHUB_WORKSPACE}/${{ env.PKG }}
           chown -R builduser ${GITHUB_WORKSPACE}/${{ env.PKG }}
@@ -99,10 +127,12 @@ jobs:
           if-no-files-found: error
 
   flatpak:
+    # Pull requests labelled "ai-driven" skip CI
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'ai-driven') }}
     name: Package for flatpak
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-latest
     container:
-      image: bilelmoussaoui/flatpak-github-actions:freedesktop-24.08
+      image: bilelmoussaoui/flatpak-github-actions:freedesktop-23.08
       options: --privileged
     steps:
       - uses: actions/checkout@v4
@@ -128,8 +158,10 @@ jobs:
           if-no-files-found: error
 
   appimage:
+    # Pull requests labelled "ai-driven" skip CI
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'ai-driven') }}
     name: Package for appimage
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -142,7 +174,7 @@ jobs:
       - name: Install Linux dependencies
         run: |
           sudo apt update -y
-          sudo apt install -y autoconf autoconf-archive automake libtool libgl1-mesa-dev libglu1-mesa-dev libltdl-dev libxext-dev libwayland-dev libwayland-egl-backend-dev
+          sudo apt install -y libgl1-mesa-dev libglu1-mesa-dev libltdl-dev libxext-dev libwayland-dev libwayland-egl-backend-dev
       - name: Export GitHub Actions cache environment variables
         uses: actions/github-script@v7
         with:
@@ -162,8 +194,10 @@ jobs:
           if-no-files-found: error
 
   snapcraft:
+    # Pull requests labelled "ai-driven" skip CI
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'ai-driven') }}
     name: Package for snap
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:

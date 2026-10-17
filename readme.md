@@ -6,6 +6,8 @@
 [![Discord chat](https://img.shields.io/discord/608729286513262622?logo=discord&logoColor=white)](https://discord.gg/5QTexBU)
 [![License](https://img.shields.io/github/license/openblack/openblack)](LICENSE.md)
 
+> **This fork: a 1:1 reconstruction of Black & White.** Progress and the research wiki: [docs](docs/README.md) (live progress bars in the viewer, `docs/open_wiki.bat`).
+
 openblack is an open source reimplementation of [Black & White (2001)](https://en.wikipedia.org/wiki/Black_&_White_(video_game)) written in modern C++ and modern rendering engines (OpenGL, Vulkan).
 
 You still need to have the original game assets in order to use this. See further below for an explanation on how to extract them.
@@ -132,6 +134,14 @@ grammar.
 
 You can also join the [Discord for development discussion]((https://discord.gg/5QTexBU))
 if you are unsure of anything.
+
+This fork's code follows the conventions in [docs/wiki/project/refactor-conventions.md](docs/wiki/project/refactor-conventions.md): state lives in ECS
+components or Locator services, assets are loaded through the resource caches, and comments describe behaviour in plain
+English. [docs/wiki/project/testing.md](docs/wiki/project/testing.md) describes how a change is verified against the previous
+build, and [CHANGELOG.md](CHANGELOG.md) lists what changed. What is known about the original game is in the research
+wiki, [docs/wiki](docs/wiki/project/reading-the-wiki.md), one page per game system. To read it with its contents list,
+search and progress dashboard, open the viewer page `docs/index.html` through `docs/open_wiki.bat` (or
+`python docs/serve.py`); on GitHub the pages read as plain Markdown.
 
 # Extracting asset files from original game
 

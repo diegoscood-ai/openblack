@@ -19,6 +19,7 @@
 #include <imgui.h>
 
 #include "DebugGuiInterface.h"
+#include "Graphics/GraphicsHandle.h"
 
 #if !defined(LOCATOR_IMPLEMENTATIONS)
 #error "Locator interface implementations should only be included in Locator.cpp, use interface instead."
@@ -26,22 +27,32 @@
 
 namespace openblack::debug::gui
 {
+
 class Window;
 
 class Gui final: public DebugGuiInterface
 {
 public:
-	Gui(ImGuiContext* imgui, std::vector<std::unique_ptr<Window>>&& debugWindows, bool headless) noexcept;
+	Gui(ImGuiContext* imgui, uint16_t viewId, std::vector<std::unique_ptr<Window>>&& debugWindows, bool headless) noexcept;
 	~Gui() noexcept override;
 
 	[[nodiscard]] bool StealsFocus() const noexcept override;
+	[[nodiscard]] bool IsMouseOverWindow() const noexcept override;
 	void SetScale(float scale) noexcept override;
+	void SetMenuBarVisible(bool visible) noexcept override { _menuBarVisible = visible; }
 	bool ProcessEvents(const SDL_Event& event) noexcept override;
 	bool Loop() noexcept override;
-	void Draw(SDL_GPUCommandBuffer* cmdBuf, SDL_GPUTexture* targetTexture) noexcept override;
+	void OpenWindow(std::string_view name) noexcept override;
+	void SetTestbedHost(testbed_scenarios::TestbedHost* host) noexcept override;
+	void Draw() noexcept override;
+	[[nodiscard]] std::string ReadStartSettings() const noexcept override;
+	void StartFromSettings(const std::string& settings) noexcept override;
 
 private:
+	bool CreateFontsTextureBgfx() noexcept;
+	bool CreateDeviceObjectsBgfx() noexcept;
 	void NewFrame() noexcept;
+	void RenderDrawDataBgfx(ImDrawData* drawData) noexcept;
 
 	void RenderArrow(const std::string& name, const ImVec2& pos, const ImVec2& size) const noexcept;
 	std::optional<glm::uvec4> RenderVillagerName(const std::vector<glm::vec4>& coveredAreas, const std::string& name,
@@ -54,8 +65,20 @@ private:
 	ImGuiContext* _imgui;
 	const bool _headless;
 	ImVec2 _menuBarSize;
+	uint64_t _time {0};
+	graphics::ProgramHandle _program;
+	graphics::ProgramHandle _imageProgram;
+	graphics::TextureHandle _texture;
+	graphics::UniformHandle _s_tex;
+	graphics::UniformHandle _u_imageLodEnabled;
+	const uint16_t _viewId;
 	std::vector<std::unique_ptr<Window>> _debugWindows;
 	std::string _screenshotFilename = "screenshot.png";
 	bool _stealsFocus = false;
+	bool _menuBarVisible = true;
+	/// The game the testbed's menu item loads the testbed in, once it is given
+	testbed_scenarios::TestbedHost* _testbedHost {nullptr};
+	/// "Load Island" takes the player's creature along, as the game's land change does; a tester can switch it off
+	bool _islandTakesCreature = true;
 };
 } // namespace openblack::debug::gui

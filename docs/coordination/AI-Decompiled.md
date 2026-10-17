@@ -8,7 +8,10 @@ The source of truth is the maintainer's local repository; `AI-Decompiled` is upd
 Pull requests are reviewed here, imported locally, verified with the full fidelity checks (they need the original
 game's data) and land in `AI-Decompiled` with the next publish, after which they are closed.
 
-The port target is raffclar's `master` at `0222f9f5`: of the 161 rows of the port audit, 105 are closed (2026-10-16).
+Since 2026-10-17 raffclar's newer master (after `0222f9f5`) is brought in lane by lane, as he proposed: each lane's
+new files are taken, its hooks refitted onto this tree, and the commit says "Ported from raffclar/openblack PR #N"
+(unverified against v1.42 until the fidelity audit). Conflicts where ours wins are listed for review. The dashboard
+counts the share of his gain brought in. The 0222f9f5 port audit: 105 of 161 rows closed.
 
 ## In progress here (do not start these)
 
@@ -21,7 +24,19 @@ The port target is raffclar's `master` at `0222f9f5`: of the 161 rows of the por
 - **Rendering and interface:** the totem's gate and light, the draw order of the object list's tail.
 - **Animals:** the detours round obstacles, the birds' first clip.
 
-## Done since the last update (joints 99 to 111)
+## Done since the last update
+
+- joint112 (0422c84b0, published 18172f482): his #522, the creature's map of the land (regions, eight exploring
+  actions), and his #278, artefacts (gently placed objects join a town; villagers dance round them; worth, belief
+  and glow). The dashboard counts how much of his newer work is in (7%).
+
+## Lanes of his being ported now
+
+- #275 town desire flags, #250 light columns, #387 giving things to the creature, #410 shield panic and hiding,
+  #528 temple library (all ready for the next joint); #401 the Help key and guidance remarks, #493 world sounds,
+  #378 challenge pictures (in progress). About 30 more lanes are planned, by their gain.
+
+## Done before (joints 99 to 111)
 
 - tools and notes (6d5bd1d35): our reverse-engineering tools published in tools/re/ (xref, oracle, precheck, hashdiff)
   with usage docs; the wiki states that the original is v1.42 with the Infinite Drawing Distance and Creature Growth

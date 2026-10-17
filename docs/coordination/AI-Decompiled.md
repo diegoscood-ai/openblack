@@ -26,15 +26,20 @@ counts the share of his gain brought in. The 0222f9f5 port audit: 105 of 161 row
 
 ## Done since the last update
 
+- joint113 (3cbdc1247, published 79f39035c): his #275 town desire flags, #410 villagers hiding or panicking when a
+  shield falls, #250 light columns over towns and temples, #387 giving things to the creature, #528 the temple
+  library, #401 the Help key and guidance remarks; with two of our own guidance fixes (the moon wait, the remarks
+  gate). 14% of his newer work is in.
 - joint112 (0422c84b0, published 18172f482): his #522, the creature's map of the land (regions, eight exploring
   actions), and his #278, artefacts (gently placed objects join a town; villagers dance round them; worth, belief
   and glow). The dashboard counts how much of his newer work is in (7%).
 
 ## Lanes of his being ported now
 
-- #275 town desire flags, #250 light columns, #387 giving things to the creature, #410 shield panic and hiding,
-  #528 temple library (all ready for the next joint); #401 the Help key and guidance remarks, #493 world sounds,
-  #378 challenge pictures (in progress). About 30 more lanes are planned, by their gain.
+- Ready for joint114: #378 challenge pictures, #371 statistics, #493 world sounds; our fixes for script property 21
+  and the creature cave's attention, and the reactions' per-turn re-offer (from the exe, moves every reference).
+- In progress: #509 creature rest and home, #353 creature help, #261 disciples, #363 reward chest, #513 attention
+  actions. About 45 lanes are planned, by their gain.
 
 ## Done before (joints 99 to 111)
 

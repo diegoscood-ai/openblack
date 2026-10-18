@@ -26,6 +26,9 @@ counts the share of his gain brought in. The 0222f9f5 port audit: 105 of 161 row
 
 ## Done since the last update
 
+- joint115 (5924534da, published dc4354776): his #353 creature help (the good advisor tells of your creature),
+  #236 and #310 disciples' trades, craftsmen, missionaries and moving town on landing, an always-on frame counter,
+  and our fix for a heal told by the debug tools.
 - joint114 (b598f2254, published 74e05d11f): his #371 the world's statistics in the temple, #378 challenge
   pictures, #509 creature rest and home, #261 disciples in the hand; our fixes for script property 21 and the creature
   cave's attention. 19% of his newer work is in.
@@ -39,11 +42,10 @@ counts the share of his gain brought in. The 0222f9f5 port audit: 105 of 161 row
 
 ## Lanes of his being ported now
 
-- Ready for joint115: #353 creature help, #236 and #310 disciples' trades and moving town, an always-on frame
-  counter, and our fix for a heal told by the debug tools.
-- Measuring or written: #513 attention actions, #348 hand and creature, #520 dances, our reactions' spread (moves
-  the second land only), #493 world sounds, and about 30 more written lanes waiting for a build. About 60 lanes are
-  planned, by their gain.
+- Ready for joint116: #348 the hand with the creature (stroke, slap, the interaction camera, fight panels), #513
+  the creature's eleven attention actions, #488/#520 dances, and our reactions' per-turn re-offer.
+- Exported or measuring: #469 creature casting, #229 training natives, #301 villager reproduction, and about 40
+  written lanes waiting for a build. About 70 lanes are planned, by their gain.
 
 ## Done before (joints 99 to 111)
 

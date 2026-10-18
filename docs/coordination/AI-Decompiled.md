@@ -26,6 +26,9 @@ counts the share of his gain brought in. The 0222f9f5 port audit: 105 of 161 row
 
 ## Done since the last update
 
+- joint120 (64aa13849, published 04d03a448): his #524 odd actions and five creature natives, #543 the altar
+  sacrifice, #567 creature script natives, and our exe fixes to six planner rows (built pits only, what can be
+  examined or caught, breeders, totems).
 - joint119 (bb336271e, published 6d6cccf55): his #469 creature casting (with #467), #432 reactions to creatures
   and flying things, #381 the challenge room (records, pictures on the walls, markers) and our cave copy-pick and
   tattoos (#349).

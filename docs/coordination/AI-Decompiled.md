@@ -26,6 +26,9 @@ counts the share of his gain brought in. The 0222f9f5 port audit: 105 of 161 row
 
 ## Done since the last update
 
+- joint119 (bb336271e, published 6d6cccf55): his #469 creature casting (with #467), #432 reactions to creatures
+  and flying things, #381 the challenge room (records, pictures on the walls, markers) and our cave copy-pick and
+  tattoos (#349).
 - joint118 (499940f7d, published da6682ae0): his #419 what the creature picks up and uses (things by kind, targets,
   mushrooms) and #517 the creature helping a town (14 actions); and our fix from the exe: getting high is only done
   to a magic mushroom (his row let a creature pick up and eat villagers or a ball).
@@ -52,9 +55,8 @@ counts the share of his gain brought in. The 0222f9f5 port audit: 105 of 161 row
 
 ## Lanes of his being ported now
 
-- Exported for joint119: #469 creature casting, #432 reactions to creatures and flying things, #524 odd actions,
-  #547, #567, #266-#646 follow-ups; and a per-desire object test from the exe being written for every planner row.
-- About 60 more written lanes wait for a build.
+- Next: #524, #543, #605, #547, #567, #525 and our exe fixes; then joints of their own for the per-desire object
+  test, the creature's two decision trees, #267, the shepherds, #417 and #529.
 
 ## Done before (joints 99 to 111)
 

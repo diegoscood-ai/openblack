@@ -26,6 +26,10 @@ counts the share of his gain brought in. The 0222f9f5 port audit: 105 of 161 row
 
 ## Done since the last update
 
+- joint117 (905c06601, published f1edb5a86): his #229 training natives, #346 development stages, #363 the reward
+  chest, #301 villager reproduction, #266 graveyard skeletons, #645/#646 computer players and creatures from mind
+  files, and our group #74 footpaths from the exe (villagers walk the footpaths of their buildings). 39% of his newer
+  work is in; the whole game stands at 47%.
 - joint116 (b557b6d7b, published 6ae4dd5db): his #348 the hand with the creature (stroke and slap, the interaction
   camera, fight and status panels), #513 the creature's eleven attention actions, #488/#520 dances; and our
   reactions' per-turn re-offer from the exe (villagers now take up reactions they walk into).
@@ -45,10 +49,9 @@ counts the share of his gain brought in. The 0222f9f5 port audit: 105 of 161 row
 
 ## Lanes of his being ported now
 
-- Ready for joint117: #469 creature casting, #229 training natives, #346 development stages, #524 odd actions,
-  #363 the reward chest, #301 villager reproduction, #266 graveyard skeletons, #645/#646 computer players and
-  creatures from mind files, group #74 footpaths and our exe fixes.
-- About 50 more written lanes wait for a build. About 80 lanes are planned, by their gain.
+- Measuring for joint118: #419 what the creature picks up and uses, #517 helping a town, #432 reactions to
+  creatures and flying things, #524 odd actions, #469 creature casting, #547, #567.
+- About 60 more written lanes wait for a build, all rebased onto joint117.
 
 ## Done before (joints 99 to 111)
 

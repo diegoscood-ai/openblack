@@ -26,6 +26,9 @@ counts the share of his gain brought in. The 0222f9f5 port audit: 105 of 161 row
 
 ## Done since the last update
 
+- joint121 (411e7efb0, published 14b9786b0): his #605 the desire to steal (a thing taken to the creature's temple),
+  #616 the joint actions of two friends, #631 a creature throwing a ball into the sea, and #547 what an action is
+  done to (the planner's objects: a holding creature examines what it holds).
 - joint120 (64aa13849, published 04d03a448): his #524 odd actions and five creature natives, #543 the altar
   sacrifice, #567 creature script natives, and our exe fixes to six planner rows (built pits only, what can be
   examined or caught, breeders, totems).

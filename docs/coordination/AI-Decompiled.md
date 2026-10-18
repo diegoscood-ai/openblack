@@ -26,6 +26,9 @@ counts the share of his gain brought in. The 0222f9f5 port audit: 105 of 161 row
 
 ## Done since the last update
 
+- joint116 (b557b6d7b, published 6ae4dd5db): his #348 the hand with the creature (stroke and slap, the interaction
+  camera, fight and status panels), #513 the creature's eleven attention actions, #488/#520 dances; and our
+  reactions' per-turn re-offer from the exe (villagers now take up reactions they walk into).
 - joint115 (5924534da, published dc4354776): his #353 creature help (the good advisor tells of your creature),
   #236 and #310 disciples' trades, craftsmen, missionaries and moving town on landing, an always-on frame counter,
   and our fix for a heal told by the debug tools.
@@ -42,10 +45,10 @@ counts the share of his gain brought in. The 0222f9f5 port audit: 105 of 161 row
 
 ## Lanes of his being ported now
 
-- Ready for joint116: #348 the hand with the creature (stroke, slap, the interaction camera, fight panels), #513
-  the creature's eleven attention actions, #488/#520 dances, and our reactions' per-turn re-offer.
-- Exported or measuring: #469 creature casting, #229 training natives, #301 villager reproduction, and about 40
-  written lanes waiting for a build. About 70 lanes are planned, by their gain.
+- Ready for joint117: #469 creature casting, #229 training natives, #346 development stages, #524 odd actions,
+  #363 the reward chest, #301 villager reproduction, #266 graveyard skeletons, #645/#646 computer players and
+  creatures from mind files, group #74 footpaths and our exe fixes.
+- About 50 more written lanes wait for a build. About 80 lanes are planned, by their gain.
 
 ## Done before (joints 99 to 111)
 

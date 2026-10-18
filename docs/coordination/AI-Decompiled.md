@@ -26,6 +26,9 @@ counts the share of his gain brought in. The 0222f9f5 port audit: 105 of 161 row
 
 ## Done since the last update
 
+- joint122 (9daa0bf01, published 05fd4f670): his #352/#377 the players' profiles (the new player's box, the Players
+  page, a name for every creature) and #384 swapping creatures; our exe fixes to the creature's casting (its looks and
+  faces) and the story's PLAYED of an animal. A new check follows the story from Land 1 to Land 2 through the vortex.
 - joint121 (411e7efb0, published 14b9786b0): his #605 the desire to steal (a thing taken to the creature's temple),
   #616 the joint actions of two friends, #631 a creature throwing a ball into the sea, and #547 what an action is
   done to (the planner's objects: a holding creature examines what it holds).

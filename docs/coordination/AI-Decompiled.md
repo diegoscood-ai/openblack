@@ -26,6 +26,9 @@ counts the share of his gain brought in. The 0222f9f5 port audit: 105 of 161 row
 
 ## Done since the last update
 
+- joint124 (738c93836): his #425 #580 #508 (dances outside the temple, lost things, leaving home) and our exe fixes: the
+  landed-lanes audits (the creature's hand watch, faints, food, dances), a town taken over, a town's room read live, and the
+  story's fight natives with the fight queue's lean.
 - joint123 (845a2f561): his #507 #610 #556/#617 #420 pieces and our exe fixes (the creature's fart, its last hit, the
   landed-lanes audit, the kind actions with something in hand, bringing things home, eating from fields), the story's
   scripted Fight; all measured identical.

@@ -26,6 +26,9 @@ counts the share of his gain brought in. The 0222f9f5 port audit: 105 of 161 row
 
 ## Done since the last update
 
+- joint125 (bec419607): the creature's throws timed and launched as the original's, the town counts read live and the
+  villagers' shuffle, the disciple native, his #478 and group 41 (the plan a creature carries out moves its alignment),
+  and the story: object properties, the fourth land's puzzle totems (bell towers) and the story pages' statuses.
 - joint124 (738c93836): his #425 #580 #508 (dances outside the temple, lost things, leaving home) and our exe fixes: the
   landed-lanes audits (the creature's hand watch, faints, food, dances), a town taken over, a town's room read live, and the
   story's fight natives with the fight queue's lean.

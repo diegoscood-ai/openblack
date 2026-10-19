@@ -26,6 +26,8 @@ counts the share of his gain brought in. The 0222f9f5 port audit: 105 of 161 row
 
 ## Done since the last update
 
+- joint127 (af0b5a2de): a creature made by a script's CREATE (of no player, out of reactions until a script lets it),
+  with its home where it is made and facing as the original's does; every reference moved with it and was renewed.
 - joint126 (cfadad969): the story's natives (PLAYED_PERCENTAGE, KEY_DOWN, object state, targets, containers, poison,
   mist, the health total, carrying and creeds) and the computer players' scripted hands (move, pick up, drop, forced
   actions, town totals), so Land 2 plays on past its arrival; all identical in the measured runs.

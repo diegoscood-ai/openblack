@@ -26,6 +26,9 @@ counts the share of his gain brought in. The 0222f9f5 port audit: 105 of 161 row
 
 ## Done since the last update
 
+- joint128 (0a5f46b77): the computer players' minds (the decision tree as the original's, its weighing and 74 of its
+  86 scores, the mind natives), the start of physics outside the hand, the workshop and breeder natives, and our exe
+  fixes to the creature's watch of the hand; all identical in the measured runs.
 - joint127 (af0b5a2de): a creature made by a script's CREATE (of no player, out of reactions until a script lets it),
   with its home where it is made and facing as the original's does; every reference moved with it and was renewed.
 - joint126 (cfadad969): the story's natives (PLAYED_PERCENTAGE, KEY_DOWN, object state, targets, containers, poison,

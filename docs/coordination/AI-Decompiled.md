@@ -26,6 +26,9 @@ counts the share of his gain brought in. The 0222f9f5 port audit: 105 of 161 row
 
 ## Done since the last update
 
+- joint130 (acbf8635a): the players' alliances (kept across lands, an ally's influence, gifts and throws), more of the
+  computer minds' scores (the creature's busy body, the heart's last blow), and his #396 creature fights, #521 beliefs,
+  #611 thefts for a town and #533 drinking, with our exe fixes to the end of a gift to a store.
 - joint129 (e07596e1d): his group 58 (leaving a land through the vortex: the ape's sub-type, the vortex-leave natives,
   the creature sparkling away, the way out pulling things in), a joint of its own: it moves Land 1 from turn 99, and
   every reference was run twice and renewed.

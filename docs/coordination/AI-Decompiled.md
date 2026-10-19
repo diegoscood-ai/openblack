@@ -26,6 +26,9 @@ counts the share of his gain brought in. The 0222f9f5 port audit: 105 of 161 row
 
 ## Done since the last update
 
+- joint126 (cfadad969): the story's natives (PLAYED_PERCENTAGE, KEY_DOWN, object state, targets, containers, poison,
+  mist, the health total, carrying and creeds) and the computer players' scripted hands (move, pick up, drop, forced
+  actions, town totals), so Land 2 plays on past its arrival; all identical in the measured runs.
 - joint125 (bec419607): the creature's throws timed and launched as the original's, the town counts read live and the
   villagers' shuffle, the disciple native, his #478 and group 41 (the plan a creature carries out moves its alignment),
   and the story: object properties, the fourth land's puzzle totems (bell towers) and the story pages' statuses.

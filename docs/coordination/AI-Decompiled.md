@@ -16,7 +16,7 @@ counts the share of his gain brought in. The 0222f9f5 port audit: 105 of 161 row
 ## In progress here (do not start these)
 
 - **Creature:** the turn on the spot as the original's spins, catching what is thrown, the lean onto the slope, the
-  eye blink on the local stream, the alignment sparkles, the falling-spell film, eating from fields, trees and stores.
+  eye blink on the local stream, the alignment sparkles, the falling-spell film.
 - **Villagers and towns:** the walk round obstacles (the wall hug and its circles), footpaths, the temple's
   destruction, the first clip of a new living, the trees' tug and replanting, villagers fleeing from predators.
 - **Physics:** the "in the physics" tag with hanging objects, fragments coming to rest, the dead list's deferral, the
@@ -26,6 +26,19 @@ counts the share of his gain brought in. The 0222f9f5 port audit: 105 of 161 row
 
 ## Done since the last update
 
+- joint134 (6b6fa567f, published d54eadf47): his #420 second set of kind actions (a blow at the right foot, a rock
+  broken in two, the planner's rock, toy and repair actions, the ball kicked about), #610 a creature's spell to amuse
+  another creature, and #507 eating from a storage pit, a field or a tree; our exe fixes to the creature's attention
+  (loneliness, lack of interaction, its body's time standing still in the hand) and its feedback lessons, the towns'
+  counts read as they stand, every object's own resource, the scaffold in the hand, seven more computer-mind scores
+  (84 of 86), more script natives, and the shipped pack's see-through textures.
+- joint133 (9ff41c252, published 77e61f374): the did-you-know bubble drawn under the dialogue texts, particle sounds
+  keyed on the player's alignment, the sacrifice's light, prayer number and tree ghost, a kept creature finding no spot
+  outside its area, a change-house disciple moving in, GET_RESOURCE and REMOVE_RESOURCE, and the new progress
+  dashboard; identical in the measured runs apart from the help shots. Issues #65, #75, #93 and #131 closed.
+- joint132b (73562c6b6): issue fixes from the exe: the town attack sound and its warning, the sacrifice sounds, the
+  hand's lightning going for creatures, what the vortex throws out not being eaten, a villager carrying what a script
+  gives it, a lantern's light going with the lantern, and the creature's sounds with no camera. Issue #20 closed.
 - joint131 (e0f5be33b, the new base): the creature's body and hands timed as the original's (the mind waits for a busy
   body, the hands act the turn after a walk-up, a request waits for the hands, the hand's gift and take), and a reward
   chest opens only for its own player. Issues #5, #57, #108, #118 and #119 closed.

@@ -26,6 +26,9 @@ counts the share of his gain brought in. The 0222f9f5 port audit: 105 of 161 row
 
 ## Done since the last update
 
+- joint129 (e07596e1d): his group 58 (leaving a land through the vortex: the ape's sub-type, the vortex-leave natives,
+  the creature sparkling away, the way out pulling things in), a joint of its own: it moves Land 1 from turn 99, and
+  every reference was run twice and renewed.
 - joint128 (0a5f46b77): the computer players' minds (the decision tree as the original's, its weighing and 74 of its
   86 scores, the mind natives), the start of physics outside the hand, the workshop and breeder natives, and our exe
   fixes to the creature's watch of the hand; all identical in the measured runs.

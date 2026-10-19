@@ -26,6 +26,9 @@ counts the share of his gain brought in. The 0222f9f5 port audit: 105 of 161 row
 
 ## Done since the last update
 
+- joint131 (e0f5be33b, the new base): the creature's body and hands timed as the original's (the mind waits for a busy
+  body, the hands act the turn after a walk-up, a request waits for the hands, the hand's gift and take), and a reward
+  chest opens only for its own player. Issues #5, #57, #108, #118 and #119 closed.
 - joint130 (acbf8635a): the players' alliances (kept across lands, an ally's influence, gifts and throws), more of the
   computer minds' scores (the creature's busy body, the heart's last blow), and his #396 creature fights, #521 beliefs,
   #611 thefts for a town and #533 drinking, with our exe fixes to the end of a gift to a store.

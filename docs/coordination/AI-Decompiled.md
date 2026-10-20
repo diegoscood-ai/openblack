@@ -26,6 +26,45 @@ counts the share of his gain brought in. The 0222f9f5 port audit: 105 of 161 row
 
 ## Done since the last update
 
+- joint147 (6dcd1fdcc, in 7ca9f39a7): whose throw it is, as the original: what any creature lets go of, throws at a
+  target or kicks is its own player's throw, with the creature as the thrower, and a computer player's hand drops for
+  that player (stores, knocks, catches, toy play and remarks follow); a held scaffold sounds its phantom building; and
+  a creature impresses the villagers who react to it by its size and what it last did. Every reference was run.
+- joint146 (1177006b4): every creature makes the reaction the living things about it react to, so villagers inspect,
+  respect or run from it and animals run from it, as the original; and the user's choice to keep the mesh pack's
+  textures 32-bit, recorded. Every reference was run; the story moves from Land 1's turn 725.
+- joint145 (45868e848, published 46120b530, the new base): his #294 the artefact's aura and the relaxation order (the
+  football pitch first), the creature's creed glows and the falling creature's hand glows, the citadel heart's
+  destruction drawn as the original's (shell, fade, the god's colour, newest first, hidden at the end), and the plan
+  others see a creature hold. Only the temple scenes moved.
+- joint144 (29aa6ec82): a villager reacts to a creature by its town's attitude (inspecting, respecting or running), and
+  each town judges the creatures it met by what they last did, replacing the imported attitude; identical in the
+  measured runs.
+- joint143 (8689d0a1e): a thrown thing keeps the player who threw it, and a town keeps a record of each creature its
+  people met; identical everywhere.
+- joint142 (71a06bf90, published e51e94196): a creature's kick as the original's (kicked trees fly, stomped ones stand,
+  homes lose pieces to two blows, a creak at the foot), whose harm each player's things keep, a felled tree as the
+  neutral player's, how impressive things are for wonders and scaffolds, and script natives (MOVE_GAME_THING on storms
+  and on things that are not alive, a climate's first rain).
+- joint141 (844c13c40, published 8f039c1c8): his stored angles (a placed thing keeps its angles, a moved thing takes its
+  body's), with our script angles and leans and a creature's script angle, and a building an effect destroys going
+  inside the effect. The cycle moves on Land 2.
+- joint140 (f6aabd1da, published 651092bd7): the original's floating point at eight sites (the hand's scale, the
+  tornado, the fireball's direction, a body's spin, the arcs round circles), every object's reaction impressing the
+  villagers, and the players of predators' and crushed things' reactions. Every reference was run.
+- joint139 (a2fcf04c7, published 44bdf994a): the creature sleeps on the spot in a clear place or at home, and its mind's
+  two trees as the original's (what a plan is for, what it is done to), with the worth of a thing to act on and of a
+  gift.
+- joint138 (f9851cecf, published 6f3261954): his #493 the buildings' sounds of the time of day and #525 the Game
+  Statistics box (the creature's tallies, the help record, the lines of code), the computer players' personality
+  files, the vortex's crossing file and MAKE_LAST_OBJECT_ARTIFACT, and x87 models of the runtime's maths. Every
+  reference was run.
+- joint137 (fbd9ba84e, published f3c654b2e): his #617 sleeping on the spot only on a leash, with no temple or far from
+  home, and a worship site's altar as a temple part. Every reference was run; Land 1 moves from turn 44.
+- joint136 (ce7e4eb7e, published 92ed7c3aa): the state hash folds every town's belief; every reference renewed once.
+- joint135 (c6b95e5f5, published e1660fdbe): the creature's body timing as the original's (a loop's end, a start's loop
+  and a faint in the same turn), what a creature must go round, the advisors' fight remark, the hand's give at the
+  press, script angles, and the editor's miracle bubbles. Issues #18 and #100 closed.
 - joint134 (6b6fa567f, published d54eadf47): his #420 second set of kind actions (a blow at the right foot, a rock
   broken in two, the planner's rock, toy and repair actions, the ball kicked about), #610 a creature's spell to amuse
   another creature, and #507 eating from a storage pit, a field or a tree; our exe fixes to the creature's attention

@@ -21,8 +21,6 @@ every pull request merged into his master against this tree (at his `e1cc0b8f` o
 
 - **Rendering:** the prints, static shadows, river channels and snow baked into the block textures and their
   tiles, as the original (#222).
-- **Interface:** the menu fades on every page change as the original's boxes do, and the scripts' bars hide
-  every dialog when they come on (#201); the key names written as "Ctrl + S" (#200).
 - **Creature:** nothing in its code or mind tonight. Kept on this side: the lean onto the slope (#35), the
   falling-spell film (#23).
 - **Villagers and towns:** footpaths (#74), the trees' tug and replanting (#87).
@@ -35,6 +33,11 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint191 (d27916df7, published fa704e6af): the scripts' bars put every dialog away when they come in (#201), the
+  key names written as the original writes them (#200; its menu fade-in already matched), a new game reads the
+  hand's mesh afresh as the original makes a new hand (the last game's good or evil shape no longer stays), and
+  the menu's pages fade into one another as the original's boxes do; plus the bake's pure functions for #222. A
+  full joint with no scene moved; the batch's scenes now each match their own single run again.
 - joint190 (53143155e, published d5685646a): the far blocks show their low-resolution tile and the texture detail
   line blends it over the near ones, as the original (#71, B1); the temple pool's map keeps the block textures for
   now. A full joint: the game's state identical everywhere; the land shots by day and night, the temple shot, three

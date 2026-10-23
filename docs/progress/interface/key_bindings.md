@@ -30,7 +30,7 @@ How the original does it, in our wiki: [The one-press keys](../../../interface/s
 | Binding a key already in use takes it off the other action | inferred | conflicts are found (`FindConflicts`, test `KeyBindings.ConflictsAreFound`, shown in the debug window) but nothing resolves them; the original's binding box puts up a message when the key is in use, and what its answer then does has not been read |
 | Load Defaults puts every binding back | partial 10% | `GameActionMap::ResetKeyBindings` exists but nothing calls it, and it has no test; the page's Load Defaults button does nothing. The original asks first in a box, then loads the defaults |
 | The bindings are kept with the player's profile and read back when it is picked | pending | the original reads the current profile's keys (its control map's profile load); openblack keeps no bindings in `Profiles/Profiles.txt` |
-| A key's name is written as the game writes it, such as "Ctrl + S" | partial 50% | the Controls page writes the modifier, " + " and the key, as the original's key text does; but `KeyChordName` (the debug window's names, test `KeyBindings.Names`) writes "Ctrl+S" with no spaces, a difference from the original to fix; the key names themselves are not compared with the original's |
+| A key's name is written as the game writes it, such as "Ctrl + S" | partial 50% | the Controls page writes the modifier, " + " and the key, as the original's key text does, and so does `KeyChordName` (the debug window's names, test `KeyBindings.Names`); a binding has one modifier at most, so " + " is the only separator; the key names themselves are not compared with the original's |
 
 ## One-press shortcuts
 

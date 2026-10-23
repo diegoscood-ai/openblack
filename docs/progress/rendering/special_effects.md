@@ -51,6 +51,6 @@ the scroll and vortex beams and the falling-spell bursts are in [light_beams.md]
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | Scripts fade the picture to a colour and back over whole seconds | done | `src/Gui/ScreenFade.cpp` (SET_FADE and SET_FADE_IN per turn), drawn in the screen overlay pass |
-| Cinema bars slide in for cut scenes, hiding the dialogs | done | `ScreenFade` bars over 2 s and snapped on for films (`src/Gui/ScreenFade.cpp`, `src/Video/VideoPlayer.cpp`) |
+| Cinema bars slide in for cut scenes, hiding the dialogs | done | `ScreenFade` bars over 2 s and snapped on for films (`src/Gui/ScreenFade.cpp`, `src/Video/VideoPlayer.cpp`); the dialogs are put away as the bars come in (`gui::HideAllDialogs`, see ../camera/cinematics.md) |
 | Motion blur | pending | the renderer keeps a motion blur amount (unconfirmed when the game uses it) |
 | Scripts take screenshots of the world for the challenge room's pictures | pending | see [../temple/](../temple/) |

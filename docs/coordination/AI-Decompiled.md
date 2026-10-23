@@ -33,6 +33,11 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint196 (d30cc6984, published 6cd544a8b): the snow lying on the land baked into the blocks' textures, the temple
+  heart and worship sites baking their footprint and shadow, a storm's 0.01 case (#222 part 6); the camera help
+  hears only the player's own controls, and two camera input differences fixed (closes #216); the forest's ring
+  step as the original's float; 80 progress rows pinned by tests on the original's values (miracles, interface,
+  the hand). Game state identical in every check; the ground, temple and miracle-name shots renewed.
 - joint195 (2c22f22c6, published 7e2c92a6b): the hand shows what the original shows over a desire flag, a built
   workshop, a worship icon, an altar, a temple, a worship site being built, a scaffold and a reward chest, and a
   miracle's name at its power when taken (closes #157); the old print passes' shaders removed (#222); the computer

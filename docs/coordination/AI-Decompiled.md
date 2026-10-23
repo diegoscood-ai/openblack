@@ -33,6 +33,9 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint193 (93e6313c2, published f7a184c8c): the tattoo editor's and the story history's boxes fade in from nothing
+  each time they are shown, a menu question's box fades in by itself and its answer gives the menu back whole, and
+  a fragment's mesh goes with the fragment. All identical.
 - joint192 (0fb2eeca8, published d85056cd3): the bake of a block's prints step in the game's order, with the trees'
   texture shadows (not wired yet, #222), and a game's generated meshes go with it, so the next game numbers its own
   from 0. All identical.

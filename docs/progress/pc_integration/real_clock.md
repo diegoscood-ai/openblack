@@ -7,7 +7,7 @@ features send and compare. The game's own day and night, and its in-game calenda
 [../sky/day_night_cycle.md](../sky/day_night_cycle.md) and [../engine/game_loop_and_clock.md](../engine/game_loop_and_clock.md).
 All of the game's reads of the clock were traced; the dates and hours below are the only ones it acts on.
 
-**Progress: 32/46 done, 0 chosen, 4 partial, 1 inferred — 74%**
+**Progress: 33/46 done, 0 chosen, 3 partial, 1 inferred — 75%**
 
 ## Night whispers: when
 
@@ -49,7 +49,7 @@ All of the game's reads of the clock were traced; the dates and hours below are 
 |-----------|--------|---------------|
 | The volume is the normal one times or divided by 1 + a³, a a local random number up to 0.65, so 78% to 127% | done | `spooky::PlaySpookyVoice`; test `SpookyTest.PlaySpookyVoiceBuildsTheVolumeUp`. Our wiki differs: the volume is scaled by the random number up to 0.8 and the pitch by the one up to 0.65, and the volume change builds up from one whisper to the next because the sound options are kept ([audio](../../../audio/voices.md#guidance-and-night-voices-in-openblack)) |
 | The pitch is the sample's own times or divided by 1 + b³, b up to 0.8, so 0.66 to 1.51 times | done | `spooky::PlaySpookyVoice`. Our wiki differs: the pitch is the one scaled by the random number up to 0.65, the volume the one up to 0.8 ([audio](../../../audio/voices.md#guidance-and-night-voices-in-openblack)) |
-| A third random number from 0 to 179 is set on the sound (unconfirmed: most likely where it is heard from) | partial 50% | drawn and kept (`spooky::State::field2C`), but our sample player does not use it; re-measured 2026-10-21: the number is drawn as the original (so the random stream matches); its use on the sound is not ported, and where it is heard from is inferred |
+| A third random number from 0 to 179 is where the voice is heard from: 0 on the left, 90 ahead, 179 on the right | done | `spooky::PlaySpookyVoice` sets the options' pan, which `sample_play::Start` turns into the azimuth the original sends QMixer (`qmixer::PanAzimuth`); tests `AudioLaws.ATwoDPanIsAnAzimuthAroundTheListener`, `SamplePlayTest.ATwoDSampleIsHeardAtItsPan`; the Audio window's "2D pan" plays a sample at any pan and shows the last voice's ([audio](../../../audio/banks-and-channels.md)) |
 | It is played as a plain sound, not placed in the world (unconfirmed) | inferred | played 2D (`spooky::PlaySpookyVoice`); re-measured 2026-10-21: that the original plays it 2D is not confirmed in the exe |
 
 ## The real moon

@@ -33,6 +33,11 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint198 (70cae0658, published bcad14c9e): the saved game's format read as the original writes it (the stream and
+  its sums, SaveGame.inf, the pictures, the script machine's state written, the records up to the scaffolds, and a
+  save tool; nothing in play reads or writes it yet); four miracle fixes (moving the bird and wolf scenes); a tree
+  counted once by its forest, drowning, fireflies and a burnt tree removed through its own deletion (moving four
+  forest scenes); 132 progress rows pinned to the original with tests.
 - joint197 (75ef59603, published 55ab9b6e7): the player's camera starts again as a new one when a script's camera
   control ends, so its easing restarts as the original's (moves Land 1 from turn 9; references renewed on two
   agreeing passes); raffclar's start-up split into four functions (his #881, ten services moved, identical); the

@@ -22,9 +22,8 @@ every pull request merged into his master against this tree (at his `e1cc0b8f` o
 - **Rendering:** the land textures' detail line and the far blocks' low-resolution tiles as the original (#71,
   B1); it moves almost every land shot, so its joint renews the references. Then the prints baked into the block
   textures (#222).
-- **Fidelity fixes:** a dead tree's fire gives its wood reaction to the tree's own player (#219), PLAYED of a
-  weather thing answers its state (#218), and the villagers' burning-thing reaction converts the walker's speed
-  as the original (#209).
+- **Interface:** the menu fades on every page change as the original's boxes do, and the scripts' bars hide
+  every dialog when they come on (#201); the key names written as "Ctrl + S" (#200).
 - **Creature:** nothing in its code or mind tonight. Kept on this side: the lean onto the slope (#35), the
   falling-spell film (#23).
 - **Villagers and towns:** footpaths (#74), the trees' tug and replanting (#87).
@@ -37,6 +36,11 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint189 (f15e3ef8d, published cc95aeaf9): a dead tree's fire going out gives its wood reaction to the tree's own
+  player (#219), PLAYED of a weather thing answers whether its storm is over (#218), and the villagers' reaction to
+  a burning thing in the hand converts the walker's speed as the original (#209; the issue had it the other way
+  round). The footpath walks' audit (#74): every live caller already walks the footpaths. State identical in
+  every check and in the fire, weather and reaction scenes.
 - joint188 (64eb2139a, published 47a1dc750): drawing between turns (#220, the user's chosen difference) for what
   is not the creature: villagers and animals wherever they move continuously, the animals' and birds' turn, a
   villager's carried tool and a disciple's marks, and a highlight's golden shower; what the logic places at once

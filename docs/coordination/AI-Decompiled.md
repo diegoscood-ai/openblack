@@ -22,8 +22,9 @@ every pull request merged into his master against this tree (at his `e1cc0b8f` o
 - **Rendering:** the land textures' detail line and the far blocks' low-resolution tiles as the original (#71,
   B1); it moves almost every land shot, so its joint renews the references. Then the prints baked into the block
   textures (#222).
-- **Drawing between turns** (#220, the user's chosen difference): villagers, animals and birds drawn smoothly
-  wherever they move continuously; what the logic places at once still jumps; a View switch draws them stepped.
+- **Fidelity fixes:** a dead tree's fire gives its wood reaction to the tree's own player (#219), PLAYED of a
+  weather thing answers its state (#218), and the villagers' burning-thing reaction converts the walker's speed
+  as the original (#209).
 - **Creature:** nothing in its code or mind tonight. Kept on this side: the lean onto the slope (#35), the
   falling-spell film (#23).
 - **Villagers and towns:** footpaths (#74), the trees' tug and replanting (#87).
@@ -36,6 +37,12 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint188 (64eb2139a, published 47a1dc750): drawing between turns (#220, the user's chosen difference) for what
+  is not the creature: villagers and animals wherever they move continuously, the animals' and birds' turn, a
+  villager's carried tool and a disciple's marks, and a highlight's golden shower; what the logic places at once
+  still jumps, and the View menu's "Stepped drawing (as the original)" draws them as the original. The game's
+  state is identical in every check; 11 scene shots moved (mostly birds), and their references were renewed
+  after two agreeing passes.
 - joint187 (7f76575c8, published 7d54cdb88): his portability fixes (#129), the oracle tests' data folder (#651/#652)
   and sprites keeping texture ids (#857), and synthetic twins so the tests that need the original's data have
   in-memory counterparts the CI can run. A full joint: every test alone, and all 192 scenes kept their state

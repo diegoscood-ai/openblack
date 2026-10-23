@@ -38,6 +38,9 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint184 (b2ba0006a, published b1242646a): code clean-up, all identical: no new expressions are left in the game's
+  code (std::make_unique, private constructors taking a key) and no C arrays (std::array; main takes `char** argv`,
+  byte-identical), counted from the sources by `docs/tools/cpp_counts.py`. The dashboard's clean-up bar: 7 of 10.
 - joint183 (2d44f0cbb, published 5f27f9deb): code clean-up, all identical (tests, now with every data-backed test
   running, fidelity, cycle, the story and the hand demos identical): the Locator interfaces we share take his method
   names and signatures where they do the same work (time, land, audio, magic, dynamics, a villager's state change;

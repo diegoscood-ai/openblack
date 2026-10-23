@@ -2,7 +2,7 @@
 
 The seven land scripts in `Scripts/Playgrounds/` are the skirmish lands: a player against one to three rival gods (the computer players) on lands made for two, three or four gods, plus openblack's own `construct` test land (not a game file; see [../multiplayer/maps/construct.md](../multiplayer/maps/construct.md)). Each section counts what its script builds and whether openblack builds it. Rival gods' play is the multiplayer and skirmish domain's ([../multiplayer/](../multiplayer/)); openblack opens these lands only through the debug land menu or `--start-level`, and the story's control script still starts on them.
 
-**Progress: 325/364 done, 31 partial — 94%**
+**Progress: 331/364 done, 30 partial — 95%**
 
 ## Two Gods: loading
 
@@ -10,7 +10,7 @@ The seven land scripts in `Scripts/Playgrounds/` are the skirmish lands: a playe
 |-----------|--------|---------------|
 | The script (`Playgrounds/TwoGods.txt`, 1,000 lines, landscape `MPM_2P_1.lnd`, two players) loads from first line to last | done | every line is a known command with the right arguments when read the way `Script.cpp` does |
 | Its footpath file `twogods.fot` is loaded with it | done | `Game::LoadMap` |
-| It can be chosen from the game's skirmish menu, with its title and description | partial | listed in the debug land menu with its description as a tooltip; no skirmish menu |
+| It can be chosen from the game's skirmish menu, with its title and description | partial 30% | listed in the debug land menu with its description as a tooltip; no skirmish menu; re-measured 2026-10-21: listed in the debug menu; no skirmish menu |
 
 ## Two Gods: set-up
 
@@ -21,9 +21,9 @@ The seven land scripts in `Scripts/Playgrounds/` are the skirmish lands: a playe
 | Starts the camera looking at "2185.72,2315.78" | done | `FeatureScriptCommands::StartCameraPos` |
 | Scales the towns' influence by 0.4 | done | kept in the map script globals and read by `src/ECS/Influence` |
 | Scales the players' influence by 1 | done | kept in the map script globals and read by `src/ECS/Influence` |
-| Sets 3 land balance numbers (4 = 2.75, 5 = 4, 6 = 20) | partial | `land_balance::Set` keeps them all; only numbers 4 (villagers' speed) and 5 (trees) are read |
+| Sets 3 land balance numbers (4 = 2.75, 5 = 4, 6 = 20) | partial 30% | `land_balance::Set` keeps them all; only numbers 4 (villagers' speed) and 5 (trees) are read; re-measured 2026-10-21: kept; only numbers 4 (villagers' speed) and 5 (trees) are read |
 | Sets a day of 1700 with 8.3% night and 7% dawn and dusk | done | `DayNightClock::SetCycleFromLand` (`SET_NIGHTTIME`) |
-| Titles the land "Two Gods" with 1 description line(s) | partial | shown only as the debug land menu's tooltip; in the game the land info box pops up with the title and line when the script reaches it ([../multiplayer/skirmish.md](../multiplayer/skirmish.md)) |
+| Titles the land "Two Gods" with 1 description line(s) | partial 20% | shown only as the debug land menu's tooltip; in the game the land info box pops up with the title and line when the script reaches it ([../multiplayer/skirmish.md](../multiplayer/skirmish.md)); re-measured 2026-10-21: shown only as the debug menu's tooltip; the land info box is not ported |
 
 ## Two Gods: towns
 
@@ -51,7 +51,7 @@ The seven land scripts in `Scripts/Playgrounds/` are the skirmish lands: a playe
 | 2 temples of rival gods (player one 1, player two 1) | done | `CitadelArchetype` (`CREATE_CITADEL`) |
 | 4 worship sites (indian for player one 1, celtic for player one 1, indian for player two 1, celtic for player two 1) | done | `magic::script::CreateWorshipSite` (`CREATE_WORSHIP_SITE`): a built site at the player's temple |
 | 1 miracle dispensers (beam explosion 1) | done | `magic::script::CreateSpellDispenser` (`CREATE_SPELL_DISPENSER`) |
-| 12 scaffolds | todo | `CREATE_SCAFFOLD` is empty |
+| 12 scaffolds | pending | `CREATE_SCAFFOLD` is empty |
 
 ## Two Gods: people
 
@@ -114,9 +114,9 @@ The seven land scripts in `Scripts/Playgrounds/` are the skirmish lands: a playe
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Switches on 1 computer players (player two) | partial | the players are added to the player system; their thinking isn't (see ../multiplayer/) |
-| 1 rival creatures from mind files (ComputerControlledCreature as Leopard 1) | partial | `CreatureArchetype` with the mind loaded (`CREATE_CREATURE_FROM_FILE`); it faces a fixed way and takes our starting size; see creature_mind_scripts.md |
-| Sets 1 rival creatures' liking for the player | todo | `SET_COMPUTER_PLAYER_CREATURE_LIKE` is empty |
+| Switches on 1 computer players (player two) | partial 40% | the players are added to the player system; their thinking isn't (see ../multiplayer/); re-measured 2026-10-21: the players are added; no mind runs them |
+| 1 rival creatures from mind files (ComputerControlledCreature as Leopard 1) | partial 70% | `CreatureArchetype` with the mind loaded (`CREATE_CREATURE_FROM_FILE`); it faces a fixed way and takes our starting size; see creature_mind_scripts.md; re-measured 2026-10-21: made with its mind; the facing and size are ours |
+| Sets 1 rival creatures' liking for the player | done | `SET_COMPUTER_PLAYER_CREATURE_LIKE` names it; the computer mind's start sizes the creature (`ComputerPlayerSystem`, `computer_player::SizeLike`; unverified against v1.42) |
 
 ## Three Gods: loading
 
@@ -124,7 +124,7 @@ The seven land scripts in `Scripts/Playgrounds/` are the skirmish lands: a playe
 |-----------|--------|---------------|
 | The script (`Playgrounds/ThreeGods.txt`, 2,063 lines, landscape `MPM_3P_1.lnd`, three players) loads from first line to last | done | every line is a known command with the right arguments when read the way `Script.cpp` does |
 | Its footpath file `threegods.fot` is loaded with it | done | `Game::LoadMap` |
-| It can be chosen from the game's skirmish menu, with its title and description | partial | listed in the debug land menu with its description as a tooltip; no skirmish menu |
+| It can be chosen from the game's skirmish menu, with its title and description | partial 30% | listed in the debug land menu with its description as a tooltip; no skirmish menu; re-measured 2026-10-21: listed in the debug menu; no skirmish menu |
 
 ## Three Gods: set-up
 
@@ -135,9 +135,9 @@ The seven land scripts in `Scripts/Playgrounds/` are the skirmish lands: a playe
 | Starts the camera looking at "2816.90,2740.75" | done | `FeatureScriptCommands::StartCameraPos` |
 | Scales the towns' influence by 0.4 | done | kept in the map script globals and read by `src/ECS/Influence` |
 | Scales the players' influence by 0.7 | done | kept in the map script globals and read by `src/ECS/Influence` |
-| Sets 3 land balance numbers (4 = 2.75, 5 = 4, 6 = 20) | partial | `land_balance::Set` keeps them all; only numbers 4 (villagers' speed) and 5 (trees) are read |
+| Sets 3 land balance numbers (4 = 2.75, 5 = 4, 6 = 20) | partial 30% | `land_balance::Set` keeps them all; only numbers 4 (villagers' speed) and 5 (trees) are read; re-measured 2026-10-21: kept; only numbers 4 (villagers' speed) and 5 (trees) are read |
 | Sets a day of 1000 with 23% night and 17% dawn and dusk | done | `DayNightClock::SetCycleFromLand` (`SET_NIGHTTIME`) |
-| Titles the land "Three Gods" with 1 description line(s) | partial | shown only as the debug land menu's tooltip; in the game the land info box pops up with the title and line when the script reaches it ([../multiplayer/skirmish.md](../multiplayer/skirmish.md)) |
+| Titles the land "Three Gods" with 1 description line(s) | partial 20% | shown only as the debug land menu's tooltip; in the game the land info box pops up with the title and line when the script reaches it ([../multiplayer/skirmish.md](../multiplayer/skirmish.md)); re-measured 2026-10-21: shown only as the debug menu's tooltip; the land info box is not ported |
 | Creates 3 climates and sets rain, temperature and wind 3, 3 and 3 times | done | `magic::map_script::CreateWeatherClimate` and its rain, temperature and wind (`src/Magic/Script/MapScriptWeather.cpp`); see ../weather/ |
 | Creates 2 storms that are there from the start | done | `magic::map_script::CreateWeatherStorm` (`CREATE_WEATHER_STORM`) |
 
@@ -187,7 +187,7 @@ The seven land scripts in `Scripts/Playgrounds/` are the skirmish lands: a playe
 | 684 trees and bushes (Beech 128, ConiferA 123, Palm 116, OakA 100, Birch 64, Olive 48, PalmA 43, Pine 36, Conifer 20, Cypress 6) | done | `TreeArchetype` (`CREATE_NEW_TREE`) |
 | 19 forests that trees belong to (foresters fell and replant them) | done | `ecs::CreateForest` (`CREATE_FOREST`): the forest the trees after it are looked up in |
 | 6 big forest models | done | `BigForestArchetype` (`CREATE_NEW_BIG_FOREST`) |
-| 43 fireflies | todo | `CREATE_FIRE_FLY` is empty; every map also gets the nightly top-up: [../nature/fireflies.md](../nature/fireflies.md#where-they-come-from) |
+| 43 fireflies | pending | `CREATE_FIRE_FLY` is empty; every map also gets the nightly top-up: [../nature/fireflies.md](../nature/fireflies.md#where-they-come-from) |
 | Sets 42 firefly miracle reward chances | done | kept in the map globals' reward table (`FIRE_FLY_SPELL_REWARD_PROB`); every chance is zero, so its fireflies give nothing: [../nature/fireflies.md](../nature/fireflies.md#the-lands-reward-table) |
 
 ## Three Gods: food
@@ -222,9 +222,9 @@ The seven land scripts in `Scripts/Playgrounds/` are the skirmish lands: a playe
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Switches on 2 computer players (player two, player three) | partial | the players are added to the player system; their thinking isn't (see ../multiplayer/) |
-| 2 rival creatures from mind files (COMPUTERCONTROLLEDCREATURE as Lion 1, COMPUTERCONTROLLEDCREATURE as Horse 1) | partial | `CreatureArchetype` with the mind loaded (`CREATE_CREATURE_FROM_FILE`); it faces a fixed way and takes our starting size; see creature_mind_scripts.md |
-| Sets 2 rival creatures' liking for the player | todo | `SET_COMPUTER_PLAYER_CREATURE_LIKE` is empty |
+| Switches on 2 computer players (player two, player three) | partial 40% | the players are added to the player system; their thinking isn't (see ../multiplayer/); re-measured 2026-10-21: the players are added; no mind runs them |
+| 2 rival creatures from mind files (COMPUTERCONTROLLEDCREATURE as Lion 1, COMPUTERCONTROLLEDCREATURE as Horse 1) | partial 70% | `CreatureArchetype` with the mind loaded (`CREATE_CREATURE_FROM_FILE`); it faces a fixed way and takes our starting size; see creature_mind_scripts.md; re-measured 2026-10-21: made with its mind; the facing and size are ours |
+| Sets 2 rival creatures' liking for the player | done | `SET_COMPUTER_PLAYER_CREATURE_LIKE` names it; the computer mind's start sizes the creature (`ComputerPlayerSystem`, `computer_player::SizeLike`; unverified against v1.42) |
 
 ## Four Gods: loading
 
@@ -232,7 +232,7 @@ The seven land scripts in `Scripts/Playgrounds/` are the skirmish lands: a playe
 |-----------|--------|---------------|
 | The script (`Playgrounds/FourGods.txt`, 1,550 lines, landscape `MPM_4P_1.lnd`, four players) loads from first line to last | done | every line is a known command with the right arguments when read the way `Script.cpp` does |
 | Its footpath file `fourgods.fot` is loaded with it | done | `Game::LoadMap` |
-| It can be chosen from the game's skirmish menu, with its title and description | partial | listed in the debug land menu with its description as a tooltip; no skirmish menu |
+| It can be chosen from the game's skirmish menu, with its title and description | partial 30% | listed in the debug land menu with its description as a tooltip; no skirmish menu; re-measured 2026-10-21: listed in the debug menu; no skirmish menu |
 
 ## Four Gods: set-up
 
@@ -243,9 +243,9 @@ The seven land scripts in `Scripts/Playgrounds/` are the skirmish lands: a playe
 | Starts the camera looking at "0.00,0.00" | done | `FeatureScriptCommands::StartCameraPos` |
 | Scales the towns' influence by 0.5 | done | kept in the map script globals and read by `src/ECS/Influence` |
 | Scales the players' influence by 1 | done | kept in the map script globals and read by `src/ECS/Influence` |
-| Sets 3 land balance numbers (4 = 2, 5 = 2, 6 = 10) | partial | `land_balance::Set` keeps them all; only numbers 4 (villagers' speed) and 5 (trees) are read |
+| Sets 3 land balance numbers (4 = 2, 5 = 2, 6 = 10) | partial 30% | `land_balance::Set` keeps them all; only numbers 4 (villagers' speed) and 5 (trees) are read; re-measured 2026-10-21: kept; only numbers 4 (villagers' speed) and 5 (trees) are read |
 | Sets a day of 1700 with 8.3% night and 7% dawn and dusk | done | `DayNightClock::SetCycleFromLand` (`SET_NIGHTTIME`) |
-| Titles the land "Four Gods" with 1 description line(s) | partial | shown only as the debug land menu's tooltip; in the game the land info box pops up with the title and line when the script reaches it ([../multiplayer/skirmish.md](../multiplayer/skirmish.md)) |
+| Titles the land "Four Gods" with 1 description line(s) | partial 20% | shown only as the debug land menu's tooltip; in the game the land info box pops up with the title and line when the script reaches it ([../multiplayer/skirmish.md](../multiplayer/skirmish.md)); re-measured 2026-10-21: shown only as the debug menu's tooltip; the land info box is not ported |
 | Creates 1 climates and sets rain, temperature and wind 1, 1 and 1 times | done | `magic::map_script::CreateWeatherClimate` and its rain, temperature and wind (`src/Magic/Script/MapScriptWeather.cpp`); see ../weather/ |
 
 ## Four Gods: towns
@@ -320,9 +320,9 @@ The seven land scripts in `Scripts/Playgrounds/` are the skirmish lands: a playe
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Switches on 3 computer players (player two, player three, player four) | partial | the players are added to the player system; their thinking isn't (see ../multiplayer/) |
-| 3 rival creatures from mind files (ComputerControlledCreature as Horse 1, ComputerControlledCreature as Tortoise 1, ComputerControlledCreature as Zebra 1) | partial | `CreatureArchetype` with the mind loaded (`CREATE_CREATURE_FROM_FILE`); it faces a fixed way and takes our starting size; see creature_mind_scripts.md |
-| Sets 3 rival creatures' liking for the player | todo | `SET_COMPUTER_PLAYER_CREATURE_LIKE` is empty |
+| Switches on 3 computer players (player two, player three, player four) | partial 40% | the players are added to the player system; their thinking isn't (see ../multiplayer/); re-measured 2026-10-21: the players are added; no mind runs them |
+| 3 rival creatures from mind files (ComputerControlledCreature as Horse 1, ComputerControlledCreature as Tortoise 1, ComputerControlledCreature as Zebra 1) | partial 70% | `CreatureArchetype` with the mind loaded (`CREATE_CREATURE_FROM_FILE`); it faces a fixed way and takes our starting size; see creature_mind_scripts.md; re-measured 2026-10-21: made with its mind; the facing and size are ours |
+| Sets 3 rival creatures' liking for the player | done | `SET_COMPUTER_PLAYER_CREATURE_LIKE` names it; the computer mind's start sizes the creature (`ComputerPlayerSystem`, `computer_player::SizeLike`; unverified against v1.42) |
 
 ## Firestorm: loading
 
@@ -330,7 +330,7 @@ The seven land scripts in `Scripts/Playgrounds/` are the skirmish lands: a playe
 |-----------|--------|---------------|
 | The script (`Playgrounds/Firestorm.txt`, 1,540 lines, landscape `mpm_3p_2.lnd`, three players) loads from first line to last | done | every line was a known command with the right arguments in raffclar's check; the file is not in our game folder, and our reader skips a bad line rather than stopping |
 | It has no footpath file, as in the game | done | nothing to load |
-| It can be chosen from the game's skirmish menu | partial | listed in the debug land menu only |
+| It can be chosen from the game's skirmish menu | partial 30% | listed in the debug land menu only; re-measured 2026-10-21: listed in the debug menu; no skirmish menu |
 
 ## Firestorm: set-up
 
@@ -341,7 +341,7 @@ The seven land scripts in `Scripts/Playgrounds/` are the skirmish lands: a playe
 | Starts the camera looking at "1441.56,2081.76" | done | `FeatureScriptCommands::StartCameraPos` |
 | Scales the towns' influence by 0.01 | done | kept in the map script globals and read by `src/ECS/Influence` |
 | Scales the players' influence by 0.8 | done | kept in the map script globals and read by `src/ECS/Influence` |
-| Sets 3 land balance numbers (4 = 2.5, 5 = 3.01471, 6 = 5) | partial | `land_balance::Set` keeps them all; only numbers 4 (villagers' speed) and 5 (trees) are read |
+| Sets 3 land balance numbers (4 = 2.5, 5 = 3.01471, 6 = 5) | partial 30% | `land_balance::Set` keeps them all; only numbers 4 (villagers' speed) and 5 (trees) are read; re-measured 2026-10-21: kept; only numbers 4 (villagers' speed) and 5 (trees) are read |
 | Sets a day of 1700 with 8.3% night and 7% dawn and dusk | done | `DayNightClock::SetCycleFromLand` (`SET_NIGHTTIME`) |
 | Creates 1 climates and sets rain, temperature and wind 1, 1 and 1 times | done | `magic::map_script::CreateWeatherClimate` and its rain, temperature and wind (`src/Magic/Script/MapScriptWeather.cpp`); see ../weather/ |
 
@@ -401,7 +401,7 @@ The seven land scripts in `Scripts/Playgrounds/` are the skirmish lands: a playe
 |-----------|--------|---------------|
 | 16 fields (Wheat 6, Corn 6, WheatWithFence 4) | done | `FieldArchetype` (`CREATE_NEW_TOWN_FIELD`) |
 | 18 pots (MagicWood 18) | done | `PotArchetype` (`CREATE_POT`) |
-| 28 drinking places | partial | a `DrinkWaypoint` is kept (`CREATE_DRINK_WAYPOINT`); nothing reads it yet |
+| 28 drinking places | done | a `DrinkWaypoint` is kept in the order made (`CREATE_DRINK_WAYPOINT`); the creature drinks at the nearest one under 1000 (`mind_detail::DrinkPlaceOf`; unverified against v1.42) |
 
 ## Firestorm: animals
 
@@ -420,7 +420,7 @@ The seven land scripts in `Scripts/Playgrounds/` are the skirmish lands: a playe
 | 27 × MagicMushroom (can be picked up) | done | `MobileObjectArchetype` (`CREATE_MOBILEOBJECT`) |
 | 6 × Toadstool (can be picked up) | done | `MobileObjectArchetype` (`CREATE_MOBILEOBJECT`) |
 | 32 lanterns (CountryLantern 18, StreetLantern 14) | done | `StreetLanternArchetype` (`CREATE_STREET_LANTERN`) |
-| 1 street light | partial | `StreetLanternArchetype` as a town lantern (`CREATE_STREET_LIGHT`); the street light itself is not decoded |
+| 1 street light | partial 50% | `StreetLanternArchetype` as a town lantern (`CREATE_STREET_LIGHT`); the street light itself is not decoded; re-measured 2026-10-21: made as a town lantern; the street light itself is not decoded |
 
 ## Firestorm: water and paths
 
@@ -440,7 +440,7 @@ The seven land scripts in `Scripts/Playgrounds/` are the skirmish lands: a playe
 |-----------|--------|---------------|
 | The script (`Playgrounds/Island Wars.txt`, 1,145 lines, landscape `mpm_4p_2.lnd`, four players) loads from first line to last | done | every line was a known command with the right arguments in raffclar's check; the file is not in our game folder, and our reader skips a bad line rather than stopping |
 | It has no footpath file, as in the game | done | nothing to load |
-| It can be chosen from the game's skirmish menu | partial | listed in the debug land menu only |
+| It can be chosen from the game's skirmish menu | partial 30% | listed in the debug land menu only; re-measured 2026-10-21: listed in the debug menu; no skirmish menu |
 
 ## Island Wars: set-up
 
@@ -451,7 +451,7 @@ The seven land scripts in `Scripts/Playgrounds/` are the skirmish lands: a playe
 | Starts the camera looking at "1441.56,2081.76" | done | `FeatureScriptCommands::StartCameraPos` |
 | Scales the towns' influence by 0.2 | done | kept in the map script globals and read by `src/ECS/Influence` |
 | Scales the players' influence by 1.2 | done | kept in the map script globals and read by `src/ECS/Influence` |
-| Sets 3 land balance numbers (4 = 2.5, 5 = 3.01471, 6 = 5) | partial | `land_balance::Set` keeps them all; only numbers 4 (villagers' speed) and 5 (trees) are read |
+| Sets 3 land balance numbers (4 = 2.5, 5 = 3.01471, 6 = 5) | partial 30% | `land_balance::Set` keeps them all; only numbers 4 (villagers' speed) and 5 (trees) are read; re-measured 2026-10-21: kept; only numbers 4 (villagers' speed) and 5 (trees) are read |
 | Sets a day of 1700 with 8.3% night and 7% dawn and dusk | done | `DayNightClock::SetCycleFromLand` (`SET_NIGHTTIME`) |
 
 ## Island Wars: towns
@@ -541,17 +541,17 @@ The seven land scripts in `Scripts/Playgrounds/` are the skirmish lands: a playe
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Switches on 3 computer players (player two, player three, player four) | partial | the players are added to the player system; their thinking isn't (see ../multiplayer/) |
-| 3 rival creatures from mind files (NemesisCreature as Leopard 1, NemesisCreature as Gorilla 1, NemesisCreature as BrownBear 1) | partial | `CreatureArchetype` with the mind loaded (`CREATE_CREATURE_FROM_FILE`); it faces a fixed way and takes our starting size; see creature_mind_scripts.md |
-| Sets 3 rival creatures' liking for the player | todo | `SET_COMPUTER_PLAYER_CREATURE_LIKE` is empty |
+| Switches on 3 computer players (player two, player three, player four) | partial 40% | the players are added to the player system; their thinking isn't (see ../multiplayer/); re-measured 2026-10-21: the players are added; no mind runs them |
+| 3 rival creatures from mind files (NemesisCreature as Leopard 1, NemesisCreature as Gorilla 1, NemesisCreature as BrownBear 1) | partial 70% | `CreatureArchetype` with the mind loaded (`CREATE_CREATURE_FROM_FILE`); it faces a fixed way and takes our starting size; see creature_mind_scripts.md; re-measured 2026-10-21: made with its mind; the facing and size are ours |
+| Sets 3 rival creatures' liking for the player | done | `SET_COMPUTER_PLAYER_CREATURE_LIKE` names it; the computer mind's start sizes the creature (`ComputerPlayerSystem`, `computer_player::SizeLike`; unverified against v1.42) |
 
 ## Death Comes To Those That Wait: loading
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The script (`Playgrounds/Death Comes To Those That Wait.txt`, 5,162 lines, landscape `DCTTTW.lnd`, three players) loads from first line to last | partial | our reader logs and skips the misspelt villager lines and the line missing its bracket and goes on, where the game reads that last line; not checked against the file, which is not in our game folder |
+| The script (`Playgrounds/Death Comes To Those That Wait.txt`, 5,162 lines, landscape `DCTTTW.lnd`, three players) loads from first line to last | partial 60% | our reader logs and skips the misspelt villager lines and the line missing its bracket and goes on, where the game reads that last line; not checked against the file, which is not in our game folder; re-measured 2026-10-21: ported; not checked against the original in a run yet |
 | It has no footpath file, as in the game | done | nothing to load |
-| It can be chosen from the game's skirmish menu, with its title and description | partial | listed in the debug land menu with its description as a tooltip; no skirmish menu |
+| It can be chosen from the game's skirmish menu, with its title and description | partial 30% | listed in the debug land menu with its description as a tooltip; no skirmish menu; re-measured 2026-10-21: listed in the debug menu; no skirmish menu |
 
 ## Death Comes To Those That Wait: set-up
 
@@ -562,9 +562,9 @@ The seven land scripts in `Scripts/Playgrounds/` are the skirmish lands: a playe
 | Starts the camera looking at "0.00,0.00" | done | `FeatureScriptCommands::StartCameraPos` |
 | Scales the towns' influence by 0.5 | done | kept in the map script globals and read by `src/ECS/Influence` |
 | Scales the players' influence by 1 | done | kept in the map script globals and read by `src/ECS/Influence` |
-| Sets 6 land balance numbers (4 = 2, 5 = 2, 6 = 10, 1 = 4, 0 = 3.5, 2 = 3.5) | partial | `land_balance::Set` keeps them all; only numbers 4 (villagers' speed) and 5 (trees) are read |
+| Sets 6 land balance numbers (4 = 2, 5 = 2, 6 = 10, 1 = 4, 0 = 3.5, 2 = 3.5) | partial 30% | `land_balance::Set` keeps them all; only numbers 4 (villagers' speed) and 5 (trees) are read; re-measured 2026-10-21: kept; only numbers 4 (villagers' speed) and 5 (trees) are read |
 | Sets a day of 1700 with 8.3% night and 7% dawn and dusk | done | `DayNightClock::SetCycleFromLand` (`SET_NIGHTTIME`) |
-| Titles the land "Death Comes To Those That Wait -- By Fat Omen" with 1 description line(s) | partial | shown only as the debug land menu's tooltip; in the game the land info box pops up with the title and line when the script reaches it ([../multiplayer/skirmish.md](../multiplayer/skirmish.md)) |
+| Titles the land "Death Comes To Those That Wait -- By Fat Omen" with 1 description line(s) | partial 20% | shown only as the debug land menu's tooltip; in the game the land info box pops up with the title and line when the script reaches it ([../multiplayer/skirmish.md](../multiplayer/skirmish.md)); re-measured 2026-10-21: shown only as the debug menu's tooltip; the land info box is not ported |
 | Creates 1 climates and sets rain, temperature and wind 1, 1 and 1 times | done | `magic::map_script::CreateWeatherClimate` and its rain, temperature and wind (`src/Magic/Script/MapScriptWeather.cpp`); see ../weather/ |
 
 ## Death Comes To Those That Wait: towns
@@ -617,7 +617,7 @@ The seven land scripts in `Scripts/Playgrounds/` are the skirmish lands: a playe
 | 2163 trees and bushes (ConiferA 685, Pine 201, PalmB 201, Palm 194, Bush 167, Beech 156, Conifer 130, OakA 118, Birch 84, PalmA 81, Olive 50, BushB 43, Oak 41, Cypress 6, BushA 4, PalmC 2) | done | `TreeArchetype` (`CREATE_NEW_TREE`) |
 | 40 forests that trees belong to (foresters fell and replant them) | done | `ecs::CreateForest` (`CREATE_FOREST`): the forest the trees after it are looked up in |
 | 9 big forest models | done | `BigForestArchetype` (`CREATE_NEW_BIG_FOREST`) |
-| 86 fireflies | todo | `CREATE_FIRE_FLY` is empty; two lists of 43; every map also gets the nightly top-up: [../nature/fireflies.md](../nature/fireflies.md#where-they-come-from) |
+| 86 fireflies | pending | `CREATE_FIRE_FLY` is empty; two lists of 43; every map also gets the nightly top-up: [../nature/fireflies.md](../nature/fireflies.md#where-they-come-from) |
 | Sets 167 firefly miracle reward chances | done | kept in the map globals' reward table (`FIRE_FLY_SPELL_REWARD_PROB`); the table it ends with is Land 2's: [../nature/fireflies.md](../nature/fireflies.md#the-lands-reward-table) |
 
 ## Death Comes To Those That Wait: food
@@ -659,9 +659,9 @@ The seven land scripts in `Scripts/Playgrounds/` are the skirmish lands: a playe
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Switches on 2 computer players (player three, player four) | partial | the players are added to the player system; their thinking isn't (see ../multiplayer/) |
-| 7 rival creatures from mind files (ComputerControlledCreature as Horse 5, ComputerControlledCreature as Tortoise 1, ComputerControlledCreature as Zebra 1) | partial | `CreatureArchetype` with the mind loaded (`CREATE_CREATURE_FROM_FILE`); it faces a fixed way and takes our starting size; see creature_mind_scripts.md |
-| Sets 7 rival creatures' liking for the player | todo | `SET_COMPUTER_PLAYER_CREATURE_LIKE` is empty |
+| Switches on 2 computer players (player three, player four) | partial 40% | the players are added to the player system; their thinking isn't (see ../multiplayer/); re-measured 2026-10-21: the players are added; no mind runs them |
+| 7 rival creatures from mind files (ComputerControlledCreature as Horse 5, ComputerControlledCreature as Tortoise 1, ComputerControlledCreature as Zebra 1) | partial 70% | `CreatureArchetype` with the mind loaded (`CREATE_CREATURE_FROM_FILE`); it faces a fixed way and takes our starting size; see creature_mind_scripts.md; re-measured 2026-10-21: made with its mind; the facing and size are ours |
+| Sets 7 rival creatures' liking for the player | done | `SET_COMPUTER_PLAYER_CREATURE_LIKE` names it; the computer mind's start sizes the creature (`ComputerPlayerSystem`, `computer_player::SizeLike`; unverified against v1.42) |
 
 ## Construct: loading
 
@@ -669,7 +669,7 @@ The seven land scripts in `Scripts/Playgrounds/` are the skirmish lands: a playe
 |-----------|--------|---------------|
 | The script (`Playgrounds/construct.txt`, 32 lines, landscape `construct.lnd`, a test land with one town) loads from first line to last | done | every line was a known command with the right arguments in raffclar's check; the file is not in our game folder, and our reader skips a bad line rather than stopping |
 | It has no footpath file, as in the game | done | nothing to load |
-| It can be chosen from the game's skirmish menu, with its title and description | partial | listed in the debug land menu with its description as a tooltip; no skirmish menu |
+| It can be chosen from the game's skirmish menu, with its title and description | partial 30% | listed in the debug land menu with its description as a tooltip; no skirmish menu; re-measured 2026-10-21: listed in the debug menu; no skirmish menu |
 
 ## Construct: set-up
 
@@ -680,7 +680,7 @@ The seven land scripts in `Scripts/Playgrounds/` are the skirmish lands: a playe
 | Starts the camera looking at "1900.00, 2100.00" | done | `FeatureScriptCommands::StartCameraPos` |
 | Scales the towns' influence by 0.6 | done | kept in the map script globals and read by `src/ECS/Influence` |
 | Scales the players' influence by 30 | done | kept in the map script globals and read by `src/ECS/Influence` |
-| Titles the land "Construct" with 1 description line(s) | partial | shown only as the debug land menu's tooltip; in the game the land info box pops up with the title and line when the script reaches it ([../multiplayer/skirmish.md](../multiplayer/skirmish.md)) |
+| Titles the land "Construct" with 1 description line(s) | partial 20% | shown only as the debug land menu's tooltip; in the game the land info box pops up with the title and line when the script reaches it ([../multiplayer/skirmish.md](../multiplayer/skirmish.md)); re-measured 2026-10-21: shown only as the debug menu's tooltip; the land info box is not ported |
 
 ## Construct: towns
 

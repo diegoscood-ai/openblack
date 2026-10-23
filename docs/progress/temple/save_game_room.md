@@ -2,19 +2,20 @@
 
 The room where the game is saved and loaded: a scroll of the saves, a picture for each, and statistics of saving.
 
-**Progress: 1/10 done, 3 partial — 25%**
+**Progress: 2/11 done, 0 chosen, 2 partial, 0 inferred — 28%**
 
 ## The room
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The room's camera comes in along its path | done | see ../camera/temple_camera.md (`src/Camera/TempleCameraModel.cpp`) |
-| The scroll lists the saved games with their date and land | partial | `src/3D/TempleScrolls.cpp`: the saved games are made up (`TempleScrolls::Facts::Mock`); our tree has no saved games |
-| The time played since the game started | partial | counted from when the game's engine started (`game_clock::EngineMs`, in `GatherScrollFacts` in `src/3D/Implementations/TempleInterior.cpp`) |
-| How many times the game has been saved and loaded | partial | made up (`TempleScrolls::Facts::Mock`): nothing is saved or loaded |
-| Saving into a slot asks to confirm and takes a picture of the land | todo | see ../engine/saving_and_loading.md |
-| Loading a slot asks to confirm and loads the game | todo | see ../engine/saving_and_loading.md |
-| Deleting a save asks to confirm | todo |  |
-| Each save's picture in low and high detail | todo |  |
-| Quick save and quick load from the keys | todo | `QUICK_SAVE` and `QUICK_LOAD` are bindable actions (`src/Input/GameActionMap.cpp`) that do nothing; see ../engine/saving_and_loading.md |
-| Scripts save the game into a slot | todo | `SAVE_GAME_IN_SLOT` is a stub in `src/CHLApi.cpp` |
+| The room's camera comes in along its path | done | see ../camera/temple_camera.md (`src/Camera/TempleCameraModel.cpp`; test `TempleCamera.PictureRoomsStartLookingAlongTheEndOfTheirPaths`) |
+| The scroll lists the saved games with their date and name | partial 50% | `TempleScrolls::Write` (`src/3D/TempleScrolls.cpp`) writes the title, the time played, the counts and each save's date and name (or the no-name text), as `SaveGameRoom::MakeScrollText` 0x792110 ([the save game room](../../../interface/temple-interior.md#the-save-game-room), read 2026-10-22); with no saved games the list is empty, as the exe's with an empty save folder; test `TempleScrolls.WithoutSavedGamesTheSaveRoomWritesItsTitleTimeAndCounts`. Left: the list of saves needs saved games (../engine/saving_and_loading.md) |
+| The time played in all the player's games | done | the seconds the profile keeps and those since the first land was loaded (`player_profiles::TimePlayed`, `PlayerProfileSystem::StartPlaying` / `StopPlaying`, raffclar's), the hours not wrapped, as the exe's `PlayerProfile.timestarted` + `time()` − the time `GGame::Init` took, added to the profile by `GGame::Close` ([the save game room](../../../interface/temple-interior.md#the-save-game-room), read 2026-10-22); on the system clock's seconds as the exe's `time()` (`machine_clock::WallTime`; with the fixed step a fixed date moved on by the steps, so the checks stay deterministic); tests `RunSeed.WithAFixedStepTheWallTimeMovesOnByTheSteps`, `PlayerProfiles.TheTimePlayedIsTheTimeKeptAndTheTimeSinceTheGameStarted`, `TheStatisticsAreKeptWithTheProfile`, `PlayerProfileSystem.TheTimePlayedIsKeptAsTheGameEnds` |
+| How many times the game has been saved and loaded | partial 60% | the profile's counts (`player_profiles::Statistics`, kept with the profile), as the exe's `numberofsaves` (+0x80C) and `numberofloads` (+0x810), 0 for a new profile; the exe adds one for a save or a load in the room only ([the save game room](../../../interface/temple-interior.md#the-save-game-room), read 2026-10-22). Left: the counting itself, which needs saved games (../engine/saving_and_loading.md) |
+| Saving into a slot asks to confirm when the slot has a save, and takes a picture of the land | pending | needs saved games (../engine/saving_and_loading.md): the exe's save buttons (slots 0..13, shown once the camera is close) go straight on into an empty slot and ask `ComfirmForSaveGame` 0x792BD0 over a save, then save (0x792CA0: `CreateSaveGameFiles`, `SaveAllGame`) ([the save game room](../../../interface/temple-interior.md#the-save-game-room), read 2026-10-22) |
+| Loading a slot asks to confirm and loads the game | pending | needs saved games: the exe's load buttons show only for a slot with a save and ask `ComfirmForLoadGame` 0x792B70; loading slot 14 or 18 first saves into the other (read 2026-10-22) |
+| Deleting a save asks to confirm | pending | needs saved games: the exe's delete buttons (`LH_BUTTON_DELETE00..20`, shown for a slot with a save once looked at closely) ask HELP_TEXT_ROOM_CITADEL_SAVEGAME_ROOM_DELETEREQUEST and on yes delete the slot's folder and write the scroll again (sub_792C30, sub_7934C0; read 2026-10-22, [the save game room](../../../interface/temple-interior.md#the-save-game-room)) |
+| Each save's picture in low and high detail | pending | needs saved games: a slot with a save shows its own picture (fn_00792780, `FindTextureFilenameTemporaryWithPath` 0x790AE0); without one the room's `PictureTexture.raw` (read 2026-10-22) |
+| Quick save and quick load from the keys | pending | needs saved games: `QUICK_SAVE` and `QUICK_LOAD` are bindable actions (`src/Input/GameActionMap.cpp`) that do nothing; the exe sends packets 0x61 / 0x62 from `GGame::DoAction` outside a network game, then `InstantSaveGame(19)` (0x63DC88) |
+| Scripts save the game into a slot | pending | needs saved games: `SAVE_GAME_IN_SLOT` is a stub in `src/CHLApi.cpp`; the exe's `GScript::InstantSaveForScript` 0x6FF8E0 truncates the popped slot and calls `InstantSaveGame` |
+| The game saves itself into a slot once the player's temple is built | pending | the exe: `CitadelHeart::Built` calls `SaveGameRoom::InstantSaveGame` for the local player outside a playground or multiplayer game ([the citadel and its six slots](../../../magic/temple-and-citadel.md#the-citadel-and-its-six-slots)); nothing is saved in our tree |

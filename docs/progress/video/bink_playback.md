@@ -6,10 +6,11 @@ How Black & White plays its five Bink videos, and how openblack can play them. T
 player in `src/Video/` with **his own Bink 1 decoder, identical to the game's on every one of the 5,353 frames of the
 five videos**; FFmpeg is gone from it. The earlier `bw-clean` branch used a trimmed FFmpeg instead. openblack now has
 its own decoder and player in `src/Video/` (no FFmpeg), and `SET_AVI_SEQUENCE` plays the intro and the falling-spell
-film (`src/CHLApi.cpp`); there is still no start-up sequence or loading screen. What each video is for is in
+film (`src/CHLApi.cpp`); the start-up screens and the loading screen are in `src/GameStartup.cpp` and
+`src/Gui/LoadingScreen.cpp`. What each video is for is in
 [bink_videos.md](bink_videos.md).
 
-**Progress: 44/54 done, 4 partial — 85%**
+**Progress: 54/54 done, 0 chosen, 0 partial, 0 inferred — 100%**
 
 How the original does it, in our wiki: [Bink videos (.bik)](../../../video/playback.md).
 
@@ -48,7 +49,6 @@ How the original does it, in our wiki: [Bink videos (.bik)](../../../video/playb
 |-----------|--------|---------------|
 | All five are Bink 1 (revision i) with no audio track; every sound comes from the game's own audio | done | `components/bink/src/BinkFile.cpp` reads all five; the sounds come from the game's audio (`src/Video/FallingSpellVideo.cpp`); test `BikFile.GameFiles` (logo 768x512 15 fps 2 frames; pre_intro 768x512 25 fps 2515 frames; INTRO 640x360 24 fps 1601 frames; tips 768x512 15 fps 35 frames; fall 640x360 24 fps 1200 frames) |
 | INTRO, pre_intro and fall have a single keyframe (frame 0), so they only play from the start; logo and tips are all keyframes, so any frame can be shown | done | `BikFile` key frame flags; `BinkDecoder` goes back to the last key frame; tests `VideoBinkDecoder.GoesBackToTheKeyFrame`, `VideoBinkDecoder.LogoAndTipsMatchTheOriginalInAnyOrder` |
-| Videos are looked for on the CD first when the game runs from the CD | n/a | openblack reads the install folder |
 
 ## Container and decoding
 
@@ -71,9 +71,9 @@ How the original does it, in our wiki: [Bink videos (.bik)](../../../video/playb
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Starting a video clears any tip picture, replaces a video already playing, and forgets the music that is playing | partial | a new film replaces the old (test `VideoPlayerTest.ANewFilmReplacesTheOld`); no loading screen, so no tip picture to clear; forgetting the music playing is not ported |
+| Starting a video clears any tip picture, replaces a video already playing, and forgets the music that is playing | done | a new film replaces the old (test `VideoPlayerTest.ANewFilmReplacesTheOld`); the alignment music is forgotten before the pause (`GameMusic::ForgetAlignmentMusic`, test `VideoPlayerTest.PlayResetsTheAlignmentMusicBeforeThePause`); no tip picture can be left when a film starts: the original's game start clears it after each set-up (`GGame::StartGame` → `stop_draw_sprite_to_screen` → `ClearTipVideo`), as openblack's `Game::EndLoadingScreen` does before the land's first frame ([start-up](../../../video/playback.md#startup-and-loading-screen)) |
 | The game pauses while the video plays (remembering whether it was already paused) | done | `VideoPlayer::Play` through the game clock hooks; tests `VideoPlayerTest.PlayKeepsThePauseAndTheWideScreen`, `PlayWhilePausedAndWide` |
-| The cinema bars come on fully in the first frame and go away over 2 s of game time when the video ends | done | `ScreenFade` bars snapped on at the start (`src/3D/ScreenFade.cpp`); test `VideoPlayerMaths.BarsFullAtOnceDuringTheFilm` |
+| The cinema bars come on fully in the first frame and go away over 2 s of game time when the video ends | done | `ScreenFade` bars snapped on at the start (`src/Gui/ScreenFade.cpp`); test `VideoPlayerMaths.BarsFullAtOnceDuringTheFilm` |
 | A player exists even if the file fails to open; it then ends on the next frame | done | test `VideoPlayerTest.MissingFileEndsOnTheNextFrame` |
 | By default the video plays to its last frame and fades out over its last 5 seconds | done | test `VideoPlayerTest.FadeAndEnd` |
 | The intro (sequence 1) fades from 58 s to 60 s and ends at 60 s: its last 160 frames are never seen | done | `VideoPlayer::ScheduleIntro`; test `VideoPlayerTest.IntroSchedule` |
@@ -83,7 +83,7 @@ How the original does it, in our wiki: [Bink videos (.bik)](../../../video/playb
 | Fade alpha falls linearly from 1 to 0 across the fade frames | done | `video::FadeAlpha`; test `VideoPlayerMaths.FadeAlpha` |
 | The picture fills the screen between the 16:9 bars, scaled to fit; on screens wider than 16:9 the bars go negative and the picture overflows top and bottom | done | `video::FullScreenRect` (bars not clamped, as the original); test `VideoPlayerMaths.FullScreenRect` |
 | Drawn as a screen quad, half a texel in from each edge, no wrapping, no depth test or write, alpha blended | done | `Renderer::DrawVideoOverlay` in the screen overlay pass (`src/Graphics/Renderer.cpp`) |
-| While the video is opaque and no new frame is ready, the original waits up to 0.5 s for one | done | the last picture stays while no new frame is ready; it does not block as the original's wait does (deliberate) |
+| While the video is opaque and no new frame is ready, the original waits up to 0.5 s for one | done | ported as the original's (user, 2026-10-19): `VideoPlayer::Process` polls the film's clock 0.5 ms at a time (`video::WaitForNextFrame`, at most 1000 polls) and holds the game's frame up for as long (`game_clock::HoldFrame`: the thread sleeps, or with the fixed step its ticks go on by the wait), the next frame's real time taking it in; tests `VideoPlayerMaths.WaitForNextFrame`, `VideoPlayerMaths.FramesDueInMicroseconds`, `VideoPlayerTest.AnOpaqueFrameWaitsForTheNextPicture`, `VideoPlayerTest.OnlyTheOpaqueFilmWaits`, `GameClock.AHeldFrameMovesTheFixedStepOn`; readout: the debug Video window's "last wait for a picture" |
 | When it ends: the game's pause state and the bars are restored on the next frame | done | test `VideoPlayerTest.FadeAndEnd` |
 | A video that replaces another keeps the second one's pause and bars state (the game stays paused afterwards) | done | test `VideoPlayerTest.ANewFilmReplacesTheOld` |
 
@@ -91,10 +91,10 @@ How the original does it, in our wiki: [Bink videos (.bik)](../../../video/playb
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| ESC skips: if already fading, the video ends at once; otherwise it fades out over 48 frames (2 s at 24 fps) and the game resumes | partial | `VideoPlayer::EscapeKey`, `Skip` (ESC routed from `src/Game.cpp`); tests `VideoPlayerTest.SkipFadesOver48Frames`, `SkipNearTheEnd`. In the original ESC does not reach the skip inside the temple or while a box or the tutorial takes the key; ours skips in every case (queued as a fix) |
+| ESC skips: if already fading, the video ends at once; otherwise it fades out over 48 frames (2 s at 24 fps) and the game resumes | done | `VideoPlayer::EscapeKey`, `Skip` (ESC routed from `src/Game.cpp`); tests `VideoPlayerTest.SkipFadesOver48Frames`, `SkipNearTheEnd`. The key's earlier ways are as the original's: inside the temple the temple takes it and an open menu takes it (`Game.cpp`'s order of handlers); once the game is over it goes to the game's question unless a script holds the wide screen, and in the playground land the land's own Escape takes it (`video::EscapeReachesTheFilm`, test `VideoPlayerMaths.EscapeReachesTheFilm`); what the key does there instead is those screens' ([the in-game menus](../interface/main_menu.md)) |
 | ESC with Shift or Ctrl held does nothing | done | test `VideoPlayerTest.EscapeKey` |
 | Skipping releases the script's music | done | `VideoPlayer::EscapeKey` calls the script music stop hook (`GameMusic::ScriptStopMusic`) |
-| The first video of a new profile can't be skipped | partial | the no-skip flag exists and is cleared at the end (test `VideoPlayerTest.NoSkipClearedByTheEnd`), but nothing sets it: there are no profiles (`../interface/profiles.md`) |
+| The first video of a new profile can't be skipped | done | as the v1.42 exe: each game started sets the no-skip flag when no player has a profile yet and clears it otherwise, before the new player's box (`Game::LoadStartLand`, `startup::FilmsUnskippable`, test `Startup.ANewPlayersFirstGameHasFilmsThatCantBeSkipped`), and the film's end clears it (test `VideoPlayerTest.NoSkipClearedByTheEnd`) ([profiles](../interface/profiles.md)) |
 | Skipping the falling spell ends the spell, which then fades its video normally | done | tests `VideoPlayerTest.SkipTheFallingSpellsFilm`, `FallingSpellVideoTest.EscapeSkips` |
 | One skip per key press (key repeats ignored) | done | SDL key repeats are ignored (`src/Game.cpp`) |
 
@@ -105,7 +105,7 @@ How the original does it, in our wiki: [Bink videos (.bik)](../../../video/playb
 | Plays only when the player has a creature; script sequence 2 starts it and turning it off ends it | done | `FallingSpellVideo::KickOff` from SET_AVI_SEQUENCE sequence 2 (`src/CHLApi.cpp`); tests `FallingSpellVideoTest.NoCreatureNoFilm`, `StopAviSequence` |
 | The video has no fade of its own; it fades when the spell ends | done | test `FallingSpellVideoTest.TheFilmNeverFadesByItself` |
 | Drawn at about 31% strength over the scene, which hides the land | done | `FallingSpellVideo::HidesWorld`, `src/Graphics/RendererFallingSpell.cpp` |
-| The player's creature falls in front of the video with its glows, sparks and a light burst, the camera following its path with a 45° field of view | partial | the sparks and light burst are drawn (`src/Magic/Objects/FallingSpell.cpp`, `src/Graphics/RendererFallingSpell.cpp`); the camera along the path with its 45 degree field of view is computed (tests `FallingSpell.CameraFollowsTheFilm`, `CameraAppliedEveryUpdateAndGivenBackAtClose`) but its hook is not connected in the game; the falling creature is not ported |
+| The player's creature falls in front of the video with its glows, sparks and a light burst, the camera following its path with a 45° field of view | done | the sparks and the light burst (`src/Magic/Objects/FallingSpell.cpp`, `src/Graphics/RendererFallingSpell.cpp`), the camera on its path with its 45 degree field of view (tests `FallingSpell.CameraFollowsTheFilm`, `CameraAppliedEveryUpdateAndGivenBackAtClose`) and the falling creature in its tint with its hair, its eyes and its two hand glows are drawn; its hair moves on every frame by the frame's game time (tests `CreatureHairSystemTest.TheFallingCopysHair*`, `FallingSpell.CreatureHairSecondsAreTheFramesGameTimeHeldToASecond`); it is silent as the original's copy, whose stand and falling action carry no sound moments in any species (`CreatureRigsData.TheFallingCopysAnimationsHaveNoMoments`); see [the falling spell](../../../magic/falling-spell.md#the-copy-of-the-creature) |
 | Sounds timed to the video: rumble at 17.45 s, laser explosion at 19.45 s, chant at 31.65 s, citadel explosion and volcano at 13.45 s, heal chakra at 37.75 s | done | `src/Video/FallingSpellVideo.cpp`; test `FallingSpellVideoTest.StatesAndSounds` |
 | At 43.9 s the screen fades to white over 1 s, all music fades out, then the white fades back | done | test `FallingSpellVideoTest.TheWhiteFadeEndsIt` |
 
@@ -113,17 +113,17 @@ How the original does it, in our wiki: [Bink videos (.bik)](../../../video/playb
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The logo video's two still pictures show at every start-up, with a fade, before the audio starts | todo | no start-up sequence (no front end) |
-| The pre-intro plays when there is no profile yet, in its own loop with no bars, the trailer music playing, cursor hidden | todo | no profiles and no front end |
-| The pre-intro stops at its end or on a key press, and the music is cut | todo | the pre-intro is not played |
-| The loading screen shows one of 35 tip pictures from tips.bik | todo | no loading screen |
+| The logo video's two still pictures show at every start-up, with a fade, before the audio starts | done | `Game::PlayLogoScreens` (`src/GameStartup.cpp`) before the audio starts, each still on the shared `Zoomer` (`startup::LogoStill`); only Escape or the left or right mouse button cuts a still short, read as the original reads them (`startup::HeldInput`); tests `Startup.LogoStillFadesInHoldsAndFadesOut`, `Startup.PressingSkipsALogoStill`, `Startup.LogoAlphaIsTruncatedAndKeptInRange`, `Startup.OnlyEscapeOrAMouseButtonCutsALogoShort`; `--skip-logos` leaves them out ([start-up](../../../video/playback.md#startup-and-loading-screen)) |
+| The pre-intro plays when there is no profile yet, in its own loop with no bars, the trailer music playing, cursor hidden | done | `Game::PlayPreIntro` (`src/GameStartup.cpp`), when no player profile is kept or with `--pre-intro` (the original's `PREINTROVIDEO`; `startup::PlaysPreIntro`, test `Startup.PreIntro`): its own loop over the whole screen, each frame waiting for its time 0.5 ms at a time, the trailer music from its own bank with the original's options; no pointer is seen (the system pointer is hidden and the frames draw none) ([start-up](../../../video/playback.md#startup-and-loading-screen)) |
+| The pre-intro stops at its end or when Escape is held, and the music is cut | done | after its last frame or when Escape is held as a frame ends, as the original (`startup::PreIntroGoesOn`, `startup::HeldInput`; tests `Startup.PreIntro`, `Startup.OnlyEscapeHeldStopsThePreIntro`); the music is cut with `audio::MusicStop(0)` |
+| The loading screen shows one of 35 tip pictures from tips.bik | done | `gui::LoadingScreen` (`src/Gui/LoadingScreen.cpp`): the tip's still from `tips.bik` through our decoder and the 16-bit copy (`video::ReadStill`), shown while each land loads (`Game::BeginLoadingScreen` / `RenderLoadingFrame` / `EndLoadingScreen`); tests `LoadingScreen.*`, `VideoBinkDecoder.LogoAndTipsMatchTheOriginalInAnyOrder` ([start-up](../../../video/playback.md#startup-and-loading-screen)) |
 
 ## Audio during videos
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Logo: silent | todo | the logo is not played |
-| Pre-intro: the trailer music at full volume, cut off sharply when it ends | todo | the pre-intro and its trailer music are not played |
+| Logo: silent | done | the logos show before the audio is started (`Game::PlayLogoScreens` runs ahead of `StartAudio`), as the original's before its audio exists |
+| Pre-intro: the trailer music at full volume, cut off sharply when it ends | done | `Game::PlayPreIntro`: `audio/music/intro/trailer.sad` registered and played at volume 127 from its first chunk, no fade, then `audio::MusicStop(0)` (the cut with no fade) |
 | Intro: ambience stops while paused; the music already playing carries on | done | the ambience mix is skipped while `video::IsPlaying` and the music carries on (`src/Audio/Game/AudioSystem.cpp`) |
 | Falling spell: as the intro, plus its timed sounds and the music fade at 43.9 s | done | `src/Video/FallingSpellVideo.cpp` (the 11 timed sounds, `audio::MusicStop(1)` at 43.9 s); test `FallingSpellVideoTest.StatesAndSounds` |
 | The audio knows a video is playing (from any thread) | done | `video::IsPlaying` is atomic (`src/Video/VideoPlayer.cpp`), read through `GameQueries::videoPlaying` |

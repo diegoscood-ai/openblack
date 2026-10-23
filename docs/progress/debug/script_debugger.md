@@ -26,7 +26,7 @@ How the original does it, in our wiki: [openblack internals](../../internals.md)
 | A search in the code | done | `ScriptsPanel.cpp` |
 | The source beside the code, decompiled into the scripts' own language | done | the "Source" tab, `src/Editor/Scripts/Decompiler.cpp` with `components/lhvmdecompiler` |
 | Editing the source and compiling it into the running program, other scripts keeping their places | done | "Compile" (`src/Editor/Scripts/Decompiler.cpp`, `components/lhvmcompiler`) |
-| The original source files of the scripts, when they are there | partial | statements can be put on their recorded source lines (`lhvmtool --source-lines`); the panel shows decompiled source |
+| The original source files of the scripts, when they are there | partial 60% | statements can be put on their recorded source lines (`lhvmtool --source-lines`); the panel shows decompiled source; re-measured 2026-10-21: statements map to recorded source lines; the panel shows decompiled source, not the original files |
 
 ## Debugging
 
@@ -53,4 +53,4 @@ How the original does it, in our wiki: [openblack internals](../../internals.md)
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The land's own setup script (its features and map commands) shown and stepped | todo | land scripts run once on load; only the console can run their commands (`src/Debug/Console.cpp`) |
+| The land's own setup script (its features and map commands) shown and stepped | pending | land scripts run once on load; only the console can run their commands (`src/Debug/Console.cpp`) |

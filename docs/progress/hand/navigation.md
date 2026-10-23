@@ -4,7 +4,7 @@ The player moves around the island with the hand: gripping the land and dragging
 turn and tilt the camera, and turning with the middle button or both buttons. This file covers what the hand does while
 it moves the camera; the camera's own keys, zoom, limits, paths and focusing are in [../camera/](../camera/).
 
-**Progress: 32/40 done, 3 partial — 84%**
+**Progress: 35/40 done, 0 chosen, 2 partial, 0 inferred — 91%**
 
 How the original does it, in our wiki: [The hand and the interface](../../../hand/animation-and-placement.md).
 
@@ -38,7 +38,7 @@ How the original does it, in our wiki: [The hand and the interface](../../../han
 | At the top, dragging up and down tilts the camera and across turns it | done | test `CameraDrag.AtTheTopUpAndDownTiltsAndAcrossTurns` |
 | A drag down the whole screen tilts by seven thirds of the field of view | done | test `CameraDrag.ADragDownTheWholeScreenTiltsBySevenThirdsOfTheFieldOfView` |
 | A quick tilt downwards over land pans instead | done | test `CameraDrag.AQuickTiltDownOverLandPans` |
-| Watching a fight, the camera offers no tilting | todo | No fight camera rule (`DefaultWorldCameraModel.cpp` has a TODO for it) |
+| Watching a fight, the camera offers no tilting | pending | No fight camera rule (`DefaultWorldCameraModel.cpp` has a TODO for it) |
 | Scripts choose which of pan, turn, tilt and zoom the drags offer | done | `camera_help::GetEnabledFeatures` gates zoom, rotate, pitch, the land grab and the double-click flight in `DefaultWorldCameraModel` (`src/Camera/CameraHelp.cpp`); test `InterfaceInteractionTest.EnableCameraFeaturesMask` |
 | In a window the very bottom and the top offer their hints nearer the middle | done | `camera_drag::IdleTricons` (windowed), from the display mode; tests `CameraDrag.InAWindowTheVeryBottomAndTheTopStartNearerTheMiddle`, `WorldCameraMouse.InAWindowTheVeryBottomOffersTiltingNearerTheMiddle` |
 
@@ -48,10 +48,10 @@ How the original does it, in our wiki: [The hand and the interface](../../../han
 |-----------|--------|---------------|
 | The middle button turns and tilts the camera at the game's rates while the cursor stays frozen | done | The middle button (ROTATE_AROUND_MOUSE_ON) turns the camera in `DefaultWorldCameraModel` (arc ball) with the cursor in relative mode, so it stays put (`Game::ProcessEvents`) |
 | Letting go puts the pointer back where it was frozen, so the hand doesn't jump to a new place | done | `Game::ProcessEvents` warps the pointer back to where the middle button went down (`MouseButtonsState::middlePressPosition`) |
-| While turning, the hand keeps its normal hover on the line of sight through the frozen cursor | partial | The middle button counts as a grip for the hand (`input::HandGripping`), so the hand takes the grip, not its hover |
+| While turning, the hand keeps its normal hover on the line of sight through the frozen cursor | pending | The middle button counts as a grip for the hand (`input::HandGripping`), so the hand takes the grip pose, not its hover on the line through the frozen cursor |
 | Both buttons zoom with up and down, and turn only once the mouse has moved far enough across | done | Both buttons zoom dy × 1.9 and turn dx × 1.9 once the mouse has moved 2.5 % of the width, as the original's state 22, gated on JustZoom (0x20) (`DefaultWorldCameraModel::HandleActions` through `camera_drag::TwoButtonTurn`; tests `WorldCameraMouse.BothButtons*`) |
 | Both buttons never grip the land | done | `GameActionMap::Frame` clears the MOVE binding while both buttons are held, so the camera does not drag |
-| Holding both the zoom and rotate modifiers eases in the clear view, during which the hand grips | partial | `DefaultWorldCameraModel.cpp`: the camera's glide over half a second; dragging, the hand grips while it is shown (`GetHandCues().clearViewGrip`, `HandSystem::NavigationPose`); the hand is not moved to the object the clear view looks at |
+| Holding both the zoom and rotate modifiers eases in the clear view, during which the hand grips | partial 60% | `DefaultWorldCameraModel.cpp`: the camera's glide over half a second; dragging, the hand grips while it is shown (`GetHandCues().clearViewGrip`, `HandSystem::NavigationPose`). Missing: the hand is not moved to the object the clear view looks at |
 
 ## The hand's hints while navigating
 
@@ -61,13 +61,13 @@ How the original does it, in our wiki: [The hand and the interface](../../../han
 | The hint poses stand the hand up towards where the camera looks | done | `hand_navigation_pose::UpTowardsFocus` (0.3 of the way up, as the original), in `HandSystem::UpdateNormalUp` and the camera branch of `HandSystem::Place`; tests `HandNavigationPose.StandsUpTowardsTheFocusByThreeTenths`, `HandNavigationPose.TheLengthsSumYThenXThenZ` |
 | Dragging, the hand grips while panning, and shows turning or tilting while it does those | done | `HandSystem::NavigationPose` (`hand_navigation_pose::WhileDragging`); until it grips, the hand stays on the cursor's line (`HandSystem::Place`); tests `HandNavigationPose.DraggingByTheEdgeShowsTurningTiltingOrZooming` |
 | Showing that it turns the camera, the hand is drawn a third of its height higher | done | `hand_navigation_pose::RotateLift` in `HandSystem::Place`; test `HandNavigationPose.TheTurningLiftIsAThirdOfTheHandsHeight` |
-| Every change of state or pose fades the hand from where it was drawn over 0.13 seconds | done | The 0.13 s state blend at each change of the hand's state (`HandCrossFade` (`src/3D/HandCrossFade.h`, the hand system's `_stateBlend`), started in `HandSystem::Update`); test `HandCrossFade.FadesAtAnEvenPaceOverATenthAndAThirdOfASecond`. Our wiki differs: the original blends only at a change of the hand's state, not at a change of clip inside a state ([page](../../../hand/animation-and-placement.md#the-hands-clip)) |
+| Every change of the hand's state fades the hand from where it was drawn over 0.13 seconds | done | The 0.13 s state blend at each change of the hand's state (`HandCrossFade` (`src/3D/HandCrossFade.h`, the hand system's `_stateBlend`), started in `HandSystem::Update`); test `HandCrossFade.FadesAtAnEvenPaceOverATenthAndAThirdOfASecond`. The original also starts the blend inside a state: at the normal state's change of pose and at the creature state's change to the slap or the caress ([page](../../../hand/animation-and-placement.md#the-hands-clip), [the creature state](../../../hand/states.md#the-creature-states-update)); those blends are in [hand_animations.md](hand_animations.md) |
 
 ## Recorded hand demos
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The tutorial plays recorded hand movements that drive the real hand and camera (dragging, casting, giving wood …) | done | `src/Input/HandDemo.cpp` (`hand_demo::Play`, `Update`) replays the records through the real hand and sets the camera; the CHL opcode is in `src/CHLApi.cpp`; no unit test. The recorded throw block is not applied (hand-and-interface.md, Pending) |
+| The tutorial plays recorded hand movements that drive the real hand and camera (dragging, casting, giving wood …) | partial 90% | `src/Input/HandDemo.cpp` (`hand_demo::Play`, `Update`) replays the records through the real hand and sets the camera; the CHL opcode is in `src/CHLApi.cpp`; the parse is unit tested. Every message but a mouse move gives the hand the recorded throw block (`HandSystem::SetThrowBlock`: velocity, spin, hand position and angles), so a replayed release throws as recorded. A replayed action click lands on the recorded kind of thing within 3 m of the recorded place, or on no thing (`hand_demo::TargetOfClick`, `HandSystem::RetargetDemoClick`; tests `HandDemoClick.*`, `HandDemoThrow.*`), unverified against v1.42. Missing: the click's retarget was read from the 1.20 decompilation and is not yet checked in the v1.42 exe's bytes ([states.md](../../../hand/states.md)) |
 | Scripts ask whether a hand demo is playing and wait for its triggers | done | IS_PLAYING_HAND_DEMO and HAND_DEMO_TRIGGER in `src/CHLApi.cpp` (`hand_demo::IsPlaying`, `ConsumeTrigger`) |
 | Scripts set which keys a hand demo shows being pressed | done | SET_HAND_DEMO_KEYS is an empty handler, as the original's (`src/CHLApi.cpp`) |
 | A demo can pause the game and leave the player's hand alone while it plays | done | `hand_demo::Play` takes the wait-for-trigger flag (the time stands still while waiting) and the keep-hand flag (without it the held object is dropped) |
@@ -76,4 +76,4 @@ How the original does it, in our wiki: [The hand and the interface](../../../han
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The hand's and camera's movements are sent to the other players, throttled, so they see each other's hands | todo | No multiplayer in our tree |
+| The hand's and camera's movements are sent to the other players, throttled, so they see each other's hands | pending | No multiplayer in our tree |

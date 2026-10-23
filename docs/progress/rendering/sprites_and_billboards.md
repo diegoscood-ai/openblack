@@ -18,7 +18,6 @@ How the original does it, in our wiki: [Graphics engine parity: original versus 
 | A colour texture takes its alpha from its companion alpha file; a texture without one is a single channel that is both alpha and brightness | done | the texture and its alpha file paired at load time (`Texture2DLoader` in `src/Resources/Loaders.cpp`, `argb4444::PackRaw`) |
 | Sprites take their place among everything else that blends, farthest first | done | `src/Graphics/ZSort.cpp`; test `test/test_zsorter.cpp` |
 | Animated billboards running on their own frame clocks | done | `src/3D/FrameAnim.cpp` (frame-animated textures on their own clocks); test `test/test_frame_anim.cpp` |
-| Distant trees drawn as flat stand-ins | n/a | the game draws its trees as models (unconfirmed that it has no stand-ins) |
 
 ## Glows of lights
 
@@ -27,11 +26,11 @@ How the original does it, in our wiki: [Graphics engine parity: original versus 
 | A light from the light files glows as two sprites added over each other from the atmosphere texture, the second half as strong and whiter | done | `src/3D/Light.cpp`, `src/ECS/Archetypes/GlowArchetype.cpp` |
 | Glows of lights set in walls (the temple's windows) lie flat against the wall instead of facing the camera | done | glows with their own axes (`AppendGlowQuad` in `src/Graphics/LightBeams.cpp`, the temple's windows) |
 | Village lanterns and campfires burn with two flames and a glow, the flames playing the fire's frames backwards on one clock and flickering in size | done | `src/3D/NightLights.cpp` (the lantern flames and glow) |
-| Plain glows the game draws at points in the world | todo | the game has a glow manager drawing glows and white glows at points (unconfirmed what uses them) |
+| Plain glows the game draws at points in the world | pending | the game has a glow manager drawing glows and white glows at points (unconfirmed what uses them) |
 
 ## Text and symbols in the world
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | Text laid out in the world, letter by letter from the font, along a frame | done | `src/3D/OrientedText.cpp` (the temple's signs and scrolls); see [../temple/](../temple/) |
-| A player's symbol drawn into textures in the player's colour | todo | the game draws player symbols into textures (unconfirmed where they show) |
+| A player's symbol drawn into textures in the player's colour | pending | the game draws player symbols into textures (unconfirmed where they show) |

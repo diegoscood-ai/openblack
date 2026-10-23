@@ -17,7 +17,7 @@ miracles in [Fire! Fire! I'm on Fire!](../story/gold_scrolls/fire_fire_im_on_fir
 land's arrival ([The Defending Ogres](../story/gold_scrolls/the_defending_ogres.md)) and the heal dispenser of
 [I have a surprise for you.](../story/gold_scrolls/i_have_a_surprise_for_you.md#the-reward)
 
-**Progress: 19/25 done, 4 partial — 84%**
+**Progress: 10/28 done, 0 chosen, 15 partial, 0 inferred — 74%**
 
 How the original does it, in our wiki: [Miracles one by one](../../../magic/fireball-and-lightning.md).
 
@@ -25,27 +25,29 @@ How the original does it, in our wiki: [Miracles one by one](../../../magic/fire
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| A dispenser is a building with the miracle-creator model, holding one miracle, which may be an extreme version | done | `dispenser::Create` (an abode with a `SpellDispenser` component) and its magic's power-up level in `dispenser::CreateOneOffSpellSeed`, `src/Worship/SpellDispenser.cpp` |
-| It counts game turns only while active, holding a miracle, built and repaired, and makes its first globe after its full period (300 turns) | partial | `dispenser::StepTurn` counts only while active and holding a magic, from the town's abode pass (`src/ECS/Town/TownProcess.cpp`); built and repaired are taken as always true; scripts make the first globe at once when they activate it (`SetMagicAndPeriod`). Our wiki differs: activating a dispenser makes an orb at once, so a scripted dispenser does not wait its first period ([magic.md](../../../magic/worship.md#dispensers-and-fireflies)) |
-| The globe floats at 1.2 times the dispenser's height and appears with a sparkle | done | `OrbPosition` and the orb spot visual in `dispenser::CreateOneOffSpellSeed`, `src/Worship/SpellDispenser.cpp` |
-| Once the globe is taken or moved off, the count starts again | done | `dispenser::StepTurn` (orb gone or not touching: tick back to 0), `src/Worship/SpellDispenser.cpp`; test `SpellDispenserTurn.CountsToThePeriodWhileItsOrbIsGone` |
-| A faint starry disk turns on the ground under every dispenser, always on, the same for every miracle | done | The dispenser's ground effect (particle type 0x90) started in `dispenser::Create`, `src/Worship/SpellDispenser.cpp` |
-| The disk is hidden while the dispenser is being built | n/a | openblack dispensers are never under construction |
-| Dispensers and globes make no sound of their own apart from the pop when taken | done | No dispenser sound; the pop is in `one_off::InterfaceTap` (`src/Magic/Core/OneOffSpellSeed.cpp`) |
-| The lands' scripts place dispensers with their tribe, miracle, angle, size and period | done | `CREATE_SPELL_DISPENSER` in `src/LHScriptX/FeatureScriptCommands.cpp` to `magic::script::CreateSpellDispenser` (`src/Magic/Script/MapScriptMagic.cpp`) |
-| A dispenser belongs to a town | done | The script's town, or the player's oldest town without one (`TownIdFor`, `src/Worship/SpellDispenser.cpp`) |
-| Challenge scripts put a miracle into a dispenser or object or take it out | done | `SET_MAGIC_PROPERTIES`, `SET_ACTIVE`, `SET_TIMER_TIME` on a dispenser and `SET_MAGIC_IN_OBJECT` on a town (`src/Magic/Script/CHLWorship.cpp`); CHL `CREATE` of a spell dispenser |
-| Dispensers are saved and loaded with the game | todo | No game save system |
+| A dispenser is a building with the miracle-creator model, holding one miracle, which may be an extreme version | done | `dispenser::Create` (an abode with a `SpellDispenser` component) and its magic's power-up level in `dispenser::CreateOneOffSpellSeed`, `src/Worship/SpellDispenser.cpp`; checks: scenarios `miracles.dispensers`, `miracles.dispenser_vortex` |
+| It counts game turns only while active, holding a miracle, built and repaired, and makes its first globe after its full period (300 turns) | partial 80% | `dispenser::StepTurn` counts only while active and holding a magic, from the town's abode pass (`src/ECS/Town/TownProcess.cpp`); scripts make the first globe at once when they activate it (`SetMagicAndPeriod`), as our wiki reads ([dispensers](../../../magic/worship.md#dispensers-and-fireflies)); test `DispenserRules.ADispenserCountsToItsPeriodWhileItsBubbleIsGoneAndAsksAgainUntilOneIsMade`. Missing: built and repaired are taken as always true |
+| The globe floats at 1.2 times the dispenser's height and appears with a sparkle | done | `OrbPosition` and the orb spot visual in `dispenser::CreateOneOffSpellSeed`, `src/Worship/SpellDispenser.cpp`; test `DispenserRules.TheOrbFloatsAboveItsDispenserAndStaysThereWithinHalfAMetreAcrossTheLand` |
+| Once the globe is taken or moved off, the count starts again | partial 85% | `dispenser::StepTurn` (orb gone or not touching: tick back to 0), `src/Worship/SpellDispenser.cpp`; test `DispenserRules.ADispenserCountsToItsPeriodWhileItsBubbleIsGoneAndAsksAgainUntilOneIsMade`. Unread in the original: its touch test and what it does with the count when no seed can be made ([spell core, pending](../../../magic/spell-core.md#pending)) |
+| A faint starry disk turns on the ground under every dispenser, always on, the same for every miracle | done | The dispenser's ground effect (particle type 0x90) started in `dispenser::Create`, `src/Worship/SpellDispenser.cpp`; check: scenario `miracles.dispenser_vortex` |
+| Dispensers and globes make no sound of their own apart from the pop when taken | done | No dispenser sound; the pop is in `one_off::InterfaceTap` (`src/Magic/Core/OneOffSpellSeed.cpp`); check: scenario `miracles.dispenser_vortex` |
+| The lands' scripts place dispensers with their tribe, miracle, angle, size and period | partial 80% | `CREATE_SPELL_DISPENSER` in `src/LHScriptX/FeatureScriptCommands.cpp` to `magic::script::CreateSpellDispenser` (`src/Magic/Script/MapScriptMagic.cpp`); no test or check covers it (re-measure 2026-10-21) (Land 1 places none; Lands 3 and 5 do) |
+| A dispenser belongs to a town | partial 80% | The script's town, or the player's oldest town without one (`TownIdFor`, `src/Worship/SpellDispenser.cpp`); no test or check covers it (re-measure 2026-10-21) |
+| Challenge scripts put a miracle into a dispenser or object or take it out | partial 80% | `SET_MAGIC_PROPERTIES`, `SET_ACTIVE`, `SET_TIMER_TIME` on a dispenser and `SET_MAGIC_IN_OBJECT` on a town (`src/Magic/Script/CHLWorship.cpp`); CHL `CREATE` of a spell dispenser; test `MagicSystemTest.AScriptTurnsOnlyADispenserOffAndSetsItsTurnsUnlessNone`. Differs: a timer of 0 turns the dispenser off, where the original may leave its period unchanged (issue #60) |
+| The globe's land light and haze are taken at its point moved towards the camera | partial 70% | The orb's light and haze are taken at its position plus the facing offset, not at the point moved towards the camera ([spell core, pending](../../../magic/spell-core.md#pending), issue #60) |
+| A dispenser hit by a thrown rock: how it is drawn broken and what becomes of its globe | pending | openblack breaks it into pieces like a house; the original draws it its own way and what happens to its globe is still to read ([spell core, pending](../../../magic/spell-core.md#pending), issue #60) |
+| Dispensers are saved and loaded with the game | pending | No game save system |
 
 ## One-shot globes
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The lands' scripts place one-shot globes, plain or powered up | done | `CREATE_ONE_SHOT_SPELL` / `CREATE_ONE_SHOT_SPELL_PU` to `magic::script::CreateOneShotSpell` / `CreateOneShotSpellPu` (`src/Magic/Script/MapScriptMagic.cpp`); CHL `CREATE` of a one-shot spell too |
-| A globe is made for a miracle at its seed's power-up level | done | `one_off::Create` (`src/Magic/Core/OneOffSpellSeed.cpp`) with the level from `GetPowerUpFromMagicType` |
+| The lands' scripts place one-shot globes, plain or powered up | partial 80% | `CREATE_ONE_SHOT_SPELL` / `CREATE_ONE_SHOT_SPELL_PU` to `magic::script::CreateOneShotSpell` / `CreateOneShotSpellPu` (`src/Magic/Script/MapScriptMagic.cpp`); CHL `CREATE` of a one-shot spell too; no test or check covers it (re-measure 2026-10-21) (no land script the checks run places one) |
+| A globe a challenge script makes drops onto the land and settles there, even when the script lifts it straight after (Khazar's gifts at the start of the second land) | done | CHL `CREATE` of a one-shot spell: `magic::script::CreateOneShotSpell` (`src/Magic/Script/CHLWorship.cpp`) makes it on the land and `ecs::physics::script_create::PutIntoPhysics` (`src/ECS/Physics/ScriptCreate.cpp`) puts it into the physics standing still; test `ParticleCarriedObjectsTest.AScriptsNewObjectGoesIntoThePhysicsStillAndSettlesOnTheLand`; [the common step](../../../scripts/map-script-reader.md#the-common-step-after-the-switch) |
+| A globe is made for a miracle at its seed's power-up level | done | `one_off::Create` (`src/Magic/Core/OneOffSpellSeed.cpp`) with the level from `GetPowerUpFromMagicType`; test `MagicSystemTest.AOneShotOfAMagicTypeHoldsTheFirstSeedWithItAtItsLevel` |
 | Lifting a tree or rock that a firefly hides in leaves a one-shot globe in its place, drawn by weight from the land's firefly reward table | done | `fire_fly::OnPlacedInMagicHand` and `fire_fly::Reward` (`src/Worship/FireFlyReward.cpp`), from the hand's pick-up; fireflies in `src/ECS/FireFlies.cpp`; `FIRE_FLY_SPELL_REWARD_PROB` is wired (`CREATE_FIRE_FLY` itself is empty); test `WorshipTest.FireFlyRewardProbabilities` |
-| The scripted "falling miracle" sequence: a challenge script starts it with the same command that plays the intro film; it runs only when the player has a creature, and the screen fades back to normal as it starts | done | `SET_AVI_SEQUENCE` sequence 2 in `src/CHLApi.cpp` to `Video/FallingSpellVideo.h` (nothing without the player's creature), with the black fade cleared |
-| Skirmish set-up chooses the one-shot miracles and miracles on offer | todo | No skirmish set-up; see [../multiplayer/](../multiplayer/) |
+| The scripted "falling miracle" sequence: a challenge script starts it with the same command that plays the intro film; it runs only when the player has a creature, and the screen fades back to normal as it starts | done | `SET_AVI_SEQUENCE` sequence 2 in `src/CHLApi.cpp` to `Video/FallingSpellVideo.h` (nothing without the player's creature), with the black fade cleared; tests in `test/video/test_falling_spell_video.cpp` |
+| Skirmish set-up chooses the one-shot miracles and miracles on offer | pending | No skirmish set-up; see [../multiplayer/](../multiplayer/) |
 
 ## Seeds hidden in trees and rocks
 
@@ -59,19 +61,18 @@ a one-shot seed ([../hand/clicking_and_activating.md](../hand/clicking_and_activ
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The Hermit's rock on Land 1: a strong creature miracle seed appears where the rock lay once the hand lifts it, the creature holds it or it is moved more than 5 m, and the advisors explain that fireflies hide under rocks at dawn and become seeds | partial | Scripts can now make the seed (CHL `CREATE` of a one-shot spell, `src/Magic/Script/CHLWorship.cpp`); the rest is the Hermit's challenge script, not checked here |
+| The Hermit's rock on Land 1: a strong creature miracle seed appears where the rock lay once the hand lifts it, the creature holds it or it is moved more than 5 m, and the advisors explain that fireflies hide under rocks at dawn and become seeds | partial 30% | Scripts can now make the seed (CHL `CREATE` of a one-shot spell, `src/Magic/Script/CHLWorship.cpp`); the rest is the Hermit's challenge script, not checked here |
 
 ## Worship site and village-centre icons
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The player's worship site shows one icon per miracle they have, in a fixed placement | done | `icon::Create` in the site's slots (`src/Worship/WorshipSpellIcon.cpp`, `src/Worship/WorshipSite.cpp`); on lands where the player has a worship site |
-| Converting a town adds its village-centre miracle (and power-ups) to the player's icons | partial | A town's magic and village-centre icons are kept (`src/Worship/TownMagic.cpp`, `src/Worship/TownCentreSpellIcon.cpp`) and its worship site added at load or when it gets people; a town changing player is not followed |
-| Tapping an icon starts it charging, with a click whose pitch rises with the icon's place | done | `icon::InterfaceTap` / `HandleValidatedTap` and `PlayTapSound` by placement (`src/Worship/WorshipSpellIcon.cpp`) |
-| Each charging icon takes an equal share of what the site can give each turn until it holds the miracle's cost to create | done | The site's turn shares what is left among the charging icons (`src/Worship/WorshipSite.cpp`); `test/test_worship.cpp` |
-| A charging icon shows a ring of light filling with the charge, a pulsing shine and a flash as it starts | partial | The pulse ring while charging (`icon::UpdateChargingVisual`, `src/Worship/WorshipSpellIcon.cpp`); the filling ring and the flash are not clearly there |
-| A fully charged icon puts the seed into an empty hand, with a voice naming the miracle | done | `icon::PutFullyChargedSeedInHand` and the SpellDialogue voice in `icon::Process` (`src/Worship/WorshipSpellIcon.cpp`) |
-| Tapping a charging icon cancels it and gives the prayer power back | done | `icon::CancelCharge` / `ReturnAllChantsToWorshipSite` (`src/Worship/WorshipSpellIcon.cpp`) |
-| Scripts enable or disable a player's miracles and ask whether they have one | done | `SET_PLAYER_MAGIC`, `HAS_PLAYER_MAGIC` in `src/Magic/Script/CHLSpells.cpp` |
-| Scripts ask whether a miracle is charging and clear all charging | done | `IS_SPELL_CHARGING`, `IS_THAT_SPELL_CHARGING`, `CLEAR_PLAYER_SPELL_CHARGING` in `src/Magic/Script/CHLWorship.cpp` |
-| In the testbed and debug tools a seed can be summoned straight into the hand as if from an icon | n/a | Debug and testbed tools don't count here (this file's rule); openblack's are `OPENBLACK_TEST_SEED` and the debug menus |
+| The player's worship site shows one icon per miracle they have, in a fixed placement | partial 80% | `icon::Create` in the site's slots (`src/Worship/WorshipSpellIcon.cpp`, `src/Worship/WorshipSite.cpp`); on lands where the player has a worship site; no test or check covers it (re-measure 2026-10-21) (Land 1 has no worship site) |
+| Converting a town adds its village-centre miracle (and power-ups) to the player's icons | partial 50% | A town's magic and village-centre icons are kept (`src/Worship/TownMagic.cpp`, `src/Worship/TownCentreSpellIcon.cpp`) and its worship site added at load or when it gets people; a town changing player is not followed |
+| Tapping an icon starts it charging, with a click whose pitch rises with the icon's place | partial 80% | `icon::InterfaceTap` / `HandleValidatedTap` and `PlayTapSound` by placement (`src/Worship/WorshipSpellIcon.cpp`); no test or check covers it (re-measure 2026-10-21) |
+| Each charging icon takes an equal share of what the site can give each turn until it holds the miracle's cost to create | done | The site's turn shares what is left among the charging icons (`src/Worship/WorshipSite.cpp`); tests `WorshipBattery.strainAndIconShare`, `WorshipTest.ChantStoreKeepsTheExcessQuirk` |
+| A charging icon shows a ring of light filling with the charge, a pulsing shine and a flash as it starts | partial 40% | The pulse ring while charging (`icon::UpdateChargingVisual`, `src/Worship/WorshipSpellIcon.cpp`); the filling ring and the flash are not clearly there |
+| A fully charged icon puts the seed into an empty hand, with a voice naming the miracle | done | `icon::PutFullyChargedSeedInHand` and the SpellDialogue voice in `icon::Process` (`src/Worship/WorshipSpellIcon.cpp`); tests `MagicSystemTest.ASummonedIconThatIsNotFullStartsChargingAndGivesNoSeedYet`, `MagicSystemTest.AFullIconSummonedWithTheHandBusyStartsChargingInstead` |
+| Tapping a charging icon cancels it and gives the prayer power back | partial 80% | `icon::CancelCharge` / `ReturnAllChantsToWorshipSite` (`src/Worship/WorshipSpellIcon.cpp`); no test or check covers it (re-measure 2026-10-21) |
+| Scripts enable or disable a player's miracles and ask whether they have one | partial 80% | `SET_PLAYER_MAGIC`, `HAS_PLAYER_MAGIC` in `src/Magic/Script/CHLSpells.cpp`; no test or check covers it (re-measure 2026-10-21) |
+| Scripts ask whether a miracle is charging and clear all charging | partial 80% | `IS_SPELL_CHARGING`, `IS_THAT_SPELL_CHARGING`, `CLEAR_PLAYER_SPELL_CHARGING` in `src/Magic/Script/CHLWorship.cpp`; no test or check covers it (re-measure 2026-10-21) |

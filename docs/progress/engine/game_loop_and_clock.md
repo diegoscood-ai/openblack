@@ -17,11 +17,11 @@ How the original does it, in our wiki: [The engine loop: game turns and frames (
 | At most one turn is played in a frame in a single-player game | done | `Game::Update` plays at most one due turn a frame (`src/Game.cpp`). Network games play several to keep up: see ../multiplayer/ |
 | When the game falls more than two seconds behind it gives up on the lost time rather than racing to catch up | done | `src/GameClock.cpp`; test `GameClockTest.MoreThanTwoSecondsBehindDropsTheLag` |
 | The turn number starts again from 0 as each land starts | done | `game_clock::OnLoad` from `Game::LoadMap`; test `GameClockTest.OnLoadSetsTheVisualClockToTheTurn` |
-| Each turn processes the world's parts in the game's fixed order (players, creatures, villagers, scripts, weather, magic …) | partial | `Game::GameLogicLoop` names each step of the original's turn in order; the steps whose systems are not ported are marked there |
-| The per-frame (drawing-side) updates run in the game's order | partial | the frame updaters run in a fixed order in `Game::Update` (physics interpolation, fields, trees, fireflies, rings, scenery, mobiles, animations, sharks, fish); the camera updates before the turns where the original updates it after |
+| Each turn processes the world's parts in the game's fixed order (players, creatures, villagers, scripts, weather, magic …) | partial 80% | `Game::GameLogicLoop` names each step of the original's turn in order; the steps whose systems are not ported are marked there; re-measured 2026-10-21: the steps run in order; the unported systems' steps are marked |
+| The per-frame (drawing-side) updates run in the game's order | partial 70% | the frame updaters run in a fixed order in `Game::Update` (physics interpolation, fields, trees, fireflies, rings, scenery, mobiles, animations, sharks, fish); the camera updates before the turns where the original updates it after; re-measured 2026-10-21: in a fixed order; the camera updates before the turns, where the original updates it after |
 | Physics is stepped by the game's turns, not by the wall clock | done | the game's own physics runs once a turn (`src/ECS/Physics`, "Turn: Physics" in `Game::GameLogicLoop`) |
-| The temple has turns of its own while the world outside is stopped | partial | inside the citadel the audio has a turn of its own (`audio::ProcessCitadelTurn` from `src/Game.cpp`); the rest of the temple's turn: see ../temple/ |
-| A game starts with a short pause before its loop: the logo plays once, then the clock is reset to the current turn | todo | openblack starts its loop straight away; logo and intro films: see ../story/ |
+| The temple has turns of its own while the world outside is stopped | partial 30% | inside the citadel the audio has a turn of its own (`audio::ProcessCitadelTurn` from `src/Game.cpp`); the rest of the temple's turn: see ../temple/; re-measured 2026-10-21: only the audio has its temple turn |
+| A game starts with a short pause before its loop: the logo plays once, then the clock is reset to the current turn | pending | openblack starts its loop straight away; logo and intro films: see ../story/ |
 
 ## Frame clock
 
@@ -32,7 +32,7 @@ How the original does it, in our wiki: [The engine loop: game turns and frames (
 | The frame's real time is whole milliseconds of the wall clock and never zero | done | `game_clock::FrameRealMs`; test `GameClockTest.RealClockAndSelectors` |
 | The hand and the camera move by real time, except during a script's cut scene, when they keep to game time | done | `game_clock::CameraFrameMs` (`src/GameClock.cpp`) |
 | While the window is minimised the whole game waits (no turn, no frame, no drawing) until it is restored; the game clock is not stopped, so a long time away is dropped by the turn rule for lag | done | `Game::Update` waits on the window's events while `windowing::WaitsForWindow` (`src/Windowing/WindowAway.h`); tests `WindowAway.*` |
-| Quitting is noticed between frames and ends the loop cleanly once help is not mid-sequence | partial | `Game::Run` ends on quit; the help-sequence guard is not there |
+| Quitting is noticed between frames and ends the loop cleanly once help is not mid-sequence | partial 80% | `Game::Run` ends on quit; the help-sequence guard is not there; re-measured 2026-10-21: ends cleanly; the help-sequence guard is missing |
 
 ## Pausing
 
@@ -42,7 +42,7 @@ How the original does it, in our wiki: [The engine loop: game turns and frames (
 | No turns are played while paused | done | `game_clock::TurnDue` while paused; test `GameClockTest.PauseStopsTheTimerKeepsTheFractionAndNoExtraTurn` |
 | Opening the game's menu pauses the game; leaving it restores the pause it had before | done | the menu's pause in `src/Game.cpp` (`_menuPaused`), left alone inside the temple |
 | A land starts unpaused | done | the game runs from the first frame by default (`OPENBLACK_START_PAUSED=1` starts paused) |
-| Entering the temple stops the world outside | partial | the world's turns stand still in the citadel (`game_clock::IsInsideCitadel`, `creature_loop::FrozenInCitadel`); see ../temple/ for the temple's side |
+| Entering the temple stops the world outside | partial 80% | the world's turns stand still in the citadel (`game_clock::IsInsideCitadel`, `creature_loop::FrozenInCitadel`); see ../temple/ for the temple's side; re-measured 2026-10-21: the world's turns stand still; the temple's own side is in ../temple/ |
 
 ## Game speed
 
@@ -51,14 +51,14 @@ How the original does it, in our wiki: [The engine loop: game turns and frames (
 | The game speed scales how fast the game clock runs; time already gone keeps the speed it went at | done | `game_clock::SetSpeed`; test `GameClockTest.SpeedRebasesTheTimer` |
 | Changing the speed while paused takes effect when the game is unpaused | done | `game_clock::SetSpeed` (`src/GameClock.cpp`) |
 | Challenge scripts can speed the game up for a section and set it back | done | START_GAME_SPEED, SET_GAMESPEED and END_GAME_SPEED through `help::script_control` (`src/Help/ScriptControl.cpp`, `src/CHLApi.cpp`) |
-| A land's map script can set the length of a game turn | todo | the map command throws in `src/LHScriptX/MapScriptCommands.cpp` (and map commands are not run at all) |
+| A land's map script can set the length of a game turn | pending | the map command throws in `src/LHScriptX/MapScriptCommands.cpp` (and map commands are not run at all) |
 
 ## Calendar
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | The game keeps a calendar date: a game year of 36 000 turns from a fixed start date, with months, days and seasons | done | `src/ECS/Weather/Calendar.cpp` (day of the year, month, season from the turn), read by the weather, births and fish farms |
-| A land's map script can set the start date, start time and turns per year | todo | map commands throw in `MapScriptCommands.cpp`; the original lands do not use them |
+| A land's map script can set the start date, start time and turns per year | pending | map commands throw in `MapScriptCommands.cpp`; the original lands do not use them |
 | The visual time of day follows its own clock that scripts can set and scale | done | `game_clock::VisualMs`; SET_GAME_TIME, GAME_TIME_ON_OFF, MOVE_GAME_TIME and SET_GAME_TIME_PROPERTIES in `src/CHLApi.cpp`; see ../sky/ for the day and night cycle |
 
 ## Random numbers
@@ -72,12 +72,12 @@ How the original does it, in our wiki: [The engine loop: game turns and frames (
 | Particle effects draw from the game's streams only while they step | done | tests `GameRandom.PSysOutsideAStep`, `GameRandom.PSysScopeDoesNotNest` |
 | Some things use the C runtime's own random numbers, which behave as Microsoft's | done | tests `GameRandom.Crt`, `GameRandomProduction.CrtRand` |
 | Both streams start from a fixed seed when the game starts and are reset as each land loads | done | `game_random::Init` at the campaign's first land and `game_random::Reset` at every later land load (`Game::LoadMap`); tests `GameRandomProduction.InitAndReset` |
-| The streams' positions are saved with a game and restored on load | partial | the streams can be saved and restored (test `GameRandom.SaveLoad`), but there are no save games yet (see saving_and_loading.md) |
+| The streams' positions are saved with a game and restored on load | partial 50% | the streams can be saved and restored (test `GameRandom.SaveLoad`), but there are no save games yet (see saving_and_loading.md); re-measured 2026-10-21: the streams save and restore; no save games use it |
 
 ## Determinism and input
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The player's actions are queued and applied at the start of the next turn, not mid-frame | partial | the action packet queue (`src/Input/GamePackets.cpp`; tests `GamePackets.*`) carries the hand's turn actions, the seeds and the creature hand packets; part of the hand still acts in the frame |
+| The player's actions are queued and applied at the start of the next turn, not mid-frame | partial 70% | the action packet queue (`src/Input/GamePackets.cpp`; tests `GamePackets.*`) carries the hand's turn actions, the seeds and the creature hand packets; part of the hand still acts in the frame; re-measured 2026-10-21: the hand's turn actions, seeds and creature packets are queued; part of the hand still acts in the frame |
 | Replaying the same inputs gives the same game | done | `test_replay_determinism` (`ReplayDeterminism.sameGameInTwoProcesses`), the per-turn state hash (`src/Debug/StateHash.cpp`, `OPENBLACK_STATE_HASH`) |
-| Key presses are buffered so presses between frames are not lost | partial | SDL events are drained each frame (`Game::ProcessEvents` in `src/Game.cpp`); not compared with the game's buffering |
+| Key presses are buffered so presses between frames are not lost | partial 60% | SDL events are drained each frame (`Game::ProcessEvents` in `src/Game.cpp`); not compared with the game's buffering; re-measured 2026-10-21: drained each frame; not compared with the original's buffering |

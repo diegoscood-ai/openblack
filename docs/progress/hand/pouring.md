@@ -5,7 +5,7 @@ own movement for the throw, takes the hold the miracle asks for, and can be lift
 food, wood and water miracles sprinkle from it, or as a creature miracle pours onto a creature. What each miracle does is
 in [../miracles/](../miracles/).
 
-**Progress: 18/23 done, 2 partial — 83%**
+**Progress: 16/23 done, 0 chosen, 4 partial, 0 inferred — 82%**
 
 How the original does it, in our wiki: [The hand and the interface](../../../hand/animation-and-placement.md).
 
@@ -14,13 +14,13 @@ How the original does it, in our wiki: [The hand and the interface](../../../han
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | Holding a seed, the hand is placed as a holding hand is, under the cursor | done | `HandSystem::Place` (the holding branch, `HandPlacement.cpp`): the hand's model origin is the grip point under the cursor |
-| Each frame the hand's velocity is measured from how far it moved, for the throw and the spin | done | The grain state's update in `HandHolding.cpp`, with `magic::FilterHandVelocity` and `magic::StepHandSpin` (`src/Magic/HandMotion.cpp`): smoothed velocity and sideways acceleration, for the throw and the spin; test `HandMotion.TheHandsMovementGetsFourFifthsOfTheWayInATenthOfASecond` |
-| The miracle's hold picks the animation: from above, the idle hand, the horn-shaped hold or from the side | partial | `HandSystem::ComputeHoldParameters` takes the seed info's hold type, but `HandSystem::Update` only plays Chold_above or Chold_side (the horn and grain holds fall to Chold_side; Chorn is not used) |
+| Each frame the hand's velocity is measured from how far it moved, for the throw and the spin | partial 90% | The grain state's update in `HandHolding.cpp`, with `magic::FilterHandVelocity` and `magic::StepHandSpin` (`src/Magic/HandMotion.cpp`): smoothed velocity and sideways acceleration, for the throw and the spin; test `HandMotion.TheHandsMovementGetsFourFifthsOfTheWayInATenthOfASecond`. Missing: the original rounds its two smoothing rates to float once, ours casts the double at the end, so the last bits may differ (grab-hold-and-throw.md, marked approximate) |
+| The miracle's hold picks the animation: from above, the idle hand, the horn-shaped hold or from the side | partial 75% | `HandSystem::ComputeHoldParameters` takes the seed info's hold type; `HandSystem::Update` plays Chold_above for ABOVE, Cwiggle at half its length for MAGIC and Chold_side for SIDE. Missing: the grain (horn-shaped) hold falls to Chold_side and Chorn is not used; which frame the original's holding state writes for that hold is not read (the wiki's holding column has no entry for it) |
 | A seed not yet ready is held as one not yet ready, until it is | done | `ComputeHoldParameters`: the MAGIC hold until the seed is ready (Cwiggle held at half its length, `HandSystem::Update`) |
 | The hand rises by how it holds, measured to the land under it | done | `HandSystem::Place`: ABOVE 0.2, MAGIC 3.2 x the hand's scale, the others max(lowering, 1.9) above the ground point |
-| The cursor running ahead sways the hand up to three tenths of a radian | done | `HandSystem::HeldSway` (`HandHolding.cpp`) with `magic::hand_hold::CursorSway` (`src/Magic/HandHoldPose.cpp`): up to 0.3 rad from the smoothed mouse lag, clamped to 80 pixels; test `HandHoldPose.TheCursorRunningAheadSwaysTheHandUpToThreeTenthsOfARadian` |
+| The cursor running ahead sways the hand up to three tenths of a radian | partial 85% | `HandSystem::HeldSway` (`HandHolding.cpp`) with `magic::hand_hold::CursorSway` (`src/Magic/HandHoldPose.cpp`): up to 0.3 rad from the smoothed mouse lag, clamped to 80 pixels; test `HandHoldPose.TheCursorRunningAheadSwaysTheHandUpToThreeTenthsOfARadian`. Missing: the sway is taken about the grip, which stands for the original's hand point (grab-hold-and-throw.md, marked approximate) |
 | The hand rolls back about the line to the camera | done | `HeldSway` with the grain state's tilt (`hand_grain::Tilt`) about the hand-to-camera axis (`magic::hand_hold::HeldUp`); test `HandHoldPose.TheHandRollsBackAboutTheLineToTheCamera` |
-| Upright, the seed takes the hand's turn; for a right hand it is turned half round | partial | The held object takes the hand's matrix; our hand is drawn unmirrored, so the right hand's half turn and a seed's own turn are not ported (hand-and-interface.md, Pending) |
+| Upright, the seed takes the hand's turn; for a right hand it is turned half round | partial 40% | The held object takes the hand's matrix. Missing: the right hand's half turn of the held object and a seed's own turn from its info (issue #28; the mirrored hand itself is drawn, see states_overview.md) |
 | Taking a seed fades the drawn hand over 0.13 seconds | done | The change to the GRAIN state starts the 0.13 s state blend (`HandCrossFade`, `src/3D/HandCrossFade.h`) |
 
 ## Pours of the sprinkling miracles
@@ -42,12 +42,12 @@ How the original does it, in our wiki: [The hand and the interface](../../../han
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| A creature miracle cast on a creature pours onto it once, over four seconds | todo | Only the sprinkle rule starts the grain state; nothing pours onto a creature |
-| It raises the hand by 0.4 of the creature's height and tips it by one radian | todo | Not in our tree |
+| A creature miracle cast on a creature pours onto it once, over four seconds | pending | Only the sprinkle rule starts the grain state; nothing pours onto a creature. The original's creature spell starts this pour from its process, for the local player's own casting (checked in the exe's callers of the grain start) |
+| It raises the hand by 0.4 of the creature's height and tips it by one radian | pending | Not in our tree; the original's creature spell reads the creature's height and 0.4 when it starts the pour |
 | Only the local player's own hand pours | done | The sprinkle rule starts it only when `IsMyInterfaceCasting` (`src/Particles/Rules/Sprinkle.cpp`) |
 
 ## Other players
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Pours started and ended are sent to the other players so their view of the hand pours too | todo | No multiplayer in our tree |
+| Pours started and ended are sent to the other players so their view of the hand pours too | pending | No multiplayer in our tree |

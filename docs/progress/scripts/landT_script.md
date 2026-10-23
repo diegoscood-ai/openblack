@@ -10,8 +10,8 @@
 |-----------|--------|---------------|
 | The script loads from its first line to its last in openblack | done | checked by reading it the way `Script.cpp` does: every line is a known command with the right arguments, so no line is skipped |
 | The tutorial land has no footpath file, as in the game | done | nothing to load |
-| Loading the tutorial land starts the tutorial's own control script | todo | openblack always starts the story's control script (Land 1's challenges) |
-| The tutorial can be chosen from the game's menu | todo | only through `--start-level LandT.txt` or the debug land menu |
+| Loading the tutorial land starts the tutorial's own control script | pending | openblack always starts the story's control script (Land 1's challenges) |
+| The tutorial can be chosen from the game's menu | pending | only through `--start-level LandT.txt` or the debug land menu |
 
 ## Set-up
 

@@ -24,15 +24,15 @@ the breeder once the creature is chosen, then the rest one by one as the creatur
 
 | Quest | Giver | Reward | Rows | Score |
 |-------|-------|--------|------|-------|
-| [Throwing Stones](silver_scrolls/throwing_stones.md) | the advisors, over the hill above the pillar | a toy ball, then up to six water miracle seeds for practice throws | 50 | 31% |
-| [The Lost Flock](silver_scrolls/the_lost_flock.md) | a Norse shepherd by the player's village | a large food reward at five sheep; a sheep creature to swap to at ten | 83 | 18% |
-| [The Explorers](silver_scrolls/the_explorers.md) | three sailors by an unfinished ark on a beach | a water miracle dispenser | 93 | 16% |
-| [The Immersion Mushrooms](silver_scrolls/the_immersion_mushrooms.md) | a hippy at his hut (only with a force-feedback mouse) | a compassion creature miracle dispenser, for the right mushroom | 42 | 9% |
-| [The Singing Stones](silver_scrolls/the_singing_stones.md) | a hippy by the stone circle | a food miracle dispenser | 71 | 42% |
-| [The Hermit](silver_scrolls/the_hermit.md) | a hermit at his hillside hut | a water miracle dispenser, or a water miracle from the sky if his hut was damaged | 91 | 19% |
-| [The Saviour](silver_scrolls/the_saviour.md) | a fisherman's wife on the shore | a strength creature miracle dispenser, for saving all five or killing all five | 53 | 26% |
-| [The Pied Piper](silver_scrolls/the_pied_piper.md) | the crèche woman of the Norse village | a heal miracle dispenser (good ending) or a lightning miracle dispenser (evil ending) | 87 | 24% |
-| [The Ogre](silver_scrolls/the_ogre.md) | the advisors, at the ogre's pass | a beach ball, then a heal miracle dispenser by the temple | 59 | 8% |
+| [Throwing Stones](silver_scrolls/throwing_stones.md) | the advisors, over the hill above the pillar | a toy ball, then up to six water miracle seeds for practice throws | 47 | 36% |
+| [The Lost Flock](silver_scrolls/the_lost_flock.md) | a Norse shepherd by the player's village | a large food reward at five sheep; a sheep creature to swap to at ten | 81 | 13% |
+| [The Explorers](silver_scrolls/the_explorers.md) | three sailors by an unfinished ark on a beach | a water miracle dispenser | 89 | 10% |
+| [The Immersion Mushrooms](silver_scrolls/the_immersion_mushrooms.md) | a hippy at his hut (only with a force-feedback mouse) | a compassion creature miracle dispenser, for the right mushroom | 38 | 9% |
+| [The Singing Stones](silver_scrolls/the_singing_stones.md) | a hippy by the stone circle | a food miracle dispenser | 66 | 40% |
+| [The Hermit](silver_scrolls/the_hermit.md) | a hermit at his hillside hut | a water miracle dispenser, or a water miracle from the sky if his hut was damaged | 88 | 10% |
+| [The Saviour](silver_scrolls/the_saviour.md) | a fisherman's wife on the shore | a strength creature miracle dispenser, for saving all five or killing all five | 51 | 21% |
+| [The Pied Piper](silver_scrolls/the_pied_piper.md) | the crèche woman of the Norse village | a heal miracle dispenser (good ending) or a lightning miracle dispenser (evil ending) | 85 | 16% |
+| [The Ogre](silver_scrolls/the_ogre.md) | the advisors, at the ogre's pass | a beach ball, then a heal miracle dispenser by the temple | 53 | 6% |
 
 The creature breeder (Land 1 and Land 4) is in the shared table below.
 
@@ -45,15 +45,15 @@ all).
 
 | Quest | Giver | Reward | Rows | Score |
 |-------|-------|--------|------|-------|
-| [The Singing Stones (land 2)](silver_scrolls/the_singing_stones_land_2.md) | a priest at the hut above the stones | none: each tune's effect (night with bats, the dead raised, snow) is the prize | 88 | 3% |
-| [The Beach Temple Puzzle](silver_scrolls/the_beach_temple_puzzle.md) | a Greek farmer living in the beach temple | the temple heals every living thing within 10 of it, for good | 51 | 2% |
-| [The Plague](silver_scrolls/the_plague.md) | a sick Indian trader of the poisoned village | the first lightning miracle enabled at the village | 57 | 4% |
-| [The Riddles](silver_scrolls/the_riddles.md) | Annika, a woman of an Indian village | a zebra creature to swap to | 52 | 5% |
-| [The Slavers](silver_scrolls/the_slavers.md) | a villager of the Greek village by Khazar, then the slavers' chief | a wolf-pack miracle dispenser, and the freed slaves and the slavers join the village | 115 | 7% |
-| [The Sacrifice](silver_scrolls/the_sacrifice.md) | an Indian priest and priestess, at the player's worship site | a heal miracle chest, for reaching 4000 prayer power with the family alive | 76 | 4% |
-| [The Sea](silver_scrolls/the_sea.md) | a mother at her hut in the Indian town by the bay | a "big" creature miracle dispenser, if all five sons walk home alive | 84 | 2% |
-| [The Greedy Farmer](silver_scrolls/the_greedy_farmer.md) | a Celtic farmer on the edge of his town | the lightning miracle and its second level for the town | 143 | 1% |
-| [The Idol](silver_scrolls/the_idol.md) | the good advisor, at the idol in the hills | the fireball miracle's first and second levels for the nearest town | 116 | 5% |
+| [The Singing Stones (land 2)](silver_scrolls/the_singing_stones_land_2.md) | a priest at the hut above the stones | none: each tune's effect (night with bats, the dead raised, snow) is the prize | 85 | 3% |
+| [The Beach Temple Puzzle](silver_scrolls/the_beach_temple_puzzle.md) | a Greek farmer living in the beach temple | the temple heals every living thing within 10 of it, for good | 49 | 2% |
+| [The Plague](silver_scrolls/the_plague.md) | a sick Indian trader of the poisoned village | the first lightning miracle enabled at the village | 56 | 5% |
+| [The Riddles](silver_scrolls/the_riddles.md) | Annika, a woman of an Indian village | a zebra creature to swap to | 48 | 6% |
+| [The Slavers](silver_scrolls/the_slavers.md) | a villager of the Greek village by Khazar, then the slavers' chief | a wolf-pack miracle dispenser, and the freed slaves and the slavers join the village | 104 | 9% |
+| [The Sacrifice](silver_scrolls/the_sacrifice.md) | an Indian priest and priestess, at the player's worship site | a heal miracle chest, for reaching 4000 prayer power with the family alive | 71 | 4% |
+| [The Sea](silver_scrolls/the_sea.md) | a mother at her hut in the Indian town by the bay | a "big" creature miracle dispenser, if all five sons walk home alive | 77 | 2% |
+| [The Greedy Farmer](silver_scrolls/the_greedy_farmer.md) | a Celtic farmer on the edge of his town | the lightning miracle and its second level for the town | 143 | 2% |
+| [The Idol](silver_scrolls/the_idol.md) | the good advisor, at the idol in the hills | the fireball miracle's first and second levels for the nearest town | 108 | 6% |
 
 ## Land 3
 
@@ -61,8 +61,8 @@ Lethys's land starts both quests as the player arrives through the vortex.
 
 | Quest | Giver | Reward | Rows | Score |
 |-------|-------|--------|------|-------|
-| [The Rejuvenator](silver_scrolls/the_rejuvenator.md) | an old woman at a lone Celtic hut | an ape creature to swap to (a chimp if the creature already is an ape) | 60 | 5% |
-| [The Shaolin](silver_scrolls/the_shaolin.md) | a guru at the mountain temple above the Japanese village | a Wonder begun for the player during the creature's rescue | 67 | 4% |
+| [The Rejuvenator](silver_scrolls/the_rejuvenator.md) | an old woman at a lone Celtic hut | an ape creature to swap to (a chimp if the creature already is an ape) | 57 | 4% |
+| [The Shaolin](silver_scrolls/the_shaolin.md) | a guru at the mountain temple above the Japanese village | a Wonder begun for the player during the creature's rescue | 66 | 3% |
 
 ## Land 4
 
@@ -71,8 +71,8 @@ owns the Aztec village.
 
 | Quest | Giver | Reward | Rows | Score |
 |-------|-------|--------|------|-------|
-| [The Fish Puzzle](silver_scrolls/the_fish_puzzle.md) | a boy turtle farmer on the shore | a tortoise creature to swap for | 44 | 7% |
-| [The Treacherous Path](silver_scrolls/the_treacherous_path.md) | a woman at her hut in the Aztec village | a wolf creature to swap for, if her brother is healed | 62 | 7% |
+| [The Fish Puzzle](silver_scrolls/the_fish_puzzle.md) | a boy turtle farmer on the shore | a tortoise creature to swap for | 43 | 7% |
+| [The Treacherous Path](silver_scrolls/the_treacherous_path.md) | a woman at her hut in the Aztec village | a wolf creature to swap for, if her brother is healed | 60 | 5% |
 
 ## Land 5
 
@@ -82,12 +82,12 @@ for the first win of the Greek village.
 
 | Quest | Giver | Reward | Rows | Score |
 |-------|-------|--------|------|-------|
-| [Stanley The Wolf](silver_scrolls/stanley_the_wolf.md) | the wolf's owner, by a campfire beside the puzzle | a lion creature to swap for, and the fireball's second and third levels | 53 | 4% |
-| [The Japanese Traitor](silver_scrolls/the_japanese_traitor.md) | a stranger praying at a fire in the forest, at night | none: secrets about Nemesis's curse on the creature | 42 | 5% |
-| [The Magic Dragon](silver_scrolls/the_magic_dragon.md) | the crusaders' leader, by the dragon's cave | a flying-flock miracle dispenser | 69 | 11% |
-| [The Explorers Again](silver_scrolls/the_explorers_again.md) | three sailors by their wrecked boat | a polar bear to swap for, and a ready-built Norse town | 43 | 4% |
-| [Swap To Brown Bear](silver_scrolls/swap_to_brown_bear.md) | a Japanese farmer on the edge of the neutral Japanese village | a brown bear to swap to, and a heal miracle chest | 55 | 3% |
-| [The Heavenly Fire](silver_scrolls/the_heavenly_fire.md) | none: it starts by itself, announced by the evil advisor | an itchy creature miracle seed, if the village is well protected | 61 | 4% |
+| [Stanley The Wolf](silver_scrolls/stanley_the_wolf.md) | the wolf's owner, by a campfire beside the puzzle | a lion creature to swap for, and the fireball's second and third levels | 52 | 5% |
+| [The Japanese Traitor](silver_scrolls/the_japanese_traitor.md) | a stranger praying at a fire in the forest, at night | none: secrets about Nemesis's curse on the creature | 38 | 4% |
+| [The Magic Dragon](silver_scrolls/the_magic_dragon.md) | the crusaders' leader, by the dragon's cave | a flying-flock miracle dispenser | 67 | 10% |
+| [The Explorers Again](silver_scrolls/the_explorers_again.md) | three sailors by their wrecked boat | a polar bear to swap for, and a ready-built Norse town | 39 | 3% |
+| [Swap To Brown Bear](silver_scrolls/swap_to_brown_bear.md) | a Japanese farmer on the edge of the neutral Japanese village | a brown bear to swap to, and a heal miracle chest | 53 | 3% |
+| [The Heavenly Fire](silver_scrolls/the_heavenly_fire.md) | none: it starts by itself, announced by the evil advisor | an itchy creature miracle seed, if the village is well protected | 57 | 3% |
 
 The heavenly fire puts up no scroll (that part of its script is switched off), but it is recorded in the challenge log
 like the other silver quests, so it is counted here.
@@ -96,8 +96,8 @@ like the other silver quests, so it is counted here.
 
 | Quest | Lands | What it is | Rows | Score |
 |-------|-------|------------|------|-------|
-| [The Creature Breeder](silver_scrolls/the_creature_breeder.md) | 1 and 4 (also placed on 2 and 5 but never started there) | a standing silver scroll over the breeder's kennels, offering the special creatures to swap for; it comes back forever | 31 | 23% |
-| [Creature swaps](silver_scrolls/creature_swaps.md) | all | not a quest: the shared offer that ends every quest whose reward is a creature, the breeder's stricter version of it, and the five swap scrolls cut before release | 46 | 0% |
+| [The Creature Breeder](silver_scrolls/the_creature_breeder.md) | 1 and 4 (also placed on 2 and 5 but never started there) | a standing silver scroll over the breeder's kennels, offering the special creatures to swap for; it comes back forever | 28 | 25% |
+| [Creature swaps](silver_scrolls/creature_swaps.md) | all | not a quest: the shared offer that ends every quest whose reward is a creature, the breeder's stricter version of it, and the five swap scrolls cut before release | 38 | 12% |
 
 ## Cut or never started
 
@@ -105,16 +105,16 @@ Written for the game but never run by it; every row in these files is n/a.
 
 | Quest | Land | Rows | Why it never runs |
 |-------|------|------|-------------------|
-| [Swap To Cow](silver_scrolls/swap_to_cow.md) | 4 | 31 | compiled into the shipped game, but no land's control script or any other script starts it |
-| [Creature Ladder](silver_scrolls/creature_ladder.md) | none | 24 | never compiled; it has no title or lines in the text table and its tattoo reward was never written |
-| [The Big Whale](silver_scrolls/big_whale.md) | 1 | 19 | never compiled; none of its lines are in the text table |
-| [The Sculptor (cut silver version)](silver_scrolls/the_sculptor_cut_silver.md) | 1 | 22 | never compiled; replaced by the gold-scroll Sculptor of the story, and even the early control script that names it could not start it |
-| [The Nomads (Food for Thought)](silver_scrolls/food_for_thought.md) | 2 | 22 | never compiled; only its title is in the text table |
-| [Landslide](silver_scrolls/landslide.md) | 1 | 15 | never compiled; neither its title nor its lines are in the text table |
-| [The Attackers](silver_scrolls/the_attackers.md) | 2 most likely | 66 | missing from the compiler's project list, so not in the compiled program; nothing starts it |
-| [The Miracle Stones](silver_scrolls/the_miracle_stones.md) | 2 | 72 | missing from the compiler's project list, so not in the compiled program; nothing starts it |
-| [See The Citadel](silver_scrolls/see_the_citadel.md) | 1 | 41 | never compiled; an early draft of the opening at the temple, a tutorial rather than a silver scroll |
-| [Chimp Posse](silver_scrolls/chimp_posse.md) | 5 | 43 | never compiled; it opens a challenge record but puts up no scroll and gives no reward |
+| [Swap To Cow](../../not-in-the-original.md#storysilver_scrollsswap_to_cow) | 4 | 31 | compiled into the shipped game, but no land's control script or any other script starts it |
+| [Creature Ladder](../../not-in-the-original.md#storysilver_scrollscreature_ladder) | none | 24 | never compiled; it has no title or lines in the text table and its tattoo reward was never written |
+| [The Big Whale](../../not-in-the-original.md#storysilver_scrollsbig_whale) | 1 | 19 | never compiled; none of its lines are in the text table |
+| [The Sculptor (cut silver version)](../../not-in-the-original.md#storysilver_scrollsthe_sculptor_cut_silver) | 1 | 22 | never compiled; replaced by the gold-scroll Sculptor of the story, and even the early control script that names it could not start it |
+| [The Nomads (Food for Thought)](../../not-in-the-original.md#storysilver_scrollsfood_for_thought) | 2 | 22 | never compiled; only its title is in the text table |
+| [Landslide](../../not-in-the-original.md#storysilver_scrollslandslide) | 1 | 15 | never compiled; neither its title nor its lines are in the text table |
+| [The Attackers](../../not-in-the-original.md#storysilver_scrollsthe_attackers) | 2 most likely | 66 | missing from the compiler's project list, so not in the compiled program; nothing starts it |
+| [The Miracle Stones](../../not-in-the-original.md#storysilver_scrollsthe_miracle_stones) | 2 | 72 | missing from the compiler's project list, so not in the compiled program; nothing starts it |
+| [See The Citadel](../../not-in-the-original.md#storysilver_scrollssee_the_citadel) | 1 | 41 | never compiled; an early draft of the opening at the temple, a tutorial rather than a silver scroll |
+| [Chimp Posse](../../not-in-the-original.md#storysilver_scrollschimp_posse) | 5 | 43 | never compiled; it opens a challenge record but puts up no scroll and gives no reward |
 
 Two more cut scrolls live inside other files: the five cut swap scrolls (horse, leopard, lion, tortoise, wolf) in
 [creature_swaps.md](silver_scrolls/creature_swaps.md), and the Slavers Warning, a bronze scroll that is compiled but
@@ -137,31 +137,35 @@ Some challenges look like silver scrolls but are not counted here:
 
 | Land | Silver quests | Rows | Score |
 |------|---------------|------|-------|
-| Land 1 | 9, plus the breeder | 629 | 22% |
-| Land 2 | 9 | 782 | 4% |
-| Land 3 | 2 | 127 | 4% |
-| Land 4 | 2, plus the breeder | 106 | 7% |
-| Land 5 | 6 | 323 | 5% |
-| The breeder (lands 1 and 4) | 1 | 31 | 23% |
-| All lands | 29 | 1998 | 10% |
+| Land 1 | 9, plus the breeder | 598 | 17% |
+| Land 2 | 9 | 741 | 4% |
+| Land 3 | 2 | 123 | 3% |
+| Land 4 | 2, plus the breeder | 103 | 6% |
+| Land 5 | 6 | 306 | 5% |
+| The breeder (lands 1 and 4) | 1 | 28 | 25% |
+| All lands | 29 | 1899 | 9% |
 
-The all-lands line counts the 28 single-land quests and the breeder once: 7 done, 370 partial, 1520 todo and 101 n/a
-rows. The shared swap offer (46 rows, 0%), the Spiritual Healer and the cut quests are left out of it.
+The all-lands line counts the 28 single-land quests and the breeder once: 12 done, 369 partial and 1518 pending
+rows (no n/a rows are left). The shared swap offer (38 rows, 12%), the Spiritual Healer and the cut quests are left out of it.
 
 ## Known openblack blockers
 
 None of the silver quests runs to its end in openblack yet, for the same few reasons:
 
 - Only Land 1's control script runs: it starts the singing stones at once, the throwing lesson and the lost flock after
-  the opening, and the rest only in a game that skips the creature training, since otherwise it stops at Choose Your
-  Creature's gate stones; the control scripts of Lands 2 to 5 never run, because the story always begins with Land 1
-  and the land-loading command does nothing.
-- Scripts cannot make every kind of object: making an object from a script handles villagers, animals, scenery, rocks,
-  dispensers and puzzles, but not creatures or reward chests, so the quests' creatures and rewards never appear.
-- Some reads answer a default instead of the real value: an object's health is not ported and answers 0, so several
-  quests take their giver for dead at once.
+  the opening; in a run of 2026-10-22 a game that does not skip the training plays the opening and The Temple Is
+  Finished and lays the first gate stone, but has not gone further, so the rest starts only in a game that skips the
+  creature training. The control scripts of Lands 2 to 5 run only after the earlier lands' exits, because the story
+  always begins with Land 1; the land-loading command changes land now, but no check has reached them yet.
+- Scripts make creatures and reward chests now (`CREATE`, `src/CHLApi.cpp`), as well as villagers, animals, scenery,
+  rocks, dispensers and puzzles.
+- An object's health and whether the player's hand holds it are read now (`GET_PROPERTY`, `src/CHLApi.cpp:1596`,
+  `src/CHLApi.cpp:1679`); the quests that took their giver for dead at once while health answered 0 are not yet
+  re-checked in play.
 - Stopping a script by name compares the whole text with each script's name. The game is reported to split the text
   into several names at spaces, commas and tabs; this comes from the executable and has not been checked yet.
-- Some of the commands the quests need (the challenge log, rewards, the creature's actions, the creature swap,
-  held-object checks) are still stubs in `src/CHLApi.cpp` that only log "not implemented"; dialogue, advisors, camera
-  moves, highlights and timers work.
+- The challenge log, the rewards, the creature swap and the held-object checks are real. A creature action that a
+  script forces (`CREATURE_DO_ACTION`) is planned through the creature's mind by its row's name, and some rows still have
+  no executor (`src/Creature/CreaturePlanActions.cpp`): HoldObject and PutDown, so **The Pied Piper cannot end** (the
+  catch times out after 10 seconds and the quest loops); and PointAtObject, SleepByObject and DeadForever, which only
+  leave the action unseen. Dialogue, advisors, camera moves, highlights and timers work.

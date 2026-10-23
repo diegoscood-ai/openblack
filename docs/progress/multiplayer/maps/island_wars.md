@@ -7,7 +7,7 @@ the online servers.
 
 **Players:** 4 · **Landscape:** `Data/Landscape/mpm_4p_2.lnd` · **Script:** `Scripts/Playgrounds/Island Wars.txt` · **Mode:** skirmish
 
-**Progress: 17/31 done, 8 partial — 68%**
+**Progress: 18/31 done, 8 partial — 71%**
 
 What the script builds, object by object, is in
 [playground_scripts.md](../../scripts/playground_scripts.md#island-wars-loading) (its "Island Wars" sections); this
@@ -15,20 +15,13 @@ file covers the land as a player meets it. How skirmish is set up is in [../skir
 gods are in [../../rival_gods/skirmish_opponents.md](../../rival_gods/skirmish_opponents.md) and Nemesis's creature
 mind in [../../rival_gods/nemesis.md](../../rival_gods/nemesis.md).
 
-## Where it comes from
-
-| Behaviour | Status | Where / notes |
-|-----------|--------|---------------|
-| The script opens with a note that it was modified with a fan-made map editor; it is the developers' four-player online map (named `mpm_4p_2` in the game's online condition list) with three computer gods and their creatures added, temples moved after their towns, and the two small Greek towns' miracles reshuffled | n/a | history of the file; the original online download is lost |
-| Neither the script nor its landscape is among the files the game installs; the skirmish box shows any script placed in its folder | n/a | how it reached this install is not part of the game |
-
 ## Choosing and starting it
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | The skirmish box lists it by its file name, "Island Wars", and it has no start message | partial | the debug menu's "Playground Islands" lists it by its start message title, or by its file name when it has none (`src/Level.cpp`, `src/Debug/Gui.cpp`); no skirmish box |
 | Starting it clears the current land, resets the scripts and loads this script and its landscape | partial | `Game::LoadMap` loads it from the debug menu; see the next row |
-| No story script runs on a skirmish land | todo | our tree starts the story's control script (`LandControlAll`) on the start land whatever it is, and leaves the story's scripts running when a land is opened from the debug menu |
+| No story script runs on a skirmish land | pending | our tree starts the story's control script (`LandControlAll`) on the start land whatever it is, and leaves the story's scripts running when a land is opened from the debug menu |
 | The camera starts at the script's start point, kept from another map, which lies off the land's edge over the sea rather than at your temple | done | `START_CAMERA_POS` (`FeatureScriptCommands::StartCameraPos`) |
 
 ## The land
@@ -36,7 +29,7 @@ mind in [../../rival_gods/nemesis.md](../../rival_gods/nemesis.md).
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | A small square land about 1,270 paces across, three quarters of it at or near sea level: a scatter of low islands, one per god, round a central island, with nothing higher than about half the highest possible height | done | `Game::LoadLandscape` |
-| No climate is set, so the land keeps the game's default weather | todo | with no climate our weather queries give no rain and no wind (`src/ECS/Weather/Weather.h`); what the game's weather does on such a land is not determined |
+| No climate is set, so the land keeps the game's default weather | pending | with no climate our weather queries give no rain and no wind (`src/ECS/Weather/Weather.h`); what the game's weather does on such a land is not determined |
 | A day of 1,700 seconds with short nights (8.3%) and dawns and dusks (7%) | done | `SET_NIGHTTIME` (`DayNightClock::SetCycleFromLand`) |
 | The music follows the nearest town's tribe: Japanese at every home, Indian between, Greek in the middle | done | `src/Audio/GameMusic.cpp`; see ../../audio/music.md |
 | Towns project a fifth of their normal influence and gods 1.2 times theirs, so the gods reach across the water | done | `SET_TOWN_INFLUENCE_MULTIPLIER` and `SET_PLAYER_INFLUENCE_MULTIPLIER`, kept in the map script globals and read by `src/ECS/Influence` |
@@ -56,8 +49,8 @@ mind in [../../rival_gods/nemesis.md](../../rival_gods/nemesis.md).
 |-----------|--------|---------------|
 | Computer gods are switched on for players two, three and four | partial | `TOGGLE_COMPUTER_PLAYER` adds the player (`FeatureScriptCommands::ToggleComputerPlayer`, `PlayerArchetype`); no mind thinks for it (see ../skirmish.md) |
 | Player two has a leopard, player three a gorilla and player four a brown bear, each next to its home town, all with Nemesis's creature mind from the story | partial | `CREATE_CREATURE_FROM_FILE` (`FeatureScriptCommands::CreateCreatureFromFile`, `CreatureArchetype`) with the mind loaded; it faces a fixed way and takes our starting size; nothing of its god steers it; see ../../scripts/creature_mind_scripts.md |
-| The creatures are sized to match your own | todo | `SET_COMPUTER_PLAYER_CREATURE_LIKE` is empty |
-| No personalities are loaded, so all three play with the default personality | todo | no computer god mind in our tree; see ../../rival_gods/ai.md |
+| The creatures are sized to match your own | done | `SET_COMPUTER_PLAYER_CREATURE_LIKE` names it; the computer mind's start sizes the creature (`ComputerPlayerSystem`, `computer_player::SizeLike`; unverified against v1.42) |
+| No personalities are loaded, so all three play with the default personality | pending | no computer god mind in our tree; see ../../rival_gods/ai.md |
 | No belief caps are set for anyone: unlike the game's own lands, the computer gods are not handicapped | done | nothing to cap |
 
 ## Neutral towns and the middle
@@ -85,11 +78,6 @@ mind in [../../rival_gods/nemesis.md](../../rival_gods/nemesis.md).
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The land has no winning rule of its own; the skirmish's own rule applies | todo | not determined what ends a skirmish, and our tree ends none; see ../skirmish.md |
-| Losing while two or more gods are left shows "You have lost the game." with Watch Game (keep watching the other gods) and Leave Game (leave the skirmish) | todo | no end of game in our tree; see ../skirmish.md and [../../story/losing_and_game_over.md](../../story/losing_and_game_over.md) |
+| The land has no winning rule of its own; the skirmish's own rule applies | pending | not determined what ends a skirmish, and our tree ends none; see ../skirmish.md |
+| Losing while two or more gods are left shows "You have lost the game." with Watch Game (keep watching the other gods) and Leave Game (leave the skirmish) | pending | no end of game in our tree; see ../skirmish.md and [../../story/losing_and_game_over.md](../../story/losing_and_game_over.md) |
 
-## Online
-
-| Behaviour | Status | Where / notes |
-|-----------|--------|---------------|
-| The developers' original of this land was downloaded from the online servers; its winning conditions started at 11,000 food or wood, 2,100 belief and up to 8 towns taken | n/a | the servers and that map's online file are gone; the game's condition list still holds its numbers (../multiplayer_rules.md) |

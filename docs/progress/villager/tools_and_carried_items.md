@@ -8,9 +8,10 @@ trips, the slowdown) is in [jobs.md](jobs.md); a thrown villager's flight is in
 
 openblack: villagers carry their loads and draw their tools and loads in their hands (`CarriedObjectFor` in
 `src/ECS/Villager/VillagerResources.cpp`, `src/ECS/CarriedProps.cpp`), and a villager thrown, launched or killed lets
-its wood fall as a log (`villager::CreateDroppedResource`). A script cannot yet set what a villager holds.
+its wood fall as a log (`villager::CreateDroppedResource`). A script sets what a villager holds through
+SET_OBJECT_CARRYING (`src/CHLApi.cpp`).
 
-**Progress: 56/66 done, 2 partial — 86%**
+**Progress: 62/66 done, 0 chosen, 0 partial, 0 inferred — 94%**
 
 How the original does it, in our wiki: [Villagers: data, state machine and speed](../../../beings/villager-states.md).
 
@@ -29,17 +30,16 @@ How the original does it, in our wiki: [Villagers: data, state machine and speed
 |-----------|--------|---------------|
 | Foresters hold an axe from the moment they head for the forest, while they look for a tree and while they chop, and when they go to a big forest; finishing work puts it away | done | the state rows' carried object (`state_info::CarriedObject`) through `SetStateCarriedObject` (`src/ECS/Villager/VillagerResources.cpp`), in the forester's ported states |
 | Fishermen hold a fishing rod on the way to their fishing spot and while they fish | done | the fishing states' row (`SetStateCarriedObject`) |
-| Shepherds hold a crook through all their work: looking for a flock, taking control of it, leading it to water, food and home, waiting for it and fetching strays; the slaughter itself is not drawn | todo | the shepherd's states are TODO rows |
+| Shepherds hold a crook through all their work: looking for a flock, taking control of it, leading it to water, food and home, waiting for it and fetching strays; the slaughter itself is not drawn | pending | the shepherd's states are TODO rows |
 | Farmers hold a spade on the way to the field and while they dig up the crop, but sow empty-handed | done | the farmer's states' rows (`src/ECS/Villager/VillagerFarmer.cpp`) |
 | Builders, at each stroke of building, pick one of three clips at random and hold its tool: hammering with a hammer, sawing with a saw, or the sledgehammer swing with a heavy mallet; an into-clip already started keeps its own tool | done | one of the three clips at random sets the hammer, the saw or the heavy mallet, unless the carried object is locked (`src/ECS/VillagerAnimations.cpp`) |
-| Housewives carry a bag from the storage pit to their home (picked up with the pot-on-the-head clip, walked home with the carrying-pot clip) | n/a | the housewife's states are TODO rows. Our wiki differs: the housewife's day, her trips to the storage pit included, is dead code in this version of the original ([villagers](../../../beings/villager-life.md#pregnancy-and-births)) |
 | Villagers fighting a fire with water hold a bag while they throw the water; fetching the water and beating the flames are done empty-handed | done | the water-fighting rows give the bag (`SetStateCarriedObject`); in this version a villager fighting with water gives up at once (`src/ECS/Systems/Implementations/VillagerFire.cpp`) |
-| A footballer picking up the ball for a restart holds a ball and runs with it until it puts it down; footballers hold nothing while playing, celebrating, watching or doing the wave | todo | no football; see play_and_gossip.md; [../town/football.md](../town/football.md#the-player-and-the-creature) |
-| Traders, missionaries, worship suppliers, workshop suppliers and builders on their way to the site have no tool of their own: they show their load (a bag of food or a piece of wood) | partial | builders on their way show their load (`CarriedObjectFor`); the traders', missionaries' and suppliers' states are TODO rows |
+| A footballer picking up the ball for a restart holds a ball and runs with it until it puts it down; footballers hold nothing while playing, celebrating, watching or doing the wave | pending | no football; see play_and_gossip.md; [../town/football.md](../town/football.md#the-player-and-the-creature) |
+| Traders, missionaries, worship suppliers, workshop suppliers and builders on their way to the site have no tool of their own: they show their load (a bag of food or a piece of wood) | done | their states give no tool, so `CarriedObjectFor` shows the load (`src/ECS/Villager/VillagerResources.cpp`); the trader's, missionary's, worship and workshop suppliers' states are ported (`VillagerTrader.cpp`, `VillagerMissionary.cpp`, `VillagerWorship.cpp`, `VillagerSatisfy.cpp`); test `VillagerResourcesTest.CarriedObjectFor` |
 | Breeder disciples and children hold nothing, and leaders have no tool | done | children and leaders hold nothing (no state row gives them a tool); there is no craftsman job |
-| Disciples doing a job go through that job's states, so they hold its tool (a forester disciple has the axe, and so on) | partial | a disciple goes through its job's states and so would hold its tool, but no disciple is made yet; See disciples.md |
+| Disciples doing a job go through that job's states, so they hold its tool (a forester disciple has the axe, and so on) | done | the hand makes disciples and `DiscipleDecideWhatToDo` sends each to its job's states, whose rows give the tool (`SetStateCarriedObject`); test `VillagerResourcesTest.CarriedObjectFor`; See disciples.md |
 | The scythe is never held: no state and no code gives it | done | no state row gives the scythe |
-| Villagers taking wood from a rock, a tree or a pot play the chopping clip with nothing in their hands | done | `TAKE_WOOD_FROM_TREE` and `TAKE_WOOD_FROM_POT` with the chopping clip and nothing held; the rock's rows are TODO |
+| Villagers taking wood from a tree or a pot play the chopping clip with nothing in their hands | done | `TAKE_WOOD_FROM_TREE` and `TAKE_WOOD_FROM_POT` with the chopping clip and nothing held; the rock's wood states do nothing in the original (see [not in the original](../../not-in-the-original.md)) |
 
 ## When the tool or load shows
 
@@ -76,7 +76,7 @@ How the original does it, in our wiki: [Villagers: data, state machine and speed
 | Both the hammering and the sledgehammer clips play the sledgehammer sound once per clip; the separate hammer sound is never used by a villager | done | the clips' sound events (`src/Audio/Services/AnimationSounds.cpp`) |
 | Fishing plays one cast sound per clip | done | the clips' sound events (`src/Audio/Services/AnimationSounds.cpp`) |
 | Sowing and digging up crops are silent: the digging sounds belong to two farmer clips the farming states never play | done | the farming states play the silent clips |
-| Kicks in football each play the kick sound | todo | no football; See play_and_gossip.md |
+| Kicks in football each play the kick sound | pending | no football; See play_and_gossip.md |
 
 ## Picked up, thrown, hurt or killed
 
@@ -107,8 +107,8 @@ How the original does it, in our wiki: [Villagers: data, state machine and speed
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Wood taken from a tree, a felled tree or a fallen trunk is carried as a log of that tree's type; wood from a storage pit, a pot, a rock or a big forest is carried as its own kind | done | the tree type kept with the wood (`PickupWood`, `src/ECS/Villager/VillagerResources.cpp`) |
-| Conifers, pines, cypresses and copses give evergreen logs; beech, birch, cedar, oak, olive, palms, bushes, hedges and burnt trees give hardwood; big forests give hardwood; storage pits, pots and rocks give plain wood | done | from the tree records of info.dat |
+| Wood taken from a tree, a felled tree or a fallen trunk is carried as a log of that tree's type; wood from a storage pit, a pot or a big forest is carried as its own kind | done | the tree type kept with the wood (`PickupWood`, `src/ECS/Villager/VillagerResources.cpp`) |
+| Conifers, pines, cypresses and copses give evergreen logs; beech, birch, cedar, oak, olive, palms, bushes, hedges and burnt trees give hardwood; big forests give hardwood; storage pits and pots give plain wood | done | from the tree records of info.dat |
 | No tree gives fruit-tree logs, so the fruit branch is never seen in a villager's hand | done | no tree record gives it |
 | The tree type stays with the villager after it drops its wood, until its next wood pick-up replaces it | done | the tree type stays in the villager's flags until the next pick-up (`PickupResource`) |
 
@@ -116,10 +116,10 @@ How the original does it, in our wiki: [Villagers: data, state machine and speed
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| A script can set the object a villager holds (any of the list, or nothing); the next animation change overwrites it unless the villager is under the script | todo | SET_OBJECT_CARRYING only logs "not implemented" (`src/CHLApi.cpp`) |
-| Land 2's introduction of the disciple gives its villager a heavy mallet | todo | SET_OBJECT_CARRYING is a stub |
-| The worship tutorial gives the villager building the worship site a heavy mallet | todo | SET_OBJECT_CARRYING is a stub |
-| Land 5's waving villagers are given a fishing rod and an axe | todo | SET_OBJECT_CARRYING is a stub |
+| A script can set the object a villager holds (any of the list, or nothing); the next animation change overwrites it unless the villager is under the script | done | SET_OBJECT_CARRYING writes the low byte into `SkeletalAnimation::carriedObject`; anything but a villager gets "Villager invalid!" (`SetObjectCarrying`, `src/CHLApi.cpp`; see ../../../beings/animation.md#objects-in-the-hand) |
+| Land 2's introduction of the disciple gives its villager a heavy mallet | done | through SET_OBJECT_CARRYING (beginland2's two calls) |
+| The worship tutorial gives the villager building the worship site a heavy mallet | done | through SET_OBJECT_CARRYING (LearnWorshipping) |
+| Land 5's waving villagers are given a fishing rod and an axe | done | through SET_OBJECT_CARRYING (landcontrol5's two calls) |
 
 ## Things the game does not do
 
@@ -129,4 +129,4 @@ How the original does it, in our wiki: [Villagers: data, state machine and speed
 | Mothers never carry babies; children walk after their mothers | done | children walk after their mothers (`CHILD_FOLLOWS_MOTHER`); nobody carries a baby |
 | There are no tribe-specific tools: every tribe uses the same meshes | done | one prop table for every tribe (`src/ECS/CarriedProps.cpp`) |
 | A forester does not carry the tree it fells: the felled trunk lies where it fell, and villagers who want wood come to it and carry the wood away as a log | done | the felled tree falls and lies; villagers take its wood through the wood reaction (`src/ECS/Villager/VillagerForester.cpp`, `src/ECS/Systems/Implementations/VillagerResourceReactions.cpp`); See jobs.md |
-| What a villager in the creature's hand shows, and whether it keeps its load there | todo | Undetermined: the creature's holding of villagers was not traced |
+| What a villager in the creature's hand shows, and whether it keeps its load there | pending | Undetermined: the creature's holding of villagers was not traced |

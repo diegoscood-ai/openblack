@@ -4,7 +4,7 @@ Bugs in the original game's miracles, their effects and the miracle dispensers g
 vortex research found no miracle bugs: the vortices are in [story_scripts.md](story_scripts.md) and the skirmish map
 firefly data in [multiplayer_and_skirmish.md](multiplayer_and_skirmish.md).
 
-**Bugs: 2 (soft-locks and lost progress: 0)**
+**Bugs: 3 (soft-locks and lost progress: 0)**
 
 ## Wrong outcomes
 
@@ -17,3 +17,9 @@ firefly data in [multiplayer_and_skirmish.md](multiplayer_and_skirmish.md).
 | Bug | What the player sees | Evidence | Found in | openblack |
 |-----|----------------------|----------|----------|-----------|
 | Water rings come from a fixed pool of slots, and a reused slot keeps drifting with the wind | Old blast and water-miracle rings on the sea drift away with the wind | Per the miracle research, a reused ring slot drifts with the wind | [blast.md](../miracles/blast.md), [water.md](../miracles/water.md) | differs: no ring drifts (the ring list in `src/ECS/WaterRings.h` keeps no reused slot's drift) |
+
+## Harmless
+
+| Bug | What the player sees | Evidence | Found in | openblack |
+|-----|----------------------|----------|----------|-----------|
+| When a rival god weighs shielding a town it attacked lately and finds no shield icon it may use, it never writes the icon it would cast with, so the weighing is left holding whatever an earlier call left in that place as its target | Nothing visible: that weighing scores 0, so it is never the one chosen | The weighing's out slot is not written when no icon comes out; an oracle run of the original's function left an unrelated value there ([computer-minds.md](../../../hand/computer-minds.md#playerinteract-and-reacttoplayer), `DefendtownWithSpells`) | [ai.md](../rival_gods/ai.md) | differs: openblack's weighing keeps no target when it finds no icon (`src/ECS/ComputerPlayerScores.cpp`) |

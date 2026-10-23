@@ -4,7 +4,7 @@ Bugs in the original game's general engine code: picking under the cursor, land 
 films. Most come from the physics research, read from the executable; where no progress file mentions the bug yet, the
 Found in column names the nearest one.
 
-**Bugs: 5 (soft-locks and lost progress: 0)**
+**Bugs: 6 (soft-locks and lost progress: 0)**
 
 ## Missing or wrong feedback
 
@@ -19,4 +19,5 @@ Found in column names the nearest one.
 |-----|----------------------|----------|----------|-----------|
 | The land ray walk's "no extension needed" test compares a single-precision value with a double-precision 1e20, which never matches | nothing visible found: the ray is always extended to the map edge (a vertical ray's height is pushed out by 1e20) | Read from the executable (physics research; not yet in a progress file) | nearest: [look_and_morph.md](../hand/look_and_morph.md) | reproduced (`LandIsland::RayCast` always extends the ray) |
 | A clip played once that is advanced past its end replays its events from the start | nothing visible: callers stop advancing a finished one-shot clip | Read from the executable's clip event loop (physics research; not yet in a progress file) | nearest: [animation.md](../creature/animation.md) | differs: a clip played once stops its events at its end (`creature_audio::EventsPassed`, the creature's clips) |
+| A script asking whether something that is not a creature holds a thing gets its "not a creature" line and false, and then the command goes on to read that creature's hand anyway | nothing seen: the shipped script known to ask it (the Pied Piper's, by its progress page) passes the creature; one passing anything else would crash the game. Whether another shipped script does was not checked | `IN_CREATURE_HAND` gives the line and false but does not stop there; read from the executable ([script-control.md](../../../creature/script-control.md#in-its-hand-for-a-script-in_creature_hand)) | [decision_making.md](../creature/decision_making.md) | Guarded (crash): the line and the false only, always on (`script::property_rules::InCreatureHandNative`) |
 | The intro film fades out from 58 s and ends at 60 s | Its last 160 frames are never seen | Read from the intro's playback | [bink_playback.md](../video/bink_playback.md) | reproduced (`VideoPlayer::ScheduleIntro`) |

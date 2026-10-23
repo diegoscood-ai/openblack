@@ -42,7 +42,7 @@ How the original does it, in our wiki: [openblack internals](../../internals.md)
 |-----------|--------|---------------|
 | Tattoos: pick a slot and colour, put it on or clear it | done | `src/Debug/CreatureSpawnerAppearance.cpp` ("Set slot", "Put on", "Clear slot") |
 | Wounds, burns and blood anywhere on its body, healed a step at a time, with the heal effect | done | `src/Debug/CreatureSpawnerAppearance.cpp` ("Add wound", "Add burn", "Add blood", "Heal a step", "Heal effect") |
-| Drawing switches: blending its seams and its shadows | todo | no switches for the seams or the shadows in our spawner |
+| Drawing switches: blending its seams and its shadows | pending | no switches for the seams or the shadows in our spawner |
 
 ## Hands, leash and fights
 
@@ -50,7 +50,7 @@ How the original does it, in our wiki: [openblack internals](../../internals.md)
 |-----------|--------|---------------|
 | Hold things in either hand; put down, toss, lob, eat, drop or look over what it holds | done | `src/Debug/CreatureSpawnerHands.cpp` |
 | Make it leashable, put the leash on or off, tie it to a thing or another creature, keep it home or let it roam | done | `src/Debug/CreatureSpawnerLeash.cpp` ("Leashable", "Tie to nearest thing", "Tie to other creature", "Keep at home", "Let roam") |
-| Place leash posts at the hand and show the rope's points | partial | "Show rope points" (`src/Debug/CreatureSpawnerLeash.cpp`); no placing of leash posts |
+| Place leash posts at the hand and show the rope's points | partial 50% | "Show rope points" (`src/Debug/CreatureSpawnerLeash.cpp`); no placing of leash posts; re-measured 2026-10-21: the rope's points are shown; placing posts is missing |
 | Start a fight between two creatures, or let them fight by themselves; knock out, kill or bring round | done | `src/Debug/CreatureSpawnerFight.cpp` ("Start fight", "Fights by itself", "Knock out", "Kill for good", "Bring round") |
 | Block and special moves on command, and the camera watching the fight | done | "Block", "Special", "Camera watches" (`src/Debug/CreatureSpawnerFight.cpp`) |
 
@@ -58,7 +58,7 @@ How the original does it, in our wiki: [openblack internals](../../internals.md)
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Open a mind file through a file dialog, start a fresh mind, save the mind back | partial | the mind files of the game's folder are listed to load or spawn from, and "Fresh mind" (`src/Debug/CreatureSpawnerMindFiles.cpp`); no file dialog and no saving the mind back |
+| Open a mind file through a file dialog, start a fresh mind, save the mind back | partial 50% | the mind files of the game's folder are listed to load or spawn from, and "Fresh mind" (`src/Debug/CreatureSpawnerMindFiles.cpp`); no file dialog and no saving the mind back; re-measured 2026-10-21: the game folder's mind files load and a fresh mind starts; the file dialog and saving back are missing |
 | Load one of the game's own mind files | done | the game's own minds listed (`src/Debug/CreatureSpawnerMindFiles.cpp`) |
 | See and change its desires and likes, opinions of actions, decision trees and attitudes | done | `src/Debug/CreatureSpawnerMind.cpp` |
 | Teach it by rewarding or punishing, clear what it has learnt | done | "Stroke", "Slap", "Clear learning" (`src/Debug/CreatureSpawnerMind.cpp`) |

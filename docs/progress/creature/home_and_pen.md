@@ -4,7 +4,7 @@ A creature has a home: the pen by its player's citadel (temple), where it is kep
 when it passes out, and which it goes back to when it wants to rest or feels safe. The game also has a creature building
 a home of its own and bringing things back to it.
 
-**Progress: 8/36 done, 8 partial — 33%**
+**Progress: 21/33 done, 0 chosen, 4 partial, 7 inferred — 69%**
 
 How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../../creature/drawing.md).
 
@@ -12,41 +12,40 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Each citadel has a pen for its player's creature, made by the land's script | partial | the pen is the temple mesh's pen point, kept as the creature's home each turn (`player_creature::FollowTemplePens`, `TemplePenPoint` in `src/ECS/PlayerCreature.cpp`; tests `PlayerCreature.ATemplesPenPointTurnsAndMovesWithIt`, `PlayerCreatureNativesTest.TheHomeFollowsTheTemplesPenOnTheGround`); the land script's `CREATE_CREATURE_PEN` does nothing (`FeatureScriptCommands::CreateCreaturePen`) |
-| A planned pen is shown as a plan before the citadel is built | todo |  |
-| The pen's size and look come from the game's pen tables | todo |  |
+| Each citadel has a pen for its player's creature, the temple's pen point, kept as the creature's home | done | the pen is the temple mesh's pen point (the heart's special point 15, as the exe reads it, [temple-and-citadel](../../../magic/temple-and-citadel.md)), kept as the creature's home each turn (`player_creature::FollowTemplePens`, `TemplePenPoint` in `src/ECS/PlayerCreature.cpp`); tests `PlayerCreature.ATemplesPenPointTurnsAndMovesWithIt`, `PlayerCreatureNativesTest.TheHomeFollowsTheTemplesPenOnTheGround` |
 | The creature's home is where a script sets it | done | `SET_CREATURE_HOME` writes the leash's home (`player_creature::SetHome`, `src/CHLApi.cpp`); a built temple's pen overrides it each turn, as in the original; tests `PlayerCreatureNativesTest.SetCreatureHomeHousesOnlyACreature`, `TheLeashSystemKeepsTheHomeItIsGiven` |
 | With no temple, the creature's home is where it stands (as on the testbed) | done | `LeashSystem::ConfineToHome` and `creature_mode::PenOf` fall back to where it stands; test `CreatureMode.PenIsTheHomeThenTheTempleThenTheFallback` |
-| Scripts can put the creature inside the temple or bring it out | todo | `SET_CREATURE_IN_TEMPLE` is a stub in `src/CHLApi.cpp` |
+| Scripts can put the creature inside the temple or bring it out | done | `SET_CREATURE_IN_TEMPLE` sets `CreatureCaveSystem::SetCreatureShown`, read as the creature room starts in a visit (`TempleInterior.cpp`, `creature_tattoo_editor::MakesCopy`), as the exe's native stores the value in the creature room's flag (and the guidance's), read where the room makes its copy ([tattoos](../../../creature/tattoos.md), [voices](../../../audio/voices.md)); test `CreatureCaveSystemTest.TheCreatureRoomShowsTheCreatureUntilAScriptSaysNot`; not saved with the game yet (no saved games) |
 | The creature shrinks to fit as it nears the citadel, and grows back as it leaves | done | `player_creature::ShrinkInPens` each turn (`BetweenPenWalls`, `PenDrawnSize`) sets the drawn scale; tests `PlayerCreature.InThePenACreatureIsDrawnDownToANewbornsSize`, `OutsideThePenACreatureIsDrawnAtItsOwnSize`, `Land1sHomeIsBetweenThePensWalls`; see [growth_and_size.md](growth_and_size.md) |
-| Enter the citadel | todo |  |
-| Pray at the citadel | todo |  |
-| A creature without a citadel behaves as if it had no home | partial | `LeashSystem::FreeOfHome` needs the player to have a temple, but only the debug spawner asks it; other effects todo |
+| Enter the citadel | done | plan action `EnterCitadel`: walks home, turns to the heart with a smile, then walks to a stop short of the heart by 1.3 times a third of its radius, found from where it stood (vanilla bug kept, [vanilla_bugs/creature.md](../vanilla_bugs/creature.md)); `creature_mind::EnterTemple`; tests `CreatureRestAndHome.GoingIntoTheTempleStopsShortOfTheHeart`, `EnteringTheTempleFailsWithoutAHeart`; the steps match the exe's builder (`ConstructSubActionsForEnterCitadel` 0x4B3C80: the smile, the 1.3) |
+| Pray at the citadel | done | plan action `PrayAtCitadel`, chosen only with a temple and within 1000 of home (the exe's `NotTooFarFromHome`), forced (by a script) anywhere it has a home, as the original: walks home (counted as done on arrival), then prays (`ConstructSubActionsForPrayAtCitadel` 0x4C2450 tests nothing itself, [plans-and-needs](../../../creature/plans-and-needs.md)); tests `CreatureRestAndHome.PrayingCountsAsDoneOnArrivalThenPrays`, `HomeDistancesDecideGoingHomeAndPraying`, `AForcedPlanIsNotAskedTheTestsOfChoosingIt` |
+| A creature without a citadel behaves as if it had no home | partial 50% | as the exe's `NotTooFarFromHome` and `LeashedOrTooFarFromHome` ([plans-and-needs](../../../creature/plans-and-needs.md)): with no temple it may sleep on the spot (`creature_mind::MaySleepOnTheSpot`, test `CreatureRestAndHome.ItSleepsOnTheSpotOnlyOnALeashWithNoTempleOrAwayFromHome`) and does not pray at home; missing: SleepAtHome and SleepByObject, the two other actions these tests gate |
 
 ## Kept at home
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| While it starts to grow up the creature is kept within a short distance of its home | partial | `LeashSystem::ConfineToHome` (within 12, `k_HomeConfinement`; test `LeashRules.Confinement`) exists, but only the debug spawner calls it: `DEV_FUNCTION` 1 (start development scripts) is not ported |
-| Straying out of the area it is kept in, it walks back | done | `LeashSystem::ProcessTurn` walks it back to the confinement's centre (once something confines it) |
+| While it starts to grow up the creature is kept within a short distance of its home | done | `DEV_FUNCTION` 1 (start development scripts, `player_creature::DevFunction`) moves it to the first stage and calls `LeashSystem::ConfineToHome` (within 12, `k_HomeConfinement`, as the exe's +0x11B4 = 12.0, [players-creature](../../../creature/players-creature.md#the-natives-land-1-reaches-on-it)); tests `LeashRules.Confinement`, `PlayerCreatureNativesTest.DevFunctionOneStartsThePlayersCreatureGrowingUp` |
+| Young (below the fifth stage), off the leash, on the first land, it is kept within 10 of its home every turn | done | `LeashSystem` (`leash::k_YoungHomeRadius`), as the exe's `ProcessState` ([leash-rope](../../../creature/leash-rope.md)); tests `LeashRules.AYoungCreatureIsKeptAtHomeOnlyOnTheFirstLand`, `LeashSystemTest.AYoungCreatureOnTheFirstLandIsKeptAtItsHome`, `GrownUpOnAnotherLandOrSomeoneElsesItIsNotKeptAtHome` |
+| Straying out of the area it is kept in, it walks back | done | `LeashSystem::ProcessTurn` walks it back to the confinement's centre, by the exe's walk back ([leash-rope](../../../creature/leash-rope.md)); tests `LeashRules.StrayedFartherThanTheRadiusItWalksBack`, `LeashSystemTest.KeptNearHomeItWalksBack` |
 | On a working leash it may go further than the area | done | `creature_leash::IsConfined`; test `LeashRules.Confinement` |
-| It is free to roam only within reach of home while its player has a temple | partial | `creature_leash::FreeOfHome` (test `LeashRules.Confinement`); `LeashSystem::FreeOfHome` is read only by the debug spawner |
-| Once mature enough it may leave home | partial | `CREATURE_IN_DEV_SCRIPT` and `SET_CREATURE_DEV_STAGE` work (`ECS/PlayerCreature.cpp`); nothing confines it or frees it by stage ([development_phases.md](development_phases.md)) |
-| Its plans weigh being too far from home, or on the leash | todo | see [decision_making.md](decision_making.md) |
-| Scripts can confine a creature to an area | todo | no script native confines a creature; the confinement exists only for the debug spawner |
-| Tying the leash to a house teaches it to stay there | partial | see [leash.md](leash.md) |
+| It is free to roam only within reach of home while its player has a temple | inferred | `creature_leash::FreeOfHome` (test `LeashRules.Confinement`), read only by the debug spawner's readout (`LeashSystem::FreeOfHome`); no such rule is found in the exe's reading ([leash.md](leash.md)) |
+| Once mature enough it may leave home | done | `CREATURE_IN_DEV_SCRIPT` and `SET_CREATURE_DEV_STAGE` work (`ECS/PlayerCreature.cpp`; a playground's start clears the lesson flag of the player's creature before it is saved, as the scripts' restart does, `player_creature::EndMyCreaturesDevScript`, 2026-10-22, #206); the game's one leave-home test, the third stage, gates looking out to sea and sitting down on the beach (`creature_plan_actions::Executor::leavesHome`, `k_LeaveHomeStage`; [plans-and-needs.md](../../../creature/plans-and-needs.md)) (looking out to sea: raffclar's PR #508, unverified against v1.42; the beach: ours, from the exe); also a stage move to 5 or more lets a creature kept near its home off the leash go (`creature_leash::ReleasedFromHome`, `LeashSystem::ReleaseFromHome`: the radius only; tests `LeashRules.ReachingTheLeavingStageLetsAKeptCreatureGo`, `ALeashedOrFreeCreatureIsNotLetGo`, `PlayerCreatureNativesTest.TheLeashSystemLetsAKeptCreatureGoFromTheLeavingStage`) (unverified against v1.42); the mind-file load's clear of the radius is queued as a fix ([development_phases.md](development_phases.md)) |
+| Its plans weigh being too far from home, or on the leash | partial 50% | the exe's `LeashedOrTooFarFromHome` (leashed, no citadel, or further than 140 m) gates SleepOnTheSpot and SleepByObject ([plans-and-needs](../../../creature/plans-and-needs.md)): ours for SleepOnTheSpot (`creature_mind::MaySleepOnTheSpot`, test `CreatureRestAndHome.ItSleepsOnTheSpotOnlyOnALeashWithNoTempleOrAwayFromHome`); SleepByObject is not in; see [decision_making.md](decision_making.md) |
+| Scripts can confine a creature to an area, and free it | done | `CONFINED_OBJECT` and `CLEAR_CONFINED_OBJECT` (`src/CHLApi.cpp`, `script::creature_rules::ConfinementFor`) write the leash's confinement as the exe's natives 322 and 323 ([leash](../../../creature/leash.md)); test `test/test_script_creature_natives.cpp` (`ConfinementFor`) |
+| Tied to a house (or anything), it is kept within the leash's reach of it | done | see [leash.md](leash.md); test `LeashSystemTest.TiedItWalksBackToWhatItIsTiedToBeyondTheFullLength` |
 
 ## Going home
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Hang around at home: walks somewhere nearby and sits | partial | plan action `HangAroundAtHome` walks somewhere near where it is, not near home (`creature_mind::HangAround` in `src/Creature/CreatureIdleMind.cpp`); test `CreatureIdleMind.HangingAroundWalksSomewhereNearbyThenSits` |
-| Go home | todo | the wish to go home is a desire with no action ([desires.md](desires.md)) |
-| Run home when frightened | todo |  |
-| Go home to recover when hurt | todo |  |
-| Rest at home | todo |  |
-| Nothing scary near home makes home a safe place to go | todo |  |
-| Is it near home, is it not | partial | distance to home is measured for roaming (`LeashSystem::FreeOfHome`) and for the pen's drawn size (`ShrinkInPens`); not used by plans |
+| Hang around at home: walks somewhere nearby and sits | partial 20% | plan action `HangAroundAtHome` walks somewhere near where it is and sits (`creature_mind::HangAround` in `src/Creature/CreatureIdleMind.cpp`; test `CreatureIdleMind.HangingAroundWalksSomewhereNearbyThenSits`), chosen near home as the exe's `IsCreatureNearHome` (under 60 m); missing: the exe's builder (`ConstructSubActionsForHangAroundAtHome` 0x4AEE40: random choices through a jump table, looking around) is not ported, and our distances have no wiki backing ([overview](../../../creature/overview.md)) |
+| Go home | done | plan action `GoHome`, only further than 20 from home (the exe's `IsCreatureNotNearHome`, 20.0 at 0x479460), walking to within its height, no more than 5 (`ConstructSubActionsForGoHome` 0x4AEA10); the go-home desire source follows the distance from home over the stage's go-home distance (`creature_desires::HomeSource`); test `CreatureRestAndHome.HomeDistancesDecideGoingHomeAndPraying`, testbed `mind.go_home` |
+| Run home when frightened | done | plan action `RunHome`: half the time frightened first with wide eyes (a `GameRand` then the fright step), then runs to within two heights of home, as `ConstructSubActionsForRunHome` 0x4AF9C0; test `CreatureRestAndHome.RunningHomeRunsToTwoHeightsAfterAFrightHalfTheTime`, testbed `mind.run_home` |
+| Go home to recover when hurt | done | plan action `GoHomeToRecover`: walks home to within its height, no more than 5, then rests until better, as `ConstructSubActionsForGoHomeToRecover` 0x4B0590 (the 5.0, the grimace, the just-woken look); tests `CreatureRestAndHome.GoingHomeToRecoverWalksHomeWithinItsHeightButNoMoreThanFive`, `TheRestEndsOnlyWhenBetterAndAfterThirtyTurns`, testbed `needs.go_home_to_recover` |
+| Rest at home | done | going home to recover rests at home until better (row above); sleeping at home walks home looking where it goes, faces down the slope and sleeps until rested, chosen only with a temple and less than 1000 m from home (`SleepAtHome`, `Creature/CreatureActionAgendas`) |
+| Nothing scary near home makes home a safe place to go | inferred | written from expectation: the exe's `NothingScareyNearMe` gates resting (RestToGetBetter, RestOnTheSpot: no other creature nearer than 8 heights; test `CreatureRestAndHome.AnotherCreatureNearerThanEightHeightsIsFrightening`), not the home; no rule making home safe is found |
+| Its plans ask whether it is near home | done | the exe's `IsCreatureNotNearHome` (20 m, GoHome), `NotTooFarFromHome` (1000 m, PrayAtCitadel) and `IsCreatureNearHome` (60 m, HangAroundAtHome) ([plans-and-needs](../../../creature/plans-and-needs.md)); ours in `creature_mind` (`Creature/CreatureRestAndHome.h`); test `CreatureRestAndHome.HomeDistancesDecideGoingHomeAndPraying`, `ThePlannerHasTheVanillaPreconditions` |
 
 ## Carried home
 
@@ -54,17 +53,15 @@ How the original does it, in our wiki: [The creature: groundwork, random streams
 |-----------|--------|---------------|
 | A creature that passes out (from damage, hunger or tiredness) is carried to its pen to come round | done | `CreatureMindSystem::ProcessTurn` knocks out a fainting creature (`physiology::ShouldFaint`) through `CreatureFightSystem::KnockOut`, which carries it to `HomeOf` (the temple's pen point); test `CreatureMode.PassesOutWhenAStatusReachesAHundredPercent` |
 | A creature knocked out in a fight lies out cold, then fades out and in at home | done | `CreatureFightSystem::KnockOut`, `HomeOf`, the `CreatureKnockedOut` stages (lying, fading out, fading in, waiting); 20 turns out with the teleport's energise sound and 20 in, through `CreatureFizzSystem`, coming round as it is moved; tests `CreatureFightTurnsTest.KnockedOutItIsTakenHomeAtOnce`, `CreatureFightCarriedHomeTest` |
-| It rests at home until healthy enough, then gets up | done | `CreatureKnockedOut` resting and getting up (`CreatureFightSystem`) |
-| The player is told their creature was carried home | todo | see [lessons_and_help.md](lessons_and_help.md) |
-| Scripts can call the player's creature home | todo | `CALL_PLAYER_CREATURE` only hands the creature to the script (`src/CHLApi.cpp`); nothing calls it home |
+| It rests at home until healthy enough, then gets up | inferred | ours rests and gets up (`CreatureKnockedOut`, `CreatureFightSystem`); the exe, after the carry home, caps its body's needs (0.9, 0.1), waits 3 s and runs sub-action 139, not identified ([drawing](../../../creature/drawing.md#carried-home-sub-action-112)); a rest until healthy is not read |
+| The player is told their creature was carried home | inferred | no message for it is found in the exe's carry home (sub-action 112, [drawing](../../../creature/drawing.md#carried-home-sub-action-112)); see [lessons_and_help.md](lessons_and_help.md) |
 
-## Its own home (unconfirmed whether used in the five lands)
+## Its own home
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The creature wants to build a home of its own | todo | the desire exists with nothing to act on ([desires.md](desires.md)) |
-| It creates the home where it chooses | todo |  |
-| It builds it from rocks, and is told when more rocks are needed | todo |  |
-| It knows whether its home is built, being built, or missing | todo |  |
-| Bring things home, bring food home, take food or fish home, take a toy home | todo |  |
-| Go out to look for food and bring it back | todo |  |
+| The creature wants to build a home of its own | pending | the desire exists with nothing to act on ([desires.md](desires.md)); in the exe its CreateHome action fails at once (`ConstructSubActionsForCreateHome` 0x4A5320 is only `FinishActionUnsuccessfully`) |
+| It builds it from rocks, and is told when more rocks are needed | inferred | the exe's BuildHome builder exists (0x4A5340) but needs a home under construction (`IsHomeUnderConstruction`: the home object +0x11FC set), which only CreateHome would give and CreateHome fails at once; whether anything else sets it is not read |
+| It knows whether its home is built, being built, or missing | inferred | the exe has the tests (`HasNoHome`, `IsHomeUnderConstruction`, `HasCreatureBuiltHisHome`), but with no home ever made (row above) whether they ever answer anything but "no home" is not read |
+| Bring things home, bring food home, take food or fish home, take a toy home | partial 50% | `BringHome` (a lifeless thing it can pick up, more than 50 m from home; stops within its height, at most 5 m), `BringFoodHome`, `TakeFoodFromFieldToHome` (`src/Creature/CreatureBringHome.cpp`, test `test/creature/test_creature_bring_home.cpp`; imported, not checked against the exe's builders 0x4A5740, 0x4AEBD0, 0x4BA150); not yet: taking fish home (0x4BA4B0) and a toy home (0x4C2BB0), and the keep-still of living food picked up |
+| Go out to look for food and bring it back | inferred | no action of its own is found in the exe beyond bringing food home (row above) |

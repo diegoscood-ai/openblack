@@ -4,7 +4,7 @@ Villagers react to what happens around them: they flee frightening miracles and 
 the creature, fight fires, run from predators, point at flying objects, mourn the dead and are impressed, which gives
 their town belief. Each reaction has a reach, an urgency and a time from the reaction table.
 
-**Progress: 11/44 done, 5 partial — 31%**
+**Progress: 22/40 done, 0 chosen, 10 partial, 1 inferred — 69%**
 
 How the original does it, in our wiki: [Villagers: data, state machine and speed](../../../beings/villager-reactions.md).
 
@@ -12,72 +12,68 @@ How the original does it, in our wiki: [Villagers: data, state machine and speed
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| A reaction spreads to the villagers in its reach, each taking it up by urgency and distance | done | `effects::reactions::CreateReaction` spreads it once over its cells (`src/ECS/Effects/Reactions.cpp`) to the villagers' handler, scored by priority and distance (`src/ECS/Systems/Implementations/VillagerReactions.cpp`); `test/test_villager_reactions.cpp` |
-| A villager remembers the last few kinds it reacted to and won't react to the same kind again too soon | done | the per-villager reaction records (`components::ReactionRecords`, `src/ECS/Effects/Reactions.cpp`) |
-| A more urgent reaction of another kind takes over the current one | done | the switch rule from the current reaction (`src/ECS/Effects/Reactions.cpp`, `villager_reactions::ApplyReaction`) |
-| Only villagers able and alive, in a state that allows it, react | done | the availability and the state's own answer (`src/ECS/Systems/Implementations/VillagerReactions.cpp`) |
+| A reaction spreads to the villagers in its reach, each taking it up by urgency and distance | done | `effects::reactions::CreateReaction` spreads it over its cells (`src/ECS/Effects/Reactions.cpp`), and `reactions::ProcessTurn` again one reaction a turn, newest to oldest, to the villagers' handler, scored by priority and distance (`src/ECS/Systems/Implementations/VillagerReactions.cpp`); `test/test_villager_reactions.cpp` |
+| A villager remembers the last few kinds it reacted to and won't react to the same kind again too soon | done | the per-villager reaction records (`components::ReactionRecords`, `src/ECS/Effects/Reactions.cpp`); `VillagerReactionsTest.SetReactionDoneWhen` |
+| A more urgent reaction of another kind takes over the current one | done | the switch rule from the current reaction (`src/ECS/Effects/Reactions.cpp`, `villager_reactions::ApplyReaction`); `VillagerReactionsTest.FoodToWoodSwitchAfterTenSeconds` |
+| Only villagers able and alive, in a state that allows it, react | done | the availability and the state's own answer (`villager::IsAvailableForReaction`, `src/ECS/Systems/Implementations/VillagerReactions.cpp`); `VillagerReactionsTest.IsAvailableForReaction` |
+| A villager that cannot be reached (at home, held back from a change of state, hiding in a building) is only impressed by any reaction, takes nothing up, and the rest of its map cell is not offered the reaction | done | `ImpressOnly` with `villager_reactions::IsAvailableForBeliefButNotReaction` (`src/ECS/Systems/Implementations/VillagerReactions.cpp`), the record by each type's turns before reacting again (the shield's `villager_shield::TurnsBeforeReactingToShieldAgain`, the burning thing's `BurningObjectTurnsBeforeReactingAgain`); tests `VillagerReactionsTest.AVillagerAtHomeIsOnlyImpressedByAnyReactionAndEndsTheCell` and the pure ones; see [villager reactions](../../../beings/villager-reactions.md#reactions-that-only-impress-34-39-and-40) |
 | After reacting, the villager goes back to what it was doing | done | `ResetStateAfterReacting` and `StopReactingAndSetState` (`src/ECS/Systems/Implementations/VillagerReactions.cpp`) |
-| Impressive things give belief to the villager's town, with a belief symbol rising from it | todo | how impressed a villager is feeds no belief yet (TODO in `villager_reactions::AddReaction`); see ../town/belief_and_conversion.md |
-| Awed villagers' voices are heard now and then near the hand | partial | the guidance's alignment remarks play (`src/Audio/Services/Guidance.cpp`); the awe that should time them is not ported; see ../audio/voices_and_speech.md |
+| Impressive things give belief to the villager's town, with a belief symbol rising from it | done | `villager_reactions::UpdateHowImpressed` (`src/ECS/Systems/Implementations/VillagerReactions.cpp`) gives the town belief through `town_stores::AddToBelief`, with the belief symbol drawn above the villager, for miracles, missionaries, objects, scaffolds and creatures (`src/Magic/Impressiveness.cpp`); `test/test_magic_foundation.cpp`; see ../town/belief_and_conversion.md |
+| Some reactions only impress, with no visible reaction: magic water putting out a fire, a missionary's preaching and a creature's won fight | partial 65% | the original's spread gives these three kinds belief without a state (the type table's "belief but not reaction" rows 34, 39 and 40, which have no setup); openblack's spread does the same (`effects::reactions::BeliefButNotReaction`, `ImpressOnly` in `VillagerReactions.cpp`; see [villager reactions](../../../beings/villager-reactions.md#reactions-that-only-impress-34-39-and-40)); the water's reaction (`src/Magic/Spells/SpellWater.cpp`) and the missionary's (`src/ECS/Villager/VillagerMissionary.cpp`) are made, the won fight's is not |
+| Awed villagers' voices are heard now and then near the hand | done | the guidance's alignment and desire remarks (`src/Audio/Services/Guidance.cpp`), and the awe: an impressed villager adds belief with itself as the thing (`villager_reactions::UpdateHowImpressed` → `town_stores::AddToBelief`), and while the player is believed in less than the town's strongest the people say one of the three good or evil awe lines, the stronger the nearer the player's belief is to the strongest (`guidance::PlayBeliefRemark`; test `GuidanceTest.ATownsPeopleAreAwedByAPlayerTheyBelieveInLessThanTheStrongest`); see ../audio/voices_and_speech.md |
 
 ## Miracles and magic
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Flee a frightening miracle, straight away or across its path, then turn to watch it from a distance | todo | the miracle reaction states (`FLEEING_FROM_OBJECT_REACTION`, `FLEEING_AND_LOOKING_AT_OBJECT_REACTION`) are TODO rows; only fire, teleport, shield, death, food and wood reach a villager |
-| Turn to watch a nice or impressive miracle | todo | `LOOKING_AT_OBJECT_REACTION` is a TODO row |
-| Walk to a magic shield, stand amazed under it looking out while the town wants protection | partial | `src/ECS/Systems/Implementations/VillagerShield.cpp` (state 168, with its clip), gated by the town's protection desire, which stays 0, so only the homeless react in a normal game |
-| React when a shield is struck or destroyed | todo | the shield's struck and destroyed reactions reach no villager |
-| Walk (or run) into a teleport stone, jump and carry on | done | `src/ECS/Systems/Implementations/VillagerTeleport.cpp`; `test/test_teleport.cpp` |
-| Be bewildered by a magic tree: turn to it and stare | todo | the magic tree states are TODO rows |
+| Flee a frightening miracle, straight away or across its path, then turn to watch it from a distance | done | reaction 3 through the slot row `k_FleeFromSpell` and the states 6 and 30 (`src/ECS/Systems/Implementations/VillagerReactions.cpp`), the flee point and coming-towards test in `src/ECS/Effects/FleeGeometry.cpp`, pinned to the exe's numbers; `VillagerFleeGeometry.*`, `VillagerReactionsTest.FleeFromAStillMiracle`, `FleeAcrossAMovingMiracle`, `FleeTurnsToWatchBeyondTheNearDistance`, `FleeGivesUpBeyondTheFarDistance`; the clips of 6 and 30 are the animation table's, not compared with a run |
+| Turn to watch a nice or impressive miracle | done | reactions 21 and 37 through `k_LookAtNiceSpell` and state 7 (`VillagerReactions.cpp`); `VillagerReactionsTest.WatchANiceMiracle`, `WatchEndsWhenTheMiracleGoes`, `NiceSpellPriorityNotForItsMaker` |
+| Walk to a magic shield, stand amazed under it looking out while the town wants protection | partial 50% | `src/ECS/Systems/Implementations/VillagerShield.cpp` (state 168, with its clip, and the impression), gated by the town's protection desire; the desire's input, the other players' aggression on the town (the town's step 13), is not ported, so it stays 0 and only the homeless react in a normal game |
+| Villagers already amazed by a shield move to a shield that is struck; villagers panic or hide when a shield is destroyed | partial 50% | destroyed (36): `k_ReactToMagicShieldDestroyed`, the hide and the panic (`VillagerCover.cpp`; `test/test_villager_hiding.cpp`; testbed `miracles.shield_fall_hide`, `miracles.shield_fall_panic`), the panic's turn and run distance from a 1.20 reading not checked in v1.42; struck (35) has no row: in v1.42 its set-up (0x7674B0) is not empty, it takes the struck shield as the villager's object, reaction and place to look from |
+| Walk (or run) into a teleport stone, jump and carry on | done | `src/ECS/Systems/Implementations/VillagerTeleport.cpp`; `test/test_teleport.cpp`, `VillagerReactionsTest.TeleportReactionAsksTheStones` |
+| Be bewildered by a magic tree: turn to it and stare | pending | the reaction is made and removed with the tree (`src/Magic/Objects/MagicTree.cpp`), but no villager takes it up: no slot row, and the magic tree states (149 to 152) are TODO rows |
 | Run to magic food or wood dropped nearby and take it | done | the food and wood reactions (`REACT_TO_FOOD`, `REACT_TO_WOOD`, `src/ECS/Systems/Implementations/VillagerResourceReactions.cpp`); `test/test_villager_reactions.cpp` |
-| React to a fight won | todo |  |
 
 ## Fire
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Villagers near a blaze react; their own town's come to beat it out when needed, the rest go round it | done | `src/ECS/Systems/Implementations/VillagerFire.cpp`; `test/test_fire.cpp` |
-| Firemen fetching water to put out fire give up at once, as the game does | done | `PutOutFireWithWater` goes straight to deciding (`src/ECS/Systems/Implementations/VillagerFire.cpp`) |
-| A villager set on fire runs about until it is out or dies | done | `ON_FIRE` (`src/ECS/Systems/Implementations/VillagerFire.cpp`) |
-| Villagers run to their burning abode | todo | choosing the town's abode on fire is not ported |
-| A burning object in the hand alarms the villagers below | partial | picking up a burning thing makes the burning-object-in-hand reaction (`fire::StartedMoving`, `src/ECS/Fire/FireEffect.cpp`), but no villager handles it; see ../physics/fire.md |
+| Villagers near a blaze react; their own town's come to beat it out when needed, the rest go round it | partial 85% | `src/ECS/Systems/Implementations/VillagerFire.cpp`; `test/test_fire.cpp`; the fire group's burning radius, priority and firemen count in the choice to fight are taken without being traced in the exe (marked approximate in ../../../world/fire.md#joining-and-choosing-a-fire) |
+| Firemen fetching water to put out fire give up at once, as the game does | done | `PutOutFireWithWater` goes straight to deciding (`src/ECS/Systems/Implementations/VillagerFire.cpp`); `test/test_fire.cpp` |
+| A villager set on fire runs about until it is out or dies | done | `ON_FIRE` (`src/ECS/Systems/Implementations/VillagerFire.cpp`); `test/test_fire.cpp` |
+| Villagers run to their burning abode | inferred | no such step was found in the original's fire code (the choice to fight is by the fire group's priority and room, `ReactToFire`); whether the town's emergency sends anyone to its own burning abode is not traced |
+| A burning object in the hand alarms the villagers below | partial 10% | picking up a burning thing makes the burning-object-in-hand reaction (`fire::StartedMoving`, `src/ECS/Fire/FireEffect.cpp`); only a villager that cannot be reached is impressed by it (`ImpressOnly`), as the original; in the original the villagers it reaches flee from it (state 6, as from a miracle); openblack has no slot row for it, so no other villager takes it up; see ../physics/fire.md |
 
 ## The creature
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Villagers turn to face the creature, approach it and inspect it | todo | the creature reaction states are TODO rows |
-| They respect it, worship it, or flee it, by their town's attitude to the creature | todo |  |
-| A villager is scared stiff by a frightening creature | todo | `MAKE_SCARED_STIFF` and `SCARED_STIFF` are TODO rows |
-| Villagers walk towards the creature when it does something interesting | todo |  |
-| A villager controlled by the creature (picked up or led) does as it is made to | todo | `CONTROLLED_BY_CREATURE` is a TODO row; See ../creature/ |
-| Villagers crowd round a creature fight and watch it | todo |  |
+| Villagers turn to face the creature, approach it and inspect it | done | every creature makes its reaction as it is made (`src/ECS/Archetypes/CreatureArchetype.cpp`); the villager's setup, priority, turn counts and inspect, approach and face states are `villager_creature` (`src/ECS/Systems/Implementations/VillagerCreature.cpp`) on the pure rules of `src/ECS/Effects/VillagerCreatureRules.cpp`, pinned to the original's numbers (`test/test_villager_creature_reactions.cpp`); the inspecting clip looks at its hand one time in three within 8 m (`villager_animation::InspectCreatureClip`) |
+| They respect it or flee it by their town's attitude to the creature, and leave it to watch its fight when it is in an arena | partial 80% | respect and flight by the town's attitude, with the walk to it (state 167) and the respect's clips (`villager_creature`, `src/ECS/Systems/Implementations/VillagerCreature.cpp`; the town's record and attitude in `src/ECS/Town/TownCreatureAttitude.cpp`); a creature in a fight's arena only stops the reaction: the original then takes up the arena's fight reaction (19), which openblack does not make |
+| The longer the creature's last deed impressed, the longer villagers react to it | done | the turns to react and before reacting again by the creature's impressive type (25, 26) and the town's fear (`effects::creature_reaction::TurnsToReact`, `TurnsBeforeReactingAgain`), pinned with the oracle (`test/test_villager_creature_reactions.cpp`) |
+| Villagers a creature calls to its dance come under its control, take their places, dance and worship it until the dance stops | done | `CONTROLLED_BY_CREATURE` (204), `WORSHIPPING_CREATURE` (90) and `RESTART_WORSHIPPING_CREATURE` (66) (`src/ECS/Systems/Implementations/VillagerCreatureDance.cpp`), with the worshippers' belief; `test/test_creature_dance.cpp`; see ../../../beings/dances.md |
+| Villagers crowd round a creature fight and watch it | pending | each arena makes a fight reaction (19) in the original, whose villagers walk to a ring round it (states 143 and 144) and watch; openblack's arenas are not things and make no reaction, and 143 / 144 are TODO rows; see ../creature/ |
 
 ## The hand and objects
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Approach the hand when it is near | todo | `APPROACH_HAND_REACTION` is a TODO row |
-| React to a villager in the hand | todo | the alarm at a villager in the hand is a TODO in `InterfaceSetInMagicHand` (`src/ECS/Systems/Implementations/VillagerPhysics.cpp`) |
-| React to something dropped by the hand, or put in the storage pit | todo |  |
-| Watch and point at a flying object thrown overhead | todo | the flying-object reaction is spread (`animal_ai::SpreadFlyingObjectReaction`), but no villager handles it; see [../physics/thrown_living.md](../physics/thrown_living.md) |
-| Get out of the way of a falling tree | todo |  |
-| Inspect an object new to them, and tell others about it | todo | the inspect and tell states are TODO rows |
-| React to a newly built building and to a new scaffold | partial | the scaffold reaction is made (`scaffolds::BuildBuilding`) but no villager handles it; the new building reaction is not made yet (`abodes::Built` only logs it) |
-| Run after the ball and pick it up | todo | See play_and_gossip.md |
-| React to an object crushed nearby | partial | an effect's crush makes the crushed reaction (`src/ECS/Effects/EffectValues.cpp`), but no villager handles it |
+| A held villager calls to the villagers of the other sex of its player, who stop and look at it | pending | the original's pick-up makes reaction 32 (`InterfaceSetInMagicHand`), taken up into `WAIT_FOR_MATE` (235): a sexually active villager of the other sex and the same player looks at the held one while it is within reach; openblack does not make it (a TODO in `InterfaceSetInMagicHand`, `src/ECS/Systems/Implementations/VillagerPhysics.cpp`), and 235 is a TODO row |
+| A disciple at work calls the villagers of its town near it to follow its discipline for a while | pending | the original's `DecideWhatToDo` makes reaction 24 for a disciple whose kind has the reaction flag; a villager of the same town that takes it up becomes a disciple follower; openblack makes no reaction there (`src/ECS/Villager/VillagerDecide.cpp`, "the reaction 0x18 is not made"); the follower's own decision is ported (the same file) |
+| Watch and point at a flying object thrown overhead, or run from it when it comes close | done | the thrown thing's reaction 9 (`physics::from_hand::InitialisePhysicsFromHand` → `animal_ai::SpreadFlyingObjectReaction`), the slot row `k_ReactToFlyingObject` and the state 162 with its clip (`VillagerReactions.cpp`, `VillagerAnimation.cpp`), the rules in `src/Physics/LivingRules.cpp`; `VillagerFlyingObjectRules.*`, `VillagerReactionsTest.AFlyingThingSplitsRunnersFromPointersAtTwiceItsSpeed` and the pointing tests; testbed `physics.villagers_watch_throw`; see [../physics/thrown_living.md](../physics/thrown_living.md) |
+| Turn to look at an artefact put down nearby that belonged elsewhere | pending | the put-down makes the look-at-object reaction (`src/ECS/ObjectPhysics.cpp`), but openblack has no slot row for it, so no villager turns to look (state 7) |
+| Dance round a newly finished building, or turn to look at it | pending | the original's finished civic building (not the citadel or the pitch) makes reaction 15, whose villagers dance round it in the small or large building dance (`DANCE_WHILE_REACTING`, 203) or else look at it; openblack makes no such reaction (`abodes::Built` only logs it), and 203 is a TODO row |
+| Turn to look at a new scaffold, which impresses the towns near it | partial 50% | the scaffold's impression of the nearby towns is ported (`scaffolds::ImpressTowns`, `src/ECS/Scaffolds.cpp`); its reaction (38) is made but has no slot row, so no villager turns to look at it (state 7) |
+| Run after the ball and pick it up | pending | the ball's own reaction (11) sends villagers to pick a free ball up (`GOTO_PICKUP_BALL_REACTION`, `ARRIVES_AT_PICKUP_BALL_REACTION`, TODO rows); the ball is made only by a football pitch (the football add-on); see play_and_gossip.md |
 
 ## People and animals
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Flee a predator, then look to see if it is safe | todo | `FLEEING_FROM_PREDATOR_REACTION` and `LOOK_TO_SEE_IF_IT_IS_SAFE` are TODO rows; the predators' flee reaction reaches only animals (`src/ECS/AnimalFlee.cpp`) |
-| Go and hide in a nearby building when danger comes | todo | `GO_AND_HIDE_IN_NEARBY_BUILDING` is a TODO row |
-| Point at, go towards, look at and mourn a dead villager | done | `REACT_TO_DEATH` and the states 205 to 208 (`src/ECS/Villager/VillagerMourning.cpp`); See death.md |
-| Faint, panic and be confused at shocking sights | todo | `FAINTING_REACTION`, `PANIC_REACTION` and the confused states are TODO rows |
-| Crowd round to watch something | todo | `CROWD_REACTION` is a TODO row |
-| React to a breeder | todo | `REACT_TO_BREEDER` is a TODO row |
-| Cheer the town's celebration when it is won over | todo | See ../town/belief_and_conversion.md |
-| React to a missionary | todo |  |
-| Fight a villager of another town | todo | the fight reaction states are TODO rows |
+| Flee a predator, then look to see if it is safe | done | from the exe (ported from raffclar PR #425, his rules not taken): the predator reaction 28 reaches the villagers through the slot row `k_FleeFromPredator` and the state 231 `FleeingFromPredator` (`VillagerReactions.cpp`), by the rules of `ECS/Effects/PredatorFlee` pinned to the exe's numbers (`test/test_predator_flee.cpp`); the lookout 237 sends it back in or makes it run (`VillagerCover.cpp`); the ground flock's wolves frighten too; testbed `animals.predators_village` |
+| Go and hide in a nearby building when danger comes | done | rows 236 and 237 (`VillagerCover.cpp`, `test/test_villager_hiding.cpp`), keeping the original's ReactionValidate (a villager watching nothing gives the hide up at once); for predators from the exe: a fast predator coming at it, or else one draw in six, sends it to the nearest building of its town within 100 m, where it stays while the predator is within 30 m |
+| Point at, go towards, look at and mourn a dead villager | done | `REACT_TO_DEATH` and the states 205 to 208 (`src/ECS/Villager/VillagerMourning.cpp`); `test/test_villager_death.cpp`; See death.md |
+| Faint at a creature's evil fart, and panic when a shield falls | partial 50% | the panic (240, `VillagerCover.cpp`; test `VillagerReactionsTest.AShieldsFallPanicsAVillagerAboutWhatItWasWatchingWhateverThatWas`); the fainting reaction (25) is made by an evil creature's fart (`CreatureMindSystem.cpp`), but no villager takes it up: no slot row, and `FAINTING_REACTION` (194) is a TODO row |
+| React to a breeder | done | one villager of the other sex at a time answers the call and goes to the breeder (a villager slot type, `src/ECS/Systems/Implementations/VillagerReactions.cpp`; `REACT_TO_BREEDER` in `src/ECS/Villager/VillagerBreeding.cpp`), the priority as read in the exe ([villager-life](../../../beings/villager-life.md#love-outside-the-home-and-the-breeder)); `VillagerReactionsTest.ABreedersCallIsAnsweredByOneOfTheOtherSexAtATime` |
+| A town's take-over reaction: in a town with a centre no villager takes it up; in one without, its villagers turn to look at the town | partial 50% | the reaction is made from the town centre, else the town (`town_belief::TakeOverTown`, `src/ECS/Town/TownBelief.cpp`), as `GPlayer::ClaimTown` does; the original's priority (0x767180) counts only a reaction whose initiator is the villager's own town, so with a centre none reacts, which openblack matches; the look (state 7) for a town without a centre is not taken up (no slot row); See ../town/belief_and_conversion.md |
+| React to a missionary | partial 75% | a missionary's reaction (39) is made (`src/ECS/Villager/VillagerMissionary.cpp`) and its impressive value is ported (`villager::MissionaryImpressiveValue`, test in `test/test_villager_disciple.cpp`); the spread offers it to the villagers of a cell as the original does (it only impresses: recorded, then impressed, and the cell is left; docs/wiki/beings/villager-reactions.md#reactions-that-only-impress-34-39-and-40); missing: the impression itself (`villager_reactions::UpdateHowImpressed`, from raffclar PR #310) is unverified against v1.42 |

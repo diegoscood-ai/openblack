@@ -4,7 +4,7 @@ How the land is drawn: each block painted from its countries' materials, lifted 
 per-cell luminosity through a light table that follows the time of day and the alignment, faded into the sea at the
 coast, and hazed with distance.
 
-**Progress: 24/26 done, 1 partial — 94%**
+**Progress: 25/26 done, 0 chosen, 0 partial, 1 inferred — 96%**
 
 How the original does it, in our wiki: [World rendering: original versus openblack](../../../rendering/frame.md).
 
@@ -32,7 +32,7 @@ How the original does it, in our wiki: [World rendering: original versus openbla
 | Night lights of villages and the hand are stamped onto the cells | done | `night_lights::Update` (`src/3D/NightLights.cpp`), run by `VillageLightSystem::Update` (`Locator::villageLightSystem`) after the frame's land light; see ../rendering/ and ../town/ |
 | Cloud shadows darken the cells as clouds pass | done | `Clouds::StampShadows`, `src/3D/LandColourStamps.cpp`; see ../sky/clouds.md |
 | Lightning stamps a glow on the land where it strikes | done | `src/3D/LandColourStamps.cpp`, `src/ECS/Weather/LightningFlash.cpp`; test `test/test_land_colour_stamps.cpp` |
-| Static shadows of buildings and trees are baked into the land | done | `RenderPass::StaticShadow` into the island's shadow texture, applied in `assets/shaders/fs_terrain.sc` ([rendering.md](../../../rendering/shadows-and-reflections.md#shadows-three-systems-in-the-original)) |
+| Static shadows of buildings and trees are baked into the land | done | `RenderPass::StaticShadow` into the island's shadow texture, applied in `assets/shaders/fs_terrain.sc`, drawn again only into the blocks at their prints step (`block_texture::PrintMask`, test `BlockTexturePrints.*`; land_marks.md) ([rendering.md](../../../rendering/shadows-and-reflections.md#shadows-three-systems-in-the-original)) |
 | Overcast darkens the land and draws the haze in | done | `LandLightTable::Build` (`src/3D/LandLightTable.cpp`) |
 | Normals of the land are worked out per cell triangle for lighting the things on it | done | `src/3D/LandNormal.cpp`; test `test/test_land_normal.cpp` |
 
@@ -42,9 +42,9 @@ How the original does it, in our wiki: [World rendering: original versus openbla
 |-----------|--------|---------------|
 | Distant land fades into a haze a third of the land's colour, closing in at dusk | done | `src/Graphics/Haze.cpp`, `assets/shaders/haze.sh`; test `test/test_haze_land_light.cpp` |
 | Each block picks its own haze class | done | `haze::BlockClassOf` (`src/Graphics/Haze.cpp`) |
-| The fog detail option turns the haze and overcast tinting on or off | partial | The Fog key switches the haze (`haze::Params::on`); the sky's overcast tint is not ported |
+| The fog detail option turns the haze and overcast tinting on or off | done | The Fog key switches the haze (`haze::Params::on`) and the sky's overcast tint towards the haze colour (`sky_dome::TintOf`, `src/3D/SkyDome.cpp`) |
 | Land at sea level is drawn flat at height 0 | done | `LandIslandInterface::GetDrawnHeightAt` |
 | The land under the sea is drawn mirrored, half lit and without bump detail, for the reflection | done | The reflection pass (`src/Graphics/Renderer.cpp`); see ../ocean/reflections.md |
-| Snow lying on the land whitens it, raggedly by a noise image | todo | Our tree has no lying snow ([day-night-weather.md](../../../world/weather.md#pending)); see ../weather/snow.md |
-| Rivers clear the land's alpha so the water shows | done | `RenderPass::LandAlpha` (`src/ECS/Rivers.cpp`); see rivers.md |
+| Snow lying on the land whitens it, raggedly by a noise image | inferred | The snow lying on the land (`src/3D/SnowCover.cpp`, `SnowSystem`, `assets/shaders/fs_terrain.sc` and `snow.sh`, fed from our storms) is raffclar's, not checked against v1.42 (the coordinator's #193) ([weather.md](../../../world/weather.md#pending)); see ../weather/snow.md |
+| Rivers clear the land's alpha so the water shows | done | `Renderer::DrawLandAlphaPass` (`RenderPass::LandAlpha`, `src/Graphics/Renderer.cpp`) over the channels `src/ECS/Rivers.cpp` lays; see rivers.md |
 | Building footprints are blended into the land's colour | done | `Renderer::DrawFootprintPass`; see land_marks.md |

@@ -10,8 +10,8 @@
 |-----------|--------|---------------|
 | The script loads from its first line to its last in openblack | done | checked by reading it the way `Script.cpp` does: every line is a known command with the right arguments, so no line is skipped |
 | The land's footpath file is loaded with it | done | `Game::LoadMap` (the land's `.fot`) |
-| The story moves on to this land when Land 3 is finished | todo | the land-loading function does nothing (`LoadMap` in `src/CHLApi.cpp` is empty) |
-| Starting on this land runs this land's challenges | todo | the land control script always begins with Land 1's challenges, whatever land is loaded |
+| The story moves on to this land when Land 3 is finished | pending | `LOAD_MAP` changes the land (`Game::ChangeLand`), but play has not yet got here: the story has not yet been run out of Land 2 since Khazar's and Lethys's hands (`COMPUTER_PLAYER_READY`) became real |
+| Starting on this land runs this land's challenges | pending | the land control script always begins with Land 1's challenges, whatever land is loaded |
 
 ## Set-up
 
@@ -110,4 +110,4 @@
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | 23 streams through 388 points | done | the streams and their points are kept and the rivers built from them after the last line (`ecs::CreateRiverFootprints`) |
-| 1 arenas | partial | an `Arena` is kept (`CREATE_ARENA`); the creature fights that use it are not wired into the game |
+| 1 arenas | partial 40% | an `Arena` is kept (`CREATE_ARENA`); the creature fights that use it are not wired into the game; re-measured 2026-10-21: kept; the creature fights that use it are not wired |

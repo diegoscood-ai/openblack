@@ -2,7 +2,7 @@
 
 `Scripts/Land2.txt` builds the second land: the largest, with fifteen towns, the rival god's temple and worship site, a second rival's town, the Greek and Indian villages, many fields and planned buildings. Counts below are from the script; the challenges are the story domain's ([../story/](../story/)).
 
-**Progress: 65/69 done, 2 partial — 96%**
+**Progress: 65/69 done, 3 partial — 96%**
 
 ## Loading the land
 
@@ -10,8 +10,8 @@
 |-----------|--------|---------------|
 | The script loads from its first line to its last in openblack | done | checked by reading it the way `Script.cpp` does: every line is a known command with the right arguments, so no line is skipped |
 | The land's footpath file is loaded with it | done | `Game::LoadMap` (the land's `.fot`) |
-| The story moves on to this land when Land 1 is finished (its control script loads it) | todo | the land-loading function does nothing (`LoadMap` in `src/CHLApi.cpp` is empty) |
-| Starting on this land runs this land's challenges | todo | the land control script always begins with Land 1's challenges, whatever land is loaded |
+| The story moves on to this land when Land 1 is finished (its control script loads it) | partial 60% | `LOAD_MAP` changes the land (`Game::ChangeLand`); only Land 1's skip path reaches it in play (a full Land 1 has not yet been run past the creature glade since `CREATE` of a creature became real), and no check measures it yet; re-measured 2026-10-21: the script runs on natives that work; a run has not reached it yet |
+| Starting on this land runs this land's challenges | pending | the land control script always begins with Land 1's challenges, whatever land is loaded |
 
 ## Set-up
 
@@ -22,7 +22,7 @@
 | Starts the camera looking at "3393.78,3261.76" | done | `FeatureScriptCommands::StartCameraPos` |
 | Scales the towns' influence by 1 | done | kept in the map script globals and read by `src/ECS/Influence` |
 | Scales the players' influence by 1 | done | kept in the map script globals and read by `src/ECS/Influence` |
-| Sets 6 land balance numbers (0 = 2, 1 = 2, 2 = 2, 3 = 2, 4 = 1.5, 5 = 2) | partial | `land_balance::Set` keeps them all; only numbers 4 (villagers' speed) and 5 (trees) are read |
+| Sets 6 land balance numbers (0 = 2, 1 = 2, 2 = 2, 3 = 2, 4 = 1.5, 5 = 2) | partial 30% | `land_balance::Set` keeps them all; only numbers 4 (villagers' speed) and 5 (trees) are read; re-measured 2026-10-21: kept; only numbers 4 (villagers' speed) and 5 (trees) are read |
 | Sets a day of 1700 with 8.3% night and 7% dawn and dusk | done | `DayNightClock::SetCycleFromLand` (`SET_NIGHTTIME`) |
 | Creates 4 climates and sets rain, temperature and wind 4, 4 and 4 times | done | `magic::map_script::CreateWeatherClimate` and its rain, temperature and wind (`src/Magic/Script/MapScriptWeather.cpp`); see ../weather/ |
 
@@ -121,4 +121,4 @@
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Switches on 2 computer players (player two, player three) | partial | the players are added to the player system; their thinking isn't (see ../multiplayer/) |
+| Switches on 2 computer players (player two, player three) | partial 40% | the players are added to the player system; their thinking isn't (see ../multiplayer/); re-measured 2026-10-21: the players are added; no mind runs them |

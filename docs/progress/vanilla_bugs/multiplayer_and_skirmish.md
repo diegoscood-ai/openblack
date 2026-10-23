@@ -37,4 +37,4 @@ Bugs in the original game's skirmish and network play and in the shipped skirmis
 | Bug | What the player sees | Evidence | Found in | openblack |
 |-----|----------------------|----------|----------|-----------|
 | One firefly reward line in *Death Comes To Those That Wait* lacks its closing bracket | nothing visible: the game reads it anyway | One line in the shipped file (checked in the game data) | [land_script_commands.md](../scripts/land_script_commands.md) | differs: the line is logged and skipped (`Script::Load`), where the game reads it |
-| Each clan in the clan list carries a yes/no flag that the game stores but never reads | nothing visible | Checked in the Windows and Mac versions | [clans.md](../multiplayer/clans.md) | undecided (not in this codebase: the clan list is the online service's, bwgame-service) |
+| Each clan in the clan list carries a yes/no flag that the game stores but never reads | nothing visible | Checked in the Windows and Mac versions | [clans.md](../../not-in-the-original.md#multiplayerclans) | undecided (not in this codebase: the clan list is the online service's, bwgame-service) |

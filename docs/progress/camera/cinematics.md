@@ -3,34 +3,33 @@
 What the scripts do to the picture around their cut scenes: the cinema bars, fading to a colour and back, putting the
 player's interface away, and close clipping. The cut scenes and films themselves are in `../story/`.
 
-**Progress: 11/15 done, 2 partial — 80%**
+**Progress: 8/14 done, 0 chosen, 6 partial, 0 inferred — 90%**
 
 ## Cinema bars
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The cinema bars slide in to a 16:9 picture and back out | done | `ScreenFade::SetWideScreen` and `UpdateWideScreen` (`src/3D/ScreenFade.cpp`), bars of `ScreenFade::LetterboxHeight` drawn from `src/Game.cpp`; the slide time is the help system's `wideScreenTime` |
+| The cinema bars slide in to a 16:9 picture and back out | done | `CinematicDirectorSystem::SetWideScreen` over `gui::CinemaBars` (`src/Gui/CinemaBars.cpp`), drawn by `Renderer::DrawScreenOverlay`; the slide time is the help system's `wideScreenTime`; `CinemaBars.SlideInAndTurnBackFromWhereTheyAre`, `BarsMakeThePictureSixteenByNine` (`test/gui/test_cinematics.cpp`) ([screen fade and cinema bars](../../../interface/screen-and-readouts.md#screen-fade-and-cinema-bars)) |
 | Only the script that brought the bars in can take them out, or any script while none has | done | `SET_WIDESCREEN` in `src/CHLApi.cpp` through `help::script_control::SetWideScreen` (`src/Help/ScriptControl.cpp`); `ScriptControl.SetWideScreen` (`test/test_help_system.cpp`) |
-| A script's bars put the hand and the player's interface away and hide the game's dialogs | done | the help system's wide-screen hook in `src/Game.cpp` makes the interface inactive (`interface_active::SetActive`), which hides the hand (`HandSystem`) and its tooltips; the did-you-know bubble is not drawn under a script's bars |
-| The game's own bars leave the interface | done | the same hook keeps the interface active when the bars have no owner (the game's own) |
-| Setting the bars the same again changes nothing | done | `HelpSystem::SetWideScreen` returns at once when nothing changes (`src/Help/HelpSystem.cpp`) |
-| "widescreen ready": whether the bars have finished sliding | done | `WIDESCREEN_TRANSISTION_FINISHED` reads `ScreenFade::IsWideScreenTransitionFinished` |
-| The bars slide with game time and stop while the game is paused | done | `ScreenFade::UpdateWideScreen` takes the frame's game milliseconds, 0 while paused (`src/Game.cpp`) |
-| The player's input is blocked while the bars are in | done | with a script's bars the interface is inactive and the key shortcuts and Escape are skipped (`src/Game.cpp`) |
-| Escape skips a cut scene or film | partial | Escape goes to the film player (`video::Get().EscapeKey`, `src/Game.cpp`); under a script's bars it does nothing; skipping a cut scene itself is not checked against the game |
+| A script's bars put the hand and the player's interface away and hide the game's dialogs | partial 75% | the help system's wide-screen hook in `src/Game.cpp` makes the interface inactive (`interface_active::SetActive`), which hides the hand (`HandSystem`) and its tooltips; the did-you-know bubble is not drawn under a script's bars. Not ported: the original hides every dialog box whenever the bars come in, a script's or the game's own (`DialogBoxBase::HideAll`, see [the help system](../../../interface/advisors-and-help.md)); in openblack a box can be open while a script runs only inside the temple (its help scripts run in the temple's turn): the menu from the options room, the tattoo editor and the story history. What each owner does once its box is gone is not read yet; no test of the hook |
+| The game's own bars leave the interface | partial 90% | the same hook keeps the interface active when the bars have no owner, as the original. Missing: no test |
+| Setting the bars the same again changes nothing | done | `HelpSystem::SetWideScreen` returns at once when nothing changes (`src/Help/HelpSystem.cpp`), as the original; `CinemaBars.SettingTheSameAgainChangesNothing` |
+| "widescreen ready": whether the bars have finished sliding | done | `WIDESCREEN_TRANSISTION_FINISHED` reads `CinematicDirectorSystem::IsWideScreenTransitionFinished`; `CinematicDirector.TheBarsMoveOnlyWithTheFramesGameTime` (`test/gui/test_cinematic_director.cpp`) |
+| The bars slide with game time and stop while the game is paused | done | `CinematicDirectorSystem::Update` takes the frame's game milliseconds, 0 while paused (`src/Game.cpp`); `CinematicDirector.TheBarsMoveOnlyWithTheFramesGameTime` |
+| The player's input is blocked while the bars are in | partial 90% | with a script's bars the interface is inactive and the key shortcuts and Escape are skipped (`src/Game.cpp`), as the original's action gate ([one-press keys](../../../interface/screen-and-readouts.md#the-one-press-keys-temple-realm-villager-names)). Missing: only Escape's gate is tested (`MenuEscape.FilmWideScreenAndDebounce`) |
+| Escape skips a cut scene or film | partial 60% | Escape skips a film (`VideoPlayer::EscapeKey`, `VideoPlayerTest.EscapeKey`) and does nothing under a script's bars (`MenuEscape.FilmWideScreenAndDebounce`). Missing: the original's earlier takers of the key (a box on screen, the tutorial, the temple) are not ported, so openblack skips in every case ([skipping with ESC](../../../video/playback.md#skipping-with-esc)) |
 
 ## Fades
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Fade the picture to a colour over whole seconds, or at once | done | `SET_FADE` in `src/CHLApi.cpp` to `ScreenFade::FadeTo`, moved once a turn (`ScreenFade::ProcessTurn`) |
-| Fade back to normal over whole seconds | done | `SET_FADE_IN` to `ScreenFade::FadeBackToNormal` |
-| "fade finished": whether the fade is done | done | `FADE_FINISHED` reads `ScreenFade::IsFinished` |
-| A new land opens with no fade, no bars and no close clipping | partial | the script reboot clears the bars (`HelpSystem::Reset`) and the script camera (`script_camera::Reset`, `src/Game.cpp`); the screen fade is not reset, and there is no close clipping |
+| Fade the picture to a colour over whole seconds, or at once | done | `SET_FADE` in `src/CHLApi.cpp` to `CinematicDirectorSystem::FadeTo` (`gui::ScriptFade`, `src/Gui/ScriptFade.cpp`), moved once a turn (`ProcessTurn`); `ScriptFade.FadesToAColourOverTurns`, `TheTimeIsTruncatedToWholeSeconds`, `NoTimeIsAtOnce`, `CinematicDirector.TheFadeMovesOnlyWithTheTurns` |
+| Fade back to normal over whole seconds | done | `SET_FADE_IN` to `CinematicDirectorSystem::FadeBackToNormal`; `ScriptFade.FadesBackToClear` |
+| "fade finished": whether the fade is done | done | `FADE_FINISHED` reads `CinematicDirectorSystem::IsFadeFinished`; `CinematicDirector.TheFadeMovesOnlyWithTheTurns` |
+| A new game opens with no fade, no bars and no close clipping; a land change keeps what the scripts set | done | (reworded 2026-10-22: the original resets them only when the scripts restart, at a new game or a playground's start, never at `LOAD_MAP`, [what a land change keeps](../../../scripts/land-change-and-saving.md#what-a-land-change-keeps)) the bars go at once with `HelpSystem::Reset` in `Game::ResetScripts` (its `SetWideScreen(0, 0)`, then `Hooks::snapWideScreen`, `CinemaBars::Snap`, as the original's reset snaps them; `CinemaBars.TakenAwayAndSnappedTheyGoAtOnce`, `HelpSystem.ResetTakesTheWideScreenAwayThenSnapsTheBars`), only when the scripts restart (`land_load::ResetsFor`; `LandLoadScripts.OnlyANewGameOrAPlaygroundsStartRestartsTheScripts`); the Land Island window shows them. The close clipping is cleared in `Game::ResetScripts` too, and kept by a land change. The fade stops and clears there too (`CinematicDirectorSystem::ResetFade`, `ScriptFade.TheScriptsRestartStopsTheFadeAndClearsThePicture`), kept by a land change; the Land Island window shows it. The restart's own 0 in the bars' fraction lasts only until the help system's next frame writes it from its timer; openblack's fraction is read only after that frame's update, so it needs no write ([screen fade and cinema bars](../../../interface/screen-and-readouts.md#screen-fade-and-cinema-bars)) |
 
 ## Close shots
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Scripts bring the near plane right in for close shots | todo | `SET_GRAPHICS_CLIPPING` is a stub in `src/CHLApi.cpp`; `near_clipping::k_Close` (`NearClipping.ScriptsCanClipClose`) is unused |
-| Close clipping is cleared when the scripts restart | todo | there is no close clipping to clear (the script reboot itself is in `src/Game.cpp`) |
+| Close clipping is cleared when the scripts restart | partial 90% | the scripts' restart (`Game::ResetScripts`, at a new game or a playground's start) calls `CinematicDirectorSystem::SetCloseClipping(false)`, and a land change keeps it, as the original's ([camera](../../../camera/game-camera.md#camera), [what a land change keeps](../../../scripts/land-change-and-saving.md#what-a-land-change-keeps)); the Land Island window shows it. Missing: no test of the clear itself |

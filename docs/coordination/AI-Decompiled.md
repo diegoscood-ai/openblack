@@ -8,24 +8,201 @@ The source of truth is the maintainer's local repository; `AI-Decompiled` is upd
 Pull requests are reviewed here, imported locally, verified with the full fidelity checks (they need the original
 game's data) and land in `AI-Decompiled` with the next publish, after which they are closed.
 
-Since 2026-10-17 raffclar's newer master (after `0222f9f5`) is brought in lane by lane, as he proposed: each lane's
-new files are taken, its hooks refitted onto this tree, and the commit says "Ported from raffclar/openblack PR #N"
-(unverified against v1.42 until the fidelity audit). Conflicts where ours wins are listed for review. The dashboard
-counts the share of his gain brought in. The 0222f9f5 port audit: 105 of 161 rows closed.
+Since 2026-10-20 the goal is to recreate the original as fast as possible, on raffclar's architecture; the two
+trees are not merged, and his master is no longer brought in lane by lane. A piece of his is taken when it closes one
+of our open rows or systems, saves us work on one, or fixes a difference from the original: by cherry-pick with his
+authorship (`-x`), or as his files refitted onto this tree, with "Ported from raffclar/openblack PR #N" in the commit,
+and it is measured against the original like any of our commits. Where his version and ours differ, the one that
+matches the original wins (ours when that can't be told); each choice is listed for review. The dashboard checks
+every pull request merged into his master against this tree (at his `e1cc0b8f` of 2026-10-22: 132 in, 59 partial,
+570 pending).
 
 ## In progress here (do not start these)
 
-- **Creature:** the turn on the spot as the original's spins, catching what is thrown, the lean onto the slope, the
-  eye blink on the local stream, the alignment sparkles, the falling-spell film.
-- **Villagers and towns:** the walk round obstacles (the wall hug and its circles), footpaths, the temple's
-  destruction, the first clip of a new living, the trees' tug and replanting, villagers fleeing from predators.
-- **Physics:** the "in the physics" tag with hanging objects, fragments coming to rest, the dead list's deferral, the
-  vortex's pull.
-- **Rendering and interface:** the totem's gate and light, the draw order of the object list's tail.
-- **Animals:** the detours round obstacles, the birds' first clip.
+- **Code clean-up towards raffclar's architecture** (tonight, 2026-10-23), so that his code comes in more easily
+  later. Behaviour stays identical, and a name his tree already uses is kept:
+  - identifier renames: the particle namespace and files, `psys` and `src/Particles/PSys*`, become `particles` and
+    `Particle*`, then the game random's particle draws; these batches touch most of the tree;
+  - the `Game` singleton removed from the debug UI, the editor and the map's load path (`src/Game.*`,
+    `src/Locator*`, `src/Debug/Gui.cpp`, `src/Debug/LandIsland.cpp`, `src/Debug/TestbedScenarioRunner.cpp`,
+    `src/Editor/`, files that issues #97, #99 and #188 touch too);
+  - the remaining mutable globals, each moved to a component or a service or kept on purpose and documented, with
+    the log-once warning flags in one service that warns once per process.
+- **Creature:** nothing in its code or mind tonight. Kept on this side: the lean onto the slope (#35), the
+  falling-spell film (#23).
+- **Villagers and towns:** footpaths (#74), the trees' tug and replanting (#87).
+- **Physics:** the dead list's deferral (#8), the vortex between lands (#58).
+- **Animals:** the detours round obstacles (#82), a new animal's first clip, the birds' included (#12).
+- **Hand:** the glow while it holds a miracle and its flash on a recognised gesture (#122), waiting on the hand's
+  second skinned pass.
+
+Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint181 (b6dc69611, published 35e8709e2): a stopped vcpkg install leaves no stamp behind, and a new build
+  folder's second configure no longer installs again (build steps only); docs synced. Its full run was identical to
+  joint180's, so it confirmed joint180's references, which had been made from a single pass; four scenes were
+  renewed on two agreeing passes.
+- joint180 (1780a2bce, published 31d34c4cc, the new base): the checks read the original `AllMeshes.g3d` and the
+  user's mesh pack is a mod now, so 25 more of Land 1's trees stand; the trees' sway runs on the frame's whole game
+  milliseconds and leans in the game's precision; smoke and mist ages take each frame's whole steps; a model's part
+  sets its culling from its own material, so the Norse workshop's flat fence is drawn from both sides; the gesture
+  icons at the bottom right of the screen, with the leashes, the bubble and the seed inside them; and the wiki records
+  smooth drawing between turns as a chosen difference (#220), why the mesh pack decides which trees a land has, and
+  the hand's shadow and wrist and the trees as seen in the original. Every reference was renewed; fidelity and cycle
+  move from turn 1. Issues #189 and #215 closed.
+- joint179 (a23813fa2, published with joint180): the creature's lesson actions get the original's agendas, with his
+  #232: sleeping at home only with a temple and not too far from it, waving only at another creature, a fright on the
+  spot only about what frightens it, a forced put-down, lying dead for good as a faint that stays down, pointing at a
+  thing, holding a thing up to its player and sleeping by a thing, nine of them going by its height; what the
+  original never does is removed (the leash tug, the old idle stand-ins, planning every desire at once); a creature
+  the game makes starts at the first stage of growing up, another creature is believed by its drawn size, and an
+  animal is believed alive only above a fifth of its life. Land 1 moves from turn 44; 11 creature scenes moved that
+  are not explained yet. Issues #195 and #196 closed.
+- joint178 (873c0cd2a, published ba18fc95e): the temple closed out as the original, with his #468's rules and pieces
+  of his tree (the scrolls' control keys, the save game room's time played, the future room): its outside blended
+  two meshes at a time, the main room's pool, doorway, door signs and influence map, the creature room's flames,
+  mists and waterfall, the challenge pictures and the options room; the testbed plays Land 1's story as land
+  timelines (the opening, the tiger stone, the tutorial, The Temple Is Finished), with an opt-in scripts part in the
+  state hash; the land blocks repainted through their queue, with building marks and prints (part of #71); the
+  worship walks on the footpaths (part of #74); the ambience mixer replays the original's scheduler; the creature
+  interaction takes the camera and gives it back as the original; the hand's pointer pinned while it holds a village
+  totem; and every wiki area brought up to date with the tree. Fidelity, cycle, the story and the hand demos were
+  identical; 26 scenes moved (the land blocks, the temple, the worship walks) and were renewed with joint180. Issues
+  #163, #165 and #198 closed.
+- joint177 (80a6aca71, published 06e0fc890): the gestures closed out (the pass knows when the creature fights, a
+  gesture shown on the land is laid as the original's, a camera shake keeps the path drawn, a still mouse sends its
+  own messages, a template of more than 80 points is kept) and the films (an opaque film's frame waits for its next
+  picture, Escape and the skips as the original, the pre-intro and the logos cut short only by Escape or a mouse
+  button, the loading screen's version from the game settings); the falling-spell creature's own hair; and the
+  did-you-know bubble drawn in front of the camera, where nothing of it showed. Five scenes moved, as predicted.
+- joint176 (ff7ceb5d1, published 0ec495ead): the World pass: the sea and the missionaries' boat, fish farms a fire
+  heats and a miracle wears down, the climate in the game's precision and the scripts' weather and wind natives, a
+  player's resistance to wind, the gusty wind's noise, rain and snow standing still inside the temple, each thing's
+  light from the land, the night lights, light columns as wide as their model, a worship site's footpaths from each
+  town's pit, the ambience's fades in the original's order, the creature's hair tufts and its foot in the water
+  scaring the fish; a land change keeps what the original keeps and only a new game resets it (the clock, the
+  guidance, the hand's gestures, a film, the camera's lens and more); the leash wipes the gesture path; the hand's
+  locked select and totems as the original; the player's camera rounded through the map's middle every frame; a fire
+  put out impresses only the villagers near it, and a villager at home or hiding is only impressed by a reaction.
+  Every reference was run and every move explained, then renewed: the story moves from Land 1's turn 483, the cycle
+  on Land 2. Issues #166, #167, #181, #182 and #202 to #208 closed.
+- joint175 (f511f9b71, published 49a2b6917): a built wonder raises its player's tribal power; teleport stones,
+  seeds, totems and empty pots take no effect; a raised object passes over a way out of a land; no rain with the
+  Weather setting off; a Norse gate's lamps drawn only with their gate; the snow drawn over each land block's four
+  tiles as the original; picking a leash wipes the gesture path, and the power-up pass stops on all of the original's
+  early outs; the camera's movement keys, its clear view over sloping land and the map's disc as the original (part
+  of #201); the hand's slap and caress on the creature blend in and keep their own clock. Every reference was run:
+  the state is identical everywhere. Issues #193 and #199 closed.
+- joint174 (3e7358664, published 480b54a71): data mods: a switched-on mod's files replace the game's files of the
+  same path, only with the mod loader. Identical everywhere.
+- joint173 (14cea29a4, published 30b1c9e16): the Mods page: with the mod loader, the options list each mod with a
+  switch, and the game and the loader agree by the SDK's version, a hash of its headers; nothing changes without the
+  loader. Every family's progress was measured again against the code and the original (the Beings family in
+  182e5a0aa, published 7699ce942). Issue #76 closed: fishermen are in, and in the original fishing takes no food out
+  of a farm.
+- joint172 (e34ede6a1, published c3b8cdcba): the raw input recorded and played back where the window's events enter
+  (off by default); the villagers' overlay names each villager's top state; the footpath tab's Execute button says it
+  is not wired; progress rows count a partial row as its share. Identical everywhere.
+- joint170 and joint171 (ff94ef905, published b40eb5a3e, landed together): openblack starts at the top detail level
+  (the user's choice); at the two lowest levels the sky's dome is the day pictures, unblended and tinted by the time
+  of day; the creature looks at the sun only by day and at the moon only at night, files each thing by its class's
+  kind, sees a thing move once it is away from where it was put, and on the way to a far point looks at the last
+  moving thing it met; the fight music while the player directs the fight, the effects and music volumes kept for the
+  computer, a scroll's click as it is activated; the camera kept inside a script's fence; multisampling as a View
+  switch, off as the original draws; progress rows only for behaviour the original has. Every reference was renewed
+  at the top detail level, where every check runs since. Issues #160, #161 and #162 closed.
+- joint169 (68800eb81, published 3cd7ce29b): his #477 a creature casting at a place (a forest where a villager is, a
+  town's shield at a built storage pit, wood by a workshop), his #544 the creature's emergencies (it looks at them
+  before it decides, and puts out a burning thing with water) and his #354 the creature held by the hand (it stands
+  still, turns to the player and shows what it wants; lessons, spells and fumbles are told), with the guide's and
+  the Ogre's natives (a script sets a creature's desires, makes or takes away reactions, makes a creature from
+  another); a town's desire flags, made with their town and flying for its desire; the need signs over a worship
+  site's altar; what a challenge script creates (a chest dropped from the sky, a one-unit store, no highlight); a pot
+  or a pile in the physics only when its row says so. Fidelity, cycle, the story, the temple shots and the hand
+  demos were renewed.
+- joint168 (0c09fccc9, published 128a66f64): two in ten new villagers become named villagers, as the original. It
+  moves every reference; all were renewed.
+- joint167 (b30d23942, published 6cf03120f): the hand's texts, with his #494, over the land, buildings and scrolls
+  and with a gift (Pitch and Rotate, Zoom Out, a building's wood and progress, Give, Combine Scaffolds, Sacrifice at
+  an altar, a town's and a pit's numbers each turn) and the hand demo's mouse; his #347 a creature told to look at a
+  thing turns to it, keeps its head on it and comes to know it, and a script camera facing a creature takes its
+  body's facing; heavy rain splashes rings on the land and the sea; animals leaving a script, a walk or a reaction
+  let go of their circle; the hand's press over a thing it can do nothing with clicks the land. The hand demos were
+  renewed. Issue #159 closed.
+- joint166 (c5e4a4030, published b18e60085): a villager leaving script control lets go of the circle it hugged; a
+  creed never becomes a physics object and hangs where the hand lets it go, and what flies goes through it; each
+  player's hand keeps the last thing it let go of, and a creature can copy where it was let go. With it, the wiki
+  caught up with joints 148 to 166 (c5402793a, published 2804e9aca, the new base).
+- joint164 (add75ea86, published 1835ff1f4) and joint165 (1864b95f3, published c4f35733c): a shield's fall panics a
+  villager about whatever it was watching, as the original; leaving the Options page on Maximum Detail always sets
+  the top detail level, also from the default 4 (the user's choice).
+- joint163 (93a387834, published 3a6709899): his #308 and #309, the worshippers as the original (disciples sent
+  last, the site's food pot, altar rest and supply errands, the chant's cost, hiding at the door, no worshippers for
+  a site still being built, a dancer leaving when the site is gone, a tired worshipper not going home), and a
+  villager wandering round a script's place (SET_SCRIPT_STATE_POS, SET_SCRIPT_FLOAT); a script resizing a weather
+  thing's storm; a walk left for a reaction or a script kept, and the script's walk keeping its circle.
+- joint162 (d5b56dc26, published ce1a0ce02): what a challenge script creates settles on the land (poo, rocks, a
+  football, a scaffold, an ark, mobile objects), a football and a lump of poo moving by their own physics rows; a
+  villager in a script's crowd plays a crowd clip each time its clip is ready; the plain walks and leaving
+  MOVE_TO_POS as the original. Identical everywhere.
+- joint161 (6968dde6a, published ba479304f): faster builds (reproducible MSVC outputs, vcpkg installing only when
+  what it installs from changes, five headers including less); a held leash's rope starts at the hand's wrist; his
+  #518 a thing seen again stirs the creature's wish to impress, compassion, anger and play; his #228
+  MAP_SCRIPT_FUNCTION carries out its land-script line; the golden shower drawn over things a highlight keeps (part
+  of #63). Three leash scenes were renewed. Issue #152 closed.
+- joint160 (94d03d1ec, published 678a049e2): a creature's throw leads a walking villager and aims where a creature
+  will be; a drag keeps the camera hints of the frame before its press; IN_CREATURE_HAND as the original; a new dance
+  gets a footpath from a town's storage pit, and a deleted fixed object's footpath link goes with it. Nine new camera
+  scenes got their references. Issue #151 closed.
+- joint159 (e8fef535c, published 4c493567f): the top detail level draws the villagers, animals and birds again, each
+  film actor with its own high mesh, and the options' Maximum Detail sets that level (the user's choice); a thrown or
+  nudged miracle bubble stays drawn round its miracle; the one-shot miracles a challenge script creates (Khazar's on
+  Land 2) settle on the land; his #361 a hand demo's recorded click lands on the thing of its kind nearby, and his
+  #333 IS_OF_TYPE; the disciple's glow and yellow symbol follow the villager; a creature's SCALE and SPEED for
+  scripts; one debug switch, off by default, for the fixes of the original's game-logic bugs. Identical everywhere.
+  Issues #145 to #148 closed, and #80 (the disciples) after it.
+- joint158 (652f0896d, published d6ff3e78a): an animal a script creates is held still until the script needs it, so
+  the shepherd quest's sheep no longer wander off. Land 1 moves from turn 9; fidelity, cycle, the story, the land
+  shots and the hand demos were renewed. Issue #150 closed.
+- joint157 (6bc97ff78, published 8115efef3): the state hash's creature part folds the leashes each creature knows.
+  Only that part moved; fidelity, cycle, the story, 72 scenes and the hand demos were renewed.
+- joint156 (cd2eabbb7, published 11b57a2de): a young creature's head, hands, feet and eyes are drawn bigger, and its
+  eyes take the size it is drawn at, as the original. Land 1's transforms move from turn 10, the random draws
+  unchanged; fidelity, cycle, the story, 69 scenes and a temple shot were renewed. Issue #156 closed.
+- joint155 (79be6513f, published 2d66a47c9): a tap on the land sends a leashed creature there, marked and
+  acknowledged with its sound, and a second tap makes it run (part of #154); the idle hand takes no action press
+  while the game is paused; a dead tree crosses the vortex as the player's it is. Identical everywhere. Issue #158
+  closed.
+- joint154 (7094d3bb8, published 4ed161480): the camera's helper icons by the hand, from his pure rules (the pitch
+  and rotate arrows, the zoom glass, the red cross out of the influence, faded in and out, sized from a 4:3 screen),
+  in play and in the hand demos; the hand's texts for signposts and scrolls (Activate, Reminder), help bubbles
+  (Scroll), the grip with both buttons (Zoom) and the leash (Detach Leash, Attach Leash, Bring Creature). 75 scenes,
+  the land shots by day and night and the hand demos were renewed. Issue #155 closed.
+- joint153 (6b2f3d01c, published fd5a276ba): his #468 the temple's rooms open as the game opens them, his #226 the
+  help of its rooms, scrolls and places, and his #252 a help text's control shown as its key or mouse button; a
+  scaffold a computer hand drops leaves the hand as the player's does; three unused shader varyings dropped. The
+  temple shots moved.
+- joint152 (4c99bf016, published 6604fd05e): a creature made from its mind file knows the leashes the file keeps
+  (part of #153); the hand strokes and slaps a creature only once its body is free, and reads its pose as the hand's
+  creature state begins; the creature interaction asks for the camera once, and no script camera hands it the view;
+  five temple rooms show their reflection under their floors. A temple shot moved.
+- joint151 (54e4a064d, published dad401a55): the sun drawn before the moon, after the dome; SET_SUN_DRAW,
+  GET_OBJECT_FADE and the real-clock natives (GET_REAL_TIME, GET_REAL_DAY, GET_REAL_MONTH, GET_REAL_YEAR); another
+  creature's dominant desire is the one its action shows now; the Statistics box's town figures read as they stand;
+  the vortex's crossing file writes the angles each thing keeps. Identical everywhere.
+- joint150 (f921941cc, published 180d1722f): only the creature's idle face draws its random pick, as the original.
+  It moves Land 1 from turn 44; fidelity, cycle, the story, the land shots and the hand demos were renewed.
+- joint149 (49274a3d5, published 56929fd5e): each player's influence power is worked out once the land's script has
+  run, and lasts to the next land until it is worked out again; his #320 a temple's door lanterns hidden from a
+  little after its explosion, and his #413 the hurt temple heart's wait and sound pinned to the original's numbers.
+  After it, a milestones page and a simpler dashboard that measures raffclar's work against his current master
+  (c2fb6f48d, published 8eb6fadd4).
+- joint148 (f107fa43f, published 5dde484e3): his #349 the temple's depth fog on its rooms, walls and trophies, and
+  its model light; the original's facts from eight older notes brought into the wiki. Only the temple shot moved.
+  Before it, the dashboard's one measure of raffclar's work (c97de55f5, published 55cde0a02) and the wiki brought up
+  to date with joints 132 to 147 (6f5dffa29, published 12af5b482).
 - joint147 (6dcd1fdcc, in 7ca9f39a7): whose throw it is, as the original: what any creature lets go of, throws at a
   target or kicks is its own player's throw, with the creature as the thrower, and a computer player's hand drops for
   that player (stores, knocks, catches, toy play and remarks follow); a held scaffold sounds its phantom building; and
@@ -142,8 +319,9 @@ counts the share of his gain brought in. The 0222f9f5 port audit: 105 of 161 row
 
 ## Lanes of his being ported now
 
-- Next: #524, #543, #605, #547, #567, #525 and our exe fixes; then joints of their own for the per-desire object
-  test, the creature's two decision trees, #267, the shepherds, #417 and #529.
+- None lane by lane since 2026-10-20 (above): the joints above name each piece of his that came in. Ported here
+  before that date and parked until the recreation reaches their rows: the per-desire object test, #267, the
+  shepherds, #417 and #529.
 
 ## Done before (joints 99 to 111)
 
@@ -203,14 +381,16 @@ counts the share of his gain brought in. The 0222f9f5 port audit: 105 of 161 row
 ## Offered to raffclar's agents
 
 Issues for these are filed as `agent-task`; nothing else in them is touched on this side:
-- the editor additions and script decompile/recompile in the editor;
-- the creature status and fight panels;
-- the visible new particle effects (belief sprites, electric arcs, the hand glow, camera-distance scaling);
-- a wonder built with fences instead of its mesh (issue #129).
+- the editor additions: the creature spawner window hosted by the editor, and placing, moving and inspecting
+  creatures (issues #97 and #99);
+- the testbed's miracle scenarios, globes and dispenser grid from his tree (issue #188).
 
-The flowers (issue #124) and the hand catching and feeding fireballs (issues #114 to #116) were done on this side;
-those issues are being checked and closed. The Land 5 rock (issue #128) was read on this side: its skin is
-white in the game's data, so it is drawn as the original draws it.
+The flowers (issue #124) and the hand catching and feeding fireballs (issues #114 to #116) were done on this side,
+as were the other parts once offered here: script decompile and recompile in the editor, its Scripts tab and its
+dispensers (#96, #98, #100), the creature status and fight panels (#111), and the belief sprites, electric arcs and
+camera-distance scaling (#117 to #119); those issues are closed. The Land 5 rock (issue #128) was read on this side:
+its skin is white in the game's data, so it is drawn as the original draws it. So were a wonder's fences (issue
+#129): they are the wonder's own scaffold, drawn by how far it is built, as the original draws it.
 
 ## Being done by raffclar's agents (pull requests open)
 

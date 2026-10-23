@@ -10,8 +10,8 @@
 |-----------|--------|---------------|
 | The script loads from its first line to its last in openblack | done | checked by reading it the way `Script.cpp` does: every line is a known command with the right arguments, so no line is skipped |
 | The land's footpath file is loaded with it | done | `Game::LoadMap` (the land's `.fot`) |
-| The story moves on to this land when Land 4 is finished | todo | the land-loading function does nothing (`LoadMap` in `src/CHLApi.cpp` is empty) |
-| Starting on this land runs this land's challenges | todo | the land control script always begins with Land 1's challenges, whatever land is loaded |
+| The story moves on to this land when Land 4 is finished | pending | `LOAD_MAP` changes the land (`Game::ChangeLand`), but play has not yet got here: the story has not yet been run out of Land 2 since Khazar's and Lethys's hands (`COMPUTER_PLAYER_READY`) became real |
+| Starting on this land runs this land's challenges | pending | the land control script always begins with Land 1's challenges, whatever land is loaded |
 
 ## Set-up
 
@@ -132,4 +132,4 @@
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Switches on 1 computer players (player two) | partial | the players are added to the player system; their thinking isn't (see ../multiplayer/) |
+| Switches on 1 computer players (player two) | partial 40% | the players are added to the player system; their thinking isn't (see ../multiplayer/); re-measured 2026-10-21: the players are added; no mind runs them |

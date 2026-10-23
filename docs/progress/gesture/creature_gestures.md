@@ -1,10 +1,11 @@
 # Creature gestures
 
-Gestures that involve the creature beyond the leash: the player's gestures during a creature fight, and the gestures
-the creature itself draws in the air when it casts a miracle. The creature's emotes (blowing a kiss, waving and so on)
-are creature actions, in [../creature/](../creature/); the leash gestures are in [leash_gestures.md](leash_gestures.md).
+Gestures that involve the creature beyond the leash: the player's gestures during a creature fight. The creature's
+own gesture before a cast is not in the game as it plays ([not in the original](../../not-in-the-original.md)). The
+creature's emotes (blowing a kiss, waving and so on) are creature actions, in [../creature/](../creature/); the leash
+gestures are in [leash_gestures.md](leash_gestures.md).
 
-**Progress: 0/7 done, 0 partial — 0%**
+**Progress: 1/3 done, 0 chosen, 0 partial, 0 inferred — 33%**
 
 How the original does it, in our wiki: [Magic: the core of the miracles](../../../magic/gestures.md).
 
@@ -12,21 +13,6 @@ How the original does it, in our wiki: [Magic: the core of the miracles](../../.
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| While the player's creature fights with the fight controls up, gestures choose its fight moves instead of the usual gestures | todo | `ProcessPowerUpSystem` has `fighting = false`; nothing ties gestures to the fight (`src/Creature/CreatureFight.h`) |
-| Drawing a star makes the creature do its special move | todo | `creatureSpecialMoveGesture` is read into `src/InfoConstants.h` but unused; help event 19 is not ported |
-| A creature that knows miracles can be made to cast them in a fight by gesture | todo | Nothing in our tree |
-
-## The creature drawing gestures
-
-| Behaviour | Status | Where / notes |
-|-----------|--------|---------------|
-| Before casting a miracle the creature draws that miracle's gesture in the air with its hand | todo | The creature's gesture layer (`src/Creature/CreatureLayers.h`) plays only nods, shakes, yawns and the like; there is no miracle gesture step |
-| The creature's hand follows the shape of the gesture as it draws, along the gesture's path | todo | Nothing in our tree |
-| A glowing chain trails behind the creature's hand while it draws the gesture | todo | `SF_CreatureGestureChain` is only listed in `src/Particles/ParticleTypes.cpp`; nothing starts it |
-| A miracle cast on the creature shows a gesture effect that starts and dies away with the spell | todo | Nothing in our tree |
-
-## Gestures with no use in the shipped game
-
-| Behaviour | Status | Where / notes |
-|-----------|--------|---------------|
-| The game's tables have gestures for zooming to the creature and for ending a gift to it, both left empty | n/a | Not used by the original game |
+| While the player's creature fights with the fight controls up, both pickers close and the fight's gestures come before the usual ones; the move button wipes the path, and while it fights the spirals, R and the square spiral are not looked for | done | `FirstStage` with `CurrentFight` (`src/Magic/Gestures/PowerUpSystem.cpp`): the creature duelling (`IsDuelling`, the scripts' IS_FIGHTING) with the interface's fight state up (`ecs::audio_queries::LocalPlayerDirectsFight`) closes both pickers, or wipes the path while the move button is held; the fight flag keeps steps 5 to 7 off, as the original ([gestures](../../../magic/gestures.md#what-is-looked-for-and-when)); tests `LeashPicker.TheCreaturesFightWithItsControlsUpComesFirstAndClosesBoth`, `LeashPicker.TheFightIsTheLocalPlayersCreaturesDuel`; the gesture window shows the fight and its controls. The fight's own gestures are the two rows below |
+| Drawing the special-move gesture (the star) makes the creature strike its special move at the opponent | pending | The fight's stage looks for `creatureSpecialMoveGesture` (8 STAR in the frozen info.dat) for every creature, with no knowledge test; recognised: the trail, help event 19, and the special move (packet 0x22, move 4) at the point where a line from the creature to its opponent meets the opponent's mesh ([gestures](../../../magic/gestures.md#what-is-looked-for-and-when)). Needs the player's fight controls, which openblack lacks (the fight's interface action, packet 0x22, the fight's intersection; [../creature/fighting.md](../creature/fighting.md), the player's controls); the stage passes on to the scribble meanwhile |
+| A creature that knows a fight miracle (fire, lightning, heal, weak, strong) casts it at its opponent when the player draws its gesture in a fight | pending | Decoded in the frozen exe: for each seed with the fight flag (`unknown0x17C` in `src/InfoConstants.h`) whose magic the creature knows, the stage looks for the seed's gesture; recognised, a line from the creature to its opponent meeting the opponent's mesh sends packet 0x5A (the creature, the magic) with the trail, and a miss lets the pass go on ([gestures](../../../magic/gestures.md#what-is-looked-for-and-when)). Needs the player's fight controls, which openblack lacks (packet 0x5A, the fight's intersection, the fight cast from a packet; [../creature/fighting.md](../creature/fighting.md), casting a miracle in a fight) |

@@ -24,16 +24,16 @@ physics research spec. New research adds its findings to the area files below.
 
 | Area | File | Bugs | Soft-locks and lost progress |
 |------|------|------|------------------------------|
-| Story scripts: gold scrolls, land control, the guide, the Land 5 curse, the vortices | [story_scripts.md](story_scripts.md) | 77 | 5 |
-| Silver quests and the shared swap offer | [silver_quests.md](silver_quests.md) | 71 | 5 |
-| Creature | [creature.md](creature.md) | 3 | 0 |
-| Villagers and towns (tools, sounds, football) | [villagers_and_towns.md](villagers_and_towns.md) | 8 | 0 |
-| Physics and objects | [physics_and_objects.md](physics_and_objects.md) | 7 | 0 |
-| Miracles and dispensers | [miracles.md](miracles.md) | 2 | 0 |
-| Interface, help and text | [interface_and_text.md](interface_and_text.md) | 11 | 0 |
+| Story scripts: gold scrolls, land control, the guide, the Land 5 curse, the vortices | [story_scripts.md](story_scripts.md) | 77 | 6 |
+| Silver quests and the shared swap offer | [silver_quests.md](silver_quests.md) | 72 | 5 |
+| Creature | [creature.md](creature.md) | 37 | 0 |
+| Villagers and towns (tools, sounds, football) | [villagers_and_towns.md](villagers_and_towns.md) | 13 | 0 |
+| Physics and objects | [physics_and_objects.md](physics_and_objects.md) | 11 | 0 |
+| Miracles and dispensers | [miracles.md](miracles.md) | 3 | 0 |
+| Interface, help and text | [interface_and_text.md](interface_and_text.md) | 14 | 0 |
 | Multiplayer and skirmish | [multiplayer_and_skirmish.md](multiplayer_and_skirmish.md) | 9 | 1 |
-| Engine (picking, land queries, clips, films) | [engine.md](engine.md) | 5 | 0 |
-| **All** | | **194** | **11** |
+| Engine (picking, land queries, clips, films) | [engine.md](engine.md) | 6 | 0 |
+| **All** | | **242** | **12** |
 
 ## How bugs are classified
 
@@ -56,7 +56,7 @@ A file leaves out a group it has no rows for.
 |--------|-----------------|
 | Bug | The defect, in plain English |
 | What the player sees | Its effect in play, or "nothing visible" |
-| Evidence | The script, data or engine evidence in plain words: script file names (`CreatureCurse`, `Reward.txt`) and quoted lines are fine; no addresses, no decompiled or internal names of the original, no assembly. "checked in the script source" or "checked in the game data" marks rows re-read while building this list |
+| Evidence | The script, data or engine evidence in plain words: script file names (`CreatureCurse`, `Reward.txt`) and quoted lines are fine; rows name the code areas; addresses are in the wiki pages they link to, or in the row when it has no page. "checked in the script source" or "checked in the game data" marks rows re-read while building this list |
 | Found in | Links to the progress file(s) that describe it; "nearest:" when only the physics research spec has it so far |
 | openblack | What openblack does about it |
 
@@ -78,7 +78,8 @@ fixing one would mean patching the script or the command it relies on.
 
 1. Check it is a bug in the original game (not openblack's, not cut content) and find its evidence.
 2. Add a row to the area file's matching severity group (add the group if the file lacks it), in the five-column format,
-   with the second column never one of the status words (done, partial, todo, n/a) so the scorer skips it.
+   with the second column never one of the status words (done, partial, pending, n/a, or the older `todo`) so the
+   scorer skips it.
 3. Link the progress file that describes it, and make sure that file mentions it too.
 4. Update the file's count line (or rerun
    `python docs/tools/vanilla_bugs_count.py docs/wiki/project/progress/vanilla_bugs`, which rewrites

@@ -2,7 +2,7 @@
 
 `Scripts/Land1.txt` builds the first land of the story: the player's starting town, the neutral villages around it, the creature's gate with its three totems, the Pied Piper's cave and the magic mushrooms, scattered rocks and fences, and its climates and streams. This file counts what the script makes and whether openblack makes it; the challenges played there are the story domain's ([../story/](../story/)), and the scripts that run them are in [challenge_scripts.md](challenge_scripts.md).
 
-**Progress: 63/67 done, 4 partial — 97%**
+**Progress: 64/67 done, 3 partial — 98%**
 
 How the original does it, in our wiki: [The Land 1 intro and the tutorial's script side](../../../scripts/land1-intro.md).
 
@@ -12,8 +12,8 @@ How the original does it, in our wiki: [The Land 1 intro and the tutorial's scri
 |-----------|--------|---------------|
 | The script loads from its first line to its last in openblack | done | checked by reading it the way `Script.cpp` does: every line is a known command with the right arguments, so no line is skipped |
 | The land's footpath file is loaded with it | done | `Game::LoadMap` (the land's `.fot`) |
-| Loading the land starts the story's control script, which runs Land 1's challenges | partial | `Game.cpp` starts `LandControlAll` at a new game whatever land was loaded; of Land 1's challenge scripts many now call only working functions, see challenge_scripts.md |
-| The land is where a new game starts (from the map script) | partial | openblack starts on `Land1.txt` by default (`--start-level`) without reading the map script |
+| Loading the land starts the story's control script, which runs Land 1's challenges | partial 70% | `Game.cpp` starts `LandControlAll` at a new game whatever land was loaded; of Land 1's challenge scripts many now call only working functions, see challenge_scripts.md; re-measured 2026-10-21: the story's control script starts; see challenge_scripts.md for Land 1's challenges |
+| The land is where a new game starts (from the map script) | partial 50% | openblack starts on `Land1.txt` by default (`--start-level`) without reading the map script; re-measured 2026-10-21: openblack starts on Land1.txt without reading the map script |
 
 ## Set-up
 
@@ -82,7 +82,7 @@ How the original does it, in our wiki: [The Land 1 intro and the tutorial's scri
 | 19 fields (Wheat 18, Corn 1) | done | `FieldArchetype` (`CREATE_NEW_TOWN_FIELD`) |
 | 13 fish farms | done | `FishFarmArchetype` (`CREATE_TOWN_FISH_FARM`) |
 | 4 pots (MagicWood 4) | done | `PotArchetype` (`CREATE_POT`) |
-| 47 drinking places | partial | a `DrinkWaypoint` is kept (`CREATE_DRINK_WAYPOINT`); nothing reads it yet |
+| 47 drinking places | done | a `DrinkWaypoint` is kept in the order made (`CREATE_DRINK_WAYPOINT`); the creature drinks at the nearest one under 1000 (`mind_detail::DrinkPlaceOf`, `creature_drink::NearestWaterPoint`; test `CreatureDrink.*`; unverified against v1.42) |
 
 ## Animals
 
@@ -121,4 +121,4 @@ How the original does it, in our wiki: [The Land 1 intro and the tutorial's scri
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | 11 streams through 187 points | done | the streams and their points are kept and the rivers built from them after the last line (`ecs::CreateRiverFootprints`) |
-| 3 arenas | partial | an `Arena` is kept (`CREATE_ARENA`); the creature fights that use it are not wired into the game |
+| 3 arenas | partial 40% | an `Arena` is kept (`CREATE_ARENA`); the creature fights that use it are not wired into the game; re-measured 2026-10-21: kept; the creature fights that use it are not wired |

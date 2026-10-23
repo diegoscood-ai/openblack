@@ -6,7 +6,7 @@ every tribe, most with wonders. Its start line warns "Make your moves fast now o
 
 **Players:** 4 (two computer gods, plus creatures for four players with no temple) · **Landscape:** `Data/Landscape/Multi_Player/DCTTTW.lnd` · **Script:** `Scripts/Playgrounds/Death Comes To Those That Wait.txt` · **Mode:** skirmish
 
-**Progress: 14/33 done, 11 partial — 59%**
+**Progress: 15/33 done, 11 partial — 62%**
 
 What the script builds, object by object, is in
 [playground_scripts.md](../../scripts/playground_scripts.md#death-comes-to-those-that-wait-loading) (its "Death Comes
@@ -15,13 +15,7 @@ To Those That Wait" sections); this file covers the land as a player meets it. H
 [../../rival_gods/skirmish_opponents.md](../../rival_gods/skirmish_opponents.md).
 
 openblack reads this script to its end, skipping its misspelt lines as the game does, so the land is built; the rows
-still todo are mostly about how a skirmish starts and ends.
-
-## Where it comes from
-
-| Behaviour | Status | Where / notes |
-|-----------|--------|---------------|
-| A fan's land, signed "By Fat Omen" in its title, built on Four Gods: the same land size, the same corner temples and home towns for players three and four, and the same spot for the computer creatures | n/a | history of the file; neither file is among those the game installs |
+still pending are mostly about how a skirmish starts and ends.
 
 ## Choosing and starting it
 
@@ -29,9 +23,9 @@ still todo are mostly about how a skirmish starts and ends.
 |-----------|--------|---------------|
 | The skirmish box lists it by its file name, "Death Comes To Those That Wait" | partial | the debug menu lists it by its start message title "Death Comes To Those That Wait -- By Fat Omen" with the warning as a tooltip (`src/Level.cpp`); no skirmish box |
 | The whole script loads, the game skipping lines it does not know | partial | `Script::Load` logs and skips each unknown or misspelt line and goes on, as the game does, but it also skips the line missing its closing bracket, which the game reads (not checked against the file, which is not in our game folder) |
-| No story script runs on a skirmish land | todo | our tree starts the story's control script (`LandControlAll`) on the start land whatever it is, and leaves the story's scripts running when a land is opened from the debug menu |
-| The script gives no start point, so the camera starts zoomed onto your own temple | todo | `FeatureScriptCommands::StartCameraPos` looks at the point given, here the land's corner (0, 0), off the land |
-| Its start message is the title and "Make your moves fast now or never!" | todo | `START_GAME_MESSAGE` and `ADD_GAME_MESSAGE_LINE` are empty; only the debug land list reads them, for its title and tooltip (`src/Level.cpp`) |
+| No story script runs on a skirmish land | pending | our tree starts the story's control script (`LandControlAll`) on the start land whatever it is, and leaves the story's scripts running when a land is opened from the debug menu |
+| The script gives no start point, so the camera starts zoomed onto your own temple | pending | `FeatureScriptCommands::StartCameraPos` looks at the point given, here the land's corner (0, 0), off the land |
+| Its start message is the title and "Make your moves fast now or never!" | pending | `START_GAME_MESSAGE` and `ADD_GAME_MESSAGE_LINE` are empty; only the debug land list reads them, for its title and tooltip (`src/Level.cpp`) |
 
 ## The land
 
@@ -61,9 +55,9 @@ still todo are mostly about how a skirmish starts and ends.
 | Players three and four are computer gods with Celtic towns and temples in their corners, as in Four Gods | partial | the towns and temples are made (`TownArchetype`, `CitadelArchetype`); `TOGGLE_COMPUTER_PLAYER` adds the players, but no mind thinks for them |
 | Player three has a tortoise and player four a zebra from the generic computer creature mind | partial | `CREATE_CREATURE_FROM_FILE` (`FeatureScriptCommands::CreateCreatureFromFile`, `CreatureArchetype`) with the mind loaded; it faces a fixed way and takes our starting size; nothing of its god steers it |
 | Players two, five, six and seven get a horse each from the same mind but no temple, no town and no computer god | partial | `CREATE_CREATURE_FROM_FILE` (`FeatureScriptCommands::CreateCreatureFromFile`, `CreatureArchetype`) with the mind loaded; it faces a fixed way and takes our starting size; nothing of its god steers it; how the game drives a creature whose player has no god is not determined |
-| A fifth horse is given to "player eight", a name the game does not have (it knows players one to seven and neutral) | todo | our tree knows players one to seven and neutral too (`k_PlayerNamesStrs`, `src/Enums.h`); `CreateCreatureFromFile` does not check the name, so this creature gets a player number out of range; what the game does is not determined |
+| A fifth horse is given to "player eight", a name the game does not have (it knows players one to seven and neutral) | pending | our tree knows players one to seven and neutral too (`k_PlayerNamesStrs`, `src/Enums.h`); `CreateCreatureFromFile` does not check the name, so this creature gets a player number out of range; what the game does is not determined |
 | All seven creatures start on one spot about 500 paces from your temple: the danger the title warns of | partial | made where the script puts them; nothing of their gods steers them |
-| Each creature is sized to match your own | todo | `SET_COMPUTER_PLAYER_CREATURE_LIKE` is empty |
+| Each creature is sized to match your own | done | `SET_COMPUTER_PLAYER_CREATURE_LIKE` names it; the computer mind's start sizes the creature (`ComputerPlayerSystem`, `computer_player::SizeLike`; unverified against v1.42) |
 | Belief in players two, three and four is capped in every town (at 1, or at a half in one Egyptian town), yours not | done | `SET_TOWN_BELIEF_CAP` (`ecs::town_belief::SetCap`) |
 
 ## Neutral towns
@@ -71,7 +65,7 @@ still todo are mostly about how a skirmish starts and ends.
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | 22 neutral towns of all nine tribes (Norse, Greek, Indian, Japanese, African, Celtic, Egyptian, Tibetan, Aztec), twelve of them with a wonder | done | `TownArchetype` and the buildings, wonders included (`AbodeArchetype`) (not checked against the file, which is not in our game folder) |
-| Two towns share the number 15 (a Greek town and the Tibetan town in the middle) | todo | what the game does is not determined; our tree's lookup (`ecs::town_queries::FindTownWithID`) takes the first town with that number, the players' towns before the neutral ones |
+| Two towns share the number 15 (a Greek town and the Tibetan town in the middle) | pending | what the game does is not determined; our tree's lookup (`ecs::town_queries::FindTownWithID`) takes the first town with that number, the players' towns before the neutral ones |
 | The Tibetan town in the middle has a graveyard, a football pitch, 21 houses, about 18 people, 20,000 food and 20,000 wood, and twelve more buildings planned (the Greek town given the same number has its own wonder) | partial | built with its stores, belief and planned buildings (`CreatePlannedAbode`); its pitch never plays: football is always off in multiplayer ([../../town/football.md](../../town/football.md#the-add-on-and-its-switch)) |
 | The towns offer 102 miracles between them, from lightning and shields to the strongest storms and explosions | partial | the towns hold their miracles (`magic::script::CreateNewTownSpell`), but a town changing hands does not yet pass them on to the winner's worship site ([../../miracles/dispensers_and_seeds.md](../../miracles/dispensers_and_seeds.md)) |
 
@@ -88,5 +82,5 @@ still todo are mostly about how a skirmish starts and ends.
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The land has no winning rule of its own; the skirmish's own rule applies | todo | not determined what ends a skirmish, and our tree ends none; see ../skirmish.md |
-| Losing while two or more gods are left shows "You have lost the game." with Watch Game (keep watching the other gods) and Leave Game (leave the skirmish) | todo | no end of game in our tree; see ../skirmish.md and [../../story/losing_and_game_over.md](../../story/losing_and_game_over.md) |
+| The land has no winning rule of its own; the skirmish's own rule applies | pending | not determined what ends a skirmish, and our tree ends none; see ../skirmish.md |
+| Losing while two or more gods are left shows "You have lost the game." with Watch Game (keep watching the other gods) and Leave Game (leave the skirmish) | pending | no end of game in our tree; see ../skirmish.md and [../../story/losing_and_game_over.md](../../story/losing_and_game_over.md) |

@@ -7,72 +7,73 @@ cut before release (horse, leopard, lion, tortoise, wolf).
 
 **Land:** all (run by quests on lands 1 to 5) · **Giver:** the quest that ends in a creature · **Script:** SwapCreatures, SwapCreaturesAtBreeder · **Reward:** the new species for the player's creature · **Repeatable:** yes (the field offer never ends)
 
-**Progress: 0/38 done, 0 partial — 0%**
+**Progress: 4/38 done, 0 chosen, 1 partial, 0 inferred — 12%**
 
 Sources: the swap script and every script that runs it (the original source text, matching the PC game's compiled
 `challenge.chl`), the game's text table and the executable's swap command. openblack's state is judged on this tree:
-`SwapCreature` and `IsCreatureAvailable` are stubs in `src/CHLApi.cpp`, and so are the creature-control commands the
-offer needs (its dialogue, highlight and special-effect commands work). openblack can build a creature of any species
-with a mind (`CreatureArchetype::Create`, used by the dev spawner) but has nothing that moves a mind into another body,
-so every row is todo unless it says otherwise.
+`SwapCreature` and `IsCreatureAvailable` are ported (raffclar PR #384, unverified against v1.42); the creature-control
+commands the offer needs are real now (`MOVE_GAME_THING` and `SET_FOCUS` on a creature, `CREATURE_DO_ACTION`, which runs
+a row that has an executor: looking at the camera (82), examining by looking (20) and idling (161) have one, pointing at
+an object (163) has none, `src/Creature/CreaturePlanActions.cpp`), its dialogue, highlight and special-effect commands
+work, and `CREATE` makes creatures now, though no offer has yet been checked in play; the swap is reached through the testbed scenario
+`mind.creature_swap` and the creature spawner's "Swap minds with the player's creature".
 
 ## Who offers a creature
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Land 1, "The Lost Flock": a sheep creature, once the whole flock is penned | todo | The Lost Flock starts with the fourth tutorial answer, but `CREATE` does not make creatures, so no sheep creature is ever offered |
-| Land 2, "The Riddles": a zebra appears on the altar | todo | no Land 2 to 5 in our tree (`LOAD_MAP` is empty), and `CREATE` does not make creatures |
-| Land 3, "The Rejuvenator": an ape (a chimp when the player's creature is already an ape) | todo | no Land 2 to 5 in our tree (`LOAD_MAP` is empty), and `CREATE` does not make creatures |
-| Land 4, "The Treacherous Path" (the blind woman): a wolf | todo | no Land 2 to 5 in our tree (`LOAD_MAP` is empty), and `CREATE` does not make creatures |
-| Land 4, "The Fish Puzzle": a tortoise | todo | no Land 2 to 5 in our tree (`LOAD_MAP` is empty), and `CREATE` does not make creatures |
-| Land 5, "Stanley The Wolf": a lion (the tamer can't die, so it is always offered) | todo | no Land 2 to 5 in our tree (`LOAD_MAP` is empty), and `CREATE` does not make creatures |
-| Land 5, "The Explorers Again": a polar bear | todo | no Land 2 to 5 in our tree (`LOAD_MAP` is empty), and `CREATE` does not make creatures |
-| Land 5, "Swap To Brown Bear": a brown bear | todo | no Land 2 to 5 in our tree (`LOAD_MAP` is empty), and `CREATE` does not make creatures |
-| The creature breeder on lands 1 and 4: the five special creatures and the player's previous creature | todo | the breeder runs on Land 1 (fourth answer) but shows nothing: `IS_CREATURE_AVAILABLE` is a stub that answers no |
-| Never offered in the shipped game: a cow ("Swap To Cow" is compiled but never started) and a chimp ("The Miracle Stones" is not compiled) | n/a | never started by the game: [swap_to_cow.md](./swap_to_cow.md), [the_miracle_stones.md](./the_miracle_stones.md) |
+| Land 1, "The Lost Flock": a sheep creature, once the whole flock is penned | pending | The Lost Flock starts with the fourth tutorial answer, but `CREATE` makes creatures now; the sheep creature's offer is not checked in play |
+| Land 2, "The Riddles": a zebra appears on the altar | pending | the story has not yet been run out of Land 2 since Khazar's and Lethys's hands (`COMPUTER_PLAYER_READY`) became real, and `CREATE` makes creatures now |
+| Land 3, "The Rejuvenator": an ape (a chimp when the player's creature is already an ape) | pending | the story has not yet been run out of Land 2 since Khazar's and Lethys's hands (`COMPUTER_PLAYER_READY`) became real, and `CREATE` makes creatures now |
+| Land 4, "The Treacherous Path" (the blind woman): a wolf | pending | the story has not yet been run out of Land 2 since Khazar's and Lethys's hands (`COMPUTER_PLAYER_READY`) became real, and `CREATE` makes creatures now |
+| Land 4, "The Fish Puzzle": a tortoise | pending | the story has not yet been run out of Land 2 since Khazar's and Lethys's hands (`COMPUTER_PLAYER_READY`) became real, and `CREATE` makes creatures now |
+| Land 5, "Stanley The Wolf": a lion (the tamer can't die, so it is always offered) | pending | the story has not yet been run out of Land 2 since Khazar's and Lethys's hands (`COMPUTER_PLAYER_READY`) became real, and `CREATE` makes creatures now |
+| Land 5, "The Explorers Again": a polar bear | pending | the story has not yet been run out of Land 2 since Khazar's and Lethys's hands (`COMPUTER_PLAYER_READY`) became real, and `CREATE` makes creatures now |
+| Land 5, "Swap To Brown Bear": a brown bear | pending | the story has not yet been run out of Land 2 since Khazar's and Lethys's hands (`COMPUTER_PLAYER_READY`) became real, and `CREATE` makes creatures now |
+| The creature breeder on lands 1 and 4: the five special creatures and the player's previous creature | partial 60% | ported from raffclar PR #384, unverified against v1.42: `IS_CREATURE_AVAILABLE` answers yes for every species, the five bonus creatures (Leopard, Horse, Mandrill, Rhino, Gorilla) included, as the original (`creature_swap::k_GameUnlocks`, checked in the exe 2026-10-19); the breeder's own offer is not checked; re-measured 2026-10-21: ported; not checked against the original in a run yet |
 
 ## The offer in the field
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The offered creature can't be picked up while it is on offer | todo | no creature is ever offered (`CREATE` does not make creatures); `SET_ID_PICKUPABLE` and `CREATE_HIGHLIGHT` themselves work |
-| A silver scroll appears over the offered creature, one unit above its height | todo | no creature is ever offered (`CREATE` does not make creatures); `SET_ID_PICKUPABLE` and `CREATE_HIGHLIGHT` themselves work |
-| Until clicked, the creature keeps turning to face the camera and plays its look-at-camera action | todo | no creature is ever offered; `SET_FOCUS` and the clips on a creature are not ported either |
-| While the camera is within 100 of the scroll and the creature is on screen, the evil advisor steps out at most once a minute, points at the scroll and says "Swap your Creature with this one if you want." | todo | no creature is ever offered; the notice script, `GAME_THING_CLICKED` and the advisors work |
-| Clicking the scroll or the creature itself starts the swap | todo | no creature is ever offered; the notice script, `GAME_THING_CLICKED` and the advisors work |
-| If the player's creature is not within 50 of it, the evil advisor says "You'll need to bring our Creature, Boss." and the scroll comes back for another click | todo | no creature is ever offered; the notice script, `GAME_THING_CLICKED` and the advisors work |
-| Otherwise the scroll goes, the leash is taken off and the player's creature is walked to within 15 of the new one; the game waits up to 5 seconds for it to get within 20 | todo | no creature is ever offered; moving or turning a creature from a script (`MOVE_GAME_THING`, `SET_FOCUS` on a creature) is not ported |
-| Both creatures turn and examine each other by looking | todo | no creature is ever offered; moving or turning a creature from a script (`MOVE_GAME_THING`, `SET_FOCUS` on a creature) is not ported |
-| The good advisor asks, every 30 seconds until answered: "Are you sure you want a new Creature? Click the Action Button on the Creature you want to swap to if you are. Click your own Creature to cancel." (the last token is replaced by the action-button picture) | todo | no creature is ever offered; the timer and `RUN_TEXT` work |
-| Clicking the new creature confirms; clicking the player's own creature cancels and frees it; after 110 seconds with no answer the offer cancels itself | todo | no creature is ever offered; the timer and `RUN_TEXT` work |
-| A cancelled offer puts the scroll back over the new creature and starts again from the first click | todo | no creature is ever offered; the timer and `RUN_TEXT` work |
-| A random 60 to 120 second offer timer is made but never checked in the field offer, so the offer never runs out | todo | no creature is ever offered; the timer and `RUN_TEXT` work |
+| The offered creature can't be picked up while it is on offer | pending | `CREATE` makes the offered creature now; not checked in play; `SET_ID_PICKUPABLE` and `CREATE_HIGHLIGHT` themselves work |
+| A silver scroll appears over the offered creature, one unit above its height | pending | `CREATE` makes the offered creature now; not checked in play; `SET_ID_PICKUPABLE` and `CREATE_HIGHLIGHT` themselves work |
+| Until clicked, the creature keeps turning to face the camera and plays its look-at-camera action | pending | `CREATE` makes the offered creature now; not checked in play; `SET_FOCUS` on a creature is real (`src/CHLApi.cpp:2775`) and the look-at-camera action (row 82) has an executor |
+| While the camera is within 100 of the scroll and the creature is on screen, the evil advisor steps out at most once a minute, points at the scroll and says "Swap your Creature with this one if you want." | pending | not checked in play (`CREATE` makes the offered creature now); the notice script, `GAME_THING_CLICKED` and the advisors work |
+| Clicking the scroll or the creature itself starts the swap | pending | not checked in play (`CREATE` makes the offered creature now); the notice script, `GAME_THING_CLICKED` and the advisors work |
+| If the player's creature is not within 50 of it, the evil advisor says "You'll need to bring our Creature, Boss." and the scroll comes back for another click | pending | not checked in play (`CREATE` makes the offered creature now); the notice script, `GAME_THING_CLICKED` and the advisors work |
+| Otherwise the scroll goes, the leash is taken off and the player's creature is walked to within 15 of the new one; the game waits up to 5 seconds for it to get within 20 | pending | `CREATE` makes the offered creature now; not checked in play; moving and turning a creature from a script are real (`MOVE_GAME_THING` walks it, `CreatureMindSystem::MoveForScript`; `SET_FOCUS` turns it) |
+| Both creatures turn and examine each other by looking | pending | `CREATE` makes the offered creature now; not checked in play; `SET_FOCUS` on a creature is real and examining by looking (row 20) has an executor |
+| The good advisor asks, every 30 seconds until answered: "Are you sure you want a new Creature? Click the Action Button on the Creature you want to swap to if you are. Click your own Creature to cancel." (the last token is replaced by the action-button picture) | pending | not checked in play (`CREATE` makes the offered creature now); the timer and `RUN_TEXT` work |
+| Clicking the new creature confirms; clicking the player's own creature cancels and frees it; after 110 seconds with no answer the offer cancels itself | pending | not checked in play (`CREATE` makes the offered creature now); the timer and `RUN_TEXT` work |
+| A cancelled offer puts the scroll back over the new creature and starts again from the first click | pending | not checked in play (`CREATE` makes the offered creature now); the timer and `RUN_TEXT` work |
+| A random 60 to 120 second offer timer is made but never checked in the field offer, so the offer never runs out | pending | not checked in play (`CREATE` makes the offered creature now); the timer and `RUN_TEXT` work |
 
 ## The swap itself
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| A short cut scene with a two-subject camera framing both creatures, which face each other | todo | no creature is ever offered; `START_DUAL_CAMERA`, `SPECIAL_EFFECT_OBJECT` and `PLAY_SOUND_EFFECT` work |
-| After a second, a spell-success sparkle appears on each creature, the leash comes off again and they point at each other | todo | no creature is ever offered; `START_DUAL_CAMERA`, `SPECIAL_EFFECT_OBJECT` and `PLAY_SOUND_EFFECT` work |
-| The swap sound plays as the bodies are swapped, and the cut scene waits until both have finished their animations, then 3 more seconds | todo | no creature is ever offered; `START_DUAL_CAMERA`, `SPECIAL_EFFECT_OBJECT` and `PLAY_SOUND_EFFECT` work |
-| The new body takes on the player's creature's mind: everything it has learnt, its name, its alignment and its built-up size and strength values move with it; both bodies are re-shaped from those values | todo | `SWAP_CREATURE` is a stub; our tree builds a creature of any species with a mind (`CreatureArchetype::Create`) but nothing moves a mind into another body |
-| Ownership swaps: the new body becomes the player's creature and the old body belongs to no one | todo | `SWAP_CREATURE` is a stub; our tree builds a creature of any species with a mind (`CreatureArchetype::Create`) but nothing moves a mind into another body |
-| Both creatures then play a "mind swapped with another creature" action | todo | `SWAP_CREATURE` is a stub; our tree builds a creature of any species with a mind (`CreatureArchetype::Create`) but nothing moves a mind into another body |
-| The new body's miracle-learning thresholds are recalculated for its species | todo | `SWAP_CREATURE` is a stub; our tree builds a creature of any species with a mind (`CreatureArchetype::Create`) but nothing moves a mind into another body |
-| Afterwards the new creature can be picked up again and the old one can't; the evil advisor says "Great, Boss. If you want your old Creature back, just return here later." | todo | no swap (`SWAP_CREATURE` is a stub) |
-| The old body stays where it is, idle, and the offer starts again over it, so the player can swap back and forth as often as they like | todo | no swap (`SWAP_CREATURE` is a stub) |
-| The story's record of the current species is updated, which the breeder and later quests read | todo | `GAME_SUB_TYPE` and `SWAP_CREATURE` are stubs |
+| A short cut scene with a two-subject camera framing both creatures, which face each other | pending | not checked in play (`CREATE` makes the offered creature now); `START_DUAL_CAMERA`, `SPECIAL_EFFECT_OBJECT` and `PLAY_SOUND_EFFECT` work |
+| After a second, a spell-success sparkle appears on each creature, the leash comes off again and they point at each other | pending | not checked in play; `START_DUAL_CAMERA`, `SPECIAL_EFFECT_OBJECT` and `PLAY_SOUND_EFFECT` work; pointing at an object (`CREATURE_DO_ACTION` row 163 PointAtObject) has no executor, so the creatures would not point |
+| The swap sound plays as the bodies are swapped, and the cut scene waits until both have finished their animations, then 3 more seconds | pending | not checked in play (`CREATE` makes the offered creature now); `START_DUAL_CAMERA`, `SPECIAL_EFFECT_OBJECT` and `PLAY_SOUND_EFFECT` work |
+| The new body takes on the player's creature's mind: everything it has learnt, its feelings, its physique (strength, fatness, needs) and its tattoos move with it. Each body keeps its own name, its own size and its own alignment; over the swap each grows or shrinks to the other's size and takes on the other's alignment as they were before any spell, 4% of the gap a turn, until both gaps are under 0.01 | done | ported from raffclar PR #384, unverified against v1.42: `CreatureMindSystem::SwapMinds` (`ECS/Systems/Implementations/CreatureMindSwap.cpp`: `player_creature::ToMindFile`, `TakeUpFile`, `player_creature::TakeUpBody`, the own name put back with `player_creature::SetName`), the idle step `SwapMind` and `creature_swap::Ease` / `IsSettled`; `CreatureSwap.*` and `CreatureMindSystemTest.SwappedMindsCrossOverWhileEachBodyKeepsItsNameSizeAndAlignment`; testbed `mind.creature_swap`. This row said the name moved with the mind: runblack.exe v1.42's `Creature::SwapMinds` (0x47BEE0) copies both names out at 0x47BF49..0x47BF6C, loads each mind into the other body (0x47BFE4..0x47C1AB) and copies each body's own name back at 0x47C1B0..0x47C1D3, then puts back each body's own size (physical +0x6C) and alignment (`CrudeSet`): see [Swapping minds](../../../../creature/players-creature.md#swapping-minds) |
+| Ownership swaps: the new body becomes the player's creature and the old body belongs to no one | done | ported from raffclar PR #384, unverified against v1.42: `SwapMinds` gives each body the other's owner (`LeashSystemInterface::SetOwner`, `ClaimOnArrival`, `PlayerSystemInterface::AddCreature`); the leashes off first, and the leashes the player taught go with the creature they lead |
+| Both creatures then play a "mind swapped with another creature" action | done | ported from raffclar PR #384, unverified against v1.42: both are forced to carry out the table's `SwapMindWithOtherCreature` (`ForceActivity`), whose step `SwapMind` waits for the spells on both to end, plays action 109 and starts the swap beam (spot visual 41, 70 turns) in the owner's colour; the beam's far end on the other creature is not set yet |
+| The new body's miracle-learning thresholds are recalculated for its species | done | ported from raffclar PR #384, unverified against v1.42: the sightings of each miracle the mind moving into the new body has are scaled by the times its new species must see it over its old one's (`creature_swap::RescaledSightings`) |
+| Afterwards the new creature can be picked up again and the old one can't; the evil advisor says "Great, Boss. If you want your old Creature back, just return here later." | pending | no swap checked in play (`SWAP_CREATURE` is real) |
+| The old body stays where it is, idle, and the offer starts again over it, so the player can swap back and forth as often as they like | pending | no swap checked in play (`SWAP_CREATURE` is real) |
+| The story's record of the current species is updated, which the breeder and later quests read | pending | `GAME_SUB_TYPE` and `SWAP_CREATURE` are real |
 
 ## The breeder's offer
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Each offered creature gets its own scroll and its own random 60 to 120 second timer; when any timer runs out the whole offer closes | todo | the breeder never shows a creature (`IS_CREATURE_AVAILABLE` is a stub) and `SWAP_CREATURE` is a stub |
-| Only one creature may be chosen at a time: clicking a second one while another is chosen cancels both and the chosen one walks back | todo | the breeder never shows a creature (`IS_CREATURE_AVAILABLE` is a stub) and `SWAP_CREATURE` is a stub |
-| On confirmation both creatures walk to the land's two swap spots (up to 20 seconds) before the same swap cut scene | todo | the breeder never shows a creature (`IS_CREATURE_AVAILABLE` is a stub) and `SWAP_CREATURE` is a stub |
-| After the swap the old body walks back to where the new creature stood, idles, and the breeder's offer closes | todo | the breeder never shows a creature (`IS_CREATURE_AVAILABLE` is a stub) and `SWAP_CREATURE` is a stub |
-| When the offer closes, every creature still on offer (including the player's old body) vanishes with a sparkle and a puff of smoke | todo | the breeder never shows a creature (`IS_CREATURE_AVAILABLE` is a stub) and `SWAP_CREATURE` is a stub |
-| The breeder records both the new and the old species, so the old one can be swapped back later | todo | the breeder never shows a creature (`IS_CREATURE_AVAILABLE` is a stub) and `SWAP_CREATURE` is a stub |
+| Each offered creature gets its own scroll and its own random 60 to 120 second timer; when any timer runs out the whole offer closes | pending | `CREATE` makes the breeder's creatures now; not checked in play; `SWAP_CREATURE` is ported, unverified against v1.42 |
+| Only one creature may be chosen at a time: clicking a second one while another is chosen cancels both and the chosen one walks back | pending | `CREATE` makes the breeder's creatures now; not checked in play; `SWAP_CREATURE` is ported, unverified against v1.42 |
+| On confirmation both creatures walk to the land's two swap spots (up to 20 seconds) before the same swap cut scene | pending | `CREATE` makes the breeder's creatures now; not checked in play; `SWAP_CREATURE` is ported, unverified against v1.42 |
+| After the swap the old body walks back to where the new creature stood, idles, and the breeder's offer closes | pending | `CREATE` makes the breeder's creatures now; not checked in play; `SWAP_CREATURE` is ported, unverified against v1.42 |
+| When the offer closes, every creature still on offer (including the player's old body) vanishes with a sparkle and a puff of smoke | pending | `CREATE` makes the breeder's creatures now; not checked in play; `SWAP_CREATURE` is ported, unverified against v1.42 |
+| The breeder records both the new and the old species, so the old one can be swapped back later | pending | `CREATE` makes the breeder's creatures now; not checked in play; `SWAP_CREATURE` is ported, unverified against v1.42 |
 
 ## Cut swap scrolls (never in the game)
 
@@ -84,18 +85,8 @@ offered went elsewhere: horse and leopard to the breeder ([the_creature_breeder.
 "Stanley The Wolf" ([stanley_the_wolf.md](./stanley_the_wolf.md)), tortoise to "The Fish Puzzle"
 ([the_fish_puzzle.md](./the_fish_puzzle.md)), wolf to the blind woman ([the_treacherous_path.md](./the_treacherous_path.md)).
 
-| Behaviour | Status | Where / notes |
-|-----------|--------|---------------|
-| Is it in the game: none of the five is compiled, started, or reachable; the text table has their titles only | n/a | never started by the game: checked against every land's control and challenge list |
-| Swap To Horse: out of view, a horse creature and an Indian trader appear at a fixed spot; a silver scroll and the evil advisor's "Hey. There's a job for you. Wanna do it?"; on click, a cut scene where the trader walks up and speaks four lines, the horse steps forward, both advisors come out for five more lines; then the field offer | n/a | never started by the game: all nine lines are missing from the text table; its challenge record lines were commented out because they "don't compile"; the spot is not near any shipped land's town |
-| Swap To Leopard: the challenge record opens, a leopard creature appears out of view under a silver scroll ("There's a Silver Reward Scroll down here, Boss."), then a cut scene of twelve advisor lines and the field offer; the record closes at once as a success | n/a | never started by the game: all twelve lines missing; the leopard became a breeder creature |
-| Swap To Lion: a tamer and a wild lion (an animal, not a creature) by a flock; the good advisor's "Your attention is required here."; the lion hunts nearby cattle; if the player carries it away from the tamer and puts it down alive, it turns into a lion creature after a cut scene and is offered (record closes good); if it dies, the advisors comment and the record closes evil | n/a | never started by the game: all sixteen lines missing; a debug line "Picked up Lion" would have shown while it was held; meant to be placed outside the player's influence |
-| Swap To Turtle: out of view, a Japanese farmer and a flock of five tortoises at 70% health; heal a tortoise to full health and the farmer gives a tortoise creature after a cut scene | n/a | never started by the game: all lines missing; its spot is about 80 from Land 4's Japanese town, the land "The Fish Puzzle" later gave a tortoise on |
-| Swap To Wolf: a shepherd and a flock of twenty sheep, one of which is secretly a wolf; picking that sheep up turns it into a wolf creature in the hand, with an extra line if it was the first thing picked up; then the field offer | n/a | never started by the game: all lines missing (an earlier copy of the same script exists as a test file that starts it at the hand's position) |
-
 ## Bugs and quirks
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The field offer never ends, so a quest's offered creature keeps its silver scroll for the rest of the land even after the player has swapped | todo | no creature is ever offered |
-| When "Swap To Cow" (unused) gave nothing because the creature was already a cow, it still ran the offer with no creature | n/a | never started by the game: see [swap_to_cow.md](./swap_to_cow.md) |
+| The field offer never ends, so a quest's offered creature keeps its silver scroll for the rest of the land even after the player has swapped | pending | `CREATE` makes the offered creature now; not checked in play |

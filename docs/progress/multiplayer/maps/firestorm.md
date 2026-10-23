@@ -14,20 +14,13 @@ What the script builds, object by object, is in
 covers the land as a player meets it. How skirmish is set up is in [../skirmish.md](../skirmish.md); the computer gods
 are in [../../rival_gods/skirmish_opponents.md](../../rival_gods/skirmish_opponents.md).
 
-## Where it comes from
-
-| Behaviour | Status | Where / notes |
-|-----------|--------|---------------|
-| The script is the developers' three-player online map with only its landscape path and some villagers' ages changed; the game's own online condition list still names that map (`mpm_3p_2`) | n/a | history of the file; the original download is lost (see bwgame-service's notes on lost maps) |
-| Neither the script nor its landscape is among the files the game installs; the skirmish box shows any script placed in its folder | n/a | how it reached this install is not part of the game |
-
 ## Choosing and starting it
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | The skirmish box lists it by its file name, "Firestorm", and it has no start message | partial | the debug menu's "Playground Islands" lists it by its start message title, or by its file name when it has none (`src/Level.cpp`, `src/Debug/Gui.cpp`); no skirmish box |
 | Starting it clears the current land, resets the scripts and loads this script and its landscape | partial | `Game::LoadMap` loads it from the debug menu; see the next row |
-| No story script runs on a skirmish land | todo | our tree starts the story's control script (`LandControlAll`) on the start land whatever it is, and leaves the story's scripts running when a land is opened from the debug menu |
+| No story script runs on a skirmish land | pending | our tree starts the story's control script (`LandControlAll`) on the start land whatever it is, and leaves the story's scripts running when a land is opened from the debug menu |
 | The camera starts at the script's start point, which lies off the land's edge over the sea rather than at your temple | done | `START_CAMERA_POS` (`FeatureScriptCommands::StartCameraPos`) |
 
 ## The land
@@ -59,7 +52,7 @@ are in [../../rival_gods/skirmish_opponents.md](../../rival_gods/skirmish_oppone
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | The script switches on no computer gods and makes no creatures, so in a skirmish players two and three keep their temples and towns but nobody plays them | partial | as in the game as far as found: the temples and towns are made and nothing plays them; whether the game's temple command itself makes them computer gods is not determined |
-| In a network game, a temple nobody joins gets a fully grown creature of a random kind | todo | our tree has no network play; see ../../rival_gods/skirmish_opponents.md |
+| In a network game, a temple nobody joins gets a fully grown creature of a random kind | pending | our tree has no network play; see ../../rival_gods/skirmish_opponents.md |
 
 ## The ring of shrines and the middle
 
@@ -83,12 +76,11 @@ are in [../../rival_gods/skirmish_opponents.md](../../rival_gods/skirmish_oppone
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| With no computer gods playing, a skirmish here has no opponent to beat; the skirmish's own rule decides when it ends | todo | not determined what ends a skirmish, and our tree ends none; see ../skirmish.md |
-| Online its winning conditions offered no building goals (houses, wonders, new towns and converts were switched off by default, with a note that a bug was still to be fixed), at most 50 villagers born, 11,000 to 30,000 food or wood, 2,100 to 20,000 belief and at most 2 towns taken | todo | the game's condition list; our tree has no winning conditions; see ../multiplayer_rules.md |
+| With no computer gods playing, a skirmish here has no opponent to beat; the skirmish's own rule decides when it ends | pending | not determined what ends a skirmish, and our tree ends none; see ../skirmish.md |
+| Online its winning conditions offered no building goals (houses, wonders, new towns and converts were switched off by default, with a note that a bug was still to be fixed), at most 50 villagers born, 11,000 to 30,000 food or wood, 2,100 to 20,000 belief and at most 2 towns taken | pending | the game's condition list; our tree has no winning conditions; see ../multiplayer_rules.md |
 
 ## Online
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Online this map was downloaded from the servers like the three shipped ones | n/a | the servers and this map's online file are gone; bwgame-service could offer the copy |
-| Online every temple belongs to a person, and the camera always starts on your own temple | todo | our tree has no network play; see ../network_play.md |
+| Online every temple belongs to a person, and the camera always starts on your own temple | pending | our tree has no network play; see ../network_play.md |

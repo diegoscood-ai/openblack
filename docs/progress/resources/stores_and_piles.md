@@ -3,7 +3,7 @@
 Where food and wood are kept: each town's store (its storage pit) with its piles, loose piles and pots on the land, and
 the piles the miracles make. The game has only these two resources.
 
-**Progress: 17/24 done, 1 partial — 73%**
+**Progress: 8/24 done, 0 chosen, 12 partial, 2 inferred — 75%**
 
 How the original does it, in our wiki: [Objects and resources](../../../world/objects.md).
 
@@ -11,33 +11,32 @@ How the original does it, in our wiki: [Objects and resources](../../../world/ob
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| A store has one food pile and five wood piles, at the points its model marks, turned with it | done | the store's piles made at its mesh's points (`src/ECS/Archetypes/AbodeArchetype.cpp`) |
-| Wood fills the piles in turn; every pile but the last holds no more than it is drawn full at | done | `StoragePitStore::AddResource`: wood piles one to five, the last with no cap (`src/ECS/StoragePitStore.cpp`) |
-| The town keeps count of the food and wood its store holds | done | `StoragePitStore::SyncTotals` keeps the abode's totals with the piles |
-| A store can hold more than its maximum for a while (unconfirmed what happens to the excess) | done | `StoragePitStore::AmountOverMaximum` (the last wood pile has no cap; what is over is taken first) |
-| A damaged store causes an emergency in its town | todo | see `../town/` |
-| A damaged store stops working until repaired | todo |  |
-| A store's contents can be poisoned, tinting its piles | done | the poison flag on the store's piles (`object_resources::IsPoisoned`) and the poisoned colour of a pile (`src/ECS/Systems/Implementations/RenderingSystem.cpp`); see [poison and mushrooms](poison_and_mushrooms.md); Land 2's poisoned store: [the_plague.md](../story/silver_scrolls/the_plague.md) |
-| The store's desire flags stand by it | todo | only the workshop has its needs sign (`src/ECS/ShowNeeds.cpp`); see `../town/` |
-| Villagers' taking food and wood from the store shrinks its piles | done | villagers take from the store (`GetResourceFrom`, `src/ECS/Villager/VillagerResources.cpp`) through `StoragePitStore::RemoveResource`, wood piles five to one |
-| Only food and wood exist; there is no ore | n/a | the game has no other resource |
+| A store has one food pile and five wood piles, at the points its model marks, turned with it | partial 70% | Missing: the original makes a pile when something goes in and deletes it when emptied; ours makes all six with the pit (#86); the store's piles made at its mesh's points (`src/ECS/Archetypes/AbodeArchetype.cpp`) |
+| Wood fills the piles in turn; every pile but the last holds no more than it is drawn full at | done | Test `StoreRules.APileGivesOnlyWhatIsWithinItsStoresMaximum`; `StoragePitStore::AddResource`: wood piles one to five, the last with no cap (`src/ECS/StoragePitStore.cpp`) |
+| The town keeps count of the food and wood its store holds | done | Test `VillagerResourcesTest.PickupDropAndTotals`; `StoragePitStore::SyncTotals` keeps the abode's totals with the piles |
+| A store can hold more than its maximum for a while; what is over is taken first | partial 90% | No test; `StoragePitStore::AmountOverMaximum` (the last wood pile has no cap; what is over is taken first) |
+| A damaged store causes an emergency in its town | pending | see `../town/` |
+| A damaged store stops working until repaired | inferred | Not checked in the original |
+| A store's contents can be poisoned, tinting its piles | done | Test `ScriptPoisonNatives.AStoragePitIsPoisonedByItsPilesAndOnlyItsFoodPileIsEverPoisoned`; the poison flag on the store's piles (`object_resources::IsPoisoned`) and the poisoned colour of a pile (`src/ECS/Systems/Implementations/RenderingSystem.cpp`); see [poison and mushrooms](poison_and_mushrooms.md); Land 2's poisoned store: [the_plague.md](../story/silver_scrolls/the_plague.md) |
+| The store's desire flags stand by it | partial 90% | at the store's special points 12 + slot (test `TownDesireFlags.AFlagFliesAtTheStoresPointAfterTheFirstTwelve`), moved there as the pit is made, a plan's or a whole one (`TownDesireSystem::OnStoragePitMade` from `AbodeArchetype::Create`), as the v1.42 exe's `StoragePit::Create` does ([the desire flags](../../../beings/towns.md#the-desire-flags), read in the exe); no test of the move as the pit is made; see `../town/` |
+| Villagers' taking food and wood from the store shrinks its piles | done | Test `VillagerFoodTest.ArrivesAtStoragePitForFood`; villagers take from the store (`GetResourceFrom`, `src/ECS/Villager/VillagerResources.cpp`) through `StoragePitStore::RemoveResource`, wood piles five to one |
 
 ## Piles
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| A pile rises out of the ground as it fills and sinks as it empties, easing over a second | done | `PotArchetype::SetSize` with its zoomer (`src/ECS/Archetypes/PotArchetype.cpp`, `src/ECS/PotResource.cpp`) |
+| A pile rises out of the ground as it fills and sinks as it empties, easing over a second | done | Scene `miracles.food_speedup_and_stores`; `PotArchetype::SetSize` with its zoomer (`src/ECS/Archetypes/PotArchetype.cpp`, `src/ECS/PotResource.cpp`) |
 | Food rises fast at first then slows; wood rises evenly; neither beyond full | done | `pot_resource::PileFoodProportionRaised` and the wood's even rise; test `test/test_food_wood.cpp` |
-| A pile is drawn only while some of it is above ground | done | `src/ECS/Systems/Implementations/RenderingSystem.cpp` |
+| A pile is drawn only while some of it is above ground | partial 90% | No test; `src/ECS/Systems/Implementations/RenderingSystem.cpp` |
 | The grain on a food pile flows down it as it rises | done | test `FoodWood.grainSplineKeyPoints` |
-| Food piles follow the land's shape | done | `MorphWithTerrain` on food piles (`src/ECS/Archetypes/PotArchetype.cpp`) |
-| A pile thuds as it is made or added to, louder for 200 or more; piles in the hand don't | done | the pile sound by amount (`PileSoundSample`, `src/ECS/PotResource.cpp`) |
-| Food and wood poured at a point go to the stores and piles in its cell, then the cells around, as far as each reaches | done | `pot_resource::AddResourceToPos` (`src/ECS/PotResource.cpp`) |
-| What nothing takes makes a new pile, unless it lands in water | done | `pot_resource::AddResourceToPos` |
-| A new pile makes the nearby people come and look | done | a pot made or put down offers its reaction (`src/ECS/PotResource.cpp`, `HandHolding.cpp`) |
-| Pots and piles placed by the land scripts | done | `CreatePot` (`src/LHScriptX/FeatureScriptCommands.cpp`) |
-| A town's temporary pots placed by the land scripts | todo | `CreateTownTemporaryPots` is empty (`src/LHScriptX/FeatureScriptCommands.cpp`) |
-| A pile or pot with something in it can catch fire | partial | piles and pots burn (`src/ECS/Fire`), and emptying one puts its fire out (`src/ECS/ObjectResources.cpp`); unconfirmed whether the food or wood is lost |
-| Pots are physical: they can be thrown, roll and land | done | pots are physics objects (`src/ECS/Physics/PhysicsObjects.cpp`) and react to their impact (`src/ECS/HeldApply.cpp`); see `../physics/` |
-| An emptied pile goes (unconfirmed) | todo | an emptied pile stays at 0, its reaction removed (`src/ECS/ObjectResources.cpp`); whether a loose one goes is unconfirmed |
-| Hovering over a pile shows how much it holds | todo | the hover texts are not ported; see `../interface/` |
+| Food piles follow the land's shape | partial 90% | No test; `MorphWithTerrain` on food piles (`src/ECS/Archetypes/PotArchetype.cpp`) |
+| A pile thuds as it is made or added to, louder for 200 or more; piles in the hand don't | done | Test `FoodWood.pileHelpers`; scene `miracles.food_speedup_and_stores`; the pile sound by amount (`PileSoundSample`, `src/ECS/PotResource.cpp`), its food sample from a first reading of the clock and its wood sample from a second, as the original (`pot_resource::PlayPileSound`, pinned by `FoodWood.pileHelpers`) |
+| Food and wood poured at a point go to the stores and piles in its cell, then the cells around, as far as each reaches | partial 90% | No test; `pot_resource::AddResourceToPos` (`src/ECS/PotResource.cpp`) |
+| What nothing takes makes a new pile, unless it lands in water | partial 90% | No test; `pot_resource::AddResourceToPos` |
+| A new pile makes the nearby people come and look | partial 90% | No test; a pot made or put down offers its reaction (`src/ECS/PotResource.cpp`, `HandHolding.cpp`) |
+| Pots and piles placed by the land scripts | partial 90% | No test; `CreatePot` (`src/LHScriptX/FeatureScriptCommands.cpp`) |
+| A town's temporary pots placed by the land scripts | pending | `CreateTownTemporaryPots` is empty (`src/LHScriptX/FeatureScriptCommands.cpp`) |
+| A pile or pot with something in it can catch fire | partial 70% | Missing: whether the food or wood is lost is not checked; piles and pots burn (`src/ECS/Fire`), and emptying one puts its fire out (`src/ECS/ObjectResources.cpp`); unconfirmed whether the food or wood is lost |
+| Pots are physical: they can be thrown, roll and land | partial 90% | No test; pots are physics objects (`src/ECS/Physics/PhysicsObjects.cpp`) and react to their impact (`src/ECS/HeldApply.cpp`); see `../physics/` |
+| An emptied loose pile goes | inferred | an emptied pile stays at 0, its reaction removed (`src/ECS/ObjectResources.cpp`); whether a loose one goes is unconfirmed |
+| Hovering over a pile shows how much it holds | partial 50% | Over a store the hand shows what it holds (scene `hand.tooltips`); missing: a loose pile's text; see `../interface/` |

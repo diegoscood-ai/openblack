@@ -3,25 +3,25 @@
 How the player acts inside the temple: the hand follows the cursor over the rooms' walls and floors, presses the rooms'
 controls and scrolls, and the keys move between rooms.
 
-**Progress: 9/11 done, 1 partial — 86%**
+**Progress: 8/11 done, 0 chosen, 3 partial, 0 inferred — 86%**
 
 ## The hand
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The hand is put where the cursor meets the room, turned to the surface | done | `TempleInterior::GetCursorHit`, from the room camera's pick (`TempleCameraModel`) |
-| The hand is drawn in the temple's light | done | `RenderingSystemTemple` draws the player's hand in the temple pass |
-| The hand holds a spell's seed or the creature's leash collar in the temple | todo | (unconfirmed what the hand can hold inside) |
-| The tooltip is drawn by the hand | done | `TempleInterior::UpdateToolTips` puts the tooltip by the hand (`GameInterface::SetHandOnScreen`) |
-| The hand's pose for pointing and pressing in the temple | partial | inside, the hand takes its citadel state and stays drawn (`HandSystem::RequiredHandState`); the pose that state gives is not checked; see ../hand/poses_and_states.md |
+| The hand is put where the cursor meets the room, turned to the surface | partial 30% | `TempleInterior::GetCursorHit`, from the room camera's pick (`TempleCameraModel`; test `TempleCamera.CastsAgainstEachRoomsOwnWalls`); the hand is then placed by the world's rules. The original's temple hand (hanging short of the room, its distance limits and easing) is not ported: see ../hand/temple_hand.md and [Pending](../../../interface/temple-interior.md#pending) |
+| The hand is drawn in the temple's light | done | `RenderingSystemTemple` draws the player's hand in the temple pass, inside the temple's light, as the exe draws it inside the room's draw ([the temple's light](../../../interface/temple-interior.md#the-depth-fog-and-the-temples-light)); test `ModelLight.TheTemplesLightInsideTheTemple` |
+| Going inside takes the creature's leash off, and the hand keeps what it holds, in the citadel's state | done | `GGame::GoInsideCitadel` sends packet 0x5B when the local creature's leash is on the player's interface (0x553F10..0x553F5C), whose handler takes the leash off (`GLeashStatus::SetOn(creature, 0)`, 0x63D3CE); nothing on the way in touches the hand's held object (`CHand` +0x4904), and inside its required state is the citadel's (0x46CD1C) whatever it holds (read 2026-10-22, [the temple's help scripts](../../../interface/temple-interior.md#the-temples-help-scripts)); `ecs::leash_tie::OnGoInsideCitadel`, `HandSystem::RequiredHandState`; tests `LeashHandTieTest.GoingInsideTheCitadelSendsTheLeashOffForTheNextTurn`, `GoingInsideTheCitadelWithNoLeashOnSendsNothing`. What the hand's draw shows of a held object or spell inside is the hand's (fork issue #69) |
+| The tooltip is drawn by the hand | done | the tooltip's icon is anchored at the hand's own position on the screen, in the temple as on the land (`help::input_prompt::HandAnchor` from `Game::FillOverlayFrame`), as the original's `CameraHelp::DrawKeyOrMouse` 0x447EA0 projects the hand's own object inside the temple too (read 2026-10-22, [the rooms' tooltips](../../../interface/temple-interior.md#the-rooms-tooltips)); test `InputPromptIcons.TheAnchorIsTheHandsOwnPoint`. Where the hand itself stands in the temple is the hand's row above (fork issue #69) |
+| The hand's pose for pointing and pressing in the temple | partial 30% | inside, the hand takes its citadel state and stays drawn (`HandSystem::RequiredHandState`), but plays the normal state's clips where the original's temple state wiggles all the time; see ../hand/temple_hand.md and ../hand/poses_and_states.md |
 
 ## Controls
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| A press on a scroll or button takes the mouse until let go | done | `TempleInterior::HoldControl` |
-| Escape goes back to the main room, and out from there | done | `TempleInterior::Escape` |
-| Keys go straight to a room | done | `Game::ProcessTempleRoomKeys`; see ../camera/temple_camera.md |
-| The temple has its own game turn every 100 milliseconds | done | while paused inside, `game_clock::PausedTurnTimer` gives a turn every 100 ms and `Game::ProcessTempleTurn` runs it |
-| Temple scripts run while the player is inside (temple help and specials) | done | `Game::ProcessTempleTurn` looks in the temple help and temple special scripts (`LookIn(TempleHelp or TempleSpecial)`) each temple turn; see ../engine/script_vm.md |
-| The world room tab of the options, inside the temple | done | `gui::GameMenu::SetInsideTemple` shows the World Room tab; see ../interface/main_menu.md |
+| A press on a scroll or button takes the mouse until let go | done | `TempleInterior::HoldControl`; controls act when the press is let go over them, as the exe's rooms do ([controls](../../../interface/temple-interior.md#the-challenge-rooms-controls-and-its-cameras-blend)); tests `TempleToggles.TurnOverAsTheyAreLetGoOf`, `TempleChallengeControls.*` |
+| Escape goes back to the main room, and out from there | partial 90% | `TempleInterior::Escape` with `temple::OnEscape`, as the exe's temple key handler (fn_00794830, read 2026-10-22, [Escape](../../../interface/temple-interior.md#the-citadel-interior-in-openblack)): Escape alone leaves from the main room and goes to the main room from any other; tests `TempleKeys.*`. Missing: from the save game room it leaves at once while the game keeps the player in a room after the game is over, which waits for the game-over requester (not ported, ../story/losing_and_game_over.md); ⚠️ openblack takes Escape with Shift or Ctrl too, which the original sends to the key bindings |
+| Keys go straight to a room | done | `Game::ProcessTempleRoomKeys`; see ../camera/temple_camera.md; the exe's key handler turns a bound room key into `Temple::GoToRoom`, which refuses a closed room (read 2026-10-21); test `CreatureCaveSystemTest.InTheTempleOpeningGoesToTheCreatureRoomAndClosingLeaves` |
+| The temple has its own game turn every 100 milliseconds | done | while paused inside, `game_clock::PausedTurnTimer` gives a turn every 100 ms and `Game::ProcessTempleTurn` runs it; read ([the citadel interior in openblack](../../../interface/temple-interior.md#the-citadel-interior-in-openblack)); tests `PausedTurnTimer.*` |
+| Temple scripts run while the player is inside (temple help and specials) | done | `Game::ProcessTempleTurn` through `temple_turn::Process`: only while paused, the temple help and temple special scripts (`LookIn(TempleHelp or TempleSpecial)`), then the audio's turn, the room's tooltip and the help system's turn, as the exe's `Temple::ProcessGameTurn` 0x794A30 (read 2026-10-22: [the citadel interior in openblack](../../../interface/temple-interior.md#the-citadel-interior-in-openblack)); tests `TempleTurn.*`; see ../engine/script_vm.md |
+| The world room tab of the options, inside the temple | done | `gui::GameMenu::SetInsideTemple` relabels the first tab World Room, and inside a click on it closes the options with no main menu, the options room then going back to the main room (`TempleInterior::UpdateOptionsAndFutureRooms`), as the original's tab handler fn_0053F3E0 and `GameOptionsRoom::Update` 0x78D860 (read 2026-10-22, [the options inside the temple](../../../interface/temple-interior.md#the-options-inside-the-temple)); tests `GameMenu.InsideTheTempleTheFirstTabClosesTheOptionsWithoutTheMainMenu`, `OptionsOpenTheOptionsTabs`; see ../interface/main_menu.md |

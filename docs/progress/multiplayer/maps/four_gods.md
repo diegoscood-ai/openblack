@@ -6,7 +6,7 @@ same land is the four-player map "The four corners of Eden".
 
 **Players:** 4 · **Landscape:** `Data/Landscape/Multi_Player/MPM_4P_1.lnd` · **Script:** `Scripts/Playgrounds/FourGods.txt` · **Mode:** both
 
-**Progress: 13/35 done, 9 partial — 50%**
+**Progress: 14/35 done, 9 partial — 53%**
 
 What the script builds, object by object, is in
 [playground_scripts.md](../../scripts/playground_scripts.md#four-gods-loading) (its "Four Gods" sections); this file
@@ -19,9 +19,9 @@ themselves are in [../../rival_gods/skirmish_opponents.md](../../rival_gods/skir
 |-----------|--------|---------------|
 | The skirmish box lists it under the game's own line "Defeat three gods to control this realm." rather than its file name | partial | the debug menu's "Playground Islands" lists it by its start message title, or by its file name when it has none (`src/Level.cpp`, `src/Debug/Gui.cpp`); no skirmish box |
 | Starting it clears the current land, resets the scripts and loads this script and its landscape | partial | `Game::LoadMap` loads it from the debug menu; see the next row |
-| No story script runs on a skirmish land | todo | our tree starts the story's control script (`LandControlAll`) on the start land whatever it is, and leaves the story's scripts running when a land is opened from the debug menu |
-| The script gives no start point, so the camera starts zoomed onto your own temple | todo | `FeatureScriptCommands::StartCameraPos` looks at the point given, here the land's corner (0, 0), off the land |
-| The land's title "Four Gods" and its line "Battle four other gods for this realm" are its start message (the line miscounts: there are three other gods) | todo | `START_GAME_MESSAGE` and `ADD_GAME_MESSAGE_LINE` are empty; only the debug land list reads them, for its title and tooltip (`src/Level.cpp`) |
+| No story script runs on a skirmish land | pending | our tree starts the story's control script (`LandControlAll`) on the start land whatever it is, and leaves the story's scripts running when a land is opened from the debug menu |
+| The script gives no start point, so the camera starts zoomed onto your own temple | pending | `FeatureScriptCommands::StartCameraPos` looks at the point given, here the land's corner (0, 0), off the land |
+| The land's title "Four Gods" and its line "Battle four other gods for this realm" are its start message (the line miscounts: there are three other gods) | pending | `START_GAME_MESSAGE` and `ADD_GAME_MESSAGE_LINE` are empty; only the debug land list reads them, for its title and tooltip (`src/Level.cpp`) |
 
 ## The land
 
@@ -49,8 +49,8 @@ themselves are in [../../rival_gods/skirmish_opponents.md](../../rival_gods/skir
 | Computer gods are switched on for players two, three and four | partial | `TOGGLE_COMPUTER_PLAYER` adds the player (`FeatureScriptCommands::ToggleComputerPlayer`, `PlayerArchetype`); no mind thinks for it (see ../skirmish.md) |
 | Player two has a horse, player three a tortoise and player four a zebra, all from the generic computer creature mind | partial | `CREATE_CREATURE_FROM_FILE` (`FeatureScriptCommands::CreateCreatureFromFile`, `CreatureArchetype`) with the mind loaded; it faces a fixed way and takes our starting size; nothing of its god steers it |
 | All three creatures start bunched together on one edge of the land, between your temple and player two's, far from players three and four, whose creatures must cross the land to reach home | partial | made where the script puts them; nothing sends them home |
-| The creatures are sized to match your own | todo | `SET_COMPUTER_PLAYER_CREATURE_LIKE` is empty |
-| No personalities are loaded, so all three play with the default personality | todo | no computer god mind in our tree; see ../../rival_gods/ai.md |
+| The creatures are sized to match your own | done | `SET_COMPUTER_PLAYER_CREATURE_LIKE` names it; the computer mind's start sizes the creature (`ComputerPlayerSystem`, `computer_player::SizeLike`; unverified against v1.42) |
+| No personalities are loaded, so all three play with the default personality | pending | no computer god mind in our tree; see ../../rival_gods/ai.md |
 | Every town's belief in any computer god is capped at 1, their own home towns included, while yours is not, a handicap in your favour | done | `SET_TOWN_BELIEF_CAP` (`ecs::town_belief::SetCap`, `src/ECS/Town/TownBelief.cpp`) |
 
 ## Neutral towns and the middle
@@ -74,16 +74,16 @@ themselves are in [../../rival_gods/skirmish_opponents.md](../../rival_gods/skir
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The land has no winning rule of its own; the skirmish's own rule applies | todo | not determined what ends a skirmish, and our tree ends none; see ../skirmish.md |
-| Losing while two or more gods are left shows "You have lost the game." with Watch Game (keep watching the other gods) and Leave Game (leave the skirmish) | todo | no end of game in our tree; see ../skirmish.md and [../../story/losing_and_game_over.md](../../story/losing_and_game_over.md) |
+| The land has no winning rule of its own; the skirmish's own rule applies | pending | not determined what ends a skirmish, and our tree ends none; see ../skirmish.md |
+| Losing while two or more gods are left shows "You have lost the game." with Watch Game (keep watching the other gods) and Leave Game (leave the skirmish) | pending | no end of game in our tree; see ../skirmish.md and [../../story/losing_and_game_over.md](../../story/losing_and_game_over.md) |
 
 ## Online as "The four corners of Eden"
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Offered online as "The four corners of Eden - 4 players", described as "Tactical action for 4 players. You've got to be quick and clever in this battle for belief...", with a thumbnail | todo | our tree has no network play; see ../network_play.md |
-| The online map file holds its own script and this same landscape; the game unpacks both, loads them and deletes them | todo | our tree does not read online map files |
-| Online no god is a computer god and the script makes no creatures: each person brings their own | todo | our tree has no network play; see ../network_play.md |
-| Online every town's belief is capped evenly for all four gods (2 in the four home towns, 1 elsewhere) | todo | our tree has no network play; see ../network_play.md; the caps themselves work (`ecs::town_belief::SetCap`) |
-| Online the camera always starts on your own temple | todo | our tree has no network play; see ../network_play.md |
-| The winning conditions offered for it start at 1,000 food, 1,000 wood, 1,100 belief and up to 12 towns taken | todo | see ../multiplayer_rules.md |
+| Offered online as "The four corners of Eden - 4 players", described as "Tactical action for 4 players. You've got to be quick and clever in this battle for belief...", with a thumbnail | pending | our tree has no network play; see ../network_play.md |
+| The online map file holds its own script and this same landscape; the game unpacks both, loads them and deletes them | pending | our tree does not read online map files |
+| Online no god is a computer god and the script makes no creatures: each person brings their own | pending | our tree has no network play; see ../network_play.md |
+| Online every town's belief is capped evenly for all four gods (2 in the four home towns, 1 elsewhere) | pending | our tree has no network play; see ../network_play.md; the caps themselves work (`ecs::town_belief::SetCap`) |
+| Online the camera always starts on your own temple | pending | our tree has no network play; see ../network_play.md |
+| The winning conditions offered for it start at 1,000 food, 1,000 wood, 1,100 belief and up to 12 towns taken | pending | see ../multiplayer_rules.md |

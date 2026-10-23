@@ -3,7 +3,7 @@
 How the god hand looks: it changes shape and colour with the player's alignment (gold for good, red and spiked for evil),
 lights the land at night and casts a shadow.
 
-**Progress: 11/11 done, 0 partial — 100%**
+**Progress: 11/11 done, 0 chosen, 0 partial, 0 inferred — 100%**
 
 How the original does it, in our wiki: [The hand and the interface](../../../hand/picking.md).
 
@@ -16,8 +16,8 @@ How the original does it, in our wiki: [The hand and the interface](../../../han
 | The skin is blended a 4-bit channel at a time, alpha too, in whole steps | done | `HandSystem::MorphTexture` with `hand_morph::BlendWeight` and `BlendTexel` (`src/3D/HandMorph.cpp`): the 4444 blend, each nibble in whole steps, t = trunc(256 x the alignment's size) at most 255; tests `HandMorph.SkinBlendsEveryChannelInWholeSteps`, `HandMorph.SkinWeightIsTruncated` |
 | The hand doesn't ease: it jumps straight to the alignment once it has moved far enough from the one drawn | done | `hand_morph::Refresh` and `Advance` (`src/3D/HandMorph.cpp`), from `HandSystem::UpdateAlignmentMorph`: re-morphs at once when the alignment moved 0.03 from the one drawn; tests `HandMorph.JumpsStraightToTheAlignmentOnceFarEnough`, `HandMorph.StaysUntilTheAlignmentMovesFarEnough` |
 | It starts neutral | done | `hand_morph::State` starts drawn at 0 (the hand system's `_morph`) |
-| Going into or out of the player's influence blends the skin again | done | `hand_morph::Advance`: a change of the texture set (in or out of the influence, `HandSystem::InInfluence`) blends the skin again at the drawn alignment; test `HandMorph.CrossingTheInfluenceBlendsTheSkinAgainAtTheDrawnAlignment` |
-| The influence is tested at the point picked under the cursor, a frame late, kept within reach of the map | done | `HandSystem::InInfluence` at the action point, which `UpdateAlignmentMorph` reads at the start of the frame, before the hand is placed again (the last frame's) |
+| Going into or out of the player's influence blends the skin again | done | `hand_morph::Advance`: a change of the texture set (in or out of the influence, `HandSystem::InInfluence`) blends the skin again at the drawn alignment; test `HandMorph.CrossingTheInfluenceBlendsTheSkinForTheLastAlignmentTaken` |
+| The influence is tested at the point picked under the cursor, a frame late, kept within reach of the map | done | `HandSystem::InInfluence` at the action point, which `UpdateAlignmentMorph` reads at the start of the frame, before the hand is placed again (the last frame's); test `HandMorph.TestsThePickOrElseTheOriginUnlessHeld` |
 
 ## Light and shadow
 

@@ -8,8 +8,8 @@ Besides the story's lands, `Scripts/` holds the map script the game reads first 
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The game starts a new game by reading the map script, whose one line loads the first land's script | todo | openblack never reads `map.txt`; it loads `Land1.txt` (or `--start-level`) itself (`Game.cpp`) |
-| A map script's other commands (players, date and time, turn length, challenges, the language, an old creature, configuration) | todo | see the map script part of [land_script_commands.md](land_script_commands.md) |
+| The game starts a new game by reading the map script, whose one line loads the first land's script | pending | openblack never reads `map.txt`; it loads `Land1.txt` (or `--start-level`) itself (`Game.cpp`) |
+| A map script's other commands (players, date and time, turn length, challenges, the language, an old creature, configuration) | pending | see the map script part of [land_script_commands.md](land_script_commands.md) |
 
 ## The demo land (`demo2.txt`)
 
@@ -17,7 +17,6 @@ Besides the story's lands, `Scripts/` holds the map script the game reads first 
 |-----------|--------|---------------|
 | The demo's land script builds its version of the third land on the shipped `Land3.lnd`, with older commands (old-style animals and town fields) | done | every line is a known command with the right arguments when read the way `Script.cpp` does (`--start-level demo2.txt`) |
 | It has no footpath file, as in the game | done | nothing to load |
-| The demo's own challenges | n/a | the shipped `challenge.chl` is the full game's; the demo's scripts aren't shipped |
 
 ## Demo land: set-up
 
@@ -78,7 +77,7 @@ Besides the story's lands, `Scripts/` holds the map script the game reads first 
 | 4 × feature "Pilar2 Lime" | done | `FeatureArchetype` (`CREATE_NEW_FEATURE`) |
 | 1 × feature "Tibetan Large Pillar Feature" | done | `FeatureArchetype` (`CREATE_NEW_FEATURE`) |
 | 70 patches of mist | done | `MistArchetype` (`CREATE_MIST`) |
-| 38 fireflies | todo | `CREATE_FIRE_FLY` is empty; see [../nature/fireflies.md](../nature/fireflies.md#where-they-come-from) |
+| 38 fireflies | pending | `CREATE_FIRE_FLY` is empty; see [../nature/fireflies.md](../nature/fireflies.md#where-they-come-from) |
 
 ## Demo land: food
 
@@ -111,17 +110,5 @@ Besides the story's lands, `Scripts/` holds the map script the game reads first 
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| 1 arenas | partial | an `Arena` is kept (`CREATE_ARENA`); the creature fights that use it are not wired into the game |
+| 1 arenas | partial 40% | an `Arena` is kept (`CREATE_ARENA`); the creature fights that use it are not wired into the game; re-measured 2026-10-21: kept; the creature fights that use it are not wired |
 
-## The computer players' test land (`comp.txt`)
-
-| Behaviour | Status | Where / notes |
-|-----------|--------|---------------|
-| Loads a developers' landscape (`DEVDATA\Landscape\old.led`) that isn't shipped, so neither the game nor openblack can open it | n/a | the landscape is missing from the game |
-| Builds five Celtic towns with 43 buildings, 168 villagers, 19 cows, 65 trees and two temples and two worship sites (the player's and a rival's), and switches on a second computer player with an old-style creature | n/a | for reference: what the test land would build; every command it uses is covered in land_script_commands.md |
-
-## The dance test land (`dance.txt`)
-
-| Behaviour | Status | Where / notes |
-|-----------|--------|---------------|
-| Loads a dance test landscape (`dance.led`) that isn't shipped, and builds nothing else | n/a | the landscape is missing from the game |

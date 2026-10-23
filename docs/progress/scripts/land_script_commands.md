@@ -2,7 +2,7 @@
 
 Every land of Black & White, the tutorial, the skirmish playgrounds and the developers' test lands is built by a plain text land script in `Scripts/`: one command a line, read from top to bottom when the land loads. The game knows 106 such commands for building a land and 25 more for the map script that picks the land. The command names below are the words written in the shipped files. Counts are lines in the shipped `Land1`–`Land5`, `LandT`, the seven `Playgrounds` scripts and `demo2`, `comp` and `dance`. openblack reads them in `src/LHScriptX/` (`FeatureScriptCommands.cpp`, `MapScriptCommands.cpp`, `Script.cpp`, `Lexer.cpp`). What each land builds is in the per-land files of this folder.
 
-**Progress: 77/134 done, 13 partial — 62%**
+**Progress: 84/134 done, 0 chosen, 13 partial, 0 inferred — 67%**
 
 How the original does it, in our wiki: [Writing land-script lines: SaveObject and WriteCommand](../../../scripts/land-change-and-saving.md), [Map loading and script functions](../../../scripts/script-commands.md).
 
@@ -16,17 +16,17 @@ How the original does it, in our wiki: [Writing land-script lines: SaveObject an
 | Names may be written without quotes (job names, miracle names) | done | identifiers are taken as text |
 | Each argument is converted to what the command wants: a whole number given where a fraction is wanted (or the other way) still works | done | `Script::RunCommand` (`src/LHScriptX/Script.cpp`) turns a whole number into a fraction and a fraction into a whole number where the command wants it |
 | A command the game doesn't know is skipped and the rest of the land still loads | done | `Script::Load` logs "unknown command" and skips the line; the rest of the land loads |
-| A line missing its closing bracket is still read | partial | `Script::Load` logs "missing )" and skips the line, where the original still reads it |
-| The script reader's variables and `IF` lines | todo | not used by any shipped land script; openblack's reader has neither |
-| After the last line the buildings are given to their towns, the towns' starting dates set, the players tidied and the streams built | partial | `Game::LoadMap` (`src/Game.cpp`) assigns the town features (`ecs::town_features::AssignTownFeatures`, again for a playground start) and builds the rivers' footprints after the last line; the towns' starting dates and the players' tidy-up are not checked |
+| A line missing its closing bracket is still read | partial 50% | `Script::Load` logs "missing )" and skips the line, where the original still reads it; re-measured 2026-10-21: the line is logged and skipped, where the original reads it |
+| The script reader's variables and `IF` lines | pending | not used by any shipped land script; openblack's reader has neither |
+| After the last line the buildings are given to their towns, the towns' starting dates set, the players tidied and the streams built | partial 60% | `Game::LoadMap` (`src/Game.cpp`) assigns the town features (`ecs::town_features::AssignTownFeatures`, again for a playground start) and builds the rivers' footprints after the last line; the towns' starting dates and the players' tidy-up are not checked; re-measured 2026-10-21: ported; not checked against the original in a run yet |
 | The land's footpath file is found from the land script's own name (`land1.fot` for `Land1.txt`) | done | `Game::LoadMap`; the skirmish lands *Death Comes*, *Firestorm*, *Island Wars* and `construct` have none, as in the game |
-| An unreadable land is kept as far as it got, not ending the game | partial | `Game::LoadMap` logs the error and keeps what was made; whether the game keeps it the same way is not checked |
+| An unreadable land is kept as far as it got, not ending the game | partial 60% | `Game::LoadMap` logs the error and keeps what was made; whether the game keeps it the same way is not checked; re-measured 2026-10-21: ported; not checked against the original in a run yet |
 
 ## Land set-up
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| `SET_GLOBAL_LAND_BALANCE`: Sets one of the land's balance numbers (how fast villagers move, how fast belief grows, how impressive miracles are and others); used 30 times (story 9, playgrounds 21) | partial | `land_balance::Set` (`src/LandBalance.cpp`) keeps all eight; only some are read (number 4 by the villagers' speed, 5 by the trees) |
+| `SET_GLOBAL_LAND_BALANCE`: Sets one of the land's balance numbers (how fast villagers move, how fast belief grows, how impressive miracles are and others); used 30 times (story 9, playgrounds 21) | partial 30% | `land_balance::Set` (`src/LandBalance.cpp`) keeps all eight; only some are read (number 4 by the villagers' speed, 5 by the trees); re-measured 2026-10-21: kept; only numbers 4 and 5 are read |
 | `LOAD_LANDSCAPE`: Loads the land's height map and textures; used 16 times (story 5, tutorial 1, playgrounds 7, demo and test 3) | done | `Game::LoadLandscape` |
 | `SET_LAND_NUMBER`: Says which land of the story this is (0 for skirmish and test lands); used 16 times (story 5, tutorial 1, playgrounds 7, demo and test 3) | done | kept in the map script globals; read by the influence and the worship sites |
 | `START_CAMERA_POS`: Where the camera starts, looking at a point from the game's standard height and angle; used 16 times (story 5, tutorial 1, playgrounds 7, demo and test 3) | done | `FeatureScriptCommands::StartCameraPos`: the camera looks at the point from the standard height and angle |
@@ -34,15 +34,13 @@ How the original does it, in our wiki: [Writing land-script lines: SaveObject an
 | `SET_PLAYER_INFLUENCE_MULTIPLIER`: Scales how far every player's influence from their temple and buildings reaches; used 13 times (story 5, tutorial 1, playgrounds 7) | done | kept in the map script globals; read by `src/ECS/Influence` |
 | `SET_TOWN_INFLUENCE_MULTIPLIER`: Scales how far every town's influence reaches on this land; used 13 times (story 5, tutorial 1, playgrounds 7) | done | kept in the map script globals; read by `src/ECS/Influence` |
 | `SET_NIGHTTIME`: Sets the length of the day and how much of it is night and dawn and dusk; used 8 times (story 2, playgrounds 6) | done | `DayNightClock::SetCycleFromLand` |
-| `ADD_GAME_MESSAGE_LINE`: A line of a skirmish land's description; used 5 times (playgrounds 5) | partial | the command is empty; the debug menu's land list reads the line itself for its tooltip |
-| `START_GAME_MESSAGE`: The title of a skirmish land shown when choosing it; used 5 times (playgrounds 5) | partial | the command is empty; the debug menu's land list reads the line itself for its tooltip. In the game, reaching it pops up the land info box with this title and the description lines (the skirmish box lists lands by file name): see [../multiplayer/skirmish.md](../multiplayer/skirmish.md) |
-| `BRUSH_SIZE`: Sets the editor's brush size; not used by the shipped scripts | n/a | an editor setting, empty in openblack |
-| `CREATE_AREA`: Marks an area of the land with a radius; not used by the shipped scripts | todo | empty; what the game uses it for is not known |
-| `EDIT_LEVEL`: Opens the land in the game's editor; not used by the shipped scripts | todo | empty |
-| `FLY_BY_FILE`: Names a camera fly-by for the land; not used by the shipped scripts | todo | empty |
-| `MULTIPLAYER_DEBUG`: Turns on network debugging; not used by the shipped scripts | n/a | a developer switch |
-| `SET_A_TOWNS_INFLUENCE_MULTIPLIER`: Scales one town's influence; not used by the shipped scripts | todo | `FeatureScriptCommands::SetATownInfluenceMultiplier` logs "not implemented" |
-| `SET_LAND_BALANCE`: Sets a balance number for one player; not used by the shipped scripts | todo | empty |
+| `ADD_GAME_MESSAGE_LINE`: A line of a skirmish land's description; used 5 times (playgrounds 5) | partial 20% | the command is empty; the debug menu's land list reads the line itself for its tooltip; re-measured 2026-10-21: the command is empty; the debug menu reads the line itself |
+| `START_GAME_MESSAGE`: The title of a skirmish land shown when choosing it; used 5 times (playgrounds 5) | partial 20% | the command is empty; the debug menu's land list reads the line itself for its tooltip. In the game, reaching it pops up the land info box with this title and the description lines (the skirmish box lists lands by file name): see [../multiplayer/skirmish.md](../multiplayer/skirmish.md); re-measured 2026-10-21: the command is empty; the debug menu reads the line itself |
+| `CREATE_AREA`: Marks an area of the land with a radius; not used by the shipped scripts | pending | empty; what the game uses it for is not known |
+| `EDIT_LEVEL`: Opens the land in the game's editor; not used by the shipped scripts | pending | empty |
+| `FLY_BY_FILE`: Names a camera fly-by for the land; not used by the shipped scripts | pending | empty |
+| `SET_A_TOWNS_INFLUENCE_MULTIPLIER`: Scales one town's influence; not used by the shipped scripts | pending | `FeatureScriptCommands::SetATownInfluenceMultiplier` logs "not implemented" |
+| `SET_LAND_BALANCE`: Sets a balance number for one player; not used by the shipped scripts | pending | empty |
 | `SET_LOST_TOWN_SCALE`: Scales what a player keeps of a town they lose; not used by the shipped scripts | done | `land_balance::SetLostTownScale`, back to 1 on a land balance reset; read by the town belief's fold (boredom and the belief left in a lost town) |
 
 ## Towns
@@ -60,9 +58,9 @@ How the original does it, in our wiki: [Writing land-script lines: SaveObject an
 | `CREATE_PLANNED_SPELL_ICON`: A planned miracle icon for a town; not used by the shipped scripts | done | `magic::script::CreatePlannedSpellIcon`: only the town's miracle, as the original |
 | `CREATE_SPELL_ICON`: Puts a miracle's icon at a place; not used by the shipped scripts | done | does nothing, as the original |
 | `CREATE_TOWN_CENTRE_SPELL_ICON`: Puts a miracle's icon on a town's village centre; not used by the shipped scripts | done | the same handler as create town spell, as the original |
-| `CREATE_TOWN_TEMPORARY_POTS`: Gives a town some temporary food and wood; not used by the shipped scripts | todo | empty |
+| `CREATE_TOWN_TEMPORARY_POTS`: Gives a town some temporary food and wood; not used by the shipped scripts | pending | empty |
 | `SET_TOWN_BALANCE_BELIEF_SCALE`: Scales how much a town's belief counts; not used by the shipped scripts | done | the town's belief scale, read by `ecs::town_belief::Fold` |
-| `TOWN_NEEDS_POS`: Where a town's needs are shown; not used by the shipped scripts | todo | empty |
+| `TOWN_NEEDS_POS`: Where a town's needs are shown; not used by the shipped scripts | pending | empty |
 
 ## Buildings
 
@@ -74,15 +72,15 @@ How the original does it, in our wiki: [Writing land-script lines: SaveObject an
 | `CREATE_SPELL_DISPENSER`: Creates a miracle dispenser of a tribe that gives a miracle, with its angle, scale and recharge time; used 45 times (story 2, playgrounds 43) | done | `magic::script::CreateSpellDispenser`: the dispenser with its miracle, an orb at once and its period |
 | `CREATE_CITADEL`: Creates a player's temple; used 28 times (story 4, playgrounds 20, demo and test 4) | done | `CitadelArchetype`; the temple is made built |
 | `CREATE_WORSHIP_SITE`: Creates a worship site for a player and tribe; used 19 times (story 8, playgrounds 5, demo and test 6) | done | `magic::script::CreateWorshipSite`: a built site for the player's temple and the tribe |
-| `CREATE_SCAFFOLD`: Creates a scaffold for a building; used 12 times (playgrounds 12) | todo | empty; see [../building/workshop_and_scaffolds.md](../building/workshop_and_scaffolds.md) |
+| `CREATE_SCAFFOLD`: Creates a scaffold for a building; used 12 times (playgrounds 12) | pending | empty; see [../building/workshop_and_scaffolds.md](../building/workshop_and_scaffolds.md) |
 | `CREATE_PLANNED_CITADEL`: Plans where a player's temple will be built; used 5 times (story 5) | done | `CitadelArchetype::CreatePlan` |
-| `CREATE_BASE`: Creates a base; not used by the shipped scripts | todo | empty; what a base is is not known |
-| `CREATE_CREATURE_PEN`: Creates a creature pen; not used by the shipped scripts | todo | empty |
-| `CREATE_FURNITURE`: Creates furniture; not used by the shipped scripts | todo | empty |
-| `CREATE_PITCH`: Creates a football pitch; not used by the shipped scripts | todo | empty |
-| `CREATE_PLANNED_WALL_SECTION`: Plans a piece of wall; not used by the shipped scripts | todo | empty |
-| `CREATE_PLANNED_WORSHIP_SITE`: Plans a worship site; not used by the shipped scripts | todo | empty |
-| `CREATE_WALL_SECTION`: Creates a piece of wall; not used by the shipped scripts | todo | empty |
+| `CREATE_BASE`: Creates a base; not used by the shipped scripts | pending | empty; what a base is is not known |
+| `CREATE_CREATURE_PEN`: Creates a creature pen; not used by the shipped scripts | pending | empty |
+| `CREATE_FURNITURE`: Creates furniture; not used by the shipped scripts | pending | empty |
+| `CREATE_PITCH`: Creates a football pitch; not used by the shipped scripts | pending | empty |
+| `CREATE_PLANNED_WALL_SECTION`: Plans a piece of wall; not used by the shipped scripts | pending | empty |
+| `CREATE_PLANNED_WORSHIP_SITE`: Read and ignored, as in the original (no site, no random draw, the last created object kept); not used by the shipped scripts | done | `FeatureScriptCommands::CreatePlannedWorshipSite` does nothing, as the original; `FootpathsTest.APlannedWorshipSiteMakesNothingAndKeepsTheLastCreatedObject` ([the script](../../../magic/worship.md#script)) |
+| `CREATE_WALL_SECTION`: Creates a piece of wall; not used by the shipped scripts | pending | empty |
 
 ## Villagers
 
@@ -101,7 +99,7 @@ How the original does it, in our wiki: [Writing land-script lines: SaveObject an
 | `FIRE_FLY_SPELL_REWARD_PROB`: How likely fireflies are to give each miracle; used 633 times (story 210, tutorial 42, playgrounds 381) | done | `magic::script::FireFlySpellRewardProb` and the map globals' reward table |
 | `CREATE_MIST`: Creates a patch of mist of a colour and size; used 186 times (story 111, playgrounds 5, demo and test 70) | done | `MistArchetype` |
 | `CREATE_NEW_FEATURE`: Creates a feature (pillars, statues, craters, a pier) by name; used 182 times (story 76, tutorial 2, playgrounds 79, demo and test 25) | done | `FeatureArchetype`; unknown names skipped, planned features not made |
-| `CREATE_FIRE_FLY`: Creates a firefly that can carry a miracle reward; used 167 times (playgrounds 129, demo and test 38) | todo | empty; the story lands place none and rely on the nightly top-up: [../nature/fireflies.md](../nature/fireflies.md#where-they-come-from) |
+| `CREATE_FIRE_FLY`: Creates a firefly that can carry a miracle reward; used 167 times (playgrounds 129, demo and test 38) | pending | empty; the story lands place none and rely on the nightly top-up: [../nature/fireflies.md](../nature/fireflies.md#where-they-come-from) |
 | `CREATE_FOREST`: Creates a forest that trees belong to; used 143 times (story 9, playgrounds 107, demo and test 27) | done | `ecs::CreateForest`: the forest the following trees are looked up in |
 | `CREATE_NEW_BIG_FOREST`: Creates a big forest model; used 113 times (story 46, tutorial 4, playgrounds 47, demo and test 16) | done | `BigForestArchetype` |
 | `CREATE_DEAD_TREE`: Creates a dead tree of a kind, leaning; used 18 times (story 3, demo and test 15) | done | `DeadTreeArchetype` with its life and three angles |
@@ -117,7 +115,7 @@ How the original does it, in our wiki: [Writing land-script lines: SaveObject an
 | `CREATE_NEW_TOWN_FIELD`: Creates a field of a town, of a kind, with its angle; used 393 times (story 160, tutorial 2, playgrounds 231) | done | `FieldArchetype` |
 | `CREATE_TOWN_FISH_FARM`: Creates a fish farm of a town; used 185 times (story 69, tutorial 5, playgrounds 104, demo and test 7) | done | `FishFarmArchetype`, nothing without the town |
 | `CREATE_POT`: Creates a pot of food or wood with an amount; used 81 times (story 22, tutorial 2, playgrounds 28, demo and test 29) | done | `PotArchetype`, nothing on top of another object or for no amount; food spreads its reaction to the grazers |
-| `CREATE_DRINK_WAYPOINT`: Marks a place where animals and creatures go to drink; used 75 times (story 47, playgrounds 28) | partial | a `DrinkWaypoint` is kept; nothing reads it yet |
+| `CREATE_DRINK_WAYPOINT`: Marks a place where animals and creatures go to drink; used 75 times (story 47, playgrounds 28) | partial 60% | a `DrinkWaypoint` is kept in the order made; the creature drinks at the nearest one under 1000 (`mind_detail::DrinkPlaceOf`; unverified against v1.42). Whether animals go there is not read; re-measured 2026-10-21: kept in order; the creature drinks at the nearest; unverified against v1.42; the animals' use is not read |
 | `CREATE_TOWN_FIELD`: Creates a field of a town; used 18 times (demo and test 18) | done | through `CreateNewTownField` |
 | `CREATE_FIELD`: Creates a field; not used by the shipped scripts | done | through `CreateNewTownField` |
 | `CREATE_FISH_FARM`: Creates a fish farm; not used by the shipped scripts | done | `FishFarmArchetype` |
@@ -139,16 +137,16 @@ How the original does it, in our wiki: [Writing land-script lines: SaveObject an
 | `CREATE_MOBILEOBJECT`: Creates a moveable object (mushrooms, barrels, carts, poo) with its angle and scale; used 159 times (story 97, playgrounds 45, demo and test 17) | done | `MobileObjectArchetype`, nothing on top of another object |
 | `CREATE_BONFIRE`: Creates a bonfire; used 11 times (story 6, tutorial 1, playgrounds 4) | done | `BonfireArchetype`; the temperature is not used on creation, as in the original ([map-loading](../../../scripts/map-script-objects.md#map-script-objects-street-lanterns-bonfires-dead-trees-gates)) |
 | `CREATE_ANIMATED_STATIC`: Creates an animated object (gates, cave entrances) by name; used 7 times (story 7) | done | `AnimatedStaticArchetype` |
-| `CREATE_STREET_LIGHT`: Creates a street light; used 1 times (playgrounds 1) | partial | `StreetLanternArchetype` as a town lantern; the street light itself is not decoded (no land uses it) |
+| `CREATE_STREET_LIGHT`: Creates a street light; used 1 times (playgrounds 1) | partial 50% | `StreetLanternArchetype` as a town lantern; the street light itself is not decoded (no land uses it); re-measured 2026-10-21: made as a town lantern; the street light itself is not decoded |
 | `CREATE_MOBILESTATIC`: Creates a static object (older form); not used by the shipped scripts | done | `MobileStaticArchetype::CreateFromInfo` |
-| `MAKE_LAST_OBJECT_ARTIFACT`: Makes the last object made a town's artefact; not used by the shipped scripts | todo | empty |
+| `MAKE_LAST_OBJECT_ARTIFACT`: Makes the last object made a town's artefact; not used by the shipped scripts | done | `FeatureScriptCommands::MakeLastObjectArtifact`: the named town, else the nearest town if the player owns it, else no town (`artefact_rules::TownForScriptArtefact`), then its worth; unverified against v1.42 |
 
 ## Miracles
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | `CREATE_ONE_SHOT_SPELL_PU`: Creates a one-shot miracle, powered up; used 244 times (story 2, playgrounds 242) | done | `magic::script::CreateOneShotSpellPu`: the miracle's first seed at its power-up level |
-| `CREATE_ARENA`: Creates an arena where creatures fight; used 5 times (story 4, demo and test 1) | partial | an `Arena` is kept; the creature fights that use it are not wired into the game |
+| `CREATE_ARENA`: Creates an arena where creatures fight; used 5 times (story 4, demo and test 1) | partial 40% | an `Arena` is kept; the creature fights that use it are not wired into the game; re-measured 2026-10-21: kept; the creature fights that use it are not wired |
 | `CREATE_INFLUENCE_RING`: Creates a ring of influence for a player; used 1 times (playgrounds 1) | done | `influence::CreateRing` for the player |
 | `CREATE_ONE_SHOT_SPELL`: Creates a one-shot miracle that can be picked up and cast once; not used by the shipped scripts | done | `magic::script::CreateOneShotSpell` by seed name |
 
@@ -163,33 +161,32 @@ How the original does it, in our wiki: [Writing land-script lines: SaveObject an
 | `CREATE_WEATHER_CLIMATE_WIND`: Sets a climate's wind; used 29 times (story 21, playgrounds 6, demo and test 2) | done | `magic::map_script::CreateWeatherClimateWind` |
 | `CREATE_WEATHER_CLIMATE`: Creates a climate over a circle of the land; used 27 times (story 21, playgrounds 6) | done | `magic::map_script::CreateWeatherClimate` |
 | `CREATE_WEATHER_STORM`: Creates a storm that is there from the start, with its rain, lightning and path; used 2 times (playgrounds 2) | done | `magic::map_script::CreateWeatherStorm`: a storm from the line's shape, clouds and weather texts |
-| `COUNTRY_CHANGE`: Changes the land's country (look) around a place; not used by the shipped scripts | todo | empty |
+| `COUNTRY_CHANGE`: Changes the land's country (look) around a place; not used by the shipped scripts | pending | empty |
 | `CREATE_FOOTPATH_NODE`: Adds a point to a footpath; not used by the shipped scripts | done | `FeatureScriptCommands::CreateFootpathNode`: the node at the head of its footpath |
 | `CREATE_FOOTPATH`: Starts a footpath; not used by the shipped scripts | done | `ecs::footpaths::Create` (the shipped footpaths come from the land's footpath file) |
-| `CREATE_PATH`: Creates a path; not used by the shipped scripts | todo | `FeatureScriptCommands::CreatePath` logs "not implemented" |
-| `CREATE_WATERFALL`: Creates a waterfall; not used by the shipped scripts | todo | empty |
-| `HEIGHT_CHANGE`: Changes the land's height around a place; not used by the shipped scripts | todo | empty |
-| `LINK_FOOTPATH`: Links a footpath to the last object made (a gate or bridge); not used by the shipped scripts | todo | `FeatureScriptCommands::LinkFootpath` logs "not implemented" |
+| `CREATE_PATH`: Creates a path; not used by the shipped scripts | pending | `FeatureScriptCommands::CreatePath` logs "not implemented" |
+| `CREATE_WATERFALL`: Creates a waterfall; not used by the shipped scripts | done | `FeatureScriptCommands::CreateWaterfall`: an empty object on the ground (no mesh, no sound, no map cell) that becomes the last created object, as the original's `GWaterfall` (test `FootpathsTest.ALandScriptWaterfallIsAnEmptyObjectThatIsTheLastCreated`) |
+| `HEIGHT_CHANGE`: Changes the land's height around a place; not used by the shipped scripts | pending | empty |
+| `LINK_FOOTPATH`: Links a footpath to the last object made (a gate or bridge); not used by the shipped scripts | done | `FeatureScriptCommands::LinkFootpath`: the footpath at its position from the head to the last created multi-map fixed object (`footpaths::AddFootpath`) |
 
 ## Creatures and rival gods
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| `CREATE_CREATURE_FROM_FILE`: Creates a rival god's creature of a species from a mind file; used 16 times (playgrounds 16) | partial | `CreatureArchetype` with the mind loaded; faces a fixed way, its size from openblack's starting tables |
-| `SET_COMPUTER_PLAYER_CREATURE_LIKE`: Makes a rival god's creature like another player; used 16 times (playgrounds 16) | todo | empty |
-| `TOGGLE_COMPUTER_PLAYER`: Turns a rival god (computer player) on or off; used 16 times (story 4, playgrounds 11, demo and test 1) | partial | adds the player to the player system if it has none, and with on marks it a computer player (`PlayerMagic::playerType` 2; off leaves the type, as the original). In the game it also switches on that player's computer god mind and marks it a computer player, and is ignored while a network game's map loads: see [../rival_gods/skirmish_opponents.md](../rival_gods/skirmish_opponents.md) |
-| `CREATE_CREATURE`: Creates a creature (older form); used 1 times (demo and test 1) | todo | `FeatureScriptCommands::CreateCreature` logs "not implemented" |
-| `LOAD_COMPUTER_PLAYER_PERSONALLTY`: Loads a rival god's personality; not used by the shipped scripts | todo | empty |
-| `SET_COMPUTER_PLAYER_PERSONALLTY`: Sets a rival god's personality; not used by the shipped scripts | todo | empty |
-| `SET_INTERACT_DESIRE`: Sets the desire to interact; not used by the shipped scripts | todo | empty; whose desire is not known |
+| `CREATE_CREATURE_FROM_FILE`: Creates a rival god's creature of a species from a mind file; used 16 times (playgrounds 16) | partial 70% | `CreatureArchetype` with the mind loaded; faces a fixed way, its size from openblack's starting tables; re-measured 2026-10-21: made with its mind; the facing and size are ours |
+| `SET_COMPUTER_PLAYER_CREATURE_LIKE`: Makes a rival god's creature like another player; used 16 times (playgrounds 16) | done | `SET_COMPUTER_PLAYER_CREATURE_LIKE` names it; the computer mind's start sizes the creature (`ComputerPlayerSystem`, `computer_player::SizeLike`; unverified against v1.42) |
+| `TOGGLE_COMPUTER_PLAYER`: Turns a rival god (computer player) on or off; used 16 times (story 4, playgrounds 11, demo and test 1) | partial 40% | adds the player to the player system if it has none, and with on marks it a computer player (`PlayerMagic::playerType` 2; off leaves the type, as the original). In the game it also switches on that player's computer god mind and marks it a computer player, and is ignored while a network game's map loads: see [../rival_gods/skirmish_opponents.md](../rival_gods/skirmish_opponents.md); re-measured 2026-10-21: the player is added and marked; no mind runs it |
+| `CREATE_CREATURE`: Creates a creature (older form); used 1 times (demo and test 1) | pending | `FeatureScriptCommands::CreateCreature` logs "not implemented" |
+| `LOAD_COMPUTER_PLAYER_PERSONALLTY`: Loads a rival god's personality; not used by the shipped scripts | done | `FeatureScriptCommands::LoadComputerPlayerPersonality` → `ComputerPlayerSystem::LoadPersonality`; see [../../../hand/computer-minds.md](../../../hand/computer-minds.md#the-personality-file) |
+| `SET_COMPUTER_PLAYER_PERSONALLTY`: Sets a rival god's personality; not used by the shipped scripts | done | `FeatureScriptCommands::SetComputerPlayerPersonality` → `ComputerPlayerSystem::SetPersonality`; see [../../../hand/computer-minds.md](../../../hand/computer-minds.md#the-personality-file) |
+| `SET_INTERACT_DESIRE`: Sets the desire to interact; not used by the shipped scripts | pending | empty; whose desire is not known |
 
 ## Commands written wrongly in the shipped scripts
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | `CREATE_SPECIAL_TOWNVILLAGER` (a misspelling of `CREATE_SPECIAL_TOWN_VILLAGER`) is written 119 times in *Death Comes To Those That Wait*; the game doesn't know it and skips each line, so those named villagers are never made | done | the line is logged and skipped as unknown, so the rest of the land loads, as in the game |
-| One `FIRE_FLY_SPELL_REWARD_PROB` line in *Death Comes To Those That Wait* lacks its closing bracket; the game reads it | partial | the line is logged and skipped, where the game reads it |
-| One miracle in *Death Comes To Those That Wait* is misspelt (`EXPLSION_PU1`); the game finds no such miracle for that town | n/a | data error in the shipped file; the miracle is not found and nothing is given, as in the game |
+| One `FIRE_FLY_SPELL_REWARD_PROB` line in *Death Comes To Those That Wait* lacks its closing bracket; the game reads it | partial 50% | the line is logged and skipped, where the game reads it; re-measured 2026-10-21: the line is logged and skipped, where the original reads it |
 
 ## Map script commands
 
@@ -197,28 +194,20 @@ The map script (`map.txt`) is what the game reads first to choose a land; the sh
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| `SET_NO_PLAYERS`: Sets the number of players; not used by the shipped map script | todo | in `MapScriptCommands.cpp`, throws "not implemented"; openblack never runs a map script |
-| `LOAD_TRIBE_DANCE`: Loads a tribe's dance; not used by the shipped map script | todo | in `MapScriptCommands.cpp`, throws "not implemented"; openblack never runs a map script |
-| `SET_DATE`: Sets the date; not used by the shipped map script | todo | in `MapScriptCommands.cpp`, throws "not implemented"; openblack never runs a map script |
-| `SET_TIME`: Sets the time; not used by the shipped map script | todo | in `MapScriptCommands.cpp`, throws "not implemented"; openblack never runs a map script |
-| `SET_TURNS_PER_YEAR`: Sets how many game turns make a year; not used by the shipped map script | todo | in `MapScriptCommands.cpp`, throws "not implemented"; openblack never runs a map script |
-| `SET_GAME_TICK_TIME`: Sets how long a game turn lasts; not used by the shipped map script | partial | `MapScriptCommands::SetGameTickTime` sets the turn length (`game_clock::SetMsPerTurn`); openblack never runs a map script |
-| `LOAD_FEATURE_SCRIPT`: Loads a land script (the shipped map script loads the first land); used 1 time in `map.txt` | todo | in `MapScriptCommands.cpp`, throws "not implemented"; openblack loads the land script directly (`--start-level`) |
-| `PAUSE_GAME`: Pauses the game; not used by the shipped map script | todo | in `MapScriptCommands.cpp`, throws "not implemented"; openblack never runs a map script |
-| `CREATE_CREATURE`: Creates a creature; not used by the shipped map script | todo | in `MapScriptCommands.cpp`, throws "not implemented"; openblack never runs a map script |
-| `OUTPUT_VILLAGERS`: Writes the villagers out (debugging); not used by the shipped map script | n/a | developer output |
-| `OUTPUT_TOWN`: Writes the towns out (debugging); not used by the shipped map script | n/a | developer output |
-| `OUTPUT_CREATURES`: Writes the creatures out (debugging); not used by the shipped map script | n/a | developer output |
-| `OUTPUT_COLLIDE`: Writes collisions out (debugging); not used by the shipped map script | n/a | developer output |
-| `OUTPUT_ALLOC`: Writes memory use out (debugging); not used by the shipped map script | n/a | developer output |
-| `SAVE_FOR_NET_DEBUG`: Saves for network debugging; not used by the shipped map script | n/a | developer output |
-| `LOAD_FOR_NET_DEBUG`: Loads for network debugging; not used by the shipped map script | n/a | developer output |
-| `LOAD_LANDSCAPE`: Loads a landscape; not used by the shipped map script | todo | in `MapScriptCommands.cpp`, throws "not implemented"; openblack never runs a map script |
-| `LOAD_GAME_SCRIPT`: Loads the compiled challenge script; not used by the shipped map script | todo | in `MapScriptCommands.cpp`, throws "not implemented"; openblack never runs a map script |
-| `LOAD_RAW_GAME_SCRIPT`: Loads challenge script source; not used by the shipped map script | todo | in `MapScriptCommands.cpp`, throws "not implemented"; openblack never runs a map script |
-| `LOAD_LANGUAGE`: Loads the language; not used by the shipped map script | todo | in `MapScriptCommands.cpp`, throws "not implemented"; openblack never runs a map script |
-| `LOAD_CHALLENGES`: Loads the challenges; not used by the shipped map script | todo | not in openblack's map command table |
-| `OUTPUT_RAND`: Writes the random numbers out (debugging); not used by the shipped map script | n/a | developer output |
-| `LOAD_OLD_CREATURE`: Loads the player's old creature; not used by the shipped map script | todo | not in openblack's map command table |
-| `CONFIG`: Reads the configuration; not used by the shipped map script | todo | not in openblack's map command table |
-| `KEYCONFIG`: Reads the key configuration; not used by the shipped map script | todo | not in openblack's map command table |
+| `SET_NO_PLAYERS`: Sets the number of players; not used by the shipped map script | pending | in `MapScriptCommands.cpp`, throws "not implemented"; openblack never runs a map script |
+| `LOAD_TRIBE_DANCE`: Loads a tribe's dance; not used by the shipped map script | pending | in `MapScriptCommands.cpp`, throws "not implemented"; openblack never runs a map script |
+| `SET_DATE`: Sets the date; not used by the shipped map script | pending | in `MapScriptCommands.cpp`, throws "not implemented"; openblack never runs a map script |
+| `SET_TIME`: Sets the time; not used by the shipped map script | pending | in `MapScriptCommands.cpp`, throws "not implemented"; openblack never runs a map script |
+| `SET_TURNS_PER_YEAR`: Sets how many game turns make a year; not used by the shipped map script | pending | in `MapScriptCommands.cpp`, throws "not implemented"; openblack never runs a map script |
+| `SET_GAME_TICK_TIME`: Sets how long a game turn lasts; not used by the shipped map script | partial 40% | `MapScriptCommands::SetGameTickTime` sets the turn length (`game_clock::SetMsPerTurn`); openblack never runs a map script; re-measured 2026-10-21: the natives it calls work; the scene is never reached in a run |
+| `LOAD_FEATURE_SCRIPT`: Loads a land script (the shipped map script loads the first land); used 1 time in `map.txt` | pending | in `MapScriptCommands.cpp`, throws "not implemented"; openblack loads the land script directly (`--start-level`) |
+| `PAUSE_GAME`: Pauses the game; not used by the shipped map script | pending | in `MapScriptCommands.cpp`, throws "not implemented"; openblack never runs a map script |
+| `CREATE_CREATURE`: Creates a creature; not used by the shipped map script | pending | in `MapScriptCommands.cpp`, throws "not implemented"; openblack never runs a map script |
+| `LOAD_LANDSCAPE`: Loads a landscape; not used by the shipped map script | pending | in `MapScriptCommands.cpp`, throws "not implemented"; openblack never runs a map script |
+| `LOAD_GAME_SCRIPT`: Loads the compiled challenge script; not used by the shipped map script | pending | in `MapScriptCommands.cpp`, throws "not implemented"; openblack never runs a map script |
+| `LOAD_RAW_GAME_SCRIPT`: Loads challenge script source; not used by the shipped map script | pending | in `MapScriptCommands.cpp`, throws "not implemented"; openblack never runs a map script |
+| `LOAD_LANGUAGE`: Loads the language; not used by the shipped map script | pending | in `MapScriptCommands.cpp`, throws "not implemented"; openblack never runs a map script |
+| `LOAD_CHALLENGES`: Loads the challenges; not used by the shipped map script | pending | not in openblack's map command table |
+| `LOAD_OLD_CREATURE`: Loads the player's old creature; not used by the shipped map script | pending | not in openblack's map command table |
+| `CONFIG`: Reads the configuration; not used by the shipped map script | pending | not in openblack's map command table |
+| `KEYCONFIG`: Reads the key configuration; not used by the shipped map script | pending | not in openblack's map command table |

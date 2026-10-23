@@ -19,13 +19,11 @@ every pull request merged into his master against this tree (at his `e1cc0b8f` o
 
 ## In progress here (do not start these)
 
-- **Code clean-up towards raffclar's architecture** (2026-10-23), so that his code comes in more easily later.
-  Behaviour stays identical, and a name his tree already uses is kept:
-  - the interfaces' shapes: where a Locator interface we share does the same work under another method name or
-    signature, ours takes his (the table is in `docs/wiki/project/refactor-conventions.md`); time, land, audio,
-    magic and dynamics first;
-  - the object draw list's Locator slot takes his name, `objectDrawListSystem`, and the camera's unused idle-time
-    stub goes (his #804).
+- **Towards raffclar's architecture** (2026-10-23): his turn and frame step tables (`GameTurnOrder.h`,
+  `GameFrameOrder.h`), filled with this side's order so they are identical; his reorderings would be separate,
+  measured commits.
+- **Audio:** the spooky voices' random 2D pan as the original (#221), and the pan a sound bank entry carries.
+- **Rendering:** the land's alpha pass redraws only the blocks the prints mark (part of #71).
 - **Creature:** nothing in its code or mind tonight. Kept on this side: the lean onto the slope (#35), the
   falling-spell film (#23).
 - **Villagers and towns:** footpaths (#74), the trees' tug and replanting (#87).
@@ -38,6 +36,11 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint185 (dd50aade4, published e34cd1305): code clean-up, all identical: the saves, the banks' waves, the input
+  replay and the test hooks' files go through the file system service, a player's own files are never read from a
+  data mod, the last fields and functions whose meaning the original shows take descriptive names (several his),
+  and the villager state table is renamed. The dashboard's clean-up goals are all closed: 7 reached, and in the other
+  3 only what is required is left.
 - joint184 (b2ba0006a, published b1242646a): code clean-up, all identical: no new expressions are left in the game's
   code (std::make_unique, private constructors taking a key) and no C arrays (std::array; main takes `char** argv`,
   byte-identical), counted from the sources by `docs/tools/cpp_counts.py`. The dashboard's clean-up bar: 7 of 10.

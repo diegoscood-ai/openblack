@@ -33,6 +33,11 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint197 (75ef59603, published 55ab9b6e7): the player's camera starts again as a new one when a script's camera
+  control ends, so its easing restarts as the original's (moves Land 1 from turn 9; references renewed on two
+  agreeing passes); raffclar's start-up split into four functions (his #881, ten services moved, identical); the
+  options and statistics as the original's (the volume times 1/127, the choices taken as the box is left, the tab
+  of the page shown, the players counted); a fire credited to the object's own player.
 - joint196 (d30cc6984, published 6cd544a8b): the snow lying on the land baked into the blocks' textures, the temple
   heart and worship sites baking their footprint and shadow, a storm's 0.01 case (#222 part 6); the camera help
   hears only the player's own controls, and two camera input differences fixed (closes #216); the forest's ring

@@ -33,6 +33,10 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint194 (2d27878d0, published b8613b7a1): the footprints, static shadows and river beds are baked into the
+  land blocks' textures at their prints step, as the original (#222 part 5), and the old live print passes are
+  removed. Game state identical everywhere; the shots that show the ground moved and their references were
+  renewed. Found on the way: the temple's own shadow and footprint are not baked yet (fixed in the next ground joint).
 - joint193 (93e6313c2, published f7a184c8c): the tattoo editor's and the story history's boxes fade in from nothing
   each time they are shown, a menu question's box fades in by itself and its answer gives the menu back whole, and
   a fragment's mesh goes with the fragment. All identical.

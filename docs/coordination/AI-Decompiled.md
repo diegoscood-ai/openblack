@@ -19,9 +19,8 @@ every pull request merged into his master against this tree (at his `e1cc0b8f` o
 
 ## In progress here (do not start these)
 
-- **Rendering:** the land textures' detail line and the far blocks' low-resolution tiles as the original (#71,
-  B1); it moves almost every land shot, so its joint renews the references. Then the prints baked into the block
-  textures (#222).
+- **Rendering:** the prints, static shadows, river channels and snow baked into the block textures and their
+  tiles, as the original (#222).
 - **Interface:** the menu fades on every page change as the original's boxes do, and the scripts' bars hide
   every dialog when they come on (#201); the key names written as "Ctrl + S" (#200).
 - **Creature:** nothing in its code or mind tonight. Kept on this side: the lean onto the slope (#35), the
@@ -36,6 +35,10 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint190 (53143155e, published d5685646a): the far blocks show their low-resolution tile and the texture detail
+  line blends it over the near ones, as the original (#71, B1); the temple pool's map keeps the block textures for
+  now. A full joint: the game's state identical everywhere; the land shots by day and night, the temple shot, three
+  hand shots and two fish scenes renewed after two agreeing passes.
 - joint189 (f15e3ef8d, published cc95aeaf9): a dead tree's fire going out gives its wood reaction to the tree's own
   player (#219), PLAYED of a weather thing answers whether its storm is over (#218), and the villagers' reaction to
   a burning thing in the hand converts the walker's speed as the original (#209; the issue had it the other way

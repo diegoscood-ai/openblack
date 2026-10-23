@@ -33,6 +33,9 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint192 (0fb2eeca8, published d85056cd3): the bake of a block's prints step in the game's order, with the trees'
+  texture shadows (not wired yet, #222), and a game's generated meshes go with it, so the next game numbers its own
+  from 0. All identical.
 - joint191 (d27916df7, published fa704e6af): the scripts' bars put every dialog away when they come in (#201), the
   key names written as the original writes them (#200; its menu fade-in already matched), a new game reads the
   hand's mesh afresh as the original makes a new hand (the last game's good or evil shape no longer stays), and

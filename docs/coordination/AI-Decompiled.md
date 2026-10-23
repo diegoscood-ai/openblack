@@ -33,6 +33,10 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint195 (2c22f22c6, published 7e2c92a6b): the hand shows what the original shows over a desire flag, a built
+  workshop, a worship icon, an altar, a temple, a worship site being built, a scaffold and a reward chest, and a
+  miracle's name at its power when taken (closes #157); the old print passes' shaders removed (#222); the computer
+  gods' totem rows (closes #210); the docs say C++23. Game state identical in every check.
 - joint194 (2d27878d0, published b8613b7a1): the footprints, static shadows and river beds are baked into the
   land blocks' textures at their prints step, as the original (#222 part 5), and the old live print passes are
   removed. Game state identical everywhere; the shots that show the ground moved and their references were

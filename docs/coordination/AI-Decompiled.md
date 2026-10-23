@@ -19,11 +19,11 @@ every pull request merged into his master against this tree (at his `e1cc0b8f` o
 
 ## In progress here (do not start these)
 
-- **Towards raffclar's architecture** (2026-10-23): his portability fixes (#129), the oracle tests' data folder
-  (#651/#652), sprites keeping texture ids rather than the graphics card's handles (#857); and synthetic twins for
-  the tests that need the original game's data.
 - **Rendering:** the land textures' detail line and the far blocks' low-resolution tiles as the original (#71,
-  B1); it moves almost every land shot, so its joint renews the references.
+  B1); it moves almost every land shot, so its joint renews the references. Then the prints baked into the block
+  textures (#222).
+- **Drawing between turns** (#220, the user's chosen difference): villagers, animals and birds drawn smoothly
+  wherever they move continuously; what the logic places at once still jumps; a View switch draws them stepped.
 - **Creature:** nothing in its code or mind tonight. Kept on this side: the lean onto the slope (#35), the
   falling-spell film (#23).
 - **Villagers and towns:** footpaths (#74), the trees' tug and replanting (#87).
@@ -36,6 +36,10 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint187 (7f76575c8, published 7d54cdb88): his portability fixes (#129), the oracle tests' data folder (#651/#652)
+  and sprites keeping texture ids (#857), and synthetic twins so the tests that need the original's data have
+  in-memory counterparts the CI can run. A full joint: every test alone, and all 192 scenes kept their state
+  (only shots already known to vary moved); every other check identical.
 - joint186 (365683a28, published f37f1a7b7): his turn and frame step tables (#802, #810) filled with this side's
   order, and the land's alpha pass drawn only where prints are marked (part of #71), all identical; the spooky
   voices' random 2D pan as the original and a sound bank entry's own pan (#221 closed), which the checks cannot

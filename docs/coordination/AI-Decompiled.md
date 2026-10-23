@@ -38,6 +38,11 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint183 (2d44f0cbb, published 5f27f9deb): code clean-up, all identical (tests, now with every data-backed test
+  running, fidelity, cycle, the story and the hand demos identical): the Locator interfaces we share take his method
+  names and signatures where they do the same work (time, land, audio, magic, dynamics, a villager's state change;
+  six pairs stay ours, each with its reason, in the conventions page), the object draw list takes his names, the
+  camera's unused idle-time stub goes (his #804), and the published docs were brought up to date with the tree.
 - joint182 (81871454b, published 9be0e2c97): code clean-up, all identical (tests, fidelity, cycle and the story
   identical; the hand demos identical but for the trace's source lines, renewed): the `Game` singleton is gone (the
   debug windows and the editor reach the game through a host that keeps `Game`'s method names), the mutable statics

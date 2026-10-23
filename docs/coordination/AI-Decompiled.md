@@ -33,6 +33,8 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint199 (9fc46b2ab, published 81ff6984e): a bird's next leg starts from the height its last leg aimed at, as the
+  original's (moves Land 1 from turn 5 and five bird scenes; references renewed on two agreeing passes).
 - joint198 (70cae0658, published bcad14c9e): the saved game's format read as the original writes it (the stream and
   its sums, SaveGame.inf, the pictures, the script machine's state written, the records up to the scaffolds, and a
   save tool; nothing in play reads or writes it yet); four miracle fixes (moving the bird and wolf scenes); a tree

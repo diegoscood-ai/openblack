@@ -35,7 +35,7 @@ How the original does it, in our wiki: [Tools and formats](../../research-tools.
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | Gesture templates | pending | read through `components/gestures` (`GestureFile`) by `GestureTemplatesLoader` (`src/Resources/Loaders.cpp`, `src/Magic/Gestures/GestureTemplates.cpp`), no tool |
-| Particle effect files | pending | read through `components/psys` (`ParticleFile`, enum headers, stacked bitmaps) by `src/Particles/PSysFile.cpp`, no tool |
+| Particle effect files | pending | read through `components/psys` (`ParticleFile`, enum headers, stacked bitmaps) by `src/Particles/ParticleSpellFile.cpp`, no tool |
 | Raw images (the game's textures outside packs) | pending | read by `components/rawimage`, no tool |
 | The game's info tables | pending | read by `src/Parsers/InfoFile.cpp`, no tool |
 | The game's fonts | pending | read by `src/Graphics/GameFont.cpp`, no tool |

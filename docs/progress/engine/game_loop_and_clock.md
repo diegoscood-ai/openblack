@@ -69,7 +69,7 @@ How the original does it, in our wiki: [The engine loop: game turns and frames (
 | Effects that don't change the game draw from a separate local stream | done | `game_random` local stream; test `GameRandom.LocalStream` |
 | A random fraction scales a 16-bit draw | done | test `GameRandom.GameFloatRand` |
 | Drawing zero gives zero without moving the stream | done | tests `GameRandom.ZeroForZero`, `GameRandomProduction.ZeroForZeroDoesNotDraw` |
-| Particle effects draw from the game's streams only while they step | done | tests `GameRandom.PSysOutsideAStep`, `GameRandom.PSysScopeDoesNotNest` |
+| Particle effects draw from the game's streams only while they step | done | tests `GameRandom.ParticleOutsideAStep`, `GameRandom.ParticleScopeDoesNotNest` |
 | Some things use the C runtime's own random numbers, which behave as Microsoft's | done | tests `GameRandom.Crt`, `GameRandomProduction.CrtRand` |
 | Both streams start from a fixed seed when the game starts and are reset as each land loads | done | `game_random::Init` at the campaign's first land and `game_random::Reset` at every later land load (`Game::LoadMap`); tests `GameRandomProduction.InitAndReset` |
 | The streams' positions are saved with a game and restored on load | partial 50% | the streams can be saved and restored (test `GameRandom.SaveLoad`), but there are no save games yet (see saving_and_loading.md); re-measured 2026-10-21: the streams save and restore; no save games use it |

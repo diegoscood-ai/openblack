@@ -49,7 +49,7 @@ How the original does it, in our wiki: [Physics: thrown objects, collisions, dam
 |-----------|--------|---------------|
 | A shattered model breaks into strips of up to 16 triangles that touch along a shared edge, even across texture seams | done | `src/Particles/Rules/ExplodeObject.cpp`; test `Explosion.explodeMeshWalksSharedEdges` |
 | Each piece flies away from a point 5 m below the centre at the blast's speed, with some randomness | done | `src/Particles/Rules/ExplodeObject.cpp`; test `Explosion.explodeMeshPieceVelocity` |
-| Pieces fall, bounce off the land, tumble, fade over 3 s, shrink from 1 to 5 s and are gone at 6 s | done | The effect file's rules run by `src/Particles/PSys.cpp`; scenario `miracles.blast` |
+| Pieces fall, bounce off the land, tumble, fade over 3 s, shrink from 1 to 5 s and are gone at 6 s | done | The effect file's rules run by `src/Particles/ParticleEffect.cpp`; scenario `miracles.blast` |
 | Pieces make no sound and no ripples when they land, even on water | done | The effect file has none; scenario `miracles.blast_water` |
 | Pieces are lit by the land and by their model's own light | done | `mesh_pieces::Build` in `src/Particles/Rules/ExplodeObject.cpp`; tests `Explosion.explodedPieceLitColour`, `Explosion.meshPiecesBuildWorldAndLight` |
 | Objects waiting to be shattered are handled newest first | done | `src/Particles/Rules/ExplodeObject.cpp` (the queue is emptied from its last entry); test `Explosion.explodeObjectQueueToPieces` |
@@ -63,7 +63,7 @@ How the original does it, in our wiki: [Physics: thrown objects, collisions, dam
 | On dry land a heap of rubble lies at the centre, at a random angle, following the land's shape, for 15 s, fading out over its last second | done | `src/ECS/GroundMarks.cpp` (the mound at a random angle, moulded to the land, 15 s, fading over its last second); scenario `miracles.blast` |
 | A brown dust puff of 15 sprites flies up and out, growing and fading over 1.5 s | done | The ground mark's dust (`DisappearSmoke` mode 1); test `Explosion.groundMarkDustIsDisappearSmokeMode1` |
 | Grey smoke rises a little after the bang for a few seconds | done | `src/Particles/Rules/Explosion.cpp` (the smoke spot visual after the smoke delay, magnitude 8 for 4 s); scenario `miracles.blast` |
-| On water there is no rubble or dust: three rings spread and white steam rises instead | done | `src/Particles/Rules/Explosion.cpp` (steam), `src/Particles/PSysWaterRings.cpp` (three rings); scenarios `miracles.blast_water`, `miracles.blast_coast` |
+| On water there is no rubble or dust: three rings spread and white steam rises instead | done | `src/Particles/Rules/Explosion.cpp` (steam), `src/Particles/ParticleWaterRings.cpp` (three rings); scenarios `miracles.blast_water`, `miracles.blast_coast` |
 | The land itself is not burnt or blackened by explosions or fire | done | Nothing in our tree marks the land; the mound is the only mark |
 
 ## Shake and sound
@@ -82,8 +82,8 @@ How the original does it, in our wiki: [Physics: thrown objects, collisions, dam
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Scripts can play special effects such as the "bang" smoke burst and the temple explosion at a place or on an object | done | `SpecialEffectPosition` and `SpecialEffectObject` in `src/CHLApi.cpp` to `psys::manager::CreateSpotVisual` (`src/Particles/PSysManager.cpp`) |
-| Fireworks go up and burst with their own sounds, started by scripts and when a player takes a town | done | Scripts start the fireworks spot visuals (`src/Particles/PSysManager.cpp`); a town won by a player starts them at its centre (`src/ECS/Town/TownBelief.cpp`); scenario `objects.town_won` |
+| Scripts can play special effects such as the "bang" smoke burst and the temple explosion at a place or on an object | done | `SpecialEffectPosition` and `SpecialEffectObject` in `src/CHLApi.cpp` to `particles::manager::CreateSpotVisual` (`src/Particles/ParticleManager.cpp`) |
+| Fireworks go up and burst with their own sounds, started by scripts and when a player takes a town | done | Scripts start the fireworks spot visuals (`src/Particles/ParticleManager.cpp`); a town won by a player starts them at its centre (`src/ECS/Town/TownBelief.cpp`); scenario `objects.town_won` |
 | A temple whose heart is destroyed goes through a destruction sequence with explosions and plasma | pending | Nothing in our tree. See [../temple/](../temple/) and [../multiplayer/](../multiplayer/) |
 | A failed miracle cast gives a small puff | done | `FailApply` in `src/ECS/Systems/Implementations/HandSpellSeed.cpp` (the fail spot visual and sound). See [../miracles/casting_and_globes.md](../miracles/casting_and_globes.md) |
 | The creature smashes rocks in half by hand, with its own rock-tap sounds | done | `object_physics::SmashRock` (`src/ECS/ObjectPhysics.cpp`, samples 139..142 in turn) from `CreatureObjectActionSystem.cpp`, and the idle mind's shatter step (`CreatureMindSystem.cpp`), as `Creature3D.cpp` in bw1-decomp; test `CreatureKindActions.ShatteringRepairingAndUsingUpAreDoneAtOnce` |

@@ -24,7 +24,7 @@ How the original does it, in our wiki: [Miracles one by one](../../../magic/shie
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | The blocking sphere is a little bigger than the circle and full size from the first turn; its centre never moves | done | `src/Particles/Rules/Shield.cpp` (the defensive sphere, magnitude x 1.11062, made once at the effect's origin); tests `Shield.sphereHelpers`, `Shield.defensiveSphereRegistryAndDeflection` |
-| Fireballs bounce off it like a mirror | done | `psys::shields::DoAnyShieldDeflections` (`src/Particles/Rules/Shield.cpp`) called from `src/Particles/Rules/Fireball.cpp`; see [fireball.md](fireball.md) Test `Shield.defensiveSphereRegistryAndDeflection` |
+| Fireballs bounce off it like a mirror | done | `particles::shields::DoAnyShieldDeflections` (`src/Particles/Rules/Shield.cpp`) called from `src/Particles/Rules/Fireball.cpp`; see [fireball.md](fireball.md) Test `Shield.defensiveSphereRegistryAndDeflection` |
 | Lightning forks stop at its surface | partial 80% | `src/Particles/Rules/Lightning.cpp` (a fork split inside a sphere stops at the intersection); see [lightning.md](lightning.md) No test or check covers the lightning's shield hit |
 | A blast centred inside it is cancelled | partial 80% | `src/Particles/Rules/Explosion.cpp`; see [blast.md](blast.md) No test or check covers it |
 | A flock member flying in dies | partial 80% | `src/Magic/Spells/SpellFlock.cpp`; see [flocks.md](flocks.md) No test or check covers it |
@@ -52,12 +52,12 @@ How the original does it, in our wiki: [Miracles one by one](../../../magic/shie
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Fifteen player-coloured patches orbit the sphere, cut off at the ground | done | SF_DefenseSphere through `src/Particles/PSys.cpp` (sphere surface tracer) and `src/Particles/Creators/Mesh.cpp` (player colour, cut by the ground plane) Scenario `miracles.shield` |
-| The sphere grows from a tenth to full size over 2 s and keeps the spin of the casting hand | partial 80% | data-driven, with the initial spin from the cast's curl (`src/Particles/PSys.cpp`) No test covers it |
-| Patches fade in over about 8.5 s and fade with the shield's strength, never below a floor | partial 80% | `src/Particles/PSys.cpp` (vapour end effect: alpha = age x 30; collection alpha = strength x 255, 40 to 255) No test covers it |
+| Fifteen player-coloured patches orbit the sphere, cut off at the ground | done | SF_DefenseSphere through `src/Particles/ParticleEffect.cpp` (sphere surface tracer) and `src/Particles/Creators/Mesh.cpp` (player colour, cut by the ground plane) Scenario `miracles.shield` |
+| The sphere grows from a tenth to full size over 2 s and keeps the spin of the casting hand | partial 80% | data-driven, with the initial spin from the cast's curl (`src/Particles/ParticleEffect.cpp`) No test covers it |
+| Patches fade in over about 8.5 s and fade with the shield's strength, never below a floor | partial 80% | `src/Particles/ParticleEffect.cpp` (vapour end effect: alpha = age x 30; collection alpha = strength x 255, 40 to 255) No test covers it |
 | A hit raises up to four crackling spark arcs that wiggle and fade over 3 s | partial 80% | `src/Particles/Rules/Shield.cpp` (shield spark rule) No test covers it; scenario `miracles.shield` |
 | On close-down it shrinks over 2 s and is gone at 2.2 s | partial 80% | Data-driven (SF_DefenseSphere); no test or check covers it |
-| Orbiting patches round the miracle held in the hand | done | the seed's in-hand effect (`src/Magic/Hand/HandMagicFX.cpp`); the patches turned outwards to form one spinning ball (`src/Particles/PSys.cpp`, orient to surface) Scenario `miracles.hand_hold_poses` |
+| Orbiting patches round the miracle held in the hand | done | the seed's in-hand effect (`src/Magic/Hand/HandMagicFX.cpp`); the patches turned outwards to form one spinning ball (`src/Particles/ParticleEffect.cpp`, orient to surface) Scenario `miracles.hand_hold_poses` |
 | Effect on a holder of the miracle | partial 60% | The seed's holder effect is made from the seed's row (`src/Worship/SpellSeedGraphic.cpp`); no test or check for the shield's, not compared with the original |
 
 ## Audio

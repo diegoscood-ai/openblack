@@ -67,7 +67,7 @@ do.
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The vortex hums: a looping vortex sound starts with the "before" effect of the incoming vortex and the "after" effect of the outgoing one, released softly when they stop | pending | the effects are made (`ecs::vortex::Create`) and their create rule reads the looping sound (`SoundOfCreate`, `src/Particles/PSys.cpp`); which sample the game plays for the vortex's sound action is not traced ([vortex.md](../../../world/vortex.md#pending)) |
+| The vortex hums: a looping vortex sound starts with the "before" effect of the incoming vortex and the "after" effect of the outgoing one, released softly when they stop | pending | the effects are made (`ecs::vortex::Create`) and their create rule reads the looping sound (`SoundOfCreate`, `src/Particles/ParticleEffect.cpp`); which sample the game plays for the vortex's sound action is not traced ([vortex.md](../../../world/vortex.md#pending)) |
 | The volcano vortex has a looping volcano rumble of its own, started when it is made | pending | the volcano's sound is not made yet |
 | Villagers thrown out of an outgoing vortex scream only for their first 10 turns of flight (15 for an ordinary throw) | done | the clip-sound rule of the vortex clip (`AnimationSounds.cpp`), now that a villager thrown out plays it (unverified against v1.42) |
 | A creature that reaches the middle of a vortex makes the teleport "energise" sound as it starts to sparkle away | pending | no creature crosses: the In's creature fizz is not ported and no land change happens |

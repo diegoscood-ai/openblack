@@ -71,7 +71,7 @@ How the original does it, in our wiki: [The hand and the interface](../../../han
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | A recognised gesture makes the hand flash in its player's colour | pending | Not found in our tree: a recognised gesture (`gestures::Success`) makes only the sparkles and the light sheet. The original pulses the hand's colour from the gesture's effect, through a call not yet identified (issue #122, [page](../../../magic/hand-casting.md#the-hand)) |
-| The sparkles of a recognised gesture settle on the gesture's shape | done | `psys::utility::GestureRecognised` (`src/Particles/Utility.cpp`) from `gestures::Success` (`src/Magic/Gestures/PowerUpSystem.cpp`): sparkles along the matched stroke |
+| The sparkles of a recognised gesture settle on the gesture's shape | done | `particles::utility::GestureRecognised` (`src/Particles/Utility.cpp`) from `gestures::Success` (`src/Magic/Gestures/PowerUpSystem.cpp`): sparkles along the matched stroke |
 
 ## Glows on the creature's hands
 

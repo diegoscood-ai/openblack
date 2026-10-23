@@ -23,7 +23,7 @@ system follows it is in that system's own domain.
 | Each miracle's general table (cost, timers, gestures, cast type, power-ups, hold) | done | `src/Magic`; tests `test/test_magic_tables.cpp`, `test/test_spell_chants.cpp`; see ../miracles/ |
 | Each miracle family's own table (heal, teleport, forest, food, storm and tornado, shields, wood, water, flocks, creature spells) | partial 80% | read; used miracle by miracle, see ../miracles/; re-measured 2026-10-21: read and used; the rest per the domain's own rows |
 | Magic effects and spell seeds (the orbs in the hand and the one-shot ones) | done | test `test/test_magic_tables.cpp`; see ../miracles/ |
-| Spot visuals and effects | partial 80% | the spot visuals' table is used by `ParticleSystemInterface::StartSpotVisual` (`src/Particles/PSysManager.cpp`); see ../rendering/; re-measured 2026-10-21: read and used; the rest per the domain's own rows |
+| Spot visuals and effects | partial 80% | the spot visuals' table is used by `ParticleSystemInterface::StartSpotVisual` (`src/Particles/ParticleManager.cpp`); see ../rendering/; re-measured 2026-10-21: read and used; the rest per the domain's own rows |
 | Map shields and spell icons | partial 70% | the spell icons' table is used by `src/Worship/WorshipSpellIcon.cpp` and `TownCentreSpellIcon.cpp`, the map shields' by `src/ECS/Systems/Implementations/DynamicsSystem.cpp` only; re-measured 2026-10-21: read; part of the table is unused (see the notes) |
 
 ## Creatures

@@ -12,11 +12,11 @@ How the original does it, in our wiki: [Particles (PSys)](../../../physics/parti
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Effects are read from the game's particle files with their bitmaps | done | the file format by raffclar's `components/psys` (`ParticleFile`, `SplitCompressed`, `StackedBitmap` for the light maps, `EnumHeader` for the game's `.h` names), loaded through the resource caches by `src/Particles/PSysFile.cpp` and `src/Resources/Loaders.cpp`; tests `test/test_psys_file_loader.cpp`, `test/test_particle_file.cpp`, `test/test_particle_file_parity.cpp` (the same data as the former reader on every spell file, enum header and light map of the game) |
-| An effect's groups make collections of atoms, at its start or under each new atom, and a hierarchy group moves, turns and scales with its atom | done | `src/Particles/PSys.cpp` (collections, hierarchies) |
-| Every rule the files name creates, moves, shapes, colours or ends particles | partial 60% | the classes the miracles and script effects use are registered (`src/Particles/PSysRegistry.cpp`, `src/Particles/Rules/`); still missing: the mana path, the fork flicker, emitting from the parent atom, the object-referencing creator, the animated mesh creator, and the rest listed as not ported in our wiki; re-measured 2026-10-21: the miracles' and scripts' rules are in; the mana path, the fork flicker, emitting from the parent, the object-referencing and animated mesh creators are not |
-| Effects are started by type from the game's list of effects | done | `src/Particles/ParticleTypes.cpp` (raffclar's table, `particles::ParticleTypeFile`), `src/Particles/PSysManager.cpp`; tests `MagicTables.particleTypeFiles`, `ParticleFileParity.particleTypeNames` |
-| Effects are cleared when a new land loads | done | `psys::manager::Clear` from `Game::LoadMap` |
+| Effects are read from the game's particle files with their bitmaps | done | the file format by raffclar's `components/psys` (`ParticleFile`, `SplitCompressed`, `StackedBitmap` for the light maps, `EnumHeader` for the game's `.h` names), loaded through the resource caches by `src/Particles/ParticleSpellFile.cpp` and `src/Resources/Loaders.cpp`; tests `test/test_particle_file_loader.cpp`, `test/test_particle_file.cpp`, `test/test_particle_file_parity.cpp` (the same data as the former reader on every spell file, enum header and light map of the game) |
+| An effect's groups make collections of atoms, at its start or under each new atom, and a hierarchy group moves, turns and scales with its atom | done | `src/Particles/ParticleEffect.cpp` (collections, hierarchies) |
+| Every rule the files name creates, moves, shapes, colours or ends particles | partial 60% | the classes the miracles and script effects use are registered (`src/Particles/ParticleRegistry.cpp`, `src/Particles/Rules/`); still missing: the mana path, the fork flicker, emitting from the parent atom, the object-referencing creator, the animated mesh creator, and the rest listed as not ported in our wiki; re-measured 2026-10-21: the miracles' and scripts' rules are in; the mana path, the fork flicker, emitting from the parent, the object-referencing and animated mesh creators are not |
+| Effects are started by type from the game's list of effects | done | `src/Particles/ParticleTypes.cpp` (raffclar's table, `particles::ParticleTypeFile`), `src/Particles/ParticleManager.cpp`; tests `MagicTables.particleTypeFiles`, `ParticleFileParity.particleTypeNames` |
+| Effects are cleared when a new land loads | done | `particles::manager::Clear` from `Game::LoadMap` |
 
 ## How particles look
 
@@ -33,7 +33,7 @@ How the original does it, in our wiki: [Particles (PSys)](../../../physics/parti
 | Mists | done | `src/Particles/Creators/Mist.cpp`, `src/Graphics/RendererMists.cpp`; test `test/test_mists.cpp` |
 | Light maps stamped on the land's colours under atoms, playing through frames | done | `src/Particles/Creators/LightMap.cpp` (stamped each frame into the land's cells) |
 | Shadow maps darkening the land under atoms, as a cloud's shadow does | partial 70% | the mist creator's shadow map (`src/Particles/Creators/Mist.cpp`); not yet checked against the game; re-measured 2026-10-21: the mist's shadow map darkens the land; not checked against the original |
-| The casting player's symbol | done | `psys::TintWithPlayerColour` (`src/Particles/PSys.cpp`) |
+| The casting player's symbol | done | `particles::TintWithPlayerColour` (`src/Particles/ParticleEffect.cpp`) |
 | Symbols of belief rising over worshippers | done | the town centre's belief symbols (`src/Particles/TownBelief.cpp`, test `test/test_town_belief.cpp`) and the belief sprite of the utility effects (`src/Particles/Utility.cpp`); see [../worship/](../worship/) |
 | The mana path from a worship site | pending | its rule is missing; see [../worship/](../worship/) |
 | Objects broken into flying pieces of their model | done | `src/Particles/Rules/ExplodeObject.cpp`, the pieces drawn through `src/Graphics/WorldTriangles.cpp` |
@@ -47,8 +47,8 @@ How the original does it, in our wiki: [Particles (PSys)](../../../physics/parti
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Most effects are sorted piece by piece among everything else that blends, farthest first | done | the sorted draw path in the shared transparent queue (`src/Particles/PSys.h` `DrawPath`, `src/Graphics/ZSort.cpp`); tests `test/test_psys_sorted_queue.cpp`, `test/test_psys_draw_path.cpp` |
-| A few spot visuals are drawn whole at their origin, in the order their collections hold them | done | the queued and immediate draw paths (`DrawPath::Queued`, `Immediate`); test `test/test_psys_draw_path.cpp` |
+| Most effects are sorted piece by piece among everything else that blends, farthest first | done | the sorted draw path in the shared transparent queue (`src/Particles/ParticleEffect.h` `DrawPath`, `src/Graphics/ZSort.cpp`); tests `test/test_particle_sorted_queue.cpp`, `test/test_particle_draw_path.cpp` |
+| A few spot visuals are drawn whole at their origin, in the order their collections hold them | done | the queued and immediate draw paths (`DrawPath::Queued`, `Immediate`); test `test/test_particle_draw_path.cpp` |
 | The miracle in the hand is drawn just after the hand | done | the hand's effects collected apart and drawn after the hand (`Renderer.cpp`) |
 | Sprites sharing a sheet are drawn together | done | consecutive sprites with the same material go in one call (`src/Graphics/RendererParticles.cpp`) |
 | Effects show in the sea's reflection too | pending | only the main view draws the effects (`Renderer.cpp`); whether the original mirrors them in the sea is not in our wiki |

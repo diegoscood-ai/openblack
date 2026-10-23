@@ -39,7 +39,7 @@ See [../town/belief_and_conversion.md](../town/belief_and_conversion.md) for bel
 | By casting impressive miracles at it | pending | no computer god mind in our tree; see [magic.md](magic.md) |
 | By meeting its food needs: food miracles, fields, fish farms or food carried from another town to its storehouse | pending | no computer god mind in our tree |
 | By meeting its wood needs (never chosen when expanding, see [ai.md](ai.md)) | pending | no computer god mind in our tree |
-| Belief it wins shows over the town in its colour, as the person's does | partial 60% | the belief symbols over each town centre are drawn for every player in its colour (`psys::town_belief`, `src/Particles/TownBelief.cpp`), but no god wins belief; see [../town/belief_and_conversion.md](../town/belief_and_conversion.md); re-measured 2026-10-21: drawn for every player in its colour; no god wins belief |
+| Belief it wins shows over the town in its colour, as the person's does | partial 60% | the belief symbols over each town centre are drawn for every player in its colour (`particles::town_belief`, `src/Particles/TownBelief.cpp`), but no god wins belief; see [../town/belief_and_conversion.md](../town/belief_and_conversion.md); re-measured 2026-10-21: drawn for every player in its colour; no god wins belief |
 | A town changes hands when its belief in the god passes what it needs | done | the same rule as for the person: `town_belief::Fold` and `town_belief::TakeOverTown` (`src/ECS/Town/TownBelief.cpp`) |
 
 ## Destroying and defending

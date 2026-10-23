@@ -29,7 +29,7 @@ How the original does it, in our wiki: [Tools and formats](../../../formats/land
 | Creature body files (`.cbn`) and their morph between good/evil and fat/thin | done | `components/morph`, the body blend in `src/3D/CreatureBody.cpp`; see ../creature/ for appearance |
 | Creature animation spec (`ctrspec27.txt`) naming the mind's animations | done | `CreatureRigLoader` reads `ctrspec27.txt` (`src/Resources/Loaders.cpp`) |
 | The hand's animation bank (`hh.hbn`) and its spec (`hndspec5.txt`) | done | `src/ECS/Systems/Implementations/HandSystem.cpp`, `src/3D/HandAnimator.cpp` |
-| The mesh and sound-action name headers (`AllMeshes.h`, `SoundAction.h`) the particle files refer to | done | `EnumHeaderLoader` (`psys::EnumNames`, `src/Resources/Loaders.cpp`) |
+| The mesh and sound-action name headers (`AllMeshes.h`, `SoundAction.h`) the particle files refer to | done | `EnumHeaderLoader` (`particles::EnumNames`, `src/Resources/Loaders.cpp`) |
 | Recorded hand demonstrations (`Data/HandDemo/*.hnd`) played by the tutorial | done | `src/Input/HandDemo.cpp` (PLAY_HAND_DEMO); see ../story/tutorial.md |
 | Dance and letter shape files (`.DAN`, `Scripts/Dance/*.dat`) | done | the dance files are read as the game reads them (`components/dance`, `DanceFileLoader`; tests `test_dance_file`, `DanceFile.TheGamesDancesRead`); the `.DAN` shape files too, once a dance needs them (`DanceShapeFile`, `DanceSystem::Shapes`, ported from raffclar PR #488, unverified against v1.42) |
 | The falling-spell camera file (`.cm2`) | done | `falling_spell::CameraPath::Parse` (`src/Magic/Objects/FallingSpell.cpp`); test `FallingSpell.RealFallCm2`; its camera is not applied yet, see ../video/bink_videos.md |
@@ -53,7 +53,7 @@ How the original does it, in our wiki: [Tools and formats](../../../formats/land
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Particle effect files (`Data/Spells/ZSpellFiles`) | done | `src/Particles/PSysFile.cpp`, `PSysFileLoader`; test `test/test_psys_file_loader.cpp`; effects themselves: see ../rendering/ |
+| Particle effect files (`Data/Spells/ZSpellFiles`) | done | `src/Particles/ParticleSpellFile.cpp`, `ParticleFileLoader`; test `test/test_particle_file_loader.cpp`; effects themselves: see ../rendering/ |
 | Gesture templates (`Gestures.jty`) | done | `GestureTemplatesLoader` (`src/Resources/Loaders.cpp`); test `test/test_gestures.cpp`; recognition: see ../gesture/ |
 | Camera paths (`.cam`): temple rooms, symbols, fly-bys | done | `components/cam`, `CameraPathLoader`, `src/3D/CameraPath.cpp`; playing them: see ../camera/ |
 | Force-feedback mouse effects (`Data/Immersion/*.ifr`) | pending | to port as the original's (user, 2026-10-19) |

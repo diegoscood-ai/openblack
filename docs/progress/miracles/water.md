@@ -74,7 +74,7 @@ How the original does it, in our wiki: [Miracles one by one](../../../magic/food
 |-----------|--------|---------------|
 | A pale blue mist cloud forms at the gesture point, kept within 58 m of the land; bigger when extreme | done | `src/Particles/Rules/Sprinkle.cpp` (at most 58 m above the land), `src/Particles/Creators/Mist.cpp`; test `Water.mistCreatorMakesTheCloudAtom` |
 | A rain cone streams from the cloud to the land, wider and taller when extreme | done | `src/Particles/Creators/Mesh.cpp` (the animated textured rain cone) Test `Water.realData` (SF_Water run: cloud and cone) |
-| Cloud and cone fade out over 1 s when the rain ends and are gone 2.2 s after | done | Particle data, run by `src/Particles/PSys.cpp`. Scenario `miracles.water_fire` |
+| Cloud and cone fade out over 1 s when the rain ends and are gone 2.2 s after | done | Particle data, run by `src/Particles/ParticleEffect.cpp`. Scenario `miracles.water_fire` |
 | Every 0.1 s a ring spreads on the land or water where a drop fell, size 2 (4 extreme), in a random shade | done | `src/Magic/Spells/SpellWater.cpp` (AddDropRing into `src/3D/WaterRings.cpp`, colour from five shades); test `Water.ringTimingInSinglePrecision` |
 | The held seed shows a mist and a sparkling trail on the hand (bigger when extreme) | partial 70% | The in-hand effect is the level's in-hand particles (`src/Magic/Hand/HandMagicFX.cpp`); our wiki notes it has not been checked in a screenshot. Scenario `miracles.hand_hold_poses` |
 | A water seed on a dispenser shows its holder effect | partial 60% | The seed's holder particles (`src/Worship/SpellSeedGraphic.cpp`); not checked in a screenshot. See [dispensers_and_seeds.md](dispensers_and_seeds.md) |

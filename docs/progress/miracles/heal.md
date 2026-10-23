@@ -63,7 +63,7 @@ How the original does it, in our wiki: [Miracles one by one](../../../magic/food
 | Five spinning sparkles rise and spread from each person | done | `src/Particles/Rules/Heal.cpp` (the fused spherical burst); test `Heal.fusedSphericalExplode` |
 | The chakra ends when its person goes or is picked up | partial 70% | `src/Particles/Rules/Heal.cpp` (the target gone or held ends the chakra and clears the glow) Openblack has no hand's flag, so it uses the object the hand holds ([wiki](../../../magic/food-wood-water-heal.md#openblack)); no test |
 | Power-up: a tall glowing mushroom grows, turns and collapses over 6 s | done | `src/Particles/Rules/KeyPoints.cpp`, `src/Particles/Creators/Mesh.cpp` (the animated mesh creator) Scenario `miracles.heal_powerup_crowd` |
-| Power-up: seven stars shoot up about 37 m and fade | done | Particle data of the power-up effect, run by `src/Particles/PSys.cpp`. Scenario `miracles.heal_powerup_crowd` |
+| Power-up: seven stars shoot up about 37 m and fade | done | Particle data of the power-up effect, run by `src/Particles/ParticleEffect.cpp`. Scenario `miracles.heal_powerup_crowd` |
 | Two sparkles swing to and fro around the miracle held in the hand | done | `src/Particles/Rules/Heal.cpp` (the in-hand wiggle); test `Heal.healInHandWiggle` |
 | Effect on a holder of the miracle | partial 60% | Data-driven holder effect (`src/Worship/SpellSeedGraphic.cpp` makes the seed's holder particle); no test or check, not compared with the original |
 
@@ -72,7 +72,7 @@ How the original does it, in our wiki: [Miracles one by one](../../../magic/food
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
 | One heal sound per miracle, when the first chakra appears | partial 80% | `src/Particles/Rules/Heal.cpp` (the first atom's heal sound, once) No test covers it |
-| Power-up: the mushroom's sound at the cast, stopped at once if its effect goes | partial 80% | The mesh's create sound (`src/Particles/PSys.cpp`), released with the effect (`src/Particles/Rules/Sound.cpp`) No test covers it |
+| Power-up: the mushroom's sound at the cast, stopped at once if its effect goes | partial 80% | The mesh's create sound (`src/Particles/ParticleEffect.cpp`), released with the effect (`src/Particles/Rules/Sound.cpp`) No test covers it |
 | Power-up: the heal sound follows about 3.5 s later | partial 80% | Particle data of the power-up effect (the chakra's heal sound comes with the delayed chakras); no test covers it |
 
 ## Creatures and saving

@@ -31,7 +31,7 @@ the scroll and vortex beams and the falling-spell bursts are in [light_beams.md]
 | On the first of April every creature leaves smiley faces | done | `CreatureFootprints.h`; tests `CreatureFootprints.AprilFoolsSmileyKeepsTheSpeciesSize`, `FootprintSystemDate.*` |
 | Prints stop being laid when there are as many as there can be | done | `CreatureFootprints`; test `CreatureFootprints.FullTrailDropsNewPrints` |
 | Creatures leave wet prints after walking out of water, placed by species | pending |  |
-| Rings spread on the water where something splashes, growing and fading over 0.7 seconds | done | `src/3D/WaterRings.cpp`, `src/Particles/PSysWaterRings.cpp`: the hand's splash, thrown objects, sharks, the waterfall and the fish puzzle; test `test/test_psys_water.cpp` |
+| Rings spread on the water where something splashes, growing and fading over 0.7 seconds | done | `src/3D/WaterRings.cpp`, `src/Particles/ParticleWaterRings.cpp`: the hand's splash, thrown objects, sharks, the waterfall and the fish puzzle; test `test/test_particle_water.cpp` |
 
 ## Highlights
 

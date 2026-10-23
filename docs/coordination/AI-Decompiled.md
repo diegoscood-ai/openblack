@@ -19,15 +19,13 @@ every pull request merged into his master against this tree (at his `e1cc0b8f` o
 
 ## In progress here (do not start these)
 
-- **Code clean-up towards raffclar's architecture** (tonight, 2026-10-23), so that his code comes in more easily
-  later. Behaviour stays identical, and a name his tree already uses is kept:
-  - identifier renames: the particle namespace and files, `psys` and `src/Particles/PSys*`, become `particles` and
-    `Particle*`, then the game random's particle draws; these batches touch most of the tree;
-  - the `Game` singleton removed from the debug UI, the editor and the map's load path (`src/Game.*`,
-    `src/Locator*`, `src/Debug/Gui.cpp`, `src/Debug/LandIsland.cpp`, `src/Debug/TestbedScenarioRunner.cpp`,
-    `src/Editor/`, files that issues #97, #99 and #188 touch too);
-  - the remaining mutable globals, each moved to a component or a service or kept on purpose and documented, with
-    the log-once warning flags in one service that warns once per process.
+- **Code clean-up towards raffclar's architecture** (2026-10-23), so that his code comes in more easily later.
+  Behaviour stays identical, and a name his tree already uses is kept:
+  - the interfaces' shapes: where a Locator interface we share does the same work under another method name or
+    signature, ours takes his (the table is in `docs/wiki/project/refactor-conventions.md`); time, land, audio,
+    magic and dynamics first;
+  - the object draw list's Locator slot takes his name, `objectDrawListSystem`, and the camera's unused idle-time
+    stub goes (his #804).
 - **Creature:** nothing in its code or mind tonight. Kept on this side: the lean onto the slope (#35), the
   falling-spell film (#23).
 - **Villagers and towns:** footpaths (#74), the trees' tug and replanting (#87).
@@ -40,6 +38,13 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint182 (81871454b, published 9be0e2c97): code clean-up, all identical (tests, fidelity, cycle and the story
+  identical; the hand demos identical but for the trace's source lines, renewed): the `Game` singleton is gone (the
+  debug windows and the editor reach the game through a host that keeps `Game`'s method names), the mutable statics
+  are down to the eight a signal handler, a per-thread scope or the exit guard needs, the particle code takes his
+  names (`openblack::particles`, `Particle*` files; the file-format component keeps `psys`), the camera zone's and
+  the route follower's unclear fields are named, his #866 split of the game's run and his #791 per-process test
+  temporary folders are in.
 - joint181 (b6dc69611, published 35e8709e2): a stopped vcpkg install leaves no stamp behind, and a new build
   folder's second configure no longer installs again (build steps only); docs synced. Its full run was identical to
   joint180's, so it confirmed joint180's references, which had been made from a single pass; four scenes were

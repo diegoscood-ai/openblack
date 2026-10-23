@@ -33,13 +33,13 @@ How the original does it, in our wiki: [Lightning explosion and exploding object
 | For its time the blast burns and crushes around the point: heat 200/400/800 and radius 5/5/10 by power-up | done | `src/Particles/Rules/Explosion.cpp` (one event a step from its initial delay for its time); test `Explosion.blastEventsCadenceAndCloseDown` |
 | Its strength and the shock wave's reach grow with the caster's tribal power, up to five times | partial 90% | The formula is in `src/Particles/Rules/Explosion.cpp` (the reach times tribal power, 1 to 5) and `src/Magic/Core/Chants.cpp`, and `PlayerMagic::tribalPower` is 1 for every tribe until a wonder of that tribe is built for the caster's player, and rises by each wonder's power (`wonders::AddToPlayer`, copied each turn by `magic::players::ProcessTribalPowers`, as `Wonder::AddToPlayer` 0x778FC0 and `GPlayer::Process`); not yet seen in a run with a built wonder. See [prayer_cost.md](prayer_cost.md) |
 | On dry land (higher than sea level by more than 3) it leaves smoke and a rubble scar that follows the land and lasts 15 s | partial 90% | `src/Particles/Rules/Explosion.cpp` (the smoke spot visual), `src/ECS/GroundMarks.cpp` (the mound moulded to the land, 15 s) Scenarios `miracles.blast`, `miracles.blast_coast`. The land's light on the scar is the normal mesh lighting, not the original's own step ([wiki](../../../magic/lightning-explosion.md#openblack)) |
-| On water it leaves steam and three rings spreading to 5, 7 and 10 m over 0.7 s | done | `src/Particles/Rules/Explosion.cpp` (the steam), `src/Particles/PSysWaterRings.cpp` (three rings) Scenario `miracles.blast_water` |
+| On water it leaves steam and three rings spreading to 5, 7 and 10 m over 0.7 s | done | `src/Particles/Rules/Explosion.cpp` (the steam), `src/Particles/ParticleWaterRings.cpp` (three rings) Scenario `miracles.blast_water` |
 | Old rings drift with the wind the way a reused ring slot did in the game | pending | Not reproduced: the ring pool in `src/ECS/WaterRings.h` is a vector and does not keep a reused slot's drift; one field of the ring record is still unidentified ([wiki Pending](../../../magic/lightning-explosion.md#pending)) |
 | Five rocks are thrown out from the centre | done | `src/Particles/Rules/Explosion.cpp` (five rock meshes queued to break), `src/Particles/Rules/ExplodeObject.cpp`. Test `Explosion.explodeObjectQueueToPieces`; scenario `miracles.blast` |
 | A brown dust puff of fifteen sprites rises and fades over 1.5 s | done | `src/ECS/GroundMarks.cpp` (the mark's dust, `DisappearSmoke` mode 1); test `Explosion.groundMarkDustIsDisappearSmokeMode1` |
 | Three bright cones stand over the point, keeping their height as they widen, and light the land white | done | `src/Particles/Rules/Explosion.cpp` (UR_ChangeScaleXYZ); test `Explosion.changeScaleXYZ` |
 | Every new effect steps twice on its first turn, so the bang comes as soon after the cast as in the game | pending | The original steps every new effect twice on its first turn ([particle rules](../../../physics/particle-rules.md)); our tree steps a spell's effect once a turn (`src/Magic/Core/Spell.cpp`) |
-| Emitters make at most one particle a step unless their data allows more | partial 80% | `src/Particles/PSys.cpp` (ShouldEmit; the spreading disc emitter makes several a step, as the original) No test covers the emit count |
+| Emitters make at most one particle a step unless their data allows more | partial 80% | `src/Particles/ParticleEffect.cpp` (ShouldEmit; the spreading disc emitter makes several a step, as the original) No test covers the emit count |
 
 ## The shock wave
 
@@ -69,8 +69,8 @@ How the original does it, in our wiki: [Lightning explosion and exploding object
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| The first power-up adds six blasts 30–50 m around the first | done | The effect files, `src/Particles/PSys.cpp` (spreading disc emitter) Scenario `miracles.blast_pu1` |
-| The second adds six at 25–40 m, then a barrage every few tenths of a second at 20–60 m | done | The effect files, `src/Particles/PSys.cpp` (spreading disc emitter) Scenario `miracles.blast_pu2` |
+| The first power-up adds six blasts 30–50 m around the first | done | The effect files, `src/Particles/ParticleEffect.cpp` (spreading disc emitter) Scenario `miracles.blast_pu1` |
+| The second adds six at 25–40 m, then a barrage every few tenths of a second at 20–60 m | done | The effect files, `src/Particles/ParticleEffect.cpp` (spreading disc emitter) Scenario `miracles.blast_pu2` |
 | Beams still falling when the barrage ends still bang | partial 80% | The effect files; no test or check covers the end of the barrage |
 
 ## Sound and shake

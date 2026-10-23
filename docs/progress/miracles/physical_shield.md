@@ -55,7 +55,7 @@ How the original does it, in our wiki: [Miracles one by one](../../../magic/shie
 
 | Behaviour | Status | Where / notes |
 |-----------|--------|---------------|
-| Glowing points ride the dome, trailing player-coloured sparkles | done | SF_PhysicalShieldFX made by `MapShield.cpp` and stepped each turn; atoms at the object (`src/Particles/PSys.cpp`), drawn in the player's colour. Scenario `miracles.shield_physical_fade` |
+| Glowing points ride the dome, trailing player-coloured sparkles | done | SF_PhysicalShieldFX made by `MapShield.cpp` and stepped each turn; atoms at the object (`src/Particles/ParticleEffect.cpp`), drawn in the player's colour. Scenario `miracles.shield_physical_fade` |
 | The sparkles grow with the dome's size and fade down over 6 s | partial 80% | Data-driven (SF_PhysicalShieldFX, magnitude = radius); no test or check covers the growth |
 | The effect fades with the dome | done | `MapShield.cpp` (`DrawPhysical`: the effect's alpha is the shield's, cut while dying as the original) Scenario `miracles.shield_physical_fade` |
 | The dome and its effect, at the same point, are drawn in the original's order | inferred | Sorted with a non-stable sort; what the original's sorter does with equal keys is unread ([wiki Pending](../../../magic/shields.md#pending); issue #56) |

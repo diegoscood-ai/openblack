@@ -33,6 +33,13 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint202 (6e7b63e6d, published 3264421c5): the statistics graphs drawn at whole-unit places, a mouse button bound to
+  an action still acting in the temple, the land's tooltips over a thing the hand can pick up, as the original's; a
+  fire taking a crackle slot stops the fire it held; a mobile static in the way of what flies only by its kind; an
+  animal landing dead dies through its own SetDying; seven animal fixes (breeding, switching reactions, the way and
+  the turn while watching, which move Land 2 from turn 20 and one creature scene; the turn counter, a lone predator's
+  lair); forest ids follow the original's counter; a saved game's land, scripts, clock, forests and trees load from
+  the debug bar (off unless asked); about 25 rows pinned with tests.
 - joint201 (4f15742eb, published 6c78c69be): every saved game now reads to its last byte and writes back the same
   (the game object's lists and tail), and a save service keeps a profile's slots with safe writes (nothing in play
   uses it yet); a villager turns to face a fire before it acts (moves three lightning scenes); a villager going to

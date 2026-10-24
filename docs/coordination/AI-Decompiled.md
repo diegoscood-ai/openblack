@@ -33,6 +33,12 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint200 (1734ab43a, published 7c0c9db7c): the saved game's records read and written further (animals, creatures,
+  worship sites, dances, particles and the destruction meshes: every object a save's players reach); an effect on a
+  feature or flowers counts as their own kind for alignment (moves the lightning arcs scene); a burnt building
+  destroyed through its own destruction; a dead tree's info row; the camera's help icons, easing and paired keys and a
+  watched fight's keys as the original's; three script and miracle fixes (the cast time, the charging clear, the cost
+  to create); about 60 progress rows pinned with tests.
 - joint199 (9fc46b2ab, published 81ff6984e): a bird's next leg starts from the height its last leg aimed at, as the
   original's (moves Land 1 from turn 5 and five bird scenes; references renewed on two agreeing passes).
 - joint198 (70cae0658, published bcad14c9e): the saved game's format read as the original writes it (the stream and

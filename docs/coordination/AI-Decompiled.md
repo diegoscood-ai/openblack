@@ -33,6 +33,11 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint206 (604d4cc2a, published 7b02b06bf): the whole wiki and every progress page checked against the code (rows
+  up or down with their evidence, stale names and links fixed, Pending only what is open; the challenge scripts'
+  page regenerated); a creature's throw is not settled on the land before it flies; the hand's own distance in the
+  creature and temple states (moves the temple shot); the left-handed box's side, Escape on the menu's first page
+  and GAME_THING_FIELD_OF_VIEW's sphere as the original's. This joint is the new base.
 - joint205 (41f6d7c50, published 7e601ebdb): a loaded game's world goes much further (footpaths, citadel hearts,
   abodes, creches and graveyards, the towns' desire flags, rivers, mists, climates, the lying snow, the creation
   counter), a read-only save is refused as the original refuses it, and a test loads the original's own reference

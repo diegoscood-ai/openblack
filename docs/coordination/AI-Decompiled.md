@@ -33,6 +33,13 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint205 (41f6d7c50, published 7e601ebdb): a loaded game's world goes much further (footpaths, citadel hearts,
+  abodes, creches and graveyards, the towns' desire flags, rivers, mists, climates, the lying snow, the creation
+  counter), a read-only save is refused as the original refuses it, and a test loads the original's own reference
+  saves against their files and land scripts (all of it off unless the debug bar loads a slot); a dispenser counts
+  only while built, its globe stays while they touch; a creature notices a magic tree's reaction; an animal's step
+  off the land is taken; an input recording's mouse reaches the debug bar; about 35 rows pinned with tests. Every
+  check identical.
 - joint204 (1fad9c916, published 859f61558): the hand's distance zoomer and its locked select as the original's (moves
   the hand in fidelity from turn 2, the hand demos, vis, the temple and most scenes with the hand in view); a sunk
   animal dies through its own dying and teaches the creature; two villager shield timings; a creature's put-down is

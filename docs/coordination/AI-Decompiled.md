@@ -33,6 +33,10 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint207 (2f17178d3, published 97e6096a9), docs only: the wiki's stale code references, repeated notes and empty
+  dated remarks cleaned across 239 pages; the refactor's progress counts and the port audit recounted against the
+  tree; the progress dashboard regrouped (the creature and save and load as families of their own, the online
+  rows parked out of the score, the story land by land, done with and without a test).
 - joint206 (604d4cc2a, published 7b02b06bf): the whole wiki and every progress page checked against the code (rows
   up or down with their evidence, stale names and links fixed, Pending only what is open; the challenge scripts'
   page regenerated); a creature's throw is not settled on the land before it flies; the hand's own distance in the

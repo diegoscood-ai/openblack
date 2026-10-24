@@ -33,6 +33,11 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint203 (f1d2eb9bf, published bbf85a284): the hand stops while a box has the mouse, as the original (moves the hand
+  at turn 1 of the land runs and the land shots by day and night); a tree, dead tree or fence let go over a building
+  site goes into it; a temple room of pictures eases its camera onto a close look (moves the challenge room's shot);
+  an animal killed while a storm carries it starts dying only when let go; the death listeners the original lacks
+  removed; six fire rules taken out as pure functions; a loaded game's big forests; about 20 rows pinned with tests.
 - joint202 (6e7b63e6d, published 3264421c5): the statistics graphs drawn at whole-unit places, a mouse button bound to
   an action still acting in the temple, the land's tooltips over a thing the hand can pick up, as the original's; a
   fire taking a crackle slot stops the fire it held; a mobile static in the way of what flies only by its kind; an

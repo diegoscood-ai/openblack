@@ -33,6 +33,14 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint201 (4f15742eb, published 6c78c69be): every saved game now reads to its last byte and writes back the same
+  (the game object's lists and tail), and a save service keeps a profile's slots with safe writes (nothing in play
+  uses it yet); a villager turns to face a fire before it acts (moves three lightning scenes); a villager going to
+  worship walks round a fire; the bonfire and fragments as the original's rocks (the hand, fireflies, the creature's
+  blow); a map script's dispenser joins the nearest town; a wonder of no tribe drapes over the land; a scaffold's join
+  sound, a pot's 32-bit amount, a sunk pile not drawn; a grazer passes over cells under buildings (moves Land 2 from
+  turn 50); the totem's slide, a handful over a building site and the held object under a box as the original's; an
+  Animals debug window.
 - joint200 (1734ab43a, published 7c0c9db7c): the saved game's records read and written further (animals, creatures,
   worship sites, dances, particles and the destruction meshes: every object a save's players reach); an effect on a
   feature or flowers counts as their own kind for alignment (moves the lightning arcs scene); a burnt building

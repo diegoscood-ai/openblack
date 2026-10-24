@@ -1,0 +1,173 @@
+/******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+#include "ChallengeRecords.h"
+
+#include <algorithm>
+#include <iterator>
+#include <utility>
+
+#include "ECS/Components/Alignment.h"
+#include "ECS/Components/ChallengeRecord.h"
+#include "ECS/Effects/Alignment.h"
+#include "ECS/Registry.h"
+
+using namespace openblack::ecs;
+using openblack::ecs::components::ChallengeRecord;
+namespace snapshots = openblack::script::challenge_snapshots;
+
+namespace
+{
+/// Challenges are told apart by the low 16 bits of their number
+bool SameChallenge(uint32_t a, uint32_t b)
+{
+	return static_cast<uint16_t>(a) == static_cast<uint16_t>(b);
+}
+
+void ForEachThing(const std::vector<snapshots::Value>& arguments, const std::function<void(entt::entity)>& act)
+{
+	if (!act)
+	{
+		return;
+	}
+	for (const auto& argument : arguments)
+	{
+		if (argument.type == openblack::lhvm::DataType::Object)
+		{
+			act(static_cast<entt::entity>(argument.value.uintVal));
+		}
+	}
+}
+
+/// What every snapshot writes into the record
+void Write(ChallengeRecord& record, const snapshots::Snapshot& snapshot, bool takesCamera, uint32_t turn,
+           const challenge_records::References& references)
+{
+	record.reminderScript = snapshot.reminderScript;
+	record.title = snapshot.title;
+	record.success = snapshot.success;
+	record.alignment = snapshot.alignment;
+	if (takesCamera)
+	{
+		record.position = snapshot.position;
+		record.focus = snapshot.focus;
+	}
+	record.arguments = snapshot.arguments;
+	ForEachThing(record.arguments, references.add);
+	if (record.success == 1.0f)
+	{
+		record.doneTurn = turn;
+	}
+}
+} // namespace
+
+std::optional<entt::entity> challenge_records::Find(const Registry& registry, uint32_t challenge)
+{
+	std::optional<entt::entity> found;
+	registry.Each<const ChallengeRecord>([&found, challenge](entt::entity entity, const ChallengeRecord& record) {
+		if (!found.has_value() && SameChallenge(record.challenge, challenge))
+		{
+			found = entity;
+		}
+	});
+	return found;
+}
+
+challenge_records::Outcome challenge_records::Record(Registry& registry, const snapshots::Snapshot& snapshot,
+                                                     snapshots::Call call, uint32_t turn, const References& references)
+{
+	const bool takesCamera = call == snapshots::Call::Start || (call == snapshots::Call::Picture && snapshot.takingPicture);
+	if (const auto existing = Find(registry, snapshot.challenge); existing.has_value())
+	{
+		auto& record = registry.Get<ChallengeRecord>(*existing);
+		ForEachThing(record.arguments, references.remove);
+		auto update = snapshot;
+		if (record.success >= 1.0f)
+		{
+			update.success = 1.0f;
+		}
+		Write(record, update, takesCamera, turn, references);
+		return {.record = *existing, .alignment = snapshot.alignment, .takesPicture = takesCamera};
+	}
+
+	uint32_t order = 0;
+	registry.Each<const ChallengeRecord>(
+	    [&order](entt::entity, const ChallengeRecord& record) { order = std::max(order, record.order + 1); });
+	const auto entity = registry.Create();
+	auto& record = registry.Assign<ChallengeRecord>(entity);
+	record.challenge = snapshot.challenge;
+	record.order = order;
+	record.startedTurn = turn;
+	record.quest = call == snapshots::Call::Start && snapshot.quest;
+	Write(record, snapshot, call != snapshots::Call::Update, turn, references);
+	return {.record = entity, .alignment = std::nullopt, .takesPicture = true};
+}
+
+void challenge_records::Clear(Registry& registry, const References& references)
+{
+	const auto records = InOrder(registry);
+	for (const auto entity : records)
+	{
+		ForEachThing(registry.Get<ChallengeRecord>(entity).arguments, references.remove);
+	}
+	for (const auto entity : records)
+	{
+		registry.Destroy(entity);
+	}
+}
+
+std::vector<entt::entity> challenge_records::InOrder(const Registry& registry)
+{
+	std::vector<std::pair<uint32_t, entt::entity>> ordered;
+	registry.Each<const ChallengeRecord>(
+	    [&ordered](entt::entity entity, const ChallengeRecord& record) { ordered.emplace_back(record.order, entity); });
+	std::ranges::sort(ordered, {}, &std::pair<uint32_t, entt::entity>::first);
+	std::vector<entt::entity> entities;
+	entities.reserve(ordered.size());
+	std::ranges::transform(ordered, std::back_inserter(entities), &std::pair<uint32_t, entt::entity>::second);
+	return entities;
+}
+
+bool challenge_records::IsDone(const ChallengeRecord& record)
+{
+	return record.success == 1.0f;
+}
+
+challenge_records::Listing challenge_records::List(const Registry& registry)
+{
+	Listing listing;
+	for (const auto entity : InOrder(registry))
+	{
+		const auto& record = registry.Get<ChallengeRecord>(entity);
+		++listing.discovered;
+		listing.completed += IsDone(record) ? 1 : 0;
+		listing.titles.push_back(record.title);
+	}
+	return listing;
+}
+
+std::vector<snapshots::Value> challenge_records::ReminderArguments(const ChallengeRecord& record)
+{
+	return {record.arguments.rbegin(), record.arguments.rend()};
+}
+
+std::optional<challenge_records::View> challenge_records::ReplayView(const ChallengeRecord& record, bool moveCamera,
+                                                                     bool keyShortcutsEnabled)
+{
+	if (!moveCamera || !keyShortcutsEnabled || !record.position.has_value() || !record.focus.has_value())
+	{
+		return std::nullopt;
+	}
+	return View {.position = *record.position, .focus = *record.focus};
+}
+
+float challenge_records::AlignmentChange(float playerAlignment, float snapshotAlignment, float scriptScale)
+{
+	return effects::alignment::ScaleChange(components::Alignment {.value = playerAlignment}, snapshotAlignment * scriptScale);
+}

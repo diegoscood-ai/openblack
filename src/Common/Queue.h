@@ -37,6 +37,7 @@ public:
 	using Ptr = std::shared_ptr<EventQueue>;
 
 	EventQueue() = default;
+	~EventQueue() override = default;
 
 	void AddHandler(EventHandler<T> handler) { _handlers.push_back(handler); }
 
@@ -53,8 +54,6 @@ public:
 	}
 
 private:
-	~EventQueue() override = default;
-
 	using Queue = std::list<T>;
 	Queue _instance;
 	std::vector<EventHandler<T>> _handlers;

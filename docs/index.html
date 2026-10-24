@@ -1,0 +1,852 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Wiki</title>
+<link rel="stylesheet" href="vendor/highlight/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="vendor/highlight/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<style>
+  :root {
+    --bg: #ffffff; --fg: #1f2328; --muted: #59636e; --border: #d1d9e0;
+    --side-bg: #f6f8fa; --link: #0969da; --code-bg: #f3f4f6; --active-bg: #dbe9fb;
+    --mark: #fff3a3; --side-w: 290px;
+    --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117; --fg: #e6edf3; --muted: #9198a1; --border: #30363d;
+      --side-bg: #151b23; --link: #4493f8; --code-bg: #1c2128; --active-bg: #1f3a5f;
+      --mark: #6b5a00;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-padding-top: 1rem; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 16px/1.6 -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  a { color: var(--link); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  #wv-sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; width: var(--side-w);
+    overflow-y: auto; background: var(--side-bg); border-right: 1px solid var(--border);
+    padding: 1rem 0.75rem 2rem;
+  }
+  #wv-title { display: block; font-weight: 600; font-size: 1.15rem; color: var(--fg); margin: 0 0.25rem 0.75rem; }
+  #wv-search {
+    width: 100%; padding: 0.4rem 0.6rem; font: inherit; font-size: 0.95rem;
+    color: var(--fg); background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  }
+  #wv-toc { margin-top: 0.75rem; font-size: 0.93rem; }
+  #wv-toc h1 { display: none; }
+  #wv-toc h2, #wv-toc h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--muted); margin: 1rem 0.25rem 0.25rem; }
+  #wv-toc p { margin: 0.25rem; }
+  #wv-toc ul { list-style: none; margin: 0; padding-left: 0.9rem; }
+  #wv-toc > ul { padding-left: 0; }
+  #wv-toc li { margin: 1px 0; }
+  #wv-toc a { display: block; padding: 0.15rem 0.4rem; border-radius: 4px; color: var(--fg); }
+  #wv-toc a.active { background: var(--active-bg); font-weight: 600; }
+
+  #wv-main { margin-left: var(--side-w); padding: 2rem 2.5rem 4rem; }
+  #wv-page { max-width: 900px; margin: 0 auto; }
+  #wv-menu { display: none; }
+
+  .muted { color: var(--muted); }
+  .md h1, .md h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; }
+  .md h1 { font-size: 2em; margin-top: 0; }
+  .md h1, .md h2, .md h3, .md h4, .md h5, .md h6 { line-height: 1.25; margin: 1.5em 0 0.6em; position: relative; }
+  .md .wv-anchor { position: absolute; left: -1.1em; padding-right: 0.3em; opacity: 0; color: var(--muted); font-weight: 400; }
+  .md :is(h1, h2, h3, h4, h5, h6):hover .wv-anchor { opacity: 1; text-decoration: none; }
+  .md .wv-target { animation: wv-flash 1.5s ease-out; }
+  @keyframes wv-flash { from { background: var(--mark); } to { background: transparent; } }
+  .md img { max-width: 100%; }
+  .md code { font-family: var(--mono); font-size: 0.875em; background: var(--code-bg); padding: 0.15em 0.35em; border-radius: 4px; }
+  .md pre { background: var(--code-bg); padding: 0.9rem 1rem; border-radius: 6px; overflow-x: auto; line-height: 1.45; }
+  .md pre code { background: none; padding: 0; font-size: 0.85em; }
+  .md pre code.hljs { background: none; padding: 0; }
+  .md blockquote { margin: 0 0 1em; padding: 0 1em; color: var(--muted); border-left: 0.25em solid var(--border); }
+  .md .wv-table { overflow-x: auto; margin: 0 0 1em; }
+  .md table { border-collapse: collapse; }
+  .md th, .md td { border: 1px solid var(--border); padding: 0.35rem 0.75rem; }
+  .md th { background: var(--side-bg); }
+  .md tr:nth-child(2n) td { background: color-mix(in srgb, var(--side-bg) 60%, transparent); }
+  .md hr { border: 0; border-top: 1px solid var(--border); margin: 1.5em 0; }
+  .wv-source { margin-top: 3rem; font-size: 0.85rem; }
+
+  .wv-result { margin: 0 0 1.1rem; }
+  .wv-result .wv-where { font-size: 0.85rem; color: var(--muted); }
+  .wv-result p { margin: 0.2rem 0 0; font-size: 0.93rem; }
+  mark { background: var(--mark); color: inherit; border-radius: 2px; }
+
+  @media (max-width: 800px) {
+    #wv-sidebar { transform: translateX(-100%); transition: transform 0.2s; z-index: 10; }
+    body.wv-nav-open #wv-sidebar { transform: none; }
+    #wv-main { margin-left: 0; padding: 3.5rem 1rem 3rem; }
+    #wv-menu { display: block; position: fixed; top: 0.6rem; left: 0.6rem; z-index: 11;
+      font-size: 1.2rem; padding: 0.2rem 0.6rem; color: var(--fg); background: var(--side-bg);
+      border: 1px solid var(--border); border-radius: 6px; }
+  }
+
+  /* status pills: the emoji marks of STYLE.md, coloured in the viewer only (the .md stays plain) */
+  .pill { display:inline-block; padding:0 .5em; border-radius:999px; font-size:.85em; font-weight:600;
+          line-height:1.5; white-space:nowrap; border:1px solid transparent; }
+  .pill-faithful { background:#dcfce7; color:#14532d; border-color:#86efac; }
+  .pill-approx   { background:#fef9c3; color:#713f12; border-color:#fde047; }
+  .pill-inferred { background:#dbeafe; color:#1e3a8a; border-color:#93c5fd; }
+  .pill-verify   { background:#f3e8ff; color:#581c87; border-color:#d8b4fe; }
+  .pill-l120     { background:#f1f5f9; color:#334155; border-color:#cbd5e1; }
+  .pill-chosen   { background:#ffedd5; color:#7c2d12; border-color:#fdba74; }
+  @media (prefers-color-scheme: dark) {
+    .pill-faithful { background:#14532d; color:#dcfce7; border-color:#166534; }
+    .pill-approx   { background:#713f12; color:#fef9c3; border-color:#854d0e; }
+    .pill-inferred { background:#1e3a8a; color:#dbeafe; border-color:#1e40af; }
+    .pill-verify   { background:#581c87; color:#f3e8ff; border-color:#6b21a8; }
+    .pill-l120     { background:#334155; color:#f1f5f9; border-color:#475569; }
+    .pill-chosen   { background:#7c2d12; color:#ffedd5; border-color:#9a3412; }
+  }
+
+  /* progress dashboard: the ```dashboard block, drawn live from the pages it names, in the colours of the static
+     copy's SVG bars (tools/progress_stats.py): they read on light and dark pages alike */
+  .dash { --d-done:#2da44e; --d-chosen:#116329; --d-inf:#a371f7; --d-part:#d4a72c; --d-part2:#eac54f; --d-pend:rgba(140,149,159,.32); --d-exc:#e16f24;
+          --d-exc2:#fb8f44; --d-edge:rgba(140,149,159,.7); margin: 0 0 1.5em; }
+  .dash h3 { font-size: 1.1em; margin: 1.6em 0 0.5em; }
+  /* every bar of a kind has the same length, as the static copy's SVG files */
+  .dash .dash-big { display:flex; flex-direction:column; gap: .4rem; margin-bottom: .6rem; }
+  .dash .dash-big > a, .dash .dash-big > .dash-bar { width: 100%; max-width: 22.5rem; }
+  .dash .dash-big .dash-cnt { white-space: normal; }
+  .dash .dash-rows { display:grid; grid-template-columns: minmax(9rem, max-content) minmax(0, 10rem) repeat(5, 4rem) minmax(4rem, max-content);
+          gap: .3rem .75rem; align-items:center; font-size: .93rem; }
+  .dash .dash-rows.dash-fams { grid-template-columns: minmax(9rem, max-content) minmax(0, 10rem) repeat(5, 4rem); }
+  .dash .dash-rows.dash-ref { grid-template-columns: minmax(12rem, 22rem) minmax(0, 10rem); }
+  .dash .dash-top { margin: .4rem 0 1rem; }
+  .dash .dash-top .dash-line { font-size: .92em; }
+  .dash .dash-details { margin: .8rem 0; }
+  .dash .dash-details > summary { cursor: pointer; font-weight: 600; margin-bottom: .4rem; }
+  .dash .dash-head { font-weight: 700; font-size: .85rem; border-bottom: 1px solid var(--d-edge); padding-bottom: .2rem; }
+  .dash .dash-fam { font-weight: 700; margin-top: .5rem; }
+  .dash .dash-sub-row { padding-left: 1.2rem; }
+  .dash .dash-name { overflow-wrap:anywhere; }
+  .dash .dash-num { text-align:right; font-variant-numeric: tabular-nums; }
+  .dash .dash-cnt { color: var(--muted); font-size: .85em; font-variant-numeric: tabular-nums; white-space:nowrap; }
+  .dash .dash-bar { position:relative; display:flex; height: 1.15rem; border-radius: 999px; overflow:hidden;
+          background: var(--d-pend); border: 1px solid var(--d-edge); }
+  .dash .dash-bar-big { height: 1.65rem; }
+  .dash .dash-bar > span { display:block; height:100%; }
+  .dash .dash-bar > b { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff;
+          font-size: .72rem; font-variant-numeric: tabular-nums; pointer-events:none;
+          text-shadow: 0 0 2px rgba(31,35,40,.8), 0 0 3px rgba(31,35,40,.6); }
+  .dash .dash-bar-big > b { font-size: .9rem; }
+  .dash .seg-done { background: var(--d-done); }
+  .dash .seg-chosen { background: var(--d-chosen); }
+  .dash .seg-inf { background: var(--d-inf); }
+  .dash .seg-part { background: repeating-linear-gradient(135deg, var(--d-part) 0 3px, var(--d-part2) 3px 6px); }
+  .dash .seg-pend { background: var(--d-pend); }
+  .dash .seg-exc { background: repeating-linear-gradient(135deg, var(--d-exc) 0 3px, var(--d-exc2) 3px 6px); }
+  .dash .dash-note { grid-column: 1 / -1; margin: -.15rem 0 .35rem; font-size: .82rem; color: var(--muted); }
+  .dash .dash-legend { display:flex; flex-wrap:wrap; gap: .3rem 1rem; font-size: .82rem; color: var(--muted); margin:.4rem 0; }
+  .dash .dash-legend i { display:inline-block; width: 1.4em; height: .8em; border-radius: 3px; vertical-align: -0.05em;
+          margin-right: .35em; border: 1px solid var(--d-edge); }
+  .dash .dash-iss { font-size: .8rem; white-space:nowrap; text-align:right; }
+  .dash .dash-tag { font-size:.75rem; font-weight:600; padding: 0 .45em; border-radius: 999px; margin-right:.35em;
+          background:#ffedd5; color:#7c2d12; border:1px solid #fdba74; white-space:nowrap; }
+  @media (prefers-color-scheme: dark) { .dash .dash-tag { background:#7c2d12; color:#ffedd5; border-color:#9a3412; } }
+  .dash .dash-warn { color: var(--muted); font-size: .85rem; }
+  @media (max-width: 800px) { .dash { overflow-x: auto; } }
+</style>
+</head>
+<body>
+<button id="wv-menu" type="button" aria-label="Show or hide the menu">&#9776;</button>
+<nav id="wv-sidebar">
+  <a id="wv-title" href="#/">Wiki</a>
+  <input id="wv-search" type="search" placeholder="Search all pages" aria-label="Search all pages">
+  <div id="wv-toc"></div>
+</nav>
+<main id="wv-main"><article id="wv-page" class="md"><p class="muted">Loading&hellip;</p></article></main>
+<script src="vendor/marked/marked.min.js"></script>
+<script src="vendor/highlight/highlight.min.js"></script>
+<script>
+(() => {
+  'use strict';
+
+  const SUMMARY = 'SUMMARY.md';
+  const $ = id => document.getElementById(id);
+  const pageEl = $('wv-page'), tocEl = $('wv-toc'), searchEl = $('wv-search'), titleEl = $('wv-title');
+
+  const textCache = new Map();  // path -> Promise<string>
+  let pages = [];               // [{path, title}] in SUMMARY order
+  let siteTitle = 'Wiki';
+  let shownPath = null;         // page currently rendered
+  let lastPagePath = null;      // last page shown, to return to after a search is cleared
+  let renderToken = 0;
+  let searchIndex = null;       // Promise<[{path, title, sections: [{id, heading, text}]}]>
+
+  marked.setOptions({ gfm: true });
+
+  // ---------- paths and routes ----------
+
+  const encodePath = p => p.split('/').map(encodeURIComponent).join('/');
+  const isExternal = href => /^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith('//');
+
+  // Resolve a link written in the page at basePath, the way GitHub does.
+  function resolveLink(basePath, href) {
+    const u = new URL(href, 'http://wiki.invalid/' + encodePath(basePath));
+    let path = decodeURIComponent(u.pathname.slice(1));
+    if (path === '' || path.endsWith('/')) path += 'README.md';
+    return { path, anchor: u.hash ? decodeURIComponent(u.hash.slice(1)) : '', search: u.search };
+  }
+
+  // Routes: #/dir/page.md#anchor  or  #?q=search terms
+  function parseRoute() {
+    const h = location.hash;
+    if (h.startsWith('#?q=')) return { query: decodeURIComponent(h.slice(4).replace(/\+/g, ' ')) };
+    if (!h.startsWith('#/')) return { path: null, anchor: h.length > 1 ? decodeURIComponent(h.slice(1)) : '' };
+    const rest = h.slice(2), i = rest.indexOf('#');
+    return {
+      path: decodeURIComponent(i < 0 ? rest : rest.slice(0, i)) || null,
+      anchor: i < 0 ? '' : decodeURIComponent(rest.slice(i + 1)),
+    };
+  }
+  const pageHref = (path, anchor) => '#/' + encodePath(path) + (anchor ? '#' + encodeURIComponent(anchor) : '');
+
+  // ---------- fetching ----------
+
+  function fetchText(path) {
+    if (!textCache.has(path)) {
+      const p = fetch(encodePath(path), { cache: 'no-cache' }).then(r => {
+        if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+        return r.text();
+      });
+      p.catch(() => textCache.delete(path));
+      textCache.set(path, p);
+    }
+    return textCache.get(path);
+  }
+
+  // ---------- GitHub heading slugs (github-slugger rule) ----------
+
+  function makeSlugger() {
+    const seen = new Map();
+    return text => {
+      const base = text.toLowerCase().replace(/[^\p{L}\p{M}\p{N}\p{Pc} -]/gu, '').replace(/ /g, '-');
+      let slug = base;
+      while (seen.has(slug)) {
+        const n = seen.get(base) + 1;
+        seen.set(base, n);
+        slug = base + '-' + n;
+      }
+      seen.set(slug, 0);
+      return slug;
+    };
+  }
+
+  // ---------- rendering ----------
+
+  function fixLinks(container, basePath) {
+    for (const a of container.querySelectorAll('a[href]')) {
+      const href = a.getAttribute('href');
+      if (a.classList.contains('wv-anchor')) continue;
+      if (isExternal(href)) {
+        if (!href.startsWith('mailto:')) { a.target = '_blank'; a.rel = 'noopener'; }
+        continue;
+      }
+      if (href.startsWith('#')) { a.setAttribute('href', pageHref(basePath, decodeURIComponent(href.slice(1)))); continue; }
+      const r = resolveLink(basePath, href);
+      if (/\.md$/i.test(r.path)) {
+        a.setAttribute('href', pageHref(r.path, r.anchor));
+        a.dataset.path = r.path;
+      } else {
+        a.setAttribute('href', encodePath(r.path) + (r.anchor ? '#' + encodeURIComponent(r.anchor) : ''));
+      }
+    }
+    for (const img of container.querySelectorAll('img[src]')) {
+      const src = img.getAttribute('src');
+      // the query is kept: a bar's ?v= version makes the browser fetch a bar whose numbers changed
+      if (!isExternal(src)) img.setAttribute('src', (r => encodePath(r.path) + r.search)(resolveLink(basePath, src)));
+    }
+  }
+
+  // status pills: wrap the emoji marks (STYLE.md) in coloured pills; text nodes only, never inside code
+  const PILLS = [
+    [/✅\s*faithful/g, 'pill-faithful', '✅ faithful'],
+    [/⚠️?\s*approximate/g, 'pill-approx', '⚠️ approximate'],
+    [/🔍\s*inferred/g, 'pill-inferred', '🔍 inferred'],
+    [/🧪\s*verify/g, 'pill-verify', '🧪 verify'],
+    [/📼\s*1\.20 only/g, 'pill-l120', '📼 1.20 only'],
+    [/🎯\s*chosen difference/g, 'pill-chosen', '🎯 chosen difference'],
+  ];
+  function pillify(root) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode: n => n.parentElement.closest('code, pre, .pill') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+    const nodes = []; while (walker.nextNode()) nodes.push(walker.currentNode);
+    for (const node of nodes) {
+      let html = escapeHtml(node.nodeValue), hit = false;
+      for (const [rx, cls, label] of PILLS) {
+        html = html.replace(rx, () => { hit = true; return `<span class="pill ${cls}">${label}</span>`; });
+      }
+      if (hit) { const span = document.createElement('span'); span.innerHTML = html; node.replaceWith(...span.childNodes); }
+    }
+  }
+
+  function enhance(container, basePath) {
+    const slug = makeSlugger();
+    for (const h of container.querySelectorAll('h1, h2, h3, h4, h5, h6')) {
+      if (!h.id) h.id = slug(h.textContent);
+      const a = document.createElement('a');
+      a.className = 'wv-anchor';
+      a.href = pageHref(basePath, h.id);
+      a.textContent = '#';
+      a.setAttribute('aria-hidden', 'true');
+      h.prepend(a);
+    }
+    fixLinks(container, basePath);
+    for (const t of container.querySelectorAll('table')) {
+      const wrap = document.createElement('div');
+      wrap.className = 'wv-table';
+      t.replaceWith(wrap);
+      wrap.append(t);
+    }
+    if (window.hljs) {
+      for (const code of container.querySelectorAll('pre code[class*="language-"]')) {
+        const lang = /language-([\w+#-]+)/.exec(code.className)?.[1];
+        if (lang && hljs.getLanguage(lang)) hljs.highlightElement(code);
+      }
+    }
+  }
+
+  function scrollToAnchor(anchor) {
+    if (!anchor) { window.scrollTo(0, 0); return; }
+    const el = pageEl.querySelector('#' + CSS.escape(anchor)) ||
+               pageEl.querySelector('[name="' + CSS.escape(anchor) + '"]');
+    if (!el) return;
+    el.scrollIntoView();
+    el.classList.remove('wv-target');
+    void el.offsetWidth;
+    el.classList.add('wv-target');
+  }
+
+  function markActive(path) {
+    let active = null;
+    for (const a of tocEl.querySelectorAll('a[data-path]')) {
+      const on = a.dataset.path === path;
+      a.classList.toggle('active', on);
+      if (on && !active) active = a;
+    }
+    active?.scrollIntoView({ block: 'nearest' });
+  }
+
+  const escapeHtml = s => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  function showError(path, err) {
+    const hint = location.protocol === 'file:'
+      ? '<p>The browser cannot read files from <code>file://</code>. Open the wiki with <code>abrir_wiki.bat</code>.</p>'
+      : '';
+    pageEl.innerHTML = `<h1>Page not found</h1><p class="muted">${escapeHtml(path)}: ${escapeHtml(String(err.message || err))}</p>${hint}`;
+  }
+
+  async function showPage(path, anchor) {
+    const token = ++renderToken;
+    if (path !== shownPath) {
+      let md;
+      try {
+        md = await fetchText(path);
+      } catch (err) {
+        if (token !== renderToken) return;
+        shownPath = null;
+        showError(path, err);
+        markActive(path);
+        return;
+      }
+      if (token !== renderToken) return;
+      // the dashboard's spec sits in an HTML comment, which GitHub hides: <!-- dashboard ... -->
+      md = md.replace(/<!--\s*dashboard\s*\n([\s\S]*?)-->/, (_, spec) => '```dashboard\n' + spec.trim() + '\n```');
+      const hasDashboard = /^```dashboard\s*$/m.test(md);
+      // the static copy is for GitHub; the viewer draws the live bars in its place
+      if (hasDashboard) md = md.replace(/<!-- dashboard:static -->[\s\S]*?<!-- \/dashboard:static -->/, '');
+      pageEl.innerHTML = marked.parse(md);
+      enhance(pageEl, path);
+      pillify(pageEl);
+      if (hasDashboard) renderDashboards(pageEl, path, token);
+      const src = document.createElement('p');
+      src.className = 'wv-source muted';
+      src.innerHTML = `Source: <a href="${encodePath(path)}">${escapeHtml(path)}</a>`;
+      pageEl.append(src);
+      shownPath = path;
+      const h1 = pageEl.querySelector('h1');
+      const name = h1 ? h1.textContent.replace(/^#/, '') : (pages.find(p => p.path === path)?.title || path);
+      document.title = name + ' - ' + siteTitle;
+    }
+    lastPagePath = path;
+    if (searchEl.value && document.activeElement !== searchEl) searchEl.value = '';
+    markActive(path);
+    scrollToAnchor(anchor);
+  }
+
+  // ---------- progress dashboard (the ```dashboard block; tools/progress_stats.py counts the same way) ----------
+
+  // the status rule of tools/progress_rows.py: done, chosen (done the way the user chose), partial NN% (a bare
+  // partial is not measured yet and counts 0), inferred (not checked against the original, counts 0) and pending;
+  // the older todo is read as pending and n/a is counted apart, in no score
+  const STATUSES = ['done', 'chosen', 'partial', 'inferred', 'pending'];
+  const KEYS = [...STATUSES, 'n/a', 'partialMeasured', 'partialDone'];
+  const ALIASES = { todo: 'pending' };
+  const parseStatus = cell => {
+    const s0 = cell.trim().toLowerCase(), s = ALIASES[s0] ?? s0;
+    if (STATUSES.includes(s) || s === 'n/a') return [s, null];
+    const m = /^partial(?:\s*\(?\s*(\d{1,3})\s*%\s*\)?)?$/.exec(s);
+    return m ? ['partial', m[1] ? Math.min(+m[1], 100) / 100 : null] : null;
+  };
+  const emptyCount = () => Object.fromEntries(KEYS.map(k => [k, 0]));
+  const counted = c => STATUSES.reduce((n, k) => n + c[k], 0);
+  const mdCells = line => line.trim().replace(/^\|+|\|+$/g, '').split('|').map(c => c.trim());
+  const headingSlug = text => text.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').toLowerCase()
+    .replace(/[^\p{L}\p{M}\p{N}\p{Pc} -]/gu, '').replace(/ /g, '-');
+  const scoreOf = c => { const t = counted(c); return t ? Math.round(100 * (c.done + c.chosen + c.partialDone) / t) : 0; };
+  const pctText = (n, d) => d ? Math.round(100 * n / d) : 0;
+
+  // Rows by status: the second column is the status (the progress tools' rule); other values of a Status column are 'other'.
+  // A bug log's "**Bugs: N (soft-locks and lost progress: S)**" line gives bugs and softlocks.
+  const COUNTED = [...KEYS, 'other', 'bugs', 'softlocks'];
+  function countRows(md) {
+    const c = { ...emptyCount(), other: 0, bugs: 0, softlocks: 0 };
+    const bugs = /\*\*Bugs: (\d+) \(soft-locks and lost progress: (\d+)\)\*\*/.exec(md);
+    if (bugs) { c.bugs = +bugs[1]; c.softlocks = +bugs[2]; }
+    let statusCol = null;
+    for (const line of md.split(/\r?\n/)) {
+      if (!line.startsWith('|')) { statusCol = null; continue; }
+      const row = mdCells(line), low = row.map(x => x.toLowerCase());
+      if (low.includes('status')) { statusCol = low.indexOf('status'); continue; }
+      if (/^:?-+:?$/.test(row[0])) continue;
+      const parsed = row.length >= 3 ? parseStatus(row[1]) : null;
+      if (parsed) {
+        const [status, share] = parsed;
+        c[status]++;
+        if (status === 'partial' && share !== null) { c.partialMeasured++; c.partialDone += share; }
+      } else if (statusCol !== null && statusCol < row.length && row[statusCol]) c.other++;
+    }
+    return c;
+  }
+
+  // a file's counts from its INDEX row (| File | Rows | Done | Chosen | Partial | Inferred | Pending | Score |), as
+  // progress_index_regen.py writes it: the partial cell is "N (S done, M not measured)"
+  function indexRow(row) {
+    const n = x => parseInt(x, 10) || 0, c = emptyCount();
+    [c.done, c.chosen, c.partial, c.inferred, c.pending] = [n(row[2]), n(row[3]), n(row[4]), n(row[5]), n(row[6])];
+    const m = /\(([\d.]+) done(?:, (\d+) not measured)?\)/.exec(row[4] || '');
+    if (m) { c.partialDone = +m[1]; c.partialMeasured = c.partial - (+m[2] || 0); }
+    return c;
+  }
+
+  async function poolMap(items, limit, fn) {
+    const out = new Array(items.length);
+    let next = 0;
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => {
+      while (next < items.length) { const i = next++; out[i] = await fn(items[i], i); }
+    }));
+    return out;
+  }
+
+  // The entries of a folder from the local server's directory listing, or null when there is no listing.
+  async function folderListing(dir) {
+    try {
+      const r = await fetch(encodePath(dir), { cache: 'no-cache' });
+      if (!r.ok || !/text\/html/.test(r.headers.get('content-type') || '')) return null;
+      const doc = new DOMParser().parseFromString(await r.text(), 'text/html');
+      return new Set([...doc.querySelectorAll('a[href]')].map(a => decodeURIComponent(a.getAttribute('href')).replace(/\/$/, '')));
+    } catch { return null; }
+  }
+
+  async function featureStats(indexPath) {
+    const md = await fetchText(indexPath);
+    const domains = [];
+    let cur = null;
+    for (const line of md.split(/\r?\n/)) {
+      let m = /^## \[([^\]]+)\]\([^)]*\)/.exec(line);
+      if (m) {
+        // the anchor is the fixed <a id="<domain>"> that progress_index_regen.py writes above the heading
+        cur = { name: m[1], anchor: m[1], files: [], fromIndex: 0, ...Object.fromEntries(COUNTED.map(k => [k, 0])) };
+        domains.push(cur);
+        continue;
+      }
+      m = /^\| \[([^\]]*)\]\(([^)]+\.md)\) \|/.exec(line);
+      if (m && cur) {
+        const row = mdCells(line);
+        cur.files.push({ path: resolveLink(indexPath, m[2]).path,
+          index: indexRow(row) });
+      }
+    }
+    const all = domains.flatMap(d => d.files.map(f => ({ d, f })));
+    // Skip the domain folders the local server's listing says are absent, so that no request ends in a 404.
+    const dir = indexPath.replace(/[^/]*$/, '');
+    const listings = new Map();  // folder -> Promise<Set|null>, each folder listed once
+    const listing = folder => { if (!listings.has(folder)) listings.set(folder, folderListing(folder)); return listings.get(folder); };
+    const rootListed = (await listing(dir)) !== null;
+    async function exists(path) {  // walk down from the index's folder; a missing level stops the walk
+      let folder = dir;
+      for (const part of path.slice(dir.length).split('/')) {
+        const set = await listing(folder);
+        if (!set || !set.has(part)) return false;
+        folder += part + '/';
+      }
+      return true;
+    }
+    await poolMap(all, 16, async ({ d, f }) => {
+      let c = null;
+      if (!rootListed || await exists(f.path)) {
+        try { c = countRows(await fetchText(f.path)); } catch { c = null; }
+      }
+      if (!c) { c = { ...f.index, other: 0, bugs: 0, softlocks: 0 }; d.fromIndex++; }
+      for (const k of COUNTED) d[k] += c[k];
+    });
+    const overall = { ...emptyCount(), other: 0, fromIndex: 0, files: all.length };
+    for (const d of domains) {
+      for (const k of [...KEYS, 'other', 'fromIndex']) overall[k] += d[k];
+      d.score = scoreOf(d); d.rows = counted(d);
+    }
+    overall.score = scoreOf(overall); overall.rows = counted(overall);
+    const ranked = domains.map((d, i) => [d, i]).sort((a, b) => b[0].score - a[0].score || a[1] - b[1]).map(x => x[0]);
+    // a domain with no feature rows is left out; one that logs the original's bugs gets its own line
+    return { overall, domains: ranked.filter(d => d.rows), bugLogs: ranked.filter(d => !d.rows && d.bugs) };
+  }
+
+  async function refactorStats(path, anchor) {
+    const md = await fetchText(path);
+    const lines = md.split(/\r?\n/);
+    let i = lines.findIndex(l => /^#{1,6} /.test(l) && headingSlug(l.replace(/^#+ /, '')) === anchor);
+    if (i < 0) throw new Error('no heading #' + anchor + ' in ' + path);
+    const metrics = [];
+    let header = null;
+    for (const line of lines.slice(i + 1)) {
+      if (line.startsWith('#')) break;
+      if (!line.startsWith('|')) continue;
+      const row = mdCells(line);
+      if (!header) { header = row.map(h => h.toLowerCase()); continue; }
+      if (/^:?-+:?$/.test(row[0])) continue;
+      const get = name => row[header.indexOf(name)] ?? '';
+      const done = get('done'), left = get('what is left');
+      const m = /(\d+(?:\.\d+)?)\s*%/.exec(done);
+      const pct = m ? parseFloat(m[1]) : null;
+      const exception = pct === null || pct >= 100 ? ''
+        : /^(required by|all of them out of scope)/i.test(left) ? 'all'
+        : /on purpose|out of scope|required by/i.test(left) ? 'part' : '';
+      metrics.push({ what: row[0], short: get('short name'), before: get('before'), now: get('now'), done, pct, left, exception });
+    }
+    return { metrics };
+  }
+
+  const inlineMd = s => marked.parseInline(s);
+  // a domain's readable name: issues.json's names (progress_stats.py), else the folder's own name with spaces
+  const domainName = (issues, name) => issues?.names?.[name] || (s => s.charAt(0).toUpperCase() + s.slice(1))(name.replace(/_/g, ' '));
+  function bar(parts, label, big) {  // parts: [[className, fraction, title]]; label: the percentage drawn inside
+    return `<div class="dash-bar${big ? ' dash-bar-big' : ''}" role="img" aria-label="${escapeHtml([label, ...parts.map(p => p[2])].filter(Boolean).join(', '))}">` +
+      parts.filter(p => p[1] > 0).map(([cls, f, t]) =>
+        `<span class="${cls}" style="width:${(100 * f).toFixed(3)}%" title="${escapeHtml(t)}"></span>`).join('') +
+      (label ? `<b>${escapeHtml(label)}</b>` : '') + '</div>';
+  }
+  function issuesLink(issues, labels) {
+    if (!issues || !labels?.length) return '<span></span>';
+    const n = new Set(labels.flatMap(l => issues.labels[l] || [])).size;
+    if (!n) return '<span></span>';
+    const url = `${issues.fork}/issues?q=is:issue+is:open+label:${labels.join(',')}`;
+    return `<a class="dash-iss" href="${escapeHtml(url)}" target="_blank" rel="noopener" title="${escapeHtml(labels.join(', '))}">${n} open</a>`;
+  }
+
+  // raffclar-status.tsv: one row per pull request of his master, as raffclar_status() in tools/progress_stats.py
+  const RAFF_STATUSES = ['in', 'partial', 'pending', 'n/a'];
+  // why a pull request is not taken, from the start of its evidence; the same list as NA_GROUPS in progress_stats.py
+  const NA_GROUPS = [
+    ['his inspector and MCP adapter, parked by decision C-1', /inspector/i],
+    ['his own docs pages', /^docs only/i],
+    ['reverts', /revert/i],
+    ['formatting', /^formatting/i],
+    ['CI and build tooling', /./],
+  ];
+  async function raffStats(path) {
+    const rows = (await fetchText(path)).split(/\r?\n/).filter(l => l.trim() && !l.startsWith('#') && !l.startsWith('pr\t'))
+      .map(l => { const c = l.split('\t'); return { pr: c[0], status: c[3] || '', evidence: c[4] || '' }; });
+    const counts = Object.fromEntries(RAFF_STATUSES.map(k => [k, rows.filter(r => r.status === k).length]));
+    counts.all = rows.length;
+    const counted = rows.length - counts['n/a'];
+    const reasons = new Map();
+    for (const r of rows.filter(r => r.status === 'n/a')) {
+      const label = NA_GROUPS.find(([, rx]) => rx.test(r.evidence))[0];
+      reasons.set(label, (reasons.get(label) || 0) + 1);
+    }
+    return { counts, counted, score: counted ? Math.round(100 * (counts.in + 0.5 * counts.partial) / counted) : 0,
+             naReasons: [...reasons].sort((a, b) => b[1] - a[1]) };
+  }
+
+  // milestones.md's table, newest first, as milestones() in tools/progress_stats.py
+  async function milestoneStats(path) {
+    const md = await fetchText(path);
+    const table = md.split('<!-- milestones:table -->')[1]?.split('<!-- /milestones:table -->')[0] || '';
+    return table.split(/\r?\n/).filter(l => l.startsWith('|')).map(mdCells)
+      .filter(r => r.length >= 3 && /^\d{4}-\d{2}-\d{2}$/.test(r[0]))
+      .map(r => ({ date: r[0], what: r[1] })).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  }
+
+  async function renderDashboard(pre, basePath) {
+    const conf = {};
+    for (const line of pre.textContent.split('\n')) {
+      const m = /^\s*(\w+)\s*:\s*(\S+)\s*$/.exec(line);
+      if (m) conf[m[1]] = m[2];
+    }
+    const link = (href, anchor) => { const r = resolveLink(basePath, href); return pageHref(r.path, anchor ?? r.anchor); };
+    const [feat, ref, issues, raff, tip, ms] = await Promise.all([
+      conf.features ? featureStats(resolveLink(basePath, conf.features).path) : null,
+      conf.refactor ? (r => refactorStats(r.path, r.anchor))(resolveLink(basePath, conf.refactor)) : null,
+      conf.issues ? fetchText(resolveLink(basePath, conf.issues).path).then(JSON.parse).catch(() => null) : null,
+      conf.raffclar ? raffStats(resolveLink(basePath, conf.raffclar).path) : null,
+      conf.rafftip ? fetchText(resolveLink(basePath, conf.rafftip).path).then(JSON.parse).catch(() => null) : null,
+      conf.milestones ? milestoneStats(resolveLink(basePath, conf.milestones).path).catch(() => []) : [],
+    ]);
+    const act = c => counted(c);
+    const partialText = c => { const left = c.partial - c.partialMeasured;
+      return `${c.partial} partial (${pctText(c.partialDone, act(c))}% of the rows' worth${left ? `, ${left} not measured yet` : ''})`; };
+    const partialCell = c => c.partialMeasured ? `${c.partial} (${c.partialDone.toFixed(1)} done)` : `${c.partial}`;
+    const featBar = (c, big) => { const a = act(c) || 1;
+      return bar([['seg-done', c.done / a, `${c.done} done`], ['seg-chosen', c.chosen / a, `${c.chosen} chosen`],
+        ['seg-part', c.partialDone / a, partialText(c)], ['seg-inf', c.inferred / a, `${c.inferred} inferred`],
+        ['seg-pend', 1 - (c.done + c.chosen + c.partialDone + c.inferred) / a, `${c.pending} pending`]], `${scoreOf(c)}%`, big); };
+    const raffBar = r => { const c = r.counts, n = r.counted || 1;
+      return bar([['seg-done', c.in / n, `${c.in} in`], ['seg-part', c.partial / n, `${c.partial} partial`], ['seg-pend', c.pending / n, `${c.pending} pending`]], `${r.score}%`, true); };
+    const goals = ref ? ref.metrics.filter(m => m.pct !== null) : [];
+    const reached = goals.filter(m => m.pct >= 100).length, kept = goals.filter(m => m.exception === 'all').length;
+    const refBar = () => { const n = goals.length || 1;
+      return bar([['seg-done', reached / n, `${reached} reached`], ['seg-exc', kept / n, `${kept} with only what stays on purpose left`], ['seg-pend', (n - reached - kept) / n, `${n - reached - kept} pending`]], `${reached} of ${goals.length}`, true); };
+    const naLine = r => r.naReasons.map(([label, n]) => `${escapeHtml(label)} (${n})`).join('; ');
+    const msLink = s => { const m = /^\[([^\]]*)\]\(#([^)]*)\)$/.exec(s);
+      return m ? `<a href="${link(conf.milestones, m[2])}">${inlineMd(m[1])}</a>` : inlineMd(s); };
+    let html = '';
+    // Where we are: three numbers, each a big bar and one line, as headline() in tools/progress_stats.py
+    const blocks = [];
+    if (feat) {
+      const o = feat.overall;
+      blocks.push(['🎮 Features of the original', `<a href="${link(conf.features)}">${featBar(o, true)}</a>`, `${o.done} of the original game's ${act(o)} behaviours are done and ${o.chosen} done as the user chose; ${partialText(o)}; ${o.inferred} inferred, not yet checked against the original.`, 'features:overall', `data-done="${o.done}" data-chosen="${o.chosen}" data-partial="${o.partial}" data-inferred="${o.inferred}" data-pending="${o.pending}" data-score="${o.score}"`]);
+    }
+    if (raff) {
+      const c = raff.counts;
+      blocks.push(["🔀 raffclar's work in our tree", `<a href="${link(conf.raffclar.replace(/\.tsv$/, '.md'))}">${raffBar(raff)}</a>`, `${c.in} of his ${raff.counted} pull requests are in our tree, ${c.partial} more in part.`, 'raffclar', `data-in="${c.in}" data-partial="${c.partial}" data-pending="${c.pending}" data-na="${c['n/a']}" data-score="${raff.score}"`]);
+    }
+    if (ref) {
+      blocks.push(['🧹 Code clean-up', `<a href="${link(conf.refactor)}">${refBar()}</a>`, `${reached} of the ${goals.length} code goals are reached; in ${kept} more, what is left stays on purpose.`, 'refactor', `data-reached="${reached}" data-goals="${goals.length}" data-kept="${kept}"`]);
+    }
+    if (blocks.length) {
+      html += `<h2>📊 Where we are</h2>` + blocks.map(([k, b, line, id, data]) =>
+        `<div class="dash-big dash-top" data-dash="${id}" ${data}><strong>${k}</strong>${b}<span class="dash-line">${escapeHtml(line)}</span></div>`).join('');
+    }
+    if (feat) {
+      const idx = conf.features;
+      // the families of tools/progress_stats.py (FAMILIES, in issues.json); a domain in none of them goes to Other
+      const fams = (issues?.families || []).map(f => ({ ...f, members: feat.domains.filter(d => f.domains.includes(d.name)) }));
+      const known = new Set(fams.flatMap(f => f.domains));
+      fams.push({ name: fams.length ? 'Other' : 'All domains', icon: '📦', members: feat.domains.filter(d => !known.has(d.name)) });
+      const sum = ds => { const c = Object.fromEntries(KEYS.map(k => [k, ds.reduce((s, d) => s + d[k], 0)])); c.score = scoreOf(c); return c; };
+      const used = fams.filter(f => f.members.length);
+      html += `<h2>🎮 Features of the original</h2>
+        <p>Each behaviour of the original game is one row of a <a href="${link(idx)}">progress file</a>: done, chosen (done the way the user chose), partial with the share done, inferred (written from an inference, not checked against the original) or pending. The score counts done and chosen as one, a partial row as its share, inferred and pending as nothing.</p>
+        <div class="dash-legend"><span><i class="seg-done"></i>done</span><span><i class="seg-chosen"></i>chosen</span><span><i class="seg-part"></i>partial (the share done)</span><span><i class="seg-inf"></i>inferred (counts 0)</span><span><i class="seg-pend"></i>pending</span></div>
+        <div class="dash-rows dash-fams"><span class="dash-head">Family</span><span class="dash-head">Progress</span><span class="dash-head dash-num">Done</span><span class="dash-head dash-num">Chosen</span><span class="dash-head dash-num">Partial</span><span class="dash-head dash-num">Inferred</span><span class="dash-head dash-num">Pending</span>` +
+        used.map(f => { const t = sum(f.members);
+          return `<span>${f.icon} ${escapeHtml(f.name)}</span><span data-dash="family:${escapeHtml(f.name)}">${featBar(t)}</span>
+            <span class="dash-num">${t.done}</span><span class="dash-num">${t.chosen}</span><span class="dash-num">${partialCell(t)}</span><span class="dash-num">${t.inferred}</span><span class="dash-num">${t.pending}</span>`; }).join('') + '</div>' +
+        `<details class="dash-details"><summary>Every domain</summary>
+        <div class="dash-rows"><span class="dash-head">Domain</span><span class="dash-head">Progress</span><span class="dash-head dash-num">Done</span><span class="dash-head dash-num">Chosen</span><span class="dash-head dash-num">Partial</span><span class="dash-head dash-num">Inferred</span><span class="dash-head dash-num">Pending</span><span class="dash-head dash-num">Issues</span>` +
+        used.flatMap(f => f.members).map(d => `<a class="dash-name" href="${link(idx, d.anchor)}">${escapeHtml(domainName(issues, d.name))}</a>
+            <a href="${link(idx, d.anchor)}" data-dash="features:${escapeHtml(d.name)}" data-done="${d.done}" data-chosen="${d.chosen}" data-partial="${d.partial}" data-inferred="${d.inferred}" data-pending="${d.pending}" data-score="${d.score}">${featBar(d)}</a>
+            <span class="dash-num">${d.done}</span><span class="dash-num">${d.chosen}</span><span class="dash-num">${partialCell(d)}</span><span class="dash-num">${d.inferred}</span><span class="dash-num">${d.pending}</span>
+            ${issuesLink(issues, issues?.domains?.[d.name])}`).join('') + '</div>' +
+        feat.bugLogs.map(d => `<p data-dash="buglog:${escapeHtml(d.name)}" data-bugs="${d.bugs}">🐞 <a href="${link(idx.replace(/[^/]*$/, '') + d.name + '/README.md', '')}">${escapeHtml(domainName(issues, d.name))}</a>: ${d.bugs} bugs of the original logged (not features, so no score).</p>`).join('') +
+        '</details>';
+    }
+    if (raff) {
+      const c = raff.counts, page = link(conf.raffclar.replace(/\.tsv$/, '.md'));
+      html += `<h2>🔀 raffclar's work in our tree</h2>
+        <p>Every pull request merged into his master${tip ? ` (<code>${escapeHtml(tip.head)}</code>, ${escapeHtml(tip.headDate)})` : ''}, checked against our tree.</p>
+        <div class="dash-big"><a href="${page}">${raffBar(raff)}</a></div>
+        <p data-dash="raffclar:counts"><strong>${c.in}</strong> in · <strong>${c.partial}</strong> partial · <strong>${c.pending}</strong> pending · <strong>${c['n/a']}</strong> n/a, not taken: ${naLine(raff)}.</p>
+        <p>The list, pull request by pull request: <a href="${page}">raffclar-status.md</a>.</p>`;
+    }
+    if (ref) {
+      const rp = resolveLink(basePath, conf.refactor), href = pageHref(rp.path, rp.anchor);
+      const counts = ref.metrics.filter(m => m.pct === null).map(m => `${m.short || m.what} ${m.before} → ${m.now}`);
+      html += `<h2>🧹 Code clean-up</h2><p>How far the code follows the <a href="${href}">code conventions</a>; the notes on each goal are there.</p>
+        <div class="dash-legend"><span><i class="seg-done"></i>done</span><span><i class="seg-exc"></i>left on purpose</span><span><i class="seg-pend"></i>pending</span></div>
+        <div class="dash-rows dash-ref"><span class="dash-head">Goal</span><span class="dash-head">Progress</span>` +
+        goals.map(m => {
+          const ex = m.exception === 'all', rest = 1 - m.pct / 100;
+          return `<a class="dash-name" href="${href}" data-dash="refactor:${escapeHtml(m.what)}" data-pct="${m.pct}">${inlineMd(m.short || m.what)}</a>
+            <a href="${href}">${bar([['seg-done', m.pct / 100, `${m.done} done`], [ex ? 'seg-exc' : 'seg-pend', rest, ex ? 'the rest stays on purpose' : 'pending']], m.done)}</a>`;
+        }).join('') + '</div>' +
+        (counts.length ? `<p>Also counted, with no goal: ${counts.map(inlineMd).join('; ')}.</p>` : '');
+    }
+    if (ms?.length) {
+      html += `<h2>🏁 Milestones</h2><ul data-dash="milestones">${ms.slice(0, 6).map(m => `<li><strong>${escapeHtml(m.date)}</strong> · ${msLink(m.what)}</li>`).join('')}</ul>
+        <p><a href="${link(conf.milestones)}">All milestones</a>.</p>`;
+    }
+    const div = document.createElement('div');
+    div.className = 'dash';
+    div.innerHTML = html;
+    pre.replaceWith(div);
+  }
+
+  function renderDashboards(container, basePath, token) {
+    for (const code of container.querySelectorAll('pre > code.language-dashboard')) {
+      const pre = code.parentElement;
+      const wait = document.createElement('p');
+      wait.className = 'muted';
+      wait.textContent = 'Counting the progress pages…';
+      pre.before(wait);
+      pre.hidden = true;
+      renderDashboard(pre, basePath).catch(err => {
+        if (token !== renderToken) return;
+        console.warn('dashboard:', err);
+        pre.hidden = false;
+        wait.textContent = 'The dashboard could not be drawn: ' + (err.message || err);
+        wait.dataset.dashError = '1';
+      }).finally(() => { if (!wait.dataset.dashError) wait.remove(); });
+    }
+  }
+
+  // ---------- side menu ----------
+
+  async function loadSummary() {
+    let md;
+    try {
+      md = await fetchText(SUMMARY);
+    } catch (err) {
+      tocEl.innerHTML = `<p class="muted">No ${SUMMARY}: ${escapeHtml(err.message)}</p>`;
+      return;
+    }
+    tocEl.innerHTML = marked.parse(md);
+    fixLinks(tocEl, SUMMARY);
+    const h1 = tocEl.querySelector('h1');
+    if (h1 && h1.textContent.trim()) siteTitle = h1.textContent.trim();
+    titleEl.textContent = siteTitle;
+    document.title = siteTitle;
+    const seen = new Set();
+    for (const a of tocEl.querySelectorAll('a[data-path]')) {
+      if (seen.has(a.dataset.path)) continue;
+      seen.add(a.dataset.path);
+      pages.push({ path: a.dataset.path, title: a.textContent.trim() || a.dataset.path });
+    }
+  }
+
+  // ---------- search ----------
+
+  function buildIndex() {
+    if (searchIndex) return searchIndex;
+    const parser = new DOMParser();  // inert document: no images or scripts load
+    searchIndex = Promise.all(pages.map(async page => {
+      let md;
+      try { md = await fetchText(page.path); } catch { return null; }
+      const body = parser.parseFromString(marked.parse(md), 'text/html').body;
+      const slug = makeSlugger();
+      const sections = [{ id: '', heading: page.title, text: '' }];
+      for (const node of body.children) {
+        if (/^H[1-6]$/.test(node.tagName)) {
+          sections.push({ id: node.id || slug(node.textContent), heading: node.textContent, text: '' });
+        } else {
+          for (const h of node.querySelectorAll('h1, h2, h3, h4, h5, h6')) slug(h.textContent);
+          sections[sections.length - 1].text += ' ' + node.textContent;
+        }
+      }
+      for (const s of sections) s.text = s.text.replace(/\s+/g, ' ').trim();
+      return { ...page, sections: sections.filter(s => s.id || s.text) };
+    })).then(list => list.filter(Boolean));
+    return searchIndex;
+  }
+
+  function highlightTerms(text, terms) {
+    const re = new RegExp('(' + terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')', 'gi');
+    // split() with a capture group puts the matches at the odd indexes
+    return text.split(re).map((part, i) => i % 2 ? '<mark>' + escapeHtml(part) + '</mark>' : escapeHtml(part)).join('');
+  }
+
+  function snippet(text, terms) {
+    const lower = text.toLowerCase();
+    const at = Math.max(0, Math.min(...terms.map(t => { const i = lower.indexOf(t); return i < 0 ? Infinity : i; })));
+    const start = at === Infinity ? 0 : Math.max(0, at - 80);
+    const piece = text.slice(start, start + 240);
+    return (start > 0 ? '... ' : '') + piece + (start + 240 < text.length ? ' ...' : '');
+  }
+
+  async function showSearch(query) {
+    const token = ++renderToken;
+    shownPath = null;
+    markActive(null);
+    if (searchEl.value !== query && document.activeElement !== searchEl) searchEl.value = query;
+    const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+    document.title = 'Search - ' + siteTitle;
+    if (!terms.length) { pageEl.innerHTML = '<h1>Search</h1><p class="muted">Type in the box to search every page.</p>'; return; }
+    pageEl.innerHTML = '<h1>Search</h1><p class="muted">Loading the pages&hellip;</p>';
+    const index = await buildIndex();
+    if (token !== renderToken) return;
+    const hits = [];
+    for (const page of index) {
+      for (const s of page.sections) {
+        const head = s.heading.toLowerCase(), body = s.text.toLowerCase();
+        if (!terms.every(t => head.includes(t) || body.includes(t) || page.title.toLowerCase().includes(t))) continue;
+        if (!terms.some(t => head.includes(t) || body.includes(t))) continue;
+        let score = 0;
+        for (const t of terms) {
+          if (head.includes(t)) score += 10;
+          if (page.title.toLowerCase().includes(t)) score += 3;
+          score += Math.min(5, body.split(t).length - 1);
+        }
+        hits.push({ page, s, score });
+      }
+    }
+    hits.sort((a, b) => b.score - a.score);
+    const shown = hits.slice(0, 100);
+    pageEl.innerHTML = `<h1>Search</h1><p class="muted">${hits.length} result${hits.length === 1 ? '' : 's'} for <strong>${escapeHtml(query)}</strong> in ${index.length} pages${hits.length > shown.length ? ' (first 100 shown)' : ''}.</p>` +
+      shown.map(({ page, s }) => `<div class="wv-result">
+        <a href="${pageHref(page.path, s.id)}">${highlightTerms(s.id ? s.heading : page.title, terms)}</a>
+        <div class="wv-where">${escapeHtml(page.title)}${s.id ? ' &rsaquo; ' + escapeHtml(s.heading) : ''} &middot; ${escapeHtml(page.path)}</div>
+        ${s.text ? `<p>${highlightTerms(snippet(s.text, terms), terms)}</p>` : ''}
+      </div>`).join('');
+  }
+
+  let searchTimer = 0;
+  searchEl.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      const q = searchEl.value.trim();
+      if (!q) {
+        if (lastPagePath) location.replace(pageHref(lastPagePath, ''));
+        return;
+      }
+      const target = '#?q=' + encodeURIComponent(q);
+      if (parseRoute().query !== undefined) { history.replaceState(null, '', target); route(); }
+      else location.hash = target;
+    }, 200);
+  });
+  searchEl.addEventListener('focus', () => buildIndex());
+  searchEl.addEventListener('keydown', e => { if (e.key === 'Escape') { searchEl.value = ''; searchEl.dispatchEvent(new Event('input')); } });
+
+  // ---------- router ----------
+
+  function route() {
+    const r = parseRoute();
+    document.body.classList.remove('wv-nav-open');
+    if (r.query !== undefined) return showSearch(r.query);
+    if (!r.path) {
+      if (r.anchor && shownPath) return scrollToAnchor(r.anchor);
+      // the dashboard opens by default; otherwise the first SUMMARY link
+      const home = pages.find(p => /(^|\/)dashboard\.md$/.test(p.path))?.path || pages[0]?.path || 'README.md';
+      location.replace(pageHref(home, r.anchor));
+      return;
+    }
+    return showPage(r.path, r.anchor);
+  }
+
+  $('wv-menu').addEventListener('click', () => document.body.classList.toggle('wv-nav-open'));
+  window.addEventListener('hashchange', route);
+  loadSummary().then(route);
+})();
+</script>
+</body>
+</html>

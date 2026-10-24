@@ -18,7 +18,10 @@
 #include <memory>
 #include <system_error>
 
+#include <spdlog/spdlog.h>
+
 #include "FileStream.h"
+#include "ModSearchRoots.h"
 #include "fmt/format.h"
 
 #ifdef _WIN32
@@ -35,9 +38,34 @@ using namespace openblack::filesystem;
 
 std::filesystem::path DefaultFileSystem::FindPath(const std::filesystem::path& path) const
 {
+	return FindPathIn(path, true);
+}
+
+std::filesystem::path DefaultFileSystem::FindPathIn(const std::filesystem::path& path, bool withMods) const
+{
 	if (path.empty())
 	{
 		throw std::invalid_argument("empty path");
+	}
+
+	// a switched-on data mod's file of the same path below the game's folder comes first
+	if (withMods && !_modRoots.empty())
+	{
+		if (const auto relative = mod_roots::GameRelative(path, _gamePath); relative.has_value())
+		{
+			const auto exists = [](const std::filesystem::path& candidate) {
+				std::error_code error;
+				return std::filesystem::is_regular_file(candidate, error);
+			};
+			if (auto found = mod_roots::FirstInRoots(_modRoots, *relative, exists); found.has_value())
+			{
+				if (const auto logger = spdlog::get("game"); logger != nullptr)
+				{
+					SPDLOG_LOGGER_INFO(logger, "{} from a mod: {}", relative->generic_string(), found->generic_string());
+				}
+				return *found;
+			}
+		}
 	}
 
 	// try absolute first
@@ -92,7 +120,21 @@ bool DefaultFileSystem::IsPathValid(const std::filesystem::path& path)
 
 std::unique_ptr<Stream> DefaultFileSystem::Open(const std::filesystem::path& path, Stream::Mode mode)
 {
-	return std::unique_ptr<Stream>(new FileStream(FindPath(path), mode));
+	// a file that is written may not be there yet: then it is made where the path says, relative to the game folder
+	if (mode != Stream::Mode::Read)
+	{
+		std::filesystem::path own;
+		try
+		{
+			own = path.empty() ? path : FindPathIn(path, false);
+		}
+		catch (const std::exception&)
+		{
+			own = path.is_absolute() ? path : _gamePath / path;
+		}
+		return std::make_unique<FileStream>(own, mode);
+	}
+	return std::make_unique<FileStream>(FindPath(path), mode);
 }
 
 bool DefaultFileSystem::Exists(const std::filesystem::path& path) const
@@ -119,6 +161,24 @@ std::vector<uint8_t> DefaultFileSystem::ReadAll(const std::filesystem::path& pat
 	return data;
 }
 
+std::optional<std::vector<uint8_t>> DefaultFileSystem::ReadUserFile(const std::filesystem::path& path)
+{
+	// found as any file is, but never in a data mod's folders
+	std::filesystem::path found;
+	try
+	{
+		found = FindPathIn(path, false);
+	}
+	catch (const std::exception&)
+	{
+		return std::nullopt;
+	}
+	FileStream file(found, Stream::Mode::Read);
+	std::vector<uint8_t> data(file.Size());
+	file.Read(data.data(), data.size());
+	return data;
+}
+
 void DefaultFileSystem::Iterate(const std::filesystem::path& path, bool recursive,
                                 const std::function<void(const std::filesystem::path&)>& function) const
 {
@@ -137,6 +197,31 @@ void DefaultFileSystem::Iterate(const std::filesystem::path& path, bool recursiv
 			function(f);
 		}
 	}
+}
+
+bool DefaultFileSystem::MakeFolder(const std::filesystem::path& path)
+{
+	// a folder given from the game's folder is made there, as a file written is
+	const auto folder = path.is_absolute() ? path : _gamePath / path;
+	std::error_code error;
+	std::filesystem::create_directories(folder, error);
+	return !error && std::filesystem::is_directory(folder, error);
+}
+
+bool DefaultFileSystem::Rename(const std::filesystem::path& from, const std::filesystem::path& to)
+{
+	// both given from the game's folder, as a file written is
+	const auto own = [this](const std::filesystem::path& path) { return path.is_absolute() ? path : _gamePath / path; };
+	std::error_code error;
+	std::filesystem::rename(own(from), own(to), error);
+	return !error;
+}
+
+bool DefaultFileSystem::Remove(const std::filesystem::path& path)
+{
+	const auto own = path.is_absolute() ? path : _gamePath / path;
+	std::error_code error;
+	return std::filesystem::remove(own, error) && !error;
 }
 
 void DefaultFileSystem::SetGamePath(const std::filesystem::path& path)

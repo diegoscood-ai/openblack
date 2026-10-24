@@ -14,6 +14,7 @@
 #include "Game.h"
 #include "LHScriptX/Script.h"
 #include "Locator.h"
+#include "TestTempFolder.h"
 
 class SetCameraPos: public ::testing::Test
 {
@@ -27,10 +28,13 @@ protected:
 		    .logFile = "stdout",
 		};
 		std::fill_n(args.logLevels.begin(), args.logLevels.size(), spdlog::level::warn);
+		args.profileFolder = _profileFolder.Path();
 		_game = std::make_unique<openblack::Game>(std::move(args));
 		ASSERT_TRUE(_game->Initialize());
 	}
 	void TearDown() override { _game.reset(); }
+	/// The game's profiles, help record and saves, apart from every other test's
+	const openblack::test::TestTempFolder _profileFolder;
 	std::unique_ptr<openblack::Game> _game;
 
 public:

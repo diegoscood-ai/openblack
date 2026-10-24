@@ -84,8 +84,8 @@ private:
 		float _float;
 		// NOLINTNEXTLINE(readability-identifier-naming)
 		int32_t _number;
-		// NOLINTNEXTLINE(modernize-avoid-c-arrays, readability-identifier-naming): array won't work in union
-		float _vector[3];
+		// NOLINTNEXTLINE(readability-identifier-naming): std::array is trivial, so the union keeps it
+		std::array<float, 3> _vector;
 	} _value;
 	std::string _string;
 };

@@ -11,70 +11,107 @@
 
 #include "TownSystem.h"
 
-#include "ECS/Components/Abode.h"
+#include <limits>
+
+#include "3D/MapCoords.h"
 #include "ECS/Components/Town.h"
 #include "ECS/Components/Transform.h"
-#include "ECS/Components/Villager.h"
+#include "ECS/MapCells.h"
 #include "ECS/Registry.h"
-#include "InfoConstants.h"
+#include "ECS/Town/AbodeVillagers.h"
+#include "ECS/Town/BuildingSites.h"
+#include "ECS/Town/TownEmergency.h"
+#include "ECS/Town/TownQueries.h"
+#include "ECS/Town/TownVillagers.h"
+#include "ECS/Villager/VillagerHome.h"
 #include "Locator.h"
 
+using namespace openblack;
+using namespace openblack::ecs;
 using namespace openblack::ecs::components;
 using namespace openblack::ecs::systems;
 
-entt::entity TownSystem::FindAbodeWithSpace(entt::entity townEntity) const
+entt::entity TownSystem::FindAbodeWithSpace(entt::entity town, entt::entity villager, float leastScore) const
 {
-	const auto& infoConstants = Locator::infoConstants::value();
-	auto& registry = Locator::entitiesRegistry::value();
-	const auto& town = registry.Get<Town>(townEntity);
-
-	entt::entity result = entt::null;
-	registry.Each<const Abode>([&town, &infoConstants, &result](entt::entity entity, auto component) {
-		if (result != entt::null || component.townId != town.id)
-		{
-			return;
-		}
-		const auto& info = infoConstants.abode.at(static_cast<size_t>(component.type));
-		if (static_cast<uint32_t>(component.inhabitants.size()) < info.maxVillagersInAbode)
-		{
-			result = entity;
-		}
-	});
-
-	return result;
+	return town_villagers::FindAbodeWithSpaceInTown(town, villager, leastScore);
 }
 
 entt::entity TownSystem::FindClosestTown(const glm::vec3& point) const
 {
-	const auto& registry = Locator::entitiesRegistry::value();
-
-	entt::entity result = entt::null;
-	auto closest = std::numeric_limits<float>::infinity();
-
-	registry.Each<const Town, const Transform>(
-	    [&point, &result, &closest](entt::entity entity, [[maybe_unused]] auto& town, [[maybe_unused]] auto& transform) {
-		    const auto delta = point - transform.position;
-		    const float distance2 = glm::dot(delta, delta);
-		    if (distance2 < closest)
-		    {
-			    closest = distance2;
-			    result = entity;
-		    }
-	    });
-
-	return result;
+	return map_cells::GetNearestTown(map_coords::FromWorld(point), std::numeric_limits<float>::max());
 }
 
-void TownSystem::AddHomelessVillagerToTown(entt::entity townEntity, entt::entity villagerEntity)
+bool TownSystem::AddVillagerToTown(entt::entity town, entt::entity villager)
 {
-	[[maybe_unused]] auto& registry = Locator::entitiesRegistry::value();
-	[[maybe_unused]] auto& registryContext = registry.Context();
+	return town_villagers::AddVillagerToTown(town, villager);
+}
 
-	auto& town = registry.Get<Town>(townEntity);
-	auto& villager = registry.Get<Villager>(villagerEntity);
-	// TODO(bwrsandman): if already assigned to abode or other villager homeless list, remove
-	assert(villager.abode == entt::null);
-	assert(villager.town == entt::null || villager.town == registryContext.towns[town.id]);
-	town.homelessVillagers.insert(villagerEntity);
-	villager.town = townEntity;
+void TownSystem::AddVillagerToAbode(entt::entity abode, entt::entity villager)
+{
+	abode_villagers::AddVillagerToAbode(abode, villager);
+}
+
+bool TownSystem::MakeHomeless(entt::entity villager)
+{
+	return ecs::villager::MakeHomelessNoStateChange(villager);
+}
+
+namespace
+{
+/// Our clear-area filters: anything fixed but a tree (BlocksTownClearArea), or any object (IsObject)
+town_queries::ClearAreaFilter FilterOf(TownSystemInterface::ClearAreaFilter filter)
+{
+	if (filter == TownSystemInterface::ClearAreaFilter::BlocksTown)
+	{
+		return &town_queries::BlocksTownClearArea;
+	}
+	return &town_queries::IsObject;
+}
+} // namespace
+
+bool TownSystem::CheckForClearArea(glm::vec2 point, float radius, ClearAreaFilter filter, entt::entity ignore) const
+{
+	return town_queries::CheckForClearArea(town_queries::ToMapCoords(point), radius, FilterOf(filter), ignore);
+}
+
+std::optional<glm::vec2> TownSystem::FindClearArea(glm::vec2 point, float searchRadius, float step, float radius,
+                                                   ClearAreaFilter filter, entt::entity ignore) const
+{
+	const auto found =
+	    town_queries::FindClearArea(town_queries::ToMapCoords(point), searchRadius, step, radius, FilterOf(filter), ignore);
+	if (!found.has_value())
+	{
+		return std::nullopt;
+	}
+	return town_queries::ToMetres(*found);
+}
+
+glm::vec2 TownSystem::GetCongregationPos(entt::entity town)
+{
+	return town_queries::ToMetres(town_queries::GetCongregationPos(town));
+}
+
+void TownSystem::BuildingCreated(entt::entity town, glm::vec2 position, float radius)
+{
+	plans::CheckWhenNewBuildingCreated(town, map_coords::FromMetres(position), radius);
+}
+
+bool TownSystem::IsInStateOfEmergency(entt::entity town) const
+{
+	const auto* t = Locator::entitiesRegistry::value().TryGet<const Town>(town);
+	return t != nullptr && town_queries::IsInStateOfEmergency(*t);
+}
+
+void TownSystem::SetInStateOfEmergency(entt::entity town)
+{
+	town_emergency::SetInStateOfEmergency(town);
+}
+
+void TownSystem::ProcessTurn()
+{
+	// Each town, the players' in order and the neutral one's last
+	map_cells::ForEachTown([](entt::entity town) {
+		town_emergency::ProcessTownEmergency(town);
+		return true;
+	});
 }

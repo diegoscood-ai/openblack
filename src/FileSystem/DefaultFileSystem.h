@@ -10,6 +10,7 @@
 #pragma once
 
 #include <iosfwd>
+#include <utility>
 #include <vector>
 
 #include "FileSystemInterface.h"
@@ -33,12 +34,21 @@ public:
 	[[nodiscard]] const std::filesystem::path& GetGamePath() const override { return _gamePath; }
 	void AddAdditionalPath(const std::filesystem::path& path) override { _additionalPaths.push_back(path); }
 	std::vector<uint8_t> ReadAll(const std::filesystem::path& path) override;
+	[[nodiscard]] std::optional<std::vector<uint8_t>> ReadUserFile(const std::filesystem::path& path) override;
 	void Iterate(const std::filesystem::path& path, bool recursive,
 	             const std::function<void(const std::filesystem::path&)>& function) const override;
+	bool MakeFolder(const std::filesystem::path& path) override;
+	bool Rename(const std::filesystem::path& from, const std::filesystem::path& to) override;
+	bool Remove(const std::filesystem::path& path) override;
+	void SetModRoots(std::vector<std::filesystem::path> roots) override { _modRoots = std::move(roots); }
 
 private:
 	std::filesystem::path _gamePath;
 	std::vector<std::filesystem::path> _additionalPaths;
+	std::vector<std::filesystem::path> _modRoots;
+
+	/// FindPath, with or without the mods' folders (a file that is written is never a mod's)
+	[[nodiscard]] std::filesystem::path FindPathIn(const std::filesystem::path& path, bool withMods) const;
 };
 
 } // namespace openblack::filesystem

@@ -10,7 +10,9 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace openblack::string_utils
@@ -30,5 +32,25 @@ namespace openblack::string_utils
 
 /// Extract a substring of the characters in between the first two quote of a string
 [[nodiscard]] std::string ExtractQuote(std::string& string);
+
+/// Case-insensitive comparison with a fixed-size, zero-padded name
+[[nodiscard]] bool EqualsIgnoringCase(std::string_view text, const std::array<char, 0x30>& name);
+
+/// A source file's path (as std::source_location gives it) from inside the source tree: everything up to and including
+/// the last "src" folder goes, whichever the separators. A path without that folder stays whole
+[[nodiscard]] constexpr std::string_view SourceRelativePath(std::string_view path) noexcept
+{
+	constexpr std::string_view k_Folder = "src";
+	constexpr auto isSeparator = [](char c) { return c == '/' || c == '\\'; };
+	for (auto at = path.rfind(k_Folder); at != std::string_view::npos && at > 0; at = path.rfind(k_Folder, at - 1))
+	{
+		const auto end = at + k_Folder.size();
+		if (isSeparator(path[at - 1]) && end < path.size() && isSeparator(path[end]))
+		{
+			return path.substr(end + 1);
+		}
+	}
+	return path;
+}
 
 } // namespace openblack::string_utils

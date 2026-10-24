@@ -1,0 +1,40 @@
+# Scrolls and signs
+
+The scrolls that float over the people and places of a land to mark a challenge or a tip, and the signposts the player
+reads. Which challenges each land has, and what its gold and silver scrolls lead to, are in ../story/; the scrolls
+inside the temple are in ../temple/.
+
+**Progress: 11/21 done, 0 chosen, 5 partial, 4 inferred — 64%**
+
+How the original does it, in our wiki: [Script highlights](../../../interface/script-highlights.md).
+
+## Challenge scrolls
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| A land script puts a scroll up at a place or over a character, tied to a challenge | done | `CREATE_HIGHLIGHT` in `src/CHLApi.cpp` makes a highlight at the point with its challenge id (`ecs::script_highlight::Create`); `HIGHLIGHT_PROPERTIES` names it, as the original's natives ([script highlights](../../../interface/script-highlights.md#script-highlights)); run by Land 1's scripts in the fidelity and story checks |
+| Gold scrolls mark the story's challenges and silver ones the side challenges | done | the info rows Gold and Silver (`script_highlight::Info` in `src/ECS/ScriptHighlight.h`), in the original's row order; which challenge each marks is the land script's; test `ScriptHighlight.DidYouKnowIsRowOne` |
+| A bronze scroll kind | done | row 0 `Info::Bronze` (the plain scroll, no particles), the original's first row; test `ScriptHighlight.WhatADrawDrawsBesidesTheMesh` |
+| Silver and gold scrolls glint from their creation, and a gold scroll has rising sparkles | done | the rows' glints start at creation, with the highlight as their target, and every highlight makes the sparkles that only a gold scroll draws (`script_highlight::Create`, `MakeSparkles`, `StepSparkles`); tests `ScriptHighlight.TheGlintsFirstStepIsADoubleOne`, `ScriptHighlight.Sparkles*`, `ScriptHighlight.ASparkleRisesShrinksAndFades` |
+| Scrolls spin and grow with the camera's distance; a lit did-you-know sign faces the camera | done | `script_highlight::Draw` (`PoseOfDraw`, `SpinAngle`, `DistanceScale`), only on drawn frames as the original; tests `ScriptHighlight.AHighlightSpinsHalfATurnASecond`, `ScriptHighlight.ScrollsGrowWithTheCameraDistance`, `ScriptHighlight.ALitSignFacesTheCamera`, `ScriptHighlight.ThePoseTurnsOnlyOnDrawnFramesWithNoCatchUp` |
+| All scrolls pulse together, smoothly, once every turn of a shared clock | partial 60% | the shared pulse is stepped every turn (`StepPulse`, tests `ScriptHighlight.PulseOfProcessHighlights`, `ScriptHighlight.ThePulseGoesRoundOnceInThirteenTurns`) and the active glow's colour is worked out (`ActiveGlowArgb`, test `ScriptHighlight.ActivePulseAndGlow`), but the glow is not drawn (`ExtrasOf` has no caller); see ../rendering/light_beams.md |
+| A scroll is drawn with a soft sprite over it, of its own strength for each kind | partial 30% | the sprite's alpha by row is worked out (`SpriteAlpha`, test `ScriptHighlight.SpriteAlphaByRow`), but nothing draws the sprite |
+| Tapping a scroll starts its challenge, shown by its active sparkles | done | a tap lights the scroll, plays its click and starts its active effect (`InterfaceTap`, `SetActivated`, as the original's four callers; test `ScriptHighlight.ActivationPlaysTheClickOnScrollButNotForADidYouKnow`); the land script reads the tap (`GAME_THING_CLICKED`) and starts the challenge |
+| A started scroll stays as a reminder: tapping it again replays the challenge's last message | done | a tap on a scroll with a challenge counts the help record's Reminder event and, with no other script holding the dialogue, runs the challenge record's reminder script (`InterfaceTap` by `script_highlight::PlanTap`, `CHLApi::StartChallengeReminder`), as the original ([activation and taps](../../../interface/script-highlights.md#script-highlights)); tests `ScriptHighlight.ATapOnAStartedScrollCountsTheReminderAndRunsTheChallengesReminder`, `ScriptHighlight.ATapOnADidYouKnowSoundsForTheLocalPlayerAndOpensItsBubble`, `ScriptControl.FreeDialogueForScriptStopsOnlyAHelpScript`, `ChallengeRecords.TheReminderIsGivenItsArgumentsInTheOrderTheScriptGaveThem` |
+| A scroll can be tapped in or out of the player's influence | done | a highlight is tapped wherever the hand is (`hand_tap::SendsTap`; test `ScriptHighlight.TappedOutsideTheInfluence`): the original's influence test is off for a highlight alone ([hand and interface](../../../hand/grab-hold-and-throw.md#tapping-objects)) |
+| Scrolls can't be picked up, burnt, crushed or knocked over, and the creature leaves them alone | partial 40% | never placed in the hand (`HandSystem` keeps a highlight out of the pick-up), as the original; burning, crushing, knocking over and the creature have not been read against the original |
+| A scroll can be set to draw at a height and turned on or off by scripts | done | `SET_PROPERTY` YPOS (`script_highlight::SetYPos`), `SET_ACTIVE`, and `SET_DRAW_HIGHLIGHT` hiding the scrolls (`help::script_control`), as the original's natives; run by Land 1's scripts in the fidelity and story checks |
+| Tapping the scrolls of four particular challenges saves the game at once | partial 30% | the four challenges are known and their click is renewed as the original's (`SavesGameWhenClicked`, `GAME_THING_CLICKED` in `src/CHLApi.cpp`; test `ScriptHighlight.ChallengeIdsThatSave`), but nothing is saved: there are no save rooms yet; see ../engine/ |
+| The advisors point the scroll out when it comes up, or at random later | inferred | not read against the original; only the first did-you-know tap runs "FirstDYKExplained"; see [help_system.md](help_system.md) |
+| Scrolls are kept in saved games | pending | the original saves every highlight (its own save type, the hidden flag kept by save and load); openblack has no saved games; see ../engine/ |
+| The temple's world room can hide or show every challenge's scroll | inferred | not read against the original: nothing in its play sets a highlight's own hidden flag, and only the scripts' SET_DRAW_HIGHLIGHT hides the scrolls ([script highlights](../../../interface/script-highlights.md#script-highlights)); the main room's challenges button only changes its map (`src/3D/TempleToggles.cpp`); see ../temple/ |
+
+## Tips and signs
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| "Did you know" scrolls in the world give a tip when tapped | done | `script_highlight::InterfaceTap` opens the help bubble with the sign's text and marks it read (`src/Help/Bubble.cpp`); tests `TipBubbleSystem.OpensWithEachTappedSignsTextAndTheSameSignClosesIt`, `DidYouKnowBubble.*`, `ScriptHighlight.DidYouKnowReadLists` |
+| A building whose info names a did-you-know gets the sign by its door | done | `abodes::CreateAbodeSurroundingObjects` in `src/ECS/Abodes.cpp` makes the did-you-know highlight at the entrance point ([script highlights](../../../interface/script-highlights.md#script-highlights)); made by Land 1's buildings in the fidelity check |
+| A scroll can be the way into the land's vortex to the next land | inferred | not read against the original; see ../story/ |
+| Signposts that show their words when the hand is over them | inferred | not read against the original (which lands have them, and what they say); the did-you-know signs are read by tapping, above |
+| The temple's room signs, lit for the door under the hand | done | `src/3D/TempleSigns.cpp`; tested in `test/temple/test_temple_scroll.cpp`; see ../temple/ |

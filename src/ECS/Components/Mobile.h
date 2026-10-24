@@ -22,6 +22,9 @@ struct Mobile
 struct MobileStatic
 {
 	MobileStaticInfo type; ///< This is 32 bits but could be 8 bits if stored in uint8_t
+	/// A rock's player: the one it was made for (a rock from a player's reward chest; the halves of a split rock keep
+	/// it), else the neutral player, as every other mobile static is
+	PlayerNames owner {PlayerNames::NEUTRAL};
 };
 
 struct MobileObject

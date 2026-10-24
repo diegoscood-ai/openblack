@@ -1,0 +1,344 @@
+/******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+#include "Utility.h"
+
+#include <cmath>
+
+#include <array>
+#include <memory>
+#include <string>
+#include <utility>
+
+#include <glm/geometric.hpp>
+
+#include "3D/LandIslandInterface.h"
+#include "Camera/Camera.h"
+#include "ECS/Systems/HandSystemInterface.h"
+#include "ECS/Systems/ParticleSystemInterface.h"
+#include "GameClock.h"
+#include "InfoConstants.h"
+#include "Locator.h"
+#include "Magic/Gestures/GestureBuffer.h"
+#include "Magic/Gestures/GestureInput.h"
+#include "Magic/Gestures/GestureMatch.h"
+#include "Magic/Gestures/PowerUpSystem.h"
+#include "ParticleManager.h"
+#include "ParticleTypes.h"
+#include "Particles/ParticleManagerState.h"
+
+using namespace openblack;
+using namespace openblack::particles;
+
+namespace
+{
+namespace gestures = magic::gestures;
+
+using utility::UtilityEffects;
+
+/// The particle system's state, where the utility effects and the pending gestures live
+manager::State& ManagerState()
+{
+	return Locator::particleSystem::value().GetState();
+}
+
+/// The effect of `type` made once, at the origin with scale 1. The trail and the recognised sparkles then get the
+/// local player (openblack: PLAYER_ONE, inferred), so SF_GestureChain's ParticleChainCreator0 (UsePlayerColor 1) is
+/// drawn in its colour; the selection gets no player
+uint32_t CreateOnce(uint32_t& slot, ParticleType type, bool localPlayer, bool perFrame = true,
+                    game_random::particles::NetGameType net = game_random::particles::NetGameType::Local)
+{
+	if (slot != 0 && manager::Find(slot) == nullptr)
+	{
+		slot = 0;
+	}
+	if (slot == 0)
+	{
+		const auto file = particles::ParticleTypeFile(type);
+		if (!file.empty())
+		{
+			slot = manager::StartForSpell(std::string(file), glm::vec3(0.0f), glm::vec3(0.0f), 1.0f, nullptr, net);
+			if (perFrame)
+			{
+				manager::SetPerFrame(slot);
+			}
+			if (auto* effect = manager::Find(slot); effect != nullptr && localPlayer)
+			{
+				effect->SetPlayer(static_cast<int>(PlayerNames::PLAYER_ONE));
+			}
+		}
+	}
+	return slot;
+}
+
+/// The trail's magnitude table: camera distance {0, 50, 500, 1500} -> {0.2, 1, 1, 1.5}
+float TrailScale(float distance)
+{
+	constexpr std::array<float, 4> k_Distances {0.0f, 50.0f, 500.0f, 1500.0f};
+	constexpr std::array<float, 4> k_Values {0.2f, 1.0f, 1.0f, 1.5f};
+	if (distance <= k_Distances[0])
+	{
+		return k_Values[0];
+	}
+	if (distance >= k_Distances[3])
+	{
+		return k_Values[3];
+	}
+	for (size_t i = 0; i + 1 < k_Distances.size(); ++i)
+	{
+		if (distance < k_Distances[i + 1])
+		{
+			const float t = (distance - k_Distances[i]) / (k_Distances[i + 1] - k_Distances[i]);
+			return k_Values[i] + (k_Values[i + 1] - k_Values[i]) * t;
+		}
+	}
+	return k_Values[3];
+}
+
+void Step(uint32_t id, const glm::vec3& handPosition, bool enabled, float magnitude, float seconds)
+{
+	auto* effect = manager::Find(id);
+	if (effect == nullptr)
+	{
+		return;
+	}
+	ProcessInfo info {
+	    .handPos = handPosition,
+	    .power = 1.0f,
+	    .enabled = enabled,
+	};
+	effect->SetMagnitude(magnitude);
+	manager::ProcessForSpell(id, info, seconds); // with the frame's game time
+}
+/// The slot made when missing, processed with the turn's time and every field 0 but power 1.0 and enabled; when the
+/// effect ends it is deleted and the slot cleared, made again on the next turn
+void StepTurn(uint32_t& slot, ParticleType type, bool localPlayer, game_random::particles::NetGameType net)
+{
+	if (CreateOnce(slot, type, localPlayer, false, net) == 0)
+	{
+		return;
+	}
+	ProcessInfo info {
+	    .power = 1.0f,
+	    .enabled = true,
+	};
+	if (!manager::ProcessForSpell(slot, info, static_cast<float>(game_clock::MsPerTurn()) * 0.001f))
+	{
+		slot = 0;
+	}
+}
+} // namespace
+
+void utility::ProcessTurn()
+{
+	// the original's gates for these slots are always on; the slots' net game type: synced for SF_OnFire and
+	// SF_LightningStrike, local for the others
+	using game_random::particles::NetGameType;
+	StepTurn(ManagerState().utility.onFire, ParticleType::OnFire, false, NetGameType::Synced);
+	StepTurn(ManagerState().utility.manaPath, ParticleType::ManaPath, false, NetGameType::Local);
+	// the belief sprite and the recognised sparkles get the local player (PLAYER_ONE)
+	StepTurn(ManagerState().utility.belief, ParticleType::BeliefSprite, true, NetGameType::Local);
+	StepTurn(ManagerState().utility.recognised, ParticleType::Gesture, true, NetGameType::Local);
+	StepTurn(ManagerState().utility.lightningStrike, ParticleType::LightningStrike, false, NetGameType::Synced);
+}
+
+std::optional<gestures::RecognisedGesture> utility::RecognisedTrail(const gestures::GestureSystem& system,
+                                                                    const gestures::Result& result, const ShapeLookup& shapeOf,
+                                                                    glm::vec3 cameraForward,
+                                                                    const LandAlongPixel& landAlongPixel)
+{
+	// at least 2 samples and a gesture
+	if (system.Count() < 2 || result.gesture == gestures::k_None)
+	{
+		return std::nullopt;
+	}
+	// the pixel box of the matched samples
+	int first = 0;
+	int last = 0;
+	system.KeypointIndices(result.start, result.end, first, last);
+	auto box = system.Box(first, last);
+	// the land points of the whole buffer, those not at (0, 0, 0)
+	std::vector<glm::vec3> stroke;
+	for (int i = 0; i < system.Count(); ++i)
+	{
+		const auto& world = system.At(i).world;
+		// fabs(x), fabs(y), fabs(z) against the float 1e-4f widened to double (so the float compare is exact)
+		if (std::abs(world.x) > 1e-4f || std::abs(world.y) > 1e-4f || std::abs(world.z) > 1e-4f)
+		{
+			stroke.push_back(world);
+		}
+	}
+	if (stroke.size() < 2)
+	{
+		return std::nullopt;
+	}
+	// the gesture's shape: the box keeps its centre, its half sizes divided by the shape's
+	const auto& shape = shapeOf(result.gesture);
+	{
+		const float cx = (box.minX + box.maxX) * 0.5f;
+		const float hx = (box.maxX - box.minX) * 0.5f / (shape.maxX - shape.minX);
+		const float cz = (box.maxZ + box.minZ) * 0.5f;
+		const float hz = (box.maxZ - box.minZ) * 0.5f / (shape.maxZ - shape.minZ);
+		box = {cx - hx, cz - hz, cx + hx, cz + hz};
+	}
+	// the camera's forward on the ground, (1, 0, 0) if it looks straight down; r is its right
+	glm::vec3 forward = cameraForward;
+	forward.y = 0.0f;
+	if (forward.x * forward.x + forward.z * forward.z < 1e-4f)
+	{
+		forward = glm::vec3(1.0f, 0.0f, 0.0f);
+	}
+	forward = glm::normalize(forward);
+	const glm::vec2 right(forward.z, -forward.x);
+	// a shape point in the box's pixels, then the land or near sea along the line through it (at the land's height
+	// there), or 400 m along that line
+	auto onLand = [&](const glm::vec3& point) {
+		const glm::ivec2 pixel(static_cast<int>((box.maxX - box.minX + 1.0f) * point.x + box.minX),
+		                       static_cast<int>((box.maxZ - box.minZ + 1.0f) * point.z + box.minZ));
+		return landAlongPixel(pixel, k_ShapeOffTheLand);
+	};
+	// the shape is squashed vertically on the screen (x 0.75 each time) until its depth on the land is no more than
+	// twice its width, at most 15 times
+	std::vector<glm::vec3> ideal;
+	float squash = 1.0f;
+	for (int iteration = 1;; ++iteration)
+	{
+		ideal.clear();
+		for (const auto& p : shape.points)
+		{
+			ideal.push_back(onLand(glm::vec3(p.x, p.y, (p.z - 0.5f) * squash + 0.5f)));
+		}
+		float minA = 1e7f;
+		float maxA = -1e7f;
+		float minB = 1e7f;
+		float maxB = -1e7f;
+		for (const auto& p : ideal)
+		{
+			const float a = right.x * p.x + right.y * p.z;
+			const float b = glm::dot(forward, p);
+			minA = std::min(minA, a);
+			maxA = std::max(maxA, a);
+			minB = std::min(minB, b);
+			maxB = std::max(maxB, b);
+		}
+		const float width = std::abs(maxA - minA);
+		const float ratio = width > 0.0f ? std::abs(maxB - minB) / width : 1.0f;
+		squash *= 0.75f;
+		if (iteration >= 15 || !(ratio > 2.0f))
+		{
+			break;
+		}
+	}
+	if (ideal.empty())
+	{
+		return std::nullopt;
+	}
+	// the record: the stroke, the ideal resampled to as many points, this interface's status
+	gestures::RecognisedGesture record;
+	for (const auto& p : stroke)
+	{
+		record.stroke.Add(p);
+	}
+	const size_t n = stroke.size();
+	const size_t m = ideal.size();
+	for (size_t k = 0; k < n; ++k)
+	{
+		const float u = static_cast<float>(k) * (1.0f / static_cast<float>(n - 1));
+		if (u == 1.0f || m < 2)
+		{
+			record.ideal.Add(ideal.back());
+			continue;
+		}
+		const float f = u * static_cast<float>(m - 1);
+		const auto index = std::min(static_cast<size_t>(f), m - 2);
+		record.ideal.Add(ideal[index] + (ideal[index + 1] - ideal[index]) * (f - static_cast<float>(index)));
+	}
+	record.fromInterface = true;
+	return record;
+}
+
+void utility::GestureRecognised(const magic::gestures::GestureSystem& system, const magic::gestures::Result& result,
+                                PlayerNames player)
+{
+	// the camera's forward, (1, 0, 0) without a camera
+	const glm::vec3 forward =
+	    Locator::camera::has_value() ? Locator::camera::value().GetForward() : glm::vec3(1.0f, 0.0f, 0.0f);
+	auto record = RecognisedTrail(system, result, gestures::ShapeOf, forward, gestures::sampling::LandOrPointAlongPixel);
+	if (!record.has_value())
+	{
+		return;
+	}
+	// the interface's status, its player and its hand position
+	record->player = player;
+	if (Locator::handSystem::has_value())
+	{
+		record->handPosition = glm::vec3(Locator::handSystem::value().GetHandMatrix()[3]);
+	}
+	Locator::particleSystem::value().AddGestureTrail(std::make_shared<gestures::RecognisedGesture>(std::move(*record)));
+	// SF_Gesture (35) is stepped once a turn (ProcessTurn) and drawn every frame with the turn's fraction; its rule
+	// takes the record
+}
+
+void utility::ShowGestureOnLand(GestureType gesture, const glm::vec3& corner, float size, PlayerNames player,
+                                bool ofThisInterface)
+{
+	if (gesture == GestureType::None || !Locator::particleSystem::has_value())
+	{
+		return;
+	}
+	const auto& shape = gestures::ShapeOf(static_cast<gestures::Gesture>(gesture));
+	if (shape.points.empty())
+	{
+		return;
+	}
+	const auto landHeight = [](float x, float z) {
+		return Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt({x, z}) : 0.0f;
+	};
+	auto record = gestures::LandGestureTrail(shape, corner, size, landHeight, ofThisInterface);
+	record.player = player;
+	// No hand drew it: its hand's point is the corner it is laid from, where another interface's is heard
+	record.handPosition = corner;
+	Locator::particleSystem::value().AddGestureTrail(std::make_shared<gestures::RecognisedGesture>(std::move(record)));
+}
+
+std::vector<magic::gestures::RecognisedGesture>& utility::PendingRecognised()
+{
+	return ManagerState().pendingGestures;
+}
+
+void utility::Update(float seconds, const glm::vec3& handPosition, float handScale, float cameraDistance)
+{
+	if (seconds <= 0.0f)
+	{
+		return; // only while game time runs
+	}
+	// the trail (48): on while a gesture is expected (immersion 8 GESTURE_TRAIL: force feedback, not ported)
+	if (const auto trail = CreateOnce(ManagerState().utility.trail, ParticleType::GestureLocal, true); trail != 0)
+	{
+		ManagerState().utility.trailActive = gestures::IsGesturing();
+		Step(trail, handPosition, ManagerState().utility.trailActive, handScale * TrailScale(cameraDistance), seconds);
+	}
+	// the selection (28): while the selection (or the leash selection) is open (immersion 9). Not ported: the leash
+	// selection case, only the normal selection is tested
+	if (const auto selection = CreateOnce(ManagerState().utility.selection, ParticleType::SpellSelection, false);
+	    selection != 0)
+	{
+		const auto& state = gestures::State();
+		ManagerState().utility.selectionActive = state.selection.open && gestures::GetHandStatus().handReady;
+		Step(selection, handPosition, ManagerState().utility.selectionActive, handScale, seconds);
+	}
+	// the recognised sparkles (35) are stepped once a turn (ProcessTurn) and drawn here.
+	// (pending) the original draws them only while the interface has a hand
+}
+
+void utility::Reset()
+{
+	ManagerState().utility = UtilityEffects {};
+	ManagerState().pendingGestures.clear();
+}

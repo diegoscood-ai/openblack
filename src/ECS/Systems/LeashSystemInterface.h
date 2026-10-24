@@ -1,0 +1,157 @@
+/******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+#pragma once
+
+#include <cstdint>
+
+#include <optional>
+
+#include <entt/entity/fwd.hpp>
+#include <glm/vec3.hpp>
+
+#include "Creature/LeashKeys.h"
+#include "Creature/LeashOwnership.h"
+#include "Creature/LeashRules.h"
+#include "Enums.h"
+
+namespace openblack::ecs::systems
+{
+
+/// The leashes the player leads creatures with (see components::CreatureLeash). Once a frame each worn leash's rope
+/// swings between the hand, or what the leash is tied to, and the creature's collar. Once a game turn the creature is
+/// kept within the leash's full length of the hand's place on the ground or of what the leash is tied to (a young
+/// creature with no leash, within 10 of its home): strayed farther, it stops what it was doing and walks back. The
+/// leash's feelings and lessons are passed to the creature's mind. The player picks a leash with the hotkeys,
+/// puts it on and takes it off with the leash key, and ties the leash to things and unties it again.
+///
+/// Who may lead which creature is decided here and nowhere else (see creature_leash::WhyNot): each player leads only
+/// their one leashable creature, so the hand, the shortcuts, the scripts, the debug windows and the scenarios all go
+/// through these calls. A refusal is logged and kept on the player's entity as their last refusal, for the debug windows
+/// to show.
+///
+/// The game reads the leash keys once a frame and passes them to PressKey (ECS/CreatureLoop.h). The citadel's leash
+/// posts and the shake gesture are not here yet: they come with the citadel's leash object and the game's gestures.
+class LeashSystemInterface
+{
+public:
+	/// A leash that was refused: who wanted it on which creature, and why not
+	struct Refused
+	{
+		PlayerNames player;
+		entt::entity creature;
+		creature_leash::Refusal why;
+	};
+
+	virtual ~LeashSystemInterface() = default;
+
+	/// Once a game turn
+	virtual void ProcessTurn() = 0;
+	/// Once a frame, some seconds of game time on: the ropes swing
+	virtual void Update(float seconds) = 0;
+
+	/// Whether the creature knows a leash, which it must before it can wear it; the learning leash before any
+	[[nodiscard]] virtual bool Knows(entt::entity creature, LeashType type) const = 0;
+	virtual void SetKnown(entt::entity creature, LeashType type, bool known) = 0;
+
+	/// Whether the creature is the one its owner can lead
+	[[nodiscard]] virtual bool IsLeashable(entt::entity creature) const = 0;
+	/// Makes the creature the one its owner can lead, which stops their other creature being it and takes that one's
+	/// leash off; or stops it being it, taking its leash off. A creature that belongs to nobody can't be made leashable.
+	virtual bool SetLeashable(entt::entity creature, bool leashable) = 0;
+	/// Gives the creature to another player, taking its leash off. It stays leashable only if the new owner has no
+	/// leashable creature of their own.
+	virtual void SetOwner(entt::entity creature, PlayerNames owner) = 0;
+	/// A new creature becomes the one its owner leads, when they are a player who leads creatures: it is their creature
+	/// whichever they had, the newest made winning, so their other one stops being it and its leash comes off
+	virtual void ClaimOnArrival(entt::entity creature) = 0;
+	/// Why the player may not put the leash on the creature, or creature_leash::Refusal::None when they may
+	[[nodiscard]] virtual creature_leash::Refusal WhyNot(PlayerNames player, entt::entity creature, LeashType type) const = 0;
+	/// The last leash the player was refused, for the debug windows. None for a player with no entity on this land
+	[[nodiscard]] virtual std::optional<Refused> LastRefusal(PlayerNames player) const = 0;
+
+	/// Puts a leash on the creature, held in its owner's hand. Returns whether it could: it must be its owner's leashable
+	/// creature and know the leash.
+	virtual bool PutOn(entt::entity creature, LeashType type) = 0;
+	virtual void TakeOff(entt::entity creature) = 0;
+	/// Unties a tied leash back to the hand, or else puts the picked leash on or takes it off. This is all the game's leash
+	/// key and its toggle-leash script command do, however many leashes the creature knows.
+	virtual bool Toggle(entt::entity creature) = 0;
+	/// Swaps the leash worn for another the creature knows, the creature taking the new leash's moods once, or picks the
+	/// one to put on next. The only place a change of leash sets the moods (SetType is the same change for any leash)
+	virtual bool ChangeType(entt::entity creature, LeashType type) = 0;
+	/// The creature spells' and the temple's leash packet's change of leash: as ChangeType, but whether or not the
+	/// creature knows the leash
+	virtual void SetType(entt::entity /*creature*/, LeashType /*type*/) {}
+	/// Ties the worn leash to something, or puts the picked leash on tied to it
+	virtual bool TieTo(entt::entity creature, entt::entity object) = 0;
+	virtual void UntieToHand(entt::entity creature) = 0;
+	/// The hand's untie: the leash comes off and goes on again in its holder's hand, untied, the creature letting go of
+	/// the leash's moods and taking them again, with one of the two untying sounds in turn for the local player. Whether
+	/// the leash works is kept. It goes back on with none of the rules a leash put on is checked against (no refusal is
+	/// kept), only that the creature knows the learning leash
+	virtual void ReturnToHand(entt::entity creature) = 0;
+	/// The script's leash to the hand: untied and put on in the owner's hand again whatever it wears (off without the
+	/// learning leash), with one of the untying sounds for the local player
+	virtual void PutInHand(entt::entity /*creature*/) {}
+	/// Whether the leash makes the creature do anything, as scripts set. It is kept while no leash is on, for the next
+	/// leash put on
+	virtual void SetWorks(entt::entity creature, bool works) = 0;
+	/// Whether the worn leash works; false with no leash on
+	[[nodiscard]] virtual bool Works(entt::entity creature) const = 0;
+	/// The leash pulls the creature away from what it was doing: it stops, any walk the leash sent it on is over, it no
+	/// longer obeys a forced plan and its plan is given up, as when its action is finished unsuccessfully
+	virtual void PullAwayFromAction(entt::entity creature) = 0;
+	/// The leash tells the creature to act on the object, which its mind takes up on its next plan; each call tells it
+	/// again, and the last one told is the one the mind takes up
+	virtual void ActOn(entt::entity creature, entt::entity object) = 0;
+	/// The leash sends the creature to a point of the land (creature_leash::DecidePointOrder): it walks there, or acts on
+	/// the field there, or says it can't get there; whatever comes of it, it is doing what the leash sent it to do until
+	/// it next stops
+	virtual void ActOnPoint(entt::entity /*creature*/, const glm::vec3& /*point*/) {}
+
+	/// Keeps the creature within a radius of its home, as it is while it starts to grow up
+	virtual void ConfineToHome(entt::entity creature, float radius) = 0;
+	virtual void ClearConfinement(entt::entity creature) = 0;
+	/// Moved to a stage of growing up, a creature kept within an area round its home and on no leash is let go from the
+	/// area once the stage is one it may leave home from (creature_leash::ReleasedFromHome); nothing else is changed
+	virtual void ReleaseFromHome(entt::entity /*creature*/, uint32_t /*developmentPhase*/) {}
+	/// The creature's player lets go of a creature that wears no leash: it is freed from the area it is kept in, and from
+	/// a desire made dominant unless the leash its player has picked is the learning leash, and the gesture path of its
+	/// owner's hand is wiped when they play at this machine. A worn leash is left alone.
+	virtual void ReleaseUnleashed(entt::entity /*creature*/) {}
+	/// Sets where the creature's home is, as a script does; anything but a creature is left alone
+	virtual void SetHome(entt::entity creature, const glm::vec3& home) = 0;
+	/// Whether the creature is near enough its home, its player having a temple, to roam
+	[[nodiscard]] virtual bool FreeOfHome(entt::entity creature) const = 0;
+	/// What decides, each turn, whether the young creature is kept at its home (creature_leash::KeptAtHome)
+	[[nodiscard]] virtual creature_leash::HomeKeeping HomeKeepingOf(entt::entity creature) const = 0;
+
+	[[nodiscard]] virtual bool IsLeashed(entt::entity creature) const = 0;
+	[[nodiscard]] virtual std::optional<entt::entity> TiedTo(entt::entity creature) const = 0;
+	[[nodiscard]] virtual LeashType TypeOf(entt::entity creature) const = 0;
+	/// The leash picked for the creature: the one it wears, or else the one to put on next, whether or not it wears one;
+	/// none for a thing that has no leashes
+	[[nodiscard]] virtual LeashType Picked(entt::entity creature) const = 0;
+	/// The player's creature: their primary creature (PlayerSystemInterface::GetPrimaryCreature), the one creature they
+	/// can lead, if they have one. None for a player who leads no creature: the neutral player has a creature, not led
+	[[nodiscard]] virtual std::optional<entt::entity> PlayersCreature(PlayerNames player) const = 0;
+
+	/// A player presses a leash shortcut, which acts on their creature (the leash-stepping keys through the leash type's
+	/// packet, at the next turn). Returns whether it did anything.
+	virtual bool PressKey(PlayerNames player, creature_leash::LeashKey key) = 0;
+	/// Puts the picked leash on the player's own creature; any other is refused. Returns whether the leash went on. For
+	/// the debug windows: the hand's click on the creature works the leash key instead (PressKey)
+	virtual bool TapCreature(PlayerNames player, entt::entity creature) = 0;
+	/// A leash held in the player's hand comes off, as the hand's scribble gesture takes it off; one tied to something
+	/// stays. Returns whether it came off.
+	virtual bool Shake(PlayerNames player) = 0;
+};
+
+} // namespace openblack::ecs::systems

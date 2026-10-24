@@ -9,7 +9,12 @@
 
 #include "PlayerArchetype.h"
 
+#include <cstdio>
+#include <cstdlib>
+
+#include "ECS/Components/Alignment.h"
 #include "ECS/Components/Player.h"
+#include "ECS/Components/PlayerMagic.h"
 #include "ECS/Registry.h"
 #include "ECS/Systems/PlayerSystemInterface.h"
 #include "Locator.h"
@@ -23,5 +28,17 @@ entt::entity PlayerArchetype::Create(PlayerNames name)
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto entity = registry.Create();
 	registry.Assign<Player>(entity, name);
+	// the player's magic fields; PLAYER_ONE is the human at this interface (inferred). Its alignment is not on the
+	// entity: it lives with the player across lands (the player system, magic::players::AlignmentOf)
+	auto& magic = registry.Assign<PlayerMagic>(entity);
+	magic.playerType = name == PlayerNames::PLAYER_ONE ? 1 : 0;
+	// a player made again on a later land is as they were on the last: the local player's interface alignment and hand
+	// crossing last the whole game, and the first entity the local player gets carries them again
+	if (!Locator::playerSystem::has_value())
+	{
+		std::fputs("ecs::archetypes::PlayerArchetype: no player system in the locator (Locator::playerSystem)\n", stderr);
+		std::abort();
+	}
+	Locator::playerSystem::value().TakeUpKept(entity);
 	return entity;
 }

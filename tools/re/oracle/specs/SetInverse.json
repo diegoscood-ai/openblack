@@ -1,0 +1,34 @@
+{
+ "function": "SetInverse",
+ "symbol": "?SetInverse@LHMatrix@@QAIXABU1@@Z",
+ "addr": "0x007FB290",
+ "conv": "fastcall",
+ "ret": "void",
+ "notes": "LHMatrix::SetInverse(const LHMatrix& m), fastcall: this (the result) in ecx, m in edx. |det| < 1e-10 is clamped. openblack: lh_matrix::SetInverse (src/3D/LhMatrix43.h) and lh_matrix::Inverse (src/3D/ObjectMatrix.h).",
+ "this": "out",
+ "buffers": {
+  "out": [{"name": "inv", "type": "f32", "count": 12, "out": true}],
+  "in": [{"name": "m", "type": "f32", "count": 12, "gen": "matrix"}]
+ },
+ "args": [
+  {"type": "ptr", "buffer": "in"}
+ ],
+ "generators": {
+  "matrix": {"mix": [
+   [50, {"rotation": {"angle": {"uniform": [-3.1415927, 3.1415927]}, "scale": {"loguniform": [0.01, 100]}, "translation": {"uniform": [-2000, 2000]}}}],
+   [35, {"uniform": [-10, 10]}],
+   [10, {"uniform": [-0.001, 0.001]}],
+   [5, {"choice": [0, 1, -1, 0.5, 2]}]
+  ]}
+ },
+ "cases": [
+  {"m": [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]},
+  {"m": [2, 0, 0, 0, 4, 0, 0, 0, 8, 1, 2, 3]},
+  {"m": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]},
+  {"m": [0.0001, 0, 0, 0, 0.0001, 0, 0, 0, 0.0001, 5, 6, 7]},
+  {"m": [-0.0001, 0, 0, 0, 0.0001, 0, 0, 0, 0.0001, 5, 6, 7]},
+  {"m": [1, 2, 3, 2, 4, 6, 1, 1, 1, 0, 0, 0]}
+ ],
+ "random_cases": 4000,
+ "seed": 105
+}

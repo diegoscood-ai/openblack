@@ -1,0 +1,15 @@
+{
+ "extends": "../GameRand.json",
+ "function": "GameFloatRand",
+ "symbol": "?GameFloatRand@GRand@@SAMMPBDI@Z",
+ "addr": "0x006DE530",
+ "ret": "st0",
+ "notes": "GRand::GameFloatRand(scale, file, line): a 2000-draw sequence from seed 0x88F89F (chain). scale == 0 (fcomp with 0x8AA398) returns 0 without a draw, else GData::FloatRand 0x5106B0: LHRand(0xFFFF) as an integer x scale x 0x37800080 (~1/65535), at 24-bit precision. ret_f32 is what a caller stores. openblack: game_random::FloatRand.",
+ "args": [
+  {"name": "scale", "type": "f32", "gen": {"mix": [[50, {"uniform": [-10, 10]}], [20, {"choice": [0, "-0", 1, -1, 0.5, 2, 6.2831855, 100, 1000, "nan", "inf"]}], [30, {"loguniform": [1e-6, 1e6], "signed": true}]]}},
+  {"name": "file", "type": "ptr", "value": 0},
+  {"name": "line", "type": "u32", "value": 0}
+ ],
+ "cases": [{"seed": "0x0088F89F", "scale": 1}],
+ "seed": 302
+}

@@ -1,0 +1,80 @@
+# Asset formats
+
+Every kind of file Black & White reads from its install, and whether openblack reads it and uses what is in it. A
+format only counts as done when the game's use of it works too; reading the file alone is partial.
+
+**Progress: 31/42 done, 3 partial — 77%**
+
+How the original does it, in our wiki: [Tools and formats](../../../formats/land-and-script-files.md).
+
+## World and lands
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| Landscapes (`.lnd`): heights, blocks, countries and their materials, noise and bump maps | done | `components/lnd`, `LevelLoader` (`src/Resources/Loaders.cpp`); drawing and use: see ../terrain/ |
+| Footpath files (`.fot`) that come with each land | done | `src/Serializer/FotFile.cpp`, used by `src/ECS/Footpaths.cpp`; walking them: see ../villager/ |
+| Land scripts (`Land1.txt` …) that build a land's towns, villagers, forests and features | partial 65% | `src/LHScriptX` (`FeatureScriptCommands.cpp`, `VillagerCommands.cpp`); about 36 of the 106 commands are empty or log "not implemented", see script_vm.md; re-measured 2026-10-21: about 37 of the 106 commands still log 'not implemented' or are empty |
+| Map scripts that set up the game (player count, date, time, language, which land and scripts to load) | pending | `src/LHScriptX/MapScriptCommands.cpp` throws for every command and is never run |
+| Camera exclusion zone files (`Data/Zones/*.exc`) | done | read by SET_CAMERA_ZONE (`player_camera::SetCameraZone`, `src/Camera/PlayerCameraScript.cpp`); keeping the camera out: see ../camera/ |
+| Multiplayer and online maps (`Online Maps/*.map`, `.thm`) | pending | see ../multiplayer/ |
+
+## Models and animation
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| The mesh pack (`AllMeshes.g3d`) with all object meshes and their textures | done | `components/pack`, `L3DLoader` (`src/Resources/Loaders.cpp`) |
+| Loose meshes (`.l3d`): creatures, the hand, temple rooms, misc objects, sun and moon | done | `components/l3d`, `L3DLoader` |
+| Zipped meshes and files (`.zzz`) in the temple and spell folders | done | `src/Common/Zip.cpp`, `src/Resources/Loaders.cpp` |
+| The animation pack (`AllAnims.anm`) and loose animations (`.anm`) | done | `components/anm`, `L3DAnimLoader`; how each is played: see ../creature/, ../villager/, ../animal/ |
+| Creature body files (`.cbn`) and their morph between good/evil and fat/thin | done | `components/morph`, the body blend in `src/3D/CreatureBody.cpp`; see ../creature/ for appearance |
+| Creature animation spec (`ctrspec27.txt`) naming the mind's animations | done | `CreatureRigLoader` reads `ctrspec27.txt` (`src/Resources/Loaders.cpp`) |
+| The hand's animation bank (`hh.hbn`) and its spec (`hndspec5.txt`) | done | `src/ECS/Systems/Implementations/HandSystem.cpp`, `src/3D/HandAnimator.cpp` |
+| The mesh and sound-action name headers (`AllMeshes.h`, `SoundAction.h`) the particle files refer to | done | `EnumHeaderLoader` (`particles::EnumNames`, `src/Resources/Loaders.cpp`) |
+| Recorded hand demonstrations (`Data/HandDemo/*.hnd`) played by the tutorial | done | `src/Input/HandDemo.cpp` (PLAY_HAND_DEMO); see ../story/tutorial.md |
+| Dance and letter shape files (`.DAN`, `Scripts/Dance/*.dat`) | done | the dance files are read as the game reads them (`components/dance`, `DanceFileLoader`; tests `test_dance_file`, `DanceFile.TheGamesDancesRead`); the `.DAN` shape files too, once a dance needs them (`DanceShapeFile`, `DanceSystem::Shapes`, ported from raffclar PR #488, unverified against v1.42) |
+| The falling-spell camera file (`.cm2`) | done | `falling_spell::CameraPath::Parse` (`src/Magic/Objects/FallingSpell.cpp`); test `FallingSpell.RealFallCm2`; its camera is not applied yet, see ../video/bink_videos.md |
+
+## Images and fonts
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| Raw textures (`.raw`, with a separate alpha file) | done | `components/rawimage`, `Texture2DLoader` |
+| 16-bit images (`.16b`) used by the temple outside and sky | done | `src/Common/Bitmap16B.cpp`, used by `TempleExteriorSystem.cpp` |
+| Sky images in 555 colour (`.555`) | done | `src/ECS/Systems/Implementations/SkySystem.cpp`; see ../sky/ |
+| Player symbols and tattoo palette (`PlayersSymbols.raw`, `tattoocols.raw`) | done | `CreatureSkinArtLoader`, the player symbols in `src/Game.cpp` |
+| Creature portrait sets (`.cps`) and the colour lookup and contrast tables (`.clut`, `.cnv`) | pending | not read; the computer players' symbols use the symbol sheet instead (`src/Particles/TownBelief.cpp`) |
+| Light glows (`.glw`) placed in the temple and lands | partial 40% | `LightLoader`, `src/3D/Light.cpp`; every `.glw` is loaded (`src/Game.cpp`) but only the temple places its glows; see ../rendering/; re-measured 2026-10-21: every glow file is loaded; only the temple places its glows |
+| The game font (`.fnt` with its metrics `.met`) | done | `src/Graphics/GameFont.cpp` (`GameFontLoader`); test `test/test_game_font_loader.cpp` |
+| The other fonts (`.fff`, `.srf`, `Font0-*.bmp`, `HelpFont.bmp`) | pending | not read (unconfirmed which screens use them) |
+| Help sprites (`Data/HelpSprite`) | done | the advisors' `.hd` files read by `help::LoadHelpDudeFile` (`src/Help/SpiritsRuntime.cpp`); test `test/test_help_dude_file.cpp`; see ../interface/ |
+| Save pictures and screenshots kept in the profile (`.raw`) | pending | see saving_and_loading.md |
+
+## Effects
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| Particle effect files (`Data/Spells/ZSpellFiles`) | done | `src/Particles/ParticleSpellFile.cpp`, `ParticleFileLoader`; test `test/test_particle_file_loader.cpp`; effects themselves: see ../rendering/ |
+| Gesture templates (`Gestures.jty`) | done | `GestureTemplatesLoader` (`src/Resources/Loaders.cpp`); test `test/test_gestures.cpp`; recognition: see ../gesture/ |
+| Camera paths (`.cam`): temple rooms, symbols, fly-bys | done | `components/cam`, `CameraPathLoader`, `src/3D/CameraPath.cpp`; playing them: see ../camera/ |
+| Force-feedback mouse effects (`Data/Immersion/*.ifr`) | pending | to port as the original's (user, 2026-10-19) |
+
+## Sound and video
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| Sound banks (`.sad`) with their sample tables | done | `src/Audio/Game/Banks.cpp`, `SoundLoader`; behaviour: see ../audio/ |
+| Music stored in banks as MPEG audio | done | `src/Audio/Engine/MusicBank.cpp` with our own MPEG decoder (`src/Audio/Codec/MpegAudio.cpp`); see ../audio/ |
+| The small sounds bank (`SmallSounds.SAS`) | done | `src/Audio/Services/AnimationSounds.cpp` (the clips' sound events); see ../audio/ |
+| Films (`.bik`): intro, the falling spell and others | done | `components/bink/src/BinkFile.cpp`, our own Bink decoder (`components/bink/src/BinkDecoder.cpp`); see ../video/ |
+
+## Scripts, text and minds
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| The compiled challenge script (`challenge.chl`) | done | loaded into the script VM by `src/Game.cpp`; running it: see script_vm.md |
+| The game's text in UTF-16 info scripts (`InfoScript2.txt` and its patch and multiplayer versions) | done | `src/Common/HelpText.cpp`, `src/Gui/TextDatabase.cpp` |
+| The info table file (`info.dat`) | done | `src/Parsers/InfoFile.cpp`; see info_tables.md |
+| Creature mind files (no extension in `Scripts/CreatureMind`, `.erc` for creatures saved between lands) | done | `components/creaturemind`, `CreatureMindLoader`, the `.erc` read by `--creature-file` (`src/Game.cpp`, `src/Creature/CreatureMindModel.cpp`); see saving_and_loading.md |
+| Profile files: help statistics (`helpstats.dat`), the player's creature (`creature.lhp`) | partial 30% | the help record's file (`helpstats.dat`, the 49 counts with no header) is read and written by `components/helpstats` and converted by `src/Help/HelpProfileFile.cpp` (raffclar's PR #525, unverified against v1.42), but nothing reads or writes it yet: there is no profile folder; the player's creature file is not read; see options_and_settings.md; re-measured 2026-10-21: the help record's file is read, written and converted; the creature profile file is not |
+| Weather and country tables (`weatherinfo.lhw`, `country.lhw`) | pending | not read; openblack takes its climates from `info.dat` (unconfirmed whether the game reads these at all) |
+| Speech files (`Data/Language/blackhal.*`) | pending | not read (unconfirmed what they drive) |

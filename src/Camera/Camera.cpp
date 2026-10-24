@@ -9,17 +9,23 @@
 
 #include "Camera.h"
 
+#include <cmath>
+
+#include <utility>
+
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/euler_angles.hpp>
-#include <glm/gtx/intersect.hpp>
 #include <glm/gtx/vec_swizzle.hpp>
 
+#include "3D/AffineMatrix.h"
 #include "3D/LandIslandInterface.h"
+#include "Camera/ScreenPoint.h"
 #include "ECS/Registry.h"
-#include "ECS/Systems/DynamicsSystemInterface.h"
+#include "ECS/Systems/PickingSystemInterface.h"
 #include "Input/GameActionMapInterface.h"
 #include "Locator.h"
 #include "ReflectionXZCamera.h"
+#include "ScriptCamera.h"
 #include "Windowing/WindowingInterface.h"
 
 using namespace openblack;
@@ -27,15 +33,18 @@ using namespace openblack;
 namespace
 {
 constexpr auto k_DefaultCameraOriginOffset = glm::vec3(0.0f, 0.0f, 120.0f);
-constexpr auto k_ReverseZMatrix = glm::mat4(1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, -1.f, 0.f, 0.f, 0.f, 1.f, 1.f);
+constexpr float k_MaxFrameSeconds = 0.1f; ///< The zoomers' longest step
+/// Turns glm's perspective (depth -1 at the near plane, 1 at the far one) into reversed Z: depth' = (1 - depth) / 2, so
+/// 1 at the near plane and 0 at the far one. Without the halving the near plane maps to 2 and everything closer than
+/// about twice the near distance is clipped away, where the original clips at the near distance itself
+constexpr auto k_ReverseZMatrix = glm::mat4(1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, -0.5f, 0.f, 0.f, 0.f, 0.5f, 1.f);
 } // namespace
 
 Camera::Camera(glm::vec3 focus)
-    // Maybe a struct is not the right thing... Maybe an optional?
-    : _originInterpolators(ZoomInterpolator3f(focus + k_DefaultCameraOriginOffset))
-    , _focusInterpolators(ZoomInterpolator3f(focus))
-    , _model(CameraModel::CreateModel(CameraModel::Model::DefaultWorld))
+    : _model(CameraModel::CreateModel(CameraModel::Model::DefaultWorld))
 {
+	_origin.SetPosition(focus + k_DefaultCameraOriginOffset);
+	_focus.SetPosition(focus);
 }
 
 Camera::~Camera() = default;
@@ -52,6 +61,11 @@ glm::mat4 Camera::GetRotationMatrix() const
 
 glm::mat4 Camera::GetViewMatrix(Interpolation interpolation) const
 {
+	// the falling spell's drawn camera, over the look-at (which it overwrites)
+	if (_drawnView.has_value())
+	{
+		return *_drawnView;
+	}
 	// Invert the camera's rotation (transposed) and position (negated) to get the view matrix.
 	return glm::lookAt(GetOrigin(interpolation), GetFocus(interpolation), glm::vec3(0.0f, 1.0f, 0.0f));
 }
@@ -66,56 +80,41 @@ glm::mat4 Camera::GetViewProjectionMatrix(Projection projection, Interpolation i
 	return GetProjectionMatrix(projection) * GetViewMatrix(interpolation);
 }
 
-std::optional<ecs::components::Transform> Camera::RaycastMouseToLand(bool includeWater, Interpolation interpolation) const
+std::optional<glm::vec3> Camera::RaycastMouseToLand() const
 {
-	// get the hit by raycasting to the land down via the mouse
-	const auto mousePosition = Locator::gameActionSystem::value().GetMousePosition();
-	const auto screenSize = Locator::windowing::value().GetSize();
-	return RaycastScreenCoordToLand(static_cast<glm::vec2>(mousePosition) / static_cast<glm::vec2>(screenSize), includeWater,
-	                                interpolation);
+	return RaycastScreenCoordToLand(glm::ivec2(Locator::gameActionSystem::value().GetMousePosition()));
 }
 
-std::optional<ecs::components::Transform> Camera::RaycastScreenCoordToLand(glm::vec2 screenCoord, bool includeWater,
-                                                                           Interpolation interpolation) const
+std::optional<glm::vec3> Camera::RaycastScreenCoordToLand(glm::ivec2 pixel) const
 {
-	// get the hit by raycasting to the land down via the pixel coordinate
-	ecs::components::Transform intersectionTransform;
-	float intersectDistance = 0.0f;
-	glm::vec3 rayOrigin;
-	glm::vec3 rayDirection;
-	DeprojectScreenToWorld(screenCoord, rayOrigin, rayDirection, interpolation);
-	const auto& dynamicsSystem = Locator::dynamicsSystem::value();
-	if (auto hit = dynamicsSystem.RayCastClosestHit(rayOrigin, rayDirection, 1e10f))
+	return Locator::pickingSystem::value().LandFrom2DPoint(pixel, true, 0.0f);
+}
+
+float Camera::GetDrawnNearClip(float configuredNearClip) const
+{
+	if (const auto lens = _model->GetLens(); lens.has_value())
 	{
-		intersectionTransform = hit->first;
-		return std::make_optional(intersectionTransform);
+		return lens->nearClip;
 	}
-	if (includeWater && glm::intersectRayPlane(rayOrigin, rayDirection, glm::vec3(0.0f, 0.0f, 0.0f),
-	                                           glm::vec3(0.0f, 1.0f, 0.0f), intersectDistance))
-	{
-		intersectionTransform.position = rayOrigin + rayDirection * intersectDistance;
-		intersectionTransform.rotation = glm::mat3(1.0f);
-		return std::make_optional(intersectionTransform);
-	}
-	return std::nullopt;
+	return configuredNearClip;
 }
 
 Camera& Camera::SetProjectionMatrixPerspective(float xFov, float aspect, float nearClip, float farClip)
 {
 	_xFov = glm::radians(xFov);
+	_aspect = aspect;
+	_nearClip = nearClip;
 	const float yFov = (glm::atan(glm::tan(_xFov / 2.0f) / aspect)) * 2.0f;
-	// Inverse near and far for reverse z, we need to translate z by 1 to get back to the [0 1] range
+	// The reversed Z one (k_ReverseZMatrix) is what the draws use; the normal one stays for picking and projecting
 	_projectionMatrix = glm::perspective(yFov, aspect, nearClip, farClip);
 	_projectionMatrixReversedZ = k_ReverseZMatrix * _projectionMatrix;
 
 	return *this;
 }
 
-Camera& Camera::SetInterpolatorTime(std::chrono::microseconds t)
+std::chrono::microseconds Camera::GetInterpolatorTime() const
 {
-	_interpolatorTime = t;
-
-	return *this;
+	return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::duration<float>(_origin.axis[0].time));
 }
 
 glm::vec3 Camera::GetForward() const
@@ -140,7 +139,61 @@ std::unique_ptr<Camera> Camera::Reflect() const
 	//                   This also touches on other cameras such as the citadel camera which use a different kind of model
 	auto reflectionCamera = std::make_unique<ReflectionXZCamera>();
 	(*reflectionCamera).SetOrigin(GetOrigin()).SetFocus(GetFocus()).SetProjectionMatrix(_projectionMatrix);
+	reflectionCamera->_nearClip = _nearClip;
 	return reflectionCamera;
+}
+
+Camera::EyeRay Camera::RayFromEye(glm::vec2 screenCoord, Interpolation interpolation) const
+{
+	// The screen point in the camera's axes on a plane one unit in front of the eye: across the horizontal field of
+	// view in x and across the same over the aspect in y, z forward. The original puts it on its near plane, adds the
+	// eye and takes it away again, so its near plane only scales it. Nothing clamps it at the screen's edges
+	const float tanHalf = std::tan(_xFov * 0.5f);
+	const float x = ((screenCoord.x - 0.5f) * 2.0f) * tanHalf;
+	const float y = ((0.5f - screenCoord.y) * 2.0f) * (tanHalf / _aspect);
+	// the view's rows are the camera's right, up and forward axes
+	const glm::mat4 view = GetViewMatrix(interpolation);
+	const glm::vec3 right(view[0][0], view[1][0], view[2][0]);
+	const glm::vec3 up(view[0][1], view[1][1], view[2][1]);
+	const glm::vec3 forward(view[0][2], view[1][2], view[2][2]);
+	// summed and normalised in the original's order: forward, up, right, and one over the length times each axis; a
+	// zero vector stays zero
+	auto direction = forward + up * y + right * x;
+	if (direction != glm::vec3(0.0f))
+	{
+		const float length = std::sqrt(direction.z * direction.z + direction.y * direction.y + direction.x * direction.x);
+		direction *= 1.0f / length;
+	}
+	return {.origin = GetEye(interpolation), .direction = direction};
+}
+
+glm::vec3 Camera::GetEye(Interpolation interpolation) const
+{
+	// the camera's position, or the drawn view's own while one is set
+	if (_drawnView.has_value())
+	{
+		const glm::mat4 view = GetViewMatrix(interpolation);
+		return -(glm::transpose(glm::mat3(view)) * glm::vec3(view[3]));
+	}
+	return GetOrigin(interpolation);
+}
+
+glm::vec3 Camera::PixelNearPoint(glm::vec3 eye, glm::ivec2 screenSize, glm::ivec2 pixel, float nearClip) const
+{
+	// the view's axes: the camera's own, or those of the view drawn in its place (the falling spell's)
+	affine::AffineMatrix worldToCamera;
+	if (HasDrawnView())
+	{
+		const glm::mat4 view = GetViewMatrix(Interpolation::Current);
+		worldToCamera.m = {view[0][0], view[0][1], view[0][2], view[1][0], view[1][1], view[1][2],
+		                   view[2][0], view[2][1], view[2][2], view[3][0], view[3][1], view[3][2]};
+	}
+	else
+	{
+		worldToCamera = affine::WorldToCamera(GetOrigin(), GetFocus());
+	}
+	const auto plane = screen_point::NearPlaneOf(screenSize, GetHorizontalFieldOfView(), nearClip);
+	return screen_point::PixelPoint(worldToCamera, eye, plane, pixel, 0.0f);
 }
 
 void Camera::DeprojectScreenToWorld(glm::vec2 screenCoord, glm::vec3& outWorldOrigin, glm::vec3& outWorldDirection,
@@ -184,6 +237,22 @@ void Camera::DeprojectScreenToWorld(glm::vec2 screenCoord, glm::vec3& outWorldOr
 	outWorldDirection = rayDirWorldSpace;
 }
 
+Camera::NearPlanePoint Camera::OnNearPlane(glm::vec2 screenCoord, Interpolation interpolation) const
+{
+	// The point the pixel shows somewhere ahead, then brought along its line from the eye to the near plane's depth: the
+	// view's w is the depth along the view
+	glm::vec3 rayOrigin;
+	glm::vec3 rayDirection;
+	DeprojectScreenToWorld(screenCoord, rayOrigin, rayDirection, interpolation);
+	const auto eye = glm::vec3(glm::inverse(GetViewMatrix(interpolation))[3]);
+	const float depth = (GetViewProjectionMatrix(Projection::Normal, interpolation) * glm::vec4(rayOrigin, 1.0f)).w;
+	if (!(depth > 0.0f))
+	{
+		return {.eye = eye, .point = rayOrigin};
+	}
+	return {.eye = eye, .point = eye + (rayOrigin - eye) * (_nearClip / depth)};
+}
+
 bool Camera::ProjectWorldToScreen(glm::vec3 worldPosition, glm::vec4 viewport, glm::vec3& outScreenPosition,
                                   Interpolation interpolation) const
 {
@@ -213,35 +282,62 @@ bool Camera::ProjectWorldToScreen(glm::vec3 worldPosition, glm::vec4 viewport, g
 
 void Camera::Update(std::chrono::microseconds dt)
 {
-	using namespace std::chrono_literals;
-
 	const auto updateInfo = _model->Update(dt, *this);
+	// (approximate) the original's dt is the camera's integer ms step times 0.001
+	UpdateZoomers(updateInfo, std::chrono::duration<float>(dt).count());
+}
 
+void Camera::UpdateZoomers(const std::optional<CameraModel::CameraInterpolationUpdateInfo>& updateInfo, float seconds)
+{
 	if (updateInfo)
 	{
-		const auto m1 = glm::zero<glm::vec3>();
-		// You have to normalize the velocity with the NEW duration
-		const auto durationSeconds = std::chrono::duration_cast<std::chrono::duration<float>>(updateInfo->duration);
-		SetOriginInterpolator(GetOrigin(), updateInfo->origin, GetOriginVelocity() * durationSeconds.count(), m1);
-		SetFocusInterpolator(GetFocus(), updateInfo->focus, GetFocusVelocity() * durationSeconds.count(), m1);
-		SetInterpolatorDuration(updateInfo->duration);
-		SetInterpolatorTime(0us);
+		// from the current value and speed to the target with speed 0
+		const float duration = std::chrono::duration<float>(updateInfo->duration).count();
+		_origin.SetDestinationWithTime(updateInfo->origin, duration);
+		_focus.SetDestinationWithTime(updateInfo->focus, duration);
 	}
-
-	const auto duration = GetInterpolatorDuration().count();
-	if (duration == 0.0f)
+	const float dt = std::min(seconds, k_MaxFrameSeconds);
+	_origin.Update(dt);
+	_focus.Update(dt);
+	// a position destination outside the world's sphere is pulled back to it, in every camera mode: the clamp keeps the
+	// open world's camera on the world disc. A camera model with a lens of its own, as the temple's, looks at a scene of
+	// its own away from the disc (the temple sits at the origin), so its camera is left where it is
+	if (_model->GetLens().has_value())
 	{
-		SetInterpolatorT(1.0f);
+		return;
 	}
-	else
+	const glm::vec3 centre(script_camera::k_DiscCentre, 0.0f, script_camera::k_DiscCentre);
+	const auto d = _origin.GetDestination() - centre;
+	if (const float d2 = glm::dot(d, d); d2 > script_camera::k_DiscRadiusSquared)
 	{
-		AddInterpolatorTime(std::min(100'000us, dt));
+		_origin.SetDestinationWithTime(d / (std::sqrt(d2) * script_camera::k_DiscScale) + centre, script_camera::k_DiscSeconds);
 	}
 }
 
 void Camera::HandleActions(std::chrono::microseconds dt)
 {
 	_model->HandleActions(dt);
+}
+
+void Camera::SkipActions()
+{
+	_model->SkipActions();
+}
+
+void Camera::SetKeyboardMoveSpeed(float speed)
+{
+	_keyboardMoveSpeed = ClampKeyboardMoveSpeed(speed);
+}
+
+std::unique_ptr<CameraModel> Camera::SetModel(std::unique_ptr<CameraModel> model)
+{
+	std::swap(_model, model);
+	// The model now in charge has none of this frame's controls
+	if (_model)
+	{
+		_model->SkipActions();
+	}
+	return model;
 }
 
 const glm::mat4& Camera::GetProjectionMatrix() const
@@ -268,11 +364,11 @@ glm::vec3 Camera::GetOrigin(Interpolation interpolation) const
 	switch (interpolation)
 	{
 	case Interpolation::Current:
-		return _originInterpolators.PositionAt(GetInterpolatorT());
+		return _origin.GetCurrentValue() + _originDrawOffset; // the shake, drawn only
 	case Interpolation::Start:
-		return _originInterpolators.p0;
+		return _origin.GetStartValue();
 	case Interpolation::Target:
-		return _originInterpolators.p1;
+		return _origin.GetDestination();
 	default:
 		assert(false);
 		std::unreachable();
@@ -284,11 +380,11 @@ glm::vec3 Camera::GetFocus(Interpolation interpolation) const
 	switch (interpolation)
 	{
 	case Interpolation::Current:
-		return _focusInterpolators.PositionAt(GetInterpolatorT());
+		return _focus.GetCurrentValue() + _focusDrawOffset; // the shake, drawn only
 	case Interpolation::Start:
-		return _focusInterpolators.p0;
+		return _focus.GetStartValue();
 	case Interpolation::Target:
-		return _focusInterpolators.p1;
+		return _focus.GetDestination();
 	default:
 		assert(false);
 		std::unreachable();
@@ -297,54 +393,34 @@ glm::vec3 Camera::GetFocus(Interpolation interpolation) const
 
 glm::vec3 Camera::GetOriginVelocity(Interpolation interpolation) const
 {
-	glm::vec3 result;
 	switch (interpolation)
 	{
 	case Interpolation::Current:
-		result = _originInterpolators.VelocityAt(GetInterpolatorT());
-		break;
+		return _origin.GetSpeed();
 	case Interpolation::Start:
-		result = _originInterpolators.v0;
-		break;
+		return _origin.GetStartSpeed();
 	case Interpolation::Target:
-		result = _originInterpolators.v1;
-		break;
+		return _origin.GetDestinationSpeed();
 	default:
 		assert(false);
 		std::unreachable();
 	}
-
-	if (_interpolatorDuration == decltype(_interpolatorDuration)::zero())
-	{
-		return result;
-	}
-	return result / std::chrono::duration_cast<std::chrono::duration<float>>(_interpolatorDuration).count();
 }
 
 glm::vec3 Camera::GetFocusVelocity(Interpolation interpolation) const
 {
-	glm::vec3 result;
 	switch (interpolation)
 	{
 	case Interpolation::Current:
-		result = _focusInterpolators.VelocityAt(GetInterpolatorT());
-		break;
+		return _focus.GetSpeed();
 	case Interpolation::Start:
-		result = _focusInterpolators.v0;
-		break;
+		return _focus.GetStartSpeed();
 	case Interpolation::Target:
-		result = _focusInterpolators.v1;
-		break;
+		return _focus.GetDestinationSpeed();
 	default:
 		assert(false);
 		std::unreachable();
 	}
-
-	if (_interpolatorDuration == decltype(_interpolatorDuration)::zero())
-	{
-		return result;
-	}
-	return result / std::chrono::duration_cast<std::chrono::duration<float>>(_interpolatorDuration).count();
 }
 
 glm::vec3 Camera::GetRotation() const
@@ -367,35 +443,14 @@ glm::vec3 Camera::GetRotation() const
 
 Camera& Camera::SetOrigin(const glm::vec3& position)
 {
-	_originInterpolators = ZoomInterpolator3f(position);
+	_origin.SetPosition(position); // on each axis
 
 	return *this;
 }
 
 Camera& Camera::SetFocus(const glm::vec3& position)
 {
-	_focusInterpolators = ZoomInterpolator3f(position);
-
-	return *this;
-}
-
-Camera& Camera::SetOriginInterpolator(const glm::vec3& p0, const glm::vec3& p1, const glm::vec3& m0, const glm::vec3& m1)
-{
-	_originInterpolators = ZoomInterpolator3f(p0, p1, m0, m1);
-
-	return *this;
-}
-
-Camera& Camera::SetFocusInterpolator(const glm::vec3& p0, const glm::vec3& p1, const glm::vec3& m0, const glm::vec3& m1)
-{
-	_focusInterpolators = ZoomInterpolator3f(p0, p1, m0, m1);
-
-	return *this;
-}
-
-Camera& Camera::SetInterpolatorDuration(std::chrono::microseconds duration)
-{
-	_interpolatorDuration = duration;
+	_focus.SetPosition(position);
 
 	return *this;
 }
@@ -410,4 +465,20 @@ Camera& Camera::SetProjectionMatrix(const glm::mat4& projection)
 Camera::Projection Camera::GetCameraProjection() const
 {
 	return _cameraProjection;
+}
+
+void Camera::CopyViewTo(Camera& out) const
+{
+	out._origin = _origin;
+	out._focus = _focus;
+	out._originDrawOffset = _originDrawOffset;
+	out._focusDrawOffset = _focusDrawOffset;
+	out._drawnView = _drawnView;
+	out._xFov = _xFov;
+	out._aspect = _aspect;
+	out._nearClip = _nearClip;
+	out._pixelNearClip = _pixelNearClip;
+	out._projectionMatrix = _projectionMatrix;
+	out._projectionMatrixReversedZ = _projectionMatrixReversedZ;
+	out._cameraProjection = _cameraProjection;
 }

@@ -1,0 +1,16 @@
+# Creature cave room
+
+The temple's room for the creature. Everything about the cave itself (the creature, its scrolls, belts and medals,
+tattoos) is in ../creature/creature_cave.md; this file only lists the room's part of the temple.
+
+**Progress: 2/5 done, 0 chosen, 3 partial, 0 inferred — 81%**
+
+## The room in the temple
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| A door of the main room leads to the cave, open only when the player has a creature | done | `TempleInterior::EnterRoom`, the room keys in `Game::ProcessTempleRoomKeys` (`src/Game.cpp`), `temple::IsRoomAvailable` ([which rooms are open](../../../interface/temple-interior.md#which-rooms-are-open)); test `TempleRoomAccess.TheCreaturesRoomNeedsACreature` |
+| The waterfall slides and sounds, the fire crackles where the creature stands | done | `TempleInterior` plays `temple_sounds::CreatureCaveFire` and the water each frame the room is drawn and stops the fire and water on leaving (`audio::LeaveCitadel`); test `CreatureCaveEffects.TheRoomsSoundsAtTheFireAndTheWaterfall`; the sounds are read ([the audio engine's list](../../../interface/temple-interior.md#from-the-audio-engines-list)). The slide (`temple_waterfall::Advance`) moves on only on frames the room is drawn, by the frame's whole milliseconds, and is kept from visit to visit, as `CreatureRoom::Draw` 0x786840 ([the waterfall](../../../interface/temple-interior.md#the-creature-rooms-waterfall-and-effects), read 2026-10-22); tests `TempleWaterfall.*` |
+| Flames, smoke and the waterfall's spray and mist | partial 90% | `src/3D/CreatureCaveEffects.cpp`, started by `TempleInterior`: the flames, smokes, spray and mists placed, sized and thrown up from the game's C library and local streams in the exe's order, rising smoke pulled down by 3, the mists 0x204080C0 in the temple's light, lit by the land off the map, as `CreatureRoom::InitEngine` 0x7878E0 and `Draw` 0x786840 ([the creature room's effects](../../../interface/temple-interior.md#the-creature-rooms-waterfall-and-effects), read 2026-10-22); tests `CreatureCaveEffects.*`. Left: the ages keep the fraction a frame leaves over where the exe truncates (as every smoke and mist of openblack), and the haze inside the temple is not read |
+| The cave's contents | partial 56% | `src/Gui/CreatureCaveScreen.cpp`, `CreatureCaveSystem`, `src/3D/CreatureCaveTrophies.cpp`; tests `test_creature_cave*`, `CreatureCaveSystemTest.*`; the share is ../creature/creature_cave.md's score as it stands (2026-10-21) |
+| Clicking the creature opens the tattoo editor | partial 60% | a click on the creature target zooms onto it and opens the editor (`TempleCameraModel::ZoomToCaveTarget`, `CreatureCaveSystemTest.InTheTempleOpeningGoesToTheCreatureRoomAndClosingLeaves`), as the exe's zoom (fn_00789FA0: target 1, eye at the room's point 44, looking at 49); the creature is picked by the body it draws (raffclar #349), whose sphere test is the exe's `CheckRegionOnScreen` 0x868C80 step for step (read 2026-10-22, [how a click finds it](../../../creature/tattoos.md#how-a-click-finds-it)). Not read: the box radius the exe uses against our half diagonal, the body's submesh mask and its triangle test; see ../creature/creature_tattoos.md |

@@ -10,10 +10,13 @@
 #include <Game.h>
 #include <gtest/gtest.h>
 
+#include "TestTempFolder.h"
+
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables): external macro
 TEST(GameInitialize, initializeOnly)
 {
 	static const auto mockGamePath = std::filesystem::path(TEST_BINARY_DIR) / "mock";
+	const openblack::test::TestTempFolder profileFolder;
 	auto args = openblack::Arguments {
 	    .graphicsBackend = openblack::GraphicsBackend::Noop,
 	    .gamePath = mockGamePath.string(),
@@ -22,6 +25,7 @@ TEST(GameInitialize, initializeOnly)
 	    .startLevel = "Land1.txt",
 	};
 	std::fill_n(args.logLevels.begin(), args.logLevels.size(), spdlog::level::debug);
+	args.profileFolder = profileFolder.Path();
 	auto game = std::make_unique<openblack::Game>(std::move(args));
 	ASSERT_TRUE(game->Initialize());
 	game.reset();
@@ -31,6 +35,7 @@ TEST(GameInitialize, initializeOnly)
 TEST(GameInitialize, run0Frames)
 {
 	static const auto mockGamePath = std::filesystem::path(TEST_BINARY_DIR) / "mock";
+	const openblack::test::TestTempFolder profileFolder;
 	auto args = openblack::Arguments {
 	    .graphicsBackend = openblack::GraphicsBackend::Noop,
 	    .gamePath = mockGamePath.string(),
@@ -39,6 +44,7 @@ TEST(GameInitialize, run0Frames)
 	    .startLevel = "Land1.txt",
 	};
 	std::fill_n(args.logLevels.begin(), args.logLevels.size(), spdlog::level::debug);
+	args.profileFolder = profileFolder.Path();
 	auto game = std::make_unique<openblack::Game>(std::move(args));
 	ASSERT_TRUE(game->Initialize());
 	ASSERT_TRUE(game->Run());

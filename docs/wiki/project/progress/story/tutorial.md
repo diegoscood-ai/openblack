@@ -1,0 +1,45 @@
+# Tutorial
+
+How the game teaches itself: the opening of the first land, where the advisors and short hand demonstrations show the
+camera, the hand and the first miracles. The separate practice island is in tutorial_island.md.
+
+A cut early draft of the opening at the temple (rotating the camera, carrying wood and food to the builders, the kinds
+of scroll) is in [silver_scrolls/see_the_citadel.md](../../not-in-the-original.md#storysilver_scrollssee_the_citadel).
+
+**Progress: 5/19 done, 0 chosen, 9 partial, 0 inferred — 54%**
+
+How the original does it, in our wiki: [The Land 1 intro and the tutorial's script side](../../../scripts/land1-intro.md).
+
+## The opening scene
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| A Norse family (father, mother and son) is made, in high detail, at early morning | partial 60% | `SetHighGraphicsDetail` makes them high-detail villagers (`ecs::super_villager`, `src/Graphics/SuperVillagerFrame`, eyes in `src/ECS/SuperVillager*`), wired into `Game.cpp`; the wiki still calls it drafted, not checked against the original ([intro.md](../../../beings/animation.md#the-family-in-high-detail-supervillager)); re-measured 2026-10-21: ported; not checked against the original in a run yet |
+| The scene takes the camera, the dialogue and the game speed, brings the cinema bars in and starts its music | done | `StartCameraControl`, `StartDialogue`, `StartGameSpeed`, `SetWidescreen`, `StartMusic` in `src/CHLApi.cpp`; checked in game up to the hand-over ([intro.md](../../../scripts/land1-intro.md#flow)) |
+| The parents kiss, the son swims out and sharks come for him | partial 70% | the family's walks, the son and the sharks run (`CREATE` of the shark, `MoveGameThing`, script states); the villagers' focus and override animations are not all done ([intro.md](../../../scripts/land1-intro.md#state-in-openblack)); re-measured 2026-10-21: the walks, the son and the sharks run; some focus and override animations are not done |
+| The screen fades to black and the intro film plays | done | `SetFade` and `SetAviSequence` play `INTRO.bik` through our Bink decoder (`src/Video`); see ../video/bink_videos.md |
+| A light falls from the sky, a ghostly hand lifts the boy from the sea and sets him down on the beach | partial 40% | the light and the intro hand are the intro system (`Locator::introSystem`, rules in `ECS/IntroRules`) and the JC specials (`PlayJcSpecial`, `ThingJcSpecial`), wired but still drafted ([intro.md](../../../scripts/land1-intro.md#jc-specials-and-the-confirmation-sounds)); re-measured 2026-10-21: wired but still drafted |
+| The village crowds round to welcome their new god; the advisors appear and introduce themselves | partial 80% | the advisors appear, move and speak (`src/Help`, see advisors.md); the welcome dance (`DanceCreate`) is real ([intro.md](../../../scripts/land1-intro.md#state-in-openblack)); re-measured 2026-10-21: the advisors and the dance are real |
+| A demonstration of dragging the land, then the scene hands control to the player | done | `PlayHandDemo` plays `Data/HandDemo/drag.hnd` (`src/Input/HandDemo.h`), `HandDemoTrigger`, `IsPlayingHandDemo`, then the hand-over ([intro.md](../../../scripts/land1-intro.md#flow)) |
+| About four minutes from the start to the hand-over | done | checked in game: about 4 min of game time ([intro.md](../../../scripts/land1-intro.md#state-in-openblack)); in the run of 2026-10-22 the hand-over line (text 5219) is shown at about 153 s into the run (how that run counts its time against the 4 min above is not settled) |
+
+## The opening of the first land
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| The player follows the family to the village, learning to move over the land | partial 60% | the rest of `FollowUs` calls real natives (walk paths, `MoveGameThing`, the camera distance checks); the welcome crowd at the tiger stone and the temple builders are under the script's control, so their disbands give them back to the town ([the crowd and the builders](../../../scripts/land1-intro.md#the-welcome-crowd-and-the-temple-builders)); it also starts the gate-stone guards: [gold_scrolls/choose_your_creature.md](gold_scrolls/choose_your_creature.md#the-stones-are-guarded); checked in a run 2026-10-22 (Land 1, SkipBox answer 0, fixed step): the whole of `FollowUs` plays through in one launch. The follow starts at camera point 215 (focus 1494.03, 5.35, 2109.63) and ends once the camera is within 50 of camera point 219 (focus 1633.72, 18.40, 2307.98); then the second cinematic, `TunnelOfUltimateDoom` (it ends once the camera is within 75 of the temple), the guards' start (`ProtectGateKeysFlag` 1), the camera lessons and the pick-up demo (`PickupDemoPlayed` 1). The mother's waits and warnings were not exercised; not compared with the original |
+| Hand demonstrations: a ghost hand shows a movement (rotating, tilting, dragging the land, zooming, throwing, giving food) | partial 50% | `PlayHandDemo` reads the `Data/HandDemo` recordings (`src/Input/HandDemo.h`); the drag demo is checked in game, and the pick-up demo plays to its end in the run of 2026-10-22 (`PickupDemoPlayed` 1); the others are not checked in a run |
+| A demonstration waits for the player to copy it, and reminds them if they don't | partial 60% | the dialogue, advisors, highlights and timers they use are real in `src/CHLApi.cpp`; in the run of 2026-10-22 the tutorial's lessons all end and the pick-up demo plays, and the camera lessons end on the keys the chapter holds (next row, #216, settled 2026-10-23); the reminders were not exercised |
+| Each camera lesson (rotating, tilting, zooming) ends only once the player has moved the camera that way themselves | done | issue #216, settled 2026-10-23. The lessons end only on the help event counts (`GET_TOTAL_EVENTS`, `help_profile::TotalEvents`; more than 60 turns of rotating, 25 of pitching, 15 of zooming since the lesson began) or, for the zoom, the drawn camera more than 100 above the land under it ([the lessons' ends](../../../scripts/land1-intro.md#the-camera-lessons-ends)); in the original only the player camera's own controls feed those counts ([player camera features](../../../camera/player-camera.md#player-camera-features-camerahelp)), and since 2026-10-23 openblack's camera help hears only the controls of each frame's own update, with the original's input mask and in every camera mode (see ../camera/camera_help.md). A T1 to T4 run with the camera help's log readout (`-L input=trace`) shows every turn, tilt and zoom the lessons counted coming from the keys the chapter itself holds (input 0x01): `TeachRotate` 87 game turns from the turn key held 28.3 to 36.9 s into the chapter, `TeachPitch` 27 from the tilt key held 64.1 to 66.7 s, `TeachZoom` 21 from the zoom keys held 97.4 to 99.5 s, and none outside them; the chapter runs through to the pick-up demo (`PickupDemoPlayed=1`). So the lessons that seemed to end with no player input ended on the run's own keys |
+| Lessons on worship, influence and casting a miracle by gesture | pending | Khazar's lessons are on Land 2, not yet reached in play: Land 2's story has not yet been run past its arrival since Khazar's first wait (`COMPUTER_PLAYER_READY`) became real; see land_2.md |
+| Each lesson's key or mouse button is shown as the player has bound it | pending | `SetHandDemoKeys` is an empty native, as the original's handler is (no script calls it, `src/CHLApi.cpp:8734`), so the native is not what shows them; how the original shows the bound keys is not traced yet; see ../interface/help_system.md |
+| The camera's features are allowed one by one as each is taught | partial 40% | `SetInterfaceInteraction` sets the camera feature mask; what the player camera does with each feature is pending ([player-camera.md](../../../camera/player-camera.md#player-camera-features-camerahelp)); re-measured 2026-10-21: the mask is set; what the camera does with each feature is pending |
+| The interface is limited during the lessons (only grabbing, only rotating …) | partial 60% | `SetInterfaceInteraction` (`help::interface_interaction`) works; the levels' effects on the interface are partly done ([intro.md](../../../interface/screen-and-readouts.md#interface-interaction-levels)); re-measured 2026-10-21: the levels are set; their effects on the interface are partly done |
+| An Immersion force-feedback mouse is detected and welcomed | pending | to port as the original's (user, 2026-10-19) |
+| A returning player can skip the tutorial and the creature's training (patch 1.1) | done | the SkipBox (`src/Gui/SkipBox`) and `CanSkipTutorial`, `CanSkipCreatureTraining`, `IsKeepingOldCreature` are real; see [land-change-and-saving.md](../../../scripts/land-change-and-saving.md#skipping-the-tutorial-skipbox-and-can_skip_tutorial) and land_1.md |
+
+## The tutorial island
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| A separate practice island, the Gods' Playground, reached with F2 | pending | see tutorial_island.md |

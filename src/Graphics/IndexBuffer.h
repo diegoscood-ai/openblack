@@ -9,34 +9,47 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
-#include <functional>
-#include <memory>
 #include <string>
 
 #include "GraphicsHandle.h"
 
 namespace openblack::graphics
 {
-struct IndexBuffer
+class IndexBuffer
 {
+public:
 	enum class Type : uint8_t
 	{
 		Uint16,
 		Uint32,
 	};
-	static uint32_t GetTypeSize(Type type)
-	{
-		return static_cast<uint32_t>(type == Type::Uint16 ? sizeof(uint16_t) : sizeof(uint32_t));
-	}
+	static uint32_t GetTypeSize(Type type);
 
-	const std::string name;
-	const uint32_t count;
-	const Type type;
-	const IndexBufferHandle handle;
+	IndexBuffer() = delete;
+	IndexBuffer(const IndexBuffer& other) = delete;
+	IndexBuffer(IndexBuffer&&) = delete;
+
+	IndexBuffer(std::string name, const void* indices, uint32_t indexCount, Type type);
+	IndexBuffer(std::string name, const void* memory, Type type);
+
+	~IndexBuffer();
+
+	[[nodiscard]] uint32_t GetCount() const;
+	[[nodiscard]] uint32_t GetSize() const;
+	[[nodiscard]] uint32_t GetStride() const;
+	[[nodiscard]] Type GetType() const;
+
+	[[nodiscard]] bool IsValid() const noexcept;
+	void Bind(uint32_t count, uint32_t startIndex = 0) const;
+
+private:
+	std::string _name;
+	uint32_t _count;
+	Type _type;
+	IndexBufferHandle _handle;
 };
-
-using IndexBufferUniquePtr = std::unique_ptr<IndexBuffer, std::function<void(IndexBuffer*)>>;
 
 } // namespace openblack::graphics

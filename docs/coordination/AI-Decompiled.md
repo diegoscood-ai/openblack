@@ -33,6 +33,12 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint204 (1fad9c916, published 859f61558): the hand's distance zoomer and its locked select as the original's (moves
+  the hand in fidelity from turn 2, the hand demos, vis, the temple and most scenes with the hand in view); a sunk
+  animal dies through its own dying and teaches the creature; two villager shield timings; a creature's put-down is
+  not from the hand; four animal fixes (a calmed pack, a villager gone home, the hunt's order, a pot over its
+  maximum); an armed seed's hum from the gesture's point; a shield's last attacker; a loaded game's towns, pits and
+  piles (off unless asked); about 10 rows pinned with tests.
 - joint203 (f1d2eb9bf, published bbf85a284): the hand stops while a box has the mouse, as the original (moves the hand
   at turn 1 of the land runs and the land shots by day and night); a tree, dead tree or fence let go over a building
   site goes into it; a temple room of pictures eases its camera onto a close look (moves the challenge room's shot);

@@ -33,6 +33,9 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint213 (fcbb78681, published 4a8331961), FULL, on its own: an animal takes its first clip as it is made, so
+  each bird's coin is drawn at its creation as the original's (949 of 949 load draws matched against the original);
+  every reference renewed; closes #12.
 - joint212 (a85ef0f40, published 7b856c54b): the night's voices try the name of the profile played; how many
   flames a fire wants is a pure function with its test, and a size or age that is not a number answers as the
   original; a SuperVillager's shadow is cast with its own matrix and clip. Every check identical.

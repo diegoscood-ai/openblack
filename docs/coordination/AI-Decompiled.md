@@ -33,6 +33,11 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint215 (a72e0a8a5, published c7b3793c5): a scroll or sign is drawn with its soft sprite towards the eye
+  (compared with the original from a shot of the user's game; moves the land views, two hand demos and eight scenes,
+  state identical); a pot keeps its own flag for its reaction; a double click onto an arena watches the fight and its
+  point is read again on the land; the screen clears to opaque black; a collision sound's key as a pure function
+  (closes #144, #24).
 - joint214 (d6a708c61, published 9305de240): setting the help level sends the advisors home; lingering over a
   fight's arena watches it; a scroll is clicked through a sphere half a metre wider than it; the falling spell's film
   ends at base alpha 0x50; a collision sound's level as a pure function; three debug controls (closes #190, #191, #192).

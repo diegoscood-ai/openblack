@@ -33,6 +33,12 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint208 (b94191de6, published 7d57adad7): villagers take effects as the original's classes answer (a heal unless
+  dead, others only where reachable), run from a burning thing in the hand, a shield's interest read from their own
+  info row, the sea report by the hand that last let go; a town its people left empties; a wanderer looks for a flock
+  to merge with; an artefact whose object goes is let go with its dance and glow; food from a sped-up pile speeds the
+  villager up; a Villagers debug window; raffclar's pull requests recounted (54% in our tree); check runs read a
+  pinned real date (OPENBLACK_CLOCK_AT), since a full moon at night made them differ. Every check identical.
 - joint207 (2f17178d3, published 97e6096a9), docs only: the wiki's stale code references, repeated notes and empty
   dated remarks cleaned across 239 pages; the refactor's progress counts and the port audit recounted against the
   tree; the progress dashboard regrouped (the creature and save and load as families of their own, the online

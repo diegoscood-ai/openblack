@@ -33,6 +33,9 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint218 (84ec0bad8, published 8c1504c3a): the test campaign's first phase: about 1460 done rows of every area
+  but the creature now name the tests that already check them (the story's from 139 to 994); a building a script holds
+  stays when destroyed; the hand's state each frame as a pure function with tests. Every check identical.
 - joint217 (92e526802, published 556429d80): a villager becomes a physics object only when it can be reached, its
   throw taking the in-hand mark off first; BELIEF_FOR_PLAYER answers any thing through its own player; a forest's
   planting as pure functions with tests. Every check identical.

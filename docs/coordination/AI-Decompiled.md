@@ -33,6 +33,10 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint223 (11030b0b5, published f34ccc181), on its own with every scene: a contact's damped push is multiplied in
+  the original's order, with no guard on the length (21 scenes of thrown and resting things and the story move from
+  last-bit rotations; Land 1, the cycle and the hands identical). Five stale shot references from joints 214-215
+  renewed.
 - joint222 (08061e620): the test campaign's second phase pins the hand's picking, holding, throwing, sounds and
   animations, the camera, the interface and the audio to the original, keeping one copy of each rule. Every check
   identical.

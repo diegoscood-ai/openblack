@@ -33,6 +33,9 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint217 (92e526802, published 556429d80): a villager becomes a physics object only when it can be reached, its
+  throw taking the in-hand mark off first; BELIEF_FOR_PLAYER answers any thing through its own player; a forest's
+  planting as pure functions with tests. Every check identical.
 - joint216 (57668d7c5, published 351d6465a): over a store's pile the hand shows all the store holds, not that
   pile's own amount, as the original; a villager drowns for the scripts only in its drowning state (test); why a
   check run's answer 3 keeps a creature (docs). Every check identical.

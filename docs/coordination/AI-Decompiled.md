@@ -33,6 +33,10 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint225 (be165d9ae), on its own with every scene: the rigid body's set-up, forces and step checked against the
+  original's own functions run in the exe oracle (golden vectors), and fixed to its order of float operations
+  throughout; 22 scenes of thrown and resting things and the story move by last bits; Land 1, the cycle and the hands
+  identical.
 - joint224 (16c7cbc0c): the source of every number the day's tests pin, marked on the wiki and in xref notes; a
   gesture's small turn at the original's exact tolerance; over a worship icon the hand aims a fixed distance short; a
   worship charge pulses only past its interval; a film's corners at the original's depth; the challenge program and

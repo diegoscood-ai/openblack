@@ -33,6 +33,8 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint229 (db5454949), docs only: the creature's done rows cite the tests that check them (with a test 789, without
+  18). The test campaign's first phase now covers every family.
 - joint228 (886c8efe5): the story's spell, advisor, camera, game flow and sound natives and the rest of the vortex
   pinned to the original (tests). Every check identical.
 - joint227 (f4ae1f3f4), on its own with every scene: the contact point, the ray against a body's faces, the touch

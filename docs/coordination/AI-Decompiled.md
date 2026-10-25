@@ -33,6 +33,11 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint209 (3506edcd6, published 6748f56b2): the snow on an object read by its mesh's own position and normal (moves
+  the throw-in-snow shot); the projection's near plane is the frame's one near clip from the eye drawn the frame
+  before (moves one hand-on-creature shot); the world climate places its storm by its own radius; a tornado's dust
+  takes the snow lying deep enough; a creature's dance chant at the creature; a scripted throw's tumble with the
+  original's float; a building being built adds influence by its percent built; a new pit takes its food first.
 - joint208 (b94191de6, published 7d57adad7): villagers take effects as the original's classes answer (a heal unless
   dead, others only where reachable), run from a burning thing in the hand, a shield's interest read from their own
   info row, the sea report by the hand that last let go; a town its people left empties; a wanderer looks for a flock

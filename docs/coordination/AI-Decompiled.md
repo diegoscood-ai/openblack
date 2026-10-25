@@ -33,6 +33,8 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint226 (e73fdd6b9): the land script's field, feature, forest, animated static and worship site commands and
+  the vortex's pull and crossing rules pinned to the original, with game-data tests. Every check identical.
 - joint225 (be165d9ae), on its own with every scene: the rigid body's set-up, forces and step checked against the
   original's own functions run in the exe oracle (golden vectors), and fixed to its order of float operations
   throughout; 22 scenes of thrown and resting things and the story move by last bits; Land 1, the cycle and the hands

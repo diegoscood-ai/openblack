@@ -33,6 +33,9 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint212 (a85ef0f40, published 7b856c54b): the night's voices try the name of the profile played; how many
+  flames a fire wants is a pure function with its test, and a size or age that is not a number answers as the
+  original; a SuperVillager's shadow is cast with its own matrix and clip. Every check identical.
 - joint211 (5dde882d8, published c9b4af8c2): a thing that hits a building gives the blow its own player (two
   building scenes move in the neutral player's alignment); a civic building just built draws its villagers to dance or
   watch; a dead tree that hits a town is its own player's; a shield's fall panics a villager as the original; the

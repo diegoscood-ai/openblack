@@ -33,6 +33,9 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint216 (57668d7c5, published 351d6465a): over a store's pile the hand shows all the store holds, not that
+  pile's own amount, as the original; a villager drowns for the scripts only in its drowning state (test); why a
+  check run's answer 3 keeps a creature (docs). Every check identical.
 - joint215 (a72e0a8a5, published c7b3793c5): a scroll or sign is drawn with its soft sprite towards the eye
   (compared with the original from a shot of the user's game; moves the land views, two hand demos and eight scenes,
   state identical); a pot keeps its own flag for its reaction; a double click onto an arena watches the fight and its

@@ -33,6 +33,12 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint210 (86264d34d, published 85f1eac92), FULL: a town wants a wonder by its belief in its player (the guidance's
+  town-desire remark then draws for it: five scenes move in the local random only); a rock that hits a town is its
+  own player's; a toadstool is poisonous to stores and villagers; two players' flocks never merge; a static keeps the
+  built percentage a script sets; the fire's reaction ends as any reaction does; a held miracle's spin rate, a
+  script's camera set where it is already, a replayed click's point and a step's sound on deep lying snow as the
+  original's.
 - joint209 (3506edcd6, published 6748f56b2): the snow on an object read by its mesh's own position and normal (moves
   the throw-in-snow shot); the projection's near plane is the frame's one near clip from the eye drawn the frame
   before (moves one hand-on-creature shot); the world climate places its storm by its own radius; a tornado's dust

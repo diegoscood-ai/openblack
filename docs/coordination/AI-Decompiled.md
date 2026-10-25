@@ -33,6 +33,10 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint227 (f4ae1f3f4), on its own with every scene: the contact point, the ray against a body's faces, the touch
+  of the ground and the faces' set-up checked against the original's own functions in the exe oracle and fixed to its
+  order; a settle on the land no longer turns the faces again; 13 scenes and the story move by last bits; Land 1, the
+  cycle and the hands identical.
 - joint226 (e73fdd6b9): the land script's field, feature, forest, animated static and worship site commands and
   the vortex's pull and crossing rules pinned to the original, with game-data tests. Every check identical.
 - joint225 (be165d9ae), on its own with every scene: the rigid body's set-up, forces and step checked against the

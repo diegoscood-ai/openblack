@@ -33,6 +33,10 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint214 (d6a708c61, published 9305de240): setting the help level sends the advisors home; lingering over a
+  fight's arena watches it; a scroll is clicked through a sphere half a metre wider than it; the falling spell's film
+  ends at base alpha 0x50; a collision sound's level as a pure function; three debug controls (closes #190, #191, #192).
+  Every check identical.
 - joint213 (fcbb78681, published 4a8331961), FULL, on its own: an animal takes its first clip as it is made, so
   each bird's coin is drawn at its creation as the original's (949 of 949 load draws matched against the original);
   every reference renewed; closes #12.

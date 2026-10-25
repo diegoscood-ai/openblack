@@ -33,6 +33,10 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint224 (16c7cbc0c): the source of every number the day's tests pin, marked on the wiki and in xref notes; a
+  gesture's small turn at the original's exact tolerance; over a worship icon the hand aims a fixed distance short; a
+  worship charge pulses only past its interval; a film's corners at the original's depth; the challenge program and
+  its natives tested. Every check identical.
 - joint223 (11030b0b5, published f34ccc181), on its own with every scene: a contact's damped push is multiplied in
   the original's order, with no guard on the length (21 scenes of thrown and resting things and the story move from
   last-bit rotations; Land 1, the cycle and the hands identical). Five stale shot references from joints 214-215

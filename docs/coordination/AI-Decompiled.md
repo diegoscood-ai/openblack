@@ -33,6 +33,10 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint219 (df152eb6b, published 08714e231): the test campaign's second phase starts: 25 rows of the town areas and
+  the rigid body's rules pinned to the original; three physics constants as the original's exact floats (the spin cap
+  moves physics.throw_many from turn 28, two ulps on bodies at the cap); a fading firefly's alpha truncated as the
+  original; ten unused hand rules removed and one wired; a lump of poo held on the palm.
 - joint218 (84ec0bad8, published 8c1504c3a): the test campaign's first phase: about 1460 done rows of every area
   but the creature now name the tests that already check them (the story's from 139 to 994); a building a script holds
   stays when destroyed; the hand's state each frame as a pure function with tests. Every check identical.

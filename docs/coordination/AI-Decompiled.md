@@ -33,6 +33,8 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint228 (886c8efe5): the story's spell, advisor, camera, game flow and sound natives and the rest of the vortex
+  pinned to the original (tests). Every check identical.
 - joint227 (f4ae1f3f4), on its own with every scene: the contact point, the ray against a body's faces, the touch
   of the ground and the faces' set-up checked against the original's own functions in the exe oracle and fixed to its
   order; a settle on the land no longer turns the faces again; 13 scenes and the story move by last bits; Land 1, the

@@ -33,6 +33,9 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint221 (d953399b4), tests only: the land script's reader and object commands, and every shipped island,
+  playground and demo script's contents pinned to the game's own scripts; 269 story rows cite them. Only the two test
+  groups ran, as the change can reach nothing else.
 - joint220 (d3727cade, published 8c2640681): the test campaign's second phase pins the gestures, the sky, the
   video, the villagers' carried objects and 14 more town-area rows (data tests included) to the original. Every check
   identical, the land views too.

@@ -33,6 +33,12 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint211 (5dde882d8, published c9b4af8c2): a thing that hits a building gives the blow its own player (two
+  building scenes move in the neutral player's alignment); a civic building just built draws its villagers to dance or
+  watch; a dead tree that hits a town is its own player's; a shield's fall panics a villager as the original; the
+  teleport's and the mourning's reactions end as any reaction does; the player's camera tells the help where the
+  screen's middle falls (Zoom Out shows); the unwired mesh detail by distance, fourteen developer-tool rows and two
+  unused script natives move to Not in the original.
 - joint210 (86264d34d, published 85f1eac92), FULL: a town wants a wonder by its belief in its player (the guidance's
   town-desire remark then draws for it: five scenes move in the local random only); a rock that hits a town is its
   own player's; a toadstool is poisonous to stores and villagers; two players' flocks never merge; a static keeps the

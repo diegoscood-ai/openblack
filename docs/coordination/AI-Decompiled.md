@@ -33,6 +33,9 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint222 (08061e620): the test campaign's second phase pins the hand's picking, holding, throwing, sounds and
+  animations, the camera, the interface and the audio to the original, keeping one copy of each rule. Every check
+  identical.
 - joint221 (d953399b4), tests only: the land script's reader and object commands, and every shipped island,
   playground and demo script's contents pinned to the game's own scripts; 269 story rows cite them. Only the two test
   groups ran, as the change can reach nothing else.

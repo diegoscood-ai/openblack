@@ -33,6 +33,8 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint238 (a2b1656d9), tests only: things dropped into the sea played in the world (seven water rows); the world
+  tests keep the map of what is in each cell. Only test_bgfx and test_villagers ran.
 - joint237 (a4ff845b1), tests only: villagers' deaths, hunger, homes and missionaries, and scaffolds, their sites
   and a founded town, each played in the world against the original. Only test_villagers ran.
 - joint236 (e9d002477), tests only: more of the villagers' tools and loads in the world (the log a flying villager

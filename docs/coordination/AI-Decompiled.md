@@ -33,6 +33,10 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint252 (8b4d764c1, new base): each land gives its players their colour index, as the original (a scene on
+  the second land shows it); an animal's clip plays by the ground its speed covers; the land grip works while
+  holding something and starts at the press, over the sky too; villager table and carried-prop tests. Fidelity,
+  cycle, story, hands and the land views identical; animal scenes' shots and hand.top_pitch renewed.
 - joint251 (e7e83293e): a held seed found destroyed leaves its type as the last seed type however the hand learns
   it (the earlier fix only covered the turn's check). Two debug scenes show the caught rock's flying reaction ending
   and the repeat after a spent lightning. Every check identical. 129 scenes that sat in no check list now do, with

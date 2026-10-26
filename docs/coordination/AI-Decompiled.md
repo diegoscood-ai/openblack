@@ -33,6 +33,8 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint236 (e9d002477), tests only: more of the villagers' tools and loads in the world (the log a flying villager
+  drops, the wood taken with the chopping clip, nothing held at home): 17 rows of tools in all. Only test_villagers ran.
 - joint235 (94b2f21af), tests only: a villager world of the game's own villager services, its tools and loads
   at work checked against the original (nine rows). Only test_villagers ran.
 - joint234 (09f42d356), tests only: the world tests' land is dry land; the toys, and a land script's town and its

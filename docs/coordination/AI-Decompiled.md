@@ -33,6 +33,9 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint250 (925bd2e78): a reaction spreads over as many cells as its initiator's power gives (#51, first rule);
+  the hand past the border takes the worship sites' spare chanting; a pot or pile that goes takes its reactions at
+  once; a fire's crackle measures the camera's map distance. Every check identical but tornado_village (promoted).
 - joint249 (0d930de04): a store makes its food pile first, then its five wood piles, at its points through its
   whole placement, and a land script's store takes its food and wood once it is made, as the original; the hand over
   any pile shows the store's whole total (tested). The loaders' header no longer needs the morph headers (the town

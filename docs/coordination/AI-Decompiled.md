@@ -33,6 +33,8 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint237 (a4ff845b1), tests only: villagers' deaths, hunger, homes and missionaries, and scaffolds, their sites
+  and a founded town, each played in the world against the original. Only test_villagers ran.
 - joint236 (e9d002477), tests only: more of the villagers' tools and loads in the world (the log a flying villager
   drops, the wood taken with the chopping clip, nothing held at home): 17 rows of tools in all. Only test_villagers ran.
 - joint235 (94b2f21af), tests only: a villager world of the game's own villager services, its tools and loads

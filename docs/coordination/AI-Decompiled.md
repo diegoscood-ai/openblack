@@ -33,6 +33,12 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint253 (219905d55): the land takes an object's footprint only for the objects the original gives it (gates,
+  caves, fields, worship sites, the citadel, a house made unbuilt); an animal given to the altar counts one
+  sacrifice; a held villager not available, a skeleton or a footballer takes no work; a land-coloured particle mesh
+  off the map takes the full light; the library's read texts come back on load; the square wave and the hidden
+  phone box scene (from raffclar); openblack's debug tools leave the progress count. Land views and 8 scene shots
+  renewed; every state identical.
 - joint252 (8b4d764c1, new base): each land gives its players their colour index, as the original (a scene on
   the second land shows it); an animal's clip plays by the ground its speed covers; the land grip works while
   holding something and starts at the press, over the sky too; villager table and carried-prop tests. Fidelity,

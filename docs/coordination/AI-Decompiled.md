@@ -33,6 +33,10 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint251 (e7e83293e): a held seed found destroyed leaves its type as the last seed type however the hand learns
+  it (the earlier fix only covered the turn's check). Two debug scenes show the caught rock's flying reaction ending
+  and the repeat after a spent lightning. Every check identical. 129 scenes that sat in no check list now do, with
+  their references renewed; the scene batch refuses an unknown id.
 - joint250 (925bd2e78): a reaction spreads over as many cells as its initiator's power gives (#51, first rule);
   the hand past the border takes the worship sites' spare chanting; a pot or pile that goes takes its reactions at
   once; a fire's crackle measures the camera's map distance. Every check identical but tornado_village (promoted).

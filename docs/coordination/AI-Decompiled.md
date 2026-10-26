@@ -33,6 +33,9 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint241 (490b5fe87): STOP_ALL_SCRIPTS_EXCLUDING splits its list on spaces, commas and tabs, as the original;
+  the blast's rubble and rings tested in the world; the land scripts' designed scenery, the rival gods' natives and
+  the reward chest tested. Every check identical.
 - joint240 (542bd960b), tests only: the land as the game builds it (countries, corner and midpoint altitudes, the
   shore), the rivers and lakes as water, and the fireflies, each in the world against the original. Only test_bgfx ran.
 - joint239 (09ca6bb9b): Firestorm parked with online play; the fan-made Island Wars and Death Comes To Those That

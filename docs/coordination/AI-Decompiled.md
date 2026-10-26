@@ -33,6 +33,8 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint235 (94b2f21af), tests only: a villager world of the game's own villager services, its tools and loads
+  at work checked against the original (nine rows). Only test_villagers ran.
 - joint234 (09f42d356), tests only: the world tests' land is dry land; the toys, and a land script's town and its
   store, played turn by turn against the original. Every target built; only test_bgfx ran.
 - joint233 (9f311bc96), tests only: phase three's world multi-tests: the shipped challenge program run in the

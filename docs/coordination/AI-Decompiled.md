@@ -33,6 +33,9 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint233 (9f311bc96), tests only: phase three's world multi-tests: the shipped challenge program run in the
+  real VM (its start order on Land 1 confirmed against a capture of the original's own), picking up and letting go,
+  throwing, and a building broken by a blow, each with a synthetic twin. Only their test groups ran.
 - joint232 (96b2b55ba), tests only: the first world multi-test. The rock split scene played turn by turn in a world
   of the game's own systems (test/support/WorldHarness.h), nine of its rows checked at once against the original, each
   with game data and with a synthetic twin. Only its test group ran.

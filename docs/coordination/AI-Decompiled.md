@@ -33,6 +33,10 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint255 (9b331b618): the save writer: the world file built from the entities (with the objects that aren't
+  entities, such as forests and footpath nodes), the game object's head and tail, and a slot written in the game's
+  order with its info, pictures and creature minds; the frozen Land 1 autosave writes back byte for byte. Nothing
+  calls it yet; every check identical.
 - joint254 (22e86e239): what flies is stopped by a pile that isn't a storage pit's, by a building only while it
   stands (the village centre always) and by a standing feature, as the original; a moving camera keeps the gesture
   while following a creature or watching a fight; a worship site's miracle sends motes of light from its icon. Four

@@ -33,6 +33,10 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint243 (4526cb206): the footpath files, 16-bit images, mesh and animation packs and the tables' names read
+  as the game reads them (tests); an abode info is the first matching row, none when none does; CREATE_FIELD makes
+  a field of no town with the Celtic row; the vulture and planned features, never made by the original, not ported.
+  Every check identical.
 - joint242 (5b64642ad): the hand driven through its real frame in a world of the game's own systems (picking,
   holding, pouring, the tug, throwing, the orbs); a new game starts the story only with its program read and on
   Land 1; SET_A_TOWNS_INFLUENCE_MULTIPLIER is no land script command; CREATE_TOWN gives an unknown player's town to

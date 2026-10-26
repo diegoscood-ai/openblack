@@ -33,6 +33,11 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint249 (0d930de04): a store makes its food pile first, then its five wood piles, at its points through its
+  whole placement, and a land script's store takes its food and wood once it is made, as the original; the hand over
+  any pile shows the store's whole total (tested). The loaders' header no longer needs the morph headers (the town
+  tests build again). Two showing scenes. Land 1 moves at turn 1 (the piles' places); every reference renewed after a
+  second pass agreed. #86 corrected: a store's piles are not made on demand.
 - joint248 (0076d0747): villagers stop to look at a scaffold put up for a building, and watch a town taken over
   without a centre (a town going neutral too); a town a scaffold founds takes its forests from its wood store; flocks
   are the neutral player's, and the flock miracle's the caster's; a caught thing ends its flying reactions; a seed

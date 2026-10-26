@@ -33,6 +33,8 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint231 (44617451c): the creature's second phase pins its object actions, alignment, fights, held villagers,
+  eating sounds, fizzle, lessons, town dances and species rows to the original. Every check identical.
 - joint230 (6aa2fa831): the ray behind a point against a body's faces checked against the original's own and fixed
   to its order; a body on the land is not in the water. Every check identical, the physics scenes too.
 - joint229 (db5454949), docs only: the creature's done rows cite the tests that check them (with a test 789, without

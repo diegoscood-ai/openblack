@@ -33,6 +33,9 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint239 (09ca6bb9b): Firestorm parked with online play; the fan-made Island Wars and Death Comes To Those That
+  Wait and openblack's own Construct land leave the progress pages (not in the original); thrown things through trees
+  and the bonfire and a struck storage pit tested in the world. Only test_bgfx ran.
 - joint238 (a2b1656d9), tests only: things dropped into the sea played in the world (seven water rows); the world
   tests keep the map of what is in each cell. Only test_bgfx and test_villagers ran.
 - joint237 (a4ff845b1), tests only: villagers' deaths, hunger, homes and missionaries, and scaffolds, their sites

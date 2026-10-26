@@ -33,6 +33,11 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint248 (0076d0747): villagers stop to look at a scaffold put up for a building, and watch a town taken over
+  without a centre (a town going neutral too); a town a scaffold founds takes its forests from its wood store; flocks
+  are the neutral player's, and the flock miracle's the caster's; a caught thing ends its flying reactions; a seed
+  its spell deletes records its type; the facing-camera point as the original; the creature spec through the cache.
+  Two new scenes. Fidelity, cycle, story and hands identical; three scenes move by the take-over reaction.
 - joint247 (dd9eaba6b): a land script's positions are read in map units, as the original: 563 Land 1 objects
   move onto their quantised point, and the footpaths, Land 2 and the story follow. Every scene's state identical; the
   land, hand, story and land-view references renewed after a second pass agreed. A blast test (smoke on land, steam

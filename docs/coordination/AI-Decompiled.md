@@ -33,6 +33,9 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint244 (83bb3baa7): the install folder's choice and the draw's submesh rules as tested functions; the sky,
+  the moon, the sun and the hand's last rows tested; a won town's wonder gives its power to the new owner. Every
+  check identical, the land views too.
 - joint243 (4526cb206): the footpath files, 16-bit images, mesh and animation packs and the tables' names read
   as the game reads them (tests); an abode info is the first matching row, none when none does; CREATE_FIELD makes
   a field of no town with the Celtic row; the vulture and planned features, never made by the original, not ported.

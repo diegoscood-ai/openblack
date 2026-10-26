@@ -33,6 +33,10 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint246 (fc0c265d3): SQUARE_ROOT takes the root of any value; GET_SPELL_ICON_IN_TEMPLE looks up any miracle and
+  adds the icon to the scripts' table; a script's in-world value points in the world only when it is 1; an advisor
+  with a blend that is not a number is drawn near the screen; the hand's spec file read through the cache; a sprite's
+  draw mode as a pure rule. Every check identical, the land views too.
 - joint245 (4120e0d12): the land script reader reads a line as the original does; the town turn moves its
   player's alignment by the town's desires (pinned to oracle runs); the command line's graphics interface and window
   mode as pure rules; the resource caches and the script machine's auto-start tested. Every check identical, the

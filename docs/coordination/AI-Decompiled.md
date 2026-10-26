@@ -33,6 +33,9 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint232 (96b2b55ba), tests only: the first world multi-test. The rock split scene played turn by turn in a world
+  of the game's own systems (test/support/WorldHarness.h), nine of its rows checked at once against the original, each
+  with game data and with a synthetic twin. Only its test group ran.
 - joint231 (44617451c): the creature's second phase pins its object actions, alignment, fights, held villagers,
   eating sounds, fizzle, lessons, town dances and species rows to the original. Every check identical.
 - joint230 (6aa2fa831): the ray behind a point against a body's faces checked against the original's own and fixed

@@ -33,6 +33,11 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint242 (5b64642ad): the hand driven through its real frame in a world of the game's own systems (picking,
+  holding, pouring, the tug, throwing, the orbs); a new game starts the story only with its program read and on
+  Land 1; SET_A_TOWNS_INFLUENCE_MULTIPLIER is no land script command; CREATE_TOWN gives an unknown player's town to
+  the neutral player; CREATE_NEW_ANIMAL keeps a negative age; a town field of no town makes nothing. Every check
+  identical.
 - joint241 (490b5fe87): STOP_ALL_SCRIPTS_EXCLUDING splits its list on spaces, commas and tabs, as the original;
   the blast's rubble and rings tested in the world; the land scripts' designed scenery, the rival gods' natives and
   the reward chest tested. Every check identical.

@@ -33,6 +33,10 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint245 (4120e0d12): the land script reader reads a line as the original does; the town turn moves its
+  player's alignment by the town's desires (pinned to oracle runs); the command line's graphics interface and window
+  mode as pure rules; the resource caches and the script machine's auto-start tested. Every check identical, the
+  story too.
 - joint244 (83bb3baa7): the install folder's choice and the draw's submesh rules as tested functions; the sky,
   the moon, the sun and the hand's last rows tested; a won town's wonder gives its power to the new owner. Every
   check identical, the land views too.

@@ -33,6 +33,11 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint254 (22e86e239): what flies is stopped by a pile that isn't a storage pit's, by a building only while it
+  stands (the village centre always) and by a standing feature, as the original; a moving camera keeps the gesture
+  while following a creature or watching a fight; a worship site's miracle sends motes of light from its icon. Four
+  scenes moved by the collision rules and renewed; 182 more scenes now checked at every joint; every other check
+  identical.
 - joint253 (219905d55): the land takes an object's footprint only for the objects the original gives it (gates,
   caves, fields, worship sites, the citadel, a house made unbuilt); an animal given to the altar counts one
   sacrifice; a held villager not available, a skeleton or a footballer takes no work; a land-coloured particle mesh

@@ -33,6 +33,8 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint260 (0be669dd8): a worship site's altar is filed in the map cells, as the original; the arenas are loaded and
+  written; a scene of an artefact's glow; the save progress page lists each row once. All identical.
 - joint259 (23bffd8e1): the hand takes hold of a tied leash's rope and pulls it, its fingers closing over the rope;
   a script's arena starts its fight reaction as it is made (the story run moves from turn 485, as the original).
 - joint258 (2777eb9c8): a villager not available for a reaction takes no miracle's reaction either (8 miracle

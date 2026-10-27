@@ -33,6 +33,8 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint263 (1058a01ae): a worship site's altar is built with its site, and an unbuilt site's spell icons draw
+  nothing, as the original (the cycle and story move from Land 2 turn 2; closes #175); the flocks are written.
 - joint262 (f01285c76, FULL): after turning on the spot the creature walks on in the same turn, and it turns on the
   spot however little, as the original (fid, cycle, story, hands and 40 scenes move, all attributed); the camera
   bookmarks' markers, pulse, follow, flight, clearing and Backspace, as the original.

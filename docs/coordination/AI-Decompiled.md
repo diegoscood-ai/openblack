@@ -33,6 +33,8 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint259 (23bffd8e1): the hand takes hold of a tied leash's rope and pulls it, its fingers closing over the rope;
+  a script's arena starts its fight reaction as it is made (the story run moves from turn 485, as the original).
 - joint258 (2777eb9c8): a villager not available for a reaction takes no miracle's reaction either (8 miracle
   scenes move, as the original); the players' records and the in-play saves; rocks, fires and villagers are loaded and
   written as the original saves them; the save library compiles its records' copies and moves once.

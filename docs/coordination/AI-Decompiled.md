@@ -33,6 +33,8 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint265 (8a774e6df): Choose Your Creature, The Lost Brother and The Sculptor played through by a quest run to the
+  creature's choice, their rows closed from its log; testbed only otherwise.
 - joint264 (d216e6709): the quest runner (a native trace switch, quest= with arguments, aimed presses) and Choose
   Your Creature's first beats closed by it; Land 1's silver scrolls as story scenes; the leash carries a held thing
   to a point and puts it down; a discard by the put-down lays a thing down; a rock's script scale; haptics rows set

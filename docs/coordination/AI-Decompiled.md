@@ -33,6 +33,9 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint273 (3f5f47763): a creature's clear-area search blocks only on what the map gives collide data, picks the
+  nearest by the original's distance, and holds its middle in map coordinates, as the original; quest runs for Land 1
+  to 4 and three new testbed commands. All identical.
 - joint272 (d945dea27): a computer player's hand keeps what it holds out of the map cells until it lets go (Khazar's
   workshop scaffold now becomes its site), as the original; the wiki reviewed page by page and six facts from the
   openblack project wiki added. All identical.

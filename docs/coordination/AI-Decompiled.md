@@ -33,6 +33,10 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint264 (d216e6709): the quest runner (a native trace switch, quest= with arguments, aimed presses) and Choose
+  Your Creature's first beats closed by it; Land 1's silver scrolls as story scenes; the leash carries a held thing
+  to a point and puts it down; a discard by the put-down lays a thing down; a rock's script scale; haptics rows set
+  apart (device). All identical.
 - joint263 (1058a01ae): a worship site's altar is built with its site, and an unbuilt site's spell icons draw
   nothing, as the original (the cycle and story move from Land 2 turn 2; closes #175); the flocks are written.
 - joint262 (f01285c76, FULL): after turning on the spot the creature walks on in the same turn, and it turns on the

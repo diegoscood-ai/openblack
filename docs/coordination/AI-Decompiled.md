@@ -33,6 +33,9 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint258 (2777eb9c8): a villager not available for a reaction takes no miracle's reaction either (8 miracle
+  scenes move, as the original); the players' records and the in-play saves; rocks, fires and villagers are loaded and
+  written as the original saves them; the save library compiles its records' copies and moves once.
 - joint257 (d7a6ddc04): a ghost dissolves through its mask's holes (the store's take, the gate stones); the temple
   map's markers are shaded as the room's models; a sick creature throws the original's drops; an artefact's glow is
   as strong as its worth and a destroyed temple's glow follows the heartbeat; a quick tap on a tree under the hand is a

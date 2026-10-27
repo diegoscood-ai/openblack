@@ -33,6 +33,8 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint271 (81e52fe25): on the aggression leash, or at a point it can't stand on, a creature holding something
+  walks to eight times its height from the point and throws the thing there, as the original. All identical.
 - joint270 (6530fe4bc): two quest-run comments name the quests, not the original's script files. Comments only.
 - joint269 (49c67c063): Land 2's Worship Site played by a quest run, its beats closed from the log. Testbed and docs only.
 - joint268 (a9f57c8de): the dialogue strip's fade pinned to the original's frame by frame; Land 1's silver rows that

@@ -33,6 +33,11 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint256 (aeb92e3e6): a tree keeps its angle within a turn and sways in the original's wind slot; the
+  SuperVillagers' temporary shadows are made newest at the head; every belief sprite is queued with no limit, as the
+  original; the save writes the rivers, mists, forests, trees, big forests, climates with their storms and the
+  things of the weather, and a load brings the climates' storms and the weather things back; wiki errata from the
+  names harvest. Every state identical; one scene shot and one hand shot renewed.
 - joint255 (9b331b618): the save writer: the world file built from the entities (with the objects that aren't
   entities, such as forests and footpath nodes), the game object's head and tail, and a slot written in the game's
   order with its info, pictures and creature minds; the frozen Land 1 autosave writes back byte for byte. Nothing

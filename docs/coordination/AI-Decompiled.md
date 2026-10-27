@@ -33,6 +33,9 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint262 (f01285c76, FULL): after turning on the spot the creature walks on in the same turn, and it turns on the
+  spot however little, as the original (fid, cycle, story, hands and 40 scenes move, all attributed); the camera
+  bookmarks' markers, pulse, follow, flight, clearing and Backspace, as the original.
 - joint261 (a8a2dae02): the dances, worship sites (with their totems, signs and spell icons) and villagers in dance,
   dead and target states are loaded and written as the original saves them. All identical.
 - joint260 (0be669dd8): a worship site's altar is filed in the map cells, as the original; the arenas are loaded and

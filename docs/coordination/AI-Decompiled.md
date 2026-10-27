@@ -33,6 +33,8 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint261 (a8a2dae02): the dances, worship sites (with their totems, signs and spell icons) and villagers in dance,
+  dead and target states are loaded and written as the original saves them. All identical.
 - joint260 (0be669dd8): a worship site's altar is filed in the map cells, as the original; the arenas are loaded and
   written; a scene of an artefact's glow; the save progress page lists each row once. All identical.
 - joint259 (23bffd8e1): the hand takes hold of a tied leash's rope and pulls it, its fingers closing over the rope;

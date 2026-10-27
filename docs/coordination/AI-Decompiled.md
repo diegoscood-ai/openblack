@@ -33,6 +33,7 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint270 (6530fe4bc): two quest-run comments name the quests, not the original's script files. Comments only.
 - joint269 (49c67c063): Land 2's Worship Site played by a quest run, its beats closed from the log. Testbed and docs only.
 - joint268 (a9f57c8de): the dialogue strip's fade pinned to the original's frame by frame; Land 1's silver rows that
   waited on it closed; the scroll notice that never plays moved to not-in-the-original. Tests and docs only. 57%.

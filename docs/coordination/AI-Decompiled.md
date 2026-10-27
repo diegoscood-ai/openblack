@@ -33,6 +33,12 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint257 (d7a6ddc04): a ghost dissolves through its mask's holes (the store's take, the gate stones); the temple
+  map's markers are shaded as the room's models; a sick creature throws the original's drops; an artefact's glow is
+  as strong as its worth and a destroyed temple's glow follows the heartbeat; a quick tap on a tree under the hand is a
+  tap and the hand lets go of a held tree on release; a puzzle totem's press clicks the land; the neutral player's
+  type is the original's; the save's shared moving and living parts. Every state identical but the expected movers,
+  renewed after the second pass.
 - joint256 (aeb92e3e6): a tree keeps its angle within a turn and sways in the original's wind slot; the
   SuperVillagers' temporary shadows are made newest at the head; every belief sprite is queued with no limit, as the
   original; the save writes the rivers, mists, forests, trees, big forests, climates with their storms and the

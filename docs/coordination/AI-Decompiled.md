@@ -33,6 +33,9 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint272 (d945dea27): a computer player's hand keeps what it holds out of the map cells until it lets go (Khazar's
+  workshop scaffold now becomes its site), as the original; the wiki reviewed page by page and six facts from the
+  openblack project wiki added. All identical.
 - joint271 (81e52fe25): on the aggression leash, or at a point it can't stand on, a creature holding something
   walks to eight times its height from the point and throws the thing there, as the original. All identical.
 - joint270 (6530fe4bc): two quest-run comments name the quests, not the original's script files. Comments only.

@@ -33,6 +33,8 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint266 (460456377): screen texts are placed with the original's half pixel (43 scene shots, 4 hand-demo shots
+  and the temple shots move; every state identical); Land 1's silver-scroll rows closed by their quest checks.
 - joint265 (8a774e6df): Choose Your Creature, The Lost Brother and The Sculptor played through by a quest run to the
   creature's choice, their rows closed from its log; testbed only otherwise.
 - joint264 (d216e6709): the quest runner (a native trace switch, quest= with arguments, aimed presses) and Choose

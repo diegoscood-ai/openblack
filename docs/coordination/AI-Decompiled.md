@@ -33,6 +33,8 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint268 (a9f57c8de): the dialogue strip's fade pinned to the original's frame by frame; Land 1's silver rows that
+  waited on it closed; the scroll notice that never plays moved to not-in-the-original. Tests and docs only. 57%.
 - joint267 (72da88029): Land 2's story work: a town with no building, plan or people is deleted; a town changing
   hands leaves its old owner as a deleted town does; THING_VALID as the original; STOP_SCRIPT's name list; the
   creature's developer functions 8/9; a spot visual's target object; the scroll's instant save. All identical.

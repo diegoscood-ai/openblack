@@ -49,6 +49,11 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 - joint279 (0e3318ff4, docs and tests): the quests' natives read against the original, the wiki's pages and the
   creature, hand, physics, gesture, animal and miracle progress rows brought up to date with the code (87 duplicate
   rows merged); the exe byte-identical to joint278's.
+- joint280 (cf35d73f3): the creature's route planning as the original (longest route 2*d+5000 with no time limit,
+  a failed search refusing, a new point handed to the follower on its way, a fresh follower from standing, the search
+  turns) and a script's move carrying a walk on; the wiki's pages and every progress row checked against the code
+  (score 58%, 249+87 duplicate rows merged). fid, cycle and hands identical; the story and 11 scenes move, each named
+  (4 of them from joint278's reaction switch).
 - joint274 (c9429ba41): a resource put down goes into any store of its type within reach (a workshop takes wood), with
   mid-walk piles, the citadel's heart as a wood store and the unchecked subtraction, as the original; the scripts' EQ
   and NEQ compare only integers, booleans and floats. One scene moved (a creature's wood cast by a workshop).

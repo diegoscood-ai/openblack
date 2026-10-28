@@ -46,6 +46,9 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 - joint278 (c607b3526): a hand demo feeds its recorded moves to the gestures, so a demo's circle casts; a script's
   search for a shield finds one within its own radius; the miracle reactions' switch and shield bearings; Land 2 quest
   testbeds. Build, 8 test groups, fid, cycle, story, hands and 22 scenes identical (2 new scenes).
+- joint279 (0e3318ff4, docs and tests): the quests' natives read against the original, the wiki's pages and the
+  creature, hand, physics, gesture, animal and miracle progress rows brought up to date with the code (87 duplicate
+  rows merged); the exe byte-identical to joint278's.
 - joint274 (c9429ba41): a resource put down goes into any store of its type within reach (a workshop takes wood), with
   mid-walk piles, the citadel's heart as a wood store and the unchecked subtraction, as the original; the scripts' EQ
   and NEQ compare only integers, booleans and floats. One scene moved (a creature's wood cast by a workshop).

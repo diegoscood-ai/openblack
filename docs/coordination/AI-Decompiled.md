@@ -36,6 +36,9 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 - joint275 (9f95b4854, FULL + G3): a creature's walk is cut short by the arrival ring's inside, not its outside, so it
   walks onto its point, as the original (fid, cycle, story, hands, 141 scenes move from Land 1 turn 62); what moves is
   drawn between turns as the original, with smooth drawing as an off-by-default debug switch (20 shots, G3).
+- joint276 (245a1ec0a): Land 2's rival god's mind takes its turn, picks its aims and runs its chosen actions with the
+  hand (fetching food, wood and villagers from other towns), as the original; fid, cycle, story and hands identical,
+  the moves only in Land 2's quest runs from turn 1400.
 - joint274 (c9429ba41): a resource put down goes into any store of its type within reach (a workshop takes wood), with
   mid-walk piles, the citadel's heart as a wood store and the unchecked subtraction, as the original; the scripts' EQ
   and NEQ compare only integers, booleans and floats. One scene moved (a creature's wood cast by a workshop).

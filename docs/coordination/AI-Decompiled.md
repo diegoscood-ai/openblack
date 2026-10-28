@@ -33,6 +33,9 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 
 ## Done since the last update
 
+- joint274 (c9429ba41): a resource put down goes into any store of its type within reach (a workshop takes wood), with
+  mid-walk piles, the citadel's heart as a wood store and the unchecked subtraction, as the original; the scripts' EQ
+  and NEQ compare only integers, booleans and floats. One scene moved (a creature's wood cast by a workshop).
 - joint273 (3f5f47763): a creature's clear-area search blocks only on what the map gives collide data, picks the
   nearest by the original's distance, and holds its middle in map coordinates, as the original; quest runs for Land 1
   to 4 and three new testbed commands. All identical.

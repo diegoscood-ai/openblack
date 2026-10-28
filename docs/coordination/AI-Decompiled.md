@@ -54,6 +54,9 @@ Only the clean-up is worked on tonight; the other items stay on this side.
   turns) and a script's move carrying a walk on; the wiki's pages and every progress row checked against the code
   (score 58%, 249+87 duplicate rows merged). fid, cycle and hands identical; the story and 11 scenes move, each named
   (4 of them from joint278's reaction switch).
+- joint281 (51d0e0b26): an arena's fight reaction spreads from the script's place; a frozen creature is drawn in the
+  original's frozen tint; CALL and CALL_NEAR pick the newest creature; raffclar's status table classified to #1009.
+  fid, cycle, story, hands and 30 scenes identical but the two freeze shots. G3 moves come from joint280 (being named).
 - joint274 (c9429ba41): a resource put down goes into any store of its type within reach (a workshop takes wood), with
   mid-walk piles, the citadel's heart as a wood store and the unchecked subtraction, as the original; the scripts' EQ
   and NEQ compare only integers, booleans and floats. One scene moved (a creature's wood cast by a workshop).

@@ -39,6 +39,10 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 - joint276 (245a1ec0a): Land 2's rival god's mind takes its turn, picks its aims and runs its chosen actions with the
   hand (fetching food, wood and villagers from other towns), as the original; fid, cycle, story and hands identical,
   the moves only in Land 2's quest runs from turn 1400.
+- joint277 (5af8ddd13): the saves' writers and readers for the computer players, the influence rings and other
+  parts (no caller yet); the hand's straight pick-up from a field or fish farm and the pile's grab time, as the
+  original; quest testbeds and timelines for Lands 1-4 with their closing docs (59%); the work in progress recorded
+  on its wiki pages. Build, 10 test groups, fid, cycle, story and hands identical.
 - joint274 (c9429ba41): a resource put down goes into any store of its type within reach (a workshop takes wood), with
   mid-walk piles, the citadel's heart as a wood store and the unchecked subtraction, as the original; the scripts' EQ
   and NEQ compare only integers, booleans and floats. One scene moved (a creature's wood cast by a workshop).

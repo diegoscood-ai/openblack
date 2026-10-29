@@ -83,6 +83,11 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 - joint287 (95a5e2253): raffclar's particle draw order (#952) refitted: a willow wisp draws its point in the ball before
   its speed, the sphere-surface tracer draws three angles, a cast's velocity starts from its parent. 51 miracle scenes, the
   cycle and the story move (Land 2 turn 2, random), each commit's moves named.
+- joint288 (e1df7b7a7, FULL): the creature walks along its route's own heading and corners, steps off following
+  the route's turns a turn behind its follower, and faces its opponent outright in a fight, with the original's exact
+  angle wraps; a creature's static action draws for its mirror on every start try; what stands where it is placed is
+  drawn with its own placement; the challenge record natives read against the original (12 quest rows). 11,194 tests;
+  fid, cycle, story, hands, the day land view and 169 scenes move at Land 1 t62 (heading) and t70 (the mirror draw).
 - joint274 (c9429ba41): a resource put down goes into any store of its type within reach (a workshop takes wood), with
   mid-walk piles, the citadel's heart as a wood store and the unchecked subtraction, as the original; the scripts' EQ
   and NEQ compare only integers, booleans and floats. One scene moved (a creature's wood cast by a workshop).

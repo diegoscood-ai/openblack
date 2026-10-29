@@ -76,6 +76,10 @@ Only the clean-up is worked on tonight; the other items stay on this side.
   the hand's pick and feel through an object's placement, a script's move of a static object leaving its placement,
   a joint action's partner sizing the size spells. Everything identical; 3 scenes joint284 moved and did not run
   (eating alive, the entrance points) promoted.
+- joint286 (4c4083d0b): raffclar's fight refit (#994: the blow's force, the computer's wait, the computer attacking a
+  casting opponent and drawing its lot only when it can), the lightning bolt without our straight-down guard, a script
+  reading a spell's or seed's strength, indestructible members and the spells and foresters respecting them. Four
+  fight scenes move by #994's third commit, named; the rest identical.
 - joint274 (c9429ba41): a resource put down goes into any store of its type within reach (a workshop takes wood), with
   mid-walk piles, the citadel's heart as a wood store and the unchecked subtraction, as the original; the scripts' EQ
   and NEQ compare only integers, booleans and floats. One scene moved (a creature's wood cast by a workshop).

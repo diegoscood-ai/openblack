@@ -80,6 +80,9 @@ Only the clean-up is worked on tonight; the other items stay on this side.
   casting opponent and drawing its lot only when it can), the lightning bolt without our straight-down guard, a script
   reading a spell's or seed's strength, indestructible members and the spells and foresters respecting them. Four
   fight scenes move by #994's third commit, named; the rest identical.
+- joint287 (95a5e2253): raffclar's particle draw order (#952) refitted: a willow wisp draws its point in the ball before
+  its speed, the sphere-surface tracer draws three angles, a cast's velocity starts from its parent. 51 miracle scenes, the
+  cycle and the story move (Land 2 turn 2, random), each commit's moves named.
 - joint274 (c9429ba41): a resource put down goes into any store of its type within reach (a workshop takes wood), with
   mid-walk piles, the citadel's heart as a wood store and the unchecked subtraction, as the original; the scripts' EQ
   and NEQ compare only integers, booleans and floats. One scene moved (a creature's wood cast by a workshop).

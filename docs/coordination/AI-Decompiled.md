@@ -62,6 +62,10 @@ Only the clean-up is worked on tonight; the other items stay on this side.
   the swap of minds, the field of view and the camera test), the creatures searching a route sharing 32 search turns
   (raffclar's, the story and the day land view move from it, named); Land 2's quest rows closed and the natives' rows
   counted per use (60%). fid, cycle, hands and 152 scenes identical.
+- joint283 (1851f3ee2): more quest natives as the original (special effects at a place or object, developer function
+  11, the static hold, a script's release, miracles' from points, the shared look-up refusing dying and deleted things,
+  reaction followers' join stamps and save), Khazar's challenges closed against a hand-played run, every duplicated
+  progress row merged and Land 2's citations made stable (61%). fid, cycle, story, hands, G3 and 155 scenes identical.
 - joint274 (c9429ba41): a resource put down goes into any store of its type within reach (a workshop takes wood), with
   mid-walk piles, the citadel's heart as a wood store and the unchecked subtraction, as the original; the scripts' EQ
   and NEQ compare only integers, booleans and floats. One scene moved (a creature's wood cast by a workshop).

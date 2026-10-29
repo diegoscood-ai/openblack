@@ -96,6 +96,10 @@ Only the clean-up is worked on tonight; the other items stay on this side.
   vortex no longer makes arriving villagers 77 m underground, so 30 of them no longer die), GET_POSITION at and near the
   goal with its altitude, the puzzle delete, IsObject, the flock and dance deletion, raffclar's mode-1 ghost, and a
   scene forcing a creature's stomp-and-eat. fid, cycle and hands move at Land 1 t28 (the vortex's y), the story on Land 2.
+- joint291 (db3728207, FULL, new base): a thing marked indestructible survives a killing blow, and a creature spits
+  such a meal out whole; a challenge picture is of the frame already on screen; Land 2 quest rows closed from two
+  hand-played runs (Worship Site, Workshop, Khazar's fireball and shield), the Pied Piper's good ending; every area's
+  pages brought up to date. 11,227 tests; every state, shot, hand demo and the story identical.
 - joint274 (c9429ba41): a resource put down goes into any store of its type within reach (a workshop takes wood), with
   mid-walk piles, the citadel's heart as a wood store and the unchecked subtraction, as the original; the scripts' EQ
   and NEQ compare only integers, booleans and floats. One scene moved (a creature's wood cast by a workshop).

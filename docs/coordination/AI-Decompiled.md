@@ -66,6 +66,11 @@ Only the clean-up is worked on tonight; the other items stay on this side.
   11, the static hold, a script's release, miracles' from points, the shared look-up refusing dying and deleted things,
   reaction followers' join stamps and save), Khazar's challenges closed against a hand-played run, every duplicated
   progress row merged and Land 2's citations made stable (61%). fid, cycle, story, hands, G3 and 155 scenes identical.
+- joint284 (a1dcea1ba): object placements as the original (an abode's entrance points from its map-position matrix,
+  the builders' ring, the draw-list sphere), raffclar's leash refits (#990, #989), a town's or flock's speed set on
+  each member and a creature eating alive as the original, a citadel heart's snow fading, miracles sparing what a
+  script holds, lessons limiting the hand, a town's new miracle above its chest. Cycle (Land 2 t1, last bits) and the
+  story move by the entrance points, 3 scenes by #989 and eating; each named.
 - joint274 (c9429ba41): a resource put down goes into any store of its type within reach (a workshop takes wood), with
   mid-walk piles, the citadel's heart as a wood store and the unchecked subtraction, as the original; the scripts' EQ
   and NEQ compare only integers, booleans and floats. One scene moved (a creature's wood cast by a workshop).

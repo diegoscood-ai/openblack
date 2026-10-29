@@ -56,7 +56,12 @@ Only the clean-up is worked on tonight; the other items stay on this side.
   (4 of them from joint278's reaction switch).
 - joint281 (51d0e0b26): an arena's fight reaction spreads from the script's place; a frozen creature is drawn in the
   original's frozen tint; CALL and CALL_NEAR pick the newest creature; raffclar's status table classified to #1009.
-  fid, cycle, story, hands and 30 scenes identical but the two freeze shots. G3 moves come from joint280 (being named).
+  fid, cycle, story, hands and 30 scenes identical but the two freeze shots. G3 moved by joint280's routes (named).
+- joint282 (b61c2db71): about thirty quest natives as the original (GET_TARGET_RELATIVE_POS, SET_POSITION, Flying and
+  Speed, a mind file's tattoos and the creature fizzing in, an animal's script move, alignment, growing-up stage and
+  the swap of minds, the field of view and the camera test), the creatures searching a route sharing 32 search turns
+  (raffclar's, the story and the day land view move from it, named); Land 2's quest rows closed and the natives' rows
+  counted per use (60%). fid, cycle, hands and 152 scenes identical.
 - joint274 (c9429ba41): a resource put down goes into any store of its type within reach (a workshop takes wood), with
   mid-walk piles, the citadel's heart as a wood store and the unchecked subtraction, as the original; the scripts' EQ
   and NEQ compare only integers, booleans and floats. One scene moved (a creature's wood cast by a workshop).

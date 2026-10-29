@@ -92,6 +92,10 @@ Only the clean-up is worked on tonight; the other items stay on this side.
   forcing a spirit's voice (debug), the Pied Piper quest run on a newborn creature (the original stalls a creature of
   size 1.6 or more in the crèche ring), the growth constant, a forced stomp-and-eat for a script, and three natives'
   stale marks closed. Everything identical.
+- joint290 (cbc47d085): CREATE puts storms, puzzles, dispensers and vortices on the land as the original (Land 2's way-in
+  vortex no longer makes arriving villagers 77 m underground, so 30 of them no longer die), GET_POSITION at and near the
+  goal with its altitude, the puzzle delete, IsObject, the flock and dance deletion, raffclar's mode-1 ghost, and a
+  scene forcing a creature's stomp-and-eat. fid, cycle and hands move at Land 1 t28 (the vortex's y), the story on Land 2.
 - joint274 (c9429ba41): a resource put down goes into any store of its type within reach (a workshop takes wood), with
   mid-walk piles, the citadel's heart as a wood store and the unchecked subtraction, as the original; the scripts' EQ
   and NEQ compare only integers, booleans and floats. One scene moved (a creature's wood cast by a workshop).

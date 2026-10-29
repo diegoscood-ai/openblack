@@ -71,6 +71,11 @@ Only the clean-up is worked on tonight; the other items stay on this side.
   each member and a creature eating alive as the original, a citadel heart's snow fading, miracles sparing what a
   script holds, lessons limiting the hand, a town's new miracle above its chest. Cycle (Land 2 t1, last bits) and the
   story move by the entrance points, 3 scenes by #989 and eating; each named.
+- joint285 (2c9ca39fb): the last stub natives as the original (screen texts and their colour and fade from raffclar,
+  SET_ANIMATION_MODIFY from raffclar, the clipping window, CALL_FLYING, GET_DEAD_LIVING, LEARN_EVERYTHING and others),
+  the hand's pick and feel through an object's placement, a script's move of a static object leaving its placement,
+  a joint action's partner sizing the size spells. Everything identical; 3 scenes joint284 moved and did not run
+  (eating alive, the entrance points) promoted.
 - joint274 (c9429ba41): a resource put down goes into any store of its type within reach (a workshop takes wood), with
   mid-walk piles, the citadel's heart as a wood store and the unchecked subtraction, as the original; the scripts' EQ
   and NEQ compare only integers, booleans and floats. One scene moved (a creature's wood cast by a workshop).

@@ -100,6 +100,9 @@ Only the clean-up is worked on tonight; the other items stay on this side.
   such a meal out whole; a challenge picture is of the frame already on screen; Land 2 quest rows closed from two
   hand-played runs (Worship Site, Workshop, Khazar's fireball and shield), the Pied Piper's good ending; every area's
   pages brought up to date. 11,227 tests; every state, shot, hand demo and the story identical.
+- joint292 (5c2ca428f, FULL): the land's far texture band is blended with its tile once, as the original (the
+  pale veil over Land 2 is gone; the land views by day and night renewed); a worship chant readout; script property
+  natives for towns, flocks, dances, scale, height and age. 11,243 tests; every state and scene identical.
 - joint274 (c9429ba41): a resource put down goes into any store of its type within reach (a workshop takes wood), with
   mid-walk piles, the citadel's heart as a wood store and the unchecked subtraction, as the original; the scripts' EQ
   and NEQ compare only integers, booleans and floats. One scene moved (a creature's wood cast by a workshop).

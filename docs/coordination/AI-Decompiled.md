@@ -88,6 +88,10 @@ Only the clean-up is worked on tonight; the other items stay on this side.
   angle wraps; a creature's static action draws for its mirror on every start try; what stands where it is placed is
   drawn with its own placement; the challenge record natives read against the original (12 quest rows). 11,194 tests;
   fid, cycle, story, hands, the day land view and 169 scenes move at Land 1 t62 (heading) and t70 (the mirror draw).
+- joint289 (570907760): every advisor line's recording pinned per land against the original's rule, the Consciences window
+  forcing a spirit's voice (debug), the Pied Piper quest run on a newborn creature (the original stalls a creature of
+  size 1.6 or more in the crèche ring), the growth constant, a forced stomp-and-eat for a script, and three natives'
+  stale marks closed. Everything identical.
 - joint274 (c9429ba41): a resource put down goes into any store of its type within reach (a workshop takes wood), with
   mid-walk piles, the citadel's heart as a wood store and the unchecked subtraction, as the original; the scripts' EQ
   and NEQ compare only integers, booleans and floats. One scene moved (a creature's wood cast by a workshop).

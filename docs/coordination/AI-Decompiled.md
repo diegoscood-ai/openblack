@@ -115,6 +115,9 @@ Only the clean-up is worked on tonight; the other items stay on this side.
   layered animations); features and animated scenery solid to thrown things; animals flee fires; the creature learns
   skills by watching; the hand stands on a tugged thing and leans with it; a demo's press is taken again as the
   original's playback; worship icons draw their charge. 11,384 tests; 226 scenes moved, attributed by set.
+- joint295 (7c4ec96b4): what a creature holds is drawn in its hand at the original's hold, out of the map, with
+  its hold pose; the worship site's dance; the hand holds a sleeping creature, a toy football, sleep eyes; the hand's
+  quest actions proven through real input. Land 1 is now played through to Land 2 by the user. 38 scenes moved.
 - joint274 (c9429ba41): a resource put down goes into any store of its type within reach (a workshop takes wood), with
   mid-walk piles, the citadel's heart as a wood store and the unchecked subtraction, as the original; the scripts' EQ
   and NEQ compare only integers, booleans and floats. One scene moved (a creature's wood cast by a workshop).

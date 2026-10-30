@@ -103,6 +103,13 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 - joint292 (5c2ca428f, FULL): the land's far texture band is blended with its tile once, as the original (the
   pale veil over Land 2 is gone; the land views by day and night renewed); a worship chant readout; script property
   natives for towns, flocks, dances, scale, height and age. 11,243 tests; every state and scene identical.
+- joint293 (037f18598, FULL, 54 commits): from the user's Land 1 hand test and the breadth plan: worship deaths
+  counted; reward chests tapped; a refused pick-up no longer sticks in the hand; demo icons follow the demo's cursor;
+  the food demo's tap; the creature takes what the leash taps, with the target marker (raffclar refit); villagers
+  impressed by magic trees, things looked at, a held villager and a fight won; tribal power copied per player; a
+  creature dead for good; a creature takes up a fire's reaction; rows the hand test contradicted lowered; lost quest
+  logs rerun into refs/story/evidence; the dashboard counts rows proven in play. 11,295 tests; 14 scenes moved, each
+  attributed (6 by the testbed now casting both held miracles).
 - joint274 (c9429ba41): a resource put down goes into any store of its type within reach (a workshop takes wood), with
   mid-walk piles, the citadel's heart as a wood store and the unchecked subtraction, as the original; the scripts' EQ
   and NEQ compare only integers, booleans and floats. One scene moved (a creature's wood cast by a workshop).

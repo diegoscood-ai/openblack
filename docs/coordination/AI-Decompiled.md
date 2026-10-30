@@ -121,6 +121,9 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 - joint296 (aa7b20e35): Impress Village won by the hand's pours alone; a story run from Land 1 through Land 2
   into Land 3 (two testbed shortcuts left), its rows closed; Load Defaults and the kept help record; held villagers
   calling the other sex confirmed as ours. Everything identical.
+- joint297 (016e7e887): quest timelines for Lands 3-5; 73 of their rows closed; a creature watching the hand
+  behind it turns once and ends on time (the Land 5 curse no longer stalls); the first land read from Map.txt
+  (raffclar). 16 creature scenes moved by the watch fix.
 - joint274 (c9429ba41): a resource put down goes into any store of its type within reach (a workshop takes wood), with
   mid-walk piles, the citadel's heart as a wood store and the unchecked subtraction, as the original; the scripts' EQ
   and NEQ compare only integers, booleans and floats. One scene moved (a creature's wood cast by a workshop).

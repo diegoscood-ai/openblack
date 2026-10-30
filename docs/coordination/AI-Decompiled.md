@@ -110,6 +110,11 @@ Only the clean-up is worked on tonight; the other items stay on this side.
   creature dead for good; a creature takes up a fire's reaction; rows the hand test contradicted lowered; lost quest
   logs rerun into refs/story/evidence; the dashboard counts rows proven in play. 11,295 tests; 14 scenes moved, each
   attributed (6 by the testbed now casting both held miracles).
+- joint294 (0bd580ace, FULL, 54 commits): the player's fight input, the arena's ring, the marks and fight miracles
+  (raffclar refits); the creature's walk (route headings, braking stops, step offs) and its pose blends (turns, morphs,
+  layered animations); features and animated scenery solid to thrown things; animals flee fires; the creature learns
+  skills by watching; the hand stands on a tugged thing and leans with it; a demo's press is taken again as the
+  original's playback; worship icons draw their charge. 11,384 tests; 226 scenes moved, attributed by set.
 - joint274 (c9429ba41): a resource put down goes into any store of its type within reach (a workshop takes wood), with
   mid-walk piles, the citadel's heart as a wood store and the unchecked subtraction, as the original; the scripts' EQ
   and NEQ compare only integers, booleans and floats. One scene moved (a creature's wood cast by a workshop).

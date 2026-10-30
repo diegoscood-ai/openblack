@@ -118,6 +118,9 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 - joint295 (7c4ec96b4): what a creature holds is drawn in its hand at the original's hold, out of the map, with
   its hold pose; the worship site's dance; the hand holds a sleeping creature, a toy football, sleep eyes; the hand's
   quest actions proven through real input. Land 1 is now played through to Land 2 by the user. 38 scenes moved.
+- joint296 (aa7b20e35): Impress Village won by the hand's pours alone; a story run from Land 1 through Land 2
+  into Land 3 (two testbed shortcuts left), its rows closed; Load Defaults and the kept help record; held villagers
+  calling the other sex confirmed as ours. Everything identical.
 - joint274 (c9429ba41): a resource put down goes into any store of its type within reach (a workshop takes wood), with
   mid-walk piles, the citadel's heart as a wood store and the unchecked subtraction, as the original; the scripts' EQ
   and NEQ compare only integers, booleans and floats. One scene moved (a creature's wood cast by a workshop).

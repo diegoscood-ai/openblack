@@ -137,6 +137,7 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 - joint302 (225ceb458, docs only): The Treacherous Path played: 18 rows done, 15 partial (the page from 6% to 47%).
 - joint303 (81bb7ea48, docs only): I Have a Surprise for You played to its villages won: 34 rows done, 19 partial (0% to 57%).
 - joint304 (76f6e573a, docs only): the advisors' messages told apart and their winning/losing lists closed; the minigames' and portals' undetermined rows and the temple LOAD_MAP turn settled from the original.
+- joint305 (7ae8f257b, docs and comments only): the cut scene walks and clips settled (a creature's forced clip already as the original's; no shipped script walks a creature along a track), 7 story rows closed; the advisors' idle clock and booming voice settled.
 - joint274 (c9429ba41): a resource put down goes into any store of its type within reach (a workshop takes wood), with
   mid-walk piles, the citadel's heart as a wood store and the unchecked subtraction, as the original; the scripts' EQ
   and NEQ compare only integers, booleans and floats. One scene moved (a creature's wood cast by a workshop).

@@ -135,6 +135,7 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 - joint301 (225ceb458, docs only): 468 story rows now name the system row that finishes them; Land 1 silver
   quest rows closed from their evidence runs. No game change.
 - joint302 (225ceb458, docs only): The Treacherous Path played: 18 rows done, 15 partial (the page from 6% to 47%).
+- joint303 (81bb7ea48, docs only): I Have a Surprise for You played to its villages won: 34 rows done, 19 partial (0% to 57%).
 - joint274 (c9429ba41): a resource put down goes into any store of its type within reach (a workshop takes wood), with
   mid-walk piles, the citadel's heart as a wood store and the unchecked subtraction, as the original; the scripts' EQ
   and NEQ compare only integers, booleans and floats. One scene moved (a creature's wood cast by a workshop).

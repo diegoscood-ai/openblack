@@ -11,6 +11,8 @@
 #include <LHScriptX/Script.h>
 #include <gtest/gtest.h>
 
+#include "TestTempFolder.h"
+
 class LoadScene: public ::testing::Test
 {
 public:
@@ -31,10 +33,13 @@ protected:
 		    .logFile = "stdout",
 		};
 		std::fill_n(args.logLevels.begin(), args.logLevels.size(), spdlog::level::debug);
+		args.profileFolder = _profileFolder.Path();
 		game_ = std::make_unique<openblack::Game>(std::move(args));
 		ASSERT_TRUE(game_->Initialize());
 	}
 	void TearDown() override { game_.reset(); }
+	/// The game's profiles, help record and saves, apart from every other test's
+	const openblack::test::TestTempFolder _profileFolder;
 	std::unique_ptr<openblack::Game> game_;
 };
 

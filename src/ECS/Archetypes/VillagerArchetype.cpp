@@ -9,20 +9,37 @@
 
 #include "VillagerArchetype.h"
 
-#include <glm/gtx/euler_angles.hpp>
-#include <glm/vec3.hpp>
+#include <cstdlib>
 
-#include "Common/RandomNumberManager.h"
+#include <algorithm>
+
+#include <glm/gtx/euler_angles.hpp>
+#include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
+#include <spdlog/spdlog.h>
+
+#include "3D/ObjectMatrix.h"
+#include "Debug/TraceLog.h"
+#include "ECS/Components/Abode.h"
+#include "ECS/Components/DetailMesh.h"
 #include "ECS/Components/LivingAction.h"
 #include "ECS/Components/Mesh.h"
 #include "ECS/Components/Mobile.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Components/Villager.h"
 #include "ECS/Components/WallHug.h"
+#include "ECS/MapCells.h"
+#include "ECS/ObjectCreationIndex.h"
+#include "ECS/PlacedTurn.h"
 #include "ECS/Registry.h"
+#include "ECS/SeaCells.h"
+#include "ECS/Systems/Implementations/VillagerAnimate.h"
 #include "ECS/Systems/TownSystemInterface.h"
+#include "ECS/Villager/VillagerCore.h"
+#include "ECS/VillagerSpeed.h"
 #include "InfoConstants.h"
 #include "Locator.h"
+#include "MobileStaticArchetype.h"
 #include "Resources/ResourceManager.h"
 
 using namespace openblack;
@@ -31,37 +48,107 @@ using namespace openblack::ecs::components;
 using namespace openblack::ecs::systems;
 
 entt::entity VillagerArchetype::Create([[maybe_unused]] const glm::vec3& abodePosition, const glm::vec3& position,
-                                       VillagerInfo type, uint32_t age)
+                                       VillagerInfo type, uint32_t age, [[maybe_unused]] bool joinTown)
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto entity = registry.Create();
+	ecs::object_index::Assign(entity);
 
 	const auto& info = Locator::infoConstants::value().villager.at(static_cast<size_t>(type));
 
-	registry.Assign<Transform>(entity, position, glm::eulerAngleY(glm::radians(180.0f)), glm::vec3(1.0));
+	// the first draw: GameRand(10) <= 1 tries a named villager, which draws its name before anything is made. With no
+	// name free for its sex a normal villager is made
+	const auto name = ecs::villager::RollSpecialVillager(info);
+	const uint32_t givenAge = age;
+
+	// (inferred) the first angle the original is made with is not read: kept at glm's +pi
+	registry.Assign<Transform>(entity, position, affine::AngleY(-glm::radians(180.0f)), glm::vec3(1.0));
 	registry.Assign<Mobile>(entity);
-	const uint32_t health = 100;
-	const uint32_t hunger = 100;
+	// the living part sets the life (info.life); the rest of Villager comes from the constructor below
+	auto& villager = registry.Assign<Villager>(entity);
+	villager.life = info.life;
+	// whether it is a woman comes from the villager info's sex: the component mirrors it
+	villager.sex = info.sex == SexType::Female ? Villager::Sex::FEMALE : Villager::Sex::MALE;
+	villager.tribe = info.tribeType;
+	villager.number = info.villagerNumber;
+	// it keeps the row it is made with: every later reading of its tables goes by it, not by its tribe and job
+	villager.infoRow = type;
+	villager.task = Villager::Task::IDLE;
+	villager.lifeStage = Villager::LifeStage::Adult;
+	// the states start at 0 INVALID; the constructor sets the counter and the state
+	registry.Assign<LivingAction>(entity, VillagerStates::InvalidState, static_cast<uint16_t>(0));
+	// WallHug::speed is the distance moved per game turn (the u16 speed in MapCoords units, in metres), and
+	// the speed groups are in m/s: a turn is 0.1 s
+	registry.Assign<WallHug>(entity, glm::vec2(), glm::vec2(), 0.0f, GetSpeedStateSpeed(info.speedGroup.speedDefault) * 0.1f);
 
-	const auto lifeStage = age < 18 ? Villager::LifeStage::Child : Villager::LifeStage::Adult;
-	const auto sex = info.villagerNumber == VillagerNumber::Housewife ? Villager::Sex::FEMALE : Villager::Sex::MALE;
-	const auto task = Villager::Task::IDLE;
-
-	// TODO(bwrsandman): Might be better to make a FindClosestAbode
-	const entt::entity town = Locator::townSystem::value().FindClosestTown(abodePosition);
-	entt::entity abode = entt::null;
-	if (town != entt::null)
+	// the villager constructor (ECS/Villager/VillagerCore.cpp): everything zeroed, the newborn's draws (the scale for
+	// the age, food, lastCheckTurn, the state counter), the age and the water rule (in the water 16 DROWNING, else 85
+	// CREATED)
+	const uint32_t turn = ecs::villager::CurrentTurn();
+	age = ecs::villager::Construct(entity, info, age, turn, ecs::sea_cells::IsWater(position) /* in the water */);
+	// a named villager is then given its name and its name's age (VillagerCore.cpp, MakeSpecialVillager)
+	if (name.has_value())
 	{
-		abode = Locator::townSystem::value().FindAbodeWithSpace(town);
+		age = ecs::villager::MakeSpecialVillager(entity, info, *name, givenAge, turn);
 	}
+	const bool child = ecs::villager::IsChild(entity);
 
-	registry.Assign<Villager>(entity, health, static_cast<uint32_t>(age), hunger, lifeStage, sex, info.tribeType,
-	                          info.villagerNumber, task, town, abode);
-	registry.Assign<WallHug>(entity, glm::vec2(), glm::vec2(), 0.0f, GetSpeedStateSpeed(info.speedGroup.speedDefault));
-	const auto resourceId = resources::HashIdentifier(info.highDetail);
+	// children have their own meshes (childMeshHigh..Low); LOD 1 like the original
+	const auto resourceId = resources::HashIdentifier(child ? info.childMeshMedium : info.stdDetail);
 	registry.Assign<Mesh>(entity, resourceId, static_cast<int8_t>(0), static_cast<int8_t>(0));
-	auto turnsSinceStateChange = Locator::rng::value().NextValue<uint16_t>(1, 500);
-	registry.Assign<LivingAction>(entity, VillagerStates::Created, turnsSinceStateChange);
+	// its high mesh, drawn at the top detail level
+	registry.Assign<DetailMesh>(entity, resources::HashIdentifier(child ? info.childMeshHigh : info.highDetail));
+
+	// making a villager houses no one: the map script's handlers do (FeatureScriptCommands.cpp: CREATE_VILLAGER / _POS
+	// the abode found at the position, else an abode with space in the town / the town, else the vagrants;
+	// CREATE_TOWN_VILLAGER the town). The constructor left town and abode at 0
+
+	if (debug_env::TraceLogs(std::getenv("OPENBLACK_OBJECT_INDEX_TRACE") != nullptr, "game"))
+	{
+		SPDLOG_LOGGER_INFO(spdlog::get("game"), "Object index: villager {} at ({:.2f}, {:.2f}) type {} age {} meshes {} {}",
+		                   ecs::object_index::Of(entity), position.x, position.z, static_cast<int>(type), age,
+		                   static_cast<int>(info.highDetail), static_cast<int>(info.childMeshHigh));
+	}
+	// (approximate) the original's first speed comes with the first top state set (CREATED -> 163); openblack sets the
+	// CREATED one now, as before (CREATED does not walk, so it is not seen)
+	ecs::SetVillagerStateSpeed(entity);
+	// on creation: InsertMapObject, the head of its cell's mobile list. (inferred) after the town and the house
+	ecs::map_cells::InsertMapObject(entity);
+	// and then its first clip, in the state the constructor left it in, before the caller does anything else with it
+	ecs::villager_animate::SetFirstClip(entity);
 
 	return entity;
+}
+
+entt::entity VillagerArchetype::Restore(const glm::vec3& position, VillagerInfo type, float headingRadians, float scale,
+                                        bool child)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto entity = registry.Create();
+	const auto& info = Locator::infoConstants::value().villager.at(static_cast<size_t>(type));
+	registry.Assign<Transform>(entity, position, MobileStaticArchetype::XYZRotation(0.0f, headingRadians, 0.0f),
+	                           glm::vec3(scale));
+	ecs::placed_turn::KeepAngles(registry, entity, glm::vec3(0.0f, headingRadians, 0.0f));
+	registry.Assign<Mobile>(entity);
+	auto& villager = registry.Assign<Villager>(entity);
+	villager.life = info.life;
+	villager.sex = info.sex == SexType::Female ? Villager::Sex::FEMALE : Villager::Sex::MALE;
+	villager.tribe = info.tribeType;
+	villager.number = info.villagerNumber;
+	villager.infoRow = type;
+	villager.task = Villager::Task::IDLE;
+	villager.lifeStage = child ? Villager::LifeStage::Child : Villager::LifeStage::Adult;
+	registry.Assign<LivingAction>(entity, VillagerStates::InvalidState, static_cast<uint16_t>(0));
+	registry.Assign<WallHug>(entity, glm::vec2(), glm::vec2(), 0.0f, GetSpeedStateSpeed(info.speedGroup.speedDefault) * 0.1f);
+	const auto resourceId = resources::HashIdentifier(child ? info.childMeshMedium : info.stdDetail);
+	registry.Assign<Mesh>(entity, resourceId, static_cast<int8_t>(0), static_cast<int8_t>(0));
+	registry.Assign<DetailMesh>(entity, resources::HashIdentifier(child ? info.childMeshHigh : info.highDetail));
+	return entity;
+}
+
+void VillagerArchetype::PlaceRestored(entt::entity villager)
+{
+	// as the load's creation step: in the map, then its first clip
+	ecs::map_cells::InsertMapObject(villager);
+	ecs::villager_animate::SetFirstClip(villager);
 }

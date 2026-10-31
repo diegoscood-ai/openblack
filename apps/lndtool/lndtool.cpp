@@ -108,7 +108,7 @@ int PrintLowRes(openblack::lnd::LNDFile& lnd)
 		std::printf("texture #%u:\n", i++);
 		std::printf("full resolution texture texture: %u\n", texture.header.texture);
 		std::printf("material: %u\n", texture.header.material);
-		std::printf("unknown member: %u\n", texture.header.unknown);
+		std::printf("tile count: %u\n", texture.header.tileCount);
 		std::printf("index: %u\n", texture.header.index);
 		std::printf("texel data size: %u\n", texture.header.size);
 	}
@@ -145,13 +145,13 @@ int PrintBlocks(openblack::lnd::LNDFile& lnd)
 				}
 				ret += "coastLine";
 			}
-			if (properties.fullWater)
+			if (properties.unused6)
 			{
 				if (!ret.empty())
 				{
 					ret += "|";
 				}
-				ret += "fullWater";
+				ret += "unused6";
 			}
 			if (properties.split)
 			{
@@ -165,10 +165,10 @@ int PrintBlocks(openblack::lnd::LNDFile& lnd)
 		};
 		for (const auto& cell : block.cells)
 		{
-			std::printf("    %u: r %u, g %u, b %u, luminosity %u, altitude %u, saveColor %u, country %u properties %s "
+			std::printf("    %u: blue %u, green %u, red %u, luminosity %u, altitude %u, saveColor %u, country %u properties %s "
 			            "flags 0x%02X\n",
-			            j++, cell.r, cell.g, cell.b, cell.luminosity, cell.altitude, cell.saveColor, cell.properties.country,
-			            flagToStr(cell.properties).c_str(), cell.flags);
+			            j++, cell.blue, cell.green, cell.red, cell.luminosity, cell.altitude, cell.saveColor,
+			            cell.properties.country, flagToStr(cell.properties).c_str(), cell.flags);
 		}
 		std::printf("index: %u\n", block.index);
 		std::printf("mapX: %f\n", block.mapX);
@@ -213,8 +213,8 @@ int PrintBlocks(openblack::lnd::LNDFile& lnd)
 		std::printf("lowResTexture: %u\n", block.lowResTexture);
 		std::printf("fuLrs: %f\n", block.fuLrs);
 		std::printf("fvLrs: %f\n", block.fvLrs);
-		std::printf("iuLrs: %f\n", block.iuLrs);
-		std::printf("ivLrs: %f\n", block.ivLrs);
+		std::printf("iuLrs: %d\n", block.iuLrs);
+		std::printf("ivLrs: %d\n", block.ivLrs);
 		std::printf("smallTextUpdated: 0x%X\n", block.smallTextUpdated);
 	}
 	std::printf("\n");
@@ -402,7 +402,8 @@ int WriteFile(const Arguments::Write& args) noexcept
 
 		auto blockIter = blockMap.emplace(key, openblack::lnd::LNDBlock {});
 		auto& block = blockIter.first->second;
-		if (!blockIter.second)
+		// Clear a block only when it is new: a later point in the same block must not erase the earlier ones.
+		if (blockIter.second)
 		{
 			memset(&block, 0, sizeof(block));
 		}
@@ -487,7 +488,7 @@ int WriteFile(const Arguments::Write& args) noexcept
 	}
 
 	openblack::lnd::LNDCountry country = {};
-	country.type = 0;
+	country.unused = 0;
 	for (auto& m : country.materials)
 	{
 		m.indices[0] = 0;
@@ -497,16 +498,16 @@ int WriteFile(const Arguments::Write& args) noexcept
 	lnd.AddCountry(country);
 
 	openblack::lnd::LNDLowResolutionTexture lowRes = {};
-	lowRes.header.unknown = 16;
+	lowRes.header.tileCount = 16;
 	lowRes.texels.resize(65660, 0xFF);
 	lnd.AddLowResolutionTexture(lowRes);
 
 	openblack::lnd::LNDBlock block = {};
 	for (auto& c : block.cells)
 	{
-		c.r = 0xFF;
-		c.g = 0xFF;
-		c.b = 0xFF;
+		c.blue = 0xFF;
+		c.green = 0xFF;
+		c.red = 0xFF;
 		c.luminosity = 0xFF;
 		c.altitude = 0;
 		c.saveColor = 0;

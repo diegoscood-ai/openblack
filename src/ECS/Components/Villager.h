@@ -16,8 +16,10 @@
 #include <string_view>
 #include <tuple>
 
+#include <entt/entity/entity.hpp>
 #include <entt/fwd.hpp>
 
+#include "3D/MapCoords.h"
 #include "Enums.h"
 
 namespace openblack::ecs::components
@@ -64,15 +66,102 @@ struct Villager
 
 	using Type = std::tuple<Tribe, Villager::LifeStage, Villager::Sex, VillagerNumber>;
 
-	uint32_t health;
-	uint32_t age;
-	uint32_t hunger;
+	/// The villager's flag bits (docs/wiki/beings/villager-states.md#flags): 0x2 at the worship site, 0x8 a child
+	/// (SetAge), 0x10 on the way to the worship site / a fire, 0x20 in the hand, 0x80 football / script, 0x200 / 0x400
+	/// disciple / disciple follower, 0xC000 the tree type of the wood carried. The others are elsewhere: 0x1 after a tap
+	/// on its abode (`woken` below), 0x4 inside its home and 0x2000 gone to bed there (components::AtHome), 0x800 /
+	/// 0x1000 (into / out-of clip) in SkeletalAnimation::transitionFlags.
+	static constexpr uint16_t k_FlagAtWorshipSite = 0x2;
+	static constexpr uint16_t k_FlagChild = 0x8;
+	static constexpr uint16_t k_FlagOnWayToWorshipSite = 0x10;
+	static constexpr uint16_t k_FlagInHand = 0x20;
+	/// out of the world population: set once when it starts dying, read when it is destroyed (openblack counts the
+	/// entities instead and skips these)
+	static constexpr uint16_t k_FlagCountedOut = 0x40;
+	static constexpr uint16_t k_FlagFootball = 0x80;
+	static constexpr uint16_t k_FlagDisciple = 0x200;
+	static constexpr uint16_t k_FlagDiscipleFollower = 0x400;
+	/// bits 14-15: the tree type (CarriedTreeType 0..3) of the wood carried, set when it picks the wood up and read for
+	/// the carried wood's object
+	static constexpr uint16_t k_FlagTreeTypeMask = 0xC000;
+	static constexpr uint16_t k_TreeTypeShift = 14; ///< flags >> 14
+
+	/// The Living status bits a villager keeps here (docs/wiki/beings/villager-hand-and-death.md#death): 0x1 dead (set by
+	/// SetDying), 0x30 the landType of the last landing (0 on its feet, 1 / 2 on a side, 3 none; SetDying ors in 3),
+	/// 0x40 a skeleton (SET_SKELETON), 0x400 special (set as its physics ends, for the special test).
+	/// The other bits are elsewhere: 0x2 poisoned (components::Poisoned), 0x80 downed (components::DownedVillager)
+	static constexpr uint16_t k_StatusDead = 0x1;
+	static constexpr uint16_t k_StatusLandTypeMask = 0x30;
+	static constexpr uint16_t k_StatusSkeleton = 0x40;
+	static constexpr uint16_t k_StatusSpecial = 0x400;
+	static constexpr uint16_t k_LandTypeShift = 4; ///< (status & 0x30) >> 4
+
+	float life; ///< 0..1 (ecs::life has the setters)
+	/// The turn it was born on; its age in years counts from it (ecs::villager_age::AgeOf, 1500 turns a year)
+	uint32_t birthTurn {0};
+	uint16_t flags {0};                     ///< the k_Flag bits above
+	/// A knock on its home woke it: its own needs leave it be, and it won't go back to bed, for its next decision
+	bool woken {false};
+	/// Its ground blobs are drawn (a human's shadow): from its making until it lies dead, unless a script holds it
+	bool humanShadowed {true};
+	uint16_t status {0};                    ///< the k_Status bits above
+	float food {0.0f};                      ///< the food in its belly (the constructor: 0.5 .. 1.1)
+	uint32_t lastCheckTurn {0};             ///< the turn of the last periodic check (the hunger check resets it)
+	uint8_t foodSpeedUp {0};                ///< the food speed-up
+	uint8_t discipleType {0};               ///< VillagerDisciple
+	/// The disciple it had as the hand picked it up (a missionary's: none), written by IN_HAND's entry; the put-down and
+	/// the landing compare it with discipleType. (openblack) kept apart from the state data it shares in the original
+	uint8_t discipleOnPickUp {0};
+	std::array<int16_t, 2> resourceHeld {}; ///< FOOD and WOOD carried
+	int16_t pregnancy {0};                  ///< turns left of a pregnancy (0 none)
+	/// The BuildingSite (its entity, components::BuildingSite) the villager builds (VillagerBuild.cpp): written on
+	/// the way to the site or to the storage pit for materials, cleared by ExitBuilding and the building state; none at
+	/// creation
+	entt::entity buildingSite {entt::null};
+	entt::entity mother {entt::null};
+	entt::entity targetThing {entt::null}; ///< TargetThing, what the jobs work on
+	/// The same field while in a building state: the index 0..127 of the site's ring point (written on the way to the
+	/// site, by ReenterBuildingState and the building state, read by ArrivesAtBuildingSite). The original's union with
+	/// TargetThing (saved as 4 bytes); kept apart: every builder read follows a builder write on the same path
+	int32_t buildPosIndex {0};
+	/// The same field (u8) too: the death reason VillagerDead writes after SetDying (read back and saved for the dead).
+	/// (inferred) a union with the low byte of TargetThing; kept apart, nothing reads TargetThing after death
+	DeathReason deathReason {DeathReason::None};
+	// The next field is a union in the original (the football / the trade town / the wander area); its parts are kept
+	// apart here, each where a job reads it. The scripts use its first two dwords, the clip and the plays a script asks
+	// for: components::ScriptAnimation (ECS/Components/ScriptAnimation.h).
+	/// The wander area: the spot a breeder disciple ambles about (set by villager::SetupBreederDisciple, read by the
+	/// breeder's state), x and z only. (openblack) kept apart from the other parts of the union
+	map_coords::MapCoords wanderArea {};
+	/// The same bytes (kept apart): the town a trader disciple trades with, the town of the storage pit the hand held it
+	/// by (villager::DiscipleInHand). Nothing reads it yet: the trader's job is not ported
+	entt::entity tradeTown {entt::null};
+	/// The resource a trader disciple carries to its trade town (villager::CheckTrader). (openblack) kept apart from the
+	/// target it shares in the original
+	ResourceType tradeResource {ResourceType::Food};
+	/// The same bytes (a MapCoords) too: the farmer's work point in its field (set on the way to the field, read by
+	/// FarmerArrivesAtFarm; VillagerFarmer.cpp). (approximate) kept apart from the script's clip / loops it shares
+	/// the bytes with in the original: they only meet when a script plays an animation on a farmer
+	map_coords::MapCoords workPos {};
+	/// mirrors flags & k_FlagChild (the meshes, the drawing, the sounds read it)
 	LifeStage lifeStage;
 	Sex sex;
 	Tribe tribe;
 	VillagerNumber number;
+	/// The row of the villager tables it was made with, or changed to when it took another tribe's looks; everything
+	/// its tables give is read from this row (docs/wiki/beings/villager-states.md#its-own-info-row). Two rows may share
+	/// a tribe and a job: every special villager (the piper, the hermit, the trainer...) has the same ones. None for a
+	/// villager made without a row (only made-up ones in tests): its row is then the first of its tribe and job
+	VillagerInfo infoRow {VillagerInfo::None};
 	Task task;
 	entt::entity town;
 	entt::entity abode;
+	/// The flock a script put it in (ECS/Flocks.h, flocks::SetFlock), entt::null for none
+	entt::entity flock {entt::null};
+	/// Its place in a flock's member list (0 at creation; AddLeader sets it)
+	uint8_t flockOrder {0};
+	/// The creche walk (0 at creation; ChildAtCreche), the path in the low word and the step in the high one.
+	/// (pending) the field's other readers in the original were not searched
+	int32_t crecheWalk {0};
 };
 } // namespace openblack::ecs::components

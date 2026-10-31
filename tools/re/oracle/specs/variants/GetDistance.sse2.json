@@ -1,0 +1,9 @@
+{
+ "extends": "../GetDistance.json",
+ "vectors": "GetDistance.sse2",
+ "notes": "Variant: SetupUtils, then HasSSE2 [0xE83A20] forced to 1, so the __ftol 0x7A1400 that ends hypotenuse 0x74F680 takes its SSE2 branch. Checks that the mismatches of the main vectors come from __ftol's x87 branch.",
+ "setup": [
+  {"addr": "?SetupUtils@GUtils@@SAXXZ", "conv": "cdecl", "ret": "void"},
+  {"write": [{"addr": "0x00E83A20", "hex": "01000000"}]}
+ ]
+}

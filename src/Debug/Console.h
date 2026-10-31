@@ -25,10 +25,13 @@ struct ImGuiInputTextCallbackData;
 namespace openblack::debug::gui
 {
 
+class ConsoleLogSink;
+
 class Console final: public Window
 {
 public:
 	Console() noexcept;
+	~Console() noexcept override;
 	void Open() noexcept override;
 
 protected:
@@ -47,6 +50,8 @@ private:
 	int _inputCursorPosition {0};
 	std::array<char, 256> _inputBuffer {0};
 	std::vector<std::string> _items;
+	/// The game's log, fed by every logger and moved into the items as the window draws
+	std::shared_ptr<ConsoleLogSink> _logSink;
 	std::vector<std::pair<std::string, std::string>> _commands;
 	std::vector<std::string> _history;
 	std::string _partial;

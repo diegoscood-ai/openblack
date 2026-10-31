@@ -4,7 +4,43 @@
 [![Packaging CI](https://github.com/openblack/openblack/actions/workflows/packaging.yml/badge.svg?branch=master&event=push)](https://github.com/openblack/openblack/actions/workflows/packaging.yml?query=branch%3Amaster+event%3Apush)
 [![GitHub Stars](https://img.shields.io/github/stars/openblack/openblack?logo=github)](https://github.com/openblack/openblack/stargazers)
 [![Discord chat](https://img.shields.io/discord/608729286513262622?logo=discord&logoColor=white)](https://discord.gg/5QTexBU)
-[![License](https://img.shields.io/github/license/openblack/openblack)](LICENSE.md)
+[![License](https://img.shields.io/github/license/openblack/openblack)](license)
+
+> **This fork: a 1:1 reconstruction of Black & White.** Progress and the research wiki: [docs](docs/README.md) (the viewer: `docs/open_wiki.bat`).
+
+<!-- progress:start -->
+
+### 📊 Progress of the reconstruction
+
+**🎮 Features of the original**
+
+![🟩🟩🟩🟩🟩🟨🟪⬜⬜⬜ 64%](docs/wiki/project/bars/features-all.svg?v=3a303d36)
+
+7028 of the original game's 13015 behaviours are done (5680 with a test, 140 proven in play, 67 of them both, 1275 with neither) and 5 done as the user chose; 2435 partial (10% of the rows' worth, 201 not measured yet); 222 inferred, not yet checked against the original. Online is parked: its 137 rows are counted apart, in no score.
+
+**🔀 raffclar's work in our tree**
+
+![🟩🟩🟩🟩🟨🟨🟨⬜⬜⬜ 55%](docs/wiki/project/bars/raffclar-all.svg?v=5a8bd769)
+
+331 of his 788 pull requests are in our tree, 204 more in part.
+
+**🧹 Code clean-up**
+
+![🟩🟩🟩🟩🟩🟩🟧🟧🟧🟧 6 of 10](docs/wiki/project/bars/refactor-all.svg?v=d6a48625)
+
+6 of the 10 code goals are reached; in 4 more, what is left stays on purpose.
+
+**🏁 Latest milestones**
+
+- **2026-10-22** · [The checks read the original's meshes](docs/wiki/project/milestones.md#the-checks-read-the-originals-meshes)
+- **2026-10-22** · [Mods: the SDK's version, the Mods page and data mods](docs/wiki/project/milestones.md#mods-the-sdks-version-the-mods-page-and-data-mods)
+- **2026-10-21** · [Faster builds](docs/wiki/project/milestones.md#faster-builds)
+- **2026-10-21** · [The leashes a creature knows in the state hash](docs/wiki/project/milestones.md#the-leashes-a-creature-knows-in-the-state-hash)
+- **2026-10-21** · [The top detail level draws the high meshes, chosen from Maximum Detail](docs/wiki/project/milestones.md#the-top-detail-level-and-maximum-detail)
+
+The detail is on the [progress dashboard](docs/wiki/project/dashboard.md). *This block is written by `docs/tools/progress_stats.py`.*
+
+<!-- progress:end -->
 
 openblack is an open source reimplementation of [Black & White (2001)](https://en.wikipedia.org/wiki/Black_&_White_(video_game)) written in modern C++ and modern rendering engines (OpenGL, Vulkan).
 
@@ -22,6 +58,8 @@ You still need to have the original game assets in order to use this. See furthe
 # Pre-built Binaries
 
 For the latest build of openblack without having to build it yourself, we offer pre-built binaries from our test service.
+These links are upstream openblack's builds of its main branch and do not include this fork's changes; to run this
+fork, build it from source (see [Building](#building)).
 
 [![Linux (amd64) Build](https://img.shields.io/badge/Build-Linux%20(amd64)-333333)](https://nightly.link/openblack/openblack/workflows/ci-vcpkg/master/openblack-ubuntu-24.04-master.zip)
 [![OSX (amd64) Build](https://img.shields.io/badge/Build-OSX%20(amd64)-eeeeee)](https://nightly.link/openblack/openblack/workflows/ci-vcpkg/master/openblack-macos-13-master.zip)
@@ -31,7 +69,7 @@ For the latest build of openblack without having to build it yourself, we offer 
 
 ## Experimental
 
-The following are qualified as exprimental. They have base minimum setup such as compilation and rendering system.
+The following are qualified as experimental. They have base minimum setup such as compilation and rendering system.
 Don't expect to be able to launch without some effort and your own patches.
 
 [![Windows (x86) Build](https://img.shields.io/badge/Build-Windows%20(x86)-0078d4)](https://nightly.link/openblack/openblack/workflows/ci-cross-compile/master/openblack-x86-windows-master.zip)
@@ -49,7 +87,8 @@ Don't expect to be able to launch without some effort and your own patches.
 
 # Building
 
-Clone the code using: `git clone --recursive https://github.com/openblack/openblack.git`
+Clone this fork's code using: `git clone --recursive --branch AI-Decompiled https://github.com/diegoscood-ai/openblack.git`
+(upstream openblack is `https://github.com/openblack/openblack.git`).
 
 If you forgot to add `--recursive`, you will have to also run `git submodule update --init` from the `openblack/` directory.
 
@@ -79,13 +118,13 @@ for you. To do so, you will be selecting the `"ninja-multi-vcpkg"   - Ninja Mult
     * Select the C++ CMake tools for Windows Component
 * You can simply [open the `openblack` folder directly in Visual Studio and select a preset](https://devblogs.microsoft.com/cppblog/cmake-presets-integration-in-visual-studio-and-visual-studio-code/).
 
-### Clion
-* Install [Clion](https://www.jetbrains.com/clion/download/)
+### CLion
+* Install [CLion](https://www.jetbrains.com/clion/download/)
 * You can simply [open the `openblack` folder directly in CLion and select a preset](https://www.jetbrains.com/help/clion/cmake-presets.html).
 
 ### XCode
 * Install [XCode](https://apps.apple.com/ca/app/xcode)
-* Install the homebrew depenedencies using [homebrew](https://brew.sh/):  `brew install cmake ninja pkg-config`
+* Install the homebrew dependencies using [homebrew](https://brew.sh/):  `brew install cmake ninja pkg-config`
 * Run `sudo xcode-select --reset` after installing cmake
 * You need to configure using the cmake preset `xcode-vcpkg` using cmake in either the GUI or using the command line argument `--preset xcode-vcpkg`
 
@@ -122,7 +161,7 @@ CMake will find the required libraries as long as they provide a [proper config 
 
 Install [openblack-git](https://aur.archlinux.org/packages/openblack-git/) from the AUR which builds and installs directly for all Arch Linux derived distros such as Manjaro. This will require pacman to install all required dependencies.
 
-The prefix to use is `"linux-system-deps"   - Linux (System Deps)`
+The preset to use is `"linux-system-deps"   - Linux (System Deps)`
 
 
 ## Contributing
@@ -130,8 +169,16 @@ Contributions are always welcome, whether it's modifying source code to add new
 features or bug fixes, documenting new file formats or simply editing some
 grammar.
 
-You can also join the [Discord for development discussion]((https://discord.gg/5QTexBU))
+You can also join the [Discord for development discussion](https://discord.gg/5QTexBU)
 if you are unsure of anything.
+
+This fork's code follows the conventions in [docs/wiki/project/refactor-conventions.md](docs/wiki/project/refactor-conventions.md): state lives in ECS
+components or Locator services, assets are loaded through the resource caches, and comments describe behaviour in plain
+English. [docs/wiki/project/testing.md](docs/wiki/project/testing.md) describes how a change is verified against the previous
+build, and [CHANGELOG.md](CHANGELOG.md) lists what changed. What is known about the original game is in the research
+wiki, [docs/wiki](docs/wiki/project/reading-the-wiki.md), one page per game system. To read it with its contents list,
+search and progress dashboard, open the viewer page `docs/index.html` through `docs/open_wiki.bat` (or
+`python docs/serve.py`); on GitHub the pages read as plain Markdown.
 
 # Extracting asset files from original game
 
@@ -155,7 +202,7 @@ You will need the following:
 ### On Windows
 
 1. Install the game from the installer, remember the installation directory
-(`C:\\Program Files (x86)\\Lionhead Studios\\Black & White\\` is the default)
+(`C:\Program Files (x86)\Lionhead Studios\Black & White\` is the default)
 2. Install the official patch 1.10 (in the same directory)
 3. Install the official patch 1.2 (in the same directory)
 
@@ -173,7 +220,7 @@ If you run on Linux or macOS, you can install the game with Wine
    second patch (adapt too)
 5. In case you would like to install the unofficial patch, it requires .NET 2.0,
    that can be installed with `winetricks dotnet20sp2` (you should install
-   `winetricks first`)
+   `winetricks` first)
 
 All the files should be installed in the following directory:
 `~/.wine/drive_c/Program Files (x86)/Lionhead Studios Ltd/Black & White`
@@ -189,13 +236,13 @@ location of your choice.
 If you want to use them from there, remember the installation directory chosen
 in the installation step, unless you changed it, it should be either:
 
-- either`C:\\Program Files (x86)\\Lionhead Studios\\Black & White\\`
+- either `C:\Program Files (x86)\Lionhead Studios\Black & White\`
 - or `~/.wine/drive_c/Program Files (x86)/Lionhead Studios Ltd/Black & White`
 
 This is the path you will give to openblack (using the `-g` flag).
 
 If you prefer to copy the data (e.g. if you want to uninstall the original
-game), just copy the `Data` and `Scripts` folders to the desired new location,
+game), just copy the `Audio`, `Data` and `Scripts` folders to the desired new location,
 and give the path to this location to openblack (using the `-g` flag).
 
 # License

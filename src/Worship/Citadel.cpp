@@ -1,0 +1,795 @@
+/******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+#include "Citadel.h"
+
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+
+#include <algorithm>
+#include <array>
+#include <limits>
+#include <vector>
+
+#include "3D/MapCoords.h"
+#include "3D/TempleExteriorMorph.h"
+#include "3D/TempleInteriorInterface.h"
+#include "Animals/BirdRules.h"
+#include "Audio/GameMusic.h"
+#include "ECS/Abodes.h"
+#include "ECS/Archetypes/AnimalArchetype.h"
+#include "ECS/Archetypes/CitadelArchetype.h"
+#include "ECS/Components/Animal.h"
+#include "ECS/Components/Flock.h"
+#include "ECS/Components/Influence.h"
+#include "ECS/Components/Mesh.h"
+#include "ECS/Components/Temple.h"
+#include "ECS/Components/Town.h"
+#include "ECS/Components/TownMagic.h"
+#include "ECS/Components/Transform.h"
+#include "ECS/Components/WorshipSite.h"
+#include "ECS/Effects/Alignment.h"
+#include "ECS/Flocks.h"
+#include "ECS/Influence/Influence.h"
+#include "ECS/Life.h"
+#include "ECS/MapCells.h"
+#include "ECS/ObjectCreationIndex.h"
+#include "ECS/ObjectMetrics.h"
+#include "ECS/PlayerColours.h"
+#include "ECS/Registry.h"
+#include "ECS/SaveTriggers.h"
+#include "ECS/Systems/TempleDestructionSystemInterface.h"
+#include "ECS/Systems/TempleExteriorSystemInterface.h"
+#include "ECS/Systems/WorshipStateInterface.h"
+#include "ECS/ToBeDeleted.h"
+#include "ECS/Town/BuildingSites.h"
+#include "GameClock.h"
+#include "Help/HelpSystem.h"
+#include "InfoConstants.h"
+#include "Locator.h"
+#include "Magic/Core/Players.h"
+#include "Magic/Core/Spell.h"
+#include "TownMagic.h"
+#include "WorshipSite.h"
+
+using namespace openblack;
+using namespace openblack::worship;
+using namespace openblack::ecs::components;
+
+namespace
+{
+auto& Registry()
+{
+	return Locator::entitiesRegistry::value();
+}
+
+bool IsCitadel(entt::entity citadel)
+{
+	return citadel != entt::null && Registry().Valid(citadel) && Registry().AllOf<CitadelWorship, Temple, Transform>(citadel);
+}
+
+/// The script music played when the temple is built
+constexpr int k_TempleBuiltMusic = 0x3D;
+
+struct CitadelState
+{
+	/// SET_INTERFACE_CITADEL's value; 1 after a script reset
+	uint32_t interfaceCitadel {1};
+};
+
+/// This module's state (Locator::worshipState)
+CitadelState& Citadel()
+{
+	if (!Locator::worshipState::has_value())
+	{
+		std::fputs("worship::citadel: no worship state in the locator (Locator::worshipState)\n", stderr);
+		std::abort();
+	}
+	return Locator::worshipState::value().Get<CitadelState>();
+}
+
+} // namespace
+
+entt::entity citadel::Of(PlayerNames player)
+{
+	entt::entity found = entt::null;
+	Registry().Each<const Temple, const CitadelWorship>([&](entt::entity entity, const Temple& temple, const CitadelWorship&) {
+		// marking a citadel for deletion clears the player's citadel, so a marked citadel is nobody's
+		if (found == entt::null && temple.owner == player && ecs::IsAvailable(entity))
+		{
+			found = entity;
+		}
+	});
+	return found;
+}
+
+glm::vec3 citadel::EntrancePoint(const glm::vec3& place, const glm::vec3& toward, float radius, float height)
+{
+	float dx = toward.x - place.x;
+	float dy = toward.y - place.y;
+	float dz = toward.z - place.z;
+	// zero, or not a number: the game's compare with 0 says equal for both
+	const auto zeroOrUnordered = [](float v) { return !(v < 0.0f) && !(v > 0.0f); };
+	if (!zeroOrUnordered(dx) || !zeroOrUnordered(dy) || !zeroOrUnordered(dz))
+	{
+		// the squares summed z, y, then x, each step rounded to a float
+		const float zz = dz * dz;
+		const float yy = dy * dy;
+		const float zy = zz + yy;
+		const float xx = dx * dx;
+		const float length = std::sqrt(zy + xx);
+		const float inverse = 1.0f / length;
+		dx *= inverse;
+		dy *= inverse;
+		dz *= inverse;
+	}
+	const float ox = dx * radius;
+	const float oy = dy * radius;
+	const float oz = dz * radius;
+	const float y = oy + place.y;
+	return {ox + place.x, height + y, oz + place.z};
+}
+
+std::array<entt::entity, 6> citadel::WorshipSitesOf(PlayerNames player)
+{
+	std::array<entt::entity, 6> sites {entt::null, entt::null, entt::null, entt::null, entt::null, entt::null};
+	// the player's citadel; none -> nothing
+	const auto citadelEntity = Of(player);
+	if (!IsCitadel(citadelEntity))
+	{
+		return sites;
+	}
+	// the six slots in order (CitadelWorship::sites is indexed by the site's slot)
+	const auto& worship = Registry().Get<const CitadelWorship>(citadelEntity);
+	for (size_t i = 0; i < sites.size(); ++i)
+	{
+		const auto site = worship.sites.at(i);
+		sites.at(i) = site != entt::null && Registry().Valid(site) && Registry().AllOf<WorshipSite>(site) ? site : entt::null;
+	}
+	return sites;
+}
+
+float citadel::UseChantsForVirtualInfluence(PlayerNames player)
+{
+	float chants = 0.0f;
+	for (const auto site : WorshipSitesOf(player))
+	{
+		if (site == entt::null)
+		{
+			continue;
+		}
+		// What is asked counts, whatever the site gives
+		const float spare = site::ChantsAvailableForVirtualInfluence(Registry().Get<const WorshipSite>(site));
+		site::UseChants(site, spare);
+		chants += spare;
+	}
+	return chants;
+}
+
+float citadel::StrainSoundFraction(entt::entity citadelEntity)
+{
+	return IsCitadel(citadelEntity) ? Registry().Get<const CitadelWorship>(citadelEntity).strainSoundFraction : 0.0f;
+}
+
+float citadel::StrainSoundFractionAtMostOne(entt::entity citadelEntity)
+{
+	const float fraction = StrainSoundFraction(citadelEntity);
+	// below 1 or NaN (an unordered compare) keeps the fraction, else 1.0
+	return fraction < 1.0f || std::isnan(fraction) ? fraction : 1.0f;
+}
+
+bool citadel::HasLivingHeart(entt::entity citadelEntity)
+{
+	// the heart, built, with life strictly above 0
+	const auto heart = HeartOf(citadelEntity);
+	return heart != entt::null && ecs::abodes::IsBuilt(heart) && ecs::life::LifeOf(heart) > 0.0f;
+}
+
+void citadel::Initialise(entt::entity temple, float heartYAngle)
+{
+	auto& worship = Registry().AssignOrReplace<CitadelWorship>(temple);
+	worship.heartYAngle = heartYAngle;
+}
+
+entt::entity citadel::AddTown(entt::entity citadelEntity, entt::entity town)
+{
+	const auto site = FindOrCreateWorshipSite(citadelEntity, town);
+	if (site == entt::null)
+	{
+		return entt::null;
+	}
+	const auto& towns = Registry().Get<const WorshipSite>(site).towns;
+	if (std::ranges::find(towns, town) == towns.end())
+	{
+		site::AddTown(site, town);
+	}
+	// the heart's life is set to 1.0 (UNVERIFIED: a refresh of the heart; nothing to do here)
+	return site;
+}
+
+entt::entity citadel::FindOrCreateWorshipSite(entt::entity citadelEntity, entt::entity town)
+{
+	if (!IsCitadel(citadelEntity) || town == entt::null)
+	{
+		return entt::null;
+	}
+	if (Registry().Get<const CitadelWorship>(citadelEntity).cannotCreateSites || !town::IsAllowedToCreateWorshipSite(town))
+	{
+		return entt::null;
+	}
+	const auto* tribe = Registry().TryGet<const Tribe>(town);
+	return tribe != nullptr ? FindOrCreateWorshipSite(citadelEntity, *tribe) : entt::null;
+}
+
+entt::entity citadel::FindOrCreateWorshipSite(entt::entity citadelEntity, Tribe tribe)
+{
+	if (!IsCitadel(citadelEntity))
+	{
+		return entt::null;
+	}
+	if (const auto site = FindTribeWorshipSite(citadelEntity, tribe); site != entt::null)
+	{
+		return site;
+	}
+	// a new site request: the nearest town of the tribe to the citadel (any abode type, no distance limit); that
+	// town's position, else the citadel's
+	auto near = Registry().Get<const Transform>(citadelEntity).position;
+	if (const auto town = ecs::map_cells::GetNearestTownToPos(
+	        map_coords::FromWorld(near), tribe, ecs::map_cells::k_AnyAbodeType, std::numeric_limits<float>::max());
+	    town != entt::null)
+	{
+		near = Registry().Get<const Transform>(town).position;
+	}
+	// the site is made with angle 0, scale 1.0, 0 % built and not under construction: it counts as built only once
+	// it reaches 100 %, and until then it is drawn as a building in progress, nothing at 0 %
+	const auto site = site::Create(citadelEntity, tribe, near);
+	if (site != entt::null)
+	{
+		auto& part = Registry().AssignOrReplace<CitadelPartBuild>(site);
+		part.buildFlags = CitadelPartBuild::k_Built;
+		part.percentBuilt = 0.0f;
+		ecs::abodes::RedrawConstruction(site);
+	}
+	return site;
+}
+
+entt::entity citadel::FindTribeWorshipSite(entt::entity citadelEntity, Tribe tribe)
+{
+	if (!IsCitadel(citadelEntity))
+	{
+		return entt::null;
+	}
+	for (const auto site : Registry().Get<const CitadelWorship>(citadelEntity).sites)
+	{
+		if (site != entt::null && Registry().Valid(site) && Registry().Get<const WorshipSite>(site).tribe == tribe)
+		{
+			return site;
+		}
+	}
+	return entt::null;
+}
+
+void citadel::ProcessSpellIcons(entt::entity citadelEntity)
+{
+	if (!IsCitadel(citadelEntity))
+	{
+		return;
+	}
+	float strain = 0.0f;
+	for (const auto site : std::array(Registry().Get<const CitadelWorship>(citadelEntity).sites))
+	{
+		if (site == entt::null || !Registry().Valid(site))
+		{
+			continue;
+		}
+		site::ProcessSpellIcons(site);
+		const float siteStrain = Registry().Get<const WorshipSite>(site).strain;
+		if (siteStrain > strain)
+		{
+			strain = siteStrain;
+		}
+	}
+	// the strain sound fraction (the local player's citadel only)
+	auto& worship = Registry().Get<CitadelWorship>(citadelEntity);
+	if (!magic::players::IsHuman(Registry().Get<const Temple>(citadelEntity).owner) || worship.strainSoundFraction == strain)
+	{
+		return;
+	}
+	// moves 0.001 x the milliseconds per turn toward the strain, read every turn
+	const float step = static_cast<float>(game_clock::MsPerTurn()) * 0.001f;
+	if (worship.strainSoundFraction > strain)
+	{
+		worship.strainSoundFraction -= step;
+		if (worship.strainSoundFraction <= strain)
+		{
+			worship.strainSoundFraction = strain;
+		}
+	}
+	else
+	{
+		worship.strainSoundFraction += step;
+		if (!(worship.strainSoundFraction < strain))
+		{
+			worship.strainSoundFraction = strain;
+		}
+	}
+}
+
+entt::entity citadel::CreateBuiltWorshipSite(entt::entity citadelEntity, Tribe tribe)
+{
+	// the tribe's site (found or made); none -> null
+	const auto site = FindOrCreateWorshipSite(citadelEntity, tribe);
+	if (site == entt::null)
+	{
+		return entt::null;
+	}
+	const auto player = Registry().Get<const Temple>(citadelEntity).owner;
+	for (const auto town : ecs::map_cells::TownsOf(player))
+	{
+		const auto* townTribe = Registry().TryGet<const Tribe>(town);
+		if (townTribe == nullptr || *townTribe != tribe)
+		{
+			continue;
+		}
+		// the town joins the site if it is not in its list
+		const auto& towns = Registry().Get<const WorshipSite>(site).towns;
+		if (std::ranges::find(towns, town) == towns.end())
+		{
+			site::AddTown(site, town);
+		}
+		// the town's building site of it -> fully built and the building site removed; none: the site stays as it
+		// is
+		if (ecs::building_sites::GetBuildingSiteInList(town, site) != entt::null)
+		{
+			ecs::abodes::BuildBy(site, 1.0f);
+			ecs::building_sites::RemoveBuildingSite(town, site);
+		}
+		return site;
+	}
+	// no town of that tribe -> fully built and null
+	ecs::abodes::BuildBy(site, 1.0f);
+	return entt::null;
+}
+
+void citadel::OpenWorshipSites(entt::entity citadelEntity, float boost)
+{
+	if (!IsCitadel(citadelEntity))
+	{
+		return;
+	}
+	// each town of the citadel's player
+	for (const auto town : ecs::map_cells::TownsOf(Registry().Get<const Temple>(citadelEntity).owner))
+	{
+		// the town's site (found or made); none -> the next town
+		const auto site = FindOrCreateWorshipSite(citadelEntity, town);
+		if (site == entt::null)
+		{
+			continue;
+		}
+		// the town joins the site if it is not in its list
+		const auto& towns = Registry().Get<const WorshipSite>(site).towns;
+		if (std::ranges::find(towns, town) == towns.end())
+		{
+			site::AddTown(site, town);
+		}
+		// built and repaired -> the next town
+		if (ecs::abodes::IsBuilt(site) && ecs::abodes::IsRepaired(site))
+		{
+			continue;
+		}
+		// the town's building site of it, else a new one; none -> the next
+		auto buildingSite = ecs::building_sites::GetBuildingSiteInList(town, site);
+		if (buildingSite == entt::null)
+		{
+			buildingSite = ecs::building_sites::AddBuildingSite(town, site);
+		}
+		if (buildingSite == entt::null)
+		{
+			continue;
+		}
+		ecs::building_sites::SetDesireBoost(buildingSite, boost);
+	}
+}
+
+entt::entity citadel::GetSpellIcon(entt::entity citadelEntity, MagicType type)
+{
+	if (!IsCitadel(citadelEntity))
+	{
+		return entt::null;
+	}
+	for (const auto site : Registry().Get<const CitadelWorship>(citadelEntity).sites)
+	{
+		if (site != entt::null && Registry().Valid(site))
+		{
+			if (const auto icon = site::GetSpellIconFromMagicType(site, type); icon != entt::null)
+			{
+				return icon;
+			}
+		}
+	}
+	return entt::null;
+}
+
+void citadel::PostLoadCleanup()
+{
+	// the players in order, the neutral one last, one at a time
+	for (uint8_t p = 0; p < static_cast<uint8_t>(PlayerNames::_COUNT); ++p)
+	{
+		const auto player = static_cast<PlayerNames>(p);
+		const auto citadelEntity = Of(player);
+		if (citadelEntity == entt::null)
+		{
+			continue;
+		}
+		for (const auto town : ecs::map_cells::TownsOf(player))
+		{
+			const auto* magic = Registry().TryGet<const TownMagic>(town);
+			if (magic != nullptr && magic->worshipSite == entt::null)
+			{
+				AddTown(citadelEntity, town);
+			}
+		}
+		// then the player's influence power, its running average and its history
+		influence::NoteInfluencePowerAfterLoad(player);
+	}
+}
+
+namespace
+{
+/// The heart's doves or bats, seen to every hundred turns: the kind of its player's alignment, and as many as how far
+/// the player is from neutral once the temple is built, a bird more or fewer each time. Their height is taken again
+/// when the flock changed or the outside has just changed enough to be blended again
+void ProcessAlignmentFlock(entt::entity heart, float alignment, bool outsideChanged)
+{
+	namespace birds = animals::birds;
+	if (game_clock::Turn() % birds::k_TempleFlockEvery != 0)
+	{
+		return;
+	}
+	auto& registry = Registry();
+	const auto kind = birds::TempleBirdKind(alignment);
+	const auto most = ecs::archetypes::CitadelArchetype::HeartInfo(0).maxFlockCount;
+	const auto count = birds::TempleBirdCount(alignment, most, !(ecs::abodes::GetPercentBuilt(heart) < 1.0f));
+	const auto position = registry.Get<const Transform>(heart).position;
+	auto& flockEntity = registry.Get<CitadelHeart>(heart).flock;
+	if (flockEntity == entt::null || !registry.Valid(flockEntity) || !registry.AllOf<Flock>(flockEntity))
+	{
+		// The flock, at the heart, of its player: it wanders 30 m about it, its birds within 15 m of each other
+		flockEntity = ecs::flocks::Create(position, ecs::flocks::k_DefaultFlockInfo, registry.Get<const Temple>(heart).owner,
+		                                  ecs::flocks::k_ScriptFlockId);
+		auto& made = registry.Get<Flock>(flockEntity);
+		made.domainRadius = static_cast<uint16_t>(birds::k_TempleFlockReach);
+		made.flockDistance = static_cast<uint16_t>(birds::k_TempleFlockDistance);
+	}
+	const auto flock = flockEntity;
+	bool changed = false;
+	// Those of the other kind go at once, from the head of the flock, as the player crosses from good to evil or back
+	for (const auto bird : ecs::flocks::MembersFromHead(flock))
+	{
+		if (registry.Get<const Animal>(bird).type != kind)
+		{
+			ecs::flocks::RemoveLiving(flock, bird, false);
+			ecs::ToBeDeleted(bird);
+			changed = true;
+		}
+	}
+	// Then a bird more, born at the heart, or the one at the head of the flock gone. A bird asked for counts as a
+	// change even when none could be made
+	const auto& members = registry.Get<const Flock>(flock).members;
+	switch (birds::StepTowards(static_cast<uint32_t>(members.size()), count))
+	{
+	case birds::TempleFlockStep::AddOne:
+		static_cast<void>(ecs::archetypes::AnimalArchetype::Create(position, kind, entt::null, flock, 0));
+		changed = true;
+		break;
+	case birds::TempleFlockStep::RemoveOne:
+	{
+		const auto head = members.back();
+		ecs::flocks::RemoveLiving(flock, head, false);
+		ecs::ToBeDeleted(head);
+		changed = true;
+		break;
+	}
+	case birds::TempleFlockStep::None:
+		break;
+	}
+	// They fly about the temple's height, its model's as it now stands, and 10 m over it
+	if (!changed && !outsideChanged)
+	{
+		return;
+	}
+	const auto* mesh = registry.TryGet<const Mesh>(heart);
+	const auto half = mesh != nullptr ? ecs::object::MeshHalfExtents(mesh->id) : std::nullopt;
+	if (half.has_value())
+	{
+		registry.Get<Flock>(flock).altitude = birds::TempleFlockHeight(ecs::object::GetScale(heart), half->y + half->y);
+	}
+}
+
+/// The worship sites' turns, as the citadel's parts take theirs, the newest part first: each site's steps its mana path
+/// first and sets its altar's need signs last. (not ported) the rest of a site's turn and the other parts' turns
+void ProcessWorshipSites(entt::entity citadelEntity)
+{
+	if (!IsCitadel(citadelEntity))
+	{
+		return;
+	}
+	std::vector<entt::entity> sites;
+	for (const auto site : Registry().Get<const CitadelWorship>(citadelEntity).sites)
+	{
+		if (site != entt::null && Registry().Valid(site) && Registry().AllOf<WorshipSite>(site))
+		{
+			sites.push_back(site);
+		}
+	}
+	std::ranges::sort(sites,
+	                  [](entt::entity a, entt::entity b) { return ecs::object_index::Of(a) > ecs::object_index::Of(b); });
+	for (const auto site : sites)
+	{
+		site::ProcessManaPath(site);
+		site::ProcessNeedsSigns(site);
+	}
+}
+} // namespace
+
+entt::entity citadel::HeartOf(entt::entity citadelEntity)
+{
+	return IsCitadel(citadelEntity) && Registry().AllOf<CitadelHeart>(citadelEntity) ? citadelEntity : entt::null;
+}
+
+entt::entity citadel::PartHeart(entt::entity part)
+{
+	auto& registry = Registry();
+	if (part == entt::null || !registry.Valid(part))
+	{
+		return entt::null;
+	}
+	if (const auto* site = registry.TryGet<const WorshipSite>(part); site != nullptr)
+	{
+		return HeartOf(site->citadel);
+	}
+	if (const auto* totem = registry.TryGet<const WorshipTotem>(part); totem != nullptr && totem->site != part)
+	{
+		return PartHeart(totem->site);
+	}
+	return entt::null;
+}
+
+void citadel::Process(entt::entity citadelEntity)
+{
+	// the heart and its model; none -> straight to the parts' turns
+	const auto heart = HeartOf(citadelEntity);
+	if (heart == entt::null)
+	{
+		ProcessWorshipSites(citadelEntity);
+		return;
+	}
+	// the drawn percentage follows the percentage built; reaching 1 the heart leaves the map cells and enters them
+	// again
+	const float old = Registry().Get<const CitadelHeart>(heart).drawPercent;
+	const float percent = ecs::abodes::GetPercentBuilt(heart);
+	if (old < 1.0f && !(percent < 1.0f))
+	{
+		ecs::map_cells::RemoveMapObject(heart);
+		SetHeartDrawPercent(heart, percent);
+		ecs::map_cells::InsertMapObject(heart);
+	}
+	else
+	{
+		SetHeartDrawPercent(heart, percent);
+	}
+	// the outside moves toward its targets, built or not; once it has moved far enough the heart leaves the map cells
+	// while its mesh is blended again, and enters them again. (not ported) the effect the game may then play.
+	// (openblack) tests without the service have no outside
+	const auto player = Registry().Get<const Temple>(heart).owner;
+	bool outsideChanged = false;
+	if (Locator::templeExteriorSystem::has_value())
+	{
+		// the targets: the player's alignment, and twice the player's share of the influence, over every player's
+		// slot, the neutral one too. (approximate) the powers as the last turn left them: openblack works them out
+		// after every citadel, the original each player's after its own citadel
+		const float alignmentTarget = TempleExteriorMorph::AlignmentTarget(ecs::effects::alignment::Get(player));
+		float allPowers = 0.0f;
+		for (uint8_t p = 0; p < static_cast<uint8_t>(PlayerNames::_COUNT); ++p)
+		{
+			allPowers = influence::InfluencePower(static_cast<PlayerNames>(p)) + allPowers;
+		}
+		const float sizeTarget =
+		    TempleExteriorMorph::SizeTarget(influence::LandNumber() == 1, influence::InfluencePower(player), allPowers);
+		auto& exterior = Locator::templeExteriorSystem::value();
+		outsideChanged = exterior.Step(heart, alignmentTarget, sizeTarget);
+		if (outsideChanged)
+		{
+			ecs::map_cells::RemoveMapObject(heart);
+			exterior.Blend(heart);
+			ecs::map_cells::InsertMapObject(heart);
+		}
+	}
+	// the doves or bats about the temple, every turn, with the player's alignment
+	ProcessAlignmentFlock(heart, ecs::effects::alignment::Get(player), outsideChanged);
+	// then the temple's parts take their turns: the heart's is its destruction's, once it is being destroyed
+	if (Locator::templeDestructionSystem::has_value())
+	{
+		Locator::templeDestructionSystem::value().ProcessHeart(heart);
+	}
+	// then the citadel's parts, the worship sites among them
+	ProcessWorshipSites(citadelEntity);
+}
+
+void citadel::SetHeartDrawPercent(entt::entity heart, float percent)
+{
+	auto* h = heart != entt::null && Registry().Valid(heart) ? Registry().TryGet<CitadelHeart>(heart) : nullptr;
+	if (h == nullptr)
+	{
+		return;
+	}
+	// clamped to 0..1
+	if (percent < 0.0f)
+	{
+		percent = 0.0f;
+	}
+	if (percent > 1.0f)
+	{
+		percent = 1.0f;
+	}
+	// (pending) first reaching 1 sets a flag on the model. Drawn whole, the temple shows its player's border (and its
+	// entrance can be collided, EntranceCollides): that stays shown on this land, whatever the percent does after. The
+	// border is the one of the player's colour index on the land
+	h->drawPercent = percent;
+	if (percent == 1.0f)
+	{
+		influence::ShowBoundary(ecs::player_colours::OnThisLand(Registry().Get<const Temple>(heart).owner));
+	}
+	ecs::abodes::RedrawConstruction(heart);
+}
+
+void citadel::HeartBuilt(entt::entity heart)
+{
+	auto& registry = Registry();
+	const auto* h = registry.TryGet<const CitadelHeart>(heart);
+	if (h == nullptr)
+	{
+		return;
+	}
+	// 2. the player (the citadel's, else the town's); life 1.0
+	const auto player = registry.Get<const Temple>(heart).owner;
+	ecs::life::SetLife(heart, 1.0f);
+	// 3. each town of the player: the heart's building site is removed
+	for (const auto town : ecs::map_cells::TownsOf(player))
+	{
+		if (ecs::building_sites::GetBuildingSiteInList(town, heart) != entt::null)
+		{
+			ecs::building_sites::RemoveBuildingSite(town, heart);
+		}
+	}
+	// 4. the heart's citadel; none -> done
+	const auto citadelEntity = registry.Get<const CitadelHeart>(heart).citadel;
+	if (citadelEntity == entt::null)
+	{
+		return;
+	}
+	OpenWorshipSites(citadelEntity, 0.0f);
+	// the local player only.
+	// (approximate) IsHuman stands for it, as ProcessSpellIcons above (openblack's local player is the human one)
+	if (!magic::players::IsHuman(player))
+	{
+		return;
+	}
+	// not in a script's wide screen
+	if (const auto* help = help::Get(); help != nullptr && help->IsScriptWideScreen())
+	{
+		return;
+	}
+	// no script music playing and not land 1 -> the temple built music
+	{
+		const auto lock = audio::game_music::Lock();
+		if (auto* music = audio::game_music::Get();
+		    music != nullptr && music->GetScriptType() == 0 && influence::LandNumber() != 1)
+		{
+			music->StartScriptMusic(k_TempleBuiltMusic);
+		}
+	}
+	// not a skirmish nor a network game -> the game saved into the autosave's slot (a run of the checks keeps no
+	// profile, so nothing is written)
+	ecs::save_triggers::TempleBuilt();
+}
+
+void citadel::WorshipSiteBuilt(entt::entity siteEntity)
+{
+	// each town of the site's player (the citadel's): the site's building site is removed
+	const auto* site = Registry().TryGet<const WorshipSite>(siteEntity);
+	if (site == nullptr)
+	{
+		return;
+	}
+	for (const auto town : ecs::map_cells::TownsOf(site->player))
+	{
+		if (ecs::building_sites::GetBuildingSiteInList(town, siteEntity) != entt::null)
+		{
+			ecs::building_sites::RemoveBuildingSite(town, siteEntity);
+		}
+	}
+}
+
+void citadel::SetInterfaceCitadel(uint32_t value)
+{
+	Citadel().interfaceCitadel = value;
+}
+
+uint32_t citadel::InterfaceCitadel()
+{
+	return Citadel().interfaceCitadel;
+}
+
+void citadel::ResetInterfaceCitadel()
+{
+	Citadel().interfaceCitadel = 1;
+}
+
+bool citadel::EntranceValidToTap([[maybe_unused]] entt::entity entrance)
+{
+	// always valid in a multiplayer game (openblack: never), else SET_INTERFACE_CITADEL's value != 0
+	return Citadel().interfaceCitadel != 0;
+}
+
+bool citadel::EntranceCollides(entt::entity entrance)
+{
+	const auto* door = Registry().Valid(entrance) ? Registry().TryGet<const CitadelEntrance>(entrance) : nullptr;
+	if (door == nullptr || !ecs::IsAvailable(entrance) || door->heart == entt::null || !Registry().Valid(door->heart))
+	{
+		return false;
+	}
+	// collided while its heart's player's border is shown: once one of that player's temples has been drawn whole on
+	// this land (the border of its colour index on the land)
+	const auto* temple = Registry().TryGet<const Temple>(door->heart);
+	return temple != nullptr && Registry().AllOf<CitadelHeart>(door->heart) &&
+	       influence::BoundaryShown(ecs::player_colours::OnThisLand(temple->owner));
+}
+
+bool citadel::IsEntranceValidToTap(entt::entity object)
+{
+	return object != entt::null && Registry().Valid(object) && Registry().AllOf<CitadelEntrance>(object) &&
+	       EntranceValidToTap(object);
+}
+
+citadel::EntranceToolTip citadel::EntranceToolTipFor(entt::entity object, PlayerNames player)
+{
+	const auto* door =
+	    object != entt::null && Registry().Valid(object) ? Registry().TryGet<const CitadelEntrance>(object) : nullptr;
+	const auto heart = door != nullptr ? door->heart : entt::null;
+	// an entrance whose heart is built: the heart's player's hand is told to enter, any other hand gets nothing
+	if (heart == entt::null || !Registry().Valid(heart) || !Registry().AllOf<Temple>(heart) || !ecs::abodes::IsBuilt(heart))
+	{
+		return EntranceToolTip::NotEntrance;
+	}
+	return Registry().Get<const Temple>(heart).owner == player ? EntranceToolTip::Enter : EntranceToolTip::Nothing;
+}
+
+uint32_t citadel::EntranceTap(entt::entity entrance, bool myInterface)
+{
+	// the entrance's heart of the local player, tapped from the local interface -> go inside the citadel; returns 1
+	const auto* door = Registry().TryGet<const CitadelEntrance>(entrance);
+	const auto heart = door != nullptr ? door->heart : entt::null;
+	if (heart == entt::null || !Registry().Valid(heart) || !Registry().AllOf<Temple>(heart))
+	{
+		return 1;
+	}
+	// (approximate) IsHuman stands for "the local player", as in HeartBuilt
+	if (magic::players::IsHuman(Registry().Get<const Temple>(heart).owner) && myInterface)
+	{
+		// (approximate) going inside (the inside flag, the camera) is the temple interior's Activate, as
+		// ENTER_EXIT_CITADEL(1) does
+		if (Locator::temple::has_value() && !Locator::temple::value().Active())
+		{
+			Locator::temple::value().Activate();
+		}
+	}
+	return 1;
+}

@@ -1,0 +1,780 @@
+/******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+#include "TempleScrolls.h"
+
+#include <cctype>
+#include <cmath>
+
+#include <algorithm>
+#include <string>
+
+#include <bgfx/bgfx.h>
+#include <entt/core/hashed_string.hpp>
+#include <fmt/format.h>
+#include <glm/geometric.hpp>
+
+#include "3D/L3DMesh.h"
+#include "3D/L3DSubMesh.h"
+#include "3D/TempleScroll.h"
+#include "Graphics/GraphicsHandleBgfx.h"
+#include "Gui/ControlBindings.h"
+#include "Gui/GameFont.h"
+#include "Gui/TextDatabase.h"
+#include "Help/DialogueText.h"
+#include "Help/ScriptSpirits.h"
+#include "Locator.h"
+#include "Resources/ResourcesInterface.h"
+
+using namespace openblack;
+
+namespace
+{
+/// Each room's scrolls: the room, its mesh, the scroll's submesh (the rooms find them by name, whatever the case) and
+/// the text written on it
+struct ScrollPlace
+{
+	TempleRoom room;
+	std::string_view mesh;
+	std::string_view subMesh;
+	TempleScrolls::Content content;
+};
+constexpr std::array k_ScrollPlaces {
+    ScrollPlace {TempleRoom::Main, "main", "LH_Scroll_World", TempleScrolls::Content::World},
+    ScrollPlace {TempleRoom::CreatureCave, "creature", "LH_SCROLL_CREATURE", TempleScrolls::Content::CreatureAttributes},
+    ScrollPlace {TempleRoom::CreatureCave, "creature", "LH_SCROLL_FIGHT", TempleScrolls::Content::CreatureActions},
+    ScrollPlace {TempleRoom::CreatureCave, "creature", "LH_SCROLL_LIKES", TempleScrolls::Content::CreatureMind},
+    ScrollPlace {TempleRoom::CreatureCave, "creature", "LH_SCROLL_MAGIC", TempleScrolls::Content::CreatureMiracles},
+    ScrollPlace {TempleRoom::Challenge, "challenge", "LH_Scroll_Challenge", TempleScrolls::Content::Challenge},
+    ScrollPlace {TempleRoom::SaveGame, "savegame", "LH_Scroll_Savegame", TempleScrolls::Content::SaveGame},
+    ScrollPlace {TempleRoom::Credits, "credits", "LH_SCROLL_LIB01", TempleScrolls::Content::LibraryStaff},
+    ScrollPlace {TempleRoom::Credits, "credits", "LH_SCROLL_LIB02", TempleScrolls::Content::LibraryControl},
+    ScrollPlace {TempleRoom::Credits, "credits", "LH_SCROLL_LIB03", TempleScrolls::Content::LibraryCreature},
+    ScrollPlace {TempleRoom::Credits, "credits", "LH_SCROLL_LIB04", TempleScrolls::Content::LibraryVillageLife},
+    ScrollPlace {TempleRoom::Credits, "credits", "LH_SCROLL_LIB05", TempleScrolls::Content::LibraryMiracles},
+    ScrollPlace {TempleRoom::Credits, "credits", "LH_SCROLL_LIB06", TempleScrolls::Content::LibraryDidYouKnow},
+    ScrollPlace {TempleRoom::Credits, "credits", "LH_SCROLL_LIB07", TempleScrolls::Content::LibraryHistory},
+};
+
+/// The library's first scroll, the people who made the game
+constexpr std::array<std::u16string_view, 36> k_Staff {
+    u"Aaron Ludlow",    u"Alex Evans",          u"Andy Bass",         u"Andy Robson",      u"Catherine Tutton",
+    u"Cathy Campos",    u"Christian Bravery",   u"Claire Hedley",     u"Daniel Deptford",  u"Eric Bailey",
+    u"Georg Backer",    u"Giles Jermy",         u"James Leach",       u"Jamie Durrant",    u"Janice Nussey",
+    u"Jason Hutchens",  u"Jean-Claude Cottier", u"Jeremy Chatelaine", u"Joe Borthwick",    u"Jonty Barnes",
+    u"Ken Malcolm",     u"Mark Healey",         u"Mark Webley",       u"Nathan Smethurst", u"Oliver Purkiss",
+    u"Paul McLaughlin", u"Paul Nettleton",      u"Pete Hawley",       u"Peter Molyneux",   u"Richard Evans",
+    u"Russell Shaw",    u"Scawen Roberts",      u"Steve Jackson",     u"Steve Lawrie",     u"Thomas Barnet-Lamb",
+    u"Tim Rance",
+};
+
+bool SameName(std::string_view a, std::string_view b)
+{
+	return std::ranges::equal(a, b, [](char x, char y) {
+		return std::tolower(static_cast<unsigned char>(x)) == std::tolower(static_cast<unsigned char>(y));
+	});
+}
+
+/// swprintf with the conversions the save game room's texts have: "%i", "%d" and "%.2d"
+std::u16string Format(std::u16string_view format, std::initializer_list<int32_t> values)
+{
+	std::u16string result;
+	auto value = values.begin();
+	for (size_t i = 0; i < format.size(); ++i)
+	{
+		if (format[i] != u'%' || i + 1 >= format.size())
+		{
+			result += format[i];
+			continue;
+		}
+		size_t digits = 0;
+		size_t j = i + 1;
+		if (format[j] == u'.' && j + 2 < format.size())
+		{
+			digits = static_cast<size_t>(format[j + 1] - u'0');
+			j += 2;
+		}
+		if ((format[j] == u'i' || format[j] == u'd') && value != values.end())
+		{
+			auto number = std::to_string(std::abs(*value));
+			if (number.size() < digits)
+			{
+				number.insert(0, digits - number.size(), '0');
+			}
+			result += gui::ToUtf16((*value < 0 ? "-" : "") + number);
+			++value;
+			i = j;
+		}
+		else
+		{
+			result += format[i];
+		}
+	}
+	return result;
+}
+} // namespace
+
+TempleScrolls::TempleScrolls(const gui::TextDatabase& texts, const gui::GameFont& font, std::vector<uint8_t> parchment,
+                             temple_sounds::PlaySound playSound, TickCount tickCount)
+    : _texts(texts)
+    , _font(font)
+    , _parchment(std::move(parchment))
+    , _playSound(std::move(playSound))
+    , _tickCount(std::move(tickCount))
+{
+}
+
+TempleScrolls::~TempleScrolls()
+{
+	for (auto& scroll : _scrolls)
+	{
+		if (scroll.texture)
+		{
+			bgfx::destroy(graphics::toBgfx(*scroll.texture));
+		}
+	}
+}
+
+void TempleScrolls::Create(const Facts& facts)
+{
+	auto& meshes = Locator::resources::value().GetMeshes();
+	for (const auto& place : k_ScrollPlaces)
+	{
+		Scroll scroll {.room = place.room, .content = place.content, .subMesh = std::nullopt, .texture = std::nullopt};
+		const entt::id_type meshId = entt::hashed_string(fmt::format("temple/interior/{}_l3d", place.mesh).c_str()).value();
+		if (meshes.Contains(meshId))
+		{
+			const auto& subMeshes = meshes.Handle(meshId)->GetSubMeshes();
+			for (uint32_t i = 0; i < subMeshes.size(); ++i)
+			{
+				if (SameName(subMeshes[i]->GetName(), place.subMesh))
+				{
+					scroll.subMesh = i;
+					const auto& frame = subMeshes[i]->GetFrame();
+					scroll.frame = frame.toMesh;
+					scroll.min = frame.min;
+					scroll.max = frame.max;
+					break;
+				}
+			}
+		}
+		if (scroll.subMesh.has_value())
+		{
+			// A texture in memory, 256 texels square, 16 bits a texel
+			scroll.texture = graphics::fromBgfx(bgfx::createTexture2D(TempleScrollTexture::k_Size, TempleScrollTexture::k_Size,
+			                                                          false, 1, bgfx::TextureFormat::BGRA4, BGFX_TEXTURE_NONE));
+			bgfx::setName(graphics::toBgfx(*scroll.texture), fmt::format("Scroll {}", place.subMesh).c_str());
+		}
+		_scrolls.push_back(scroll);
+	}
+	for (auto& scroll : _scrolls)
+	{
+		Redraw(scroll, facts);
+	}
+}
+
+void TempleScrolls::Redraw(Scroll& scroll, const Facts& facts)
+{
+	if (!scroll.texture)
+	{
+		return;
+	}
+	const bool textInFront = _focusedText && _focused.has_value() && &_scrolls[*_focused] == &scroll;
+	std::vector<uint16_t> texels(static_cast<size_t>(TempleScrollTexture::k_Size) * TempleScrollTexture::k_Size);
+	if (const auto text = Write(scroll.content, _texts, _font, facts, _historyStart); text.has_value())
+	{
+		scroll.textHeight =
+		    TempleScrollTexture::Draw(texels, _parchment, *text, static_cast<uint32_t>(scroll.position), _font, !textInFront);
+	}
+	else
+	{
+		// TODO(raffclar): A scroll its room leaves unwritten keeps what the game made its texture from: 128 KiB of the
+		// game's own memory after the texture's name, read as texels. It is the parchment here.
+		TempleScrollTexture::Draw(texels, _parchment, u"", 0, _font);
+	}
+	bgfx::updateTexture2D(graphics::toBgfx(*scroll.texture), 0, 0, 0, 0, TempleScrollTexture::k_Size,
+	                      TempleScrollTexture::k_Size,
+	                      bgfx::copy(texels.data(), static_cast<uint32_t>(texels.size() * sizeof(texels[0]))));
+}
+
+TempleScrolls::Focus TempleScrolls::LookAt(size_t index, LazyFacts& facts)
+{
+	// The room's camera looks at the middle of the scroll's box from 30 units back along its frame's x axis
+	if (_focused != index)
+	{
+		if (_focused.has_value() && _focusedText)
+		{
+			// The scroll looked at before is written on its texture again
+			_focusedText = false;
+			Redraw(_scrolls[*_focused], facts.Get());
+		}
+		_focused = index;
+	}
+	const auto& scroll = _scrolls[index];
+	const auto middle = (scroll.min + scroll.max) * 0.5f;
+	return {
+	    .position = glm::vec3(scroll.frame * glm::vec4(middle + glm::vec3(-30.0f, 0.0f, 0.0f), 1.0f)),
+	    .lookAt = glm::vec3(scroll.frame * glm::vec4(middle, 1.0f)),
+	};
+}
+
+std::optional<TempleScrolls::Focus> TempleScrolls::LookAt(TempleRoom room, size_t place, LazyFacts& facts)
+{
+	size_t found = 0;
+	for (size_t i = 0; i < _scrolls.size(); ++i)
+	{
+		if (_scrolls[i].room != room || !_scrolls[i].texture)
+		{
+			continue;
+		}
+		if (found++ == place)
+		{
+			return LookAt(i, facts);
+		}
+	}
+	return std::nullopt;
+}
+
+bool TempleScrolls::Hold(bool pressed, float mouseY, const std::optional<TempleCursorHit>& hit, LazyFacts& facts,
+                         std::optional<Focus>& focus)
+{
+	const bool pressing = pressed && !_wasPressed;
+	_wasPressed = pressed;
+	if (pressing && hit.has_value() && hit->subMesh.has_value())
+	{
+		for (size_t i = 0; i < _scrolls.size(); ++i)
+		{
+			const auto& scroll = _scrolls[i];
+			if (scroll.room == hit->room && scroll.subMesh == hit->subMesh && scroll.texture)
+			{
+				_held = i;
+				_heldMouseY = mouseY;
+				_squeaked = false;
+				focus = LookAt(i, facts);
+				break;
+			}
+		}
+	}
+	if (!pressed)
+	{
+		_held.reset();
+		return false;
+	}
+	if (!_held.has_value())
+	{
+		return false;
+	}
+
+	// The scroll turns by as many texels as the mouse moves pixels, its text following the mouse
+	auto& scroll = _scrolls[*_held];
+	const auto lastY = static_cast<int32_t>(_heldMouseY);
+	const auto y = static_cast<int32_t>(mouseY);
+	_heldMouseY = mouseY;
+	if (y == lastY)
+	{
+		_squeaked = false;
+		return true;
+	}
+	const auto previous = scroll.position;
+	scroll.position = Dragged(scroll.position, scroll.textHeight, lastY, y);
+	Redraw(scroll, facts.Get());
+	if (Squeaks(_squeaked, previous, scroll.position) && _playSound && _tickCount)
+	{
+		_playSound(temple_sounds::ScrollSqueak(_tickCount()));
+	}
+	return true;
+}
+
+int32_t TempleScrolls::Dragged(int32_t position, uint32_t textHeight, int32_t lastY, int32_t y)
+{
+	return TempleScrollTexture::ClampPosition(position - (y - lastY), textHeight);
+}
+
+bool TempleScrolls::Squeaks(bool& squeaked, int32_t previous, int32_t position)
+{
+	if (position == previous)
+	{
+		squeaked = false;
+		return false;
+	}
+	if (squeaked)
+	{
+		return false;
+	}
+	squeaked = true;
+	return true;
+}
+
+void TempleScrolls::SetFocus(float zoom, LazyFacts& facts)
+{
+	if (!_focused.has_value())
+	{
+		return;
+	}
+	// In the creature's room and the main room, the text goes in front of the scroll once the camera is over half way
+	// to it, and back on the texture when it is back under half way, when the camera no longer looks at it
+	const bool textInFront = zoom > 0.5f;
+	// While the camera is close to the story history, its first line stays between the newest and the oldest line
+	if (textInFront && _scrolls[*_focused].content == Content::LibraryHistory)
+	{
+		_historyStart = help::ClampStoryStart(_historyStart, static_cast<size_t>(facts.Get().history.count));
+	}
+	if (textInFront != _focusedText)
+	{
+		_focusedText = textInFront;
+		Redraw(_scrolls[*_focused], facts.Get());
+		if (!textInFront)
+		{
+			_focused.reset();
+		}
+	}
+}
+
+void TempleScrolls::TurnHistory(help::StoryTurn turn, LazyFacts& facts)
+{
+	switch (turn)
+	{
+	case help::StoryTurn::Previous:
+		++_historyStart;
+		break;
+	case help::StoryTurn::Next:
+		--_historyStart;
+		break;
+	case help::StoryTurn::Latest:
+		_historyStart = 0;
+		break;
+	}
+	_historyStart = help::ClampStoryStart(_historyStart, static_cast<size_t>(facts.Get().history.count));
+}
+
+bool TempleScrolls::IsHistoryOpen() const
+{
+	return _focused.has_value() && _focusedText && _scrolls.at(*_focused).content == Content::LibraryHistory;
+}
+
+std::optional<TempleScrolls::Content> TempleScrolls::GetFocusedContent() const
+{
+	return _focused.has_value() ? std::optional(_scrolls.at(*_focused).content) : std::nullopt;
+}
+
+bool TempleScrolls::IsControl(TempleRoom room, uint32_t subMesh) const
+{
+	return std::ranges::any_of(
+	    _scrolls, [room, subMesh](const Scroll& scroll) { return scroll.room == room && scroll.subMesh == subMesh; });
+}
+
+std::vector<TempleScrolls::Control> TempleScrolls::GetControls(TempleRoom room) const
+{
+	std::vector<Control> controls;
+	for (size_t i = 0; i < _scrolls.size(); ++i)
+	{
+		if (_scrolls[i].room == room && _scrolls[i].subMesh.has_value())
+		{
+			controls.push_back({.subMesh = *_scrolls[i].subMesh, .focused = _focused == i});
+		}
+	}
+	return controls;
+}
+
+std::vector<TempleSubMeshTexture> TempleScrolls::GetTextures(TempleRoom room) const
+{
+	std::vector<TempleSubMeshTexture> textures;
+	for (const auto& scroll : _scrolls)
+	{
+		if (scroll.room == room && scroll.subMesh.has_value() && scroll.texture.has_value())
+		{
+			textures.push_back({*scroll.subMesh, *scroll.texture});
+		}
+	}
+	return textures;
+}
+
+void TempleScrolls::AppendFocusedText(std::vector<OrientedTextVertex>& vertices, LazyFacts& facts,
+                                      std::vector<temple_scroll_pictures::Line>* pictures) const
+{
+	if (!_focusedText || !_focused.has_value())
+	{
+		return;
+	}
+	const auto& scroll = _scrolls[*_focused];
+	const auto text = Write(scroll.content, _texts, _font, facts.Get(), _historyStart);
+	if (!text.has_value())
+	{
+		return;
+	}
+	// The scroll's submesh gives the text's frame: its axes made unit long, its y and z axes turned round, at the
+	// middle of the scroll's box. The texture's 237 texels across fit the box's depth along z and its 255 down its
+	// height along y.
+	TextFrame frame;
+	std::array<float, 3> lengths {};
+	for (size_t i = 0; i < 3; ++i)
+	{
+		const auto axis = glm::vec3(scroll.frame[static_cast<glm::length_t>(i)]);
+		lengths.at(i) = glm::length(axis);
+		frame.axes.at(i) = lengths.at(i) > 0.0f ? axis / lengths.at(i) : axis;
+	}
+	frame.axes[1] = -frame.axes[1];
+	frame.axes[2] = -frame.axes[2];
+	frame.origin = glm::vec3(scroll.frame * glm::vec4((scroll.min + scroll.max) * 0.5f, 1.0f));
+	const float across = std::abs(scroll.max.z - scroll.min.z) * lengths[2] / ((256.0f / 237.0f) * 256.0f);
+	const float down = std::abs(scroll.max.y - scroll.min.y) * lengths[1] / ((256.0f / 255.0f) * 256.0f);
+	if (down <= 0.0f)
+	{
+		return;
+	}
+	const float size = static_cast<float>(TempleScrollTexture::k_LineHeight) * down;
+	const float stretch = TempleScrollTexture::k_Stretch * across / down;
+	constexpr float k_Size = TempleScrollTexture::k_Size;
+	constexpr float k_Middle = k_Size * 0.5f;
+	const auto inSight = [&](float y) { return y >= -static_cast<float>(TempleScrollTexture::k_LineHeight) && y <= k_Size; };
+	TempleScrollTexture::LayOut(
+	    *text, static_cast<uint32_t>(scroll.position), _font,
+	    [&](std::u16string_view line, float x, float y) {
+		    if (!inSight(y))
+		    {
+			    return;
+		    }
+		    // The text is laid along the frame's z axis and down its y, 0.7 units in front: the shadow
+		    // a texel down and right, then the yellow
+		    AppendOrientedText(vertices, _font, frame, 2, 1, line,
+		                       {(x - k_Middle + 1.0f) * across, ((y - k_Middle) * down) + down, -0.7f}, size, stretch,
+		                       {0, 0, 0, 255});
+		    AppendOrientedText(vertices, _font, frame, 2, 1, line, {(x - k_Middle) * across, (y - k_Middle) * down, -0.7f},
+		                       size, stretch, {255, 255, 0, 255});
+	    },
+	    [&](int32_t control, float lineX, float y) {
+		    // A control's picture, while its line is in sight, drawn on the screen over the scroll
+		    if (pictures != nullptr && inSight(y))
+		    {
+			    pictures->push_back(
+			        {.frame = frame, .across = across, .down = down, .lineX = lineX, .lineY = y, .control = control});
+		    }
+	    });
+}
+
+TempleScrolls::Facts TempleScrolls::Facts::Mock()
+{
+	// TODO(raffclar): The creature is made up until openblack keeps the player's creature. The world's figures are the
+	// game's statistics (player_statistics::World, filled by the temple); the temple also fills in the population, the
+	// time played, the challenges, the creature, the tips and the story history. No saved games exist yet, so the save
+	// game room lists none and counts no saves nor loads, as the original with an empty save folder and a new profile.
+	Facts facts;
+	CreatureFacts creature;
+	creature.name = u"Ape";
+	creature.age = 3;
+	creature.health = 87;
+	creature.energy = 64;
+	creature.strength = 42;
+	creature.fatness = 35;
+	creature.exhaustion = 18;
+	creature.dehydration = 22;
+	creature.poo = 40;
+	creature.alignment = 0.3f;
+	creature.warmth = 0.1f;
+	creature.illness = 0.1f;
+	creature.tallies = {5, 12, 1, 2, 1, 8, 3};
+	creature.actionsKnown = {true, false, true, false, true};
+	creature.desires = {
+	    {"HELP_TEXT_ROOM_PERSONALITY_GREEDY", 6},        {"HELP_TEXT_ROOM_PERSONALITY_LETHARGIC", 8},
+	    {"HELP_TEXT_ROOM_PERSONALITY_COMPASSIONATE", 2}, {"HELP_TEXT_ROOM_PERSONALITY_TERRIFIED", 1},
+	    {"HELP_TEXT_ROOM_PERSONALITY_PLAYFUL", 4},
+	};
+	creature.opinionOfGod = 0.3f;
+	creature.known = {0, 1, 2, 3};
+	creature.fightBalance = 0.2f;
+	creature.miracles = {
+	    {903, 12},
+	    {904, 9},
+	    {910, 97},
+	};
+	facts.creature = creature;
+	return facts;
+}
+
+std::optional<std::u16string> TempleScrolls::Write(Content content, const gui::TextDatabase& texts, const gui::GameFont& font,
+                                                   const Facts& facts, int32_t historyStart)
+{
+	TempleScrollText text(font);
+	const auto get = [&texts](std::string_view name) { return texts.Get(name); };
+	// The help that names one of the game's controls tells its key and mouse input, as the Controls page names them
+	std::vector<std::u16string> controlWords;
+	controlWords.reserve(gui::control_bindings::k_Bindings.size());
+	for (const auto& binding : gui::control_bindings::k_Bindings)
+	{
+		const auto mouse = gui::control_bindings::MouseTextName(binding.mouse);
+		controlWords.push_back(TempleScrollText::ControlWords(gui::control_bindings::KeyText(binding),
+		                                                      mouse.empty() ? std::u16string_view() : get(mouse)));
+	}
+	text.SetControlWords(std::move(controlWords));
+	// A help text by its number, as the scripts number them: a number past the texts is the first text
+	const auto helpText = [&texts, &get](uint32_t number) {
+		const auto names = texts.GetHelpNames();
+		return names.empty() ? std::u16string_view() : get(names[number < names.size() ? number : 0]);
+	};
+	// A help text on its own lines, as the game adds its numbered texts: the text numbered 0 writes nothing at all
+	const auto addHelp = [&text, &helpText](uint32_t number) {
+		if (number != 0)
+		{
+			text.Add(helpText(number));
+		}
+	};
+	const auto number = [&](std::string_view name, int32_t value) { text.Add(TempleScrollText::WithNumber(get(name), value)); };
+	const auto named = [&](std::string_view name, std::u16string_view value) {
+		text.Add(TempleScrollText::WithString(get(name), value));
+	};
+	// The game's seven texts for an alignment, from totally evil to angelic, picked as the game's other alignment
+	// readers pick theirs (help::script_spirits::DiscreteAlignment). The floor of 0 only guards a value below -1
+	const auto alignment = [&](float value) {
+		const auto n = std::clamp(help::script_spirits::DiscreteAlignment(value), 0, 6);
+		return get(fmt::format("HELP_TEXT_ALIGNMENT_{:02}", n + 1));
+	};
+	const auto* creature = facts.creature ? &*facts.creature : nullptr;
+	// The texts about the player's creature are a blank line without one
+	const auto aboutCreature = [&](const auto& write) {
+		if (creature != nullptr)
+		{
+			write(*creature);
+		}
+		else
+		{
+			text.AddNewLine();
+		}
+	};
+
+	switch (content)
+	{
+	case Content::World: // The main room's scroll
+	{
+		text.Add(get("HELP_TEXT_ROOM_WORLD_TITLE"));
+		text.AddNewLine();
+		number("HELP_TEXT_ROOM_TOTAL_POPULATION", facts.population);
+		number("HELP_TEXT_ROOM_PERCENT_OF_POPULATION_BELIEVE_IN_YOU", facts.believersPercent);
+		number("HELP_TEXT_ROOM_PERCENT_OF_POPULATION_THAT_ARE_MALE", facts.malePercent);
+		text.AddNewLine();
+		number("HELP_TEXT_ROOM_NUMBER_OF_DEATHS_IN_YOUR_REGION", facts.deaths);
+		number("HELP_TEXT_ROOM_NUMBER_OF_BIRTHS_IN_YOUR_REGION", facts.births);
+		// "%s: %i" of the pause screen's statistic
+		text.Add(std::u16string(get("HELP_TEXT_PAUSE_STATS_108")) + u": " + gui::ToUtf16(std::to_string(facts.sacrifices)));
+		text.AddNewLine();
+		number("HELP_TEXT_ROOM_NUMBER_OF_BUILDINGS_BUILT", facts.buildings);
+		number("HELP_TEXT_ROOM_NUMBER_OF_WONDERS_BUILT", facts.wonders);
+		text.AddNewLine();
+		number("HELP_TEXT_ROOM_NUMBER_OF_DISCIPLES", facts.disciples);
+		// Protectors aren't listed
+		constexpr std::array<std::string_view, 8> k_Disciples {
+		    "HELP_TEXT_ROOM_NUMBER_OF_BUILDERS",  "HELP_TEXT_ROOM_NUMBER_OF_BREEDERS",  "HELP_TEXT_ROOM_NUMBER_OF_FISHERMEN",
+		    "HELP_TEXT_ROOM_NUMBER_OF_FARMERS",   "HELP_TEXT_ROOM_NUMBER_OF_FORESTERS", "HELP_TEXT_ROOM_NUMBER_OF_MISSIONARIES",
+		    "HELP_TEXT_ROOM_NUMBER_OF_CRAFTSMEN", "HELP_TEXT_ROOM_NUMBER_OF_TRADERS",
+		};
+		for (size_t i = 0; i < k_Disciples.size(); ++i)
+		{
+			number(k_Disciples.at(i), facts.discipleKinds.at(i));
+		}
+		text.End();
+		break;
+	}
+	case Content::CreatureAttributes: // The creature's room's scroll of the creature's attributes
+	{
+		text.Add(get("HELP_TEXT_ROOM_CREATURE_SCROLL_TITLE"));
+		text.AddNewLine();
+		aboutCreature([&](const CreatureFacts& c) { named("HELP_TEXT_ROOM_CREATURE_SCROLL_NAME", c.name); });
+		aboutCreature([&](const CreatureFacts& c) { number("HELP_TEXT_ROOM_CREATURE_SCROLL_AGE", c.age); });
+		text.AddNewLine();
+		aboutCreature([&](const CreatureFacts& c) { number("HELP_TEXT_ROOM_CREATURE_SCROLL_HEALTH", c.health); });
+		aboutCreature(
+		    [&](const CreatureFacts& c) { named("HELP_TEXT_ROOM_CREATURE_SCROLL_ALIGNMENT", alignment(c.alignment)); });
+		aboutCreature([&](const CreatureFacts& c) { number("HELP_TEXT_ROOM_CREATURE_SCROLL_ENERGY", c.energy); });
+		aboutCreature([&](const CreatureFacts& c) { number("HELP_TEXT_ROOM_CREATURE_SCROLL_STRENGTH", c.strength); });
+		aboutCreature([&](const CreatureFacts& c) { number("HELP_TEXT_ROOM_CREATURE_SCROLL_FATNESS", c.fatness); });
+		aboutCreature([&](const CreatureFacts& c) { number("HELP_TEXT_ROOM_CREATURE_SCROLL_EXHAUSTION", c.exhaustion); });
+		aboutCreature([&](const CreatureFacts& c) { number("HELP_TEXT_ROOM_CREATURE_SCROLL_DEHYDRATION", c.dehydration); });
+		aboutCreature([&](const CreatureFacts& c) {
+			const auto n = std::clamp(static_cast<int32_t>((c.warmth + 1.0f) * 0.5f * 5.0f), 0, 4);
+			named("HELP_TEXT_ROOM_CREATURE_SCROLL_WARMTH", get(fmt::format("HELP_TEXT_HOW_WARM_{:02}", n + 1)));
+		});
+		aboutCreature([&](const CreatureFacts& c) {
+			const auto n = std::clamp(static_cast<int32_t>(c.illness * 5.0f), 0, 4);
+			named("HELP_TEXT_ROOM_CREATURE_SCROLL_ILLNESS", get(fmt::format("HELP_TEXT_HOW_ILL_{:02}", n + 1)));
+		});
+		aboutCreature([&](const CreatureFacts& c) {
+			named("HELP_TEXT_ROOM_CREATURE_SCROLL_SPELLS_RECEIVED",
+			      c.miracleApplied ? get(fmt::format("HELP_TEXT_CREATURE_RECEIVED_SPELL_{:02}", *c.miracleApplied + 1))
+			                       : get("HELP_TEXT_DIALOG_ADDITION_101"));
+		});
+		aboutCreature([&](const CreatureFacts& c) { number("HELP_TEXT_ROOM_CREATURE_SCROLL_AMOUNTOFPOO", c.poo); });
+		text.AddNewLine();
+		constexpr std::array<std::string_view, 7> k_Tallies {
+		    "HELP_TEXT_ROOM_CREATURE_SCROLL_NUMBEROFPEOPLEKILLED",    "HELP_TEXT_ROOM_CREATURE_SCROLL_NUMBEROFANIMALSKILLED",
+		    "HELP_TEXT_ROOM_CREATURE_SCROLL_NUMBEROFCREATURESKILLED", "HELP_TEXT_ROOM_CREATURE_SCROLL_NUMBEROFBATTLESFOUGHT",
+		    "HELP_TEXT_ROOM_CREATURE_SCROLL_NUMBEROFBATTLESWON",      "HELP_TEXT_ROOM_CREATURE_SCROLL_NUMBEROFPOOS",
+		    "HELP_TEXT_ROOM_CREATURE_SCROLL_NUMBEROFMUSHROOMSEATEN",
+		};
+		for (size_t i = 0; i < k_Tallies.size(); ++i)
+		{
+			aboutCreature([&](const CreatureFacts& c) { number(k_Tallies.at(i), c.tallies.at(i)); });
+		}
+		text.End();
+		break;
+	}
+	case Content::CreatureActions: // The actions the creature has learnt, only for the player's creature
+		if (creature == nullptr)
+		{
+			return std::nullopt;
+		}
+		text.Add(get("HELP_TEXT_ROOM_ACTIONS_LEARNT_SCROLL_TITLE"));
+		text.AddNewLine();
+		// What it has learnt of taking food from the fields, the totem, the village store, fishing and dancing, or how
+		// to teach it
+		for (size_t i = 0; i < creature->actionsKnown.size(); ++i)
+		{
+			text.Add(get(creature->actionsKnown.at(i)
+			                 ? fmt::format("HELP_TEXT_CREATURE_LESSON_LEARN_NORMAL_ACTION_{:02}", i + 2)
+			                 : fmt::format("HELP_TEXT_CREATURE_LESSON_HASNT_LEARN_NORMAL_ACTION_{:02}", i + 2)));
+			text.AddNewLine();
+		}
+		text.End();
+		break;
+	case Content::CreatureMind: // The creature's personality, only for the player's creature
+		if (creature == nullptr)
+		{
+			return std::nullopt;
+		}
+		text.Add(get("HELP_TEXT_ROOM_LIKES_SCROLL_TITLE"));
+		text.AddNewLine();
+		for (const auto& desire : creature->desires)
+		{
+			named(desire.text, get(fmt::format("HELP_TEXT_CREATURE_ATTITUDE_{:02}", std::clamp(desire.attitude, 0, 9) + 1)));
+		}
+		text.AddNewLine();
+		if (creature->opinionOfGod)
+		{
+			named("HELP_TEXT_ROOM_PERSONALITY_ATTITUDE_TO_PLAYER", alignment(*creature->opinionOfGod));
+		}
+		named("HELP_TEXT_ROOM_PERSONALITY_HOW_MUCH_ATTENTION_PLAYER_HAS_GIVEN_ME",
+		      get(fmt::format("HELP_TEXT_HOW_MUCH_{:02}", std::clamp(creature->attention, 0, 4) + 1)));
+		// The game asks for the desire its god wants most, and with one writes its line, which asks again. The first
+		// asking has forgotten them all, so the line finds none and is only a line's end: its text never shows.
+		if (creature->takeGodsDesire && creature->takeGodsDesire())
+		{
+			text.AddNewLine();
+		}
+		text.AddNewLine();
+		// TODO(raffclar): What it thinks of each creature it knows of
+		text.AddNewLine();
+		number("HELP_TEXT_ROOM_PERSONALITY_BELIEFS_ABOUT_CREATURES", creature->known[0]);
+		number("HELP_TEXT_ROOM_PERSONALITY_BELIEFS_ABOUT_CITADELS", creature->known[1]);
+		number("HELP_TEXT_ROOM_PERSONALITY_BELIEFS_ABOUT_FLOCKS", creature->known[2]);
+		number("HELP_TEXT_ROOM_PERSONALITY_BELIEFS_ABOUT_FORESTS", creature->known[3]);
+		// The game doesn't end this scroll's text, which reads the same
+		break;
+	case Content::CreatureMiracles: // The miracles the creature has learnt
+		text.Add(get("HELP_TEXT_ROOM_MAGIC_SCROLL_TITLE"));
+		text.AddNewLine();
+		if (creature != nullptr)
+		{
+			for (const auto& miracle : creature->miracles)
+			{
+				// A miracle with no text writes neither it nor how much is learnt
+				if (miracle.text == 0)
+				{
+					continue;
+				}
+				text.Add(helpText(miracle.text));
+				text.Add(gui::ToUtf16(fmt::format("{}%", miracle.percent)));
+				text.AddNewLine();
+			}
+		}
+		text.End();
+		break;
+	case Content::Challenge: // The challenge room's scroll
+		text.Add(get("HELP_TEXT_ROOM_CHALLENGE_TITLE"));
+		text.AddNewLine();
+		number("HELP_TEXT_ROOM_CHALLENGE_LIST_NUMBER_OF_DISCOVERED_CHALLENGES", facts.challengesDiscovered);
+		number("HELP_TEXT_ROOM_CHALLENGE_LIST_NUMBER_OF_COMPLETED_CHALLENGES", facts.challengesCompleted);
+		text.AddNewLine();
+		for (const auto challenge : facts.challenges)
+		{
+			addHelp(challenge);
+		}
+		text.End();
+		break;
+	case Content::SaveGame: // The save game room's scroll
+	{
+		text.Add(get("HELP_TEXT_ROOM_SAVEGAME_TITLE"));
+		text.AddNewLine();
+		const auto seconds = static_cast<int32_t>(facts.timePlayed.count());
+		text.Add(Format(get("HELP_TEXT_DIALOG_ADDITION_136"), {seconds / 3600, (seconds / 60) % 60, seconds % 60}));
+		text.Add(Format(get("HELP_TEXT_DIALOG_ADDITION_119"), {facts.saveCount}));
+		text.Add(Format(get("HELP_TEXT_DIALOG_ADDITION_84"), {facts.loadCount}));
+		text.AddNewLine();
+		for (const auto& saved : facts.savedGames)
+		{
+			text.Add(saved.date);
+			text.Add(saved.name.empty() ? get("HELP_TEXT_NONAME_SAVED_GAME_01") : std::u16string_view(saved.name));
+			text.AddNewLine();
+		}
+		text.End();
+		break;
+	}
+	case Content::LibraryStaff:
+		for (const auto name : k_Staff)
+		{
+			text.Add(name);
+		}
+		text.End();
+		break;
+	case Content::LibraryControl:     // The library's help on getting about
+	case Content::LibraryCreature:    // on the creature
+	case Content::LibraryVillageLife: // on village life
+	case Content::LibraryMiracles:    // on miracles
+	case Content::LibraryDidYouKnow:  // and its "did you know"s
+	{
+		constexpr std::array<std::string_view, 5> k_Titles {
+		    "HELP_TEXT_LIBRARY_ROOM_02", "HELP_TEXT_LIBRARY_ROOM_03", "HELP_TEXT_LIBRARY_ROOM_04",
+		    "HELP_TEXT_LIBRARY_ROOM_05", "HELP_TEXT_LIBRARY_ROOM_06",
+		};
+		const auto kind = static_cast<size_t>(content) - static_cast<size_t>(Content::LibraryControl);
+		text.Add(get(k_Titles.at(kind)));
+		text.AddNewLine();
+		for (const auto help : facts.libraryHelp.at(kind))
+		{
+			addHelp(help);
+			text.AddNewLine();
+		}
+		text.End();
+		break;
+	}
+	case Content::LibraryHistory: // The story so far
+		text.Add(get("HELP_TEXT_LIBRARY_ROOM_07"));
+		text.AddNewLine();
+		// Five lines from the first line. A line before the newest line tells how many lines ago it was said. Then
+		// comes who said it, the words without their number, and two blank lines.
+		for (int32_t i = 0; i < k_HistoryLinesShown; ++i)
+		{
+			const auto back = historyStart + i;
+			const auto* line = facts.history.Back(back);
+			if (line == nullptr)
+			{
+				continue;
+			}
+			if (back > 0)
+			{
+				text.Add(Format(get("HELP_TEXT_DIALOG_ADDITION_06"), {back}));
+			}
+			text.Add(get(help::StoryCaption(line->narrator)));
+			text.AddNewLine();
+			addHelp(line->textId);
+			text.AddNewLine();
+			text.AddNewLine();
+		}
+		text.End();
+		break;
+	}
+	return text.GetText();
+}

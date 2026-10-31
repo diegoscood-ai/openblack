@@ -9,33 +9,82 @@
 
 #include "AnimatedStaticArchetype.h"
 
+#include <cstddef>
+
 #include <ECS/Components/Feature.h>
 #include <glm/gtx/euler_angles.hpp>
 
+#include "3D/AllMeshes.h"
+#include "3D/L3DAnim.h"
+#include "3D/ObjectMatrix.h"
+#include "ECS/Animations.h"
 #include "ECS/Components/AnimatedStatic.h"
 #include "ECS/Components/Fixed.h"
 #include "ECS/Components/Mesh.h"
+#include "ECS/Components/SkeletalAnimation.h"
+#include "ECS/Components/StreetLantern.h"
 #include "ECS/Components/Transform.h"
+#include "ECS/MapCells.h"
+#include "ECS/ObjectCreationIndex.h"
+#include "ECS/ObjectPlacement.h"
+#include "ECS/PlacedTurn.h"
 #include "ECS/Registry.h"
+#include "ECS/Systems/VillageLightSystemInterface.h"
 #include "InfoConstants.h"
 #include "Locator.h"
 #include "Resources/ResourceManager.h"
+#include "Resources/ResourcesInterface.h"
+#include "Scenery/AnimatedStaticRules.h"
 #include "Utils.h"
 
 using namespace openblack;
 using namespace openblack::ecs::archetypes;
 using namespace openblack::ecs::components;
 
+// The default clip sits where the original reads it in the info (the info.dat record starts 16 bytes into it)
+static_assert(offsetof(GAnimatedStaticInfo, defaultAnim) == 0x128 - 0x10);
+
+namespace
+{
+/// A Norse Gate (mesh 212) gets two lamp objects with MSH_O_TOWNLIGHT at (-15, 30, 0) and (+15, 30, 0) in the gate's
+/// matrix (rows with the scale, plus the translation), with angle 0 and scale 1, each with a lantern light made with
+/// it, in that order, whether it is dark or not. They are not map objects; their models are drawn only with the gate's
+/// (components::GateLamp). (The gate's place by value: creating the lamps can move the Transform storage.)
+void CreateNorseGateLamps(entt::entity gateEntity, const Transform gate)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto mesh = resources::HashIdentifier(MeshId::ObjectTownLight);
+	for (const float side : {-15.0f, 15.0f})
+	{
+		const glm::vec3 position =
+		    gate.position + side * gate.rotation[0] * gate.scale.x + 30.0f * gate.rotation[1] * gate.scale.y;
+		const auto lamp = registry.Create();
+		registry.Assign<Transform>(lamp, position, glm::mat3(1.0f), glm::vec3(1.0f));
+		registry.Assign<Mesh>(lamp, mesh, static_cast<int8_t>(0), static_cast<int8_t>(1));
+		registry.Assign<LanternLight>(lamp, static_cast<uint8_t>(0));
+		registry.Assign<GateLamp>(lamp, gateEntity);
+		// (openblack) tests without the service make the lamp without its light
+		if (Locator::villageLightSystem::has_value())
+		{
+			Locator::villageLightSystem::value().AddLight(lamp, position, 0);
+		}
+	}
+}
+} // namespace
+
 entt::entity AnimatedStaticArchetype::Create(const glm::vec3& position, AnimatedStaticInfo type, float yAngleRadians,
                                              float scale)
 {
 	auto& registry = Locator::entitiesRegistry::value();
 	const auto entity = registry.Create();
+	ecs::object_index::Assign(entity);
 
 	const auto& info = Locator::infoConstants::value().animatedStatic.at(static_cast<size_t>(type));
 
 	// The exact same as Feature but info is different and type is a different enum
-	const auto& transform = registry.Assign<Transform>(entity, position, glm::eulerAngleY(-yAngleRadians), glm::vec3(scale));
+	const auto& transform = registry.Assign<Transform>(entity, position, affine::AngleY(yAngleRadians), glm::vec3(scale));
+	// its model's own placement, made upright as the game makes it at the creation (ECS/ObjectPlacement.h)
+	ecs::object_placement::PlaceYaw(registry, entity, position, yAngleRadians, scale);
 	const auto [point, radius] = GetFixedObstacleBoundingCircle(info.meshId, transform);
 	registry.Assign<Fixed>(entity, point, radius);
 	// const auto& feature = registry.Assign<Feature>(entity, type);
@@ -44,5 +93,39 @@ entt::entity AnimatedStaticArchetype::Create(const glm::vec3& position, Animated
 
 	registry.Assign<AnimatedStatic>(entity, type);
 
+	// the object plays the info's clip (Norse Gate 191, Gate Stone Plinth 195, Piper Cave Entrance 189). Each frame the
+	// object draw list draws it, its place moves forwards or backwards with the open state (AnimatedStaticSystem::Draw):
+	// it starts closed, at the clip's start, and the clip's time follows its place.
+	auto& pose = registry.Assign<AnimatedStaticPose>(entity);
+	const auto clip = static_cast<int32_t>(info.defaultAnim);
+	if (clip >= 0)
+	{
+		auto& animation = registry.Assign<SkeletalAnimation>(entity);
+		animation.clip = ecs::ClipId(static_cast<uint32_t>(clip));
+		animation.clipIndex = clip;
+		animation.hasClip = true;
+		animation.time = 0.0f;
+		animation.speed = 0.0f;
+		// Where an open one comes to rest, from the clip's length and keyframes; at the start without the clip
+		if (Locator::resources::has_value())
+		{
+			const auto& animations = Locator::resources::value().GetAnimations();
+			if (const auto handle = animations.Handle(animation.clip); handle)
+			{
+				pose.restingPlace = animated_static::OpenRestingPlace(handle->GetPlayTime(), handle->GetFrames().size());
+				pose.playTime = handle->GetPlayTime();
+			}
+		}
+	}
+
+	if (info.meshId == MeshId::BuildingNorseGate)
+	{
+		CreateNorseGateLamps(entity, transform);
+	}
+	// InsertMapObject; the gate's lamps are not map objects
+	ecs::map_cells::InsertMapObject(entity);
+
+	// the thing keeps the angle it was placed at
+	placed_turn::KeepAngles(registry, entity, glm::vec3(0.0f, yAngleRadians, 0.0f));
 	return entity;
 }

@@ -1,20 +1,20 @@
 #include "imgui.h"
 
 #include <string>
-#include <string_view>
 #include <vector>
 
 // https://eliasdaler.github.io/using-imgui-with-sfml-pt2/#using-imgui-with-stl
 
 namespace ImGui
 {
-static auto vector_getter = [](void* vec, int idx) -> const char* {
+static auto vector_getter = [](void* vec, int idx, const char** out_text) {
 	auto& vector = *static_cast<std::vector<std::string>*>(vec);
 	if (idx < 0 || idx >= static_cast<int>(vector.size()))
 	{
-		return nullptr;
+		return false;
 	}
-	return vector.at(idx).c_str();
+	*out_text = vector.at(idx).c_str();
+	return true;
 };
 
 struct string_view_array_getter_user_data_t
@@ -23,13 +23,14 @@ struct string_view_array_getter_user_data_t
 	int count;
 };
 
-static auto string_view_array_getter = [](void* userData, int idx) -> const char* {
+static auto string_view_array_getter = [](void* userData, int idx, const char** out_text) {
 	auto arr = static_cast<string_view_array_getter_user_data_t*>(userData);
 	if (idx < 0 || idx >= arr->count)
 	{
-		return nullptr;
+		return false;
 	}
-	return arr->data[idx].data();
+	*out_text = arr->data[idx].data();
+	return true;
 };
 
 bool Combo(const char* label, int* currIndex, std::vector<std::string>& values)

@@ -1,0 +1,987 @@
+/******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+// The Magic window's tab of miracles: casting any miracle as any player, making one-shot orbs, seeds in the hand and
+// miracle dispensers, the hand's seed, infinite prayer power, and what the miracles, the dispensers, the creatures'
+// spells and the villagers' reactions are doing
+
+#include <cstring>
+
+#include <algorithm>
+#include <string>
+#include <string_view>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+#include <SDL_events.h>
+#include <SDL_mouse.h>
+#include <entt/core/hashed_string.hpp>
+#include <fmt/format.h>
+#include <glm/geometric.hpp>
+#include <imgui.h>
+
+#include "3D/L3DMesh.h"
+#include "3D/LandIslandInterface.h"
+#include "Camera/Camera.h"
+#include "Creature/CreatureFizzLook.h"
+#include "Creature/CreatureSpells.h"
+#include "ECS/Components/Alpha.h"
+#include "ECS/Components/Animal.h"
+#include "ECS/Components/Creature.h"
+#include "ECS/Components/CreatureSpells.h"
+#include "ECS/Components/Dance.h"
+#include "ECS/Components/LivingAction.h"
+#include "ECS/Components/LivingReaction.h"
+#include "ECS/Components/Reward.h"
+#include "ECS/Components/Spell.h"
+#include "ECS/Components/SpellDispenser.h"
+#include "ECS/Components/SpellIcon.h"
+#include "ECS/Components/SpellSeed.h"
+#include "ECS/Components/TownMagic.h"
+#include "ECS/Components/Transform.h"
+#include "ECS/Components/Villager.h"
+#include "ECS/Components/WorshipSite.h"
+#include "ECS/Registry.h"
+#include "ECS/Systems/HandSystemInterface.h"
+#include "ECS/Systems/HandToolTipRules.h"
+#include "ECS/Systems/LivingActionSystemInterface.h"
+#include "ECS/Systems/ParticleSystemInterface.h"
+#include "ECS/Systems/ReactionSystemInterface.h"
+#include "ECS/Villager/VillagerCore.h"
+#include "GameClock.h"
+#include "Graphics/SpecialLight.h"
+#include "InfoConstants.h"
+#include "Locator.h"
+#include "Magic.h"
+#include "Magic/Core/Chants.h"
+#include "Magic/Core/Spell.h"
+#include "Magic/DispenserRules.h"
+#include "Magic/Gestures/PowerUpSystem.h"
+#include "Magic/MagicTables.h"
+#include "MiraclesCaster.h"
+#include "Particles/LightSheet.h"
+#include "Particles/ParticleEffect.h"
+#include "Resources/ResourcesInterface.h"
+#include "Worship/WorshipSite.h"
+
+using namespace openblack;
+using namespace openblack::debug::gui;
+using namespace openblack::debug::miracles;
+
+namespace
+{
+constexpr float k_MinMultiplier = 0.1f;
+constexpr float k_MaxMultiplier = 1.0f;
+
+std::string_view RewardChestState(ecs::components::Reward::State state)
+{
+	switch (state)
+	{
+	case ecs::components::Reward::State::Falling:
+		return "falling";
+	case ecs::components::Reward::State::Landed:
+		return "on the land";
+	case ecs::components::Reward::State::Opened:
+		return "opened";
+	}
+	return "?";
+}
+
+std::string_view NameOf(const std::array<char, 0x30>& name)
+{
+	return {name.data(), strnlen(name.data(), name.size())};
+}
+
+std::string MagicName(const InfoConstants& info, MagicType type)
+{
+	if (type == MagicType::None)
+	{
+		return "none";
+	}
+	const auto name = NameOf(magic::GetMagicEffectInfo(info, type).debugString);
+	return name.empty() ? fmt::format("Magic type {}", static_cast<uint32_t>(type)) : std::string(name);
+}
+
+std::string SeedName(const InfoConstants& info, SpellSeedType seed)
+{
+	if (seed == SpellSeedType::None)
+	{
+		return "none";
+	}
+	const auto name = NameOf(magic::GetSpellSeedInfo(info, seed).debugString);
+	return name.empty() ? fmt::format("Seed {}", static_cast<int>(seed)) : std::string(name);
+}
+
+std::string AbodeName(const InfoConstants& info, AbodeInfo abode)
+{
+	const auto name = NameOf(info.abode.at(static_cast<size_t>(abode)).debugString);
+	return name.empty() ? fmt::format("Abode {}", static_cast<int>(abode)) : std::string(name);
+}
+
+std::string_view PlayerName(PlayerNames player)
+{
+	return k_PlayerNamesStrs.at(static_cast<size_t>(player));
+}
+
+/// A left button press or release
+bool IsLeftClick(const SDL_Event& event)
+{
+	return (event.type == SDL_MOUSEBUTTONDOWN || event.type == SDL_MOUSEBUTTONUP) && event.button.button == SDL_BUTTON_LEFT;
+}
+
+/// The villagers, creatures and animals a click may pick
+std::vector<ThingAt> ThingsToPick(const ecs::Registry& registry)
+{
+	std::vector<ThingAt> things;
+	const auto add = [&things](entt::entity entity, const ecs::components::Transform& transform) {
+		things.push_back({.entity = entity, .position = transform.position});
+	};
+	registry.Each<const ecs::components::Villager, const ecs::components::Transform>(
+	    [&add](entt::entity entity, const auto&, const auto& transform) { add(entity, transform); });
+	registry.Each<const ecs::components::Creature, const ecs::components::Transform>(
+	    [&add](entt::entity entity, const auto&, const auto& transform) { add(entity, transform); });
+	registry.Each<const ecs::components::Animal, const ecs::components::Transform>(
+	    [&add](entt::entity entity, const auto&, const auto& transform) { add(entity, transform); });
+	return things;
+}
+} // namespace
+
+void Magic::DrawMiracles() noexcept
+{
+	if (!Locator::infoConstants::has_value() || !Locator::entitiesRegistry::has_value())
+	{
+		ImGui::TextUnformatted("No miracles: no info.dat or no land loaded");
+		return;
+	}
+	DrawChoice();
+	DrawCast();
+	DrawDispenser();
+	DrawHand();
+	DrawPrayer();
+	DrawWorshippers();
+	DrawIconCharges();
+	DrawRunning();
+	DrawReactions();
+	DrawReactionTurn();
+}
+
+void Magic::DrawChoice() noexcept
+{
+	const auto& info = Locator::infoConstants::value();
+	if (_choice.seed == SpellSeedType::None)
+	{
+		const auto seeds = CastableSeeds(info);
+		if (seeds.empty())
+		{
+			ImGui::TextUnformatted("The tables have no seed that casts a miracle");
+			return;
+		}
+		_choice.seed = seeds.front();
+	}
+
+	ImGui::SeparatorText("Miracle");
+	if (ImGui::BeginCombo("Seed", SeedName(info, _choice.seed).c_str()))
+	{
+		for (const auto seed : CastableSeeds(info))
+		{
+			if (ImGui::Selectable(SeedName(info, seed).c_str(), seed == _choice.seed))
+			{
+				_choice.seed = seed;
+				_choice.powerUpLevel = KeepLevel(magic::GetSpellSeedInfo(info, seed), _choice.powerUpLevel);
+			}
+		}
+		ImGui::EndCombo();
+	}
+	if (ImGui::BeginCombo("Power-up", LevelName(_choice.powerUpLevel).c_str()))
+	{
+		for (const auto level : PowerUpLevels(magic::GetSpellSeedInfo(info, _choice.seed)))
+		{
+			if (ImGui::Selectable(LevelName(level).c_str(), level == _choice.powerUpLevel))
+			{
+				_choice.powerUpLevel = level;
+			}
+		}
+		ImGui::EndCombo();
+	}
+	ImGui::TextDisabled("Casts %s", MagicName(info, MagicTypeOf(info, _choice)).c_str());
+	ImGui::SliderFloat("Charge", &_multiplier, k_MinMultiplier, k_MaxMultiplier, "%.2f");
+
+	if (ImGui::BeginCombo("Player", PlayerName(_player).data()))
+	{
+		for (size_t i = 0; i < k_PlayerNamesStrs.size(); ++i)
+		{
+			const auto player = static_cast<PlayerNames>(i);
+			if (ImGui::Selectable(k_PlayerNamesStrs.at(i).data(), player == _player))
+			{
+				_player = player;
+			}
+		}
+		ImGui::EndCombo();
+	}
+}
+
+void Magic::DrawCast() noexcept
+{
+	if (_choice.seed == SpellSeedType::None)
+	{
+		return;
+	}
+	const auto type = MagicTypeOf(Locator::infoConstants::value(), _choice);
+	const auto point = CameraPoint();
+
+	ImGui::SeparatorText("Cast");
+	if (ImGui::Button("Where the camera looks"))
+	{
+		CastAt(point);
+	}
+	ImGui::TextUnformatted("A left click on the land:");
+	auto clickCast = static_cast<int>(_clickCast);
+	ImGui::RadioButton("does what the game does", &clickCast, static_cast<int>(ClickCast::Off));
+	ImGui::SameLine();
+	ImGui::RadioButton("casts there", &clickCast, static_cast<int>(ClickCast::OnLand));
+	ImGui::SameLine();
+	ImGui::RadioButton("casts on the nearest thing", &clickCast, static_cast<int>(ClickCast::OnNearestThing));
+	_clickCast = static_cast<ClickCast>(clickCast);
+	ImGui::TextDisabled("Camera focus (%.0f, %.0f): %s", point.x, point.z,
+	                    _caster->CanCastAt(type, _player, point) ? "the hand may cast there" : "the hand may not cast there");
+	if (!_last.empty())
+	{
+		ImGui::TextUnformatted(_last.c_str());
+	}
+}
+
+void Magic::DrawDispenser() noexcept
+{
+	if (_choice.seed == SpellSeedType::None)
+	{
+		return;
+	}
+	const auto& info = Locator::infoConstants::value();
+	ImGui::SeparatorText("Dispenser");
+	auto kind = static_cast<int>(_dispenserKind);
+	ImGui::RadioButton("one-shot orb", &kind, static_cast<int>(DispenserKind::OneShot));
+	ImGui::SameLine();
+	ImGui::RadioButton("one-shot in the hand", &kind, static_cast<int>(DispenserKind::OneShotInHand));
+	ImGui::SameLine();
+	ImGui::RadioButton("permanent dispenser", &kind, static_cast<int>(DispenserKind::Permanent));
+	_dispenserKind = static_cast<DispenserKind>(kind);
+
+	if (_dispenserKind == DispenserKind::Permanent)
+	{
+		const auto abodes = magic::DispenserAbodes(info);
+		if (!_dispenserAbode.has_value())
+		{
+			_dispenserAbode = magic::DefaultDispenserAbode(abodes);
+			if (_dispenserAbode.has_value())
+			{
+				_dispenserPeriod = static_cast<int>(DefaultPeriod(info, *_dispenserAbode));
+			}
+		}
+		if (!_dispenserAbode.has_value())
+		{
+			ImGui::TextDisabled("The tables have no miracle dispenser");
+			return;
+		}
+		if (ImGui::BeginCombo("Building", AbodeName(info, *_dispenserAbode).c_str()))
+		{
+			for (const auto abode : abodes)
+			{
+				if (ImGui::Selectable(AbodeName(info, abode).c_str(), abode == *_dispenserAbode))
+				{
+					_dispenserAbode = abode;
+					_dispenserPeriod = static_cast<int>(DefaultPeriod(info, abode));
+				}
+			}
+			ImGui::EndCombo();
+		}
+		ImGui::InputInt("Period (turns, 0: inactive)", &_dispenserPeriod);
+		_dispenserPeriod = std::max(_dispenserPeriod, 0);
+	}
+
+	if (_dispenserKind != DispenserKind::OneShotInHand)
+	{
+		auto place = static_cast<int>(_dispenserPlace);
+		ImGui::RadioButton("where the camera looks", &place, static_cast<int>(DispenserPlace::CameraFocus));
+		ImGui::SameLine();
+		ImGui::RadioButton("at the next click on the land", &place, static_cast<int>(DispenserPlace::NextClick));
+		ImGui::SameLine();
+		ImGui::RadioButton("under the hand", &place, static_cast<int>(DispenserPlace::Hand));
+		_dispenserPlace = static_cast<DispenserPlace>(place);
+	}
+
+	if (ImGui::Button("Create"))
+	{
+		if (_dispenserKind == DispenserKind::OneShotInHand || _dispenserPlace == DispenserPlace::CameraFocus)
+		{
+			CreateDispenserAt(CameraPoint());
+		}
+		else if (_dispenserPlace == DispenserPlace::NextClick)
+		{
+			_dispenserAtClick = true;
+			_last = "Click on the land to place it";
+		}
+		else if (const auto hand = HandLandPoint())
+		{
+			CreateDispenserAt(*hand);
+		}
+		else
+		{
+			_last = "The hand is not on the land";
+		}
+	}
+	if (_dispenserAtClick)
+	{
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel the click"))
+		{
+			_dispenserAtClick = false;
+			_last.clear();
+		}
+	}
+}
+
+void Magic::DrawHand() noexcept
+{
+	ImGui::SeparatorText("The hand's seed");
+	const auto& info = Locator::infoConstants::value();
+	bool any = false;
+	Locator::entitiesRegistry::value().Each<const ecs::components::SpellSeed>(
+	    [&info, &any](entt::entity, const ecs::components::SpellSeed& seed) {
+		    if (!seed.inInterface)
+		    {
+			    return;
+		    }
+		    any = true;
+		    ImGui::Text("%s, %s: charge %.0f, multiplier %.2f, %s, %d turns in the hand", SeedName(info, seed.seedType).c_str(),
+		                LevelName(seed.powerUp).c_str(), seed.chantStore, seed.castMultiplier,
+		                seed.ready ? "ready" : "not ready", seed.turnsInHand);
+	    });
+	if (!any)
+	{
+		ImGui::TextDisabled("The hand holds no seed");
+	}
+	if (const auto* icons = magic::gestures::GetIconProvider(); icons != nullptr && icons->AnyIconChargingForHand())
+	{
+		ImGui::Text("An icon charges for the hand: %.0f%%", icons->MaxChargeFraction() * 100.0f);
+	}
+}
+
+void Magic::DrawPrayer() noexcept
+{
+	ImGui::SeparatorText("Prayer power");
+	bool infinite = _prayer.IsOn();
+	if (ImGui::Checkbox("Infinite prayer power at every worship site", &infinite))
+	{
+		if (infinite)
+		{
+			_prayer.TurnOn();
+		}
+		else
+		{
+			TurnPrayerOff();
+		}
+	}
+	if (_prayer.IsOn())
+	{
+		ImGui::TextDisabled("%zu sites; stays on with the window closed", _prayer.HeldSites());
+	}
+	// What the empty hand's tooltip shows over each worship site's altar, from the same rule
+	if (ImGui::TreeNode("What each altar shows"))
+	{
+		const auto& registry = std::as_const(Locator::entitiesRegistry::value());
+		size_t shown = 0;
+		registry.Each<const ecs::components::WorshipTotem>([&](entt::entity altar, const ecs::components::WorshipTotem& totem) {
+			const auto* site =
+			    registry.Valid(totem.site) ? registry.TryGet<const ecs::components::WorshipSite>(totem.site) : nullptr;
+			if (site == nullptr)
+			{
+				ImGui::Text("Altar %u: no site, so no tooltip", entt::to_integral(altar));
+				return;
+			}
+			const auto tip = ecs::systems::hand_tooltips::PrayerEnergyToolTip(site->battery);
+			ImGui::Text("Altar %u of site %u: text 0x%X, \"Prayer Energy: %3.0f\"", entt::to_integral(altar),
+			            entt::to_integral(totem.site), tip.text, tip.numbers.values[0]);
+			++shown;
+		});
+		if (shown == 0)
+		{
+			ImGui::TextDisabled("No worship site's altar on the land");
+		}
+		ImGui::TreePop();
+	}
+}
+
+void Magic::DrawWorshippers() noexcept
+{
+	// a readout only, closed by default
+	if (!ImGui::CollapsingHeader("Worshippers"))
+	{
+		return;
+	}
+	if (!Locator::livingActionSystem::has_value())
+	{
+		ImGui::TextDisabled("No villager states");
+		return;
+	}
+	const auto& registry = Locator::entitiesRegistry::value();
+	const auto& states = Locator::livingActionSystem::value();
+	struct Counts
+	{
+		uint32_t atSite {0};
+		uint32_t hungry {0};
+		uint32_t eating {0};
+		uint32_t hiding {0};
+	};
+	std::unordered_map<entt::entity, Counts> bySite;
+	registry.Each<const ecs::components::WorshipVillager>(
+	    [&](entt::entity villager, const ecs::components::WorshipVillager& worshipper) {
+		    const auto* v = registry.TryGet<const ecs::components::Villager>(villager);
+		    const auto* magic = v != nullptr && v->town != entt::null && registry.Valid(v->town)
+		                            ? registry.TryGet<const ecs::components::TownMagic>(v->town)
+		                            : nullptr;
+		    if (v == nullptr || (v->flags & ecs::components::Villager::k_FlagAtWorshipSite) == 0 || magic == nullptr)
+		    {
+			    return;
+		    }
+		    auto& counts = bySite[magic->worshipSite];
+		    ++counts.atSite;
+		    if (v->food < ecs::villager::InfoOf(villager).hungryForFood)
+		    {
+			    ++counts.hungry;
+		    }
+		    if (const auto* action = registry.TryGet<const ecs::components::LivingAction>(villager); action != nullptr)
+		    {
+			    using ecs::components::LivingAction;
+			    const auto top = states.VillagerGetState(*action, LivingAction::Index::Top);
+			    const auto final = states.VillagerGetState(*action, LivingAction::Index::Final);
+			    if (top == VillagerStates::GetFoodAtWorshipSite || final == VillagerStates::GetFoodAtWorshipSite ||
+			        top == VillagerStates::RestartWorshippingAtWorshipSite ||
+			        final == VillagerStates::RestartWorshippingAtWorshipSite)
+			    {
+				    ++counts.eating;
+			    }
+			    if (top == VillagerStates::HidingAtWorshipSite || final == VillagerStates::HidingAtWorshipSite)
+			    {
+				    ++counts.hiding;
+			    }
+		    }
+	    });
+	bool any = false;
+	registry.Each<const ecs::components::WorshipSite>([&](entt::entity site, const ecs::components::WorshipSite& component) {
+		any = true;
+		const auto found = bySite.find(site);
+		const Counts counts = found != bySite.end() ? found->second : Counts {};
+		ImGui::Text("Site %u (player %d): %d dancing, %u at the site, %u hungry, %u eating, %u hiding, %d asking to go "
+		            "home; %u food in the pot, %d on its way, %d wanted from its towns",
+		            static_cast<uint32_t>(site), static_cast<int>(component.player), worship::site::DancerCount(component),
+		            counts.atSite, counts.hungry, counts.eating, counts.hiding,
+		            worship::site::VillagersRequestingToGoHome(component), worship::site::GetFoodResource(site),
+		            component.foodOnTheWay, worship::site::CalculateFoodNeededFromTown(site));
+		// its dance: the citadel dance of its slot, how fast its worshippers dance it, its clock and its groups
+		if (const auto dance = worship::site::DanceOf(component); dance != entt::null)
+		{
+			const auto& danced = registry.Get<const ecs::components::Dance>(dance);
+			ImGui::Text("  dance: row %d %s, speed %.2f (rate %.1f), clock %.0f, %zu groups, %u dancing, %u on their way",
+			            static_cast<int>(danced.type),
+			            danced.state == ecs::components::Dance::State::Dancing ? "dancing" : "stopped", danced.speed,
+			            danced.rate, danced.clock, danced.groups.all.size(), danced.dancers, danced.onTheirWay);
+		}
+		else
+		{
+			ImGui::TextDisabled("  no dance");
+		}
+		// the motes of light its miracles' prayer power sends running to them
+		if (const auto* path =
+		        component.manaPathEffect != 0 ? Locator::particleSystem::value().Find(component.manaPathEffect) : nullptr;
+		    path != nullptr)
+		{
+			ImGui::Text("  mana path: %zu motes running", path->AtomCount());
+		}
+	});
+	if (!any)
+	{
+		ImGui::TextDisabled("No worship sites");
+	}
+}
+
+void Magic::DrawIconCharges() noexcept
+{
+	// a readout only, closed by default
+	if (!ImGui::CollapsingHeader("Icon charges"))
+	{
+		return;
+	}
+	const auto& registry = Locator::entitiesRegistry::value();
+	bool any = false;
+	registry.Each<const ecs::components::WorshipSpellIcon, const ecs::components::SpellIcon>(
+	    [&](entt::entity entity, const ecs::components::WorshipSpellIcon& icon, const ecs::components::SpellIcon& spellIcon) {
+		    // the sheet's charge: the strength at its first point and its highest rise
+		    float strength = 0.0f;
+		    float rise = 0.0f;
+		    if (const auto& sheet = spellIcon.chargeSheet; sheet != nullptr && !sheet->Strengths().empty())
+		    {
+			    strength = sheet->Strengths().front();
+			    for (size_t i = 0; i < sheet->Strengths().size() && i < sheet->Heights().size(); ++i)
+			    {
+				    rise = std::max(rise, sheet->Strengths()[i] * sheet->Heights()[i]);
+			    }
+		    }
+		    // only the icons with something of a charge to show
+		    if (!icon.charging && spellIcon.specularColour == 0 && spellIcon.chargeTint == 0 && rise == 0.0f)
+		    {
+			    return;
+		    }
+		    any = true;
+		    ImGui::Text("Icon %u (seed %d, slot %d): %s, store %.1f; colour drawn %08X, set for the next frame %08X",
+		                static_cast<uint32_t>(entity), static_cast<int>(spellIcon.seedType), static_cast<int>(icon.slot),
+		                icon.charging ? "charging" : "not charging", static_cast<double>(icon.chantStore),
+		                spellIcon.specularColour, spellIcon.chargeTint);
+		    ImGui::Text("  sheet of light: fed %.4f, highest rise %.2f", static_cast<double>(strength),
+		                static_cast<double>(rise));
+		    // the pulse ring, while it is drawn: its scale, its alpha and how far it is raised
+		    if (spellIcon.chargeRing != entt::null && registry.Valid(spellIcon.chargeRing))
+		    {
+			    const auto* ring = registry.TryGet<const ecs::components::Transform>(spellIcon.chargeRing);
+			    const auto* alpha = registry.TryGet<const ecs::components::Alpha>(spellIcon.chargeRing);
+			    const auto* place = registry.TryGet<const ecs::components::Transform>(entity);
+			    if (ring != nullptr && alpha != nullptr && place != nullptr)
+			    {
+				    ImGui::Text("  pulse ring: scale %.3f, alpha %.0f, raised %.3f", static_cast<double>(ring->scale.x),
+				                static_cast<double>(alpha->value * 255.0f),
+				                static_cast<double>(glm::distance(ring->position, place->position)));
+			    }
+		    }
+	    });
+	if (!any)
+	{
+		ImGui::TextDisabled("No icon charging or lit");
+	}
+}
+
+void Magic::DrawRunning() noexcept
+{
+	const auto& info = Locator::infoConstants::value();
+	auto& registry = Locator::entitiesRegistry::value();
+	if (ImGui::CollapsingHeader("Running miracles", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		constexpr auto k_Flags = ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit;
+		auto broken = entt::entity {entt::null};
+		auto struck = entt::entity {entt::null};
+		if (ImGui::BeginTable("Spells", 8, k_Flags))
+		{
+			ImGui::TableSetupColumn("Miracle");
+			ImGui::TableSetupColumn("Age");
+			ImGui::TableSetupColumn("Prayer power");
+			ImGui::TableSetupColumn("Strength");
+			ImGui::TableSetupColumn("Upkeep");
+			// what a worship site's miracle has spent towards its next mote of light, by its upkeep and by its events
+			ImGui::TableSetupColumn("Towards a mote");
+			ImGui::TableSetupColumn("State");
+			ImGui::TableSetupColumn("");
+			ImGui::TableHeadersRow();
+			registry.Each<const ecs::components::Spell>([&info, &broken, &struck](entt::entity entity,
+			                                                                      const ecs::components::Spell& spell) {
+				ImGui::PushID(static_cast<int>(entt::to_integral(entity)));
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted(MagicName(info, spell.magicType).c_str());
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted(SpellAge(spell.age, spell.duration).c_str());
+				ImGui::TableNextColumn();
+				ImGui::Text("%.0f/%.0f", static_cast<double>(spell.chants), static_cast<double>(spell.initialChants));
+				ImGui::TableNextColumn();
+				ImGui::Text("%.2f", static_cast<double>(magic::GetSpellStrength(entity)));
+				ImGui::TableNextColumn();
+				ImGui::Text("%.1f", static_cast<double>(magic::ChantContextOf(entity).costToMaintain));
+				ImGui::TableNextColumn();
+				ImGui::Text("%.0f / %.0f", static_cast<double>(spell.manaPathPerTurn),
+				            static_cast<double>(spell.manaPathPerEvent));
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted(SpellState(spell.closedDown).data());
+				ImGui::TableNextColumn();
+				// a spiritual shield breaks, as when a blow its caster can't pay for empties it: its people react to its
+				// fall
+				if (spell.spellClass == ecs::components::SpellClass::Shield && !spell.closedDown && ImGui::SmallButton("Break"))
+				{
+					broken = entity;
+				}
+				// a shield struck by another spell, as when a miracle meets it: its people react to the strike
+				if (spell.spellClass == ecs::components::SpellClass::Shield && !spell.closedDown)
+				{
+					ImGui::SameLine();
+					if (ImGui::SmallButton("Strike"))
+					{
+						struck = entity;
+					}
+				}
+				ImGui::PopID();
+			});
+			ImGui::EndTable();
+		}
+		if (broken != entt::null)
+		{
+			static_cast<void>(BreakShield(broken));
+		}
+		if (struck != entt::null)
+		{
+			static_cast<void>(StrikeShield(struck));
+		}
+	}
+
+	if (ImGui::CollapsingHeader("Dispensers"))
+	{
+		constexpr auto k_Flags = ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit;
+		if (ImGui::BeginTable("Dispensers", 3, k_Flags))
+		{
+			registry.Each<const ecs::components::SpellDispenser>(
+			    [&info, &registry](entt::entity, const ecs::components::SpellDispenser& dispenser) {
+				    const bool hasOrb = dispenser.orb != entt::null && registry.Valid(dispenser.orb);
+				    ImGui::TableNextRow();
+				    ImGui::TableNextColumn();
+				    ImGui::TextUnformatted(MagicName(info, dispenser.magicType).c_str());
+				    ImGui::TableNextColumn();
+				    ImGui::TextUnformatted(DispenserState(hasOrb, dispenser.timer.active).data());
+				    ImGui::TableNextColumn();
+				    ImGui::Text("%u/%u turns", dispenser.timer.tick, dispenser.timer.period);
+			    });
+			ImGui::EndTable();
+		}
+	}
+
+	// The reward chests the scripts gave: their kind, whether they fall, stand or were tapped open, and how long an
+	// opened one has left
+	if (ImGui::CollapsingHeader("Reward chests"))
+	{
+		constexpr auto k_Flags = ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit;
+		if (ImGui::BeginTable("Reward chests", 4, k_Flags))
+		{
+			ImGui::TableSetupColumn("Id");
+			ImGui::TableSetupColumn("Kind");
+			ImGui::TableSetupColumn("State");
+			ImGui::TableSetupColumn("Turns left");
+			ImGui::TableHeadersRow();
+			registry.Each<const ecs::components::Reward>([](entt::entity entity, const ecs::components::Reward& chest) {
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::Text("%u", entt::to_integral(entity));
+				ImGui::TableNextColumn();
+				ImGui::Text("%d", static_cast<int>(chest.type));
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted(RewardChestState(chest.state).data());
+				ImGui::TableNextColumn();
+				if (chest.opened)
+				{
+					ImGui::Text("%d", chest.turnsLeft);
+				}
+			});
+			ImGui::EndTable();
+		}
+		// The opened chests' model: once a chest has opened it is drawn as a special light, its cone of light in the
+		// light's own colour, its texture turning with the engine's clock
+		if (Locator::resources::has_value())
+		{
+			const auto& meshes = Locator::resources::value().GetMeshes();
+			constexpr entt::id_type k_Opened = entt::hashed_string("coffre").value();
+			if (meshes.Contains(k_Opened) && meshes.Handle(k_Opened)->IsSpecialLight())
+			{
+				const float turn = graphics::special_light::TextureTurn(game_clock::EngineMs());
+				ImGui::Text("Opened chests' light: colour %06X, its texture turned %.3f rad",
+				            static_cast<unsigned>(graphics::special_light::k_Colour & 0xFFFFFFu), static_cast<double>(turn));
+			}
+			else
+			{
+				ImGui::TextDisabled("Opened chests' light: no chest opened yet");
+			}
+		}
+	}
+
+	if (ImGui::CollapsingHeader("Creatures' spells", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		registry.Each<const ecs::components::CreatureSpells>(
+		    [](entt::entity entity, const ecs::components::CreatureSpells& component) {
+			    ImGui::TextUnformatted(CreatureSpellsLine(entt::to_integral(entity), component.spells).c_str());
+			    if (component.freeze > 0.0f || component.fizz > 0.0f)
+			    {
+				    ImGui::TextDisabled("  frozen %.2f, fizzed %.2f", static_cast<double>(component.freeze),
+				                        static_cast<double>(component.fizz));
+			    }
+			    // the colour its body's light is multiplied by while it is frozen and not fizzed
+			    if (creature_fizz_look::BodyFrozenTinted(component.fizz, component.freeze))
+			    {
+				    ImGui::TextDisabled("  body tint %06X", creature_spells::FrozenTint(component.freeze));
+			    }
+		    });
+	}
+}
+
+void Magic::DrawReactions() noexcept
+{
+	if (!ImGui::CollapsingHeader("Villagers' reactions", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		return;
+	}
+	if (!Locator::reactionSystem::has_value())
+	{
+		ImGui::TextDisabled("No reactions");
+		return;
+	}
+	ImGui::Checkbox("Every reaction, not only the miracles'", &_allReactions);
+	const auto& registry = Locator::entitiesRegistry::value();
+	std::unordered_map<uint32_t, uint32_t> followers;
+	registry.Each<const ecs::components::LivingReaction>(
+	    [&followers](entt::entity, const ecs::components::LivingReaction& slot) { ++followers[slot.reaction]; });
+	const auto rows = ReactionRows(
+	    Locator::reactionSystem::value().GetReactions(), _allReactions,
+	    [&registry](entt::entity initiator) {
+		    return registry.Valid(initiator) && registry.AllOf<ecs::components::Spell>(initiator);
+	    },
+	    [&followers](uint32_t reaction) {
+		    const auto found = followers.find(reaction);
+		    return found != followers.end() ? found->second : 0u;
+	    });
+	if (rows.empty())
+	{
+		ImGui::TextDisabled(_allReactions ? "No reactions" : "No reactions to a miracle");
+		return;
+	}
+	constexpr auto k_Flags = ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit;
+	if (ImGui::BeginTable("Reactions", 5, k_Flags))
+	{
+		ImGui::TableSetupColumn("Id");
+		ImGui::TableSetupColumn("Reaction");
+		ImGui::TableSetupColumn("Player");
+		ImGui::TableSetupColumn("Radius");
+		ImGui::TableSetupColumn("Villagers");
+		ImGui::TableHeadersRow();
+		for (const auto& row : rows)
+		{
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::Text("%u", row.id);
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted(row.name.data(), row.name.data() + row.name.size());
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted(PlayerName(row.player).data());
+			ImGui::TableNextColumn();
+			ImGui::Text("%.0f", row.radius);
+			ImGui::TableNextColumn();
+			ImGui::Text("%u", row.followers);
+		}
+		ImGui::EndTable();
+	}
+}
+
+void Magic::DrawReactionTurn() noexcept
+{
+	if (!ImGui::CollapsingHeader("Reaction offered this turn"))
+	{
+		return;
+	}
+	if (!Locator::reactionSystem::has_value())
+	{
+		ImGui::TextDisabled("No reactions");
+		return;
+	}
+	const auto& service = Locator::reactionSystem::value();
+	const auto list = service.GetReactions();
+	ImGui::Text("%zu reactions: each is offered again every %zu turns, newest first", list.size(), list.size());
+	const auto cursor = service.Cursor();
+	const auto listed = std::ranges::find(list, cursor, &ecs::effects::reactions::Reaction::id);
+	if (cursor == 0 || listed == list.end())
+	{
+		ImGui::TextDisabled("None offered yet");
+		return;
+	}
+	const auto name = ReactionName(listed->type);
+	ImGui::Text("Id %u: %.*s", listed->id, static_cast<int>(name.size()), name.data());
+	ImGui::Text("Initiator %u, player %s", static_cast<uint32_t>(listed->initiator),
+	            listed->player ? PlayerName(*listed->player).data() : "none");
+	ImGui::Text("Radius %.1f, %s", listed->radius, listed->available ? "offered" : "not offered (inactive)");
+	ImGui::Text("Started at turn %u", listed->turnCreated);
+}
+
+void Magic::CastAt(const Target& target) noexcept
+{
+	const auto& info = Locator::infoConstants::value();
+	const auto forward = Locator::camera::has_value() ? Locator::camera::value().GetForward() : glm::vec3(0.0f, 0.0f, 1.0f);
+	glm::vec3 point(0.0f);
+	if (const auto* at = std::get_if<glm::vec3>(&target))
+	{
+		point = *at;
+	}
+	else if (const auto* transform =
+	             Locator::entitiesRegistry::value().TryGet<const ecs::components::Transform>(std::get<entt::entity>(target)))
+	{
+		point = transform->position;
+	}
+	const auto plan = PlanCast(info, _choice, _multiplier, point, forward);
+	_last = miracles::Cast(*_caster, plan, MagicName(info, plan.type), _player, target).message;
+}
+
+void Magic::CastAtClick() noexcept
+{
+	if (!Locator::camera::has_value() || !Locator::infoConstants::has_value() || !Locator::entitiesRegistry::has_value())
+	{
+		return;
+	}
+	const auto hit = Locator::camera::value().RaycastMouseToLand();
+	if (!hit.has_value())
+	{
+		_last = "No land under the click";
+		return;
+	}
+	if (_clickCast == ClickCast::OnLand)
+	{
+		CastAt(*hit);
+		return;
+	}
+	const auto things = ThingsToPick(Locator::entitiesRegistry::value());
+	if (const auto thing = NearestThing(things, *hit))
+	{
+		CastAt(*thing);
+	}
+	else
+	{
+		_last = "Nothing near the click";
+	}
+}
+
+void Magic::CreateDispenserAt(glm::vec3 point) noexcept
+{
+	const auto& info = Locator::infoConstants::value();
+	const DispenserPlan plan {
+	    .kind = _dispenserKind,
+	    .choice = _choice,
+	    .abode = _dispenserAbode.value_or(AbodeInfo::NorseSpellDispenser),
+	    .periodTurns = static_cast<uint32_t>(_dispenserPeriod),
+	};
+	_last =
+	    miracles::CreateDispenser(*_dispenserCreator, info, plan, MagicName(info, MagicTypeOf(info, _choice)), _player, point)
+	        .message;
+}
+
+void Magic::CreateDispenserAtClick() noexcept
+{
+	if (!Locator::camera::has_value() || !Locator::infoConstants::has_value() || !Locator::entitiesRegistry::has_value())
+	{
+		return;
+	}
+	const auto hit = Locator::camera::value().RaycastMouseToLand();
+	if (!hit.has_value())
+	{
+		_last = "No land under the click";
+		return;
+	}
+	CreateDispenserAt(*hit);
+}
+
+std::optional<glm::vec3> Magic::HandLandPoint() noexcept
+{
+	if (!Locator::handSystem::has_value())
+	{
+		return std::nullopt;
+	}
+	using Side = ecs::systems::HandSystemInterface::Side;
+	const auto positions = Locator::handSystem::value().GetPlayerHandPositions();
+	auto point = HandPoint(positions.at(static_cast<size_t>(Side::Left)), positions.at(static_cast<size_t>(Side::Right)));
+	if (point.has_value() && Locator::terrainSystem::has_value())
+	{
+		point->y = Locator::terrainSystem::value().GetHeightAt({point->x, point->z});
+	}
+	return point;
+}
+
+void Magic::TurnPrayerOff() noexcept
+{
+	if (!Locator::entitiesRegistry::has_value())
+	{
+		return;
+	}
+	auto& registry = Locator::entitiesRegistry::value();
+	_prayer.TurnOff([&registry](entt::entity site, PrayerCheats cheats) {
+		if (!registry.Valid(site))
+		{
+			return;
+		}
+		if (auto* worship = registry.TryGet<ecs::components::WorshipSite>(site))
+		{
+			worship->infiniteChants = cheats.infinite;
+			worship->freeMaintenance = cheats.freeMaintenance;
+		}
+	});
+}
+
+glm::vec3 Magic::CameraPoint() noexcept
+{
+	glm::vec3 point(0.0f);
+	if (Locator::camera::has_value())
+	{
+		point = Locator::camera::value().GetFocus();
+	}
+	if (Locator::terrainSystem::has_value())
+	{
+		point.y = Locator::terrainSystem::value().GetHeightAt({point.x, point.z});
+	}
+	return point;
+}
+
+void Magic::Update() noexcept
+{
+	if (_clicked)
+	{
+		_clicked = false;
+		if (_dispenserAtClick)
+		{
+			_dispenserAtClick = false;
+			CreateDispenserAtClick();
+		}
+		else
+		{
+			CastAtClick();
+		}
+	}
+}
+
+void Magic::UpdateAlways() noexcept
+{
+	UpdateTimedEffects(ImGui::GetIO().DeltaTime);
+	if (!_prayer.IsOn() || !Locator::entitiesRegistry::has_value())
+	{
+		return;
+	}
+	Locator::entitiesRegistry::value().Each<ecs::components::WorshipSite>(
+	    [this](entt::entity site, ecs::components::WorshipSite& worship) {
+		    PrayerCheats cheats {.infinite = worship.infiniteChants, .freeMaintenance = worship.freeMaintenance};
+		    _prayer.Apply(site, cheats);
+		    worship.infiniteChants = cheats.infinite;
+		    worship.freeMaintenance = cheats.freeMaintenance;
+	    });
+}
+
+bool Magic::TakesEvent(const SDL_Event& event) const noexcept
+{
+	return IsLeftClick(event) &&
+	       _leftCapture.Takes(event.type == SDL_MOUSEBUTTONDOWN, _clickCast != ClickCast::Off || _dispenserAtClick,
+	                          ImGui::GetIO().WantCaptureMouse);
+}
+
+void Magic::ProcessEventOpen(const SDL_Event& event) noexcept
+{
+	if (!TakesEvent(event))
+	{
+		return;
+	}
+	const bool press = event.type == SDL_MOUSEBUTTONDOWN;
+	_leftCapture.Seen(press);
+	if (press)
+	{
+		_clicked = true;
+	}
+}

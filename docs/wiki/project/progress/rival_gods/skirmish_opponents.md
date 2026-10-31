@@ -1,0 +1,75 @@
+# Skirmish opponents
+
+The nameless computer gods of the skirmish lands (the land scripts in `Scripts/Playgrounds`) and of any temple no
+person plays in a network game. They use the same computer player mind as the story's rival gods, with creatures from
+the game's generic computer creature file. Everything about them comes from the land script: the skirmish box offers no
+opponent, difficulty or team settings.
+
+**Progress: 8/34 done, 0 chosen, 14 partial, 0 inferred — 45%**
+
+See [ai.md](ai.md) for how they decide, [creatures.md](creatures.md) for their creatures and
+[../multiplayer/skirmish.md](../multiplayer/skirmish.md) for the skirmish itself.
+
+## How a slot gets a computer god
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| Every player slot has a computer god's mind, switched off. The land script's `TOGGLE_COMPUTER_PLAYER` switches it on and marks that player as a computer player | partial 40% | the command adds the player (`FeatureScriptCommands::ToggleComputerPlayer`, `PlayerArchetype`) and marks it a computer player (`PlayerMagic::playerType` 2), and switches its mind on (`ComputerPlayerSystem::SwitchOn`), whose start then runs once on the land (`computer_player::Start`, tests `ComputerPlayerStart.*`); the mind's own turn, which would weigh and act, is not wired |
+| The switch is ignored while a network game's map is being loaded, so the people's slots stay theirs | pending | our tree has no network play; see [../multiplayer/network_play.md](../multiplayer/network_play.md) |
+| There is no difficulty setting anywhere. A computer god's strength comes only from its land and from matching the person's creature (below) | partial 60% | our tree has no difficulty setting either; the sizing to the person's creature is not done (below) |
+| No skirmish land sets a personality, and no script runs in a skirmish, so computer gods keep their built-in personality | partial 30% | each mind starts with the rows' built-in weights (`computer_player::MakeMind`, `k_MindRows`); the mind's own turn that reads them is not wired; see [ai.md](ai.md) |
+| No skirmish land sets allies, so every god is left to its own attitude to each player (unconfirmed what that starts at) | partial 30% | no alliance starts set (`components::PlayerAlliances`, test `PlayerAlliancesKept.EveryStrengthStartsAtZero`), and each mind keeps an attitude to every player, 1.0 as kept and a half as scripts read it (`ComputerMind::attitude`, test `ComputerMindScripts.AnAttitudeIsKeptAsTwiceTheValueAndReadAsHalf`), see [../../../hand/computer-minds.md](../../../hand/computer-minds.md#the-scripts-set-the-mind); the mind's own turn that reads them is not wired; see [../multiplayer/player_diplomacy.md](../multiplayer/player_diplomacy.md) |
+| The player's own colour and each god's colour mark their influence and their creatures (unconfirmed for creatures) | done | each player's influence is drawn in its colour (`influence::k_CircleColours`, `src/ECS/Influence/InfluenceCircles.cpp`); the creatures' colours are unconfirmed; test `InfluenceTest.circlesHideTheirContact` |
+
+## The skirmish lands
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| Skirmish lands can be chosen and loaded | partial 50% | the debug menu's "Playground Islands" loads them (`src/Debug/Gui.cpp`); there is no skirmish box ([../multiplayer/skirmish.md](../multiplayer/skirmish.md)) |
+| [Two Gods](../multiplayer/maps/two_gods.md): player two is a computer god with a leopard | partial 40% | the player and its creature are made by the land script (`ToggleComputerPlayer`, `CreateCreatureFromFile`); no mind drives the god |
+| [Three Gods](../multiplayer/maps/three_gods.md): players two and three, with a lion and a horse | partial 40% | the player and its creature are made by the land script (`ToggleComputerPlayer`, `CreateCreatureFromFile`); no mind drives the god |
+| [Four Gods](../multiplayer/maps/four_gods.md): players two to four, with a horse, a tortoise and a zebra | partial 40% | the player and its creature are made by the land script (`ToggleComputerPlayer`, `CreateCreatureFromFile`); no mind drives the god |
+| Each computer god's towns, temple and influence come from the land script, as in the story | done | towns, temples and owners (`src/LHScriptX/FeatureScriptCommands.cpp`), influence (`src/ECS/Influence`) |
+| Each skirmish land sets the player and town influence multipliers (0.4 to 1.2 for towns) | done | `SET_TOWN_INFLUENCE_MULTIPLIER`, `SET_PLAYER_INFLUENCE_MULTIPLIER`; test `InfluenceTest.theLandScriptSetsTheTownAndThePlayerInfluenceMultipliers` |
+| The land's balance settings (impressiveness, speed and belief speed scales) apply to every god | partial 30% | `SET_GLOBAL_LAND_BALANCE` is kept (`land_balance::Set`); only numbers 4 (villagers' speed, `src/ECS/VillagerSpeed.cpp`) and 5 (trees) are read; no god acts on them |
+
+## Their creatures
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| The land script loads each god's creature from the generic computer creature file, of the species it names, at a given place | partial 80% | `CREATE_CREATURE_FROM_FILE` through `ecs::player_creature::MakeFromMindFile`: the file's body, the leashes, fully grown, the creature its owner leads; its facing (half round, as the profile's creature's) is not read from the original |
+| When the computer god starts, its creature is sized to the person's creature: theirs times 0.9 plus a random amount up to 0.3 (so 0.9 to 1.2 times) | done | `SET_COMPUTER_PLAYER_CREATURE_LIKE` names it; the computer mind's start sizes the creature (`ComputerPlayerSystem`, `computer_player::SizeLike`; unverified against v1.42); test `ComputerPlayerStart.TheCreatureIsNinetyToOneHundredAndTwentyPercentOfThePersonsDrawnSize` |
+| The land names which player's creature to copy, but the name only turns the sizing on: it always copies the creature of the person at this machine | done | `SET_COMPUTER_PLAYER_CREATURE_LIKE` names it; the computer mind's start sizes the creature (`ComputerPlayerSystem`, `computer_player::SizeLike`; unverified against v1.42); test `ComputerPlayerStart.AnyNamedPlayerSizesTheCreatureFromTheLocalPlayersCreature` |
+| The sizing only happens when the computer god isn't the local player and the person has a creature | done | `SET_COMPUTER_PLAYER_CREATURE_LIKE` names it; the computer mind's start sizes the creature (`ComputerPlayerSystem`, `computer_player::SizeLike`; unverified against v1.42); test `ComputerPlayerStart.NoNameOrNoCreatureOfThePersonKeepsTheSize` |
+| A god marked as a computer player has its creature learn at once every miracle the god has, plus heal, food, wood and water always | done | `TOGGLE_COMPUTER_PLAYER` marks the player (its player type); the computer mind's start teaches it (`ComputerPlayerSystem`, `computer_player::MiraclesToLearn`; unverified against v1.42); tests `ComputerPlayerStart.TheCreatureLearnsThePlayersMiraclesAndHealFoodWoodAndWater`, `ComputerPlayerStart.NoTempleOrNotAComputerPlayerOrTheLocalPlayerTeachesNothing` |
+| Those miracles count as seen as often as needed to learn them, so it can cast them straight away | pending | as above |
+| In a skirmish (not a network game), a computer god with a temple but no creature gets one from the generic file, of one of 17 species at random, at its temple's creature spot | partial 50% | the mind's start makes it (`computer_player::Start`, `GetsCreature`, `SpeciesFor`, through `ecs::player_creature::MakeFromMindFile`; test `ComputerPlayerStart.InASkirmishAPlayerWithATempleButNoCreatureGetsOneOfSeventeenSpeciesAtThePen`), but openblack starts no skirmish yet, so the game's answer to whether it is one is always no (`ComputerPlayerSystem.cpp`) |
+| The creature's own mind then runs as any creature's | partial 80% | creatures from files think with the creature mind (see [../creature/decision_making.md](../creature/decision_making.md)); nothing of their god steers them |
+| The creature fights other creatures with the computer's tactics | partial 80% | any creature not the local player's fights by the computer's moves (`fight::ChooseMove`); see [../creature/fighting.md](../creature/fighting.md) |
+
+## Temples nobody plays (network games)
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| In a network game, any player with a temple who is neither a person nor a computer god becomes a computer god | pending | our tree has no network play; see [../multiplayer/network_play.md](../multiplayer/network_play.md) |
+| Its creature is one of 11 species at random, made at its temple's creature spot | pending | no network play |
+| It is named with a line picked at random from the first 99 of the game's text | pending | no network play; in the shipped text those lines are villagers' grumbles ("Work, work, work. I'm sick of it."), not names; unconfirmed that players saw this |
+| It is taken through all 13 stages of growing up at once | pending | no network play |
+
+## Their hands
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| A computer god's hand starts at its temple; without a temple it starts at a fixed spot (2150, 2620) | pending | each computer god has its hand (`components::ComputerHand`), but it starts at the middle of map cell (128, 128) until a script places it (`ComputerHand::k_StartingMapPlace`); see [../../../hand/computer-hands.md](../../../hand/computer-hands.md#pending) |
+| The hand is drawn on the land so the person can watch it work (unconfirmed how it looks) | partial 70% | the original draws no hand, symbol or colour for it, only the thing it holds and its gesture sparkles, where the hand was as its last turn of steps began ([../../../hand/computer-hands.md](../../../hand/computer-hands.md#what-is-drawn)); openblack draws that thing there (`RenderingSystem::BeginPrepareDraw`, `computer_hand::HeldDrawPoint`; tests `ComputerHandHeldDraw.*`); the gesture sparkles are not drawn yet |
+| The hand can only act inside its god's influence | pending | the hand's step that stops at the influence's edge is not ported (`src/ECS/ComputerHand.cpp`) |
+| It moves at its god's speed in metres per second, which scripts can change | done | the hand's moves at its speed (`computer_hand::StepLength`, `src/ECS/ComputerHand.h`), set by `SET_COMPUTER_PLAYER_SPEED` (`ComputerPlayerSystem::SetHandSpeed`); tests `ComputerHandMoves.AStepIsTheSpeedOverTheTurnsInASecond`, `ComputerHandScript.TheSpeedIsThePlayersAndTheSteps` |
+
+## Out of the game
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| A god among players one to four with no temple left is out of the game (how a temple is lost is unconfirmed here) | pending | no rule in our tree takes a god out of the game; see [../multiplayer/skirmish.md](../multiplayer/skirmish.md); how a temple is damaged and destroyed: [../story/losing_and_game_over.md](../story/losing_and_game_over.md) |
+| A god that is out has its mind switched off and its creature taken off the land | pending | as above |
+| The person is told "<name> is out of the game."; when the last other god goes, they have won | pending | as above; see [../multiplayer/skirmish.md](../multiplayer/skirmish.md) |
+| Players five to eight are never counted out | pending | as above |

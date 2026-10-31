@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="18" viewBox="0 0 160 18" role="img" aria-label="98%: 53 done, 0 chosen, 2 partial (1% of the rows' worth), 0 inferred, 0 pending">
+<title>98%: 53 done, 0 chosen, 2 partial (1% of the rows' worth), 0 inferred, 0 pending</title>
+<style>.t{fill:#8c959f;fill-opacity:.32}.e{fill:none;stroke:#8c959f;stroke-opacity:.7}.l{font:700 11px -apple-system,'Segoe UI',Helvetica,Arial,sans-serif;fill:#fff;stroke:#1f2328;stroke-opacity:.65;stroke-width:3px;stroke-linejoin:round;paint-order:stroke}</style>
+<defs><clipPath id="c"><rect width="160" height="18" rx="9"/></clipPath><pattern id="p" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#d4a72c"/><rect width="3" height="6" fill="#eac54f"/></pattern></defs>
+<g clip-path="url(#c)"><rect class="t" width="160" height="18"/><rect x="0.0" width="154.2" height="18" fill="#2da44e"/><rect x="154.2" width="2.3" height="18" fill="url(#p)"/></g>
+<rect class="e" x=".5" y=".5" width="159" height="17" rx="8.5"/>
+<text class="l" x="80" y="13.0" text-anchor="middle">98%</text>
+</svg>

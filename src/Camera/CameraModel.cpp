@@ -9,12 +9,14 @@
 
 #include "CameraModel.h"
 
-#include <glm/geometric.hpp>
-#include <glm/gtx/vec_swizzle.hpp>
+#include <cassert>
+#include <cmath>
+
+#include <glm/vec2.hpp>
 
 #include "3D/LandIslandInterface.h"
+#include "3D/MapCoords.h"
 #include "DefaultWorldCameraModel.h"
-#include "Locator.h"
 
 using namespace openblack;
 
@@ -25,20 +27,30 @@ std::unique_ptr<CameraModel> CameraModel::CreateModel(CameraModel::Model model)
 	switch (model)
 	{
 	case CameraModel::Model::DefaultWorld:
-		return std::unique_ptr<CameraModel>(new DefaultWorldCameraModel());
+		return std::make_unique<DefaultWorldCameraModel>();
 	default:
 		assert(false);
 		return nullptr;
 	}
 }
 
-CameraModel::FlightPath CameraModel::CharterFlight(glm::vec3 destinationOrigin, glm::vec3 destinationFocus,
-                                                   glm::vec3 currentOrigin, float heightFactor)
+CameraModel::FlightPath CameraModel::CharterFlight(const LandIslandInterface& land, glm::vec3 destinationOrigin,
+                                                   glm::vec3 destinationFocus, glm::vec3 currentOrigin, float rise)
 {
-	const auto delta = destinationOrigin - currentOrigin;
-	auto halfWayPoint = currentOrigin + delta / 2.0f;
-	const auto halfWayAltitude = Locator::terrainSystem::value().GetHeightAt(glm::xz(halfWayPoint));
-	halfWayPoint.y += glm::max(glm::length(glm::xz(delta)) * heightFactor, halfWayAltitude);
+	// Halfway: the two origins added, then halved
+	auto via = (destinationOrigin + currentOrigin) * 0.5f;
+	// Raised by their distance across the land times the rise
+	const float dx = currentOrigin.x - destinationOrigin.x;
+	const float dz = currentOrigin.z - destinationOrigin.z;
+	via.y = std::sqrt(dz * dz + dx * dx) * rise + via.y;
+	// At least 10 above the land under it, read as the hand reads the land: the metres through the map's fixed point
+	const auto lookup = [](float m) { return map_coords::ToMetres(map_coords::MetresToFixedForHandLookup(m)); };
+	// (inferred) GetHeightAt stands for the original's altitude, as for the hand
+	const float lowest = land.GetHeightAt(glm::vec2(lookup(via.x), lookup(via.z))) + 10.0f;
+	if (lowest > via.y)
+	{
+		via.y = lowest;
+	}
 
-	return {destinationOrigin, destinationFocus, std::make_optional<glm::vec3>(halfWayPoint)};
+	return {destinationOrigin, destinationFocus, std::make_optional<glm::vec3>(via)};
 }

@@ -1,0 +1,273 @@
+/*******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+#include "Dialog.h"
+
+#include <algorithm>
+#include <string_view>
+#include <utility>
+
+using namespace openblack::gui;
+
+namespace
+{
+/// SetupTabButton: a tab along the top of the box
+class TabControl final: public Control
+{
+public:
+	TabControl(DialogRect rect, std::u16string label, bool selected, bool first, bool last, std::function<void()> select,
+	           std::optional<int> textSize = std::nullopt)
+	    : Control(rect)
+	    , _label(std::move(label))
+	    , _textSize(textSize)
+	    , _selected(selected)
+	    , _first(first)
+	    , _last(last)
+	{
+		onClick = std::move(select);
+	}
+
+	void Draw(const DialogPainter& painter, bool hovered, bool /*focused*/, bool /*pressed*/) const override
+	{
+		const auto alpha = painter.GetAlpha();
+		painter.DrawTab(rect, _label, _selected, _first, _last, hovered, _textSize);
+		painter.SetAlpha(alpha);
+	}
+
+	void SetLabel(std::u16string label) { _label = std::move(label); }
+	void SetSelected(bool selected) { _selected = selected; }
+
+	// Tabs without a label are only the line along the top of the box
+	[[nodiscard]] bool HitTest(glm::ivec2 point) const override { return !_label.empty() && Control::HitTest(point); }
+	[[nodiscard]] bool IsInteractive() const override { return !_label.empty(); }
+
+private:
+	std::u16string _label;
+	std::optional<int> _textSize;
+	bool _selected;
+	bool _first;
+	bool _last;
+};
+} // namespace
+
+Dialog::Dialog(std::vector<Tab> tabs, size_t selectedTab)
+    : _box(k_Box)
+    , _tabCount(k_TabCount)
+{
+	tabs.resize(k_TabCount);
+	for (size_t i = 0; i < k_TabCount; ++i)
+	{
+		// the tab of the page shown acts too: it shows its page again
+		Add<TabControl>(GetTabRect(i), std::move(tabs[i].label), i == selectedTab, i == 0, i + 1 == k_TabCount,
+		                std::move(tabs[i].onSelect));
+	}
+}
+
+Dialog::Dialog(std::vector<Tab> tabs, size_t selectedTab, DialogRect box)
+    : _box(box)
+    , _tabCount(tabs.size())
+{
+	// Each tab a share of the box's width, 40 high above it
+	const auto width = static_cast<float>(box.Width()) / static_cast<float>(_tabCount);
+	for (size_t i = 0; i < _tabCount; ++i)
+	{
+		const auto left = static_cast<float>(box.min.x) + (static_cast<float>(i) * width);
+		const DialogRect rect {.min = {static_cast<int>(left), box.min.y - 40},
+		                       .max = {static_cast<int>(left + width), box.min.y}};
+		Add<TabControl>(rect, std::move(tabs[i].label), i == selectedTab, i == 0, i + 1 == _tabCount,
+		                std::move(tabs[i].onSelect), tabs[i].textSize);
+	}
+}
+
+void Dialog::SelectTab(size_t index)
+{
+	for (size_t i = 0; i < _tabCount; ++i)
+	{
+		static_cast<TabControl&>(*_controls.at(i)).SetSelected(i == index);
+	}
+}
+
+void Dialog::SetTabLabel(size_t index, std::u16string label)
+{
+	if (index < _tabCount)
+	{
+		static_cast<TabControl&>(*_controls.at(index)).SetLabel(std::move(label));
+	}
+}
+
+DialogRect Dialog::GetTabRect(size_t index)
+{
+	const auto width = static_cast<float>(k_Box.Width()) * 0.2f;
+	const auto left = static_cast<float>(k_Box.min.x) + (width * static_cast<float>(index));
+	// AddMainMenuTabs: 0x104 less half the box's height up, 40 high
+	return {.min = {static_cast<int>(left), 10}, .max = {static_cast<int>(left + width), 50}};
+}
+
+Control* Dialog::HitTest(glm::ivec2 point) const
+{
+	// The control the mouse button is held down on keeps the pointer, as SetupPicture's ring over its neighbours
+	if (_pressed != nullptr && _pressed->HitTest(point))
+	{
+		return _pressed;
+	}
+	// The last drawn is on top
+	for (auto it = _controls.rbegin(); it != _controls.rend(); ++it)
+	{
+		if ((*it)->IsInteractive() && (*it)->HitTest(point))
+		{
+			return it->get();
+		}
+	}
+	return nullptr;
+}
+
+void Dialog::MouseMove(glm::ivec2 point)
+{
+	_pointer = point;
+	for (const auto& control : _controls)
+	{
+		control->MouseMove(point);
+	}
+	_hovered = HitTest(point);
+	// While the button is down only the control it went down on lights up
+	if (_pressed != nullptr && _hovered != _pressed)
+	{
+		_hovered = nullptr;
+	}
+}
+
+void Dialog::MouseDown(glm::ivec2 point)
+{
+	MouseMove(point);
+	_pressed = HitTest(point);
+	_hovered = _pressed;
+	// The focus goes to the control the button went down on, or nowhere
+	SetFocus(_pressed);
+	if (_pressed != nullptr)
+	{
+		_pressed->MouseDown(point);
+		_pressed->Drag(point);
+	}
+}
+
+bool Dialog::MouseUp(glm::ivec2 point)
+{
+	MouseMove(point);
+	auto* released = HitTest(point);
+	auto* pressed = std::exchange(_pressed, nullptr);
+	_hovered = released;
+	if (pressed != nullptr)
+	{
+		pressed->Release(point);
+	}
+	if (auto* picture = dynamic_cast<SymbolPicture*>(pressed); picture != nullptr && released != pressed)
+	{
+		picture->Release();
+	}
+	if (pressed == nullptr || released != pressed)
+	{
+		return false;
+	}
+	pressed->Activate(point);
+	return true;
+}
+
+void Dialog::Hold(Control& control)
+{
+	_pressed = &control;
+	SetFocus(&control);
+	_hovered = &control;
+}
+
+void Dialog::SetFocus(Control* control)
+{
+	if (control == _focused)
+	{
+		return;
+	}
+	if (_focused != nullptr)
+	{
+		_focused->SetFocus(false);
+	}
+	_focused = control;
+	if (_focused != nullptr)
+	{
+		_focused->SetFocus(true);
+	}
+}
+
+void Dialog::Wheel(glm::ivec2 point, int steps)
+{
+	if (auto* control = HitTest(point))
+	{
+		control->Wheel(steps);
+	}
+}
+
+bool Dialog::TextInput(std::u16string_view text)
+{
+	return _focused != nullptr && _focused->TextInput(text);
+}
+
+bool Dialog::KeyDown(int key)
+{
+	return _focused != nullptr && _focused->KeyDown(key);
+}
+
+void Dialog::Update(float deltaSeconds)
+{
+	for (const auto& control : _controls)
+	{
+		control->Update(deltaSeconds);
+	}
+	if (_pressed != nullptr)
+	{
+		_pressed->Drag(_pointer);
+	}
+}
+
+void Dialog::Reset()
+{
+	_hovered = nullptr;
+	_pressed = nullptr;
+	SetFocus(nullptr);
+	if (auto it =
+	        std::ranges::find_if(_controls, [](const auto& c) { return dynamic_cast<SymbolPicture*>(c.get()) != nullptr; });
+	    it != _controls.end())
+	{
+		static_cast<SymbolPicture&>(**it).Release();
+	}
+}
+
+void Dialog::Draw(const DialogPainter& painter, bool active) const
+{
+	if (drawUnder)
+	{
+		drawUnder(painter);
+	}
+	// A box with tabs opens onto the selected one along its top
+	if (_box.has_value())
+	{
+		painter.DrawBackground(*_box, glm::vec3(1.0f), false, DialogPainter::Edges::Bottom);
+	}
+	const auto alpha = painter.GetAlpha();
+	for (const auto onTop : {false, true})
+	{
+		for (const auto& control : _controls)
+		{
+			if (control->IsOnTop() != onTop)
+			{
+				continue;
+			}
+			const auto* c = control.get();
+			control->Draw(painter, active && _hovered == c, active && _focused == c, active && _pressed == c);
+			painter.SetAlpha(alpha);
+		}
+	}
+}

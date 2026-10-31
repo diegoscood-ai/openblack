@@ -3,30 +3,43 @@
     "version-string": "0.0.1-dev",
     "dependencies": [
         {
-            "name": "shader-slang",
-            "host": true
+
+            "name": "sdl2",
+            "default-features": true,
+            "platform": "!linux"
         },
         {
-            "name": "sdl3",
-            "features": [ "vulkan" ],
-            "platform": "linux | android"
+
+            "name": "sdl2",
+            "default-features": false,
+            "features": [ "x11", "wayland" ],
+            "platform": "linux"
         },
-        {
-            "name": "imgui",
-            "features": [ "sdl3-binding", "sdlgpu3-binding" ]
-        },
+        "imgui",
         "spdlog",
         "glm",
         "stb",
         "entt",
         "cxxopts",
-        {
-            "name": "cxxopts",
-            "host": true
-        },
         "openal-soft",
-        "drlibs",
-        "bullet3",
+        {
+            "name": "bgfx",
+            "default-features": false,
+            "features": [ "tools", "multithreaded" ],
+            "host": true,
+            "$reason": "Don't want to build shaderc on non-native platforms so they are built on the host config."
+        },
+        {
+            "name": "bgfx",
+            "default-features": false,
+            "platform": "emscripten"
+        },
+        {
+            "name": "bgfx",
+            "default-features": false,
+            "features": [ "multithreaded" ],
+            "platform": "!emscripten"
+        },
         "minizip",
         "gtest"
     ]

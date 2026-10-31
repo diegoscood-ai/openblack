@@ -9,9 +9,11 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 #include <array>
+#include <bit>
 
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
@@ -153,6 +155,13 @@ struct IsReacting
 	uint32_t isReactingToMissionary;
 	uint32_t isReactingToFightWon;
 };
+
+/// Whether a living of that info reacts to a reaction type at all: its entry of the type, none beyond the last type
+[[nodiscard]] inline bool ReactsTo(const IsReacting& isReacting, size_t type)
+{
+	constexpr size_t k_Types = sizeof(IsReacting) / sizeof(uint32_t);
+	return type < k_Types && std::bit_cast<std::array<uint32_t, k_Types>>(isReacting)[type] != 0;
+}
 
 struct GLivingInfo: GMobileWallHugInfo
 {
@@ -316,7 +325,8 @@ struct GSpecialVillagerInfo
 struct CreatureDevelopmentPhaseEntry
 {
 	std::array<char, 0x30> name;
-	float field0x30;
+	/// How far from home the creature may go at this stage before it most wants to go home
+	float goHomeDistance;
 	float field0x34;
 	float field0x38;
 	uint32_t field0x3c;
@@ -355,7 +365,8 @@ struct CreatureInitialDesireInfo
 	float field0x3c;
 	float field0x40;
 	float field0x44;
-	float field0x48;
+	/// The change that a plan for this desire adds to the creature's alignment each game turn
+	float alignmentChange;
 	float field0x4c;
 	float field0x50;
 	float field0x54;
@@ -429,7 +440,7 @@ struct GWorshipSiteInfo: GCitadelPartInfo
 	uint32_t maxDancersVisible;
 	float chantsToFillBattery;
 	float eachVillagerAddToFillBattery;
-	uint32_t chantsToReserveForMaintaining;
+	float chantsToReserveForMaintaining; ///< a float in the code; the file holds an int, so it reads as ~7e-43 (kept)
 	float artifactPowerupMultiplier;
 };
 
@@ -669,7 +680,8 @@ struct GMagicResourceInfo: GMagicInfo
 	uint32_t resourceAmountFirstEvent;
 	uint32_t resourceAmountPerEvent;
 	uint32_t costPerUnit;
-	uint32_t poisoned;
+	/// A new pile of the food speeds up the people who take from it (it poisons nothing)
+	uint32_t speedUp;
 };
 
 struct GPBallInfo: GMobileObjectInfo
@@ -857,8 +869,146 @@ struct GSpeedThreshold
 
 struct GCreatureInfo: GLivingInfo
 {
-	std::array<uint8_t, 416> field0x1e4;
+	/// The species' row in the creature tables, the Giant Ape's first
+	uint32_t row;
+	float field0x1e8;
+	/// How big a new creature of the species is, and how fat, 0 to 1
+	float startScale;
+	float startFatness;
+	/// How a new creature's body starts: full of energy, and neither warm nor cold
+	float startEnergy;
+	float startWarmth;
+	/// The temperature the species is comfortable at; it warms or cools only well away from it
+	float comfortTemperature;
+	/// The creature ages by one every this many seconds of game time
+	uint32_t secondsPerAgeTick;
+	/// It grows fast for most of this many minutes of age, then slowly
+	float growUpMinutes;
+	float field0x208;
+	/// Walking while its energy is below this tires it faster
+	float lowEnergyThreshold;
+	/// How much moving tires it each game turn, before its youth makes that faster
+	float exhaustionRate;
+	/// It goes from not thirsty to fully thirsty in this many seconds
+	float secondsToDehydrate;
+	/// Its strength is multiplied by this each game turn
+	float strengthDecay;
+	/// Carrying something as heavy as itself makes it stronger by half in this many minutes
+	float carryStrengthMinutes;
+	/// The energy it uses each game turn, less the bigger it is
+	float energyDrain;
+	/// While hungry, the fat it burns each game turn
+	float fatBurn;
+	/// How much of what it eats beyond full turns to fat
+	float overeatFatFactor;
+	/// Asleep, the life it regains and the exhaustion it sheds each game turn
+	float sleepHeal;
+	float sleepRecover;
+	std::array<uint8_t, 0xc> field0x234;
+	/// How fast the creature goes, each a fraction of its top speed: slowly (when exhausted), walking and running
+	float slowSpeed;
+	float walkSpeed;
+	float runSpeed;
+	std::array<uint8_t, 0x18> field0x24c;
+	/// The least any of its desires can be
+	float desireFloor;
+	std::array<uint8_t, 0x1c> field0x268;
+	/// A creature casting a miracle pays for it with its energy: it has this many chants for each of its size and strength
+	/// above its energy's floor, below which it can't pay
+	float chantsPerEnergy;
+	float spellEnergyFloor;
+	std::array<uint8_t, 0x4> field0x28c;
+	/// The approval an action forced on the creature teaches when the creature forgets it
+	float orderApproval;
+	std::array<uint8_t, 0x38> field0x294;
+	/// A creature looks another creature over again only once more than this many seconds have gone by since it last did
+	float inspectCreatureSeconds;
+	std::array<uint8_t, 0x8> field0x2d0;
+	/// Running away, the creature goes at least this far from what it flees, and up to 40 further
+	float runAwayDistance;
+	/// Its look on the way to a point (creature_mind::LookWhileGoing): the sweep's widest angle either way of the way
+	/// its body faces (radians) and its step a turn, the distance it looks to first, the farthest, and how much further
+	/// it looks each time the sweep turns back; then how near the point has to be for it to look at the point
+	float lookSweepAngle;
+	float lookSweepStep;
+	float lookSweepFirstDistance;
+	float lookSweepFarthest;
+	float lookSweepDistanceStep;
+	std::array<uint8_t, 0x8> field0x2f0;
+	float lookAtPointWithin;
+	/// The help tells of a problem with its body at most once in this many seconds
+	float helpBodyProblemSeconds;
+	float field0x300;
+	/// The help prompts on how to look after it at most once in this many seconds
+	float helpTutorialSeconds;
+	/// The help says it is low on energy, hurt, tired or thirsty past these, each with a "very" step
+	float helpLowEnergy;
+	float helpVeryLowEnergy;
+	float helpLowLife;
+	float helpVeryLowLife;
+	float helpTired;
+	float helpVeryTired;
+	float helpThirsty;
+	float helpVeryThirsty;
+	std::array<uint8_t, 0xc> field0x328;
+	/// The icon of its species that stands on its player's town totems
+	MeshId totemIcon;
+	/// Each turn the change waiting for its alignment, held between -1 and 1, moves it by that share of this
+	float alignmentChangePerTurn;
+	float field0x33c;
+	/// A new creature's innate personality, each drawn about these: kindness, aggression, lethargy, friendliness and
+	/// communicativeness, then four not yet named
+	float innateKindness;
+	float innateAggression;
+	float innateLethargy;
+	float innateFriendliness;
+	float innateCommunicativeness;
+	float field0x354;
+	float field0x358;
+	float field0x35c;
+	float field0x360;
+	/// How long it sleeps for its size, once rested
+	float sleepLength;
+	/// A meal's food value over this, and over its size, is the energy it gains
+	float foodToEnergy;
+	float field0x36c;
+	/// The poo a meal builds up for each unit of energy it gains
+	float pooPerEnergy;
+	/// Multiplies the alignment change that the creature's plans make each game turn. The game's load copies the
+	/// balance row's value over it (DifferentCreatureInfo::alignmentChangeScale)
+	float alignmentChangeScale;
+	/// How a creature's size turns into how much it impresses villagers: added to its size, which is then held between 1
+	/// and 4, and multiplied by this (magic::CreatureImpressiveSize)
+	float impressiveSizeAddition;
+	float impressiveSizeMultiplier;
+	/// How much its size counts against its strength in turning chants into energy
+	float spellSizeFactor;
 };
+static_assert(offsetof(GCreatureInfo, impressiveSizeAddition) == 0x378);
+static_assert(offsetof(GCreatureInfo, impressiveSizeMultiplier) == 0x37c);
+static_assert(sizeof(GCreatureInfo) == 0x384);
+static_assert(offsetof(GCreatureInfo, startEnergy) == 0x1f4);
+static_assert(offsetof(GCreatureInfo, comfortTemperature) == 0x1fc);
+static_assert(offsetof(GCreatureInfo, growUpMinutes) == 0x204);
+static_assert(offsetof(GCreatureInfo, energyDrain) == 0x220);
+static_assert(offsetof(GCreatureInfo, sleepRecover) == 0x230);
+static_assert(offsetof(GCreatureInfo, slowSpeed) == 0x240);
+static_assert(offsetof(GCreatureInfo, orderApproval) == 0x290);
+static_assert(offsetof(GCreatureInfo, inspectCreatureSeconds) == 0x2cc);
+static_assert(offsetof(GCreatureInfo, runAwayDistance) == 0x2d8);
+static_assert(offsetof(GCreatureInfo, lookSweepAngle) == 0x2dc);
+static_assert(offsetof(GCreatureInfo, lookAtPointWithin) == 0x2f8);
+static_assert(offsetof(GCreatureInfo, innateKindness) == 0x340);
+static_assert(offsetof(GCreatureInfo, sleepLength) == 0x364);
+static_assert(offsetof(GCreatureInfo, pooPerEnergy) == 0x370);
+static_assert(offsetof(GCreatureInfo, alignmentChangeScale) == 0x374);
+static_assert(offsetof(GCreatureInfo, desireFloor) == 0x264);
+static_assert(offsetof(GCreatureInfo, chantsPerEnergy) == 0x284);
+static_assert(offsetof(GCreatureInfo, alignmentChangePerTurn) == 0x338);
+static_assert(offsetof(GCreatureInfo, totemIcon) == 0x334);
+static_assert(offsetof(GCreatureInfo, helpBodyProblemSeconds) == 0x2fc);
+static_assert(offsetof(GCreatureInfo, helpVeryThirsty) == 0x324);
+static_assert(offsetof(GCreatureInfo, spellSizeFactor) == 0x380);
 
 struct GMagicRadiusSpellInfo: GMagicInfo
 {
@@ -875,41 +1025,10 @@ struct GMagicStormAndTornadoInfo: GMagicRadiusSpellInfo
 
 struct GHelpSpritesGuidance
 {
-	uint32_t field0x0;
-	uint32_t field0x4;
-	uint32_t field0x8;
-	uint32_t field0xc;
-	uint32_t field0x10;
-	uint32_t field0x14;
-	uint32_t field0x18;
-	uint32_t field0x1c;
-	uint32_t field0x20;
-	uint32_t field0x24;
-	uint32_t field0x28;
-	uint32_t field0x2c;
-	uint32_t field0x30;
-	uint32_t field0x34;
-	uint32_t field0x38;
-	uint32_t field0x3c;
-	uint32_t field0x40;
-	uint32_t field0x44;
-	uint32_t field0x48;
-	uint32_t field0x4c;
-	uint32_t field0x50;
-	uint32_t field0x54;
-	uint32_t field0x58;
-	uint32_t field0x5c;
-	uint32_t field0x60;
-	uint32_t field0x64;
-	uint32_t field0x68;
-	uint32_t field0x6c;
-	uint32_t field0x70;
-	uint32_t field0x74;
-	uint32_t field0x78;
-	uint32_t field0x7c;
-	uint32_t field0x80;
-	uint32_t field0x84;
+	/// A remark's help texts, ending at the first 0
+	std::array<uint32_t, 34> texts;
 };
+static_assert(sizeof(GHelpSpritesGuidance) == 0x88);
 
 struct GFeatureInfo: GMultiMapFixedInfo
 {
@@ -1034,25 +1153,32 @@ struct GMagicForestInfo: GMagicInfo
 
 struct GVillagerStateTableInfo
 {
-	uint32_t field0x0;
+	/// The animation a villager plays in the state
+	uint32_t animation;
 	int field0x4;
 	float field0x8;
 	uint32_t isFinalState;
-	int field0x10;
+	/// A villager storing its state to come back to stores the one it stored before instead of this one
+	int keepsPreviousState;
 	uint32_t field0x14;
 	uint32_t isScriptState;
 	uint32_t isScriptInterruptableState;
-	int field0x20;
-	uint32_t field0x24;
+	/// The state a villager goes back to once it stops reacting, if it was in this one
+	int resumeState;
+	/// Which of the villager's speeds it moves at in this state: 1 for fleeing
+	uint32_t speedIndex;
 	std::array<char, 0x80> name;
 	int field0xa8;
 	uint32_t field0xac;
 	uint32_t field0xb0;
 	uint32_t field0xb4;
-	int field0xb8;
+	/// A state of reacting to something
+	int isReactionState;
 	uint32_t field0xbc;
-	int field0xc0;
-	int field0xc4;
+	/// A villager leaving a home state for this one stays inside
+	int staysAtHomeOnExit;
+	/// A villager going into the state may pause for a second first
+	int canPauseForASecond;
 	float field0xc8;
 	float field0xcc;
 	uint32_t field0xd0;
@@ -1062,7 +1188,8 @@ struct GVillagerStateTableInfo
 	uint32_t field0xe0;
 	uint32_t field0xe4;
 	uint32_t field0xe8;
-	uint32_t field0xec;
+	/// A villager whose state this is may start reacting to things
+	uint32_t availableForReaction;
 	uint32_t field0xf0;
 	uint32_t field0xf4;
 	float field0xf8;
@@ -1405,7 +1532,8 @@ struct DifferentCreatureInfo
 	uint32_t field0x4c;
 	float field0x50;
 	float field0x54;
-	float field0x58;
+	/// The species' alignment change scale, which the game's load copies over the creature row's
+	float alignmentChangeScale;
 };
 
 struct GEffectInfo
@@ -1424,10 +1552,11 @@ struct GEffectInfo
 struct GMagicEffectInfo: GEffectInfo
 {
 	std::array<char, 0x30> debugString;
-	uint32_t timerWhenOneShot;
-	uint32_t timerWhenPlayerCasting;
-	uint32_t timerWhenCreatureCasting;
-	uint32_t timerWhenComputerPlayerCasting;
+	// seconds (the code reads them as floats); -1 = no time limit. MAGIC_TYPE 0 holds the int 10.
+	float timerWhenOneShot;
+	float timerWhenPlayerCasting;
+	float timerWhenCreatureCasting;
+	float timerWhenComputerPlayerCasting;
 	float initialChants;
 	float costToCreate;
 	float costPerEvent;
@@ -1513,42 +1642,45 @@ struct GPFootballInfo: GMultiMapFixedInfo
 
 struct GSpellSeedInfo: GObjectInfo
 {
-	uint32_t field0xf0;
-	uint32_t field0xf4;
-	uint32_t field0xf8;
-	uint32_t field0xfc;
-	uint32_t field0x100;
-	uint32_t field0x104;
-	uint32_t field0x108;
-	uint32_t field0x10c;
-	uint32_t field0x110;
-	uint32_t field0x114;
-	uint32_t field0x118;
-	uint32_t field0x11c;
-	uint32_t field0x120;
-	uint32_t field0x124;
-	uint32_t field0x128;
-	uint32_t field0x12c;
-	uint32_t field0x130;
-	float field0x134;
-	float field0x138;
-	float field0x13c;
-	float field0x140;
-	float field0x144;
-	uint32_t field0x148;
-	uint32_t field0x14c;
-	float field0x150;
-	float field0x154;
-	uint32_t field0x158;
-	float field0x15c;
-	uint32_t field0x160;
-	uint32_t field0x164;
-	uint32_t field0x168;
-	uint32_t field0x16c;
-	uint32_t field0x170;
-	uint32_t field0x174;
-	uint32_t field0x178;
-	uint32_t field0x17c;
+	// Names from the original's code
+	GestureType selectionGesture; ///< stage 0 of the selection, 1 SPIRAL (player) / 2 INVERSE_SPIRAL (creature)
+	GestureType gesture;          ///< the miracle's gesture (stage 1)
+	GestureType gestureStage2;    ///< 0 in every entry
+	GestureType sizingGesture;    ///< 4 CIRCLE for STORM, SHIELD, PHYSICAL_SHIELD
+	SpellCastType castType;       ///< cast in the hand, or applied only after the recognition
+	uint32_t isKeptInHand;        ///< the spell is kept in the hand
+	uint32_t castOnObject;        ///< 1 = cast on an object
+	uint32_t unknown0x10C;        ///< 0 for NATURE and TELEPORT, else 1 (UNVERIFIED: no reader found)
+	uint32_t seedFollowsSpell;    ///< the seed is bound to the live spell
+	/// the magic of POWER_UP_TYPE_NONE (-1), then of PU 0, 1, 2
+	std::array<MagicType, 4> magicTypes;
+	/// the gesture that powers the seed up to PU 0, 1, 2 (0 = none)
+	std::array<GestureType, 3> powerUpGestures;
+	MeshId mesh;        ///< the seed's mesh
+	float scale;        ///< the seed's scale
+	float unknown0x138; ///< equals scale except for the flocks (UNVERIFIED: no reader found)
+	float holdLoweringMultiplier;
+	float holdRadius; ///< x the scale
+	float holdYRotate;
+	HoldType holdType;                 ///< MAGIC (2) is forced until the seed is ready
+	uint32_t attachInHandEffectToBone; ///< the hand's bone for the in-hand effect
+	/// How far above (below, mostly) the middle of a globe or icon the seed's model is, times its scale (-1.5 in most
+	/// entries)
+	float meshHeight;
+	/// How far above the middle the holder particle effect plays, times its scale
+	float holderHeight;
+	uint32_t deleteSeedOnceCast; ///< the seed is deleted once cast
+	float unknown0x15C;          ///< 0.1 in every entry (UNVERIFIED: no reader found)
+	uint32_t unknown0x160;       ///< 1 in every entry (UNVERIFIED: no reader found)
+	ParticleType holderParticle; ///< the effect on the worship icon's holder
+	uint32_t useMesh;            ///< (inferred)
+	uint32_t exists;             ///< 1 = a real spell, 0 = unused slot
+	uint32_t iconIndex;          ///< the icon slot (inferred)
+	HelpText tooltip;
+	uint32_t unknown0x178; ///< (UNVERIFIED: no reader found)
+	/// 1 for FIRE, LIGHTNING_BOLT, HEAL, WEAK, STRONG: the miracles the player's creature casts in a fight when their
+	/// gesture is drawn (read only by the fight's gesture stage)
+	uint32_t unknown0x17C;
 };
 
 struct GCitadelHeartInfo: GCitadelPartInfo
@@ -1745,11 +1877,15 @@ namespace v100 // original release 1.0
 {
 struct CreatureActionInfo
 {
-	float field0x0;
-	float field0x4;
-	float field0x8;
-	uint32_t field0xc;
-	float field0x10;
+	/// What doing the action does to the creature's body once it is done: strength gained, energy used and
+	/// exhaustion added, the last two less the bigger it is
+	float strengthGain;
+	float energyCost;
+	float exhaustionCost;
+	/// How impressive doing the action is to watchers: its kind (the turn counts of a reaction to the creature read
+	/// it) and how much (the creature's impressiveness)
+	uint32_t impressiveType;
+	float impressiveValue;
 	std::array<char, 0x20> name;
 	uint32_t field0x34;
 	uint32_t field0x38;
@@ -1776,17 +1912,22 @@ struct CreatureActionInfo
 	uint32_t field0x8c;
 	uint32_t field0x90;
 	uint32_t field0x94;
-	uint32_t field0x98;
+	/// The desire the action satisfies
+	uint32_t desire;
 	uint32_t field0x9c;
 	uint32_t field0xa0;
-	uint32_t field0xa4;
+	/// The miracle the action casts, 0 for none
+	uint32_t magicType;
 	uint32_t field0xa8;
 	uint32_t field0xac;
 	uint32_t field0xb0;
-	uint32_t field0xb4;
+	/// The desire that the action shows to another creature that sees it: the other creature takes it as the strongest
+	/// desire of the creature that does it
+	uint32_t shownDesire;
 	uint32_t field0xb8;
 	uint32_t field0xbc;
-	float field0xc0;
+	/// The desire it satisfies is multiplied by this once it is done
+	float desireMultiplier;
 	float field0xc4;
 	uint32_t field0xc8;
 	float field0xcc;
@@ -1797,11 +1938,17 @@ struct CreatureActionInfo
 	uint32_t field0xe0;
 	uint32_t field0xe4;
 	float field0xe8;
-	float field0xec;
+	/// When the action ends well on another creature, how much nicer the creature finds the other creature, from -1 to 1
+	float creatureNicenessChange;
 	uint32_t field0xf0;
 	uint32_t field0xf4;
 	uint32_t field0xf8;
 };
+static_assert(offsetof(CreatureActionInfo, desire) == 0x98);
+static_assert(offsetof(CreatureActionInfo, desireMultiplier) == 0xc0);
+static_assert(offsetof(CreatureActionInfo, magicType) == 0xa4);
+static_assert(offsetof(CreatureActionInfo, shownDesire) == 0xb4);
+static_assert(offsetof(CreatureActionInfo, creatureNicenessChange) == 0xec);
 
 struct InfoConstants
 {

@@ -1,0 +1,207 @@
+/******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+#pragma once
+
+#include <cstdint>
+
+#include <array>
+#include <functional>
+#include <optional>
+#include <span>
+#include <vector>
+
+#include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
+
+#include "CreatureDesires.h"
+#include "CreatureIdleMind.h"
+
+// How a creature casts a miracle at something. One time in five it first shows how it feels: angry before a lightning
+// bolt or another miracle that attacks, kind before a helpful miracle, playful before one it casts on another creature.
+// Then it goes near the thing, gets away from it to a distance, turns to face it and draws the miracle's gesture, if it
+// has one. Last it takes up the casting pose and casts the miracle as the pose's loop begins, holds it three seconds and
+// lets it go as the pose ends.
+//
+// A lightning bolt is cast from fifty away, backing off to ten more than the creature's height; a helpful miracle from
+// twice its height; a creature spell from five times its height, backing off to twice it; a creature spell to amuse
+// another creature from four times its height, backing off to twice it. The creature casts a tornado, the lightning
+// storm and the power-ups of the explosion from five times its height, backing off to twice it.
+// It casts an explosion from a hundred away, backing off to twice its height, and shows its anger first one time in
+// three.
+//
+// The creature casts a fireball in a different way. First it goes to a clear area near where it stands, as wide as
+// five times its radius, to within twice its height of the middle of the area. Then one time in five it shows its
+// anger. At a living thing it then gets away to twice its height. Then it turns, draws the gesture and casts.
+//
+// A shield it casts from where it stands: it turns kindly to face the thing and casts. A forest it casts at a place: it
+// goes near to two and a half times its height from a thing (a villager), turns to face it with a kind face, and casts
+// the forest in the scattering pose at the place where the thing was when it made the agenda, holding it four seconds.
+// To impress the people of a villager it goes near to four times its height and gets away to twice it. One time in two
+// it points at the villager first, and otherwise after the cast. Two times in three it beckons. Then it turns and casts
+// the miracle that impresses that any creature cast the longest time ago, if it knows one. Every cast step grimaces as
+// it casts.
+//
+// Food and water are cast otherwise, scattered from above what they are cast at: with no feeling shown first, no draw
+// and no backing off, in the scattering pose. Food is cast from two away, kind as it goes and as it turns; water from
+// twice its height, smiling as it turns and as it casts. Water on itself it casts once it has gone to a clear spot near
+// it, smiling, and then its own fire stops. Pure, tested on its own.
+
+namespace openblack::creature_mind
+{
+
+/// The kinds of casting, by the miracles cast that way
+enum class CastStyle : uint8_t
+{
+	/// The lightning bolts
+	Lightning,
+	/// The heals, and other miracles that help
+	Helpful,
+	/// The spells cast on another creature
+	Playful,
+	/// The tornado, the lightning storm and the power-ups of the explosion
+	Aggressive,
+	/// The explosion
+	Explosion,
+	/// A spell that the creature casts on another creature to amuse it
+	Amusing,
+};
+
+/// It shows how it feels first one time in this many
+inline constexpr uint32_t k_CastEmoteLots = 5;
+/// The casting pose's start, loop and end
+inline constexpr std::array<size_t, 3> k_CastPose {40, 41, 42};
+/// The scattering pose's start, loop and end, which food and water are cast with
+inline constexpr std::array<size_t, 3> k_ScatterPose {46, 47, 48};
+/// Food is cast from this near what it is cast at, or from this near a sign that shows a need
+inline constexpr float k_FoodGoNear = 2.0f;
+inline constexpr float k_FoodGoNearSign = 20.0f;
+/// Water on itself is cast in a clear area this many times its height wide
+inline constexpr float k_WaterOnItselfClearWidth = 1.7f;
+/// The miracle is held this long once cast
+inline constexpr float k_CastHoldSeconds = 3.0f;
+/// Turning to face what it casts at, it holds still this long once facing it
+inline constexpr float k_CastSettleSeconds = 0.1f;
+/// A lightning bolt is cast from this far, backing off to this much more than its height
+inline constexpr float k_LightningCastDistance = 50.0f;
+inline constexpr float k_LightningBackOff = 10.0f;
+/// An explosion is cast from this far, and its creature shows its anger first one time in this many
+inline constexpr float k_ExplosionCastDistance = 100.0f;
+inline constexpr uint32_t k_ExplosionEmoteLots = 3;
+/// The clear area for a fireball is this many times as wide as the radius of the creature
+inline constexpr float k_FireballClearRadii = 5.0f;
+/// The creature casts a miracle to impress from this many times its height. One time in this many it points at the
+/// thing first, and in the other times it points after the cast. One time in this many it does not beckon.
+inline constexpr float k_ImpressCastHeights = 4.0f;
+inline constexpr uint32_t k_ImpressPointLots = 2;
+inline constexpr uint32_t k_ImpressBeckonLots = 3;
+/// The creature points at the thing for this long
+inline constexpr float k_ImpressPointSeconds = 1.0f;
+/// The miracles that a creature can cast to impress, in the order that it examines them
+inline constexpr std::array<uint32_t, 4> k_ImpressiveMiracles {10, 16, 11, 24};
+/// A forest is cast from this many times its height, and held this long once cast
+inline constexpr float k_ForestCastHeights = 2.5f;
+inline constexpr float k_ForestHoldSeconds = 4.0f;
+/// The miracles that let a creature choose to impress with a miracle. The list has food before the others, but the
+/// creature never casts food to impress.
+inline constexpr std::array<uint32_t, 5> k_ImpressMiraclesItMayKnow {14, 10, 16, 11, 24};
+
+/// Casting a miracle of a magic type, by its number, with a gesture to draw (0 for none), at an object by its entity's
+/// number, by a creature of a height
+[[nodiscard]] std::vector<Step> CastAt(CastStyle style, uint32_t magicType, uint32_t gesture, uint32_t object, float height,
+                                       const Random& random);
+
+/// The first and the last magic types of the spells on a creature. The creature casts one of these to amuse another
+/// creature.
+inline constexpr uint32_t k_FirstAmusingSpell = 26;
+inline constexpr uint32_t k_LastAmusingSpell = 41;
+/// To amuse another creature, the creature casts from this many times its height
+inline constexpr float k_AmusingCastHeights = 4.0f;
+/// A spell that the creature can cast to amuse: it knows the spell and can pay for it. The gesture is 0 for none.
+struct AmusingSpell
+{
+	uint32_t magicType {0};
+	uint32_t gesture {0};
+};
+/// The creature casts a spell to amuse another creature. It picks one of the spells at random. Then one time in five it
+/// shows that it feels playful. It goes near to four times its height and gets away to twice its height. It turns,
+/// draws the gesture and casts. With no spell, it only shows that it feels playful.
+[[nodiscard]] std::vector<Step> CastAmusingAt(std::span<const AmusingSpell> spells, uint32_t object, float height,
+                                              const Random& random);
+/// Whether another creature seems friendly to the creature, by the desire that each creature wants most to do about the
+/// other. It does not seem friendly when it is angry with the creature or afraid of it, or when the creature is angry
+/// with it. None is a creature that wants nothing of the other.
+[[nodiscard]] bool SeemsFriendly(std::optional<creature_desires::Desire> mine, std::optional<creature_desires::Desire> theirs);
+
+/// Casting food at an object by its entity's number, from so near it, with a gesture to draw first (0 for none). It is
+/// food whatever the action that casts it
+[[nodiscard]] std::vector<Step> CastFoodAt(uint32_t gesture, uint32_t object, float goNear);
+/// Casting water at an object by its entity's number, by a creature of a height. It is plain water whatever the action
+/// that casts it
+[[nodiscard]] std::vector<Step> CastWaterAt(uint32_t object, float height);
+/// Casting water on itself, by its entity's number, from a clear spot it goes to first, by a creature of a height; then
+/// its own fire stops
+[[nodiscard]] std::vector<Step> CastWaterOnItself(glm::vec2 spot, uint32_t self, float height);
+
+/// Casting a fireball, by its magic type's number, with a gesture to draw (0 for none), at an object by its entity's
+/// number, by a creature of a height. The creature goes first to the middle of a clear area near it. It gets away from
+/// the object only when the object is living.
+[[nodiscard]] std::vector<Step> CastFireballAt(uint32_t magicType, uint32_t gesture, uint32_t object, bool objectLiving,
+                                               glm::vec2 clearArea, float height, const Random& random);
+
+/// The creature casts a shield at a thing from where it stands. It turns kindly to face the thing and casts.
+[[nodiscard]] std::vector<Step> CastShieldAt(uint32_t magicType, uint32_t object);
+
+/// The creature casts a forest, by its magic type's number, at a place. It goes near to two and a half times its height
+/// from the thing (a villager, by its entity's number) and turns to face it, kind. It draws no gesture. It casts the
+/// forest at the place in the scattering pose, grimacing, and holds it four seconds.
+[[nodiscard]] std::vector<Step> CastForestAt(uint32_t magicType, uint32_t object, glm::vec3 place, float height);
+
+/// The creature casts a miracle to impress the people of a thing (a villager). It goes near to four times its height
+/// and gets away to twice its height. One time in two it points at the thing first, amazed. Two times in three it
+/// beckons, playful. It turns and casts the miracle, if it has one. If it did not point first, it points now, smiling.
+[[nodiscard]] std::vector<Step> CastToImpress(std::optional<uint32_t> magicType, uint32_t object, float height,
+                                              const Random& random);
+
+/// The miracle that a creature casts to impress, by its place in k_ImpressiveMiracles. The creature must know the
+/// miracle. Of these, it picks the miracle that any creature cast to impress the longest time ago. For equal times, it
+/// picks the last. None if it knows none of them.
+[[nodiscard]] std::optional<size_t> PickImpressiveMiracle(const std::array<bool, 4>& known,
+                                                          const std::array<uint32_t, 4>& castTurn);
+
+/// Whether a creature can choose to impress with a miracle, by its state for each of k_ImpressMiraclesItMayKnow. For one
+/// of them, the creature must know it and can pay for it. It must also have seen it more than half the times that it
+/// must see it to learn it.
+struct ImpressiveMiracleState
+{
+	bool known {false};
+	bool canPay {false};
+	float seen {0.0f};
+	float needed {0.0f};
+};
+[[nodiscard]] bool CanCastToImpress(std::span<const ImpressiveMiracleState> miracles);
+
+/// After a miracle fizzles the creature is embarrassed
+inline constexpr size_t k_FizzleEmbarrassed = 73;
+/// Then one time in this many it is sad as well, and its sadness grows by a random share of this much
+inline constexpr uint32_t k_FizzleSadLots = 2;
+inline constexpr float k_FizzleSadness = 0.3f;
+/// The sadness a fizzle may add after the embarrassment: the animation it plays, and how much sadder it gets (none
+/// when it has no desires, as no amount is drawn then)
+struct FizzleSadness
+{
+	size_t animation {0};
+	std::optional<float> sadness;
+};
+/// Whether the creature is also sad after a fizzle: it draws one time in two first, and only when sad, and only with
+/// desires, it then draws how much sadder it gets. None when it is only embarrassed
+[[nodiscard]] std::optional<FizzleSadness> SadAfterFizzle(const Random& random, bool hasDesires,
+                                                          const std::function<float(float)>& randomFloat);
+
+} // namespace openblack::creature_mind

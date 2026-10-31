@@ -31,7 +31,7 @@ public:
 	static void SetGameTickTime(int32_t gameTickTime);
 	static void LoadFeatureScript(glm::vec3);
 	static void PauseGame();
-	static void CreateCreature(int32_t, int32_t, int32_t, int32_t);
+	static void CreateCreature(int32_t cellX, int32_t cellZ, int32_t type, int32_t player);
 	static void OutputVillagers();
 	static void OutputTown();
 	static void OutputCreatures();

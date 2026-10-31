@@ -1,0 +1,279 @@
+# kind	token	reason
+# Started 2026-10-16 from CONFLICTS_RESOLUTION.md section 4. A wrong name is dropped as a
+# pair (name + address); the bare name is dropped too only when no function of runblack.exe has it.
+pair	SpellFlock::WolfArrived 0x421300	renamed: SpellWolf::MoveToPos is the symbol at 0x421300 (xref)
+func	SpellFlock::WolfArrived	renamed: SpellWolf::MoveToPos (no function of runblack.exe has this name)
+pair	PSysGlobal::DrawLoop 0x68F680	renamed: DrawOffsetDecay::ProcessList is the symbol at 0x68F680 (xref)
+pair	GScript::FlockAttach 0x6EF3C0	renamed: GScript::AttachToId is the symbol at 0x6EF3C0 (xref)
+func	GScript::FlockAttach	renamed: GScript::AttachToId (no function of runblack.exe has this name)
+pair	GScript::IdSize 0x6EFF50	renamed: GScript::GetIdSize is the symbol at 0x6EFF50 (xref)
+func	GScript::IdSize	renamed: GScript::GetIdSize (no function of runblack.exe has this name)
+pair	GetTaskScriptType 0x6F6C50	renamed: ScriptDLL::GetScriptType is the symbol at 0x6F6C50 (xref)
+pair	GScript::ReleaseFromScript 0x6FB380	renamed: GScript::ReleaseActorFromScript is the symbol at 0x6FB380 (xref)
+pair	PlayResourceDropRemark 0x71B570	renamed: GGuidance::ResourceDropSFX is the symbol at 0x71B570 (xref)
+pair	LowOnFood 0x71CA60	renamed: GGuidance::HelpSpritesLowOnFood is the symbol at 0x71CA60 (xref)
+pair	UpdatePlayerName 0x72E870	renamed: GSpookyVoices::GetPlayerName is the symbol at 0x72E870 (xref)
+pair	EndLockedSelect 0x738630	renamed: TotemStatue::NetworkUnfriendlyEndLockedSelect is the symbol at 0x738630 (xref)
+pair	StartPlaygroundGame 0x552F40	renamed: GGame::LoadMap is the symbol at 0x552F40 (xref)
+pair	DayNightClock::SetCycle 0x557620	renamed: GGameInfo::SetVisualTimeCycle is the symbol at 0x557620 (xref)
+func	DayNightClock::SetCycle	renamed: GGameInfo::SetVisualTimeCycle (no function of runblack.exe has this name)
+pair	Get2DRadius 0x639AC0	renamed: Object::GetDefaultFireRadius is the symbol at 0x639AC0 (xref)
+pair	PuzzleGrain 0x66F180	renamed: PileFood::Get2DRadius is the symbol at 0x66F180 (xref)
+pair	ObjectToySkittle 0x609020	renamed: MobileStatic::IsToy is the symbol at 0x609020 (xref)
+pair	ExitPutOutFire 0x752530	renamed: Villager::IsStateExitFunctionSameAs is the symbol at 0x752530 (xref)
+pair	Repair_Town 0x759370	renamed: Villager::CheckSatisfyToRepair is the symbol at 0x759370 (xref)
+pair	Strength 0x720750	renamed: Spell::GetSpellStrength is the symbol at 0x720750 (xref)
+pair	NavRadius 0x480A60	renamed: LH3DCreature::GetNavRadius is the symbol at 0x480A60 (xref)
+func	Locator::camera::has_value	code line quoted by a source note (ScriptCamera.cpp End), not a fact of the original
+func	Locator::config::has_value	code line quoted by a source note (ScriptCamera.cpp UpdateCamera), not a fact of the original
+func	Locator::resources::value	code line quoted by a source note (FieldOfView.cpp ObjectOnScreen), not a fact of the original
+func	Locator::terrainSystem::value	code line quoted by a source note (DefaultWorldCameraModel.cpp UpdateModeFlying), not a fact of the original
+func	TEST_P	Google Test macro in a source note, not a fact of the original
+# 2026-10-16: foundations, formats, scripts, project pages
+func	BoxCentre_00868CBC	renamed: affine::BoxCentreThroughObject (openblack code name, not the original)
+func	ObjectThroughW_00812170	renamed: affine::BoneRootToClip (openblack code name)
+func	PointThroughW_0081F1D0	renamed: affine::ToClipForScreenTest (openblack code name)
+func	PointThroughW_00868D07	renamed: affine::ToClipForBoxTest (openblack code name)
+func	PointThroughW_00877370	renamed: affine::ToClipForShadowBlocks (openblack code name)
+func	SkinBones_00839980	renamed: affine::SkinBones (openblack code name)
+func	InverseSqrtTable	renamed: the k_Table of gutils::ModelInverseSquareRoot (openblack code name)
+unit	3 m	not a fact: the code text "glm::mat4x3 m" read as 3 metres
+pair	GSetup::LoadMapFeatures 0x7180F0	wrong: 0x7180F0 is an instruction inside GSetup::LoadMapFeatures 0x7180B0 (xref); written as the reset at 0x7180FE..0x71811A inside it
+pair	GScript::Reset 0x6EB396	wrong: 0x6EB396 is the call inside GScript::Reset 0x6EB2D0 (xref); written as such
+unit	960 frames	tokenizer artifact: "fn_005CB960 frame by frame" in the old intro page, not a quantity
+func	PhysicsObjectsSystem	renamed: DynamicsSystem owns the physics bodies (superseded older copy of docs/refactor PROGRESS/README)
+func	test_video	renamed: the video tests are grouped into test_game (superseded older copy of TESTING.md)
+unit	5 h	not a unit: "5h" is five times the creature height (studies/creature/plans/r06_reads/u1u2u4.md)
+addr	0x5D3300	dump range end of a reconstruction dump file, not a fact
+addr	0x5D46E0	dump range end of a reconstruction dump file, not a fact
+addr	0x5D5690	dump range end of a reconstruction dump file, not a fact
+addr	0x205A59	offset g_game +0x205A59, written with + on the page (hand/states)
+unit	040 bytes	parse artefact of the offset +0x040 byte
+unit	468 turns	parse artefact of the offset +0x468 turn
+unit	478 turns	parse artefact of the offset +0x478 turn
+unit	28 bits	parse artefact of the offset GInterface+0x28 bit 0 (hand/states)
+func	Object::Throw	truncated: the source cut Object::ThrowObjectFromHand short; the full name is on hand/picking
+unit	4874 bytes	misread: the offset +0x4874 followed by "byte", not a size
+unit	4954 bytes	misread: the offset +0x4954 followed by "byte", not a size
+unit	9.81 bits	misread: "weight*9.81 bits" describes a stale float, not a unit
+func	Normal::Update	renamed: shorthand for HandStateNormal::Update in the source
+func	Tug::Update	renamed: shorthand for HandStateTug::Update in the source
+# physics, particles, world pages, 2026-10-16: openblack identifiers from the source notes and one false token
+func	Buildings::ForgetHitter	openblack identifier in the annotated code line of the source notes, not a fact of the original; the code holds it
+func	FireEffect::Cooling	openblack identifier in the annotated code line of the source notes, not a fact of the original; the code holds it; no longer in openblack's src (renamed or removed)
+func	FireEffect::SoundPlaying	openblack identifier in the annotated code line of the source notes, not a fact of the original; the code holds it
+func	FragMesh::FrameLight	openblack identifier in the annotated code line of the source notes, not a fact of the original; the code holds it
+func	FragMesh::Piece	openblack identifier in the annotated code line of the source notes, not a fact of the original; the code holds it
+func	MapShield::Kind::Physical	openblack identifier in the annotated code line of the source notes, not a fact of the original; the code holds it
+func	PhysicsObject::NoObjectCollision	openblack identifier in the annotated code line of the source notes, not a fact of the original; the code holds it
+func	PhysicsObject::PushedByLiving	openblack identifier in the annotated code line of the source notes, not a fact of the original; the code holds it
+func	PhysicsObjects::EndPredictionOf	openblack identifier in the annotated code line of the source notes, not a fact of the original; the code holds it
+func	PhysicsObjects::Handlers	openblack identifier in the annotated code line of the source notes, not a fact of the original; the code holds it
+func	PhysicsObjects::SetPrediction	openblack identifier in the annotated code line of the source notes, not a fact of the original; the code holds it
+func	PhysicsObjects::ThrowFromHandOfClass	openblack identifier in the annotated code line of the source notes, not a fact of the original; the code holds it
+func	Rocks::IsRock	openblack identifier in the annotated code line of the source notes, not a fact of the original; the code holds it
+func	Shape::SpreadingD	openblack identifier in the annotated code line of the source notes, not a fact of the original; the code holds it; no longer in openblack's src (renamed or removed)
+unit	32 dB	false token: the tail of the address 0x7A32DB read as a unit
+func	AddDroppedObject	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	AddFarmer	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	AddTargetPoint	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	AnimFrameRate	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	AppendFragMeshes	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it; no longer in openblack's src (renamed or removed)
+func	AppendPiece	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	ApplyReleaseSpin	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	BitmapTexel	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it; no longer in openblack's src (renamed or removed)
+func	BoxCell	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	BuildBuilding	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	Buildings::DestroyFragment	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	Buildings::FragmentEndPhysics	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it; no longer in openblack's src (renamed or removed)
+func	Buildings::ProcessTurn	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	Buildings::ReactToPhysicsImpact	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	Buildings::SnapshotFragMeshes	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it; no longer in openblack's src (renamed or removed)
+func	CapReleaseVelocity	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	CastsShadowOnTexture	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	CheckToSeeIfObjectIsNearOnFireObject	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	ClassDeleteDependancys	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it; no longer in openblack's src (renamed or removed)
+func	CollisionSounds::AttemptToAddSoundEvent	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it; no longer in openblack's src (renamed or removed)
+func	CollisionSounds::PlayAnimEffect	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	CreateAbodeSurroundingObjects	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	CreateDroppedLog	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	CreatePlan	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	CreateSpotVisualFor	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it; no longer in openblack's src (renamed or removed)
+func	CreateSpotVisualTurns	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it; no longer in openblack's src (renamed or removed)
+func	CreateTotemStatue	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it; no longer in openblack's src (renamed or removed)
+func	DeleteAbodeSurroundingObjects	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	DeleteObject	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	DeletePlannedBuildingsUnderMe	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	DrawOrigin	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	Dust::Emit	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	Dust::RandomVelocity	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it; no longer in openblack's src (renamed or removed)
+func	Dust::SyncedRandomVelocity	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it; no longer in openblack's src (renamed or removed)
+func	Effect::~Effect	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	FallSpeed	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it; no longer in openblack's src (renamed or removed)
+func	FindTouchingScaffold	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	FirstOtherFunctional	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	ForceBuildBuilding	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	FragMesh::LightDirection	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	FragMesh::ObjectLight	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	GetCombinedTown	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	GetDesireToBeFarmed	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	GetNewEp	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it; no longer in openblack's src (renamed or removed)
+func	GetOwner	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	GetPercentFull	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	GetPercentRepaired	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	GetShouldNotBeAddedToPlanned	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	GetSlot	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	GetTownForBuilding	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	GetValue	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	HasFisherman	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	HitterPlayer	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	InHand	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	InfoOf	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	IsRepaired	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	IsScriptCasting	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	IsStillSowing	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	LandFactorValue	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it; no longer in openblack's src (renamed or removed)
+func	LightMapCreator	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	MeshCreator	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	MoveAbodeToPlannedAbodes	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	OnDeleted	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	OnLeftHand	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	OnToBeDeleted	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	PackMesh	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	PenetrationAlong	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it; no longer in openblack's src (renamed or removed)
+func	PhysOb::CollideVertices	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it; no longer in openblack's src (renamed or removed)
+func	PhysOb::GroundAndWater	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it; no longer in openblack's src (renamed or removed)
+func	PhysOb::ObjectOrigin	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	PhysOb::RayBehindVsFaces	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	PhysicsObjects::BeginPrediction	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	PhysicsObjects::CanBecomeAPhysicsObject	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	PhysicsObjects::CheckAllCreaturesForCatching	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	PhysicsObjects::Clear	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	PhysicsObjects::ConstantsType	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	PhysicsObjects::FinishDroppedObject	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	PhysicsObjects::InteractsWithPhysicsObjects	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	PhysicsObjects::LoadConstants	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	PhysicsObjects::PushObject	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	PhysicsObjects::RaiseUntilNotIntersecting	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it; no longer in openblack's src (renamed or removed)
+func	PhysicsObjects::RemoveObject	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	PhysicsObjects::RemoveObjectWithEndPhysics	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	PhysicsObjects::RotationFromRows	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	PhysicsObjects::UpdateFrame	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	PhysicsObjects::Weight	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	PlantCrop	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	ProcessFieldsTurn	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it; no longer in openblack's src (renamed or removed)
+func	PushedByLiving	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	RandomVelocity	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it; no longer in openblack's src (renamed or removed)
+func	ReadNext	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	RedrawBuilding	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	RedrawConstruction	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	RegisterTapHandlers	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	ReleaseWorker	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	RemoveFromWorkshop	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	RemoveOldBuildingSite	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	Rocks::SplitInTwo	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	SetAngularVelocityFromBody	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	SetCreatureCatchHook	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it; no longer in openblack's src (renamed or removed)
+func	SetDesire	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	SetMovement	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	SetPhantomMeshAndPosition	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	SetPlannedAbode	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	SetPlannedInvalid	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	SetScaffoldProperties	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	SetShouldNotBeAddedToPlanned	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	SetSlot	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	SetUpLivingBody	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it; no longer in openblack's src (renamed or removed)
+func	SetValue	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	SuckRadius	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	SwapPlannedAbodes	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	SyncTurnStart	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	SyncedRandomVelocity	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it; no longer in openblack's src (renamed or removed)
+func	TownCentreDeleteDependancys	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it; no longer in openblack's src (renamed or removed)
+func	TownFields	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	TrailWanted	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it; no longer in openblack's src (renamed or removed)
+func	TriggerSupplyHelpIfThrownByMe	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	TryToBuildPlannedBuilding	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	UpdatePhantomBuildingPointers	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	UpdateSharks	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it; no longer in openblack's src (renamed or removed)
+func	UpdateState	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+func	ValidToTap	openblack identifier (the function a source note was attached to; no symbol of runblack.exe has this name); the code holds it
+addr	0xFF404	a token cut short in the source note (the burst colour 0x00FF4040); not an address
+# beings, 2026-10-16
+unit	7460 dB	false positive: the tail of the address 0x7460DB, read as a unit
+unit	7484 dB	false positive: the tail of an address 0x7484DB, read as a unit
+unit	7581 dB	false positive: the tail of the address 0x7581DB, read as a unit
+unit	7614 dB	false positive: the tail of an address 0x7614DB, read as a unit
+
+# Integration pass (2026-10-16): openblack identifiers renamed or removed from src, and tokenizer noise
+func	ObjectType::MobileObjec	tokenizer artefact: ObjectType::MobileObject cut at the work-list line limit
+func	fn_0052A917	an instruction address (the fallback call site) read as a function name; the address and fn_0052A630 are on engine/game-clock
+func	ReadWay	openblack identifier no longer in src (renamed camera_track::WayLength, now on formats/land-and-script-files)
+func	AdvanceTime	openblack identifier no longer in src (renamed intro_rules::AdvanceClip)
+func	State::Done	openblack identifier no longer in src (renamed light::State::Gone)
+func	State::Hold	openblack identifier no longer in src (renamed light::State::Holding)
+func	State::Fade	openblack identifier no longer in src (renamed light::State::Fading)
+addr	0xBE75C28	tokenizer artefact: a truncated float bit pattern (0xBE75C28F, -0.24, of intro_rules::k_LightWay)
+func	GGame::DoYesNoSkipTutorialRequestersIf	tokenizer artefact: the name broken over a comment line; the full GGame::DoYesNoSkipTutorialRequestersIfNecessary is on scripts/land-change-and-saving.md
+func	CheckScreenXY	openblack identifier no longer in src (renamed CheckScreenFractions, named on the page)
+func	TownSystem::AddHomelessVillagerToTown	openblack identifier no longer in src (renamed or removed; the homeless list is town_villagers::AddToHomelessList, already on beings/towns.md)
+func	RPFollow::State::Idle	renamed to RouteFollower::State::Idle (named on beings/routes.md); openblack identifier no longer in src under this name
+func	RPFollow::State::Replanning	renamed to RouteFollower::State::Replanning (named on beings/routes.md); openblack identifier no longer in src under this name
+func	RPHolder::HasObstacleHook	renamed to ObstacleGrid::HasObstacleHook (named on beings/routes.md); openblack identifier no longer in src under this name
+func	RPlan::State	renamed to RoutePlan::State (named on beings/routes.md); openblack identifier no longer in src under this name
+func	LivingAction::Index::Pre	truncated lead-in of LivingAction::Index::Previous (tokenizer artefact)
+func	MapCoordsRound	openblack identifier no longer in src (renamed or removed: ECS/MobileWalkPaths.cpp became WalkPathSystem)
+func	StartMobileWalkPath	openblack identifier no longer in src (renamed or removed: now WalkPathSystem::Start)
+unit	070 turns	tokenizer artefact: the tail of the address 0x60C070 followed by the word "turns into metres"
+func	_chandHadNeedsSorting	openblack identifier no longer in src (renamed: _renderHandHadNeedsSorting, named on hand/states.md)
+func	_clickedPositionTurn	openblack identifier no longer in src (renamed or removed)
+func	_morphTextureSet	openblack identifier no longer in src (renamed or removed)
+func	_stateBlendFromPosition	openblack identifier no longer in src (renamed or removed; the blend is now _stateBlend)
+func	AdvanceStateBlend	openblack identifier no longer in src (renamed or removed)
+func	HandAnimator::AdvanceStateBlend	openblack identifier no longer in src (renamed or removed)
+func	HandSystem::ChandPickUp	openblack identifier no longer in src (renamed or removed)
+func	HandSystem::ChandSetHeldFlags	openblack identifier no longer in src (renamed or removed)
+func	HandSystem::ChandThrowObject	openblack identifier no longer in src (renamed or removed)
+func	HandSystem::UpdateChandDrawPose	openblack identifier no longer in src (renamed or removed)
+unit	3.2 s	noise: "3.2 s" is 3.2 times the hand scale s, not seconds (the hold grip rule is on the page as 3.2 x s)
+func	ClearClicked	openblack identifier no longer in src (renamed or removed)
+func	HandSystem::ClearClicked	openblack identifier no longer in src (renamed or removed) (now the script function ClearClickedObject through hand_click)
+func	HandSystem::ClearClickedPosition	openblack identifier no longer in src (renamed or removed) (now the script function ClearClickedPosition through hand_click)
+func	HandSystem::UpdateMorphing	openblack identifier no longer in src (renamed or removed)
+unit	-5 m	noise: tokenizer artefact of "+-5 m"; the page has the search square as ±5 m
+func	ScreenFade::SnapWideScreen	openblack identifier no longer in src (renamed: CinematicDirectorSystem::SnapWideScreen / CinemaBars::Snap, on the page)
+unit	0 m	tokenizer noise: the $m2 text code read as a number with a unit
+func	StartEffect	openblack identifier no longer in src (renamed: script_highlight::StartOwnedEffect, on the page)
+func	fn_0057D5A4	noise: an address inside fn_0057D590 written as fn_; on the page as 0x57D5A4
+unit	-1 samples	tokenizer noise: "user-param-1 samples" read as a number with a unit
+func	DrawKMIcons	openblack identifier no longer in src (renamed to Renderer::DrawInputPrompts)
+func	OverlayFrame::kmIcons	openblack identifier no longer in src (renamed to OverlayFrame::inputPrompts)
+func	DrawDykBubble	openblack identifier no longer in src (renamed to DrawDidYouKnowBubble)
+func	Renderer::DrawDykBubble	openblack identifier no longer in src (renamed to Renderer::DrawDidYouKnowBubble)
+func	OverlayFrame::dykBubble	openblack identifier no longer in src (renamed to OverlayFrame::didYouKnow)
+func	AudioEmitter::radius	openblack identifier no longer in src (the AudioEmitter component was removed; distances now go through device::SetSourceDistance)
+func	AudioManager::PlaySound	openblack identifier no longer in src (removed; the effects play through audio::PlaySoundEffect and sample_play)
+func	CollisionSounds::PlayEditorSample	openblack identifier no longer in src (removed; the collisions play through DynamicsSystem::PlayAnimEffect)
+func	PlayEditorSample	openblack identifier no longer in src (removed with CollisionSounds)
+func	DayNightClock::GetSkyType	openblack identifier no longer in src (renamed DayNightClock::SkyType)
+func	LandIslandInterface::GetAtmosType	openblack identifier never added under that name (the cell zone is GetAtmosType in src/Audio/SoundMap.h, named on audio/world-sounds.md)
+func	UpdateListener	openblack identifier no longer in src (AudioPlayer::UpdateListener removed; the listener is device::SetListener, named on audio/world-sounds.md)
+func	PSysSpriteUv	openblack identifier no longer in src (renamed ParticleSpriteUv in HandEffects.cpp)
+func	VillagerStates::HidingAtWorshipS	tokenizer artefact: the lead-in was cut; the full name VillagerStates::HidingAtWorshipSite is on magic/worship.md
+func	SF_FoodTest	noise: a synthetic file name made up inside a unit test (test_food_wood), not a game file
+func	AnimalEndPhysicsFrom5F0DF9	openblack identifier no longer in src (renamed or removed): the landing tail is now inside VillagerEndPhysics / AnimalEndPhysics (VillagerPhysics.cpp), listed on physics/physics.md
+func	VillagerEndPhysicsFrom5F0B79	openblack identifier no longer in src (renamed or removed): the landing tail is now inside VillagerEndPhysics / AnimalEndPhysics (VillagerPhysics.cpp), listed on physics/physics.md
+func	GetYXZYaw	openblack identifier no longer in src (renamed or removed): the landing tail is now inside VillagerEndPhysics / AnimalEndPhysics (VillagerPhysics.cpp), listed on physics/physics.md
+func	PhysicsObjects::CanWakeKnockedProxy	openblack identifier no longer in src (renamed or removed): PhysicsObjects is now DynamicsSystem; CanWakeKnockedProxy is listed on physics/physics.md
+func	PhysicsObjects::InitialisePhysicsOfClass	openblack identifier no longer in src (renamed or removed): PhysicsObjects is now DynamicsSystem; InitialisePhysicsOfClass is listed on physics/physics.md
+func	PhysicsObject::FromHand	openblack identifier no longer in src (renamed or removed): PhysicsObject is now PhysicsEntry, flag k_FromHand, listed on physics/physics.md
+func	PhysOb::HandAngularMomentum	openblack identifier no longer in src (renamed or removed): PhysOb is now physics::Body; HandAngularMomentum is listed on physics/physics.md
+unit	-95 %	the drafts index table: a share of lines found, not a quantity of the game
+unit	-100 %	the drafts index table: a share of lines found, not a quantity of the game
+func	AudioPlayer::SetSourceDistance	renamed: openblack's device::SetSourceDistance (audio/world-sounds)
+func	CheckVillagerGoBackToTownFromWorship	written qualified: Villager::CheckVillagerGoBackToTownFromWorship (magic/worship)
+func	ExitAtWorshipSite	written qualified: Villager::ExitAtWorshipSite (magic/worship)
+func	ExitMoveToWorshipSite	written qualified: Villager::ExitMoveToWorshipSite (magic/worship)
+func	MenuItem	written qualified: ImGui::MenuItem (audio/creature-and-interface-sounds)
+func	ProcessMobileWalkPaths	renamed: openblack's WalkPathSystem::ProcessTurn (engine/object-size-and-map-cells)
+func	Renderer::DrawHandToolTip	openblack identifier no longer in src (renamed or removed)
+func	SetLinkedPosition	written qualified: LH3DStaticObject::SetLinkedPosition 0x815FC0 (beings/animation)

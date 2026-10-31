@@ -1,0 +1,506 @@
+/******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+// What the game tells the players' creatures (ECS/CreatureMimic.h): the deeds published with their player, object,
+// place and miracle, the town needs shared only with a player, the handler that passes the deeds on to the minds, the
+// minds' own filter (only the player's own creature watches, and only it draws), and two of the game's sites: a
+// field watered by a player's miracle and the deed numbers the game's table is read by
+
+#define LOCATOR_IMPLEMENTATIONS
+
+#include <cstddef>
+#include <cstdint>
+
+#include <optional>
+#include <tuple>
+#include <utility>
+#include <vector>
+
+#include <entt/core/fwd.hpp>
+#include <entt/entity/entity.hpp>
+#include <entt/entity/sparse_set.hpp>
+#include <glm/mat3x3.hpp>
+#include <glm/vec3.hpp>
+#include <gtest/gtest.h>
+
+#include "Common/GameRandom.h"
+#include "Common/GameRandomTesting.h"
+#include "Creature/CreatureDeeds.h"
+#include "ECS/Components/Abode.h"
+#include "ECS/Components/Creature.h"
+#include "ECS/Components/CreatureMind.h"
+#include "ECS/Components/Field.h"
+#include "ECS/Components/Player.h"
+#include "ECS/Components/Spell.h"
+#include "ECS/Components/StoragePit.h"
+#include "ECS/Components/Temple.h"
+#include "ECS/Components/Town.h"
+#include "ECS/Components/Transform.h"
+#include "ECS/Components/Villager.h"
+#include "ECS/Components/VillagerLastInteraction.h"
+#include "ECS/Components/Workshop.h"
+#include "ECS/Components/WorshipSite.h"
+#include "ECS/CreatureMimic.h"
+#include "ECS/Events/CreatureMimicEvents.h"
+#include "ECS/LastDropped.h"
+#include "ECS/Life.h"
+#include "ECS/ObjectResources.h"
+#include "ECS/Systems/DynamicsSystemInterface.h"
+#include "ECS/Systems/Implementations/CreatureMindSystem.h"
+#include "ECS/Systems/Implementations/MagicSystem.h"
+#include "Enums.h"
+#include "InfoConstants.h"
+#include "Locator.h"
+#include "Magic/Spells/SpellWater.h"
+#include "creature/CreatureSystemWorld.h"
+#include "support/CreatureFakes.h"
+#include "support/RestoreService.h"
+#include "support/WorldSystems.h"
+
+using namespace openblack;
+using namespace openblack::ecs::components;
+using openblack::creature_watching::Deed;
+using openblack::ecs::PhysicsEntry;
+using openblack::ecs::events::CreatureEmpathyWithTownDesire;
+using openblack::ecs::events::PlayerDeedForMimic;
+namespace creature_mimic = openblack::ecs::creature_mimic;
+
+namespace
+{
+/// The registry's storages, each with how many it holds, and the three random streams' seeds
+struct Snapshot
+{
+	std::vector<std::pair<entt::id_type, size_t>> storages;
+	uint32_t synced {0};
+	uint32_t local {0};
+	uint32_t crt {0};
+
+	bool operator==(const Snapshot&) const = default;
+};
+
+Snapshot Take()
+{
+	Snapshot snapshot;
+	std::as_const(test::creature_world::World::Registry())
+	    .EachStorage([&snapshot](entt::id_type id, const entt::sparse_set& storage) {
+		    snapshot.storages.emplace_back(id, storage.size());
+	    });
+	snapshot.synced = game_random::Current().synced;
+	snapshot.local = game_random::Current().local;
+	snapshot.crt = game_random::crt::Seed();
+	return snapshot;
+}
+
+/// What is published, as the tests' own handlers hear it (the game's handler is added by the tests that want it)
+struct Heard
+{
+	Heard()
+	{
+		auto& events = Locator::events::value();
+		events.AddHandler<PlayerDeedForMimic>([this](const PlayerDeedForMimic& event) { deeds.push_back(event); });
+		events.AddHandler<CreatureEmpathyWithTownDesire>(
+		    [this](const CreatureEmpathyWithTownDesire& event) { empathies.push_back(event); });
+	}
+	Heard(const Heard&) = delete;
+	Heard& operator=(const Heard&) = delete;
+
+	std::vector<PlayerDeedForMimic> deeds;
+	std::vector<CreatureEmpathyWithTownDesire> empathies;
+};
+
+entt::entity MakeThing(std::optional<glm::vec3> position)
+{
+	auto& registry = test::creature_world::World::Registry();
+	const auto entity = registry.Create();
+	if (position.has_value())
+	{
+		registry.Assign<Transform>(entity, *position, glm::mat3(1.0f), glm::vec3(1.0f));
+	}
+	return entity;
+}
+
+/// A registry, the tables and the events of their own
+class CreatureMimicTest: public ::testing::Test
+{
+protected:
+	test::creature_world::World _world;
+	Heard _heard;
+	std::vector<PlayerDeedForMimic>& deeds = _heard.deeds;
+	std::vector<CreatureEmpathyWithTownDesire>& empathies = _heard.empathies;
+};
+
+/// The same with the world's lists too (the fires), for the game's own sites
+class CreatureMimicSiteTest: public ::testing::Test
+{
+protected:
+	const test::ScopedWorldSystems _worldSystems;
+	test::creature_world::World _world;
+	Heard _heard;
+	std::vector<PlayerDeedForMimic>& deeds = _heard.deeds;
+};
+} // namespace
+
+TEST(CreatureDeeds, TheRowsOfTheGamesTable)
+{
+	EXPECT_EQ(static_cast<size_t>(Deed::PutFoodInWorshipSite), 0u);
+	EXPECT_EQ(static_cast<size_t>(Deed::PlantTree), 11u);
+	EXPECT_EQ(static_cast<size_t>(Deed::DamageByThrowingAt), 16u);
+	EXPECT_EQ(static_cast<size_t>(Deed::ThrowInTheSea), 21u);
+	EXPECT_EQ(static_cast<size_t>(Deed::CastWaterOnCrops), 33u);
+	EXPECT_EQ(static_cast<size_t>(Deed::Sacrifice), 40u);
+	EXPECT_EQ(static_cast<size_t>(Deed::PlayWithToy), 41u);
+	EXPECT_EQ(static_cast<size_t>(Deed::StealWoodFromStoragePit), 45u);
+	EXPECT_EQ(creature_watching::k_DeedCount, 46u);
+	EXPECT_EQ(std::tuple_size_v<decltype(InfoConstants::creatureMimic)>, creature_watching::k_DeedCount);
+}
+
+TEST(CreatureMimicDecision, ABuildingHitCountsOnlyWithAPlayerAndItsOwnBodyFromTheHand)
+{
+	EXPECT_FALSE(creature_mimic::ShouldMimicBuildingHit(std::nullopt, PhysicsEntry::k_FromHand));
+	EXPECT_FALSE(creature_mimic::ShouldMimicBuildingHit(PlayerNames::PLAYER_ONE, 0));
+	EXPECT_FALSE(creature_mimic::ShouldMimicBuildingHit(PlayerNames::PLAYER_ONE,
+	                                                    PhysicsEntry::k_Awake | PhysicsEntry::k_NoObjectCollision));
+	EXPECT_TRUE(creature_mimic::ShouldMimicBuildingHit(PlayerNames::PLAYER_ONE, PhysicsEntry::k_FromHand));
+	EXPECT_TRUE(
+	    creature_mimic::ShouldMimicBuildingHit(PlayerNames::PLAYER_TWO, PhysicsEntry::k_Awake | PhysicsEntry::k_FromHand));
+}
+
+TEST_F(CreatureMimicTest, ADeedIsPublishedOnceWithItsPlayerObjectPlaceAndMiracle)
+{
+	const auto tree = MakeThing(glm::vec3(12.0f, 3.0f, -7.0f));
+	creature_mimic::Consider(PlayerNames::PLAYER_TWO, Deed::PlantTree, tree);
+	ASSERT_EQ(deeds.size(), 1u);
+	EXPECT_EQ(deeds.front().player, PlayerNames::PLAYER_TWO);
+	EXPECT_EQ(deeds.front().deed, Deed::PlantTree);
+	EXPECT_EQ(deeds.front().object, tree);
+	EXPECT_EQ(deeds.front().point, glm::vec3(12.0f, 3.0f, -7.0f));
+	EXPECT_FALSE(deeds.front().magic.has_value());
+
+	creature_mimic::Consider(PlayerNames::PLAYER_ONE, Deed::CastWaterOnCrops, tree, MagicType::Water);
+	ASSERT_EQ(deeds.size(), 2u);
+	ASSERT_TRUE(deeds.back().magic.has_value());
+	EXPECT_EQ(*deeds.back().magic, MagicType::Water);
+	EXPECT_TRUE(empathies.empty());
+}
+
+TEST_F(CreatureMimicTest, SomethingWithNoPlaceIsAtTheOrigin)
+{
+	const auto nowhere = MakeThing(std::nullopt);
+	creature_mimic::Consider(PlayerNames::PLAYER_ONE, Deed::DamageByThrowingAt, nowhere);
+	creature_mimic::Consider(PlayerNames::PLAYER_ONE, Deed::DamageByThrowingAt, entt::null);
+	ASSERT_EQ(deeds.size(), 2u);
+	EXPECT_EQ(deeds.at(0).point, glm::vec3(0.0f));
+	EXPECT_EQ(deeds.at(1).point, glm::vec3(0.0f));
+	EXPECT_TRUE(deeds.at(1).object == entt::null);
+}
+
+TEST_F(CreatureMimicTest, AVillagerInTheSeaReportsTheHandThatLastDroppedIt)
+{
+	auto& registry = test::creature_world::World::Registry();
+	registry.Assign<Player>(registry.Create(), PlayerNames::PLAYER_ONE);
+	const auto thrown = MakeThing(glm::vec3(5.0f, 0.0f, 5.0f));
+	registry.Assign<Villager>(thrown);
+	ecs::last_dropped::RecordDrop(registry, PlayerNames::PLAYER_ONE, thrown);
+	const auto walked = MakeThing(glm::vec3(6.0f, 0.0f, 6.0f));
+	registry.Assign<Villager>(walked);
+	// one that a thrown thing hit keeps the thrower's player as the last to have touched it, but no hand let go of it
+	const auto struck = MakeThing(glm::vec3(7.0f, 0.0f, 7.0f));
+	registry.Assign<Villager>(struck);
+	registry.AssignState<VillagerLastInteraction>(struck, PlayerNames::PLAYER_ONE);
+
+	creature_mimic::ConsiderThrownInTheSea(walked);
+	creature_mimic::ConsiderThrownInTheSea(struck);
+	EXPECT_TRUE(deeds.empty());
+	creature_mimic::ConsiderThrownInTheSea(thrown);
+	ASSERT_EQ(deeds.size(), 1u);
+	EXPECT_EQ(deeds.front().player, PlayerNames::PLAYER_ONE);
+	EXPECT_EQ(deeds.front().deed, Deed::ThrowInTheSea);
+	EXPECT_EQ(deeds.front().object, thrown);
+	EXPECT_EQ(deeds.front().point, glm::vec3(5.0f, 0.0f, 5.0f));
+}
+
+TEST_F(CreatureMimicTest, ATownNeedIsSharedOnlyWithAPlayer)
+{
+	const auto villager = MakeThing(glm::vec3(1.0f, 2.0f, 3.0f));
+	creature_mimic::EmpathiseWithTownDesire(std::nullopt, TownDesireInfo::ForFood, 0.5f, villager);
+	EXPECT_TRUE(empathies.empty());
+
+	creature_mimic::EmpathiseWithTownDesire(PlayerNames::PLAYER_ONE, TownDesireInfo::ForWood, 0.5f, villager);
+	ASSERT_EQ(empathies.size(), 1u);
+	EXPECT_EQ(empathies.front().player, PlayerNames::PLAYER_ONE);
+	EXPECT_EQ(empathies.front().desire, TownDesireInfo::ForWood);
+	EXPECT_FLOAT_EQ(empathies.front().weight, 0.5f);
+	EXPECT_EQ(empathies.front().point, glm::vec3(1.0f, 2.0f, 3.0f));
+	EXPECT_TRUE(deeds.empty());
+}
+
+TEST_F(CreatureMimicTest, TheHandlerPassesTheDeedOnToTheMinds)
+{
+	const test::RestoreService<Locator::creatureMindSystem> restoreMind;
+	test::creature_loop_fakes::CallLog log;
+	Locator::creatureMindSystem::emplace<test::creature_loop_fakes::FakeMind>(log);
+	creature_mimic::AddMimicEventHandlers(Locator::events::value());
+	const auto field = MakeThing(glm::vec3(4.0f, 0.5f, 8.0f));
+
+	creature_mimic::Consider(PlayerNames::PLAYER_TWO, Deed::CastWaterOnCrops, field, MagicType::Water);
+	creature_mimic::Consider(PlayerNames::PLAYER_ONE, Deed::DamageByThrowingAt, entt::null);
+
+	ASSERT_EQ(log.size(), 2u);
+	EXPECT_EQ(log.at(0).name, "mind.PlayerDid");
+	EXPECT_EQ(log.at(0).args, (std::vector<float> {static_cast<float>(PlayerNames::PLAYER_TWO), 33.0f, 4.0f, 0.5f, 8.0f,
+	                                               static_cast<float>(entt::to_integral(field))}));
+	// no object: none passed on
+	EXPECT_EQ(log.at(1).args,
+	          (std::vector<float> {static_cast<float>(PlayerNames::PLAYER_ONE), 16.0f, 0.0f, 0.0f, 0.0f, -1.0f}));
+}
+
+TEST_F(CreatureMimicTest, WithoutMindsTheHandlerDoesNothing)
+{
+	const test::RestoreService<Locator::creatureMindSystem> restoreMind;
+	Locator::creatureMindSystem::reset();
+	creature_mimic::AddMimicEventHandlers(Locator::events::value());
+	const auto before = Take();
+	creature_mimic::Consider(PlayerNames::PLAYER_ONE, Deed::PlantTree, MakeThing(glm::vec3(1.0f)));
+	EXPECT_EQ(deeds.size(), 1u);
+	const auto after = Take();
+	// nothing drawn: the thing made for the deed is the only change
+	EXPECT_EQ(after.synced, before.synced);
+	EXPECT_EQ(after.local, before.local);
+	EXPECT_EQ(after.crt, before.crt);
+}
+
+TEST_F(CreatureMimicTest, WithNoCreatureTheMindsMakeNothingAndDrawNothing)
+{
+	const game_random::testing::ScopedState state;
+	ecs::systems::CreatureMindSystem minds;
+	auto& registry = test::creature_world::World::Registry();
+	const auto villager = MakeThing(glm::vec3(10.0f, 0.0f, 10.0f));
+	registry.Assign<Villager>(villager);
+	const auto before = Take();
+	minds.PlayerDid(PlayerNames::PLAYER_ONE, static_cast<size_t>(Deed::PlantTree), glm::vec3(10.0f, 0.0f, 10.0f), villager);
+	EXPECT_EQ(Take(), before);
+}
+
+TEST_F(CreatureMimicTest, OnlyThePlayersOwnLeashableCreatureWatchesAndNothingIsDrawn)
+{
+	// a deed every creature that sees it considers, ranked 1
+	_world.Info().creatureMimic.at(static_cast<size_t>(Deed::PlantTree)).field0x80 = 1.0f;
+	const game_random::testing::ScopedState state;
+	size_t draws = 0;
+	game_random::testing::SetGameRand([](uint32_t) { return 0u; },
+	                                  [&draws](float) {
+		                                  ++draws;
+		                                  return 0.0f;
+	                                  });
+	ecs::systems::CreatureMindSystem minds;
+	auto& registry = test::creature_world::World::Registry();
+	const glm::vec3 at(100.0f, 0.0f, 100.0f);
+	const auto creature = test::creature_world::World::MakeCreature(at, PlayerNames::PLAYER_TWO);
+	// its first turn sets up what it has learnt
+	minds.ProcessTurn();
+	draws = 0;
+	const auto& learnt = registry.Get<CreatureMindState>(creature).learnt;
+	ASSERT_TRUE(learnt.has_value());
+
+	// another player's deed, and one the creature may not watch as it is not the one its player leashes
+	minds.PlayerDid(PlayerNames::PLAYER_ONE, static_cast<size_t>(Deed::PlantTree), at, std::nullopt);
+	minds.PlayerDid(PlayerNames::PLAYER_TWO, static_cast<size_t>(Deed::PlantTree), at, std::nullopt);
+	EXPECT_FALSE(learnt->mimicry.has_value());
+	registry.Get<Creature>(creature).leashable = true;
+	minds.PlayerDid(PlayerNames::PLAYER_TWO, static_cast<size_t>(Deed::PlantTree), at, std::nullopt);
+	ASSERT_TRUE(learnt->mimicry.has_value());
+	EXPECT_EQ(learnt->mimicry->rule, static_cast<size_t>(Deed::PlantTree));
+	// it starts by its rank alone: no chance is drawn
+	EXPECT_EQ(draws, 0u);
+}
+
+TEST_F(CreatureMimicSiteTest, AFieldWateredByAPlayersMiracleIsTheirDeed)
+{
+	auto& registry = test::creature_world::World::Registry();
+	const auto field = MakeThing(glm::vec3(30.0f, 0.0f, 40.0f));
+	registry.Assign<Field>(field).town = -1;
+	const auto withPlayer = registry.Create();
+	auto& cast = registry.Assign<Spell>(withPlayer);
+	cast.magicType = MagicType::WaterPowerUpOne;
+	cast.player = PlayerNames::PLAYER_ONE;
+	cast.hasPlayer = true;
+	const auto withoutPlayer = registry.Create();
+	registry.Assign<Spell>(withoutPlayer).magicType = MagicType::Water;
+
+	magic::water::ApplyWaterSpell(field, withoutPlayer);
+	EXPECT_TRUE(deeds.empty());
+	magic::water::ApplyWaterSpell(field, withPlayer);
+	ASSERT_EQ(deeds.size(), 1u);
+	EXPECT_EQ(deeds.front().player, PlayerNames::PLAYER_ONE);
+	EXPECT_EQ(deeds.front().deed, Deed::CastWaterOnCrops);
+	EXPECT_EQ(deeds.front().object, field);
+	EXPECT_EQ(deeds.front().point, glm::vec3(30.0f, 0.0f, 40.0f));
+	// the plain water miracle, whichever water was cast
+	ASSERT_TRUE(deeds.front().magic.has_value());
+	EXPECT_EQ(*deeds.front().magic, MagicType::Water);
+}
+
+TEST_F(CreatureMimicSiteTest, AMiracleNearAnotherPlayersTownImpressesItUnlessItIsMeantToAnger)
+{
+	auto& registry = test::creature_world::World::Registry();
+	auto& info = _world.Info();
+	info.magicEffect.at(static_cast<size_t>(MagicType::Heal)).perceivedPlayerDesire[0] = CreatureDesires::Compassion;
+	info.magicEffect.at(static_cast<size_t>(MagicType::LightningBolt)).perceivedPlayerDesire[0] = CreatureDesires::Anger;
+	const auto town = MakeThing(glm::vec3(0.0f, 0.0f, 0.0f));
+	registry.Assign<Town>(town).owner = PlayerNames::PLAYER_TWO;
+	const auto near = MakeThing(glm::vec3(99.9f, 0.0f, 0.0f));
+	const auto far = MakeThing(glm::vec3(100.0f, 0.0f, 0.0f));
+	ecs::systems::GameMagicWorld world;
+
+	// another player's town strictly within the reach is impressed, whatever the miracle reached
+	world.PlayerAffected(near, MagicType::Heal, PlayerNames::PLAYER_ONE);
+	ASSERT_EQ(deeds.size(), 1u);
+	EXPECT_EQ(deeds.back().deed, Deed::ImpressWithMagic);
+	EXPECT_EQ(deeds.back().player, PlayerNames::PLAYER_ONE);
+	// at the reach it is not near: the heal's own deed
+	world.PlayerAffected(far, MagicType::Heal, PlayerNames::PLAYER_ONE);
+	ASSERT_EQ(deeds.size(), 2u);
+	EXPECT_EQ(deeds.back().deed, Deed::Heal);
+	// the player's own town impresses nothing
+	world.PlayerAffected(near, MagicType::Heal, PlayerNames::PLAYER_TWO);
+	ASSERT_EQ(deeds.size(), 3u);
+	EXPECT_EQ(deeds.back().deed, Deed::Heal);
+	// a miracle meant to anger skips the town: the lightning's own deed
+	world.PlayerAffected(near, MagicType::LightningBolt, PlayerNames::PLAYER_ONE);
+	ASSERT_EQ(deeds.size(), 4u);
+	EXPECT_EQ(deeds.back().deed, Deed::DamageWithMagic);
+}
+
+TEST_F(CreatureMimicSiteTest, AFieldWateredIsCropsWateredAndNothingGoneIsReported)
+{
+	auto& registry = test::creature_world::World::Registry();
+	const auto field = MakeThing(glm::vec3(30.0f, 0.0f, 40.0f));
+	registry.Assign<Field>(field).town = -1;
+	ecs::systems::GameMagicWorld world;
+	world.PlayerAffected(field, MagicType::Water, PlayerNames::PLAYER_ONE);
+	ASSERT_EQ(deeds.size(), 1u);
+	EXPECT_EQ(deeds.back().deed, Deed::CastWaterOnCrops);
+	EXPECT_EQ(deeds.back().object, field);
+	registry.Destroy(field);
+	world.PlayerAffected(field, MagicType::Water, PlayerNames::PLAYER_ONE);
+	EXPECT_EQ(deeds.size(), 1u);
+}
+
+TEST_F(CreatureMimicSiteTest, FoodAndWoodShowWhatTheyReached)
+{
+	auto& registry = test::creature_world::World::Registry();
+	ecs::systems::GameMagicWorld world;
+	const auto deedOf = [&](entt::entity object, MagicType type) {
+		const auto before = deeds.size();
+		world.PlayerAffected(object, type, PlayerNames::PLAYER_ONE);
+		return deeds.size() > before ? std::optional(deeds.back().deed) : std::nullopt;
+	};
+	// a worship site, built or not
+	const auto site = MakeThing(glm::vec3(10.0f, 0.0f, 0.0f));
+	registry.Assign<WorshipSite>(site);
+	auto& siteBuild = registry.Assign<CitadelPartBuild>(site);
+	siteBuild.percentBuilt = 0.0f;
+	EXPECT_EQ(deedOf(site, MagicType::Food), Deed::CastMagicFoodInWorshipSite);
+	// a storage pit counts only once built
+	const auto pit = MakeThing(glm::vec3(20.0f, 0.0f, 0.0f));
+	registry.Assign<StoragePit>(pit);
+	auto& pitAbode = registry.Assign<Abode>(pit);
+	EXPECT_EQ(deedOf(pit, MagicType::Food), Deed::CastMagicFoodInStoragePit);
+	EXPECT_EQ(deedOf(pit, MagicType::Wood), Deed::CastMagicWoodInStoragePit);
+	pitAbode.buildFlags = Abode::k_UnderConstruction;
+	pitAbode.percentBuilt = 0.5f;
+	EXPECT_EQ(deedOf(pit, MagicType::Food), std::nullopt);
+	// wood by a building going up, then by one damaged and not yet repaired, then by one whole
+	const auto house = MakeThing(glm::vec3(30.0f, 0.0f, 0.0f));
+	auto& houseAbode = registry.Assign<Abode>(house);
+	houseAbode.percentBuilt = 0.5f;
+	EXPECT_EQ(deedOf(house, MagicType::Wood), Deed::CastMagicWoodByBuildingSite);
+	houseAbode.percentBuilt = 1.0f;
+	houseAbode.buildFlags = Abode::k_Built | Abode::k_NotRepaired;
+	ecs::life::SetLife(house, 0.5f);
+	EXPECT_EQ(deedOf(house, MagicType::Wood), Deed::CastMagicWoodByBuildingSite);
+	houseAbode.buildFlags = Abode::k_Built;
+	EXPECT_EQ(deedOf(house, MagicType::Wood), std::nullopt);
+}
+
+TEST_F(CreatureMimicSiteTest, AResourceGivenByHandShowsTheDeedOfWhatTookIt)
+{
+	auto& registry = test::creature_world::World::Registry();
+	const ecs::pot_resource::Dropper hand {.hasInterface = true, .player = PlayerNames::PLAYER_TWO};
+	const auto deedOf = [&](entt::entity abode, ResourceType type, const ecs::pot_resource::Dropper& dropper) {
+		const auto before = deeds.size();
+		ecs::object_resources::ReportResourceDeed(abode, type, dropper);
+		return deeds.size() > before ? std::optional(deeds.back().deed) : std::nullopt;
+	};
+	// food to a worship site, wood to a workshop
+	const auto site = MakeThing(glm::vec3(10.0f, 0.0f, 0.0f));
+	registry.Assign<WorshipSite>(site);
+	EXPECT_EQ(deedOf(site, ResourceType::Food, hand), Deed::PutFoodInWorshipSite);
+	EXPECT_EQ(deeds.back().player, PlayerNames::PLAYER_TWO);
+	EXPECT_EQ(deeds.back().object, site);
+	EXPECT_EQ(deedOf(site, ResourceType::Wood, hand), std::nullopt);
+	const auto workshop = MakeThing(glm::vec3(20.0f, 0.0f, 0.0f));
+	registry.Assign<Workshop>(workshop);
+	auto& workshopAbode = registry.Assign<Abode>(workshop);
+	EXPECT_EQ(deedOf(workshop, ResourceType::Wood, hand), Deed::PutWoodInWorkshop);
+	EXPECT_EQ(deedOf(workshop, ResourceType::Food, hand), std::nullopt);
+	// wood to a building with a building site is the building site's deed, whatever the building
+	workshopAbode.buildingSite = MakeThing(glm::vec3(20.0f, 0.0f, 0.0f));
+	EXPECT_EQ(deedOf(workshop, ResourceType::Wood, hand), Deed::PutWoodInBuildingSite);
+	const auto house = MakeThing(glm::vec3(30.0f, 0.0f, 0.0f));
+	registry.Assign<Abode>(house).buildingSite = MakeThing(glm::vec3(30.0f, 0.0f, 0.0f));
+	EXPECT_EQ(deedOf(house, ResourceType::Wood, hand), Deed::PutWoodInBuildingSite);
+	EXPECT_EQ(deedOf(house, ResourceType::Food, hand), std::nullopt);
+	// with no interface nothing is reported
+	EXPECT_EQ(deedOf(site, ResourceType::Food, {}), std::nullopt);
+}
+
+TEST_F(CreatureMimicSiteTest, AThingPutDownNearThePlayersTempleIsTakenHome)
+{
+	auto& registry = test::creature_world::World::Registry();
+	const auto temple = MakeThing(glm::vec3(100.0f, 0.0f, 100.0f));
+	registry.Assign<Temple>(temple).owner = PlayerNames::PLAYER_ONE;
+	const auto rival = MakeThing(glm::vec3(400.0f, 0.0f, 100.0f));
+	registry.Assign<Temple>(rival).owner = PlayerNames::PLAYER_TWO;
+	const auto near = MakeThing(glm::vec3(150.0f, 0.0f, 120.0f));
+	creature_mimic::ConsiderLanding(near, PlayerNames::PLAYER_ONE);
+	ASSERT_EQ(deeds.size(), 1u);
+	EXPECT_EQ(deeds.back().deed, Deed::TakeObjectHome);
+	EXPECT_EQ(deeds.back().player, PlayerNames::PLAYER_ONE);
+	EXPECT_EQ(deeds.back().object, near);
+	// 80 m or more from the player's own temple, with no town about, it is nothing; another player's temple is not home
+	creature_mimic::ConsiderLanding(MakeThing(glm::vec3(180.0f, 0.0f, 100.0f)), PlayerNames::PLAYER_ONE);
+	creature_mimic::ConsiderLanding(MakeThing(glm::vec3(410.0f, 0.0f, 100.0f)), PlayerNames::PLAYER_ONE);
+	EXPECT_EQ(deeds.size(), 1u);
+}
+
+TEST_F(CreatureMimicSiteTest, AThingAHandLetGoOfIsReportedForThePlayerWhoseHandItWas)
+{
+	// a computer player's hand lets go of a thing near its own temple: taken home, for that player. A thing no hand let
+	// go of is nothing
+	auto& registry = test::creature_world::World::Registry();
+	registry.Assign<Player>(registry.Create(), PlayerNames::PLAYER_ONE);
+	registry.Assign<Player>(registry.Create(), PlayerNames::PLAYER_TWO);
+	const auto temple = MakeThing(glm::vec3(100.0f, 0.0f, 100.0f));
+	registry.Assign<Temple>(temple).owner = PlayerNames::PLAYER_TWO;
+	const auto near = MakeThing(glm::vec3(150.0f, 0.0f, 120.0f));
+	creature_mimic::ConsiderObjectLands(near);
+	EXPECT_TRUE(deeds.empty());
+	ecs::last_dropped::RecordDrop(registry, PlayerNames::PLAYER_TWO, near);
+	creature_mimic::ConsiderObjectLands(near);
+	ASSERT_EQ(deeds.size(), 1u);
+	EXPECT_EQ(deeds.back().deed, Deed::TakeObjectHome);
+	EXPECT_EQ(deeds.back().player, PlayerNames::PLAYER_TWO);
+	EXPECT_EQ(deeds.back().object, near);
+	// thrown by the local hand after that: both interfaces keep it and the first player counts, whose temple is not
+	// near, so nothing more
+	ecs::last_dropped::MarkThrown(registry, PlayerNames::PLAYER_ONE, near);
+	creature_mimic::ConsiderObjectLands(near);
+	EXPECT_EQ(deeds.size(), 1u);
+}

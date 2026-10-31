@@ -15,10 +15,29 @@
 
 using namespace openblack;
 
+RandomNumberManagerProduction::RandomNumberManagerProduction()
+{
+	SetRunSeed(static_cast<uint32_t>(std::time(nullptr)));
+}
+
+void RandomNumberManagerProduction::SetRunSeed(uint32_t seed)
+{
+	_runSeed = seed;
+	_generator.seed(run_seed::StreamSeed(seed, RandomStream::General));
+	for (size_t i = 0; i < _streams.size(); ++i)
+	{
+		_streams.at(i).seed(run_seed::StreamSeed(seed, static_cast<RandomStream>(i)));
+	}
+}
+
+std::mt19937& RandomNumberManagerProduction::Stream(RandomStream stream)
+{
+	return _streams.at(static_cast<size_t>(stream));
+}
+
 std::mt19937& RandomNumberManagerProduction::Generator()
 {
-	thread_local std::mt19937 tGenerator(static_cast<unsigned int>(time(nullptr)));
-	return tGenerator;
+	return _generator;
 }
 
 std::optional<std::reference_wrapper<std::mutex>> RandomNumberManagerProduction::LockAccess()

@@ -1,0 +1,318 @@
+/******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+#include <cmath>
+
+#include <algorithm>
+#include <iterator>
+
+#include <glm/geometric.hpp>
+#include <glm/gtc/constants.hpp>
+
+#include "3D/LandIslandInterface.h"
+#include "Animals/BirdRules.h"
+#include "Common/GameRandom.h"
+#include "ECS/AnimalAIDetail.h"
+#include "ECS/AnimalAnimations.h"
+#include "ECS/Components/Animal.h"
+#include "ECS/Components/AnimalBrain.h"
+#include "ECS/Components/Flock.h"
+#include "ECS/Components/Transform.h"
+#include "ECS/MobileDrawing.h"
+#include "ECS/Registry.h"
+#include "ECS/Systems/DynamicsSystemInterface.h"
+#include "ECS/VillagerAnimations.h"
+#include "InfoConstants.h"
+#include "Locator.h"
+
+/// The flying animals like the original (docs/wiki/beings/animals.md#birds-crow-dove-swallow-rock-dove-seagull-bat): crows,
+/// doves, swallows, pigeons, seagulls and bats are all the Dove class. The leader flies legs of up to 80 m from where it is,
+/// climbing or sinking a little each turn; the others keep near it in a formation. With info.sleep 0 for every bird they never
+/// land in the shipped game (LAND_AT_POS / SLEEPS are dead data).
+namespace openblack::ecs::animal_ai::detail
+{
+using components::Animal;
+using components::AnimalBrain;
+using components::Flock;
+using components::Transform;
+
+namespace
+{
+float Height(glm::vec2 p)
+{
+	return Locator::terrainSystem::value().GetHeightAt(p);
+}
+
+/// The flock's altitude, else the info's altitudeNormal
+float FlockAltitude(const Context& ctx)
+{
+	const auto* flock = FlockOf(ctx.animal);
+	return flock != nullptr && flock->altitude != 0.0f ? flock->altitude : ctx.info.altitudeNormal;
+}
+
+/// SetupMoveToPos with the goal's altitude
+void SetupMoveTo(Context& ctx, glm::vec2 p, float altitude, AnimalState final)
+{
+	ctx.brain.goalAltitude = altitude;
+	SetupMoveToPos(ctx, p, final);
+}
+
+/// Sets the top state only, the clip stays
+void SetStateRaw(Context& ctx, AnimalState state)
+{
+	ctx.brain.topState = static_cast<uint8_t>(state);
+	ctx.brain.turnsSinceStateChange = 0;
+}
+
+/// The horizontal step (MoveTo, turning towards the goal) and the altitude, relative to the land for a low goal, else in
+/// absolute height; never under 2 m in flight. True when it got there.
+bool MoveTo3D(Context& ctx)
+{
+	const float change = ctx.info.altitudeMovementChange;
+	const glm::vec2 me = Xz(ctx.transform);
+	const glm::vec2 goal = ctx.brain.goal;
+	const float destination = ctx.brain.goalAltitude;
+	const float before = Height(me) + ctx.brain.altitude;
+	if (destination < animals::birds::k_LowestFlight)
+	{
+		ctx.brain.altitude = animals::birds::LowGoalStep(ctx.brain.altitude, destination, change);
+	}
+	// MoveTo, and FINAL_STEP counts as arrived at once (no snap)
+	int r = MoveTo(ctx);
+	if (ctx.brain.moveState == k_MoveFinalStep)
+	{
+		r = 0xA;
+	}
+	const bool arrived = r == 0xA;
+	const glm::vec2 now = Xz(ctx.transform);
+	if (destination >= animals::birds::k_LowestFlight)
+	{
+		ctx.brain.altitude = animals::birds::HighGoalStep(before, Height(goal) + destination, change, Height(now));
+	}
+	const glm::vec3 beforeClimb = ctx.transform.position;
+	ctx.transform.position.y = Height(now) + ctx.brain.altitude;
+	// its own climb or dive: what is only drawn follows it smoothly (ECS/MobileDrawing.h)
+	NoteContinuousMove(Locator::entitiesRegistry::value(), ctx.entity, beforeClimb);
+	return arrived;
+}
+
+/// Its index from the list's head: the newest member is 0, the leader (the tail, the first added) the last
+int IndexInFlock(const Flock& flock, entt::entity entity)
+{
+	const auto found = std::find(flock.members.begin(), flock.members.end(), entity);
+	if (found == flock.members.end())
+	{
+		return 0;
+	}
+	return static_cast<int>(flock.members.size()) - 1 - static_cast<int>(std::distance(flock.members.begin(), found));
+}
+
+/// The formation. On reaching the last goal, a slot by its place in the member list, turned to face the leader (the
+/// axes as the code pairs them [read literally])
+bool Formation(Context& ctx, const Flock& flock)
+{
+	const bool arrived = MoveTo3D(ctx);
+	if (!arrived)
+	{
+		return false;
+	}
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto leader = LeaderOf(flock);
+	if (leader == entt::null)
+	{
+		return true;
+	}
+	const auto slot =
+	    animals::birds::FormationSlotOf(static_cast<int32_t>(flock.members.size()), IndexInFlock(flock, ctx.entity));
+	const auto at = map_coords::FromMetres(Xz(registry.Get<const Transform>(leader)));
+	const auto coords = animals::birds::FormationGoal(slot, map_coords::FromMetres(Xz(ctx.transform)), at);
+	const glm::vec2 goal = map_coords::ToMetres(coords);
+	const auto* leaderBrain = registry.TryGet<const AnimalBrain>(leader);
+	SetupMoveTo(ctx, goal, leaderBrain != nullptr ? leaderBrain->altitude : ctx.brain.altitude, AnimalState::DecideWhatToDo);
+	return true;
+}
+} // namespace
+
+bool IsBird(AnimalInfo type)
+{
+	switch (type)
+	{
+	case AnimalInfo::Crow:
+	case AnimalInfo::Dove:
+	case AnimalInfo::Swallow:
+	case AnimalInfo::Pigeon:
+	case AnimalInfo::Seagull:
+	case AnimalInfo::Bat:
+	case AnimalInfo::SpellDove:
+	case AnimalInfo::SpellBat:
+		return true;
+	default:
+		return false;
+	}
+}
+
+float TimeToBank(AnimalInfo type)
+{
+	if (type == AnimalInfo::SpellDove || type == AnimalInfo::SpellBat)
+	{
+		return 0.5f;
+	}
+	if (type == AnimalInfo::SpellWolf)
+	{
+		return 1.0f;
+	}
+	return IsBird(type) ? 2.0f : 0.0f;
+}
+
+float BankAngle(AnimalInfo type, float speed, float turn)
+{
+	if (type == AnimalInfo::SpellWolf)
+	{
+		// the harder and faster it turns, the more it leans, in floats
+		const float angle = std::abs(speed * turn) * 0.5f / 20000.0f;
+		return angle < 0.5f ? angle : 0.5f;
+	}
+	return IsBird(type) ? 0.5f : 0.0f;
+}
+
+void BirdDecideWhatToDo(Context& ctx)
+{
+	auto* flock = FlockOf(ctx.animal);
+	if (flock == nullptr)
+	{
+		return;
+	}
+	if (IsLeader(ctx))
+	{
+		if (BirdReactToAnimalNeeds(ctx) == k_Started)
+		{
+			return;
+		}
+		SetTopState(ctx, AnimalState::StartWander);
+		BirdStartWander(ctx);
+		return;
+	}
+	// a point within flockDistance of the leader, at the leader's altitude, then the flock's follow state
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto leader = LeaderOf(*flock);
+	const auto* leaderBrain = leader != entt::null ? registry.TryGet<const AnimalBrain>(leader) : nullptr;
+	const auto p = CalcRandomPos(ctx, FlockPos(ctx), 0.0f, static_cast<float>(flock->flockDistance));
+	SetupMoveTo(ctx, p, leaderBrain != nullptr ? leaderBrain->altitude : ctx.brain.altitude, AnimalState::DecideWhatToDo);
+	SetSpeed(ctx, SpeedDefault(ctx));
+	// before the leader's first leg the flock's state is still DECIDE (the flock constructors set it to 0x2B)
+	SetStateRaw(ctx, static_cast<AnimalState>(flock->followState));
+}
+
+void BirdStartWander(Context& ctx)
+{
+	// The leader's next leg, up to domainRadius from the flock's home (its domain centre, which a land's script sets):
+	// the leader keeps about it, where the followers keep about the leader
+	auto* flock = FlockOf(ctx.animal);
+	if (flock == nullptr)
+	{
+		return;
+	}
+	SetSpeed(ctx, SpeedDefault(ctx));
+	const glm::vec2 home(flock->domainCentre.x, flock->domainCentre.z);
+	const auto p =
+	    CalcRandomPos(ctx, home, static_cast<float>(ctx.info.domainInnerRadius), static_cast<float>(flock->domainRadius));
+	// about the last leg's goal height, by up to the kind's variance either way, within its limits about the flock
+	const float variance = ctx.info.altitudeVariance;
+	const float draw = game_random::GameFloatRand(2.0f * variance);
+	const float goalAltitude = openblack::animals::birds::NextLegAltitude(
+	    ctx.brain.goalAltitude, variance, draw, FlockAltitude(ctx), ctx.info.altitudeMin, ctx.info.altitudeMax);
+	SetupMoveTo(ctx, p, goalAltitude, AnimalState::DecideWhatToDo);
+	SetStateRaw(ctx, AnimalState::SpecialMoveToPos);
+	flock->followState = static_cast<uint8_t>(AnimalState::FollowFlock);
+	flock->followMode = 3;
+	flock->afterMove = static_cast<uint8_t>(AnimalState::DecideWhatToDo);
+	SpecialMoveToPos(ctx);
+}
+
+int BirdReactToAnimalNeeds(Context& ctx)
+{
+	// No hunger, no breeding; info.sleep is 0 for every bird, so no landing
+	auto* flock = FlockOf(ctx.animal);
+	if (flock != nullptr && flock->leaderTurns >= ctx.info.stayTime)
+	{
+		flock->leaderTurns = 0;
+		SetTopState(ctx, AnimalState::StartWander);
+		return k_Started;
+	}
+	return k_Nothing;
+}
+
+void SpecialMoveToPos(Context& ctx)
+{
+	// The leader re-steers every stayTime turns; a new leg on arrival
+	const auto* flock = FlockOf(ctx.animal);
+	if (flock != nullptr && IsLeader(ctx) && flock->followState == static_cast<uint8_t>(AnimalState::FollowFlock) &&
+	    BirdReactToAnimalNeeds(ctx) == k_Started)
+	{
+		return;
+	}
+	if (MoveTo3D(ctx))
+	{
+		// The top state becomes the final one, then the flock's after-move state
+		SetTopState(ctx, static_cast<AnimalState>(ctx.brain.finalState));
+		if (flock != nullptr && flock->afterMove != 0)
+		{
+			SetStateRaw(ctx, static_cast<AnimalState>(flock->afterMove));
+		}
+	}
+}
+
+void FollowFlock(Context& ctx)
+{
+	if (IsLeader(ctx))
+	{
+		BirdDecideWhatToDo(ctx);
+		return;
+	}
+	const auto* flock = FlockOf(ctx.animal);
+	if (flock == nullptr || ctx.brain.topState != flock->followState)
+	{
+		return;
+	}
+	if (flock->followMode == 3)
+	{
+		Formation(ctx, *flock);
+	}
+	else
+	{
+		// mode 2 (the next member) is not set by the shipped birds; any other mode: nothing
+		return;
+	}
+	// Once the clip has played, flap or glide again, every turn until the state changes (the counter is not
+	// restarted)
+	if (ctx.brain.topState == flock->followState && VillagerAnimationDone(ctx.entity, ctx.brain.turnsSinceStateChange))
+	{
+		SetAnimalStateAnim(ctx.entity);
+	}
+}
+
+void BirdDying(Context& ctx)
+{
+	// Into the physics with its flight velocity along its heading: s = its heading as a Scawen angle, then
+	// (sin(s) v, 0, -(cos(s) v)) (the sine and cosine extended, rounded once by the multiply: in double here)
+	const double scawen = gutils::ConvertGameAngleToScawenAngle(ctx.brain.angle);
+	const float speed = Metres(ctx.brain.speed) * 10.0f;
+	const auto x = static_cast<float>(std::sin(scawen) * static_cast<double>(speed));
+	const auto z = static_cast<float>(std::cos(scawen) * static_cast<double>(speed));
+	const glm::vec3 velocity(x, 0.0f, -z);
+	// The spin (5, 0, 0) is about the BODY's x axis: the original adds (w I) through the matrix rows and integrates the
+	// other way to openblack's physics Body, so here it is -(R (5, 0, 0))
+	const glm::vec3 spin = -(ctx.transform.rotation * glm::vec3(5.0f, 0.0f, 0.0f));
+	if (Locator::dynamicsSystem::value().AddObject(ctx.entity, velocity, spin) == nullptr)
+	{
+		PlayAnimThenSetState(ctx, AnimalState::Dead);
+	}
+}
+
+} // namespace openblack::ecs::animal_ai::detail

@@ -132,6 +132,8 @@ Only the clean-up is worked on tonight; the other items stay on this side.
   globe's inner model fixed; about 100 story rows closed. 64%. Every reference renewed (the mirror moves the hand).
 - joint300 (712bb6bcd, docs only): whether the player clicked an object proven through real input on a land's
   own script; story rows it and the Land 1 evidence run unblock closed. No game change.
+- joint301 (225ceb458, docs only): 468 story rows now name the system row that finishes them; Land 1 silver
+  quest rows closed from their evidence runs. No game change.
 - joint274 (c9429ba41): a resource put down goes into any store of its type within reach (a workshop takes wood), with
   mid-walk piles, the citadel's heart as a wood store and the unchecked subtraction, as the original; the scripts' EQ
   and NEQ compare only integers, booleans and floats. One scene moved (a creature's wood cast by a workshop).

@@ -140,6 +140,7 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 - joint305 (7ae8f257b, docs and comments only): the cut scene walks and clips settled (a creature's forced clip already as the original's; no shipped script walks a creature along a track), 7 story rows closed; the advisors' idle clock and booming voice settled.
 - joint306 (f3d5e26e4): a challenge's reminder as pure rules with tests, the marker tap closed through real input; the reward chest's tap sounds proven; Land 1's Ogre, Pied Piper and temple rows closed from their evidence runs. Identical.
 - joint307 (273335e8e): the script camera along three of the game's tracks checked bit for bit against the original (the cut scenes' recorded path closed); 3 story rows closed. Identical.
+- joint308 (a09d0b430): a creature a script makes die faints, lies, is carried home and comes round; a script's play of an empty clip never starts (raffclar refit); 15 story rows closed. Identical.
 - joint274 (c9429ba41): a resource put down goes into any store of its type within reach (a workshop takes wood), with
   mid-walk piles, the citadel's heart as a wood store and the unchecked subtraction, as the original; the scripts' EQ
   and NEQ compare only integers, booleans and floats. One scene moved (a creature's wood cast by a workshop).

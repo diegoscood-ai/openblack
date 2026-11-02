@@ -140,6 +140,7 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 - joint305 (7ae8f257b, docs and comments only): the cut scene walks and clips settled (a creature's forced clip already as the original's; no shipped script walks a creature along a track), 7 story rows closed; the advisors' idle clock and booming voice settled.
 - joint306 (f3d5e26e4): a challenge's reminder as pure rules with tests, the marker tap closed through real input; the reward chest's tap sounds proven; Land 1's Ogre, Pied Piper and temple rows closed from their evidence runs. Identical.
 - joint307 (273335e8e): the script camera along three of the game's tracks checked bit for bit against the original (the cut scenes' recorded path closed); 3 story rows closed. Identical.
+- joint337 (306150836): the move to Land 2 when Land 1 is finished; a town's animal find read against the original (its flocks, the town branch never reached); freed story rows closed. Docs only.
 - joint336 (a31cbfd8d): Choose Your Creature's progress marks and tiger-stone flight, the hand's distance zoomer proven through real input. Docs only.
 - joint335 (f38d8d7f5): The Lost Flock, The Spiritual Healer and The Idol closed from their saved runs (23 rows). Docs only.
 - joint334 (133ab61d8): The Sacrifice and The Slavers closed from their saved quest runs (26 rows). Docs only.

@@ -140,6 +140,7 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 - joint305 (7ae8f257b, docs and comments only): the cut scene walks and clips settled (a creature's forced clip already as the original's; no shipped script walks a creature along a track), 7 story rows closed; the advisors' idle clock and booming voice settled.
 - joint306 (f3d5e26e4): a challenge's reminder as pure rules with tests, the marker tap closed through real input; the reward chest's tap sounds proven; Land 1's Ogre, Pied Piper and temple rows closed from their evidence runs. Identical.
 - joint307 (273335e8e): the script camera along three of the game's tracks checked bit for bit against the original (the cut scenes' recorded path closed); 3 story rows closed. Identical.
+- joint335 (f38d8d7f5): The Lost Flock, The Spiritual Healer and The Idol closed from their saved runs (23 rows). Docs only.
 - joint334 (133ab61d8): The Sacrifice and The Slavers closed from their saved quest runs (26 rows). Docs only.
 - joint333 (50b8f1ec3): the minigames specced and closed from the puzzles' tests and saved runs; the Singing Stones' stones and whistlers. Docs only.
 - joint332 (76b2fee98): portals land by land specced and 46 rows closed from saved runs; Firestorm's skirmish rows out; 74%. Docs only.

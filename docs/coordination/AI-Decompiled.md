@@ -143,6 +143,7 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 - joint350 (12884dac0): the leash's script tie split, the take-off done and the tie never called by a shipped script; 6 story rows freed. Docs only.
 - joint351 (b749f4ce0): STOP_SCRIPTS_IN_FILES stops only scripts in the named files; draw-text reads the system code page and screen size; the creature's amusing spells and the fire seed sized by the caster; the chest reward's power-up gesture, with its real-mouse scene. Fidelity and cycle identical; creature_casts_fireball renewed from turn 53.
 - joint352 (b6ca22a28): the menus' real-input run closes the did-you-know signs and the hand's options box; real-input parts of four more rows cited. Docs only.
+- joint353 (60d79a097): the creature guide's meeting, friends, food lesson, naps, first fight and storm nap closed on their quest runs (51 rows; the page 3% → 42%). Docs only.
 - joint349: the testbed's presses on creatures and animals aim at the body's middle (testbed only).
 - joint348 (51b95cb32): the Lost Brother's throw and body rows proven through real input. Docs only.
 - joint347 (fb8e5739b): the developer functions' tutorial state and Escape restart on the island, as the original; Lethys's way out of Land 2 closed; the singing stones' sparkle, Choose Your Creature, the Lost Brother and the hand on the creature closed; identical.

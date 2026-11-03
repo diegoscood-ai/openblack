@@ -147,6 +147,7 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 - joint354 (3b98f1192): a script camera following a computer god's hand is never run by a shipped script; its three rows move to not-in-the-original. Docs only.
 - joint355 (278907e13): 8 more creature guide rows (the food film, the advisor's suggestion, the guide made by a chapter) closed from kept quest logs. Docs only.
 - joint356 (95f7a26ef, FULL): the 2026-10-28 chosen difference withdrawn; villagers', animals' and creatures' game logic reads the placement the last drawn frame left, as the original, with the drawn yaw, birds' bank and flying bodies' origin and scale as the original's. 11792 tests pass; fidelity identical; cycle and story move only in transform from Land 2 turn 33, the RNG identical everywhere; 26 scenes move in transform only and 5 shots, all renewed.
+- joint357 (2f4c261eb): The Lost Brother's camera row closes on its real-input run now that its finisher is no longer a chosen difference. Docs only.
 - joint349: the testbed's presses on creatures and animals aim at the body's middle (testbed only).
 - joint348 (51b95cb32): the Lost Brother's throw and body rows proven through real input. Docs only.
 - joint347 (fb8e5739b): the developer functions' tutorial state and Escape restart on the island, as the original; Lethys's way out of Land 2 closed; the singing stones' sparkle, Choose Your Creature, the Lost Brother and the hand on the creature closed; identical.

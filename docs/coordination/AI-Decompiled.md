@@ -140,6 +140,7 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 - joint305 (7ae8f257b, docs and comments only): the cut scene walks and clips settled (a creature's forced clip already as the original's; no shipped script walks a creature along a track), 7 story rows closed; the advisors' idle clock and booming voice settled.
 - joint306 (f3d5e26e4): a challenge's reminder as pure rules with tests, the marker tap closed through real input; the reward chest's tap sounds proven; Land 1's Ogre, Pied Piper and temple rows closed from their evidence runs. Identical.
 - joint307 (273335e8e): the script camera along three of the game's tracks checked bit for bit against the original (the cut scenes' recorded path closed); 3 story rows closed. Identical.
+- joint347 (fb8e5739b): the developer functions' tutorial state and Escape restart on the island, as the original; Lethys's way out of Land 2 closed; the singing stones' sparkle, Choose Your Creature, the Lost Brother and the hand on the creature closed; identical.
 - joint346 (7951a55b9): a script setting a building below whole gives it its town's building site, as the original; the creature's web page and VERSION's mpver.txt written as the original; identical.
 - joint345 (dff5da449): Land 5's crusaders, Land 1's control script start, stop-all, fade-all-text and a flock's disband closed against landed code. Docs only.
 - joint344 (8c0769fc9): the hand's hold and stroke on a creature proven through real input; two story rows. Docs only.

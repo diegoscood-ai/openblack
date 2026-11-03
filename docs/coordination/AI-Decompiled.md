@@ -140,6 +140,7 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 - joint305 (7ae8f257b, docs and comments only): the cut scene walks and clips settled (a creature's forced clip already as the original's; no shipped script walks a creature along a track), 7 story rows closed; the advisors' idle clock and booming voice settled.
 - joint306 (f3d5e26e4): a challenge's reminder as pure rules with tests, the marker tap closed through real input; the reward chest's tap sounds proven; Land 1's Ogre, Pied Piper and temple rows closed from their evidence runs. Identical.
 - joint307 (273335e8e): the script camera along three of the game's tracks checked bit for bit against the original (the cut scenes' recorded path closed); 3 story rows closed. Identical.
+- joint345 (dff5da449): Land 5's crusaders, Land 1's control script start, stop-all, fade-all-text and a flock's disband closed against landed code. Docs only.
 - joint344 (8c0769fc9): the hand's hold and stroke on a creature proven through real input; two story rows. Docs only.
 - joint343 (271904e79): Khazar's introduction closed with 8 freed rows; Stanley the Wolf's eight bells rung through the pointer and the lion maze checked in play; identical.
 - joint342 (75fbdc492): a creature read from a mind file, and each mind of a swap, draws twice per saved source as the original (every land's first creature load moves from turn 7); every reference renewed.

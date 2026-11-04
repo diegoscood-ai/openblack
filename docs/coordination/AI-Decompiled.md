@@ -185,6 +185,7 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 - joint393 (ebc9eb206): The Slavers' win-after-a-trade row from its run. Docs only.
 - joint394 (8a7138cb9): raffclar's shepherds (#355 part, #769): a villager sent for food herds the town's free flock to water and back; a shepherd whose town wants food slaughters an animal at the store's door (abodes look for water within 200 m, as the exe). Identical; cow_to_store renewed (stale since joint379).
 - joint395 (2544f4d5e): the fire's flicker, smoke and steam as the original (render); raffclar's hand-on-creature pieces (S1); the profile symbols (S2cp); the vortex's stars from its own Z object and RVb. Identical; fireball_building's shot and symbols_and_heal (stale) renewed.
+- joint396 (3d2ca3c07): the testbed's aim share as one rule for any thing; the shepherd scene with a town-desire-boost command and readout (the shepherd never slaughters, as the original reads: the led animal stays its flock's leader). Identical.
 - joint349: the testbed's presses on creatures and animals aim at the body's middle (testbed only).
 - joint348 (51b95cb32): the Lost Brother's throw and body rows proven through real input. Docs only.
 - joint347 (fb8e5739b): the developer functions' tutorial state and Escape restart on the island, as the original; Lethys's way out of Land 2 closed; the singing stones' sparkle, Choose Your Creature, the Lost Brother and the hand on the creature closed; identical.

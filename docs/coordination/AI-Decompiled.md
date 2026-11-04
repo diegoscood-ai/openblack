@@ -165,6 +165,7 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 - joint373 (d68fef209): the swap's new body takes the creature's mind and the swap rows that follow. Docs only.
 - joint374 (51e29de66): The Pied Piper's dance and first child, the welcome dance and the lost flock's swap rows closed from kept runs. Docs only.
 - joint375 (a8947ad1b): eleven villager state files back under ECS/Systems/Implementations and the building sites under ECS, as raffclar's tree; identical.
+- joint376 (31477173d): the land change's three steps move into the land system (LandSystemInterface, Implementations/LandSystem, slot landSystem), with Game as its view, as raffclar's tree; fidelity and cycle identical.
 - joint349: the testbed's presses on creatures and animals aim at the body's middle (testbed only).
 - joint348 (51b95cb32): the Lost Brother's throw and body rows proven through real input. Docs only.
 - joint347 (fb8e5739b): the developer functions' tutorial state and Escape restart on the island, as the original; Lethys's way out of Land 2 closed; the singing stones' sparkle, Choose Your Creature, the Lost Brother and the hand on the creature closed; identical.

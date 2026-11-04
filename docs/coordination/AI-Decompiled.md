@@ -178,6 +178,8 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 - joint386 (88a42e255): raffclar's hand pieces on the creature (4), a built altar's ring, the camera's Tab, a frozen creature's ice, the held miracle's glow, the villager details key and the Help text's format; Stanley's prize. Fidelity identical; 8 creature scenes and the hand base renewed (stale since joint379's species balance, shown on the joint383 exe).
 - joint387 (22c62a522): a physical shield's dome drawn after the particle effects (#56 item); the one-shot orb takes its land light and haze at its sort point (#60 item). Identical; 2 creature scenes renewed (stale since joint379).
 - joint388 (b3ebe66f0): The Slavers' rows (20) closed from their quest runs. Docs only.
+- joint389 (5b96e28c9): blood takes three quarters of its colour over the creature's skin (raffclar #594); the marks heal as the original (a found difference: 64 steps of blood, the oldest look kept, the last mark moved into a gone one's place); the unused fast healing rate removed (#569); The Lost Flock's testbed run. Identical; 4 fight scenes renewed (stale since joint379).
+- joint390 (b23c55634): The Slavers' theft-war finding written on its Pending. Docs only.
 - joint349: the testbed's presses on creatures and animals aim at the body's middle (testbed only).
 - joint348 (51b95cb32): the Lost Brother's throw and body rows proven through real input. Docs only.
 - joint347 (fb8e5739b): the developer functions' tutorial state and Escape restart on the island, as the original; Lethys's way out of Land 2 closed; the singing stones' sparkle, Choose Your Creature, the Lost Brother and the hand on the creature closed; identical.

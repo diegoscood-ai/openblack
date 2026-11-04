@@ -176,6 +176,8 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 - joint384 (c0df2a6f1): the skirmish's Three and Four Gods rows closed through real input; the tribal power rises above 1 only through a built wonder. Docs only.
 - joint385 (e0c0e527f): The Sacrifice's endings, reward scene and grumbles (11 rows) and The Lost Flock's later lines and endings (6 rows) closed from their quest runs. Docs only.
 - joint386 (88a42e255): raffclar's hand pieces on the creature (4), a built altar's ring, the camera's Tab, a frozen creature's ice, the held miracle's glow, the villager details key and the Help text's format; Stanley's prize. Fidelity identical; 8 creature scenes and the hand base renewed (stale since joint379's species balance, shown on the joint383 exe).
+- joint387 (22c62a522): a physical shield's dome drawn after the particle effects (#56 item); the one-shot orb takes its land light and haze at its sort point (#60 item). Identical; 2 creature scenes renewed (stale since joint379).
+- joint388 (b3ebe66f0): The Slavers' rows (20) closed from their quest runs. Docs only.
 - joint349: the testbed's presses on creatures and animals aim at the body's middle (testbed only).
 - joint348 (51b95cb32): the Lost Brother's throw and body rows proven through real input. Docs only.
 - joint347 (fb8e5739b): the developer functions' tutorial state and Escape restart on the island, as the original; Lethys's way out of Land 2 closed; the singing stones' sparkle, Choose Your Creature, the Lost Brother and the hand on the creature closed; identical.

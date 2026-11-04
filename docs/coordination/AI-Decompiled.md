@@ -187,6 +187,7 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 - joint395 (2544f4d5e): the fire's flicker, smoke and steam as the original (render); raffclar's hand-on-creature pieces (S1); the profile symbols (S2cp); the vortex's stars from its own Z object and RVb. Identical; fireball_building's shot and symbols_and_heal (stale) renewed.
 - joint396 (3d2ca3c07): the testbed's aim share as one rule for any thing; the shepherd scene with a town-desire-boost command and readout (the shepherd never slaughters, as the original reads: the led animal stays its flock's leader). Identical.
 - joint397 (11e13408b): raffclar's measure counts only what we take from him: (ported + half of partial) / (all − n/a − our own version), 46%; three ported rows labelled. Docs only.
+- joint398 (6f9b7adb2): the transparent queue's order as the original (the chimney smoke, the boat's sprites, the border's ripples and the map mists with the models; the physical shield's domes after the mists and smoke). Identical; the land and temple shots renewed (stale: the joint396 exe gives the same pixels).
 - joint349: the testbed's presses on creatures and animals aim at the body's middle (testbed only).
 - joint348 (51b95cb32): the Lost Brother's throw and body rows proven through real input. Docs only.
 - joint347 (fb8e5739b): the developer functions' tutorial state and Escape restart on the island, as the original; Lethys's way out of Land 2 closed; the singing stones' sparkle, Choose Your Creature, the Lost Brother and the hand on the creature closed; identical.

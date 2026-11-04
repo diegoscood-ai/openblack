@@ -937,3 +937,4 @@ its skin is white in the game's data, so it is drawn as the original draws it. S
 ## Done recently
 
 See `CHANGELOG.md`.
+- joint399 (2c0b3239e): the skirmish end (StartSkirmish, the freeze fix), the Singing Stones' third quest spec, the other gods' casts, throws and disciples, the physical shield's force field, and the belief symbols over the totem. fid and cycle identical; 2 scenes moved by the belief symbols (shot only), 3 refs renewed as stale (the joint398 exe gives the same state).

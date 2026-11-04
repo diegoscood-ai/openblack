@@ -174,6 +174,7 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 - joint382 (1f3ca9796): The Heavenly Fire's caught-meteor rows closed from their quest run. Docs only.
 - joint383 (b3d3e08f4): each town's influence worked out in its own turn, as the original (base, each building newest first, then the multiplier); #53 items 1, 2 and 5; believers_gained's stale ref renewed (the joint381 exe gives the same hash).
 - joint384 (c0df2a6f1): the skirmish's Three and Four Gods rows closed through real input; the tribal power rises above 1 only through a built wonder. Docs only.
+- joint385 (e0c0e527f): The Sacrifice's endings, reward scene and grumbles (11 rows) and The Lost Flock's later lines and endings (6 rows) closed from their quest runs. Docs only.
 - joint349: the testbed's presses on creatures and animals aim at the body's middle (testbed only).
 - joint348 (51b95cb32): the Lost Brother's throw and body rows proven through real input. Docs only.
 - joint347 (fb8e5739b): the developer functions' tutorial state and Escape restart on the island, as the original; Lethys's way out of Land 2 closed; the singing stones' sparkle, Choose Your Creature, the Lost Brother and the hand on the creature closed; identical.

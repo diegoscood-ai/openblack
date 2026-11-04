@@ -938,3 +938,4 @@ its skin is white in the game's data, so it is drawn as the original draws it. S
 
 See `CHANGELOG.md`.
 - joint399 (2c0b3239e): the skirmish end (StartSkirmish, the freeze fix), the Singing Stones' third quest spec, the other gods' casts, throws and disciples, the physical shield's force field, and the belief symbols over the totem. fid and cycle identical; 2 scenes moved by the belief symbols (shot only), 3 refs renewed as stale (the joint398 exe gives the same state).
+- joint400 (71160cfe6): the Singing Stones (Land 2) runs' day and night taps and nine rows, raffclar's whole move counting as moving for the creature's needs (#842), a script's weather thing ending its storm (#1038), an effect keeping the camera's forward (#704), and the raffclar table. fid and cycle identical; growth.carrying_strength moved by the creature change, 24 refs renewed as stale (the joint399 exe gives the same state).

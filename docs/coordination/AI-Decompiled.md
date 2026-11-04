@@ -183,6 +183,7 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 - joint391 (c12fc0b86): a pile deleted while its store stands leaves its structure first, as the original (a found difference); tests of the new-building reaction and the dance while reacting; a worship site makes no reward chest of its own; The Idol's hit rows. Identical; 4 scenes renewed (stale, shown on the joint389 exe).
 - joint392 (be6ce97aa): a reward in a town checks its kind before the town, as the original; The Slavers' testbed runs (the circus horse taken by the hand, the last-stolen run reworked: the child slave is never paid for nor counted, as the original). Identical.
 - joint393 (ebc9eb206): The Slavers' win-after-a-trade row from its run. Docs only.
+- joint394 (8a7138cb9): raffclar's shepherds (#355 part, #769): a villager sent for food herds the town's free flock to water and back; a shepherd whose town wants food slaughters an animal at the store's door (abodes look for water within 200 m, as the exe). Identical; cow_to_store renewed (stale since joint379).
 - joint349: the testbed's presses on creatures and animals aim at the body's middle (testbed only).
 - joint348 (51b95cb32): the Lost Brother's throw and body rows proven through real input. Docs only.
 - joint347 (fb8e5739b): the developer functions' tutorial state and Escape restart on the island, as the original; Lethys's way out of Land 2 closed; the singing stones' sparkle, Choose Your Creature, the Lost Brother and the hand on the creature closed; identical.

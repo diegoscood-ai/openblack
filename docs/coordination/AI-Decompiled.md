@@ -180,6 +180,7 @@ Only the clean-up is worked on tonight; the other items stay on this side.
 - joint388 (b3ebe66f0): The Slavers' rows (20) closed from their quest runs. Docs only.
 - joint389 (5b96e28c9): blood takes three quarters of its colour over the creature's skin (raffclar #594); the marks heal as the original (a found difference: 64 steps of blood, the oldest look kept, the last mark moved into a gone one's place); the unused fast healing rate removed (#569); The Lost Flock's testbed run. Identical; 4 fight scenes renewed (stale since joint379).
 - joint390 (b23c55634): The Slavers' theft-war finding written on its Pending. Docs only.
+- joint391 (c12fc0b86): a pile deleted while its store stands leaves its structure first, as the original (a found difference); tests of the new-building reaction and the dance while reacting; a worship site makes no reward chest of its own; The Idol's hit rows. Identical; 4 scenes renewed (stale, shown on the joint389 exe).
 - joint349: the testbed's presses on creatures and animals aim at the body's middle (testbed only).
 - joint348 (51b95cb32): the Lost Brother's throw and body rows proven through real input. Docs only.
 - joint347 (fb8e5739b): the developer functions' tutorial state and Escape restart on the island, as the original; Lethys's way out of Land 2 closed; the singing stones' sparkle, Choose Your Creature, the Lost Brother and the hand on the creature closed; identical.

@@ -1000,3 +1000,4 @@ See `CHANGELOG.md`.
 - joint459 (f8cab24b5): Nemesis's shielded village's near-miss checks through real throws in the testbed, 2 rows done; fid and cycle identical.
 - joint460 (7384f04a6): the creature's learning light bulb, made at the original's triggers and drawn (bulb, glow, percent), and a trace of the clip a forced action cuts (the user's items 11 and 9); fid and cycle identical; new scene mind.lightbulb.
 - joint461 (7c10ab9be): the light bulb row done, and The Riddles' wolf and dropping through the real input path (1 done, 1 partial); fid and cycle identical.
+- joint462 (4b08cc8c8): creature fights' blows aimed at and landing on the body as the game posed it this turn, not as drawn (the ogre fight now ends), Khazar's Shield Challenge's failure rows (1 done, 2 partial) and an unaided ogre fight timeline; fid and cycle identical; 4 combat scenes moved from turn 118 as attributed.

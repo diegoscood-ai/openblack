@@ -997,3 +997,4 @@ See `CHANGELOG.md`.
 - joint456 (99be18903): in a fight a creature looks at its opponent's head in the stance and ahead in its other moves (the user's item 16); fid and cycle identical; 8 combat scenes moved as attributed (the head, the blow push's posed bones), fight_miracle_gesture renewed as stale.
 - joint457 (05462e906): from the user's play: the tattoo editor closes with its box and on a room change, and only a dance's first move takes the dance's length; fid and cycle identical; 10 creature-action scenes renewed as stale (joint455's exe).
 - joint458 (docs only): the miracle seed's first frame in the hand noted as measured in the original's call order, its frame boundary in play still open (the user's item 26).
+- joint459 (f8cab24b5): Nemesis's shielded village's near-miss checks through real throws in the testbed, 2 rows done; fid and cycle identical.

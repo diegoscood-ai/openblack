@@ -990,3 +990,4 @@ See `CHANGELOG.md`.
 - joint449 (2c56226ac): Land 1's exit vortex through the real input path in the testbed, 5 rows done; fid and cycle identical.
 - joint450 (docs only): 29 story rows done and 1 to 60% from the user's natural play of Land 1 into Land 2 (refs/story/played/u_20261106_*).
 - joint451 (e51cb462c): Land 2's control run with towns changing hands in the testbed, Khazar's complaint row to 60%, 3 Land 2 rows noted as unreached by the original's script order; fid and cycle identical.
+- joint452 (docs only): 1 row done from the user's play and 9 Land 5 rows to 60% from kept control runs.

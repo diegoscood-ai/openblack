@@ -987,3 +987,4 @@ See `CHANGELOG.md`.
 - joint446 (docs only): So This Is A Fight To The Death's last town row to 60%, from the same run.
 - joint447 (99e435bad): Throwing Stones through the real input path in the testbed, 8 rows done; fid, cycle and its one scene identical.
 - joint448 (73319d819): The Fish Puzzle's boy thrown to his death by a recorded mouse in the testbed, 1 row done; fid and cycle identical.
+- joint449 (2c56226ac): Land 1's exit vortex through the real input path in the testbed, 5 rows done; fid and cycle identical.

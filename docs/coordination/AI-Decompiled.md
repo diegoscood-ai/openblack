@@ -983,3 +983,5 @@ See `CHANGELOG.md`.
 - joint442 (81028918f): Land 2's and Land 3's control-script quest runs in the testbed, and their rows (1 done, 11 to 60%: The Idol, The Greedy Farmer, Land 3's attacks, exit and weather); fid and cycle identical; no scene reaches the testbed quests.
 - joint443 (d2e5482aa): five quest timelines in the testbed and their rows (6 done, 6 to 60%: The Fish Puzzle, Swap To Brown Bear, The Japanese Traitor's voice); fid and cycle identical; no scene reaches the testbed quests.
 - joint444 (6900e6678, docs only): 2 rows done and 6 to 60% from kept runs (Khazar's Fireball Challenge, Nemesis on Land 5, Lethys's wolf pack).
+- joint445 (dce1af98c): Land 5's control run with Nemesis's home town won last, in the testbed, and 7 Nemesis rows to 60%; fid and cycle identical; no scene reaches the testbed quests.
+- joint446 (docs only): So This Is A Fight To The Death's last town row to 60%, from the same run.

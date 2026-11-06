@@ -1003,3 +1003,4 @@ See `CHANGELOG.md`.
 - joint462 (4b08cc8c8): creature fights' blows aimed at and landing on the body as the game posed it this turn, not as drawn (the ogre fight now ends), Khazar's Shield Challenge's failure rows (1 done, 2 partial) and an unaided ogre fight timeline; fid and cycle identical; 4 combat scenes moved from turn 118 as attributed.
 - joint463 (docs only): The Ogre's lost fight read from an unaided fight run (1 partial).
 - joint464 (8e423ef7d): The Ogre's retry after 30 seconds through an unaided fight timeline (1 partial); fid and cycle identical.
+- joint465 (d6affcffb): The Explorers' tree brought to the ark by the hand through the real input path (1 done); fid and cycle identical.

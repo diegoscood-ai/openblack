@@ -1004,3 +1004,4 @@ See `CHANGELOG.md`.
 - joint463 (docs only): The Ogre's lost fight read from an unaided fight run (1 partial).
 - joint464 (8e423ef7d): The Ogre's retry after 30 seconds through an unaided fight timeline (1 partial); fid and cycle identical.
 - joint465 (d6affcffb): The Explorers' tree brought to the ark by the hand through the real input path (1 done); fid and cycle identical.
+- joint466 (104446324): a worship site's miracle charged and cast by hand through the real input path, a shared testbed scenario (tools/checks/realinput/real_cast.txt); fid and cycle identical.

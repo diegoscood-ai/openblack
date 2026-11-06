@@ -985,3 +985,4 @@ See `CHANGELOG.md`.
 - joint444 (6900e6678, docs only): 2 rows done and 6 to 60% from kept runs (Khazar's Fireball Challenge, Nemesis on Land 5, Lethys's wolf pack).
 - joint445 (dce1af98c): Land 5's control run with Nemesis's home town won last, in the testbed, and 7 Nemesis rows to 60%; fid and cycle identical; no scene reaches the testbed quests.
 - joint446 (docs only): So This Is A Fight To The Death's last town row to 60%, from the same run.
+- joint447 (99e435bad): Throwing Stones through the real input path in the testbed, 8 rows done; fid, cycle and its one scene identical.

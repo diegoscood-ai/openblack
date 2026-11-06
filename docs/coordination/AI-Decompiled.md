@@ -988,3 +988,4 @@ See `CHANGELOG.md`.
 - joint447 (99e435bad): Throwing Stones through the real input path in the testbed, 8 rows done; fid, cycle and its one scene identical.
 - joint448 (73319d819): The Fish Puzzle's boy thrown to his death by a recorded mouse in the testbed, 1 row done; fid and cycle identical.
 - joint449 (2c56226ac): Land 1's exit vortex through the real input path in the testbed, 5 rows done; fid and cycle identical.
+- joint450 (docs only): 29 story rows done and 1 to 60% from the user's natural play of Land 1 into Land 2 (refs/story/played/u_20261106_*).

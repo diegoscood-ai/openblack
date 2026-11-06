@@ -999,3 +999,4 @@ See `CHANGELOG.md`.
 - joint458 (docs only): the miracle seed's first frame in the hand noted as measured in the original's call order, its frame boundary in play still open (the user's item 26).
 - joint459 (f8cab24b5): Nemesis's shielded village's near-miss checks through real throws in the testbed, 2 rows done; fid and cycle identical.
 - joint460 (7384f04a6): the creature's learning light bulb, made at the original's triggers and drawn (bulb, glow, percent), and a trace of the clip a forced action cuts (the user's items 11 and 9); fid and cycle identical; new scene mind.lightbulb.
+- joint461 (7c10ab9be): the light bulb row done, and The Riddles' wolf and dropping through the real input path (1 done, 1 partial); fid and cycle identical.

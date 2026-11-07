@@ -1009,3 +1009,4 @@ See `CHANGELOG.md`.
 - joint468 (8574e9f26): Land 3 rows from the control run and Fire!'s burning fisherman by real input (3 partial); fid and cycle identical.
 - joint469 (6d622a06f): Khazar's Shield Challenge played by hand through the real input path (1 done), and joint453's shield removal seen in game; fid and cycle identical.
 - joint470 (docs only): 3 worship site lesson rows done from the user's natural play; a vanilla-bug note withdrawn (the demo's fill does yield each pass).
+- joint471 (docs only): a pending note on shields: a small drawn shield let Khazar's boulders through, to be compared with the original.

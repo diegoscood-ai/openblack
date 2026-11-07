@@ -1006,3 +1006,4 @@ See `CHANGELOG.md`.
 - joint465 (d6affcffb): The Explorers' tree brought to the ark by the hand through the real input path (1 done); fid and cycle identical.
 - joint466 (104446324): a worship site's miracle charged and cast by hand through the real input path, a shared testbed scenario (tools/checks/realinput/real_cast.txt); fid and cycle identical.
 - joint467 (docs only): 4 Singing Stones (Land 2) rows done from the kept real-input run.
+- joint468 (8574e9f26): Land 3 rows from the control run and Fire!'s burning fisherman by real input (3 partial); fid and cycle identical.

@@ -1023,3 +1023,4 @@ See `CHANGELOG.md`.
 - joint482 (f7f9d2bbf): a double click takes the system's box as the original; the documentation audit's second batch (tutorial island reasons, the puzzles' put-back share, the music page's wording); fid, cycle and the hand demos identical.
 - joint483 (533f6696d): a computer god attacks a creature with its own on the angry leash, its two leash steps through the leash interface, and miracle sound rows closed by tests (the tornado's roar, food, wood and water loops); fid and cycle identical.
 - joint484 (f13a951ac): the hidden phone box played to its end by real input in the testbed, 12 rows done; fid and cycle identical.
+- joint485 (b2b3b136c): the scripts pages swept against kept runs (16 rows done, 11 to their shortcut share, unused natives and commands to not-in-the-original), and the blast's whoosh and the fireball's hit sounds closed by tests; fid and cycle identical.

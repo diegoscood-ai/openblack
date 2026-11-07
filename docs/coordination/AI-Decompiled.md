@@ -1014,3 +1014,4 @@ See `CHANGELOG.md`.
 - joint473 (b4992d535): rival gods rows from kept runs and the user's play (4 done, 8 to 60%), The Fire's water cast and The Rejuvenator's influence evidence by real input; fid and cycle identical.
 - joint474 (146f0c35e): the computer gods' prayer power and icon-or-gesture casts done with tests, their cast timed by the computer player's timer (an extraction), the hand's actions counted (28 of 58 tested); fid and cycle identical.
 - joint475 (docs only): 5 engine and hand rows the original never runs moved to not-in-the-original, 3 engine rows narrowed to what runs.
+- joint476 (a67c6e369): creature emotes with no face and the be-pathetic and howl turns as the original, the forgiveness threshold and the show-feelings sum as the original's floats, desire effects of drinking and pooing as pure functions, four creature tests, and The Spiritual Healer's throw and first banishment (16 rows done); fid, cycle and five expression scenes identical.

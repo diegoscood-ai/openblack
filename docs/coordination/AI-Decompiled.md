@@ -1024,3 +1024,4 @@ See `CHANGELOG.md`.
 - joint483 (533f6696d): a computer god attacks a creature with its own on the angry leash, its two leash steps through the leash interface, and miracle sound rows closed by tests (the tornado's roar, food, wood and water loops); fid and cycle identical.
 - joint484 (f13a951ac): the hidden phone box played to its end by real input in the testbed, 12 rows done; fid and cycle identical.
 - joint485 (b2b3b136c): the scripts pages swept against kept runs (16 rows done, 11 to their shortcut share, unused natives and commands to not-in-the-original), and the blast's whoosh and the fireball's hit sounds closed by tests; fid and cycle identical.
+- joint486 (ea16d04dd): the phone box's held and dragged box refused by the hand and two more of its rows, and SET_PROPERTY of no thing logging the object no longer valid as the original; fid and cycle identical.

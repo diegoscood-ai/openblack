@@ -1028,3 +1028,4 @@ See `CHANGELOG.md`.
 - joint487 (docs only): building and rendering rows swept (5 done, stale clauses, one row to not-in-the-original) and the creature snapshot's file layout noted.
 - joint488 (docs only): the R key's repeat measured in play through the real input path (1 done).
 - joint489 (d0b7cbdfc): interface and camera rows swept (quick save half, push scrolling, the watched fight's orbit gates pinned by tests, the map disc's editor flag to not-in-the-original); fid and cycle identical.
+- joint490 (docs only): engine info table rows (2 done; the arrows' table to not-in-the-original) and the script machine's rows naming what is left.

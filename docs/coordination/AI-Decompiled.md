@@ -1029,3 +1029,4 @@ See `CHANGELOG.md`.
 - joint488 (docs only): the R key's repeat measured in play through the real input path (1 done).
 - joint489 (d0b7cbdfc): interface and camera rows swept (quick save half, push scrolling, the watched fight's orbit gates pinned by tests, the map disc's editor flag to not-in-the-original); fid and cycle identical.
 - joint490 (docs only): engine info table rows (2 done; the arrows' table to not-in-the-original) and the script machine's rows naming what is left.
+- joint491 (7d7fc819b): creature fights' moves unclamped and a block's recoil kept inside the range, a faint ending both fights the same turn, a fighting creature walked back by its leash, and going near never given up while a script controls the creature (5 rows done); fid and cycle identical; 19 leash scenes renewed as stale (joint490's exe gives the same).

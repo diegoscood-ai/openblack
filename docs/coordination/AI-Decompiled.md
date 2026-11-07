@@ -1045,3 +1045,4 @@ See `CHANGELOG.md`.
 - joint504 (619db413e): a traced computer mind logs each action it runs and its hand steps, and three rival-god rows done from traced Land 2 and 5 control runs (growing towns, breeder disciples, disciples for a town's needs); fid and cycle identical.
 - joint505 (docs only): the computer god's repeated worship-site moves on Land 5 read as the original's own loop (its towns' worship rate is 0 in the original too).
 - joint506 (docs only): three other players' hand rows done on existing tests, and the hand's size on a creature noted as one unit off the original's rounding in 178 of 4901 sizes (to be fixed).
+- joint507 (f4f35609a): creature rows the code already matches closed (idle actions' faces, the town point's time, help on a friend's side, the faint's remarks) and tests for the tattoo editor's symbols and tints, howling at a friend, the creature help switch and an unreachable leash point (13 rows done); fid and cycle identical.

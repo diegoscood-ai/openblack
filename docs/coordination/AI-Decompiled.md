@@ -1039,3 +1039,4 @@ See `CHANGELOG.md`.
 - joint498 (9ad32e1d0): the creature mind's god-order, dominant-desire and lesson hooks (refit from raffclar), and their first readers: a computer god destroys a town and impresses one with its creature and teaches it miracles at its icon; the constant-height particle rules read the land at the map position; blast sound rows tested; fid, cycle and the vortex and volcano scenes identical.
 - joint499 (docs only): the help spirits' info table read (1 row done; its unused fields to not-in-the-original).
 - joint500 (52c97429b): a computer god teaches its creature an ordinary action at the nearest totem, raising it; fid and cycle identical.
+- joint501 (f728c8735): a land's start message puts the dialogs away first, and putting all dialogs away covers the skirmish, new player, land info, end and message boxes, with a temple room change making the interface active, as the original; fid, cycle and the temple scenes identical.

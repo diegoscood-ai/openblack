@@ -1,0 +1,85 @@
+# The computer gods' creatures
+
+Each computer god has a creature, loaded from a mind file the game ships, set up by script and then steered by its god:
+fed, healed, taught, played with and sent to win, destroy or defend towns and to fight other creatures.
+
+**Progress: 10/35 done, 0 chosen, 11 partial, 0 inferred — 46%**
+
+See [../creature/](../creature/) for how any creature thinks and acts, especially
+[../creature/decision_making.md](../creature/decision_making.md), [../creature/fighting.md](../creature/fighting.md) and
+[../creature/saves_and_files.md](../creature/saves_and_files.md).
+
+## The mind files
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| Khazar's, Lethys's and Nemesis's creatures come from three mind files that are byte for byte the same (an older file version), so they start alike; the script picks the species | partial 70% | the files can be read (`components/creaturemind`, `resources::CreatureMindLoader`); `LOAD_CREATURE`, the story's loading function, loads them |
+| Skirmish gods' creatures come from a generic computer creature file in a newer version | done | `CREATE_CREATURE_FROM_FILE` loads it (`FeatureScriptCommands::CreateCreatureFromFile`); test `ScriptLoadCreatureTest.TheFileStepMakesTheSameCreatureForEveryCaller` |
+| A creature loaded for a god belongs to that god and is placed where the script says | done | the land command does this (`player_creature::ScriptLoadCreature`, `CreatureArchetype`, owned by the script's player), facing angle 0 as every new creature in the original ([a new creature's facing](../../../creature/players-creature.md#land-2s-creatures)), at the size its mind file gives, which the script's own autoscale then replaces ([Land 2's creatures](../../../creature/players-creature.md#land-2s-creatures)); tests `ScriptLoadCreatureTest.TheScriptsSpeciesIsMadeAtThePointOnTheGroundThenLedAndGrownUp`, `ScriptLoadCreatureTest.ACreatureMadeFromAMindFileFacesAngleZero`; Khazar's and Lethys's are made in play for players 2 and 3 at their markers (quest_check PASS, story run l2b_exit, 2026-10-30, refs/story/evidence/l2b_exit.log line 170959 and 171594) |
+
+## How the story sets them up
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| Each knows every everyday skill: building, using fields, totems and storehouses, fishing and dancing | partial 60% | `CREATURE_SET_KNOWS_ACTION` is real; quest_check --natural PASS, run a1q_impress (2026-10-28 22:03:10, refs/story/evidence/a1q_impress.log line 127716); finished by [challenge_natives_creature.md](../scripts/challenge_natives_creature.md) "Teaches a creature (or makes it forget) an action…" |
+| Each knows fireball and lightning with both power-ups, heal and its power-up, teleport, forest, food and its power-up, both storms, tornado, both shields, wood, water and its power-up, both flocks, and all sixteen creature miracles | partial 60% | `CREATURE_SET_KNOWS_ACTION` is real; `LOAD_CREATURE` makes the creature now; quest_check --natural PASS, run a1q_impress (2026-10-28 22:03:10, refs/story/evidence/a1q_impress.log line 127754); finished by [challenge_natives_creature.md](../scripts/challenge_natives_creature.md) "Teaches a creature (or makes it forget) an action…" |
+| Strength, warmth, fatness, energy, itchiness, poo, exhaustion, thirst and fighting health are all set to 0.2 | done | `LOAD_CREATURE` makes the creature now (`LoadCreature` in `src/CHLApi.cpp`); quest_check --natural PASS, run a1q_impress (2026-10-28 22:03:10, refs/story/evidence/a1q_impress.log line 127772); its effects' own rows are done: [challenge_natives_objects_and_world.md](../scripts/challenge_natives_objects_and_world.md) "Sets a creature's strength or alignment (33 and 21 calls)", [challenge_natives_objects_and_world.md](../scripts/challenge_natives_objects_and_world.md) "Sets a creature's body: warmth, fatness, energy…" |
+| They are released into the world, then again after their alignment is set | done | `LOAD_CREATURE` makes the creature now (`LoadCreature` in `src/CHLApi.cpp`); quest_check --natural PASS, run a1q_impress (2026-10-28 22:03:10, refs/story/evidence/a1q_impress.log line 127778); again in story run land2_gods_react_to_towns_st3 (`story.land2_gods_react_to_towns`, 2026-11-03 22:57:56, refs/story/evidence/land2_gods_react_to_towns_st3.log line 180276); its effects' own rows are done: [challenge_natives_objects_and_world.md](../scripts/challenge_natives_objects_and_world.md) "Hands an object back to the game after a script…" |
+| The story waits for the player's creature, checking every 5 seconds, before setting alignment | done | quest_check PASS (tools/checks/story/quests/rival_gods_creatures.txt), quest run a2sur_2_q1 (2026-10-31 08:18, refs/story/evidence/a2l5_surprise2.log line 6437): Land 5's set-up finds no creature of the player's at turn 6, waits, finds it at turn 57 and sets its creature's alignment to the opposite; its effects' own rows are done: [challenge_natives_creature.md](../scripts/challenge_natives_creature.md) "Gives a player's creature", [challenge_natives_objects_and_world.md](../scripts/challenge_natives_objects_and_world.md) "Whether an object still exists", "Sets a creature's strength or alignment" |
+| A creature that wins a fight is healed by 1% every 6 seconds until full or until it fights again | done | done by Land 5's final fight script for Nemesis's creature after a fight it won; quest_check --natural PASS, run a2l5_fight (the run's fight lost, refs/story/evidence/a2l5_fight.log line 206158); done in its own row: [so_this_is_a_fight_to_the_death.md](../story/gold_scrolls/so_this_is_a_fight_to_the_death.md) "Losing: the player's creature's health is set to nothing" |
+
+## Knowledge and size for skirmish
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| A god's creature learns every miracle its god has, and heal, food, wood and water always, as if seen enough to learn | done | the computer mind's start teaches it (`ComputerPlayerSystem`, `computer_player::MiraclesToLearn`; unverified against v1.42); tests `ComputerPlayerStart.TheCreatureLearnsThePlayersMiraclesAndHealFoodWoodAndWater`, `ComputerPlayerStart.EveryMiracleIsLearntWhenThePlayerCanCastEveryMiracle` |
+| Its size is set from the person's creature: 0.9 to 1.2 times as tall | done | `SET_COMPUTER_PLAYER_CREATURE_LIKE` names it; the computer mind's start sizes the creature (`ComputerPlayerSystem`, `computer_player::SizeLike`; unverified against v1.42); test `ComputerPlayerStart.TheCreatureIsNinetyToOneHundredAndTwentyPercentOfThePersonsDrawnSize` |
+| Its height for decisions ignores the shrinking near its temple | done | the mind's creature size is the creature's own size times 15, not the smaller size it is drawn at in its pen, as the original's (read 2026-11-07: its size step reads the creature's own size, the one the pen shrink leaves; [the creature's radius](../../../creature/body.md#the-creatures-radius)); `computer_player::scores::CreatureSize` over `Creature::size` (`src/ECS/ComputerPlayerScores.cpp`), read by the fight distance, the diversion's reach, a job's reach and the food thrown at it ([ThrowFoodatCreature](../../../hand/computer-minds.md#openblack)); test `PlayerCreatureNativesTest.AComputerPlayersMindReadsTheCreaturesOwnSizeNotThePenSizeItIsDrawnAt` |
+| A computer god's creature keeps the speed it was given when it stops, where a person's goes back to walking | pending | computer players are marked (`PlayerMagic::playerType` 2), but the locomotion makes no difference for their creatures; see [../creature/locomotion.md](../creature/locomotion.md) |
+
+## Looking after it
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| The god finds its creature and judges how hungry, starving, thirsty, tired, hot, cold, hurt or ill it is | partial 30% | the score rules (`computer_player::Score`, the creature by `PlayersCreature`, its desires by `ScoreWorld::CreatureDesire`, `src/ECS/ComputerPlayerScoresCreature.cpp`), pinned to the oracle (`ComputerMindScores.*`); run in the mind's turn (`computer_world::MakeScoreWorld`), few of the actions under it ported; see [../../../hand/computer-minds.md](../../../hand/computer-minds.md#creatureinteract) |
+| It feeds it from fields or fish farms, or casts food for it | partial 65% | casting food for it is ported (the casting action of three leaves is ported (`computer_hand::HandActions`, CastFoodSpellOn: the icon's miracle cast on the object above, then eight seconds' wait, `CastIconsMiracleOnAndStay`; test `ComputerHandActions.AnIconsMiracleIsCastOnTheObjectAboveAndTheHandStaysEightSeconds`)); the field and the fish farm run their parent's action: the food is picked up and given to it, the starving creature's thrown to it from the hand (`HandActions`, GiveCreatureFood, ReacttoCreatureStarvingEmergency, GiveWorshippersFood, the step `GiveToCreatureStage`; tests `ComputerHandActions.FoodFromAFieldGoesToTheCreatureOrTheWorshipSiteAbove`, `ComputerHandMoves.GivingToACreatureThrowsAtWhereTheHandActsOnIt`), but a field a god's hand picks up gives no food pile yet; see [ai.md](ai.md); measured 2026-11-05 as [ai.md](ai.md)'s row "Feeding its creature" (the same three ways, read against the mind's action table and `computer_hand::HandActions`): the food miracle and the fish farm are ported and match; missing: the field gives no food (a field a god's hand picks up makes no pile yet), and a run |
+| It sends it home | pending | no action of the mind does it yet: its score rule is written (`computer_player::Score`, `src/ECS/ComputerPlayerScores.h`) and runs in the mind's turn, but the action is not ported; drinking, sleeping and moving somewhere warmer or cooler are never chosen in the original ([not in the original](../../not-in-the-original.md#rival_godsai)); see [ai.md](ai.md) |
+| It heals it when hurt, and restores it from illness | partial 90% | the heal on its creature is ported: the hand goes to the icon, the worshippers chant for the heal miracle and it is cast on the creature (`computer_hand::HealCreatureFromIcon`, RestoreMyCreatureHealth; test `ComputerHandActions.ItsHurtCreatureIsHealedFromTheIconWhateverItsMiracle`); restoring it from illness is not (that emergency never happens: [ai.md](ai.md)); not checked in play; measured 2026-11-05 as [ai.md](ai.md)'s row "Its hurt creature: healing it with a miracle" (its one way ported and matching the action table); illness never happens in the original (what its test reads is never set, ai.md's emergencies row), so it takes no share; missing: a run that shows the heal |
+| It judges how near and free its creature is before using it | partial 30% | `computer_player::CreatureFreeTime` and `CreatureJobWorth` (`src/ECS/ComputerPlayerScores.h`), pinned to the oracle (`ComputerMindScores.*`); run in the mind's turn (`computer_world::MakeScoreWorld`), few of the actions under it ported; see [../../../hand/computer-minds.md](../../../hand/computer-minds.md#creatureinteract) |
+
+## Teaching it
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| It judges how important it is to teach an ordinary skill, aggressive, compassionate or impressive magic | partial 30% | the teaching score rules (`computer_player::Score`, `src/ECS/ComputerPlayerScoresCreature.cpp`), pinned to the oracle (`ComputerMindScores.*`); the lesson counts stay 0 until the mind's actions count them; run in the mind's turn (`computer_world::MakeScoreWorld`), few of the actions under it ported; see [../../../hand/computer-minds.md](../../../hand/computer-minds.md#creatureinteract) |
+| It only teaches miracles its creature doesn't know, choosing among those marked known from the start | partial 30% | the filter is read (`MiracleRule::computerPlayersTeach`, which makes nothing known; see [../creature/learning_by_observation.md](../creature/learning_by_observation.md)); no god uses it |
+| To teach a skill it leads the creature on the leash and does the action in front of it | pending | no action of the mind does it yet: its score rule is written (`computer_player::Score`, `src/ECS/ComputerPlayerScores.h`) and runs in the mind's turn, but the action is not ported; see [ai.md](ai.md) |
+| To teach a miracle it casts it in front of the creature | pending | no action of the mind does it yet: its score rule is written (`computer_player::Score`, `src/ECS/ComputerPlayerScores.h`) and runs in the mind's turn, but the action is not ported; see [ai.md](ai.md) |
+| It teaches its creature to use the town's totem | pending | the mind's turn runs (`computer_player::TakeTurn`, from `ComputerPlayerSystem::ProcessTurn`), but none of this desire's actions is ported yet (34 of the 58 are, each with a test that runs it, `computer_hand::HandActions`) |
+| It weighs the creature's own desire to learn a miracle | pending | the mind's turn runs (`computer_player::TakeTurn`, from `ComputerPlayerSystem::ProcessTurn`), but none of this desire's actions is ported yet (34 of the 58 are, each with a test that runs it, `computer_hand::HandActions`) |
+| It leashes its creature to things or to other creatures | pending | no action of the mind does it yet: its score rule is written (`computer_player::Score`, `src/ECS/ComputerPlayerScores.h`) and runs in the mind's turn, but the action is not ported; see [../creature/leash.md](../creature/leash.md) |
+
+## Playing with it
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| It throws food at it to play | partial 90% | the action is ported: the food carried to 20 m short of the creature and thrown round it (`computer_hand::ThrowFoodAt`, ThrowFoodatCreature; tests `ComputerHandActions.FoodIsThrownAtTheCreatureRoundAPointDrawnNearIt`, `ComputerHandMoves.FoodIsThrownFromTwentyMetresShortOfTheCreatureOrBackFromANearOne`); left: a check in play |
+
+## Using it
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| It sends it to impress a town it wants to win (with a 3300 setting on that action, unconfirmed what it measures) | pending | no action of the mind does it yet: its score rule is written (`computer_player::Score`, `src/ECS/ComputerPlayerScores.h`) and runs in the mind's turn, but the action is not ported; see [ai.md](ai.md) |
+| It sends it to destroy a town | pending | no action of the mind does it yet: its score rule is written (`computer_player::Score`, `src/ECS/ComputerPlayerScores.h`) and runs in the mind's turn, but the action is not ported; see [ai.md](ai.md) |
+| It sends it to defend a town, or to help a town or a building site | pending | no action of the mind does it yet: its score rule is written (`computer_player::Score`, `src/ECS/ComputerPlayerScores.h`) and runs in the mind's turn, but the action is not ported; see [ai.md](ai.md) |
+| It sends it to attack another creature, if it is near enough | pending | no action of the mind does it yet: its score rule is written (`computer_player::Score`, `src/ECS/ComputerPlayerScores.h`) and runs in the mind's turn, but the action is not ported; see [ai.md](ai.md) |
+| A computer god's creature fights with the computer's moves | partial 70% | any creature not the local player's fights by the computer's moves (`fight::ChooseMove`, `CreatureFightSystem`); computer players are marked (`PlayerMagic::playerType` 2) and their creatures fight as any other not the local player's; see [../creature/fighting.md](../creature/fighting.md) |
+
+## Story scenes with them
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| A mirror creature of the player's species, opposite in alignment, angry and fully grown, is made from the player's creature for a fight (unconfirmed whether the game runs it) | pending | the script statement create creature from creature is ported (`CreatureCreateRelativeToCreature`, [a creature made from another](../../../creature/players-creature.md#a-creature-made-from-another)), but Land 5 is not reached in play; see [../story/land_5.md](../story/land_5.md) |
+| While a script kills Khazar, both gods' creatures have all their desires turned off and are kept at full health | pending | `CREATURE_TURN_OFF_ALL_DESIRES` and the desire functions are real now; not reached in play |
+| Scripts can turn every desire off and set one desire on, as for the mirror creature's anger at 0.5 | done | `CREATURE_TURN_OFF_ALL_DESIRES` (`CreatureTurnOffAllDesires`), `SET_CREATURE_ONLY_DESIRE`, `CREATURE_SET_DESIRE_VALUE`, `CREATURE_SET_DESIRE_ACTIVATED` and `CREATURE_SET_DESIRE_MAXIMUM` in `src/CHLApi.cpp`; test `ScriptGuideOgreNatives.TheOgresDesires` |
+| Freed creatures on the third land, the player's and Lethys's, can both be leashed | pending | the story has not yet reached Land 3 in play: it has not yet been run out of Land 2 since Khazar's and Lethys's hands (`COMPUTER_PLAYER_READY`) became real |

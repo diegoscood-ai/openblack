@@ -11,17 +11,27 @@
 
 #include <cstdint>
 
-#include <chrono>
+#include <optional>
 
+#include <entt/entity/fwd.hpp>
 #include <glm/vec3.hpp>
+
+#include "3D/MapCoords.h"
 
 namespace openblack::ecs::components
 {
 struct CameraBookmark
 {
 	uint8_t number;
-	float animationTime;
-	glm::vec3 savedOrigin;
+	/// Where the camera stood when it was dropped, from the land point of its map position then: a flight to it puts the
+	/// camera at the same offset from the land point of its map position at the flight
+	glm::vec3 cameraOffset {0.0f};
+	/// Where it was dropped, as a map position: its marker stands above that position's land point. None while it is
+	/// not set
+	std::optional<map_coords::MapCoords> position;
+	/// The thing it was dropped on, which it follows once a turn: its marker stands on it, and once it is no longer
+	/// available the bookmark stays where it last was
+	std::optional<entt::entity> target;
 };
 
 } // namespace openblack::ecs::components

@@ -9,26 +9,116 @@
 
 #include "FrameBuffer.h"
 
-#include <utility>
+#include <cassert>
+
+#include <array>
+
+#include <bgfx/bgfx.h>
+
+#include "Engine/GpuCommands.h"
+#include "GraphicsHandleBgfx.h"
 
 using namespace openblack::graphics;
 
-FrameBuffer::FrameBuffer(std::string name, glm::u16vec2 resolution, TextureFormat colorFormat,
-                         std::optional<TextureFormat> depthStencilFormat, TextureHandle colorAttachment,
-                         SamplerHandle colorSampler, TextureHandle depthStencilAttachment,
-                         std::function<void()> release) noexcept
-    : name(std::move(name))
-    , resolution(resolution)
-    , colorFormat(colorFormat)
-    , depthStencilFormat(depthStencilFormat)
-    , colorAttachment(colorAttachment)
-    , colorSampler(colorSampler)
-    , depthStencilAttachment(depthStencilAttachment)
-    , _release(std::move(release))
+namespace
 {
+uint64_t ColorFlags(TextureFormat format, uint8_t samples, Wrapping wrapping)
+{
+	uint64_t flags = BGFX_TEXTURE_RT;
+	// Asked of bgfx only for a multisampled attachment
+	// NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index): bgfx has caps for every texture format
+	const bool canMultisample = samples > 1 && (bgfx::getCaps()->formats[toBgfx(format)] & BGFX_CAPS_FORMAT_TEXTURE_MSAA) != 0;
+	if (canMultisample)
+	{
+		switch (samples)
+		{
+		case 2:
+			flags = BGFX_TEXTURE_RT_MSAA_X2;
+			break;
+		case 4:
+			flags = BGFX_TEXTURE_RT_MSAA_X4;
+			break;
+		case 8:
+			flags = BGFX_TEXTURE_RT_MSAA_X8;
+			break;
+		case 16:
+			flags = BGFX_TEXTURE_RT_MSAA_X16;
+			break;
+		default:
+			break;
+		}
+	}
+	switch (wrapping)
+	{
+	case Wrapping::ClampEdge:
+		flags |= BGFX_SAMPLER_UVW_CLAMP;
+		break;
+	case Wrapping::ClampBorder:
+		flags |= BGFX_SAMPLER_UVW_BORDER;
+		break;
+	case Wrapping::MirroredRepeat:
+		flags |= BGFX_SAMPLER_UVW_MIRROR;
+		break;
+	case Wrapping::Repeat:
+		break;
+	}
+	return flags;
+}
+} // namespace
+
+FrameBuffer::FrameBuffer(std::string&& name, uint16_t width, uint16_t height, TextureFormat colorFormat,
+                         std::optional<TextureFormat> depthStencilFormat, uint8_t colorSamples, Wrapping colorWrapping)
+    : _name(std::move(name))
+    , _handle(BGFX_INVALID_HANDLE)
+    , _width(width)
+    , _height(height)
+    , _colorFormat(colorFormat)
+    , _depthStencilFormat(depthStencilFormat)
+    , _colorAttachment(_name + "_color")
+    , _depthStencilAttachment(_name + "_depthStencil")
+{
+	_colorAttachment._handle = BGFX_INVALID_HANDLE;
+	_colorAttachment._resolution = glm::u16vec2(width, height);
+	_colorAttachment._numLayers = 1;
+
+	_depthStencilAttachment._handle = BGFX_INVALID_HANDLE;
+	_depthStencilAttachment._resolution = glm::u16vec2(width, height);
+	_depthStencilAttachment._numLayers = 1;
+
+	if (depthStencilFormat)
+	{
+		engine::gpu::NoteResourceCall("FrameBuffer::create (its two textures)", _name);
+		std::array<bgfx::TextureHandle, 2> textures = {
+		    bgfx::createTexture2D(width, height, false, 1, toBgfx(colorFormat),
+		                          ColorFlags(colorFormat, colorSamples, colorWrapping)),
+		    bgfx::createTexture2D(width, height, false, 1, toBgfx(depthStencilFormat.value()), BGFX_TEXTURE_RT),
+		};
+		engine::gpu::NoteResourceCall("FrameBuffer::create", _name);
+		_handle = fromBgfx(bgfx::createFrameBuffer(static_cast<uint8_t>(textures.size()), textures.data()));
+		_colorAttachment._handle = fromBgfx(bgfx::getTexture(toBgfx(_handle), 0));
+		_depthStencilAttachment._handle = fromBgfx(bgfx::getTexture(toBgfx(_handle), 1));
+	}
+	else
+	{
+		engine::gpu::NoteResourceCall("FrameBuffer::create", _name);
+		_handle = fromBgfx(bgfx::createFrameBuffer(_width, _height, toBgfx(colorFormat),
+		                                           ColorFlags(colorFormat, colorSamples, colorWrapping)));
+		_colorAttachment._handle = fromBgfx(bgfx::getTexture(toBgfx(_handle), 0));
+	}
+
+	assert(bgfx::isValid(toBgfx(_handle)));
 }
 
-FrameBuffer::~FrameBuffer() noexcept
+FrameBuffer::~FrameBuffer()
 {
-	_release();
+	if (bgfx::isValid(toBgfx(_handle)))
+	{
+		engine::gpu::NoteResourceCall("FrameBuffer::destroy", _name);
+		bgfx::destroy(toBgfx(_handle));
+	}
+}
+
+void FrameBuffer::Bind(RenderPass viewId) const
+{
+	bgfx::setViewFrameBuffer(static_cast<uint8_t>(viewId), toBgfx(_handle));
 }

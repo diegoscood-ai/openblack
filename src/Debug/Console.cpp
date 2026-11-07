@@ -10,16 +10,23 @@
 #include "Console.h"
 
 #include <algorithm>
+#include <iterator>
+#include <optional>
 
-#include <SDL3/SDL.h>
+#include <SDL.h>
 #include <glm/gtc/constants.hpp>
 #include <imgui.h>
+#include <spdlog/spdlog.h>
 
+#include "3D/LandBlock.h"
+#include "3D/LandIslandInterface.h"
+#include "3D/LandLine.h"
 #include "Camera/Camera.h"
+#include "ConsoleLogSink.h"
 #include "ECS/Components/Transform.h"
 #include "ECS/Registry.h"
-#include "ECS/Systems/DynamicsSystemInterface.h"
 #include "ECS/Systems/HandSystemInterface.h"
+#include "ECS/Systems/PickingSystemInterface.h"
 #include "LHScriptX/FeatureScriptCommands.h"
 #include "LHScriptX/Script.h"
 #include "Locator.h"
@@ -27,6 +34,29 @@
 
 using namespace openblack;
 using namespace openblack::debug::gui;
+
+namespace
+{
+/// The index, in the island's list, of the land block whose square holds a point
+std::optional<int> BlockIndexAt(const LandIslandInterface& island, glm::vec3 point)
+{
+	constexpr float k_BlockSize = static_cast<float>(LandBlock::k_Resolution.x) * land_line::k_CellSize;
+	const auto& blocks = island.GetBlocks();
+	const auto found = std::ranges::find_if(blocks, [point](const LandBlock& block) {
+		const auto corner = block.GetMapPosition();
+		return point.x >= corner.x && point.x < corner.x + k_BlockSize && point.z >= corner.y &&
+		       point.z < corner.y + k_BlockSize;
+	});
+	if (found == blocks.end())
+	{
+		return std::nullopt;
+	}
+	return static_cast<int>(std::distance(blocks.begin(), found));
+}
+
+/// The most lines the Console keeps, its own and the log's; the oldest go first
+constexpr size_t k_KeptItems = 2000;
+} // namespace
 
 Console::Console() noexcept
     : Window("Console", ImVec2(520, 600))
@@ -36,8 +66,10 @@ Console::Console() noexcept
           {"history", " - Display previously executed commands."},
           {"clear", "   - Clear the output log."},
       }
+    , _logSink(std::make_shared<ConsoleLogSink>())
 {
-	// TODO(#478): Add custom spdlog sink here
+	// every logger the game made also writes to the Console
+	spdlog::apply_all([this](const std::shared_ptr<spdlog::logger>& logger) { logger->sinks().push_back(_logSink); });
 	for (const auto& signature : lhscriptx::FeatureScriptCommands::k_Signatures)
 	{
 		std::string details;
@@ -70,6 +102,14 @@ Console::Console() noexcept
 		details += ")";
 		_commands.emplace_back(std::string(signature.name.data(), signature.name.size()) + "(", details);
 	}
+}
+
+Console::~Console() noexcept
+{
+	spdlog::apply_all([this](const std::shared_ptr<spdlog::logger>& logger) {
+		auto& sinks = logger->sinks();
+		sinks.erase(std::remove(sinks.begin(), sinks.end(), _logSink), sinks.end());
+	});
 }
 
 void Console::Open() noexcept
@@ -222,35 +262,26 @@ void Console::Draw() noexcept
 	const auto& io = ImGui::GetIO();
 
 	const auto screenSize = Locator::windowing::has_value() ? Locator::windowing::value().GetSize() : glm::ivec2 {};
-	glm::vec2 mousePosition {};
+	glm::ivec2 mousePosition {};
 	SDL_GetMouseState(&mousePosition.x, &mousePosition.y);
-	if (!io.WantCaptureMouse && screenSize.x > 0 && screenSize.y > 0 && Locator::dynamicsSystem::has_value())
+	if (!io.WantCaptureMouse && screenSize.x > 0 && screenSize.y > 0)
 	{
-		glm::vec3 rayOrigin;
-		glm::vec3 rayDirection;
-		Locator::camera::value().DeprojectScreenToWorld(mousePosition / static_cast<glm::vec2>(screenSize), rayOrigin,
-		                                                rayDirection);
-		const auto& dynamicsSystem = Locator::dynamicsSystem::value();
-		if (auto hit = dynamicsSystem.RayCastClosestHit(rayOrigin, rayDirection, 1e10f))
+		// The object the interface picked under the cursor, else the land block under it
+		const auto& pickingSystem = Locator::pickingSystem::value();
+		if (const auto& object = pickingSystem.GetPick().object; object.has_value())
 		{
-			if (hit->second.userData != nullptr)
+			ImGui::SetTooltip("Entity %d", static_cast<int>(entt::to_integral(*object)));
+		}
+		else if (Locator::terrainSystem::has_value())
+		{
+			const auto& camera = Locator::camera::value();
+			const auto eye = camera.GetEye();
+			const auto nearPoint = camera.PixelNearPoint(eye, screenSize, mousePosition, camera.GetPixelNearClip());
+			if (const auto land = pickingSystem.LandUnderPixel(eye, nearPoint, false); land.has_value())
 			{
-				switch (hit->second.type)
+				if (const auto blockIndex = BlockIndexAt(Locator::terrainSystem::value(), *land); blockIndex.has_value())
 				{
-				case RigidBodyType::Terrain:
-				{
-					// auto landIsland = reinterpret_cast<const LandIsland*>(hit->second.userData);
-					auto blockIndex = hit->second.id;
-					ImGui::SetTooltip("Block Index: %d", blockIndex);
-				}
-				break;
-				case RigidBodyType::Entity:
-				{
-					// auto registry = reinterpret_cast<const openblack::ecs::Registry*>(hit->second.userData);
-					auto entity = hit->second.id;
-					ImGui::SetTooltip("Entity %d", entity);
-				}
-				break;
+					ImGui::SetTooltip("Block Index: %d", *blockIndex);
 				}
 			}
 		}
@@ -269,6 +300,14 @@ void Console::Draw() noexcept
 	}
 
 	ImGui::TextWrapped("Enter 'help' for help, press TAB to use text completion.");
+
+	// the log's new lines after what is there, the newest last
+	auto logged = _logSink->Take();
+	_items.insert(_items.end(), std::make_move_iterator(logged.begin()), std::make_move_iterator(logged.end()));
+	if (_items.size() > k_KeptItems)
+	{
+		_items.erase(_items.begin(), _items.begin() + static_cast<std::ptrdiff_t>(_items.size() - k_KeptItems));
+	}
 
 	if (ImGui::SmallButton("Clear"))
 	{
@@ -478,7 +517,7 @@ void Console::ProcessEventOpen(const SDL_Event& event) noexcept
 	{
 	default:
 		break;
-	case SDL_EVENT_MOUSE_BUTTON_DOWN:
+	case SDL_MOUSEBUTTONDOWN:
 		if (event.button.clicks == 2 && !io.WantCaptureMouse)
 		{
 			_insertHandPosition = true;
@@ -493,8 +532,8 @@ void Console::ProcessEventAlways(const SDL_Event& event) noexcept
 	{
 	default:
 		break;
-	case SDL_EVENT_KEY_DOWN:
-		if (event.key.key == SDLK_GRAVE)
+	case SDL_KEYDOWN:
+		if (event.key.keysym.sym == SDLK_BACKQUOTE)
 		{
 			Toggle();
 		}

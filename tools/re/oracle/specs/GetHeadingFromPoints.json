@@ -1,0 +1,42 @@
+{
+ "function": "GetHeadingFromPoints",
+ "symbol": "?GetHeadingFromPoints@GCamera@@SAMABULHPoint@@0@Z",
+ "addr": "0x00442860",
+ "conv": "cdecl",
+ "ret": "st0",
+ "notes": "GCamera::GetHeadingFromPoints(const LHPoint& a, const LHPoint& b): d = a - b (each cell rounded to float); |d.x| < 0.01 and |d.z| < 0.01 (qword 0x8C7620) gives 0, else pi (0x8C36A0) - the heading 0x7FAA50 of d (atan360 of (-d.z, d.x) when d.x^2 + d.z^2 > [0x9A2BAC]). Returns on the x87 stack: ret is the 80-bit value, ret_f32 / ret_f64 what a caller's fstp dword / qword stores. d.y is never read.",
+ "buffers": {
+  "a": [
+   {"name": "a.x", "type": "f32", "gen": "coord"},
+   {"name": "a.y", "type": "f32", "gen": {"uniform": [-50, 300]}},
+   {"name": "a.z", "type": "f32", "gen": "coord"}
+  ],
+  "b": [
+   {"name": "b.x", "type": "f32", "gen": {"mix": [[60, "coord"], [25, {"near": "a.x", "delta": {"uniform": [-30, 30]}}], [15, {"near": "a.x", "delta": {"uniform": [-0.02, 0.02]}}]]}},
+   {"name": "b.y", "type": "f32", "gen": {"uniform": [-50, 300]}},
+   {"name": "b.z", "type": "f32", "gen": {"mix": [[60, "coord"], [25, {"near": "a.z", "delta": {"uniform": [-30, 30]}}], [15, {"near": "a.z", "delta": {"uniform": [-0.02, 0.02]}}]]}}
+  ]
+ },
+ "args": [
+  {"type": "ptr", "buffer": "a"},
+  {"type": "ptr", "buffer": "b"}
+ ],
+ "generators": {
+  "coord": {"mix": [[80, {"uniform": [0, 5120]}], [20, {"uniform": [-10000, 10000]}]]}
+ },
+ "cases": [
+  {"a.x": 0, "a.y": 0, "a.z": 0, "b.x": 0, "b.y": 0, "b.z": 0},
+  {"a.x": 1, "a.y": 0, "a.z": 0, "b.x": 0, "b.y": 0, "b.z": 0},
+  {"a.x": -1, "a.y": 0, "a.z": 0, "b.x": 0, "b.y": 0, "b.z": 0},
+  {"a.x": 0, "a.y": 0, "a.z": 1, "b.x": 0, "b.y": 0, "b.z": 0},
+  {"a.x": 0, "a.y": 0, "a.z": -1, "b.x": 0, "b.y": 0, "b.z": 0},
+  {"a.x": 1, "a.y": 0, "a.z": 1, "b.x": 0, "b.y": 0, "b.z": 0},
+  {"a.x": 0.01, "a.y": 0, "a.z": 0, "b.x": 0, "b.y": 0, "b.z": 0},
+  {"a.x": 0.0099, "a.y": 0, "a.z": 0.0099, "b.x": 0, "b.y": 0, "b.z": 0},
+  {"a.x": 0, "a.y": 0, "a.z": 0.01, "b.x": 0, "b.y": 0, "b.z": 0},
+  {"a.x": 1000, "a.y": 5, "a.z": 2000, "b.x": 1000, "b.y": 7, "b.z": 2000},
+  {"a.x": "nan", "a.y": 0, "a.z": 0, "b.x": 0, "b.y": 0, "b.z": 0}
+ ],
+ "random_cases": 4000,
+ "seed": 211
+}

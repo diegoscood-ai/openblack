@@ -9,11 +9,28 @@
 
 #include "InfoConstants.h"
 
+#include <cctype>
 #include <cstring>
+
+#include <algorithm>
+#include <string_view>
+
+#include <spdlog/spdlog.h>
 
 #include "Locator.h"
 
 using namespace openblack;
+
+namespace
+{
+/// Case-insensitive equality
+bool EqualNoCase(std::string_view a, std::string_view b)
+{
+	return a.size() == b.size() && std::equal(a.begin(), a.end(), b.begin(), [](char x, char y) {
+		       return std::tolower(static_cast<unsigned char>(x)) == std::tolower(static_cast<unsigned char>(y));
+	       });
+}
+} // namespace
 
 VillagerInfo GVillagerInfo::Find(Tribe tribe, VillagerNumber villagerNumber)
 {
@@ -40,42 +57,37 @@ VillagerInfo GVillagerInfo::Find(Tribe tribe, VillagerNumber villagerNumber)
 
 AbodeInfo GAbodeInfo::Find(const std::string& name)
 {
+	// "<tribe>_<abode>": the tribe prefix and the abode's description, both case-insensitive, the first match; -1 if
+	// none. The original then uses the info without a check;
+	// openblack logs the miss and the command is skipped (a deliberate robustness deviation).
 	// TODO (#749) use std::views::enumerate
 	for (size_t i = 0; const auto& abode : Locator::infoConstants::value().abode)
 	{
-		const auto tribeName = k_TribeStrs.at(static_cast<uint8_t>(abode.tribeType));
-		const auto abodeName = std::string(abode.debugString.data());
-		if (std::string(tribeName.data()) + "_" + abodeName == name)
+		if (abode.tribeType != Tribe::NONE && static_cast<size_t>(abode.tribeType) < k_TribeStrs.size())
 		{
-			return static_cast<AbodeInfo>(i);
+			const auto tribeName = k_TribeStrs.at(static_cast<size_t>(abode.tribeType));
+			const std::string_view text(name);
+			if (text.size() > tribeName.size() && text[tribeName.size()] == '_' &&
+			    EqualNoCase(text.substr(0, tribeName.size()), tribeName) &&
+			    EqualNoCase(text.substr(tribeName.size() + 1), abode.debugString.data()))
+			{
+				return static_cast<AbodeInfo>(i);
+			}
 		}
 		++i;
 	}
-
-	throw std::runtime_error("Could not find info for " + name);
+	SPDLOG_LOGGER_WARN(spdlog::get("scripting"), "No abode info named \"{}\"; the command is skipped", name);
+	return AbodeInfo::None;
 }
 
 AbodeInfo GAbodeInfo::Find(Tribe tribe, AbodeNumber abodeNumber)
 {
-	bool found = false;
-	auto result = AbodeInfo::None;
-	// TODO (#749) use std::views::enumerate
-	for (size_t i = 0; const auto& abode : Locator::infoConstants::value().abode)
-	{
-		if ((abode.tribeType == tribe || abode.tribeType == Tribe::NONE) && abode.abodeNumber == abodeNumber)
-		{
-			result = static_cast<AbodeInfo>(i);
-			found = true;
-		}
-		++i;
-	}
-	if (found)
-	{
-		return result;
-	}
-
-	throw std::runtime_error(std::string("Could not find info for ") + k_TribeStrs.at(static_cast<size_t>(tribe)).data() +
-	                         " + " + k_AbodeNumberStrs.at(static_cast<size_t>(abodeNumber)).data());
+	// the first row of that number whose tribe is the tribe or none; none when no row matches
+	const auto& rows = Locator::infoConstants::value().abode;
+	const auto found = std::ranges::find_if(rows, [tribe, abodeNumber](const auto& abode) {
+		return (abode.tribeType == tribe || abode.tribeType == Tribe::NONE) && abode.abodeNumber == abodeNumber;
+	});
+	return found != rows.end() ? static_cast<AbodeInfo>(std::distance(rows.begin(), found)) : AbodeInfo::None;
 }
 
 FeatureInfo GFeatureInfo::Find(const std::string& name)
@@ -83,13 +95,16 @@ FeatureInfo GFeatureInfo::Find(const std::string& name)
 	// TODO (#749) use std::views::enumerate
 	for (size_t i = 0; const auto& feature : Locator::infoConstants::value().feature)
 	{
-		if (name == feature.debugString.data())
+		// case-insensitive match with the description; the original returns the count if none and uses it without a
+		// check (openblack: logged and the command is skipped)
+		if (EqualNoCase(name, feature.debugString.data()))
 		{
 			return static_cast<FeatureInfo>(i);
 		}
 		++i;
 	}
-	throw std::runtime_error("Could not find info for " + name);
+	SPDLOG_LOGGER_WARN(spdlog::get("scripting"), "No feature info named \"{}\"; the command is skipped", name);
+	return FeatureInfo::None;
 }
 
 AnimatedStaticInfo GAnimatedStaticInfo::Find(const std::string& name)
@@ -97,13 +112,51 @@ AnimatedStaticInfo GAnimatedStaticInfo::Find(const std::string& name)
 	// TODO (#749) use std::views::enumerate
 	for (size_t i = 0; const auto& as : Locator::infoConstants::value().animatedStatic)
 	{
-		if (name == as.debugString.data())
+		// case-insensitive match with the description; the original returns the count if none and uses it without a
+		// check (openblack: logged and the command is skipped)
+		if (EqualNoCase(name, as.debugString.data()))
 		{
 			return static_cast<AnimatedStaticInfo>(i);
 		}
 		++i;
 	}
-	throw std::runtime_error("Could not find info for " + name);
+	SPDLOG_LOGGER_WARN(spdlog::get("scripting"), "No animated static info named \"{}\"; the command is skipped", name);
+	return AnimatedStaticInfo::None;
+}
+
+void openblack::ApplyCreatureBalance(GCreatureInfo& creature, const DifferentCreatureInfo& balance)
+{
+	creature.startScale = balance.startScale;
+	creature.growUpMinutes = balance.growUpMinutes;
+	creature.energyDrain = balance.energyDrain;
+	creature.startFatness = balance.startFatness;
+	creature.fatBurn = balance.fatBurn;
+	creature.overeatFatFactor = balance.overeatFatFactor;
+	creature.strength = balance.strength;
+	creature.strengthDecay = balance.strengthDecay;
+	creature.carryStrengthMinutes = balance.carryStrengthMinutes;
+	creature.slowSpeed = balance.slowSpeed;
+	creature.walkSpeed = balance.walkSpeed;
+	creature.runSpeed = balance.runSpeed;
+	std::memcpy(creature.field0x24c.data(), &balance.field0x30, sizeof(balance.field0x30));
+	creature.exhaustionRate = balance.exhaustionRate;
+	creature.sleepRecover = balance.sleepRecover;
+	creature.defenceMultiplierBurn = balance.defenceMultiplierBurn;
+	creature.defenceMultiplierCrush = balance.defenceMultiplierCrush;
+	creature.defenceMultiplierHit = balance.defenceMultiplierHit;
+	creature.sleepHeal = balance.sleepHeal;
+	creature.secondsPerAgeTick = balance.secondsPerAgeTick;
+	creature.pooPerEnergy = balance.pooPerEnergy;
+	creature.field0x36c = balance.field0x54;
+	creature.alignmentChangeScale = balance.alignmentChangeScale;
+}
+
+void openblack::ApplyCreatureBalance(InfoConstants& info)
+{
+	for (size_t row = 0; row < info.creature.size() && row < info.differentCreature.size(); ++row)
+	{
+		ApplyCreatureBalance(info.creature.at(row), info.differentCreature.at(row));
+	}
 }
 
 void openblack::UpdateInfo(CreatureActionInfo& info, const v100::CreatureActionInfo& old)

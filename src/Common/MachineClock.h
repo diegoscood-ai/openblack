@@ -1,0 +1,32 @@
+/******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+#pragma once
+
+#include <cstdint>
+
+#include <optional>
+
+/// The machine's clock as the game reads it, to time presses, pick among sounds and know the date. Read through the time
+/// system, it follows a fixed frame time and counts from when the clock was last restarted, so that a seeded,
+/// deterministic run reads the same numbers each time; without a time system (tests that make a system alone) it is the
+/// wall clock's.
+namespace openblack::machine_clock
+{
+/// Milliseconds, wrapping as the machine's count does
+[[nodiscard]] uint32_t Ticks();
+/// Seconds since 1970
+[[nodiscard]] int64_t UnixTime();
+/// Seconds since 1970 of the system clock, for the time played: the wall clock's, or with the fixed step a fixed date
+/// moved on by its steps (TimeSystemInterface::GetWallTime)
+[[nodiscard]] int64_t WallTime();
+/// (openblack's own, for the checks) the date a run reads from its start, as OPENBLACK_CLOCK_AT gives it: seconds since
+/// 1970, a whole decimal number; none when it is not set or not such a number
+[[nodiscard]] std::optional<int64_t> ClockAtFrom(const char* value);
+} // namespace openblack::machine_clock

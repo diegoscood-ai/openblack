@@ -1,0 +1,9 @@
+{
+ "extends": "../MakeShapeCircle.json",
+ "function": "MakeShapeLoop",
+ "symbol": "?MakeShapeLoop@MakeShape@@SAXK@Z",
+ "addr": "0x0050FE70",
+ "notes": "MakeShape::MakeShapeLoop (shape 3): its 256 points at DanceShapePoints + 3 * 0x800 (0x00CAF370). See MakeShapeCircle.json.",
+ "args": [{"name": "shape", "type": "u32", "value": 3}],
+ "globals": [{"name": "points", "addr": "0x00CAF370", "type": "i32", "count": 512, "out": true}]
+}

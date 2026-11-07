@@ -4,7 +4,7 @@
 
 # provides interface for spdlog
 
-# Search for the spdlog include directory
+# Search for the bgfx include directory
 find_path(
   SPDLOG_INCLUDE_DIR spdlog.h
   PATH_SUFFIXES spdlog include/spdlog include

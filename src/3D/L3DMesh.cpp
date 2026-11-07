@@ -9,30 +9,36 @@
 
 #include "L3DMesh.h"
 
+#include <cstring>
+
+#include <algorithm>
 #include <filesystem>
+#include <map>
 #include <stdexcept>
 
-#include <BulletCollision/CollisionShapes/btConvexHullShape.h>
 #include <L3DFile.h>
-#include <glm/ext/vector_uint2_sized.hpp>
+#include <bgfx/bgfx.h>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/component_wise.hpp>
 #include <glm/gtx/vec_swizzle.hpp>
 #include <glm/matrix.hpp>
 #include <spdlog/spdlog.h>
 
 #include "3D/L3DSubMesh.h"
+#include "3D/TriangleCollide.h"
 #include "FileSystem/FileSystemInterface.h"
-#include "Graphics/RendererInterface.h"
-#include "Graphics/Texture2d.h"
+#include "Graphics/IndexBuffer.h"
+#include "Graphics/Texture2D.h"
 #include "Graphics/VertexBuffer.h"
 #include "Locator.h"
 
 using namespace openblack;
 using namespace openblack::graphics;
 
-L3DMesh::L3DMesh(std::string debugName) noexcept
+L3DMesh::L3DMesh(std::string debugName, bool dynamic) noexcept
     : _flags(static_cast<l3d::L3DMeshFlags>(0))
     , _debugName(std::move(debugName))
+    , _dynamic(dynamic)
 {
 }
 
@@ -40,25 +46,44 @@ L3DMesh::~L3DMesh() noexcept = default;
 
 bool L3DMesh::Load(const l3d::L3DFile& l3d) noexcept
 {
-	auto& renderer = Locator::rendererInterface::value();
 	bool result = true;
 
 	_flags = static_cast<l3d::L3DMeshFlags>(l3d.GetHeader().flags);
 	_nameData = l3d.GetNameData();
+	_firstSkin = l3d.GetSkins().empty() ? std::nullopt : std::optional(l3d.GetSkins().front().id);
+	for (const auto& skin : l3d.GetSkins())
 	{
-		const auto resolution = glm::u16vec2(l3d::L3DTexture::k_Width, l3d::L3DTexture::k_Height);
-		for (const auto& skin : l3d.GetSkins())
+		_skins[skin.id] = std::make_unique<Texture2D>(_debugName.c_str());
+		const auto skinBytes = static_cast<uint32_t>(skin.texels.size() * sizeof(skin.texels[0]));
+		// a texture made with its texels can never take others: a dynamic mesh's is made empty and then filled
+		_skins[skin.id]->Create(l3d::L3DTexture::k_Width, l3d::L3DTexture::k_Height, 1, TextureFormat::BGRA4, Wrapping::Repeat,
+		                        Filter::Linear, _dynamic ? nullptr : bgfx::copy(skin.texels.data(), skinBytes));
+		if (_dynamic)
 		{
-			const auto skinMem =
-			    std::span(reinterpret_cast<const uint8_t*>(skin.texels.data()), skin.texels.size() * sizeof(skin.texels[0]));
-			_skins[skin.id] = renderer.CreateTexture2d(_debugName, skinMem, resolution, 1, TextureFormat::BGRA4,
-			                                           Wrapping::Repeat, Filter::Linear);
+			_skins[skin.id]->Update(skin.texels.data(), skinBytes);
 		}
+		// the ARGB4444 alpha nibbles at 64 x 64 for the chroma shadows (the texels as 16-bit words)
+		std::vector<uint16_t> words(skin.texels.size());
+		std::memcpy(words.data(), skin.texels.data(), words.size() * sizeof(uint16_t));
+		_shadowAlphaMaps[skin.id] = shadow_math::MakeAlphaMap(words, l3d::L3DTexture::k_Width, l3d::L3DTexture::k_Height);
+	}
+
+	for (const auto& box : l3d.GetBoxes())
+	{
+		_boxes.push_back({.centre = glm::vec3(box.centre.x, box.centre.y, box.centre.z),
+		                  .halfSize = glm::vec3(box.size.x, box.size.y, box.size.z)});
 	}
 
 	if (HasDoorPosition() && !l3d.GetExtraPoints().empty())
 	{
 		_doorPos = glm::vec3(l3d.GetExtraPoints()[0].x, l3d.GetExtraPoints()[0].y, l3d.GetExtraPoints()[0].z);
+	}
+
+	// with flag 0x400 the chimney is always the second extra point, the first being the door; the original reads it
+	// without checking the count
+	if (HasChimney() && l3d.GetExtraPoints().size() >= 2)
+	{
+		_chimneyPos = glm::vec3(l3d.GetExtraPoints()[1].x, l3d.GetExtraPoints()[1].y, l3d.GetExtraPoints()[1].z);
 	}
 
 	if (ContainsLandscapeFeature() && l3d.GetFootprint().has_value())
@@ -74,21 +99,35 @@ bool L3DMesh::Load(const l3d::L3DFile& l3d) noexcept
 		decl.emplace_back(VertexAttrib::Attribute::TexCoord0, static_cast<uint8_t>(2), VertexAttrib::Type::Float);
 
 		const auto& footprint = *l3d.GetFootprint();
-		const auto resolution =
-		    glm::u16vec2(static_cast<uint16_t>(footprint.header.width), static_cast<uint16_t>(footprint.header.height));
 
 		// TODO (#749) use use std::views::enumerate
 		for (uint32_t i = 1; const auto& entry : footprint.entries)
 		{
-			const auto textureMem =
-			    std::span(reinterpret_cast<const uint8_t*>(entry.pixels.data()), entry.pixels.size() * sizeof(entry.pixels[0]));
-			auto texture =
-			    renderer.CreateTexture2d("footprints/texture/" + _debugName + "/" + std::to_string(i), textureMem, resolution,
-			                             1, graphics::TextureFormat::BGRA4, Wrapping::ClampEdge, Filter::Linear);
+			auto texture = std::make_unique<Texture2D>("footprints/texture/" + _debugName + "/" + std::to_string(i));
+			++i;
+			texture->Create(
+			    static_cast<uint16_t>(footprint.header.width), static_cast<uint16_t>(footprint.header.height), 1,
+			    graphics::TextureFormat::BGRA4, Wrapping::ClampEdge, Filter::Linear,
+			    bgfx::copy(entry.pixels.data(), static_cast<uint32_t>(entry.pixels.size() * sizeof(entry.pixels[0]))));
 
-			std::vector<FootprintVertex> vertices(entry.triangles.size() * 3);
+			const bgfx::Memory* verticesMem =
+			    bgfx::alloc(static_cast<uint32_t>(sizeof(FootprintVertex) * entry.triangles.size() * 3));
+			auto* vertices = reinterpret_cast<FootprintVertex*>(verticesMem->data);
+			std::vector<glm::vec2> corners;
+			corners.reserve(entry.triangles.size() * 3);
+			std::vector<block_texture::PrintTriangle> printTriangles;
+			printTriangles.reserve(entry.triangles.size());
+			for (const auto& t : entry.triangles)
+			{
+				auto& print = printTriangles.emplace_back();
+				for (size_t k = 0; k < 3; ++k)
+				{
+					print.corners.at(k) = {t.world.at(k).x, t.world.at(k).y};
+					print.texels.at(k) = {t.texture.at(k).x, t.texture.at(k).y};
+				}
+			}
 			// TODO (#749) Maybe use std::views::enumerate
-			for (size_t j = 0; const auto& t : entry.triangles)
+			for (uint8_t j = 0; const auto& t : entry.triangles)
 			{
 				for (uint8_t k = 0; k < 3; ++k)
 				{
@@ -103,16 +142,22 @@ bool L3DMesh::Load(const l3d::L3DFile& l3d) noexcept
 
 					vertex.pos.x = world.x;
 					vertex.pos.y = world.y;
+					corners.emplace_back(world.x, world.y);
 					vertex.texCoord.x = uv.x / footprint.header.width;
 					vertex.texCoord.y = uv.y / footprint.header.height;
 				}
 			}
 
-			auto vertexBuffer = Locator::rendererInterface::value().CreateVertexBuffer(
-			    "footprints/quad/" + _debugName + "/" + std::to_string(i),
-			    {reinterpret_cast<const uint8_t*>(vertices.data()), vertices.size() * sizeof(vertices[0])}, decl);
+			auto vertexBuffer =
+			    std::make_unique<VertexBuffer>("footprints/quad/" + _debugName + "/" + std::to_string(i), verticesMem, decl);
 			auto mesh = std::make_unique<Mesh>(std::move(vertexBuffer));
-			_footprints.emplace_back(Footprint {std::move(texture), std::move(mesh)});
+			_footprints.emplace_back(Footprint {.texture = std::move(texture),
+			                                    .mesh = std::move(mesh),
+			                                    .corners = std::move(corners),
+			                                    .width = static_cast<int32_t>(footprint.header.width),
+			                                    .height = static_cast<int32_t>(footprint.header.height),
+			                                    .pixels = entry.pixels,
+			                                    .triangles = std::move(printTriangles)});
 		}
 	}
 
@@ -124,6 +169,27 @@ bool L3DMesh::Load(const l3d::L3DFile& l3d) noexcept
 		{
 			_extraMetrics.emplace_back(static_cast<glm::mat4>(glm::make_mat4x3(e.data())));
 		}
+	}
+
+	if (const auto& eBone = l3d.GetEBone(); eBone.has_value() && eBone->bones[0] >= 0)
+	{
+		const auto& m = eBone->matrices[0];
+		_eBonePoint0 = std::make_pair(static_cast<uint32_t>(eBone->bones[0]), glm::vec3(m[9], m[10], m[11]));
+	}
+	// the pair (0, 1) always, the pair (2, 3) when bone[2] != -1
+	if (const auto& eBone = l3d.GetEBone(); eBone.has_value() && eBone->bones[0] >= 0 && eBone->bones[1] >= 0)
+	{
+		const size_t count = eBone->bones[2] >= 0 && eBone->bones[3] >= 0 ? 4 : 2;
+		for (size_t k = 0; k < count; ++k)
+		{
+			const auto& m = eBone->matrices[k];
+			_blobPoints.emplace_back(static_cast<uint32_t>(eBone->bones[k]), glm::vec3(m[9], m[10], m[11]));
+		}
+	}
+
+	for (const auto& point : l3d.GetNewEP())
+	{
+		_newEntrancePoints.emplace_back(point.type, glm::vec3(point.position[0], point.position[1], point.position[2]));
 	}
 
 	std::map<uint32_t, glm::mat4> matrices;
@@ -138,6 +204,7 @@ bool L3DMesh::Load(const l3d::L3DFile& l3d) noexcept
 		                        bone.orientation[6], bone.orientation[7], bone.orientation[8], 0.0f,
 		                        bone.position.x, bone.position.y, bone.position.z, 1.0f);
 		// clang-format on
+		_bonesLocalMatrices.emplace_back(matrix);
 		_bonesParents[i] = bone.parent;
 		if (bone.parent != std::numeric_limits<uint32_t>::max())
 		{
@@ -150,22 +217,17 @@ bool L3DMesh::Load(const l3d::L3DFile& l3d) noexcept
 	auto submeshCount = l3d.GetSubmeshHeaders().size();
 	for (uint32_t i = 0; i < submeshCount; ++i)
 	{
+		// A submesh can hold nothing at all, like one of the temple library's: there is nothing of it to draw or touch
+		if (l3d.GetPrimitiveSpan(i).empty())
+		{
+			continue;
+		}
 		auto subMesh = std::make_unique<L3DSubMesh>(*this);
 		if (!subMesh->Load(l3d, i))
 		{
-			SPDLOG_LOGGER_ERROR(spdlog::get("game"), "Failed to open L3DSubMesh");
+			SPDLOG_LOGGER_ERROR(spdlog::get("game"), "Failed to open submesh {} of mesh {}", i, _debugName);
 			result = false;
 			continue;
-		}
-		if (subMesh->GetFlags().isPhysics)
-		{
-			const auto& verticesSpan = l3d.GetVertexSpan(i);
-			auto* physicsMesh =
-			    new btConvexHullShape(reinterpret_cast<const btScalar*>(verticesSpan.data()),
-			                          static_cast<int>(verticesSpan.size()), static_cast<int>(sizeof(verticesSpan[0])));
-			physicsMesh->optimizeConvexHull();
-			_physicsMesh.reset(physicsMesh);
-			// FIXME(bwrsandman): Some meshes have multiple physics meshes
 		}
 		const auto& bb = subMesh->GetBoundingBox();
 		_boundingBox.minima = glm::min(_boundingBox.minima, bb.minima);
@@ -173,11 +235,92 @@ bool L3DMesh::Load(const l3d::L3DFile& l3d) noexcept
 
 		_subMeshes.emplace_back(std::move(subMesh));
 	}
-	// TODO(bwrsandman): if no physics mesh was found, make physics mesh the bounding box
 
+	// The windows of the temple shed volumes of light, with the texture of their first primitive. The temple's windows
+	// are each a single primitive.
+	const auto& names = l3d.GetSubmeshNames();
+	for (uint32_t i = 0; i < names.size() && i < submeshCount; ++i)
+	{
+		const auto& name = names[i];
+		const auto& primitives = l3d.GetPrimitiveSpan(i);
+		if ((name.flags & l3d::L3DSubmeshName::VolumeLight) == 0 || primitives.empty())
+		{
+			continue;
+		}
+		const auto& primitive = primitives.front();
+		const auto vertices = l3d.GetVertexSpan(i).first(std::min<size_t>(primitive.numVertices, l3d.GetVertexSpan(i).size()));
+		const auto indices =
+		    l3d.GetIndexSpan(i).first(std::min<size_t>(primitive.numTriangles * 3, l3d.GetIndexSpan(i).size()));
+		const glm::vec3 source {name.volumeLightSource.x, name.volumeLightSource.y, name.volumeLightSource.z};
+		_volumeLights.push_back({
+		    .skinID = primitive.material.skinID,
+		    .mesh = MakeVolumeLight(vertices, indices, source, name.volumeLightLength),
+		});
+	}
 	// TODO(bwrsandman): store vertex and index buffers at mesh level
-
+	// No bgfx::frame() here: the textures and buffers own copies of their data, so the file can go at once and the
+	// render thread uploads them with the next frame
 	return result;
+}
+
+void L3DMesh::RebuildSubMeshes(const l3d::L3DFile& l3d, const std::vector<l3d::L3DVertex>& vertices) noexcept
+{
+	std::vector<std::unique_ptr<L3DSubMesh>> rebuilt;
+	size_t first = 0;
+	for (uint32_t i = 0; i < l3d.GetSubmeshHeaders().size(); ++i)
+	{
+		const auto count = l3d.GetVertexSpan(i).size();
+		auto subMesh = std::make_unique<L3DSubMesh>(*this);
+		const auto span = first + count <= vertices.size() ? std::span<const l3d::L3DVertex>(vertices.data() + first, count)
+		                                                   : std::span<const l3d::L3DVertex>();
+		if (!subMesh->Load(l3d, i, span))
+		{
+			return;
+		}
+		first += count;
+		rebuilt.emplace_back(std::move(subMesh));
+	}
+	_subMeshes = std::move(rebuilt);
+	_highestSkinnedBone.reset();
+}
+
+std::optional<uint16_t> L3DMesh::GetHighestSkinnedBone() const
+{
+	if (!_highestSkinnedBone.has_value())
+	{
+		std::optional<uint16_t> highest;
+		for (const auto& subMesh : _subMeshes)
+		{
+			for (const auto bone : subMesh->GetSkinBones())
+			{
+				highest = std::max(highest.value_or(bone), bone);
+			}
+		}
+		_highestSkinnedBone = highest;
+	}
+	return *_highestSkinnedBone;
+}
+
+void L3DMesh::UpdateSkin(SkinId id, const std::vector<uint16_t>& texels) noexcept
+{
+	if (const auto skin = _skins.find(id); skin != _skins.end())
+	{
+		skin->second->Update(texels.data(), static_cast<uint32_t>(texels.size() * sizeof(uint16_t)));
+	}
+}
+
+void L3DMesh::UpdateBoundingBox() noexcept
+{
+	_boundingBox = {
+	    {std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max()},
+	    {std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest()},
+	};
+	for (const auto& subMesh : _subMeshes)
+	{
+		const auto& bb = subMesh->GetBoundingBox();
+		_boundingBox.minima = glm::min(_boundingBox.minima, bb.minima);
+		_boundingBox.maxima = glm::max(_boundingBox.maxima, bb.maxima);
+	}
 }
 
 bool L3DMesh::LoadFromFilesystem(const std::filesystem::path& path) noexcept
@@ -239,4 +382,127 @@ bool L3DMesh::LoadFromBuffer(const std::vector<uint8_t>& data) noexcept
 	}
 
 	return true;
+}
+
+bool L3DMesh::PickTests(const L3DSubMesh& subMesh, uint32_t objectStatus) noexcept
+{
+	const auto flags = subMesh.GetFlags();
+	return triangle_collide::Tested(subMesh.IsPhysics(), flags.lodMask, flags.status, objectStatus);
+}
+
+std::vector<triangle_collide::Range> L3DMesh::PickRanges(const L3DSubMesh& subMesh)
+{
+	std::vector<triangle_collide::Range> ranges;
+	const auto& primitives = subMesh.GetPrimitives();
+	const auto& collisionRanges = subMesh.GetCollisionRanges();
+	if (collisionRanges.size() == primitives.size() && !collisionRanges.empty())
+	{
+		for (size_t i = 0; i < primitives.size(); ++i)
+		{
+			ranges.push_back(
+			    {.first = collisionRanges[i].first, .count = collisionRanges[i].second, .twoSided = primitives[i].twoSided});
+		}
+	}
+	else
+	{
+		// a sub-mesh with no ranges of its primitives (made at run time) counts as one two-sided primitive
+		ranges.push_back({.first = 0, .count = static_cast<uint32_t>(subMesh.GetCollisionIndices().size()), .twoSided = true});
+	}
+	return ranges;
+}
+
+std::optional<float> L3DMesh::RayIntersect(const glm::vec3& origin, const glm::vec3& direction, glm::vec3* faceNormal,
+                                           uint32_t objectStatus) const noexcept
+{
+	// The game's pick of a drawn object: the sub-meshes it tests in order (PickTests), and in each its primitives and
+	// their triangles in order; the first triangle the ray meets is taken, not the nearest, with the back faces of the
+	// one-sided primitives left out (triangle_collide::First)
+	for (const auto& subMesh : _subMeshes)
+	{
+		if (!PickTests(*subMesh, objectStatus))
+		{
+			continue;
+		}
+		const auto ranges = PickRanges(*subMesh);
+		if (const auto hit = triangle_collide::First(subMesh->GetCollisionPositions(), subMesh->GetCollisionIndices(), ranges,
+		                                             origin, direction);
+		    hit.has_value())
+		{
+			if (faceNormal != nullptr)
+			{
+				*faceNormal = hit->normal;
+			}
+			return hit->t;
+		}
+	}
+	return std::nullopt;
+}
+
+std::optional<L3DMesh::PickHit> L3DMesh::Pick(glm::vec3 origin, glm::vec3 direction, bool onlyJoints, bool withoutJoints,
+                                              std::span<const uint32_t> hidden) const
+{
+	std::optional<PickHit> nearest;
+	for (uint32_t i = 0; i < _subMeshes.size(); ++i)
+	{
+		const auto& subMesh = _subMeshes[i];
+		// The submeshes drawn: no physics, statuses or low levels of detail. Boned submeshes are never picked so.
+		const auto flags = subMesh->GetFlags();
+		if (subMesh->IsPhysics() || flags.status != 0 || (flags.lodMask & 1) != 1 || flags.hasBones)
+		{
+			continue;
+		}
+		const bool jointed = subMesh->GetJoint().has_value();
+		if ((onlyJoints && !jointed) || (withoutJoints && jointed) || std::ranges::find(hidden, i) != hidden.end())
+		{
+			continue;
+		}
+		// Past the submesh's box, the ray can't meet it
+		const auto& box = subMesh->GetBoundingBox();
+		const auto inverse = 1.0f / direction;
+		const auto toMinima = (box.minima - origin) * inverse;
+		const auto toMaxima = (box.maxima - origin) * inverse;
+		if (const float leave = glm::compMin(glm::max(toMinima, toMaxima));
+		    leave < 0.0f || glm::compMax(glm::min(toMinima, toMaxima)) > leave)
+		{
+			continue;
+		}
+		const auto& positions = subMesh->GetCollisionPositions();
+		const auto& indices = subMesh->GetCollisionIndices();
+		for (size_t t = 0; t + 2 < indices.size(); t += 3)
+		{
+			if (indices[t] >= positions.size() || indices[t + 1] >= positions.size() || indices[t + 2] >= positions.size())
+			{
+				continue;
+			}
+			// Moller and Trumbore's test, from either side, as the game picks
+			const auto& a = positions[indices[t]];
+			const auto edge1 = positions[indices[t + 1]] - a;
+			const auto edge2 = positions[indices[t + 2]] - a;
+			const auto across = glm::cross(direction, edge2);
+			const float determinant = glm::dot(edge1, across);
+			if (std::abs(determinant) < 1e-12f)
+			{
+				continue;
+			}
+			const float inverseDeterminant = 1.0f / determinant;
+			const auto fromCorner = origin - a;
+			const float u = glm::dot(fromCorner, across) * inverseDeterminant;
+			if (u < 0.0f || u > 1.0f)
+			{
+				continue;
+			}
+			const auto up = glm::cross(fromCorner, edge1);
+			const float v = glm::dot(direction, up) * inverseDeterminant;
+			if (v < 0.0f || u + v > 1.0f)
+			{
+				continue;
+			}
+			const float distance = glm::dot(edge2, up) * inverseDeterminant;
+			if (distance > 0.0f && (!nearest.has_value() || distance < nearest->distance))
+			{
+				nearest = PickHit {.distance = distance, .subMesh = i};
+			}
+		}
+	}
+	return nearest;
 }

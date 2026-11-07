@@ -1,0 +1,29 @@
+# Hidden keys and cheats
+
+Keys the game reacts to that are not in its list of bindable actions, the developers' own key menus and cheats that were
+left in the program but cut off from the player, and what remains of cheating in the online lobby. The ordinary,
+rebindable keys are owned by [../interface/key_bindings.md](../interface/key_bindings.md); camera bookmarks on the
+number keys by [../camera/places_and_bookmarks.md](../camera/places_and_bookmarks.md). Date-based surprises (special
+days, the night voices, real weather, villagers named from the address book) are in [../pc_integration/](../pc_integration/).
+
+**Progress: 2/5 done, 0 chosen, 0 partial, 0 inferred — 40%**
+
+## Keys outside the bindings
+
+These are tested only after a key has failed to match any bindable action, so rebinding an action onto one of them
+hides it.
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| **Ctrl+Alt+T** saves a "creature snapshot": a file `creaturesnapshot.csn` in the current profile's folder, then plays a confirmation sound and a force-feedback jolt on a force-feedback mouse | pending | not in our tree; works in single player and online alike in the game; the force-feedback part (the jolt) is not ported (user, 2026-10-27, device): the exe starts every force-feedback effect through `GInterface::StartImmersion` (0x5D8A10), which returns at once while no force-feedback mouse was set up |
+| The snapshot holds the camera's position and focus, the time of day and the sky it gives, the weather at the camera, whether the game is online (and the online game's name), then for each of up to eight human players who has a creature: their online player record, the creature's body and size, its head size, its colours, its whole 3D state, and the animation it is playing with its frame | pending | not in our tree; nothing in the game reads the file back; read 2026-11-07: each creature's record holds a raw copy of the engine's creature object as it sits in memory, its pointers included, so its bytes differ between runs of the original itself and have no counterpart in our tree; each record also holds the player's whole profile record, written offline too (strongly indicated, not proven), with the login password as plain text; the offline game name is unread. Porting the file needs the user's choice for that raw copy |
+| **R** (when unbound) repeats the last miracle, if the hand is free to take it | done | `GGame::ProcessKey` 0x63EF20: key 0x13 (R), after `ProcessBindableKeys` found no action for it with its modifier (any modifier), outside the citadel, calls fn_005D0410: the selection not open with the hand ready (fn_005CF1C0), `IsHandReadyForObject`, the player's `ValidForRequestSpellPrevious`, then packet 0x26 (the drawn R's repeat); no fight test, no help. openblack: `input::RepeatMiracleKey` (`Input/MiracleKeys.h`) and `magic::gestures::RepeatKey` from `Game.cpp`'s key-down (tests `MiracleKeys.*`, `RepeatStage.TheRKeyRepeatsTheInterfacesLastMiracleWithTheHandReady`); the debug bar's Gestures window shows what the key would do. Measured in play through the real input path (`refs/realinput/r_repeat.log`, the realinput.real_cast scene with real_cast.txt's steps, then the R key): the food seed cast from the icon and poured, R with the hand empty starts the same icon charging again ("icon 44 starts charging", 62 s) and its seed comes into the hand (101.6 s); R again with that seed held starts nothing (no further charge to the run's end) |
+| **M** (when unbound) starts choosing a miracle with the keyboard, if the hand is free to take it | pending | `GGame::ProcessKey` 0x63EF20: key 0x32 (M), after `ProcessBindableKeys` found no action for it with its modifier (any modifier), outside the citadel, calls fn_005D03D0: the selection not open with the hand ready (fn_005CF1C0, which closes it when the hand is not ready), `IsHandReadyForObject`, then `OpenSelection` (fn_005CF010) on `GSpellSystemInfo` +0x14, `selectionSystemGestureNonCreature` (the spiral's category); no fight test, no help, no gesture success. openblack: `input::SelectMiracleKey` (`Input/MiracleKeys.h`) and `magic::gestures::SelectKey` from `Game.cpp`'s key-down (tests `MiracleKeys.*`, `SelectionKey.*`); the debug bar's Gestures window shows what the key would do. Not measured in play yet |
+| **P** with no Shift, Ctrl or Alt held pauses and unpauses the game | done | `input::PauseKey` (`src/Input/SpeedKeys.h`, from `Game.cpp`'s key-down): P with no Shift, Ctrl or Alt, unless P alone is bound to an action, which takes it, and not inside the temple, toggles `game_clock::Pause`; read 2026-11-07: `GGame::ProcessKey` 0x63EF20 passes a key first to `ProcessBindableKeys` (with its one modifier), sends it to the temple's own key handling while inside, and for key 0x19 (P) pauses or unpauses (`PauseGame` of the paused flag's opposite) only when the modifier word is 0; tests `SpeedKeys.PAlonePausesAndUnpauses`, `SpeedKeys.AnActionBoundToPAloneTakesIt`; the debug bar's "paused" readout shows it |
+
+## Developer key menus left in the program
+
+Four developers had their own debug key menus, each with a help page. The code is still in the released program, but
+nothing calls it: no pointer to it and no call to it exists anywhere in the executable, so no profile name, switch or
+key reaches it.
+

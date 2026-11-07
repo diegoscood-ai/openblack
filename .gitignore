@@ -10,7 +10,9 @@ CMakeUserPresets.json
 cmake_install.cmake
 Makefile
 makefile
-build*
+# build folders and scripts at the top, and any folder named build; not source files whose names start with build
+/build*
+build/
 prebuilt
 GameData
 /bin
@@ -45,3 +47,6 @@ openblack.log
 screenshot.png
 compile_commands.json
 .cache
+
+__pycache__/
+*.pyc

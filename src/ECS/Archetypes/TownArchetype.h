@@ -19,7 +19,10 @@ namespace openblack::ecs::archetypes
 class TownArchetype
 {
 public:
+	/// A new town, with its desire flags
 	static entt::entity Create(int id, const glm::vec3& position, PlayerNames playerOwner, Tribe tribe);
+	/// A town whose desire flags come from elsewhere (a loaded game's own records): none are made
+	static entt::entity CreateWithoutDesireFlags(int id, const glm::vec3& position, PlayerNames playerOwner, Tribe tribe);
 	TownArchetype() = delete;
 };
 } // namespace openblack::ecs::archetypes

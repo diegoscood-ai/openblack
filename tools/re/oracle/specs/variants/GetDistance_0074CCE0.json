@@ -1,0 +1,189 @@
+{
+ "function": "GetDistance_0074CCE0",
+ "symbol": "fn_0074CCE0",
+ "addr": "0x0074CCE0",
+ "conv": "cdecl",
+ "ret": "i32",
+ "notes": "The reactions' distance core (GetDistanceInMetres_0074cd50 calls it): the same code as GUtils::GetDistance 0x74CCB0, checked with the same cases and seed; openblack: gutils::GetDistance.",
+ "setup": [
+  {
+   "addr": "?SetupUtils@GUtils@@SAXXZ",
+   "conv": "cdecl",
+   "ret": "void"
+  }
+ ],
+ "buffers": {
+  "a": [
+   {
+    "name": "a.x",
+    "type": "i32",
+    "gen": "pos"
+   },
+   {
+    "name": "a.z",
+    "type": "i32",
+    "gen": "pos"
+   },
+   {
+    "name": "a.altitude",
+    "type": "f32",
+    "value": 0
+   }
+  ],
+  "b": [
+   {
+    "name": "b.x",
+    "type": "i32",
+    "gen": {
+     "mix": [
+      [
+       50,
+       "pos"
+      ],
+      [
+       30,
+       {
+        "near": "a.x",
+        "delta": {
+         "int": [
+          -1048576,
+          1048576
+         ]
+        }
+       }
+      ],
+      [
+       12,
+       {
+        "near": "a.x",
+        "delta": {
+         "int": [
+          -300,
+          300
+         ]
+        }
+       }
+      ],
+      [
+       8,
+       {
+        "bits": true
+       }
+      ]
+     ]
+    }
+   },
+   {
+    "name": "b.z",
+    "type": "i32",
+    "gen": {
+     "mix": [
+      [
+       50,
+       "pos"
+      ],
+      [
+       30,
+       {
+        "near": "a.z",
+        "delta": {
+         "int": [
+          -1048576,
+          1048576
+         ]
+        }
+       }
+      ],
+      [
+       12,
+       {
+        "near": "a.z",
+        "delta": {
+         "int": [
+          -300,
+          300
+         ]
+        }
+       }
+      ],
+      [
+       8,
+       {
+        "bits": true
+       }
+      ]
+     ]
+    }
+   },
+   {
+    "name": "b.altitude",
+    "type": "f32",
+    "value": 0
+   }
+  ]
+ },
+ "args": [
+  {
+   "type": "ptr",
+   "buffer": "a"
+  },
+  {
+   "type": "ptr",
+   "buffer": "b"
+  }
+ ],
+ "generators": {
+  "pos": {
+   "int": [
+    0,
+    33554431
+   ]
+  }
+ },
+ "cases": [
+  {
+   "a.x": 0,
+   "a.z": 0,
+   "b.x": 0,
+   "b.z": 0
+  },
+  {
+   "a.x": 0,
+   "a.z": 0,
+   "b.x": 65536,
+   "b.z": 0
+  },
+  {
+   "a.x": 0,
+   "a.z": 0,
+   "b.x": 65536,
+   "b.z": 65536
+  },
+  {
+   "a.x": 0,
+   "a.z": 0,
+   "b.x": 1,
+   "b.z": 0
+  },
+  {
+   "a.x": 0,
+   "a.z": 0,
+   "b.x": 33554431,
+   "b.z": 33554431
+  },
+  {
+   "a.x": 0,
+   "a.z": 0,
+   "b.x": "0x7FFFFFFF",
+   "b.z": "0x7FFFFFFF"
+  },
+  {
+   "a.x": 0,
+   "a.z": 0,
+   "b.x": "0x80000000",
+   "b.z": 0
+  }
+ ],
+ "random_cases": 6000,
+ "seed": 107
+}

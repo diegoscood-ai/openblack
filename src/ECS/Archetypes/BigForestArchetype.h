@@ -19,8 +19,12 @@ namespace openblack::ecs::archetypes
 class BigForestArchetype
 {
 public:
+	/// A new big forest: it makes its own forest and holds its info's wood at its scale
 	static entt::entity Create(const glm::vec3& position, BigForestInfo type, uint32_t unknown, float yAngleRadians,
 	                           float scale);
+	/// A big forest of a forest that is there already (its key in the forest list), holding that wood
+	static entt::entity Create(const glm::vec3& position, BigForestInfo type, float yAngleRadians, float scale,
+	                           uint32_t forestId, float wood);
 	BigForestArchetype() = delete;
 };
 } // namespace openblack::ecs::archetypes

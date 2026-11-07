@@ -14,6 +14,7 @@
 #include <cstdlib>
 #include <cstring>
 
+#include <algorithm>
 #include <fstream>
 #include <stdexcept>
 
@@ -158,6 +159,9 @@ int LHVM::LoadBinary(const LHVMFile& file)
 	}
 
 	_tasks.clear();
+	_heldTasks.clear();
+	_resumeFrom.clear();
+	_breakpoints.clear();
 	_ticks = 0;
 	_currentLineNumber = 0;
 	_highestTaskId = 0;
@@ -178,6 +182,26 @@ int LHVM::LoadBinary(const LHVMFile& file)
 		}
 	}
 
+	return EXIT_SUCCESS;
+}
+
+int LHVM::UpdateProgram(const LHVMFile& file)
+{
+	if (!file.IsLoaded() || file.GetInstructions().size() < _instructions.size() ||
+	    file.GetVariablesNames().size() < _variablesNames.size() || file.GetScripts().size() < _scripts.size())
+	{
+		return EXIT_FAILURE;
+	}
+	_instructions = file.GetInstructions();
+	_scripts = file.GetScripts();
+	_data = file.GetData();
+	const auto& names = file.GetVariablesNames();
+	for (auto i = _variablesNames.size(); i < names.size(); ++i)
+	{
+		_variables.emplace_back(DataType::Float, VMValue(0.0f), names[i]);
+	}
+	_variablesNames = names;
+	_highestScriptId = static_cast<uint32_t>(_scripts.size());
 	return EXIT_SUCCESS;
 }
 
@@ -203,6 +227,9 @@ int LHVM::RestoreState(const std::filesystem::path& filepath)
 	_auto = file.GetAutostart();
 
 	_tasks.clear();
+	_heldTasks.clear();
+	_resumeFrom.clear();
+	_breakpoints.clear();
 	for (const auto& task : file.GetTasks())
 	{
 		_tasks.emplace(task.id, task);
@@ -292,6 +319,7 @@ void LHVM::Reboot()
 	_auto.clear();
 	_instructions.clear();
 	_data.clear();
+	_breakpoints.clear();
 
 	_ticks = 0;
 	_highestTaskId = 0;
@@ -324,8 +352,8 @@ int LHVM::SaveState(const std::filesystem::path& filepath)
 
 	LHVMFile file(LHVMVersion::BlackAndWhite, _variablesNames, _instructions, _auto, _scripts, _data, _mainStack, _variables,
 	              tasks, _ticks, _currentLineNumber, _highestTaskId, _highestScriptId, _executedInstructions);
-	file.Write(filepath);
-	return EXIT_SUCCESS;
+	// a file that does not open or is not written whole is a failure, so that a save keeps the old file
+	return file.Write(filepath) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
 void LHVM::LookIn(const ScriptType allowedScriptTypesMask)
@@ -333,7 +361,7 @@ void LHVM::LookIn(const ScriptType allowedScriptTypesMask)
 	// execute exception handlers first
 	for (auto& [id, task] : _tasks)
 	{
-		if (task.type & allowedScriptTypesMask)
+		if ((task.type & allowedScriptTypesMask) && !IsParked(id))
 		{
 			_currentStack = &task.stack;
 			if (task.inExceptionHandler)
@@ -343,10 +371,11 @@ void LHVM::LookIn(const ScriptType allowedScriptTypesMask)
 			else if (task.waitingTaskId == 0)
 			{
 				task.currentExceptionHandlerIndex = 0;
-				if (GetExceptionHandlersCount() > 0)
+				// Checked for this task itself: the conditions that end its loops (until) and the handlers of its blocks
+				if (GetExceptionHandlersCount(task) > 0)
 				{
 					task.pevInstructionAddress = task.instructionAddress;
-					task.instructionAddress = GetCurrentExceptionHandlerIp(task.currentExceptionHandlerIndex);
+					task.instructionAddress = GetCurrentExceptionHandlerIp(task, task.currentExceptionHandlerIndex);
 					task.inExceptionHandler = true;
 					CpuLoop(task);
 				}
@@ -357,7 +386,7 @@ void LHVM::LookIn(const ScriptType allowedScriptTypesMask)
 	// execute normal code
 	for (auto& [id, task] : _tasks)
 	{
-		if (task.type & allowedScriptTypesMask)
+		if ((task.type & allowedScriptTypesMask) && !IsParked(id))
 		{
 			_currentStack = &task.stack;
 			if (!task.inExceptionHandler)
@@ -367,20 +396,20 @@ void LHVM::LookIn(const ScriptType allowedScriptTypesMask)
 		}
 	}
 
-	// handle tasks termination
+	// End the tasks that have stopped, count the turn and unlock the waiting tasks, in one pass in list order. After
+	// each task it ends the pass starts again from the first task, as the original's does, so every task before an
+	// ended one counts the turn once more
 	for (auto iter = _tasks.begin(); iter != _tasks.end();)
 	{
-		auto& task = (*iter++).second;
+		auto& [id, task] = *iter;
 		if (task.stop)
 		{
-			StopTask(task.id);
+			const auto ended = id;
+			StopTask(ended);
+			iter = _tasks.begin();
+			continue;
 		}
-	}
-
-	// unlock waiting tasks
-	for (auto& [id, task] : _tasks)
-	{
-		if (task.type & allowedScriptTypesMask)
+		if ((task.type & allowedScriptTypesMask) && !IsParked(id))
 		{
 			task.ticks++;
 			if (task.waitingTaskId != 0 && !TaskExists(task.waitingTaskId))
@@ -389,6 +418,7 @@ void LHVM::LookIn(const ScriptType allowedScriptTypesMask)
 				task.instructionAddress++;
 			}
 		}
+		++iter;
 	}
 
 	_ticks++;
@@ -506,6 +536,8 @@ void LHVM::StopTask(uint32_t taskNumber)
 		}
 
 		_tasks.erase(taskNumber);
+		_heldTasks.erase(taskNumber);
+		_resumeFrom.erase(taskNumber);
 	}
 	else
 	{
@@ -627,7 +659,11 @@ uint32_t LHVM::GetTicksCount()
 
 void LHVM::PushElaspedTime()
 {
-	const float time = GetTicksCount() * 10.0f;
+	// The tick count (one more at the end of every script step, 0 on Reboot, saved) times 0.1f, stored as a float. The
+	// original's script library runs on the game thread with the game's FPU at 24 bits (it never sets the control
+	// word itself), so the product is rounded once to a float: the double product (exact below 2^29 ticks) cast to
+	// float
+	const auto time = static_cast<float>(static_cast<double>(GetTicksCount()) * static_cast<double>(0.1f));
 	Pushf(time);
 }
 
@@ -637,22 +673,14 @@ VMVar& LHVM::GetVar(VMTask& task, const uint32_t id)
 	return (id > offset) ? task.localVars.at(id - offset - 1) : _variables.at(id);
 }
 
-uint32_t LHVM::GetExceptionHandlersCount()
+uint32_t LHVM::GetExceptionHandlersCount(const VMTask& task)
 {
-	if (_currentTask != nullptr)
-	{
-		return _currentTask->exceptionHandlerIps.size();
-	}
-	return 0;
+	return static_cast<uint32_t>(task.exceptionHandlerIps.size());
 }
 
-uint32_t LHVM::GetCurrentExceptionHandlerIp(const uint32_t index)
+uint32_t LHVM::GetCurrentExceptionHandlerIp(const VMTask& task, const uint32_t index)
 {
-	if (_currentTask != nullptr)
-	{
-		return _currentTask->exceptionHandlerIps.at(_currentTask->exceptionHandlerIps.size() - index - 1);
-	}
-	return 0;
+	return task.exceptionHandlerIps.at(task.exceptionHandlerIps.size() - index - 1);
 }
 
 void LHVM::PrintInstruction(const VMTask& task, const VMInstruction& instruction)
@@ -722,6 +750,10 @@ void LHVM::CpuLoop(VMTask& task)
 	task.iield = false;
 	while (task.waitingTaskId == 0)
 	{
+		if ((!_breakpoints.empty() || !_heldTasks.empty() || !_resumeFrom.empty()) && DebuggerStops(task))
+		{
+			break;
+		}
 		_currentTask = &task;
 		_executedInstructions++;
 		const auto& instruction = _instructions.at(task.instructionAddress);
@@ -737,6 +769,90 @@ void LHVM::CpuLoop(VMTask& task)
 		task.instructionAddress++;
 	}
 	_currentTask = nullptr;
+}
+
+bool LHVM::DebuggerStops(VMTask& task)
+{
+	const auto address = task.instructionAddress;
+	if (auto held = _heldTasks.find(task.id); held != _heldTasks.end())
+	{
+		if (held->second == 0)
+		{
+			return true;
+		}
+		--held->second;
+		return false;
+	}
+	bool resuming = false;
+	if (auto resume = _resumeFrom.find(task.id); resume != _resumeFrom.end())
+	{
+		resuming = resume->second == address;
+		_resumeFrom.erase(resume);
+	}
+	if (!resuming && _breakpoints.contains(address))
+	{
+		_heldTasks[task.id] = 0;
+		return true;
+	}
+	return false;
+}
+
+bool LHVM::IsParked(uint32_t taskNumber) const
+{
+	const auto held = _heldTasks.find(taskNumber);
+	return held != _heldTasks.end() && held->second == 0;
+}
+
+void LHVM::SetVariable(uint32_t id, VMValue value)
+{
+	if (id < _variables.size())
+	{
+		_variables.at(id).value = value;
+	}
+}
+
+void LHVM::SetTaskVariable(uint32_t taskNumber, size_t index, VMValue value)
+{
+	if (auto task = _tasks.find(taskNumber); task != _tasks.end() && index < task->second.localVars.size())
+	{
+		task->second.localVars.at(index).value = value;
+	}
+}
+
+void LHVM::SetBreakpoint(uint32_t address, bool enabled)
+{
+	if (enabled)
+	{
+		_breakpoints.insert(address);
+	}
+	else
+	{
+		_breakpoints.erase(address);
+	}
+}
+
+void LHVM::HoldTask(uint32_t taskNumber)
+{
+	if (TaskExists(taskNumber))
+	{
+		_heldTasks[taskNumber] = 0;
+	}
+}
+
+void LHVM::StepTask(uint32_t taskNumber)
+{
+	if (auto held = _heldTasks.find(taskNumber); held != _heldTasks.end())
+	{
+		++held->second;
+	}
+}
+
+void LHVM::ContinueTask(uint32_t taskNumber)
+{
+	if (auto task = _tasks.find(taskNumber); task != _tasks.end() && _heldTasks.erase(taskNumber) > 0)
+	{
+		_resumeFrom[taskNumber] = task->second.instructionAddress;
+	}
 }
 
 float LHVM::Fmod(float a, float b)
@@ -796,7 +912,8 @@ void LHVM::Opcode03Pop(VMTask& task, const VMInstruction& instruction)
 		}
 		if (var.type == DataType::Object)
 		{
-			RemoveReference(newVal.uintVal);
+			// the object the variable held until now
+			RemoveReference(var.value.uintVal);
 		}
 		var.value = newVal;
 		var.type = type;
@@ -858,6 +975,20 @@ void LHVM::Opcode05Sys(VMTask& /*task*/, const VMInstruction& instruction)
 			_currentStack->popCount = 0;
 			InvokeNativeCallEnterCallback(id);
 			func.impl();
+			// Unimplemented functions often leave their arguments on the stack, which shifts every later argument
+			// (the original's native functions always pop them): drop them from under whatever the function pushed
+			auto& stack = *_currentStack;
+			const auto in = static_cast<uint32_t>(std::max(func.stackIn, 0));
+			if (stack.popCount == 0 && in > 0 && stack.count >= in + stack.pushCount)
+			{
+				const auto top = stack.count - stack.pushCount;
+				for (uint32_t i = 0; i < stack.pushCount; ++i)
+				{
+					stack.values.at(top - in + i) = stack.values.at(top + i);
+					stack.types.at(top - in + i) = stack.types.at(top + i);
+				}
+				stack.count -= in;
+			}
 			InvokeNativeCallExitCallback(id);
 		}
 		else // if impl not provided, then just adjust the stack
@@ -1126,87 +1257,53 @@ void LHVM::Opcode13Or(VMTask& /*task*/, const VMInstruction& /*instruction*/)
 
 void LHVM::Opcode14Eq(VMTask& /*task*/, const VMInstruction& instruction)
 {
-	VMValue a0;
-	VMValue a1;
-	VMValue a2;
-	VMValue b0;
-	VMValue b1;
-	VMValue b2;
+	// Integers, booleans and floats only, as the original's script library compares them; a float pair that can't be
+	// ordered (a NaN) counts as equal there. Any other type takes nothing off the stack and gives false
 	switch (instruction.type)
 	{
 	case DataType::Int:
 	case DataType::Boolean:
-		b0 = Pop();
-		a0 = Pop();
-		Pushb(a0.intVal == b0.intVal);
+	{
+		const auto b = Pop();
+		const auto a = Pop();
+		Pushb(a.intVal == b.intVal);
 		break;
+	}
 	case DataType::Float:
-		b0 = Pop();
-		a0 = Pop();
-		Pushb(a0.floatVal == b0.floatVal);
+	{
+		const auto b = Pop();
+		const auto a = Pop();
+		Pushb(!(a.floatVal < b.floatVal) && !(a.floatVal > b.floatVal));
 		break;
-	case DataType::Vector:
-		b0 = Pop();
-		b1 = Pop();
-		b2 = Pop();
-		a0 = Pop();
-		a1 = Pop();
-		a2 = Pop();
-		Pushb(a0.floatVal == b0.floatVal && a1.floatVal == b1.floatVal && a2.floatVal == b2.floatVal);
-		break;
-	case DataType::Object:
-		b0 = Pop();
-		a0 = Pop();
-		Pushb(a0.uintVal == b0.uintVal);
-		break;
+	}
 	default:
-		Pop();
-		Pop();
 		Pushb(false);
-		SignalError(ErrorCode::ErrInvalidType);
 	}
 }
 
 void LHVM::Opcode15Neq(VMTask& /*task*/, const VMInstruction& instruction)
 {
-	VMValue a0;
-	VMValue a1;
-	VMValue a2;
-	VMValue b0;
-	VMValue b1;
-	VMValue b2;
+	// The opposite of equal for the same three types; any other type takes nothing off the stack and, as the
+	// original's script library gives the opposite of its false, gives true
 	switch (instruction.type)
 	{
 	case DataType::Int:
 	case DataType::Boolean:
-		b0 = Pop();
-		a0 = Pop();
-		Pushb(a0.intVal != b0.intVal);
+	{
+		const auto b = Pop();
+		const auto a = Pop();
+		Pushb(a.intVal != b.intVal);
 		break;
+	}
 	case DataType::Float:
-		b0 = Pop();
-		a0 = Pop();
-		Pushb(a0.floatVal != b0.floatVal);
+	{
+		const auto b = Pop();
+		const auto a = Pop();
+		Pushb(a.floatVal < b.floatVal || a.floatVal > b.floatVal);
 		break;
-	case DataType::Vector:
-		b0 = Pop();
-		b1 = Pop();
-		b2 = Pop();
-		a0 = Pop();
-		a1 = Pop();
-		a2 = Pop();
-		Pushb(a0.floatVal != b0.floatVal || a1.floatVal != b1.floatVal || a2.floatVal != b2.floatVal);
-		break;
-	case DataType::Object:
-		b0 = Pop();
-		a0 = Pop();
-		Pushb(a0.uintVal != b0.uintVal);
-		break;
+	}
 	default:
-		Pop();
-		Pop();
-		Pushb(false);
-		SignalError(ErrorCode::ErrInvalidType);
+		Pushb(true);
 	}
 }
 
@@ -1348,7 +1445,34 @@ void LHVM::Opcode23Cast(VMTask& task, const VMInstruction& instruction)
 	}
 	else // Mode::CAST
 	{
-		Push(Pop(), instruction.type);
+		// The original's INTCAST (opcode 23, a switch on the target type) converts the value for two types and only
+		// retags it for the others:
+		switch (instruction.type)
+		{
+		case DataType::Int:
+		{
+			// the bits read as a float, truncated to a 64-bit integer, of which the low 32 bits are kept
+			const auto f = Pop().floatVal;
+			int32_t i = 0;
+			if (std::isfinite(f) && std::fabs(f) < 9.2233720368547758e18f)
+			{
+				i = static_cast<int32_t>(static_cast<uint32_t>(static_cast<uint64_t>(static_cast<int64_t>(f))));
+			}
+			Push(VMValue(i), DataType::Int);
+			break;
+		}
+		case DataType::Float:
+			// the bits read as an unsigned 32-bit integer
+			Push(VMValue(static_cast<float>(Pop().uintVal)), DataType::Float);
+			break;
+		case DataType::Unk5:
+			// nothing, the value stays as it was
+			break;
+		default:
+			// vector, object, boolean: the same bits, the new type
+			Push(Pop(), instruction.type);
+			break;
+		}
 	}
 }
 
@@ -1389,7 +1513,7 @@ void LHVM::Opcode27IterExcept(VMTask& task, const VMInstruction& /*instruction*/
 	task.currentExceptionHandlerIndex++;
 	if (task.currentExceptionHandlerIndex < task.exceptionHandlerIps.size())
 	{
-		task.instructionAddress = GetCurrentExceptionHandlerIp(task.currentExceptionHandlerIndex) - 1;
+		task.instructionAddress = GetCurrentExceptionHandlerIp(task, task.currentExceptionHandlerIndex) - 1;
 	}
 	else
 	{
@@ -1401,10 +1525,11 @@ void LHVM::Opcode27IterExcept(VMTask& task, const VMInstruction& /*instruction*/
 
 void LHVM::Opcode28BrkExcept(VMTask& task, const VMInstruction& /*instruction*/)
 {
-	if (_currentTask != nullptr)
-	{
-		_currentTask->exceptionHandlerIps.clear();
-	}
+	// the handler that broke out goes with the ones inside it (the handlers before it in the turn's order); the outer
+	// ones stay, so a block round the loop keeps its own handlers
+	auto& handlers = task.exceptionHandlerIps;
+	const auto broken = std::min<size_t>(static_cast<size_t>(task.currentExceptionHandlerIndex) + 1, handlers.size());
+	handlers.erase(handlers.end() - static_cast<std::ptrdiff_t>(broken), handlers.end());
 
 	task.pevInstructionAddress = 0;
 	task.instructionAddress++;

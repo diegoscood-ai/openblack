@@ -1,0 +1,21 @@
+{
+ "function": "ConvertAngle3DToGame",
+ "symbol": "?ConvertAngle3DToGame@GUtils@@SAIM@Z",
+ "addr": "0x0074DC30",
+ "conv": "cdecl",
+ "ret": "u32",
+ "notes": "GUtils::ConvertAngle3DToGame(float r): __ftol(r x 325.94931) & 0x7FF. __ftol 0x7A1400 takes its SSE2 branch (cvttsd2si) or its x87 one (fistp qword, the low 32 bits) by HasSSE2 [0xE83A20], set by the machine baseline (LH3DP3::CheckCPU): they differ when r x 325.9 is out of the int32 range. openblack: gutils::ConvertAngle3DToGame (src/ECS/GUtilsAngle.h), FtoL = the SSE2 branch.",
+ "args": [
+  {"name": "r", "type": "f32", "gen": {"mix": [
+   [60, {"uniform": [-7, 7]}],
+   [20, {"uniform": [-1000, 1000]}],
+   [12, {"loguniform": [1e-6, 1e12], "signed": true}],
+   [8, {"choice": [0, "-0", 3.1415927, 6.2831855, -0.5, "inf", "-inf", "nan"]}]
+  ]}}
+ ],
+ "edges": {
+  "r": [0, "-0", 0.001, 0.0030679617, 3.1415927, 6.2831855, -0.5, 6588000, 6600000, 1e7, -1e7, 1e10, 3e16, 1e20, "inf", "-inf", "nan"]
+ },
+ "random_cases": 4000,
+ "seed": 108
+}

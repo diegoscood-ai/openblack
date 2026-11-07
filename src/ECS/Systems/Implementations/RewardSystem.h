@@ -1,0 +1,42 @@
+/******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+#pragma once
+
+#include <vector>
+
+#include "ECS/Systems/RewardSystemInterface.h"
+
+#if !defined(LOCATOR_IMPLEMENTATIONS)
+#error "ECS System implementations should only be included in Locator.cpp"
+#endif
+
+namespace openblack::ecs::systems
+{
+
+class RewardSystem final: public RewardSystemInterface
+{
+public:
+	entt::entity Create(glm::vec3 position, RewardObjectInfo type, std::optional<PlayerNames> player, entt::entity town,
+	                    bool fromSky) override;
+	bool Tap(entt::entity chest, PlayerNames player) override;
+	[[nodiscard]] bool IsOpened(entt::entity chest) const override;
+	void Update(float milliseconds) override;
+	void ProcessTurn() override;
+	void CollectDrawFrame(particles::draw::Frame& frame) const override;
+	[[nodiscard]] const std::vector<reward::DustDraw>& GetDustSprites() const override { return _dust; }
+
+private:
+	/// This frame's dust sprites, made at the end of Update
+	std::vector<reward::DustDraw> _dust;
+	/// The next reward's serial
+	uint32_t _nextSerial {1};
+};
+
+} // namespace openblack::ecs::systems

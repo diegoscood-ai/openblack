@@ -98,6 +98,7 @@ public:
 
 	[[nodiscard]] bool IsInvalid() const { return this->_type == Type::Invalid; }
 	[[nodiscard]] bool IsEOF() const { return this->_type == Type::EndOfFile; }
+	[[nodiscard]] bool IsEOL() const { return this->_type == Type::EndOfLine; }
 	[[nodiscard]] bool IsIdentifier() const { return this->_type == Type::Identifier; }
 	[[nodiscard]] bool IsString() const { return this->_type == Type::String; }
 	[[nodiscard]] bool IsOP(Operator op) const { return this->_type == Type::Operator && this->_u.op == op; }
@@ -128,6 +129,8 @@ private:
 	std::string _s;
 };
 
+/// Cuts a land script into tokens: the script-content tests count the shipped scripts' lines with it. The game reads a
+/// land script word by word as the original does (LineReader.h, Script::Load)
 class Lexer
 {
 public:
@@ -140,6 +143,11 @@ private:
 
 	[[nodiscard]] bool HasMore() const noexcept { return _current != _end; }
 
+public:
+	/// Line of the next character, from 1
+	[[nodiscard]] int GetLine() const noexcept { return _currentLine; }
+
+private:
 	Token GatherIdentifer();
 	Token GatherNumber();
 	Token GatherString();

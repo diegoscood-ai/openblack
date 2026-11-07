@@ -1044,3 +1044,4 @@ See `CHANGELOG.md`.
 - joint503 (554d177d7): a computer god sends its creature home, to help a town or a building site, or to defend a town, at the original's journey speed; all 45 runnable god hand actions now ported; fid and cycle identical.
 - joint504 (619db413e): a traced computer mind logs each action it runs and its hand steps, and three rival-god rows done from traced Land 2 and 5 control runs (growing towns, breeder disciples, disciples for a town's needs); fid and cycle identical.
 - joint505 (docs only): the computer god's repeated worship-site moves on Land 5 read as the original's own loop (its towns' worship rate is 0 in the original too).
+- joint506 (docs only): three other players' hand rows done on existing tests, and the hand's size on a creature noted as one unit off the original's rounding in 178 of 4901 sizes (to be fixed).

@@ -1022,3 +1022,4 @@ See `CHANGELOG.md`.
 - joint481 (cc4bdb2f0): the M key opens the miracle selection as the original; creature, rival-god, town and miracle rows closed by new tests and kept runs; the documentation audit's first batch (rules agreed with the rule book, stale counts and clauses, the readme); fid, cycle and the hand demos identical.
 - joint482 (f7f9d2bbf): a double click takes the system's box as the original; the documentation audit's second batch (tutorial island reasons, the puzzles' put-back share, the music page's wording); fid, cycle and the hand demos identical.
 - joint483 (533f6696d): a computer god attacks a creature with its own on the angry leash, its two leash steps through the leash interface, and miracle sound rows closed by tests (the tornado's roar, food, wood and water loops); fid and cycle identical.
+- joint484 (f13a951ac): the hidden phone box played to its end by real input in the testbed, 12 rows done; fid and cycle identical.

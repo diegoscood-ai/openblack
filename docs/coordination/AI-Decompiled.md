@@ -1013,3 +1013,4 @@ See `CHANGELOG.md`.
 - joint472 (docs only): 12 rows done, finished by rows already done (creature swaps, the stones minigames, the guide's stand-off, Nemesis's rival creatures, the breeder's line-up, the piper's flight).
 - joint473 (b4992d535): rival gods rows from kept runs and the user's play (4 done, 8 to 60%), The Fire's water cast and The Rejuvenator's influence evidence by real input; fid and cycle identical.
 - joint474 (146f0c35e): the computer gods' prayer power and icon-or-gesture casts done with tests, their cast timed by the computer player's timer (an extraction), the hand's actions counted (28 of 58 tested); fid and cycle identical.
+- joint475 (docs only): 5 engine and hand rows the original never runs moved to not-in-the-original, 3 engine rows narrowed to what runs.

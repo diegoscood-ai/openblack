@@ -1026,3 +1026,4 @@ See `CHANGELOG.md`.
 - joint485 (b2b3b136c): the scripts pages swept against kept runs (16 rows done, 11 to their shortcut share, unused natives and commands to not-in-the-original), and the blast's whoosh and the fireball's hit sounds closed by tests; fid and cycle identical.
 - joint486 (ea16d04dd): the phone box's held and dragged box refused by the hand and two more of its rows, and SET_PROPERTY of no thing logging the object no longer valid as the original; fid and cycle identical.
 - joint487 (docs only): building and rendering rows swept (5 done, stale clauses, one row to not-in-the-original) and the creature snapshot's file layout noted.
+- joint488 (docs only): the R key's repeat measured in play through the real input path (1 done).

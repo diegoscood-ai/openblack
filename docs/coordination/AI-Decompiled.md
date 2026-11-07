@@ -1040,3 +1040,4 @@ See `CHANGELOG.md`.
 - joint499 (docs only): the help spirits' info table read (1 row done; its unused fields to not-in-the-original).
 - joint500 (52c97429b): a computer god teaches its creature an ordinary action at the nearest totem, raising it; fid and cycle identical.
 - joint501 (f728c8735): a land's start message puts the dialogs away first, and putting all dialogs away covers the skirmish, new player, land info, end and message boxes, with a temple room change making the interface active, as the original; fid, cycle and the temple scenes identical.
+- joint502 (94c45c6d7): a creature's walk keeps the pace it last got (raffclar's #573, refit), how long since each action ages only as what it does stops, from its making's random start, as the original, and three miracle tests; fid and cycle identical; 26 creature scenes moved by the new novelty start (first plans from turn 18), 30 renewed as stale (joint501's exe gives the same).

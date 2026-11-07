@@ -1011,3 +1011,4 @@ See `CHANGELOG.md`.
 - joint470 (docs only): 3 worship site lesson rows done from the user's natural play; a vanilla-bug note withdrawn (the demo's fill does yield each pass).
 - joint471 (docs only): a pending note on shields: a small drawn shield let Khazar's boulders through, to be compared with the original.
 - joint472 (docs only): 12 rows done, finished by rows already done (creature swaps, the stones minigames, the guide's stand-off, Nemesis's rival creatures, the breeder's line-up, the piper's flight).
+- joint473 (b4992d535): rival gods rows from kept runs and the user's play (4 done, 8 to 60%), The Fire's water cast and The Rejuvenator's influence evidence by real input; fid and cycle identical.

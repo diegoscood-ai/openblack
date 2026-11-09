@@ -1,0 +1,103 @@
+# Creature casting
+
+A creature can cast the miracles it has learnt. It chooses a miracle the way it chooses any action, to satisfy a desire:
+lightning or a fireball when angry, a heal or food when kind, a spell on another creature when playful. It walks to a
+good distance, turns, may draw the miracle's gesture, then takes up its casting pose while the miracle flows from its
+hands. It pays with its own energy, not the player's prayer power, and a miracle it has only half learnt may fizzle.
+What each miracle does belongs to [../miracles/](../miracles/); how miracles are learnt is in
+[learning_by_observation.md](learning_by_observation.md); casting in a fight is in [fighting.md](fighting.md).
+
+**Progress: 35/61 done, 0 chosen, 7 partial, 7 inferred — 65%**
+
+How the original does it, in our wiki: [The creature: groundwork, random streams and what is unknown](../../../creature/casting.md).
+
+## Which miracles it may try
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| It may try a miracle once it has seen it half the times it needs to learn it | done | `mind_detail::MayCast` with `creature_spell_casting::MayTry`, the predicate 0x4D2940; tests `CreatureMindCastingTest.ItMayTryAMiracleSeenHalfTheTimesItNeeds`, `CreatureSpellCasting.ItTriesAtHalfTheSightingsAndFizzlesShortOfAllButOne`; see [casting.md](../../../creature/casting.md#casting-miracles-what-openblack-does) |
+| A try short of all but one of the sightings it needs fizzles, and counts as one more sighting, so trying teaches it | done | `mind_detail::TryMiracle` (`creature_spell_casting::TrySucceeds`); test `CreatureMindCastingTest.ATryShortOfAllButOneSightingFizzlesAndCountsAsOneMore`; see [casting.md](../../../creature/casting.md#casting-miracles-what-openblack-does) |
+| A fizzled try shows a light bulb over its head | inferred | the original's fizzle show (0x509EC0, [casting.md](../../../creature/casting.md#the-fizzle-shown)) plays the embarrassed and sad animations and adds no light bulb; a "Lightbulb" sub-action exists (`CREATURE_SUB_STATE_ACTIONS_LIGHTBULB`, 0x74; its name at 0xBE5DD8), but who adds it is not traced |
+| After a fizzle it is embarrassed, and one time in two sad as well | done | `CreatureMindSystem::ShowFizzle` (73, then 56 on `GameRand(2) == 0`, sadder by up to 0.3), as 0x509EC0; testbed `miracles.creature_cast_fizzles` |
+| It tries a power-up of a miracle only once grown past a stage | done | `mind_detail::MayCast` (past the seventh stage, 0x4D2AF0), the power-up rows by name (`IsPowerUpCast`); test `CreatureMindCastingTest.APowerUpOnlyOnceGrownPastItsSeventhStage` |
+| Which miracles a creature knows from the start comes from a field of its knowledge, as the original's | inferred | issue #172: openblack marks miracles known at the start where the original may not; the field is not checked against the exe |
+| How skilled it is at a miracle can make it miss its aim | inferred | the game keeps a skill per action (`CreatureLearning::GetSkillAtAction`, `FullSkillCount` in bw1-decomp), read by the friends' teaching rows; no reading of the cast's aim using it has been found |
+| Scripts can give it the most skill at a miracle | inferred | no script native that sets a skill has been found in our reading of the natives; what the skill does to a cast is not read |
+| It can't cast a miracle at something it can't be cast at; trying leaves it frustrated, wanting food above all | done | `mind_detail::TryMiracle` with `MagicSystemInterface::CanCreatureCastAt`; the hunger made fully dominant, the two refusals of [casting.md](../../../creature/casting.md#only-two-refusals-make-it-hungry); test `CreatureMindCastingTest.WithoutTheEnergyOrWhereItCantCastItWantsFoodAboveAll` |
+
+## Paying for it
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| A creature pays with its body: chants for its size and strength over the energy it has above a floor | done | `creature_spell_casting::ChantsToEnergy`, `MostChants`, `CanCast`; `magic::creator::CreatureCanPayFor`; test `CreatureSpellCasting.ItPaysWithItsEnergyAndTires` |
+| Paying costs energy (by a share for the kind of miracle) and tires it, by no more than seven tenths at a time | done | `creature_spell_casting` (`CreatureSpellCasting.h`), paid through `MagicCreatureCasting.cpp`; test `CreatureSpellCasting.NoMoreThanItHasNorTiredByMoreThanSevenTenths` |
+| It can't cast a miracle that would leave it too exhausted to pay for making it | done | `creature_spell_casting::CanCast` (0.85), tested by `mind_detail::MayCast` and the try; tests `CreatureSpellCasting.TooExhaustedItCantCast`, `CreatureMindCastingTest.NotWhenTheBodyCantPayForIt`; testbed `miracles.creature_too_tired_to_cast` |
+| A miracle that lasts keeps drawing on the creature while it runs | done | `magic::creator::MaintainSpell` for `Kind::Creature` (`creature_spell_casting::MaintainSpell`); tests in `test/test_creature_spell_casting.cpp` |
+| The player's prayer power is not spent on the creature's miracles | done | the creature pays with its body (`CreatureCanPayFor`), not its player's prayer power; test `MagicCreatureCastingTest.TheBodysEnergyIsTestedAtTheSizeItIsDrawnAt` |
+| In a fight each miracle costs stamina, and it can't cast one it hasn't the stamina for | done | `mind_detail::TryMiracle` (`creature_spell_casting::StaminaCost`); the fight's try `creature_fight::FightSpellTarget`; tests `CreatureMindCastingTest.InAFightATryPaysStaminaAndNoneWithoutEnough`, `CreatureSpellCasting.FightStaminaAndMagnitude` |
+
+## How it casts
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| One time in five it first shows how it feels: angry before lightning, kind before a helpful miracle, playful before a spell on a creature | done | `creature_mind::CastAt` (`CreatureCastAgenda.cpp`), the constructs 0x4A63B0, 0x4A6910, 0x4A6BE0; the explosion one time in three, read in v1.42 on 2026-10-18 ([casting.md](../../../creature/casting.md#the-attack-shield-and-impress-constructs)); tests `CreatureCastAgenda.OneTimeInFiveItShowsHowItFeelsFirst`, `CreatureCastAgenda.AnExplosionFromAHundredAngryOneTimeInThreeShownAmazed` |
+| Lightning is cast from fifty away, backing off to ten more than its height | done | `creature_mind::CastAt`, `CastStyle::Lightning`; test `CreatureCastAgenda.LightningFromFiftyBackingOffToTenMoreThanItsHeight` |
+| A helpful miracle is cast from twice its height; a spell on a creature from five times, backing off to twice | done | `creature_mind::CastAt`, `CastStyle::Helpful` and `Playful`; tests `CreatureCastAgenda.AttacksFromFiveTimesItsHeightBackingOffToTwice`, `CreaturePlanActionsCasting.TheGamesCastsInTheirStyles` |
+| Getting away from the thing, it goes to the nearest clear area as wide as it is tall | done | `creature_cast_moves::GetAwayPoint` and its clear area (`CreatureCastMoves.h`); tests `CreatureCastMoves.GettingAway`, `CreatureMindCastingTest.GettingAwayItIsDoneOnceFarEnoughAndFailsWithNowhereClear` |
+| It turns to face the thing, within an eighth of a turn | done | `creature_cast_moves` (`CreatureCastMoves.h`), the turn sub-move in `mind_detail::StepSubMove`; tests `CreatureMindCastingTest.FacingItHoldsStillTheStepsSecondsInWholeTurns`, `CreatureMindCastingTest.FacingWaitsWhileTheBodyIsBusyAndTurnsAgainWhenNotFacing` |
+| Going near gets stuck: it gives up and holds back that desire for a while | partial 80% | `GoNear` in `CreatureMindCasting.cpp` (stuck after 50 turns, the desire held back 10 s), as the going near's step 7 ([casting.md](../../../creature/casting.md#going-near-backing-off-and-turning)); no test of the stuck rule |
+| It takes up its casting pose: start, loop, end; the miracle is cast as the loop begins, held three seconds, and let go as the pose ends | done | `Step::Kind::Cast` (`CreatureIdleMind.cpp`, the hold in whole turns) and `ReleaseCreatureCast`; the fight's own in `CreatureFightSystem`; tests `CreatureCastAgenda.TheMiracleIsCastAsThePoseLoopsAndHeldThirtyTurns`, `CreatureCastAgenda.TheHoldIsTheStepsSecondsInTheGamesWholeTurns` |
+| Water is cast with a scattering pose instead | done | `creature_mind::CastWaterAt`, `CastWaterOnItself`, `k_ScatterPose`; tests `CreatureCastAgenda.WaterIsCastFromTwiceItsHeightSmilingInTheScatteringPose`, `CreatureCastAgenda.TheScatteringPoseStartsAsTheCastStepStarts` |
+| A move the body can't make gives up the rest of the casting | done | a failed sub-move gives the agenda up (`creature_mind::Think`, `gaveUp`); test `CreatureCastAgenda.AMoveTheBodySaysFailedGivesUpTheRest` |
+| The miracle is as big as what it is cast at (a little bigger than its radius, a creature by its height, a fire miracle by the caster's height) | done | `creature_spell_casting::CastMagnitude`, used by `MagicCreatureCasting.cpp`; tests `CreatureSpellCasting.FightStaminaAndMagnitude`, `CreatureMindCastingTest.ItCastsTheActionsMiracleAtItsOwnHeight` |
+| The miracle's effect flows from between the creature's hands towards what it is cast at, following its hands as it moves | done | `CreatureSpellInfo` (`magic::creator::UpdateSpellInfo` for a creature); test `MagicCreatureCastingTest.ACreaturesMiracleTakesTheWayFromItsHandsOrFromAboveStraightDown` |
+| Food, wood and water are cast from a point above the target, with a beam from each of its hands to that point | done | `MagicSystem::CastFromAboveRaise`, `StartCreatureBeams`, `KeepCreatureBeams`; tests `MagicCreatureCastingTest.FromAboveItFlowsFromTenAboveOrFromOnePointThreeTimesTheHeight`, `MagicCreatureBeamsTest.*` |
+| A miracle that lasts only while held, such as lightning, stops when it lets go | done | `MagicSystemInterface::ReleaseCreatureCast`; test `MagicCreatureCastingTest.LettingGoStopsOnlyAMiracleThatLastsWhileHeldAndClosesItsBeams` |
+| The miracle runs for the creatures' own time from the tables | partial 90% | `magic::GetTimerWhenCreatureCasting`, used by `MagicCreatureCasting.cpp`; no test reads the creature's timer (only the player's, `GetTimerWhenPlayerCasting` in `test/test_magic_tables.cpp`) |
+| Its town fears or respects it for what it casts | inferred | creatures cast, but no town reacts to what they cast; whether the original's town attitude to a creature takes its casts in is not read; see [town_actions.md](town_actions.md) |
+
+## Choosing a miracle
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| Angry, it casts lightning at something | done | `CastLightningBolt` at anything (`CreaturePlanActions.cpp`); test `CreaturePlanActionsCasting.TheGamesCastsInTheirStyles`; testbed `miracles.creature_casts_lightning` |
+| Kind, it heals a villager hurt to seven tenths of its life or less | done | `CastHealSpell` and `CastHealSpellPU1` at `Target::HurtVillager`, as `Villager::CanBeHealedByCreature` 0x4E4C90; testbed `miracles.creature_casts_heal` |
+| Playful or spiteful, it casts a spell on another creature: freeze, small, big, weak, strong, fat, thin, invisible, nice, angry, hungry, frightened, tired, ill, thirsty, itchy | done | the 16 `CastMakeCreature*` rows, `Build::CastPlayful` (`CreaturePlanActions.cpp`); test `CreaturePlanActionsCasting.TheGamesCastsInTheirStyles`; testbed `miracles.creature_casts_itchy` |
+| It casts a spell meant to amuse another creature | partial 70% | `CastAmusingSpellOnCreature` (`CreaturePlanActions.cpp`, `Target::FriendlyCreature`), `creature_mind::CastAmusingAt`, `SeemsFriendly` as the exe; tests `CreatureCastAgenda.ToAmuseItPicksASpellAtRandomAndCastsFromFourTimesItsHeight`, `CreatureCastAgenda.TheAmusingSpellIsACastAtACreatureThatSeemsFriendly`; testbed `miracles.creature_casts_amusing_spell`. Missing: the desire about the other creature is the planner's own weighing, not `AssessParticularObject`'s ([casting.md](../../../creature/casting.md#pending)) |
+| Angry, it casts a fireball or an explosion | done | `Build::CastFireball` (`CastFireballAt`, from a clear area) and `Build::CastExplosion`, read in v1.42 on 2026-10-18 ([casting.md](../../../creature/casting.md#the-attack-shield-and-impress-constructs)); tests `CreatureCastAgenda.AFireballFromAClearAreaNearItGettingAwayOnlyFromTheLiving`, `CreatureCastAgenda.AnExplosionFromAHundredAngryOneTimeInThreeShownAmazed`; testbed `miracles.creature_casts_fireball`, `miracles.creature_casts_explosion` |
+| It casts a lightning storm or a tornado | done | `CastLightningStorm` and `CastTornado`, `Build::CastAggressive`, read in v1.42 on 2026-10-18 ([casting.md](../../../creature/casting.md#the-attack-shield-and-impress-constructs)); test `CreaturePlanActionsCasting.EachMiracleThatAttacksIsCastItsOwnWay` |
+| It casts the power-ups of lightning, fireball, explosion, food, heal and shield | done | every power-up row has an executor, read in v1.42 on 2026-10-18 ([casting.md](../../../creature/casting.md#the-attack-shield-and-impress-constructs)); the food's, `FoodIsCastAsFoodWithNoDrawWhateverTheRowsMiracle`; tests `CreaturePlanActionsCasting.EachMiracleThatAttacksIsCastItsOwnWay`, `CreaturePlanActionsCasting.WoodAndThePowerUpsFoodAreCastAsHelpfulMiracles` |
+| It casts a miracle to impress villagers | done | `CastImpressiveSpell`, `Build::CastToImpress` (`CastToImpress`, `PickImpressiveMiracle`), read in v1.42 on 2026-10-18 and corrected ([casting.md](../../../creature/casting.md#the-attack-shield-and-impress-constructs)); vanilla bug kept, see [vanilla_bugs/creature.md](../vanilla_bugs/creature.md); tests `CreatureCastAgenda.ToImpressItPointsBeforeOrAfterAndBeckonsTwoTimesInThree`, `CreatureCastAgenda.ToImpressItCastsTheMiracleCastTheLongestTimeAgo`; testbed `miracles.creature_casts_to_impress` |
+| It casts food by a worship site, or into the storehouse | done | `CastMagicFood` at `Target::FoodStore`, `CastMagicFoodByWorshipSite` at `Target::WorshipSite`; tests `CreaturePlanActionsCasting.TheFoodAndWoodRowsAndWhatTheyAreCastAt`, `CreatureCastAgenda.FoodIsCastKindlyFromTwoAwayInTheScatteringPose`; testbed `miracles.creature_casts_food_on_town` |
+| It casts wood by a building site or the workshop | done | `CastMagicWoodByBuildingSite` at `Target::BuildingSite`; the workshop's row has no miracle and is never weighed, as in the original, but a forced plan casts wood there (`Executor::castMagic`, read in v1.42); tests `CreaturePlanActionsCasting.TheWorkshopsRowCastsWoodThoughTheGamesTableGivesItNoMiracle`, `CreatureMindCastingTest.TheWorkshopsWoodIsNeverTriedAsItsRowCastsNoMiracle`; testbed `miracles.creature_casts_wood`, `miracles.creature_casts_wood_by_workshop` |
+| It sprinkles water on crops or waters trees for a town | partial 75% | the sprinkle, tree and field rows (`Build::CastWater`; tests `CreaturePlanActionsCasting.TheWaterRowsAndWhatTheyAreCastAt`, `CreaturePlanActionsCasting.WaterIsPlainWaterEvenForThePowerUpsRows`); the town's tree rows (326, 327) only when forced with an instrument (`Build::CastWaterOnInstrument`), as the planner chooses no instrument yet |
+| It puts out a fire with water | partial 50% | `PutOutFireWithMagicWater` at `Target::Burning`, `Build::CastWater` (the water cast at the burning thing, no douse of its own, as 0x4B6EA0 has none; read in v1.42; test `CreaturePlanActionsCasting.AFireIsPutOutWithWaterScatteredOnTheThingThatBurns`). The plain `PutOutFire` (row 37, the douse) and the other fire rows have no executor |
+| It casts a forest | done | `CastMagicForest` at a villager, cast at the villager's place (`CastForestAt`, `TryMiracleAt`, `MagicSystem::CastByCreatureAt`; read in v1.42); tests `CreatureCastAgenda.AForestIsScatteredAtThePlaceOfTheVillagerForFourSeconds`, `CreatureMindCastingTest.ATryAtAPlaceCastsThereAndCostsNoStaminaInAFight`; testbed `miracles.creature_casts_forest`; see [casting.md](../../../creature/casting.md#casting-miracles-what-openblack-does) |
+| It shields a town, or casts a physical shield | done | `CastShield`, `CastShieldPU1` and `CastPhysicalShield` at anything, read in v1.42 on 2026-10-18 ([casting.md](../../../creature/casting.md#the-attack-shield-and-impress-constructs)); `CastShieldAroundTown` at a built storage pit, and a shield for a plan about nothing idles (read in v1.42); tests `CreaturePlanActionsCasting.EachShieldIsCastAtAnythingItsOwnWay`, `CreaturePlanActionsCasting.ATownsShieldIsCastAtABuiltStoragePitAsTheShieldIs`, `CreaturePlanActionsCasting.AShieldForAPlanAboutNothingIdlesInstead`; testbed `miracles.creature_casts_shield` |
+| It looks for a town of its own that needs a miracle, and decides whether the nearest town should be helped or attacked | partial 40% | compassion's town: of the towns it knows, the one most worth it, helped one town desire at a time through its rows, the healing first for hurt people (`creature_town_compassion`, read in v1.42, [plans-and-needs.md](../../../creature/plans-and-needs.md); tests `CreatureTownCompassion.*`); deciding to attack a town is not in our tree |
+| It heals itself | inferred | row 58 HealHimself is the game's; the agenda openblack gives it (`creature_mind::HealItself`: the casting pose with a grimace, three seconds, then its life full and 9600 counts of skin healing; test `CreatureRestAndHome.HealingItselfCastsTheHealAtItselfThenHeals`, testbed `needs.heal_itself`) is ported from raffclar's rest and home lane, not read in v1.42 ([plans-and-needs.md](../../../creature/plans-and-needs.md#rest-and-home-in-openblack)) |
+| On fire, it puts the fire out on itself with water | done | `CastMagicWater` with `Build::CastWaterOnItself`, weighed only on fire (`ShouldCreatureCastWaterOnHimself` 0x4D32C0); its agenda ends with `Step::Kind::CoolDown` (`FireSystemInterface::PutOut`), as sub-action 0x86's stage 0x500A10, read in v1.42 ([casting.md](../../../creature/casting.md#casting-miracles-what-openblack-does)); tests `CreatureCastAgenda.WaterOnItselfIsCastFromAClearSpotItGoesToFirst`, `CreaturePlanActionsCasting.WaterOnItselfNeedsAClearSpotAndItself`; testbed `needs.on_fire_casts_water` |
+| It casts teleport to travel to something, or explores and casts teleport | pending | rows 182 CastTeleport and 196 ExploreAndCastTeleport (the helpful construct with the teleport, more than 150 from home, [casting.md](../../../creature/casting.md#the-teleport-warming-and-cooling-rows)) have no executor; only villagers use the teleport stones in our tree (`VillagerTeleport.cpp`) |
+| It copies a miracle it saw its god cast | pending | not modelled; see [learning_by_observation.md](learning_by_observation.md) |
+| It shows a friend how to cast fireball, lightning, the storm, food or wood | pending | see [friends_and_other_creatures.md](friends_and_other_creatures.md) |
+| It cures illness on another creature | pending | row CureIllnessOnCreature has no executor; see [friends_and_other_creatures.md](friends_and_other_creatures.md) |
+| It swaps minds with another creature | pending | row SwapMindWithOtherCreature has no executor (the script's SWAP_CREATURE is in, see [decision making](decision_making.md)) |
+
+## One-off miracles
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| Holding a one-off miracle, it casts it to attack | pending | not modelled |
+| Holding a one-off miracle, it casts it to help | pending | not modelled |
+| Holding a one-off miracle, it casts it in play | pending | not modelled |
+| Holding a one-off miracle, it casts it to restore its health | pending | not modelled |
+| It picks up a one-off miracle lying about and casts it, for any of those four | pending | not modelled |
+| The player can hand it a one-off miracle | inferred | taking a thing from the hand exists (`ObjectOrder::Kind::TakeFromHand`); whether the original lets the hand give it a one-off miracle is not read; see [object_actions.md](object_actions.md) |
+| It steals miracles and miracle seeds | pending | rows StealSpell and SteaSpellSeed (so spelt in info.dat) have no executor; a lying one-off globe can be taken to its temple by StealObjectAndTakeToCitadel, see [town_actions.md](town_actions.md) |
+| Catching a fireball, it throws it back | pending | row CatchFireballAndThrowBack has no executor |
+
+## Telling it to cast
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| Scripts can make a creature cast a miracle | partial 85% | `CREATURE_DO_ACTION` reaches every casting row with an executor (`CreatureMindSystem::ScriptDoAction`; test `CreatureMindSystemTest.AScriptsForcedActionControlsItAndCarriesItOutAsObeyingItsPlayerFromTheTurnItIsMade`, testbed `miracles.creature_casts_amusing_spell`); `SET_CREATURE_QUEUE_FIGHT_SPELL` is real (`CHLApi.cpp`); the casting rows with no executor (teleport, one-off miracles, the friends' and cure rows) are not, and whether a script reaches the warming and cooling rows' constructs is not read |

@@ -1,0 +1,84 @@
+# Creature contact
+
+The hand's side of touching a creature: taking hold of it, stroking and slapping it, how the hand rests on and turns to
+the body, and what the creature is told when the hand lets go. What the creature learns from it is in
+[../creature/](../creature/). Giving the creature something to hold or eat is in
+[holding.md](holding.md).
+
+**Progress: 26/49 done, 0 chosen, 9 partial, 4 inferred — 64%**
+
+How the original does it, in our wiki: [The hand and the interface](../../../hand/states.md#the-hand-on-a-creature).
+
+## Taking hold
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| Holding the Action button over a creature takes hold of it | done | `hand_press::Branch::Creature` -> `SendStartLockedSelect`; the turn locks it (`HandTurn.cpp`, `CreatureHandSystem::Grab`), then `HandSystem::UpdateCreatureLock` / `UpdateCreatureFrame`; tests `HandCreatureLock.*`, `HandCreatureFrame.*` (`test/test_hand_creature.cpp`) |
+| Only the player's own or an allied player's creature can be held, in or out of the influence, unless it is asleep or frozen; never an ogre | done | `creature_hand::TakesPress` (`IsFriendlyTo` over the owner's alliances), `creature_hand::MayHold` (not asleep or frozen, never an ogre); test `CreatureHandSystemTest.OnlyAPlayersCreatureMayBeHeld`; [the action press](../../../hand/states.md#the-action-press) |
+| With the leash in the hand, or tied to this creature, the press waits the tap-or-hold time (225 ms) before it takes hold | pending | the creature branch starts the locked select at once (fork issue #168) |
+| A press let go quickly, before stroking or slapping, is a click, which puts the leash on instead | done | A let-go within 450 ms of camera time on the own creature sends the click packet, which presses the leash key (`creature_hand::IsClick`, `hand_creature::StepFrame`, `CreatureHandPackets.cpp`); test `HandCreatureFrame.ALetGoWithinAClickOfTheOwnCreatureSendsTheClickThenTheFeedback` |
+| The nearest creature along the line of sight is the one taken hold of | done | The cursor's pick takes creatures by capsules round their posed bones (`CreatureHandSystem::CreatureAlong`, called from `HandPlacement.cpp`), the nearest wins; test `CreatureHandSystemTest.TheNearestCreatureAlongASightAndHowFar`. The original picks by the drawn, posed triangles (fork issue #168), see "Where the hand rests" |
+| Holding a creature can't be done while the hand holds a miracle | done | The creature branch needs an empty hand (`hand_press::EmptyHandOverNothing`), so a seed in the hand blocks it |
+| Scripts and the testbed can put the hand on a creature and stroke or slap it | inferred | `CreatureHandSystem::Grab` is public on `CreatureHandSystemInterface`, but only the hand's locked select calls it; no script command of the original that does this has been found |
+| Taking hold starts the hand facing back towards the camera and settles it over a second | pending | The hand is placed on the body at once (`CreatureHandSystem::Update`); the original's creature update eases the hand's turn on its zoomers, one of them over a second (read in the exe's update, its use not fully read) |
+| Taking hold starts the hand with its stroking pose and a clean slate: no part stroked yet, no slap yet | done | `CreatureHandSystem::Grab` makes a fresh `HandOnCreature` (no part stroked, no slap, sum 0); the hand's clip stays the normal one (Cstroke) |
+| The hand strokes and slaps a creature it has taken hold of only once its body has finished the action it was doing | done | the hand marks the creature it locks as finishing, and its turn clears that the first turn the body plays no action (`hand_creature::StillFinishing`, tests in `test/test_hand_creature.cpp`) |
+| As its body finishes, the creature shows its current desire (the help system's current-desire candidate and its emote) | partial 70% | `CreatureMindSystem::ShowDesireOnHold` (raffclar PR #354, the pick checked against the exe on the wiki). Missing: taking the emote off the game's body, the creature's second hold state, and the help candidate itself ([page](../../../hand/states.md#the-creature-states-update)) |
+| From then until it is let go, the game reads the creature's body in the pose it had at that moment, while the body drawn plays the caresses and slaps | partial 70% | the hand's turn takes the body off the game (`hand_creature::TakesBodyOffTheGame`) and the end of the hold brings it back. Missing: the look's reset and re-pose on bringing it back, and the second copy of the pose at the hold's start |
+| The hold ends only once the creature's look has reached its goal and no body or face action plays | pending | openblack counts the creature ready one frame after the release (`StepLock`; fork issue #168) |
+| Holding a creature zooms the camera in on it | partial 97% | `CreatureHandSystem::FollowWithCamera` / `GiveCameraBack` from `UpdateCreatureFrame` (`CreatureInteractCameraModel`, raffclar #348): 1.5 heights in front of the creature's middle, gliding 0.7 s, renewed every frame, the place the original's, read in the exe and pinned to the oracle's values (`CreatureTouch.TheCameraTakesTheOriginalsPlaceForTheCreature`, `TheCameraLooksAtTheCreaturesMiddleFromInFront`, `TheCameraGlidesToTheCreatureInSevenTenthsOfASecond`). Asked for once as the interaction starts and kept for the whole hold (`creature_interact::AsksForTheCamera`; `CreatureTouch.TheInteractionAsksForTheCameraOnceAHold`), it takes the view from every camera the original lets be left, the player's own, Creature Mode's, a miracle's placed path and a script's dual camera, not while a living script camera is the current one or once the creature has left the world (`creature_interact::CurrentHolder`, `HolderOf`, `CanBeLeft`, `CameraGivesWay`; `CreatureTouch.TheCamerasThatCanBeLeftGiveWayAndNotWhileAScriptCameraLives`, `TheCurrentCameraIsAScriptsModeOverAPlacedPathOverTheCamerasModel`, `TheCamerasAreToldApartByTheirModels`); meanwhile the paths and the script's modes are covered, neither current nor moving the camera, and no script camera or path can start (`script_camera::Cover` / `Uncover`, `CameraPathSystemInterface::SetCovered`; `ScriptCameraDual.UnderTheCreatureInteractionsCameraItWaitsAndGoesOnFromTheCamerasZoomers`, `CameraPathSystemTest.UnderTheCreatureInteractionsCameraThePathWaitsAndHasTheCameraAgainAfter`, 2026-10-22), and gives it back on any other state as the original's push and pop: the player's camera with `PlaceAt` + `SetFlight`, Creature Mode's following on with its time in the mode started again (`CreatureCameraModel.GivenTheCameraBackItsTimeStartsAgainAndItsViewIsKept`), and the camera's mode time zeroed at both ends (2026-10-22). While the interaction has the view the C key does nothing, as the original's, where it used to mark Creature Mode under it to leave (`creature_mode::OnCreatureKey`; `CreatureMode.WhileACameraThatCannotBeLeftHasTheViewCDoesNothing`, `CreatureModeSystemTest.WhileTheCreatureInteractionHasTheViewCLeavesItAsItIs`, 2026-10-22). Debug: the switch and a readout of the camera it took the view from in the creature hand panel. The end of a hold that asked and was refused takes off the camera that kept the view, as the original's: a living script camera, a dual camera, the top placed path or Creature Mode's (`creature_interact::AtTheEndOfTheHold`, `TakenOffAtTheEnd`, `script_camera::TakeOffScriptMode`, `CameraPathSystemInterface::TakeOffCurrent`; `CreatureTouch.TheEndOfAHoldThatAskedTakesOffTheCameraThatKeptTheView`, `ScriptCameraDual.TakenOffByAnotherTheScriptModeGoesAndLeavesTheFieldOfViewAlone`, `CameraPathSystemTest.TakenOffByAnotherThePathUnderItHasTheCamera`, 2026-10-22; debug readout `LastTakenOff`). Missing: with the player's own camera current (a refused hold on an unavailable creature) the original pops it too, restarting the mode under it, which needs the camera mode stack ours lacks; and whether the yaw the original turns it by can differ from the drawn heading outside a turn is not read ([page](../../../hand/states.md#the-hand-on-a-creature-in-openblack)) |
+| Letting go stops any force-feedback effect of the contact | pending | No force feedback |
+
+## Where the hand rests
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| The hand meets the body where the line of sight through the cursor meets the creature's mesh | partial 50% | Capsules round the posed bones (`creature_feedback::RayHit`, `creature_feedback::BodyCapsules`), openblack's stand-in for the drawn mesh; tests `CreatureFeedback.TheHandTouchesTheBodyWhereTheLineOfSightMeetsIt`, `CreatureFeedback.TheBodyIsACapsuleFromEachJointToItsParentsPlaced`. Missing: the test against the drawn, posed triangles (fork issue #168) |
+| Missing the body, the hand tries again along the line through the middle of the cursor's last two places | inferred | Missing the body, the hand goes to the upright plane through the creature instead (`CreatureHandSystem::Update`); the original's fallback is not read on the wiki |
+| The hand is held a little short of the body, easing to its distance over 0.3 seconds | partial 30% | `CreatureHandSystem::Update` puts the hand at the touch point, which `HandPlacement.cpp` uses in the creature state. Missing: the gap and its 0.3 s ease (the original's distance zoomer); the gap's size (about a twentieth of the height) is not read |
+| Coming nearer than the body allows, it snaps to the nearer place at once rather than easing | pending | Not ported; the original's update sets the distance's value and goal at once when the new one is nearer |
+| Away from the body, the hand keeps back from the camera by a quarter of the creature's height | pending | Away from the body the hand is on the plane through the creature's middle (`OnPlaneThrough`), not kept back; the original takes a quarter of the height off the distance |
+| The hand is drawn larger with the creature's size, so it suits the creature | inferred | by the square root of its drawn size (`HandPose::scale`, `HandPlacement`) (raffclar #348); the original's rule is not read |
+| Far from the creature's middle (more than 0.6 of its height), the hand is drawn 0.3 of its height back towards the camera | pending | Not ported (read in the original's creature update) |
+| On the body, the hand turns to face the body's surface over 0.9 seconds | pending | Not ported (the original's palm zoomers) |
+| Off the body, the hand turns back upright over 2.5 seconds | pending | Not ported (the original's palm zoomers) |
+
+## Stroking
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| On the body the hand plays its tickling cycle as it strokes | done | Cwiggle off the body, Ctickle on it, Cslap above five heights a second until it strokes again (`creature_feedback::NextCycle`, `HandSystem`), as the original's clip; tests `CreatureTouch.TheHandCaressesWhileStrokingAndKeepsSlappingUntilItStrokesAgain`, `CreatureHandSystemTest.TheCaressWaitsForASecondOnTheBodyInAllWithTheCursorMoving` (raffclar #348; the original's, read in the exe, [page](../../../hand/states.md#the-creature-states-update)) |
+| The hand must rest on the body for a second, with the button held, before it strokes | done | `creature_feedback::k_StrokeHoldMs` (1000 ms) in `CreatureHandSystem::Step`: the time on the body, more than a second and the mouse moving across, zeroed by taking hold and by a slap, kept off the body and after a stroke. From raffclar's lane, and the original's, read in the exe ([page](../../../hand/states.md#the-creature-states-update)) |
+| A stroke lands on the nearest of nine parts of the body: the head, each armpit, the belly, the groin, each foot and each hand | done | `creature_feedback::NearestPart` with the rig's action points; test `CreatureFeedback.AStrokeLandsOnTheNearestPart` |
+| A new stroke needs another part than the last and two seconds since the last | done | `creature_feedback::StrokeDue` on `StrokeClocks`: the wait (1 - sum) x 1250 ms in whole ms from the last stroke or slap, the ready clock at 2000 (1000 after each stroke or slap), as the original; test `CreatureTouch.AStrokeNeedsANewPartTheWaitAndTheHandReady` |
+| The creature plays the pleased animation of the part stroked, mirrored for the left side | done | `creature_feedback::k_RewardAnimations`, `k_RewardMirrored`, played through `CreatureMindSystem::ForceAction` |
+| It pulls a face for two seconds: an aah for the head and belly, an ooh for the groin, a smile elsewhere | done | `creature_feedback::k_RewardFaces`, `RewardFace` (2 s), pulled before the interrupt test as the original |
+| A stroke doesn't interrupt an action less than 0.8 of the way through | done | `creature_feedback::k_StrokeInterruptsAfter` passed to `ForceAction` |
+| Each stroke adds 0.1 to the running sum, at most 1 | done | `creature_feedback::AfterStroke` (`k_StrokeAmount`) |
+
+## Slapping
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| The hand moving across the creature faster than five of its heights a second shows the slapping cycle | done | `HandPose::cycle` picks Cslap, the original's 5H |
+| A slap needs the hand between the ground and 1.1 of the creature's height | done | `creature_feedback::k_SlapAbove` in `ClassifySlap` |
+| Below 0.4 of its height a slap hits the feet, below 0.7 the waist, above that the head | done | `creature_feedback::ClassifySlap`; test `CreatureFeedback.SlapsAreClassedByHeightAndSpeed` |
+| Faster than nine heights a second it is a hard slap, slower a gentle one, with the gentle animations | partial 70% | `creature_feedback::k_SlapSpeed`, `k_HardSlapSpeed`, `k_GentleOffset`: the original's numbers. Missing: the original measures the cursor's sweep at the hand's depth; ours the hand's movement on the plane through the creature (queued as a fix) |
+| The slap plays to the side the hand swept towards | done | mirrored when the cursor moves left, as the original; test `CreatureTouch.ASlapPlaysMirroredWhenTheHandSweepsLeft` |
+| Slaps are at least a second apart | done | `creature_feedback::k_SlapReadyMs` from taking hold or the last stroke, not from the last slap, as the original's clock |
+| The hand's sweep only counts as a slap as the hand comes onto the body or the cursor crosses the middle of the screen | done | `creature_feedback::SlapConsidered`; test `CreatureTouch.ASweepIsWeighedAsASlapOnlyComingOntoTheBodyOrCrossingTheMiddle` |
+| A slap doesn't interrupt an action less than 0.35 of the way through | done | `creature_feedback::k_SlapInterruptsAfter` |
+| A gentle slap takes 0.1 off the sum and a hard one 0.2, twice as much if the creature was enjoying itself (sum past 0.25), never below -1 | done | `creature_feedback::AfterSlap`; test `CreatureFeedback.StrokesAndSlapsAddUp` |
+| Every third hard slap in a row at one height bruises the creature, stronger the harder the slap | partial 80% | every third hard slap in a row at one height, a miss counting, bruises when it lands on the body and the count starts again (`creature_feedback::CountSlap`, as the original): the player's own creature loses 0.01 of its life, never below 0.01 (`creature_hand_packets::ApplyHardSlap`). Missing: the mark on its skin is not drawn |
+| With a force-feedback mouse a gentle and a hard slap each have their own jolt | pending | No force feedback |
+
+## Letting go and after
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| Letting go tells the creature's mind how it was treated, from -1 to 1 | done | `HandSystem::LeaveCreatureState` -> `CreatureHandSystem::Release` -> the creature feedback packet, applied at the next turn (`CreatureMindSystem`); test `CreatureHandSystemTest.LettingGoGivesHowTheCreatureWasTreated` |
+| Feedback this slight only makes the creature look at the player | done | `creature_feedback::k_SlightFeedback` in `CreatureMindSystem.cpp` |
+| The status panel shows the reward until the hand next takes hold | partial 40% | `CreatureHandSystem::GetLastFeedbackSum` keeps it. Missing: the status panel (`src/Creature/CreatureStatusPanel.cpp`) is not wired into the game |
+| The creature reacts to each stroke and slap | done | `CreatureMindSystem::ForceAction` plays the pleased and slapped animations; learning in `CreatureMindLearning.cpp` |
+| The creature looks at, follows, turns to or runs from the player's hand nearby | inferred | Nothing in the creature's code reads the hand's position; the original's rule is not read on the wiki |
+| The creature copies what it sees the hand do to others | partial 40% | `ecs::creature_mimic::Consider` for some deeds (planting a tree from the hand, damaging a building by a throw, casting water on crops). Missing: the rock's tap and the other deeds; not measured against the exe |

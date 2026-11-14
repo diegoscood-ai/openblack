@@ -1,0 +1,277 @@
+/******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+
+#include <array>
+#include <functional>
+#include <optional>
+#include <span>
+#include <string>
+#include <string_view>
+#include <vector>
+
+#include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
+
+#include "3D/MapCoords.h"
+#include "ScriptHeaders/ScriptEnums.h"
+
+// The hand demos of the tutorial (Data\HandDemo\*.hnd): the interface's playback and the script's side
+// (PLAY_HAND_DEMO, IS_PLAYING_HAND_DEMO, HAND_DEMO_TRIGGER). The recorded interface messages drive the real hand and
+// the records set the camera.
+// Wiki: docs/wiki/project/debugging.md#hand-demos.
+namespace openblack::hand_demo
+{
+
+/// One 124-byte record of a .hnd file (no header)
+struct Record
+{
+	uint32_t message; ///< interface message: 0 MOUSE_MOVE, 1 GRAB_DOWN, 2 GRAB_UP, 3 ACTION_DOWN, 4 ACTION_UP
+	/// The hand's throw block when recorded: velocity, angular velocity,
+	/// the hand position, angles
+	std::array<float, 12> throwBlock {};
+	glm::vec2 mouse;  ///< the mouse, normalised 0..1
+	glm::vec3 eye;    ///< the camera position
+	glm::vec3 focus;  ///< the camera focus
+	/// The camera hints shown when recorded: 1 tilting, 2 turning, 4 zooming
+	uint32_t hints {0};
+	float hintValue {0.0f}; ///< the hint's amount when recorded
+	uint32_t trigger; ///< the trigger key state when it changed since the last record, else 0 ((inferred) the space key)
+	uint32_t timeMs;  ///< the visual clock when recorded
+	float objectDistance {0.0f}; ///< the distance of the object under the hand
+	glm::ivec2 objectPlace {0};  ///< the object's place on the map (x, z)
+	float objectAltitude {0.0f}; ///< the object's altitude
+	uint32_t objectType {0};     ///< the object's script type
+	uint32_t objectSubtype {0};  ///< the object's script subtype
+};
+constexpr size_t k_RecordSize = 0x7C;
+
+/// The whole records of a .hnd file's bytes, in order; a short last record is left out
+[[nodiscard]] std::vector<Record> ParseRecords(std::span<const uint8_t> bytes);
+/// The records of ".\Data\HandDemo\<name>.hnd", read once into the resources (HandDemoManager, by the name's hash);
+/// throws when the file cannot be read
+[[nodiscard]] const std::vector<Record>& ReadRecords(std::string_view name);
+
+/// Where a playback is in its recording
+struct Playhead
+{
+	size_t read {0};          ///< the records read
+	uint32_t firstTimeMs {0}; ///< the time of the first record
+	uint32_t startMs {0};     ///< the visual clock at the start (moved on while a trigger holds the playback)
+};
+
+/// What one step through the records did
+struct StepResult
+{
+	size_t reads {0};   ///< the records read, those put back for later included
+	bool ended {false}; ///< the recording ran out
+	/// The camera hints of the last record played, none when no record was played (the hints shown stay as they
+	/// were). They are forced off while fewer than k_HintlessRecords records had been read at the step's first read,
+	/// or fewer than k_HintlessRecords are left after them
+	std::optional<uint32_t> hints;
+	float hintValue {0.0f};
+};
+/// No hints are shown this near either end of a recording
+constexpr size_t k_HintlessRecords = 20;
+
+/// Plays the records due at the visual clock `nowMs`, in order from `playhead.read`, giving each to `play`. A record is
+/// due when (its time - the first time) <= (now - the start), compared unsigned, so a clock gone back plays everything
+/// at once. A record with a trigger sets `trigger`; while `waitTrigger` and `trigger` are both set, the next record is
+/// put back and the start moved on (start = first time - time + now), so the rest keeps its pace once the script has
+/// read the trigger. With `first`, the next record is played whatever its time and the playback starts from it: the
+/// first time is its time (0 if it was not played) and the start is now. Pure.
+StepResult StepRecords(std::span<const Record> records, Playhead& playhead, uint32_t nowMs, bool first, bool waitTrigger,
+                       bool& trigger, const std::function<void(const Record&)>& play);
+
+/// The screen pixel of a recorded mouse (normalised 0..1): across the whole width, and down the picture between the
+/// cinema bars at `barFraction` (0 no bars .. 1 all the way in). Each bar is (H - 0.5625 W) barFraction / 2 pixels,
+/// truncated, signed and not clamped: on a screen wider than 16:9 it is negative and the cursor can go past the top and
+/// the bottom of the screen
+[[nodiscard]] glm::ivec2 CursorPixel(glm::vec2 mouse, glm::ivec2 screen, float barFraction);
+
+/// What the playback gives the frame: the mouse (normalised 0..1), the buttons as the recorded messages left them, and
+/// the camera of the last record due
+struct Frame
+{
+	glm::vec2 mouse {0.5f};
+	bool grip {false};   ///< messages 1 GRAB_DOWN / 2 GRAB_UP
+	bool action {false}; ///< messages 3 ACTION_DOWN / 4 ACTION_UP
+	std::optional<glm::vec3> eye;
+	std::optional<glm::vec3> focus;
+	/// The recorded mouse moves played since the frame was last handed out, in order: each is one sample of the
+	/// gestures, as the playback's moves go through the interface's own mouse messages
+	std::vector<glm::vec2> moves;
+};
+
+/// Applies one record to the frame: a MOUSE_MOVE moves the mouse and is kept among the frame's moves; any other message first
+/// gives `setThrowBlock` the recorded throw block (the hand's), so that a release throws as recorded. Every record sets the
+/// camera, and the button messages set the buttons. Pure but for `setThrowBlock`
+void ApplyRecord(Frame& frame, const Record& record, const std::function<void(const std::array<float, 12>&)>& setThrowBlock);
+
+/// What a replayed click on a thing lands on
+enum class ClickTarget : uint8_t
+{
+	/// Whatever is under the hand now
+	UnderHand,
+	/// No thing at all, whatever is under the hand: the recording had none under it
+	NoThing,
+	/// The nearest thing of the recorded kind near the recorded place, if there is one; else whatever is under the hand
+	NearestOfKind,
+};
+
+/// A thing under the hand: its kind as the scripts see it (its script type and sub-type, k_NoSubtype for none), and
+/// where it is
+struct ThingUnderHand
+{
+	script::ObjectType type {script::ObjectType::None};
+	uint32_t subtype {0};
+	map_coords::MapCoords at;
+};
+
+/// How far from the recorded place a click looks for a thing of the recorded kind, in metres
+constexpr float k_RetargetReach = 3.0f;
+
+/// Whether a record's click may land on a thing other than the one under the hand: the action button going down (3)
+/// or up (4), and the one message the recordings never use (6). Not a double click (5)
+[[nodiscard]] constexpr bool ClickCanRetarget(uint32_t message)
+{
+	return message == 3 || message == 4 || message == 6;
+}
+
+/// The recorded place of the thing a click was on
+[[nodiscard]] map_coords::MapCoords RecordedPlace(const Record& record);
+
+/// Where a recorded click lands. A recording with no thing (type 0) lands on no thing. With a thing recorded, the
+/// click stays on the thing under the hand only when that is of exactly the recorded type and sub-type (compared as
+/// they are: a recorded "any" never keeps it, a thing with no sub-type matches only a recorded "none") and less than
+/// the reach from the recorded place; otherwise it looks for the nearest thing of the kind
+[[nodiscard]] ClickTarget TargetOfClick(const Record& record, const std::optional<ThingUnderHand>& underHand);
+
+/// The thing a recorded click is compared with: while the hand's press grabs a thing, the thing it grabbed (the action's
+/// own, kept from the press), else the thing under the cursor this frame. A grabbed thing drawn in the hand is never the
+/// frame's pick, so its release still finds it under the hand
+template <typename Thing>
+[[nodiscard]] constexpr std::optional<Thing> ClickComparedThing(std::optional<Thing> cursor, std::optional<Thing> grabbed)
+{
+	return grabbed ? grabbed : cursor;
+}
+
+/// Whether a thing may take a recorded click in place of the one under the hand: of the recorded type, of its
+/// sub-type or any when the recording says any (never a thing with no sub-type otherwise), and no farther than the
+/// reach from the recorded place
+[[nodiscard]] bool TakesRecordedClick(const Record& record, const ThingUnderHand& thing);
+
+/// What a search for the recorded kind of thing does to the click
+enum class FoundClick : uint8_t
+{
+	/// Nothing found, or a find that is not an object (a forest, a flock, a planned building): the click stays as it was
+	Unchanged,
+	/// An object the hand can act on: the click lands on it, at the recorded distance
+	Thing,
+	/// An object the hand cannot act on (gone, or a building with nothing built yet): the click lands on no thing
+	NoThing,
+};
+
+/// The search's outcome for the click, from what it found
+[[nodiscard]] constexpr FoundClick OutcomeOfFind(bool found, bool isObject, bool interactable)
+{
+	if (!found || !isObject)
+	{
+		return FoundClick::Unchanged;
+	}
+	return interactable ? FoundClick::Thing : FoundClick::NoThing;
+}
+/// Whether that outcome clears the click's point: every object found, whether the hand can act on it or not, as the
+/// click is made again from it
+[[nodiscard]] constexpr bool ClearsClickPoint(FoundClick outcome)
+{
+	return outcome != FoundClick::Unchanged;
+}
+
+/// Whether the action button, still held, is pressed again this frame. While a hand demo plays, a press that took
+/// nothing (a click on the land, or a press the lesson refused) stays pending: the playback never clears it, so it is
+/// pressed again every frame, with whatever is under the hand then, until something takes it or the button is let go.
+/// Outside a demo every new mouse message clears it first, so a press is taken once
+[[nodiscard]] constexpr bool PressTakenAgain(bool demoPlaying, bool pending, bool actionHeld)
+{
+	return demoPlaying && pending && actionHeld;
+}
+
+/// Whether this frame's press stays pending for the next frame: only while a hand demo plays, for a press that took
+/// nothing. A press that sent the creature to the point on the land ends, as every other branch's does
+[[nodiscard]] constexpr bool PressStaysPending(bool demoPlaying, bool pressed, bool pressTookNothing)
+{
+	return demoPlaying && pressed && pressTookNothing;
+}
+
+/// Whether a demo's press is pending after a frame. While the game is paused the idle hand takes no press, and a
+/// pending one is kept through the pause, to be taken again after it, unless the button is let go meanwhile; otherwise
+/// it stays only after a press that took nothing
+[[nodiscard]] constexpr bool PressPendingAfterPass(bool demoPlaying, bool pending, bool takesPress, bool actionHeld,
+                                                   bool pressed, bool pressTookNothing)
+{
+	if (!takesPress)
+	{
+		return demoPlaying && pending && actionHeld;
+	}
+	return PressStaysPending(demoPlaying, pressed, pressTookNothing);
+}
+
+/// A demo's recorded hints (1 tilting, 2 turning, 4 zooming) as the camera's hints the hand reads (camera_drag::tricon)
+[[nodiscard]] constexpr uint32_t HintsAsTricons(uint32_t hints)
+{
+	return ((hints & 2u) != 0 ? 0x01u : 0u) | ((hints & 1u) != 0 ? 0x02u : 0u) | ((hints & 4u) != 0 ? 0x08u : 0u);
+}
+/// The camera hints the demo now playing shows, none when no demo plays
+[[nodiscard]] std::optional<uint32_t> PlayingHints();
+/// The turn of the rotate hint the demo now playing shows, as recorded, in radians; 0 when no demo plays
+[[nodiscard]] float PlayingHintAngle();
+
+/// PLAY_HAND_DEMO: starts the playback of ".\Data\HandDemo\<name>.hnd" for `task`, then sets the script's
+/// wait-for-trigger flag to waitTrigger and clears its pending trigger. False when the file cannot be read.
+bool Play(std::string_view name, uint32_t task, bool waitTrigger, bool keepHand);
+/// Whether a demo plays, and when `task` is not 0, whether that task started it
+[[nodiscard]] bool IsPlaying(uint32_t task = 0);
+/// (the gesture window's readout) How many recorded mouse moves the last demo started has handed out as gesture samples
+[[nodiscard]] size_t MovesFedAsSamples();
+/// (openblack's own) the demo now playing was started by the OPENBLACK_TEST_HAND_DEMO test hook, not by a script;
+/// the next Play clears it
+void MarkStartedByTestHook();
+/// Whether the demo now playing was started by the test hook
+[[nodiscard]] bool IsTestHookPlaying();
+/// (openblack's own) the demo a land run of a --scenarios list gives the test hook, in place of
+/// OPENBLACK_TEST_HAND_DEMO's, for this game only (it is kept in the debug hooks' store, which a new game makes again)
+void SetListedTestDemo(std::string_view name);
+/// The demo the list gave the test hook for this game, none without one
+[[nodiscard]] std::optional<std::string> ListedTestDemo();
+/// Whether the interface's box rule (Input/MouseButtons, BoxTakesInput) reaches the hand: always, but while a demo the
+/// test hook started plays (openblack's own: the hook plays it from the land's start, under the SkipBox, which no
+/// script of the original does)
+[[nodiscard]] constexpr bool BoxRuleReachesHand(bool playing, bool startedByTestHook)
+{
+	return !(playing && startedByTestHook);
+}
+/// HAND_DEMO_TRIGGER: the script's pending trigger, which it clears
+bool ConsumeTrigger();
+/// Ends the playback
+void End();
+/// The task stop callback: ends the playback when the stopped task owns the demo
+void EndIfTask(uint32_t task);
+/// Once a frame before the hand's ray: the records due at the visual clock `nowMs`. Empty when no demo plays.
+[[nodiscard]] std::optional<Frame> Update(uint32_t nowMs);
+/// The last action click (ClickCanRetarget) the playback played this frame, taken once: the hand lands it on the
+/// recorded kind of thing. None when no record of this frame was one, or without the input state. It is kept through
+/// the frame the recording ends on
+[[nodiscard]] std::optional<Record> TakeClick();
+
+} // namespace openblack::hand_demo

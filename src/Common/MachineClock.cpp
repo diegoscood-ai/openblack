@@ -1,0 +1,65 @@
+/******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+#include "MachineClock.h"
+
+#include <charconv>
+#include <cstring>
+
+#include <chrono>
+
+#include "GameClock.h"
+#include "Locator.h"
+
+using namespace openblack;
+
+uint32_t machine_clock::Ticks()
+{
+	if (Locator::time::has_value())
+	{
+		return Locator::time::value().GetTicks();
+	}
+	return game_clock::WallTicks();
+}
+
+int64_t machine_clock::UnixTime()
+{
+	if (Locator::time::has_value())
+	{
+		return Locator::time::value().GetUnixTime();
+	}
+	using namespace std::chrono;
+	return duration_cast<seconds>(system_clock::now().time_since_epoch()).count();
+}
+
+int64_t machine_clock::WallTime()
+{
+	if (Locator::time::has_value())
+	{
+		return Locator::time::value().GetWallTime();
+	}
+	using namespace std::chrono;
+	return duration_cast<seconds>(system_clock::now().time_since_epoch()).count();
+}
+
+std::optional<int64_t> machine_clock::ClockAtFrom(const char* value)
+{
+	if (value == nullptr)
+	{
+		return std::nullopt;
+	}
+	const char* end = value + std::strlen(value);
+	int64_t seconds = 0;
+	const auto [at, error] = std::from_chars(value, end, seconds);
+	if (error != std::errc() || at != end || at == value)
+	{
+		return std::nullopt;
+	}
+	return seconds;
+}

@@ -8,4 +8,3 @@ Library responsibilities:
 ## Documentation
 
 * [Opcodes](docs/opcodes.md)
-* [File Format](docs/file_format.md)

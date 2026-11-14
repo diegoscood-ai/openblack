@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Wiki</title>
+<link rel="stylesheet" href="vendor/highlight/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="vendor/highlight/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<style>
+  :root {
+    --bg: #ffffff; --fg: #1f2328; --muted: #59636e; --border: #d1d9e0;
+    --side-bg: #f6f8fa; --link: #0969da; --code-bg: #f3f4f6; --active-bg: #dbe9fb;
+    --mark: #fff3a3; --side-w: 290px;
+    --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117; --fg: #e6edf3; --muted: #9198a1; --border: #30363d;
+      --side-bg: #151b23; --link: #4493f8; --code-bg: #1c2128; --active-bg: #1f3a5f;
+      --mark: #6b5a00;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-padding-top: 1rem; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 16px/1.6 -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  a { color: var(--link); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  #wv-sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; width: var(--side-w);
+    overflow-y: auto; background: var(--side-bg); border-right: 1px solid var(--border);
+    padding: 1rem 0.75rem 2rem;
+  }
+  #wv-title { display: block; font-weight: 600; font-size: 1.15rem; color: var(--fg); margin: 0 0.25rem 0.75rem; }
+  #wv-search {
+    width: 100%; padding: 0.4rem 0.6rem; font: inherit; font-size: 0.95rem;
+    color: var(--fg); background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  }
+  #wv-toc { margin-top: 0.75rem; font-size: 0.93rem; }
+  #wv-toc h1 { display: none; }
+  #wv-toc h2, #wv-toc h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--muted); margin: 1rem 0.25rem 0.25rem; }
+  #wv-toc p { margin: 0.25rem; }
+  #wv-toc ul { list-style: none; margin: 0; padding-left: 0.9rem; }
+  #wv-toc > ul { padding-left: 0; }
+  #wv-toc li { margin: 1px 0; }
+  #wv-toc a { display: block; padding: 0.15rem 0.4rem; border-radius: 4px; color: var(--fg); }
+  #wv-toc a.active { background: var(--active-bg); font-weight: 600; }
+
+  #wv-main { margin-left: var(--side-w); padding: 2rem 2.5rem 4rem; }
+  #wv-page { max-width: 900px; margin: 0 auto; }
+  #wv-menu { display: none; }
+
+  .muted { color: var(--muted); }
+  .md h1, .md h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; }
+  .md h1 { font-size: 2em; margin-top: 0; }
+  .md h1, .md h2, .md h3, .md h4, .md h5, .md h6 { line-height: 1.25; margin: 1.5em 0 0.6em; position: relative; }
+  .md .wv-anchor { position: absolute; left: -1.1em; padding-right: 0.3em; opacity: 0; color: var(--muted); font-weight: 400; }
+  .md :is(h1, h2, h3, h4, h5, h6):hover .wv-anchor { opacity: 1; text-decoration: none; }
+  .md .wv-target { animation: wv-flash 1.5s ease-out; }
+  @keyframes wv-flash { from { background: var(--mark); } to { background: transparent; } }
+  .md img { max-width: 100%; }
+  .md code { font-family: var(--mono); font-size: 0.875em; background: var(--code-bg); padding: 0.15em 0.35em; border-radius: 4px; }
+  .md pre { background: var(--code-bg); padding: 0.9rem 1rem; border-radius: 6px; overflow-x: auto; line-height: 1.45; }
+  .md pre code { background: none; padding: 0; font-size: 0.85em; }
+  .md pre code.hljs { background: none; padding: 0; }
+  .md blockquote { margin: 0 0 1em; padding: 0 1em; color: var(--muted); border-left: 0.25em solid var(--border); }
+  .md .wv-table { overflow-x: auto; margin: 0 0 1em; }
+  .md table { border-collapse: collapse; }
+  .md th, .md td { border: 1px solid var(--border); padding: 0.35rem 0.75rem; }
+  .md th { background: var(--side-bg); }
+  .md tr:nth-child(2n) td { background: color-mix(in srgb, var(--side-bg) 60%, transparent); }
+  .md hr { border: 0; border-top: 1px solid var(--border); margin: 1.5em 0; }
+  .wv-source { margin-top: 3rem; font-size: 0.85rem; }
+
+  .wv-result { margin: 0 0 1.1rem; }
+  .wv-result .wv-where { font-size: 0.85rem; color: var(--muted); }
+  .wv-result p { margin: 0.2rem 0 0; font-size: 0.93rem; }
+  mark { background: var(--mark); color: inherit; border-radius: 2px; }
+
+  @media (max-width: 800px) {
+    #wv-sidebar { transform: translateX(-100%); transition: transform 0.2s; z-index: 10; }
+    body.wv-nav-open #wv-sidebar { transform: none; }
+    #wv-main { margin-left: 0; padding: 3.5rem 1rem 3rem; }
+    #wv-menu { display: block; position: fixed; top: 0.6rem; left: 0.6rem; z-index: 11;
+      font-size: 1.2rem; padding: 0.2rem 0.6rem; color: var(--fg); background: var(--side-bg);
+      border: 1px solid var(--border); border-radius: 6px; }
+  }
+
+  /* status pills: the emoji marks of STYLE.md, coloured in the viewer only (the .md stays plain) */
+  .pill { display:inline-block; padding:0 .5em; border-radius:999px; font-size:.85em; font-weight:600;
+          line-height:1.5; white-space:nowrap; border:1px solid transparent; }
+  .pill-faithful { background:#dcfce7; color:#14532d; border-color:#86efac; }
+  .pill-approx   { background:#fef9c3; color:#713f12; border-color:#fde047; }
+  .pill-inferred { background:#dbeafe; color:#1e3a8a; border-color:#93c5fd; }
+  .pill-verify   { background:#f3e8ff; color:#581c87; border-color:#d8b4fe; }
+  .pill-l120     { background:#f1f5f9; color:#334155; border-color:#cbd5e1; }
+  .pill-chosen   { background:#ffedd5; color:#7c2d12; border-color:#fdba74; }
+  @media (prefers-color-scheme: dark) {
+    .pill-faithful { background:#14532d; color:#dcfce7; border-color:#166534; }
+    .pill-approx   { background:#713f12; color:#fef9c3; border-color:#854d0e; }
+    .pill-inferred { background:#1e3a8a; color:#dbeafe; border-color:#1e40af; }
+    .pill-verify   { background:#581c87; color:#f3e8ff; border-color:#6b21a8; }
+    .pill-l120     { background:#334155; color:#f1f5f9; border-color:#475569; }
+    .pill-chosen   { background:#7c2d12; color:#ffedd5; border-color:#9a3412; }
+  }
+</style>
+</head>
+<body>
+<button id="wv-menu" type="button" aria-label="Show or hide the menu">&#9776;</button>
+<nav id="wv-sidebar">
+  <a id="wv-title" href="#/">Wiki</a>
+  <input id="wv-search" type="search" placeholder="Search all pages" aria-label="Search all pages">
+  <div id="wv-toc"></div>
+</nav>
+<main id="wv-main"><article id="wv-page" class="md"><p class="muted">Loading&hellip;</p></article></main>
+<script src="vendor/marked/marked.min.js"></script>
+<script src="vendor/highlight/highlight.min.js"></script>
+<script>
+(() => {
+  'use strict';
+
+  const SUMMARY = 'SUMMARY.md';
+  const $ = id => document.getElementById(id);
+  const pageEl = $('wv-page'), tocEl = $('wv-toc'), searchEl = $('wv-search'), titleEl = $('wv-title');
+
+  const textCache = new Map();  // path -> Promise<string>
+  let pages = [];               // [{path, title}] in SUMMARY order
+  let siteTitle = 'Wiki';
+  let shownPath = null;         // page currently rendered
+  let lastPagePath = null;      // last page shown, to return to after a search is cleared
+  let renderToken = 0;
+  let searchIndex = null;       // Promise<[{path, title, sections: [{id, heading, text}]}]>
+
+  marked.setOptions({ gfm: true });
+
+  // ---------- paths and routes ----------
+
+  const encodePath = p => p.split('/').map(encodeURIComponent).join('/');
+  const isExternal = href => /^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith('//');
+
+  // Resolve a link written in the page at basePath, the way GitHub does.
+  function resolveLink(basePath, href) {
+    const u = new URL(href, 'http://wiki.invalid/' + encodePath(basePath));
+    let path = decodeURIComponent(u.pathname.slice(1));
+    if (path === '' || path.endsWith('/')) path += 'README.md';
+    return { path, anchor: u.hash ? decodeURIComponent(u.hash.slice(1)) : '', search: u.search };
+  }
+
+  // Routes: #/dir/page.md#anchor  or  #?q=search terms
+  function parseRoute() {
+    const h = location.hash;
+    if (h.startsWith('#?q=')) return { query: decodeURIComponent(h.slice(4).replace(/\+/g, ' ')) };
+    if (!h.startsWith('#/')) return { path: null, anchor: h.length > 1 ? decodeURIComponent(h.slice(1)) : '' };
+    const rest = h.slice(2), i = rest.indexOf('#');
+    return {
+      path: decodeURIComponent(i < 0 ? rest : rest.slice(0, i)) || null,
+      anchor: i < 0 ? '' : decodeURIComponent(rest.slice(i + 1)),
+    };
+  }
+  const pageHref = (path, anchor) => '#/' + encodePath(path) + (anchor ? '#' + encodeURIComponent(anchor) : '');
+
+  // ---------- fetching ----------
+
+  function fetchText(path) {
+    if (!textCache.has(path)) {
+      const p = fetch(encodePath(path), { cache: 'no-cache' }).then(r => {
+        if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+        return r.text();
+      });
+      p.catch(() => textCache.delete(path));
+      textCache.set(path, p);
+    }
+    return textCache.get(path);
+  }
+
+  // ---------- GitHub heading slugs (github-slugger rule) ----------
+
+  function makeSlugger() {
+    const seen = new Map();
+    return text => {
+      const base = text.toLowerCase().replace(/[^\p{L}\p{M}\p{N}\p{Pc} -]/gu, '').replace(/ /g, '-');
+      let slug = base;
+      while (seen.has(slug)) {
+        const n = seen.get(base) + 1;
+        seen.set(base, n);
+        slug = base + '-' + n;
+      }
+      seen.set(slug, 0);
+      return slug;
+    };
+  }
+
+  // ---------- rendering ----------
+
+  function fixLinks(container, basePath) {
+    for (const a of container.querySelectorAll('a[href]')) {
+      const href = a.getAttribute('href');
+      if (a.classList.contains('wv-anchor')) continue;
+      if (isExternal(href)) {
+        if (!href.startsWith('mailto:')) { a.target = '_blank'; a.rel = 'noopener'; }
+        continue;
+      }
+      if (href.startsWith('#')) { a.setAttribute('href', pageHref(basePath, decodeURIComponent(href.slice(1)))); continue; }
+      const r = resolveLink(basePath, href);
+      if (/\.md$/i.test(r.path)) {
+        a.setAttribute('href', pageHref(r.path, r.anchor));
+        a.dataset.path = r.path;
+      } else {
+        a.setAttribute('href', encodePath(r.path) + (r.anchor ? '#' + encodeURIComponent(r.anchor) : ''));
+      }
+    }
+    for (const img of container.querySelectorAll('img[src]')) {
+      const src = img.getAttribute('src');
+      // the query is kept: a bar's ?v= version makes the browser fetch a bar whose numbers changed
+      if (!isExternal(src)) img.setAttribute('src', (r => encodePath(r.path) + r.search)(resolveLink(basePath, src)));
+    }
+  }
+
+  // status pills: wrap the emoji marks (STYLE.md) in coloured pills; text nodes only, never inside code
+  const PILLS = [
+    [/✅\s*faithful/g, 'pill-faithful', '✅ faithful'],
+    [/⚠️?\s*approximate/g, 'pill-approx', '⚠️ approximate'],
+    [/🔍\s*inferred/g, 'pill-inferred', '🔍 inferred'],
+    [/🧪\s*verify/g, 'pill-verify', '🧪 verify'],
+    [/📼\s*1\.20 only/g, 'pill-l120', '📼 1.20 only'],
+    [/🎯\s*chosen difference/g, 'pill-chosen', '🎯 chosen difference'],
+  ];
+  function pillify(root) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode: n => n.parentElement.closest('code, pre, .pill') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+    const nodes = []; while (walker.nextNode()) nodes.push(walker.currentNode);
+    for (const node of nodes) {
+      let html = escapeHtml(node.nodeValue), hit = false;
+      for (const [rx, cls, label] of PILLS) {
+        html = html.replace(rx, () => { hit = true; return `<span class="pill ${cls}">${label}</span>`; });
+      }
+      if (hit) { const span = document.createElement('span'); span.innerHTML = html; node.replaceWith(...span.childNodes); }
+    }
+  }
+
+  function enhance(container, basePath) {
+    const slug = makeSlugger();
+    for (const h of container.querySelectorAll('h1, h2, h3, h4, h5, h6')) {
+      if (!h.id) h.id = slug(h.textContent);
+      const a = document.createElement('a');
+      a.className = 'wv-anchor';
+      a.href = pageHref(basePath, h.id);
+      a.textContent = '#';
+      a.setAttribute('aria-hidden', 'true');
+      h.prepend(a);
+    }
+    fixLinks(container, basePath);
+    for (const t of container.querySelectorAll('table')) {
+      const wrap = document.createElement('div');
+      wrap.className = 'wv-table';
+      t.replaceWith(wrap);
+      wrap.append(t);
+    }
+    if (window.hljs) {
+      for (const code of container.querySelectorAll('pre code[class*="language-"]')) {
+        const lang = /language-([\w+#-]+)/.exec(code.className)?.[1];
+        if (lang && hljs.getLanguage(lang)) hljs.highlightElement(code);
+      }
+    }
+  }
+
+  function scrollToAnchor(anchor) {
+    if (!anchor) { window.scrollTo(0, 0); return; }
+    const el = pageEl.querySelector('#' + CSS.escape(anchor)) ||
+               pageEl.querySelector('[name="' + CSS.escape(anchor) + '"]');
+    if (!el) return;
+    el.scrollIntoView();
+    el.classList.remove('wv-target');
+    void el.offsetWidth;
+    el.classList.add('wv-target');
+  }
+
+  function markActive(path) {
+    let active = null;
+    for (const a of tocEl.querySelectorAll('a[data-path]')) {
+      const on = a.dataset.path === path;
+      a.classList.toggle('active', on);
+      if (on && !active) active = a;
+    }
+    active?.scrollIntoView({ block: 'nearest' });
+  }
+
+  const escapeHtml = s => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  function showError(path, err) {
+    const hint = location.protocol === 'file:'
+      ? '<p>The browser cannot read files from <code>file://</code>. Open the wiki with <code>abrir_wiki.bat</code>.</p>'
+      : '';
+    pageEl.innerHTML = `<h1>Page not found</h1><p class="muted">${escapeHtml(path)}: ${escapeHtml(String(err.message || err))}</p>${hint}`;
+  }
+
+  async function showPage(path, anchor) {
+    const token = ++renderToken;
+    if (path !== shownPath) {
+      let md;
+      try {
+        md = await fetchText(path);
+      } catch (err) {
+        if (token !== renderToken) return;
+        shownPath = null;
+        showError(path, err);
+        markActive(path);
+        return;
+      }
+      if (token !== renderToken) return;
+      pageEl.innerHTML = marked.parse(md);
+      enhance(pageEl, path);
+      pillify(pageEl);
+      const src = document.createElement('p');
+      src.className = 'wv-source muted';
+      src.innerHTML = `Source: <a href="${encodePath(path)}">${escapeHtml(path)}</a>`;
+      pageEl.append(src);
+      shownPath = path;
+      const h1 = pageEl.querySelector('h1');
+      const name = h1 ? h1.textContent.replace(/^#/, '') : (pages.find(p => p.path === path)?.title || path);
+      document.title = name + ' - ' + siteTitle;
+    }
+    lastPagePath = path;
+    if (searchEl.value && document.activeElement !== searchEl) searchEl.value = '';
+    markActive(path);
+    scrollToAnchor(anchor);
+  }
+
+  // ---------- side menu ----------
+
+  async function loadSummary() {
+    let md;
+    try {
+      md = await fetchText(SUMMARY);
+    } catch (err) {
+      tocEl.innerHTML = `<p class="muted">No ${SUMMARY}: ${escapeHtml(err.message)}</p>`;
+      return;
+    }
+    tocEl.innerHTML = marked.parse(md);
+    fixLinks(tocEl, SUMMARY);
+    const h1 = tocEl.querySelector('h1');
+    if (h1 && h1.textContent.trim()) siteTitle = h1.textContent.trim();
+    titleEl.textContent = siteTitle;
+    document.title = siteTitle;
+    const seen = new Set();
+    for (const a of tocEl.querySelectorAll('a[data-path]')) {
+      if (seen.has(a.dataset.path)) continue;
+      seen.add(a.dataset.path);
+      pages.push({ path: a.dataset.path, title: a.textContent.trim() || a.dataset.path });
+    }
+  }
+
+  // ---------- search ----------
+
+  function buildIndex() {
+    if (searchIndex) return searchIndex;
+    const parser = new DOMParser();  // inert document: no images or scripts load
+    searchIndex = Promise.all(pages.map(async page => {
+      let md;
+      try { md = await fetchText(page.path); } catch { return null; }
+      const body = parser.parseFromString(marked.parse(md), 'text/html').body;
+      const slug = makeSlugger();
+      const sections = [{ id: '', heading: page.title, text: '' }];
+      for (const node of body.children) {
+        if (/^H[1-6]$/.test(node.tagName)) {
+          sections.push({ id: node.id || slug(node.textContent), heading: node.textContent, text: '' });
+        } else {
+          for (const h of node.querySelectorAll('h1, h2, h3, h4, h5, h6')) slug(h.textContent);
+          sections[sections.length - 1].text += ' ' + node.textContent;
+        }
+      }
+      for (const s of sections) s.text = s.text.replace(/\s+/g, ' ').trim();
+      return { ...page, sections: sections.filter(s => s.id || s.text) };
+    })).then(list => list.filter(Boolean));
+    return searchIndex;
+  }
+
+  function highlightTerms(text, terms) {
+    const re = new RegExp('(' + terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')', 'gi');
+    // split() with a capture group puts the matches at the odd indexes
+    return text.split(re).map((part, i) => i % 2 ? '<mark>' + escapeHtml(part) + '</mark>' : escapeHtml(part)).join('');
+  }
+
+  function snippet(text, terms) {
+    const lower = text.toLowerCase();
+    const at = Math.max(0, Math.min(...terms.map(t => { const i = lower.indexOf(t); return i < 0 ? Infinity : i; })));
+    const start = at === Infinity ? 0 : Math.max(0, at - 80);
+    const piece = text.slice(start, start + 240);
+    return (start > 0 ? '... ' : '') + piece + (start + 240 < text.length ? ' ...' : '');
+  }
+
+  async function showSearch(query) {
+    const token = ++renderToken;
+    shownPath = null;
+    markActive(null);
+    if (searchEl.value !== query && document.activeElement !== searchEl) searchEl.value = query;
+    const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+    document.title = 'Search - ' + siteTitle;
+    if (!terms.length) { pageEl.innerHTML = '<h1>Search</h1><p class="muted">Type in the box to search every page.</p>'; return; }
+    pageEl.innerHTML = '<h1>Search</h1><p class="muted">Loading the pages&hellip;</p>';
+    const index = await buildIndex();
+    if (token !== renderToken) return;
+    const hits = [];
+    for (const page of index) {
+      for (const s of page.sections) {
+        const head = s.heading.toLowerCase(), body = s.text.toLowerCase();
+        if (!terms.every(t => head.includes(t) || body.includes(t) || page.title.toLowerCase().includes(t))) continue;
+        if (!terms.some(t => head.includes(t) || body.includes(t))) continue;
+        let score = 0;
+        for (const t of terms) {
+          if (head.includes(t)) score += 10;
+          if (page.title.toLowerCase().includes(t)) score += 3;
+          score += Math.min(5, body.split(t).length - 1);
+        }
+        hits.push({ page, s, score });
+      }
+    }
+    hits.sort((a, b) => b.score - a.score);
+    const shown = hits.slice(0, 100);
+    pageEl.innerHTML = `<h1>Search</h1><p class="muted">${hits.length} result${hits.length === 1 ? '' : 's'} for <strong>${escapeHtml(query)}</strong> in ${index.length} pages${hits.length > shown.length ? ' (first 100 shown)' : ''}.</p>` +
+      shown.map(({ page, s }) => `<div class="wv-result">
+        <a href="${pageHref(page.path, s.id)}">${highlightTerms(s.id ? s.heading : page.title, terms)}</a>
+        <div class="wv-where">${escapeHtml(page.title)}${s.id ? ' &rsaquo; ' + escapeHtml(s.heading) : ''} &middot; ${escapeHtml(page.path)}</div>
+        ${s.text ? `<p>${highlightTerms(snippet(s.text, terms), terms)}</p>` : ''}
+      </div>`).join('');
+  }
+
+  let searchTimer = 0;
+  searchEl.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      const q = searchEl.value.trim();
+      if (!q) {
+        if (lastPagePath) location.replace(pageHref(lastPagePath, ''));
+        return;
+      }
+      const target = '#?q=' + encodeURIComponent(q);
+      if (parseRoute().query !== undefined) { history.replaceState(null, '', target); route(); }
+      else location.hash = target;
+    }, 200);
+  });
+  searchEl.addEventListener('focus', () => buildIndex());
+  searchEl.addEventListener('keydown', e => { if (e.key === 'Escape') { searchEl.value = ''; searchEl.dispatchEvent(new Event('input')); } });
+
+  // ---------- router ----------
+
+  function route() {
+    const r = parseRoute();
+    document.body.classList.remove('wv-nav-open');
+    if (r.query !== undefined) return showSearch(r.query);
+    if (!r.path) {
+      if (r.anchor && shownPath) return scrollToAnchor(r.anchor);
+      // the dashboard opens by default; otherwise the first SUMMARY link
+      const home = pages.find(p => /(^|\/)dashboard\.md$/.test(p.path))?.path || pages[0]?.path || 'README.md';
+      location.replace(pageHref(home, r.anchor));
+      return;
+    }
+    return showPage(r.path, r.anchor);
+  }
+
+  $('wv-menu').addEventListener('click', () => document.body.classList.toggle('wv-nav-open'));
+  window.addEventListener('hashchange', route);
+  loadSummary().then(route);
+})();
+</script>
+</body>
+</html>

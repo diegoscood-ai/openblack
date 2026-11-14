@@ -1,0 +1,34 @@
+/******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+#define LOCATOR_IMPLEMENTATIONS
+
+#include "VillagerStores.h"
+
+#include "ECS/Systems/DynamicsSystemInterface.h"
+#include "ECS/Trees.h"
+#include "Locator.h"
+
+using namespace openblack;
+using namespace openblack::ecs;
+using namespace openblack::ecs::systems;
+
+town_stores::TemporaryStore VillagerStores::GetTemporaryStore(entt::entity town, const map_coords::MapCoords& from,
+                                                              ResourceType type)
+{
+	return town_stores::GetTemporaryResourceStorePotOrPos(town, from, type);
+}
+
+void VillagerStores::MakeDroppedLog(glm::vec3 position, uint32_t mesh, float multiplier, glm::vec3 velocity, glm::vec3 angular,
+                                    std::optional<glm::vec3> momentum)
+{
+	const auto entity = CreateDroppedLog(position, mesh, multiplier);
+	// the angular velocity as the original passes it: in the body's axes and with its sign
+	Locator::dynamicsSystem::value().AddDroppedObject(entity, velocity, DynamicsSystemInterface::BodySpin {angular}, momentum);
+}

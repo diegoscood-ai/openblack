@@ -24,6 +24,9 @@ template <>
 constexpr inline ParameterType k_ParameterTypeStaticLookUpRegular<glm::vec3> = ParameterType::Vector;
 
 template <>
+constexpr inline ParameterType k_ParameterTypeStaticLookUpRegular<ScriptPosition> = ParameterType::Vector;
+
+template <>
 constexpr inline ParameterType k_ParameterTypeStaticLookUpRegular<const std::string&> = ParameterType::String;
 
 template <>
@@ -71,6 +74,14 @@ inline glm::vec3 GetParamValueRegular(const ScriptCommandParameters& ctx, int in
 {
 	glm::vec3 result;
 	ctx[index].GetVector(result.x, result.y, result.z);
+	return result;
+}
+
+template <>
+inline ScriptPosition GetParamValueRegular(const ScriptCommandParameters& ctx, int index)
+{
+	ScriptPosition result {.units = ctx[index].GetUnits()};
+	ctx[index].GetVector(result.metres.x, result.metres.y, result.metres.z);
 	return result;
 }
 

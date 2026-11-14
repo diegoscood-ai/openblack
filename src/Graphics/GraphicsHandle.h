@@ -16,22 +16,47 @@ namespace openblack::graphics
 
 struct IndexBufferHandle
 {
-	uint64_t id = 0;
+	uint32_t id = 0;
+};
+
+struct FrameBufferHandle
+{
+	uint32_t id = 0;
 };
 
 struct VertexBufferHandle
 {
-	uint64_t id = 0;
+	uint32_t id = 0;
+};
+
+struct VertexLayoutHandle
+{
+	uint32_t id = 0;
+};
+
+struct DynamicVertexBufferHandle
+{
+	uint32_t id = 0;
 };
 
 struct TextureHandle
 {
-	uint64_t id = 0;
+	uint32_t id = 0;
 };
 
-struct SamplerHandle
+struct UniformHandle
 {
-	uint64_t id = 0;
+	uint32_t id = 0;
+};
+
+struct ShaderHandle
+{
+	uint32_t id = 0;
+};
+
+struct ProgramHandle
+{
+	uint32_t id = 0;
 };
 
 } // namespace openblack::graphics

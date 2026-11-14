@@ -14,6 +14,10 @@
 #include <string>
 #include <vector>
 
+#include <glm/vec3.hpp>
+
+#include "3D/MapCoords.h"
+
 namespace openblack::lhscriptx
 {
 enum class ParameterType
@@ -74,6 +78,10 @@ public:
 		_value._vector[1] = y;
 		_value._vector[2] = z;
 	}
+	/// A position's map units as the script gave them, its height above the land included; the vector holds the place
+	/// in metres on the land
+	[[nodiscard]] const map_coords::MapCoords& GetUnits() const { return _units; }
+	void SetUnits(const map_coords::MapCoords& units) { _units = units; }
 
 private:
 	ParameterType _type;
@@ -84,10 +92,18 @@ private:
 		float _float;
 		// NOLINTNEXTLINE(readability-identifier-naming)
 		int32_t _number;
-		// NOLINTNEXTLINE(modernize-avoid-c-arrays, readability-identifier-naming): array won't work in union
-		float _vector[3];
+		// NOLINTNEXTLINE(readability-identifier-naming): std::array is trivial, so the union keeps it
+		std::array<float, 3> _vector;
 	} _value;
 	std::string _string;
+	map_coords::MapCoords _units {};
+};
+
+/// A position argument as a command can take it: its place on the land in metres, and the map units the script gave
+struct ScriptPosition
+{
+	glm::vec3 metres {0.0f};
+	map_coords::MapCoords units {};
 };
 
 using ScriptCommandParameters = std::vector<ScriptCommandParameter>;

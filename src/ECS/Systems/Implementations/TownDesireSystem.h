@@ -1,0 +1,38 @@
+/******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+#pragma once
+
+#include "ECS/Systems/TownDesireSystemInterface.h"
+
+#if !defined(LOCATOR_IMPLEMENTATIONS)
+#error "ECS System implementations should only be included in Locator.cpp"
+#endif
+
+namespace openblack::ecs::systems
+{
+
+/// The town desires of ecs::town_desire behind the interface
+class TownDesireSystem final: public TownDesireSystemInterface
+{
+public:
+	uint32_t OfferVillager(entt::entity town, bool child, float trigger,
+	                       const std::function<uint32_t(TownDesireInfo)>& satisfy) override;
+	[[nodiscard]] float GetDesire(entt::entity town, TownDesireInfo desire) const override;
+	[[nodiscard]] float GetRawDesire(entt::entity town, TownDesireInfo desire) const override;
+	[[nodiscard]] TownDesireInfo GetMostWanted(entt::entity town) const override;
+	void SetBoost(entt::entity town, TownDesireInfo desire, float boost, bool resort) override;
+	void UpdateFlags() override;
+	void OnStoragePitMade(entt::entity town, entt::entity pit) override;
+	[[nodiscard]] bool DrawFlag(entt::entity flag, float seconds, const glm::vec3& eye) override;
+	void ProcessFlags(entt::entity town) override;
+	[[nodiscard]] std::optional<FlagToolTip> GetFlagToolTip(entt::entity flag) const override;
+};
+
+} // namespace openblack::ecs::systems

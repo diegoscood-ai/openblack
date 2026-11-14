@@ -11,6 +11,8 @@
 #include <memory>
 #include <unordered_map>
 
+#include <entt/core/type_info.hpp>
+
 #include "Queue.h"
 
 #pragma once
@@ -33,25 +35,17 @@ public:
 	}
 
 private:
-	class _EventFamily
-	{
-	private:
-		inline static std::atomic<int> identifier = 0;
-
-	public:
-		template <typename... T>
-		inline static const int k_Type = identifier++;
-	};
-	mutable std::unordered_map<int, std::unique_ptr<IEventQueue>> _queues {};
+	/// One queue per event type, by the type's index (EnTT's, as the registry's components have)
+	mutable std::unordered_map<entt::id_type, std::unique_ptr<IEventQueue>> _queues {};
 	template <typename Event>
 	EventQueue<Event>* Insist()
 	{
-		const auto eventType = EventManager::_EventFamily::k_Type<Event>;
+		const auto eventType = entt::type_index<Event>::value();
 		std::unique_ptr<IEventQueue>& p = _queues[eventType];
 
 		if (!p)
 		{
-			p.reset(new EventQueue<Event>());
+			p = std::make_unique<EventQueue<Event>>();
 		}
 
 		return static_cast<EventQueue<Event>*>(p.get());

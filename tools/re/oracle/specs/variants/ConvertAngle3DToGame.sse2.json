@@ -1,0 +1,8 @@
+{
+ "extends": "../ConvertAngle3DToGame.json",
+ "vectors": "ConvertAngle3DToGame.sse2",
+ "notes": "Variant: HasSSE2 [0xE83A20] forced to 1 after the baseline, so __ftol 0x7A1400 takes its SSE2 branch (cvttsd2si), as on a CPU that CheckCPU sends to its Pentium 4 body (family 0xF). Checks that the mismatches of the main vectors come from __ftol's x87 branch.",
+ "setup": [
+  {"write": [{"addr": "0x00E83A20", "hex": "01000000"}]}
+ ]
+}

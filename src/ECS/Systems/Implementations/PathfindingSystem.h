@@ -20,6 +20,8 @@ namespace openblack::ecs::systems
 class PathfindingSystem final: public PathfindingSystemInterface
 {
 public:
-	void Update() override;
+	void Step(entt::entity entity) override;
+	void SweepAhead(entt::entity entity) override;
+	void OnCollideDataReleased(entt::entity thing, std::span<const entt::entity> overlapping) override;
 };
 } // namespace openblack::ecs::systems

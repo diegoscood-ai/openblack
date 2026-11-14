@@ -1,0 +1,39 @@
+{
+ "function": "GetYXZ",
+ "symbol": "?GetYXZ@LHMatrix@@QBEXPAM00@Z",
+ "addr": "0x007FAB30",
+ "conv": "thiscall",
+ "ret": "void",
+ "notes": "LHMatrix::GetYXZ(float* y, float* x, float* z) const: the angles of the rows (it copies 12 dwords, reads cells 0..8). openblack: lh_matrix::GetYXZ (src/3D/ObjectMatrix.h). Inputs: rotations built in double from random YXZ angles (rounded to float), axis-aligned ones, and arbitrary cells.",
+ "this": "m",
+ "buffers": {
+  "m": [{"name": "m", "type": "f32", "count": 12, "gen": "matrix"}],
+  "y": [{"name": "y", "type": "f32", "out": true}],
+  "x": [{"name": "x", "type": "f32", "out": true}],
+  "z": [{"name": "z", "type": "f32", "out": true}]
+ },
+ "args": [
+  {"type": "ptr", "buffer": "y"},
+  {"type": "ptr", "buffer": "x"},
+  {"type": "ptr", "buffer": "z"}
+ ],
+ "generators": {
+  "matrix": {"mix": [
+   [70, {"rotation": {"angle": {"uniform": [-3.1415927, 3.1415927]}, "translation": {"uniform": [-1000, 1000]}}}],
+   [15, {"rotation": {"angle": {"choice": [0, "-0", 1.5707964, -1.5707964, 3.1415927, -3.1415927, 0.7853982, -0.7853982]}}}],
+   [15, {"uniform": [-1, 1]}]
+  ]}
+ },
+ "cases": [
+  {"m": [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]},
+  {"m": [-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0]},
+  {"m": [1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0]},
+  {"m": [1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, 0]},
+  {"m": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]},
+  {"m": ["-0", "-0", "-0", "-0", "-0", "-0", "-0", "-0", "-0", 0, 0, 0]},
+  {"m": [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0, 0, 0]},
+  {"m": ["nan", 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]}
+ ],
+ "random_cases": 4000,
+ "seed": 102
+}

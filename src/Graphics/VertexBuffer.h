@@ -11,8 +11,6 @@
 
 #include <cstdint>
 
-#include <functional>
-#include <memory>
 #include <string>
 #include <vector>
 
@@ -72,14 +70,40 @@ struct VertexAttrib
 
 using VertexDecl = std::vector<VertexAttrib>;
 
-struct VertexBuffer
+class VertexBuffer
 {
-	const std::string name;
-	const uint32_t vertexCount;
-	const uint32_t strideBytes;
-	const VertexBufferHandle handle;
-};
+public:
+	/// A dynamic buffer's vertices can be changed after, by Update
+	VertexBuffer(std::string name, const void* memory, VertexDecl decl, bool dynamic = false) noexcept;
+	VertexBuffer(const VertexBuffer&) = delete;
+	VertexBuffer& operator=(const VertexBuffer&) = delete;
+	~VertexBuffer() noexcept;
 
-using VertexBufferUniquePtr = std::unique_ptr<VertexBuffer, std::function<void(VertexBuffer*)>>;
+	[[nodiscard]] uint32_t GetCount() const noexcept;
+	[[nodiscard]] uint32_t GetStrideBytes() const noexcept;
+	[[nodiscard]] uint32_t GetSizeInBytes() const noexcept;
+
+	/// Whether bgfx made the buffer; one it couldn't make isn't drawn
+	[[nodiscard]] bool IsValid() const noexcept;
+	void Bind() const;
+	/// Binds a run of the buffer's vertices
+	void Bind(uint32_t firstVertex, uint32_t count) const;
+	/// Binds the buffer as another vertex stream, read with its own layout: the attributes a draw takes from it
+	/// (a creature's variant meshes for the morphing body)
+	void BindStream(uint8_t stream, VertexLayoutHandle layout) const;
+	/// Replaces a dynamic buffer's vertices, from the start, with bgfx memory of as many or fewer
+	void Update(const void* memory) const;
+
+private:
+	std::string _name;
+	uint32_t _vertexCount;
+	const VertexDecl _vertexDecl;
+	uint32_t _strideBytes;
+	std::vector<uint32_t> _vertexDeclOffsets;
+	VertexBufferHandle _handle;
+	DynamicVertexBufferHandle _dynamicHandle;
+	bool _dynamic;
+	VertexLayoutHandle _layoutHandle;
+};
 
 } // namespace openblack::graphics

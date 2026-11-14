@@ -1,0 +1,9 @@
+{
+ "extends": "../MakeShapeCircle.json",
+ "function": "MakeShapeWaveyCircle",
+ "symbol": "?MakeShapeWaveyCircle@MakeShape@@SAXK@Z",
+ "addr": "0x0050FA00",
+ "notes": "MakeShape::MakeShapeWaveyCircle (shape 1): its 256 points at DanceShapePoints + 1 * 0x800 (0x00CAE370). See MakeShapeCircle.json.",
+ "args": [{"name": "shape", "type": "u32", "value": 1}],
+ "globals": [{"name": "points", "addr": "0x00CAE370", "type": "i32", "count": 512, "out": true}]
+}

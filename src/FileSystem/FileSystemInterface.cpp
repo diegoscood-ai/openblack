@@ -11,6 +11,8 @@
 
 #include <algorithm>
 #include <array>
+#include <exception>
+#include <span>
 
 using namespace openblack::filesystem;
 
@@ -41,4 +43,31 @@ std::filesystem::path FileSystemInterface::FixPath(const std::filesystem::path& 
 	}
 
 	return result;
+}
+
+FileSystemInterface::WriteResult FileSystemInterface::WriteFile(const std::filesystem::path& path,
+                                                                std::span<const uint8_t> bytes)
+{
+	std::unique_ptr<Stream> stream;
+	try
+	{
+		stream = Open(path, Stream::Mode::Write);
+	}
+	catch (const std::exception&)
+	{
+		return WriteResult::NotOpened;
+	}
+	if (stream == nullptr)
+	{
+		return WriteResult::NotOpened;
+	}
+	try
+	{
+		stream->Write(bytes.data(), bytes.size());
+	}
+	catch (const std::exception&)
+	{
+		return WriteResult::Incomplete;
+	}
+	return WriteResult::Written;
 }

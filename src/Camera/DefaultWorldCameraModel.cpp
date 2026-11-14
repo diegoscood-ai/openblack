@@ -9,68 +9,112 @@
 
 #include "DefaultWorldCameraModel.h"
 
-#include <numeric>
-#include <ranges>
+#include <cstdlib>
 
+#include <array>
+#include <numeric>
+#include <span>
+#include <utility>
+
+#include <glm/geometric.hpp>
 #include <glm/gtc/constants.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/norm.hpp>
-#include <glm/gtx/polar_coordinates.hpp>
 #include <glm/gtx/vec_swizzle.hpp>
 #include <spdlog/spdlog.h>
 
 #include "3D/LandIslandInterface.h"
-#include "Audio/AudioManagerInterface.h"
+#include "3D/MapCoords.h"
+#include "Audio/Audio.h"
+#include "Audio/Services/Confirmation.h"
+#include "Blast/CameraShake.h"
 #include "Camera.h"
-#include "Common/RandomNumberManager.h"
+#include "CameraFlight.h"
+#include "CameraHelp.h"
+#include "CameraKeys.h"
+#include "CameraZones.h"
+#include "ClickDistance.h"
+#include "Debug/TraceLog.h"
+#include "ECS/CameraDomes.h"
 #include "ECS/Components/Transform.h"
-#include "ECS/Systems/DynamicsSystemInterface.h"
+#include "ECS/ObjectMetrics.h"
+#include "ECS/Registry.h"
+#include "ECS/Systems/CameraZoneSystemInterface.h"
+#include "ECS/Systems/CinematicDirectorSystemInterface.h"
+#include "ECS/Systems/CreatureFightSystemInterface.h"
+#include "ECS/Systems/CreatureHandSystemInterface.h"
+#include "ECS/Systems/CreatureModeSystemInterface.h"
+#include "ECS/Systems/HandSystemInterface.h"
+#include "ECS/Systems/PickingSystemInterface.h"
+#include "ECS/ToBeDeleted.h"
+#include "EdgeScroll.h"
+#include "EngineConfig.h"
+#include "FightOrbit.h"
+#include "GameClock.h"
+#include "Help/HelpProfile.h"
 #include "Input/GameActionMapInterface.h"
 #include "Locator.h"
+#include "PlayerCameraScript.h"
+#include "ScriptCamera.h"
 #include "Windowing/WindowingInterface.h"
 
 using namespace openblack;
 using namespace std::chrono_literals;
 
-template <typename T, size_t S>
-    requires std::floating_point<T>
-constexpr std::array<T, S> MakeFlyingScoreAngles()
-{
-	std::array<T, S> result {};
-	for (size_t i = 0; i < S; ++i)
-	{
-		result.at(i) = static_cast<T>(i) * glm::pi<T>() * 2.0f / static_cast<T>(S);
-	}
-	return result;
-}
-
 // TODO(#708): Add to global configurations
-constexpr auto k_WheelZoomFactor = 20.0f;
-constexpr auto k_InteractionSpeedMultiplier = 400.0f;
-// Vanilla black and white uses a pretty bad PI/2 approximation
-constexpr auto k_CameraModelHalfPi = 1.53938043f;
+// A notch of the wheel zooms by this much, and so does a zoom key for each frame it is held without the wheel
+constexpr auto k_WheelZoomPerNotch = 60.0f;
 constexpr auto k_RotateOnSpeedMultiplier = glm::vec2(1.9f, -1.7f);
 constexpr auto k_TwoButtonZoomFactor = 1.9f;
+// Both buttons turn the camera by the same amount for the mouse's movement across, once it has moved far enough
+constexpr auto k_TwoButtonTurnFactor = 1.9f;
+// Zoom and keyboard movement steps are scaled by three times the camera's height above its focus, within these bounds.
+// Below the focus the zoom scale stops at k_ZoomScaleMaxBelowFocus.
+constexpr auto k_StepScaleHeightFactor = 3.0f;
+constexpr auto k_StepScaleMin = 60.0f;
+constexpr auto k_ZoomScaleMax = 2000.0f;
+constexpr auto k_ZoomScaleMaxBelowFocus = 4.0f * k_StepScaleMin;
+// The tilt of a unit of pitch input, in radians
+constexpr auto k_PitchPerInput = 0.002f;
 constexpr auto k_CameraInteractionStepSize = 3.0f;
 constexpr auto k_MinimalCameraAnimationDuration = 1'500'000us;
-constexpr auto k_HandDragVectorAlignmentThreshold = 0.001f;
-constexpr auto k_HandDragVectorAlignmentRatioThreshold = 0.000'1f;
 constexpr auto k_FlyingDistanceThresholds = std::array<float, 4> {100.0f, 60.0f, 30.0f, 15.0f};
 constexpr auto k_FlyingThresholdFactor = 1.5f;
 constexpr auto k_GroundDistanceMinimum = 10.0f;
-constexpr auto k_FlightHeightFactor = 0.1f;
-constexpr auto k_FlyingScoreAngles = MakeFlyingScoreAngles<float, 0x20>();
-constexpr auto k_ConstrainDiscCentre = glm::vec3(2560.0f, 0.0f, 2560.0f);
-constexpr auto k_ConstrainDiscRadius = 5120.0f;
+// How much a flight's middle point rises per metre flown across the land: the bookmarks' and the other flights to a
+// place, and the double click's
+constexpr auto k_PlaceFlightRise = 0.3f;
+constexpr auto k_DoubleClickFlightRise = 0.1f;
+// The flight back to the player's view when the player's mode is current again after a dual camera
+constexpr auto k_ResumeFlightRise = 0.1f;
+// The watched fight's flight does not rise
+constexpr auto k_FightFlightRise = 0.0f;
+// The clear view glides in and out over this long, and moves the camera once further in than this
+constexpr auto k_ClearViewSeconds = 0.5f;
+constexpr auto k_ClearViewShown = 0.01f;
+// Its close view is this far from the hand's point: 50 for a camera further than 300 from its focus, 10 for one nearer
+// than 50, 15 otherwise
+constexpr auto k_ClearViewFarCamera = 300.0f;
+constexpr auto k_ClearViewNearCamera = 50.0f;
+constexpr auto k_ClearViewFromFar = 50.0f;
+constexpr auto k_ClearViewFromNear = 10.0f;
+constexpr auto k_ClearViewDistance = 15.0f;
+// A drag given up flies the camera this far from the hand's point
+constexpr auto k_GivenUpFlightDistance = 1000.0f;
+// The time since a flight began starts here for a short double click flight and for the flight after a drag given up
+constexpr auto k_ShortFlightStartSeconds = 1.5f * 0.5f;
+constexpr auto k_GivenUpFlightStartSeconds = 0.01f;
 constexpr auto k_MaxAltitude = 30'000.0f;
-constexpr auto k_FloatingHeight = 2.9999f; // 3 in vanilla, but less due to fp precision with recorded data in tests
+// The lowest the camera goes over the land under it at the frame's start, as the original's
+constexpr auto k_FloatingHeight = 3.0f;
 
 glm::vec3 EulerFromPoints(glm::vec3 p0, glm::vec3 p1)
 {
 	const auto diff = p0 - p1;
-	// If the camera is directly above the focus point, set pitch to 90 degrees.
-	if (glm::all(glm::lessThan(glm::abs(glm::xz(diff)), glm::vec2(0.1f, 0.1f))))
+	// Straight above or below the point, within a hundredth across the ground: heading 0, looking (nearly) straight down
+	if (script_camera::StraightAbove(p0, p1))
 	{
-		return {0.0f, k_CameraModelHalfPi, 0.0f};
+		return {0.0f, script_camera::k_VerticalPitch, 0.0f};
 	}
 	// Otherwise, calculate yaw and pitch based on the direction to the focus point.
 	return {glm::pi<float>() - glm::atan(diff.x, -diff.z), glm::atan(diff.y, glm::length(glm::xz(diff))), 0.0f};
@@ -104,7 +148,90 @@ float PointDistanceAlongLineSegment(const glm::vec3& p1, const glm::vec3& p2, co
 	return glm::abs(glm::dot(v13, u12)); // Using glm::abs to ensure the distance is non-negative
 }
 
-DefaultWorldCameraModel::DefaultWorldCameraModel() = default;
+namespace
+{
+/// Whether the camera features allow one of them
+[[nodiscard]] bool Allows(uint32_t features, camera_help::Feature feature)
+{
+	return (features & static_cast<uint32_t>(camera_help::Bit(feature))) != 0;
+}
+
+/// The screen's size in pixels, none without a window
+[[nodiscard]] glm::ivec2 ScreenSize()
+{
+	return Locator::windowing::has_value() ? Locator::windowing::value().GetSize() : glm::ivec2(0);
+}
+
+/// The fights' arenas as the camera looks for one to watch, in the fights' order
+[[nodiscard]] std::vector<fight_orbit::ArenaInView>
+ArenaViews(const std::vector<ecs::systems::CreatureFightSystemInterface::ArenaView>& arenas)
+{
+	std::vector<fight_orbit::ArenaInView> views;
+	views.reserve(arenas.size());
+	for (const auto& arena : arenas)
+	{
+		views.push_back({.centre = arena.centre,
+		                 .radius = arena.radius,
+		                 .bothFighters = arena.maker != entt::null && arena.opponent != entt::null});
+	}
+	return views;
+}
+
+/// OPENBLACK_WORLD_CAMERA_TRACE=1: the world camera at each step of its frame (docs/wiki/project/debugging.md)
+[[nodiscard]] bool WorldCameraTraceOn()
+{
+	static const bool k_Trace = std::getenv("OPENBLACK_WORLD_CAMERA_TRACE") != nullptr;
+	return debug_env::TraceLogs(k_Trace);
+}
+
+/// One step of the frame: the camera, the point it turns about, the pitch between them, the movement keys' and the tilt
+/// input, whether it tilts itself or nothing is done, and the mode
+struct WorldCameraTraceStep
+{
+	const char* step;
+	glm::vec3 origin;
+	glm::vec3 focus;
+	glm::vec3 focusAtClick;
+	glm::vec2 keys;
+	float tilt;
+	bool autoTilting;
+	bool idleMouse;
+	int mode;
+};
+
+void TraceWorldCamera(const WorldCameraTraceStep& s)
+{
+	const auto angles = EulerFromPoints(s.origin, s.focusAtClick);
+	spdlog::get("game")->info("World camera {}: origin ({:.4f}, {:.4f}, {:.4f}), focus ({:.4f}, {:.4f}, {:.4f}), turning "
+	                          "point ({:.4f}, {:.4f}, {:.4f}), heading {:.5f}, pitch {:.5f}, keys ({:.3f}, {:.3f}), tilt "
+	                          "{:.4f}, self-tilting {}, idle {}, mode {}",
+	                          s.step, s.origin.x, s.origin.y, s.origin.z, s.focus.x, s.focus.y, s.focus.z, s.focusAtClick.x,
+	                          s.focusAtClick.y, s.focusAtClick.z, angles.x, angles.y, s.keys.x, s.keys.y, s.tilt,
+	                          s.autoTilting ? 1 : 0, s.idleMouse ? 1 : 0, s.mode);
+}
+} // namespace
+
+DefaultWorldCameraModel::DefaultWorldCameraModel()
+    : DefaultWorldCameraModel(ecs::object::GetRadius)
+{
+}
+
+DefaultWorldCameraModel::DefaultWorldCameraModel(FighterRadius fighterRadius)
+    : _fighterRadius(std::move(fighterRadius))
+{
+}
+
+DefaultWorldCameraModel::DefaultWorldCameraModel(glm::vec3 origin, glm::vec3 focus)
+    : _currentOrigin(origin)
+    , _currentFocus(focus)
+    , _targetOrigin(origin)
+    , _targetFocus(focus)
+    , _originFocusDistanceAtInteractionStart(glm::distance(origin, focus))
+    , _originAtClick(origin)
+    , _focusAtClick(focus)
+    , _fighterRadius(ecs::object::GetRadius)
+{
+}
 
 DefaultWorldCameraModel::~DefaultWorldCameraModel() = default;
 
@@ -120,11 +247,12 @@ void DefaultWorldCameraModel::TiltZoom(glm::vec3& eulerAngles, float scalingFact
 	// Update the camera's pitch if there's significant vertical movement.
 	if (glm::abs(_rotateAroundDelta.x) > glm::epsilon<float>())
 	{
-		const auto pitchStep = _rotateAroundDelta.x * 0.002f;
+		const auto pitchStep = _rotateAroundDelta.x * k_PitchPerInput;
 		eulerAngles.y -= pitchStep;
 		// Clamp the pitch angle to keep the camera within between -30 and 78.75 degrees.
 		eulerAngles.y = glm::clamp(eulerAngles.y, -1.0f / 6.0f * glm::pi<float>(), 7.0f / 16.0f * glm::pi<float>());
-		if (_mode == Mode::ArcBall)
+		// Only the middle button's turn lifts the focus; a tilt with the land gripped keeps it, as the keys' tilt does
+		if (_mode == Mode::ArcBall && !_gripWithCameraInput)
 		{
 			const auto distanceFromBound = (2.0f * k_CameraInteractionStepSize) - _distanceFromBoundY;
 			if (distanceFromBound > glm::epsilon<float>())
@@ -136,41 +264,47 @@ void DefaultWorldCameraModel::TiltZoom(glm::vec3& eulerAngles, float scalingFact
 		}
 	}
 
+	// The movement keys move the camera over the land only while the scripts allow the land grab, by the zoom's step
+	if (Allows(_features, camera_help::Feature::GrabLand))
 	{
-		// Compute a keyboard input offset based on the current pitch and yaw.
-		const auto clampedTan = glm::clamp(glm::tan(eulerAngles.y), 0.2f, 2.0f);
-		const auto localMovement = _keyBoardMoveDelta * glm::vec2(1.0f / clampedTan, -1.0f) * scalingFactor * 0.001f;
-		const auto planarMovement = glm::vec2(glm::cos(-eulerAngles.x), glm::sin(-eulerAngles.x));
-		const auto offset = glm::vec3(localMovement.y * planarMovement.x - localMovement.x * planarMovement.y, 0.0,
-		                              glm::dot(localMovement, planarMovement));
-		_targetOrigin += offset;
-		_targetFocus += offset;
-		_focusAtClick += offset;
+		// Each frame of a move with the keys counts as a drag for the camera help, with the frame's input mask, when the
+		// keys were read for this update, the land gripped or not
+		if (_controlsRead && _keyBoardMoveDelta != glm::vec2())
+		{
+			help_profile::CameraHelpCallback(help_profile::CameraReason::Drag, _helpInputs);
+		}
+		// While the land is gripped the keys don't move the camera, even when another camera input (the middle button, a
+		// zoom, a turn or a tilt) turns or tilts it this frame
+		if (!_gripping)
+		{
+			const auto offset = KeyboardMoveOffset(_keyBoardMoveDelta, scalingFactor, eulerAngles.y, eulerAngles.x);
+			_targetOrigin += offset;
+			_targetFocus += offset;
+			_focusAtClick += offset;
+		}
 	}
 
 	_averageIslandDistance += zoomDelta;
 	_averageIslandDistance = glm::max(_averageIslandDistance, k_CameraInteractionStepSize + 0.1f);
 }
 
-float DefaultWorldCameraModel::GetVerticalLineInverseDistanceWeighingRayCast(const Camera& camera) const
+float DefaultWorldCameraModel::GetVerticalLineInverseDistanceWeighingRayCast(const Camera& camera, glm::vec3 origin) const
 {
-	std::vector<float> inverseHitDistances;
-	inverseHitDistances.reserve(0x10);
+	std::array<float, click_distance::k_Rays> hits {};
+	size_t hitCount = 0;
 
-	for (int i = 0; i < 0x10; ++i)
+	// the pixels half way across, at sixteenths of the screen's height, rounded down; each hit's distance from the
+	// origin the parameters are taken for
+	const auto screen = ScreenSize();
+	for (int i = 0; i < click_distance::k_Rays; ++i)
 	{
-		const glm::vec2 coord = glm::vec2(0.5f, i / 16.0f);
-
-		if (const auto hit = camera.RaycastScreenCoordToLand(coord, false, Camera::Interpolation::Target))
+		if (const auto hit = camera.RaycastScreenCoordToLand({screen.x / 2, screen.y * i / click_distance::k_Rays}))
 		{
-			inverseHitDistances.push_back(1.0f / glm::length(hit->position - _targetOrigin));
+			hits.at(hitCount++) = click_distance::HitDistance(origin, *hit);
 		}
 	}
-
-	// Default distance of 50 if no hits happen, therefore divide by size + 1
-	const auto average = std::accumulate(inverseHitDistances.cbegin(), inverseHitDistances.cend(), 1.0f / 50.0f) /
-	                     (inverseHitDistances.size() + 1);
-	return 1.0f / average;
+	// 50 counts as one more hit, so that no hit gives 50
+	return click_distance::MeanDistance(std::span<const float>(hits).first(hitCount));
 }
 
 void DefaultWorldCameraModel::ComputeDistanceFromBoundY()
@@ -188,70 +322,233 @@ void DefaultWorldCameraModel::ComputeDistanceFromBoundY()
 	}
 }
 
-bool DefaultWorldCameraModel::ConstrainCamera(std::chrono::microseconds dt, float mouseMovementDistance, glm::vec3 eulerAngles,
-                                              const Camera& camera)
+bool DefaultWorldCameraModel::ConstrainCamera(std::chrono::microseconds dt, const Camera& camera, bool putBackByFence,
+                                              float groundAtFrameStart, bool keepsFocus, glm::vec3 originAtFrameStart,
+                                              bool holdsMove)
 {
-	const auto originBackup = _targetOrigin;
-	bool originHasBeenAdjusted = false;
-	originHasBeenAdjusted |= ConstrainAltitude();
-	originHasBeenAdjusted |= ConstrainDisc();
+	bool originHasBeenAdjusted = putBackByFence;
+	originHasBeenAdjusted |= ConstrainAltitude(groundAtFrameStart, keepsFocus);
+	static_cast<void>(ConstrainDisc());
 
+	// The largest move: the origin goes no further in the frame than 1.6 times the heading distance a second, at least
+	// 300, from where it was heading at the frame's start, what it looks at left where it is; held back, it counts as
+	// put back
 	const auto dtSeconds = std::chrono::duration_cast<std::chrono::duration<float>>(dt).count();
-	const auto threshold = glm::max(300.0f, 1.6f * _focusDistance * dtSeconds);
-	if ((mouseMovementDistance == 0.0f && glm::distance2(_targetOrigin, originBackup) > threshold * threshold) ||
-	    originHasBeenAdjusted)
+	if (holdsMove)
+	{
+		if (const auto held = camera_zones::LimitFrameMove(originAtFrameStart, _targetOrigin,
+		                                                   camera_zones::FrameMoveLimit(_focusDistance, dtSeconds)))
+		{
+			_lastHeldMove = {.heldBack = glm::distance(*held, _targetOrigin), .frames = _lastHeldMove.frames + 1};
+			// Debug readout: a frame's move held to the largest
+			if (auto log = spdlog::get("game"); log != nullptr)
+			{
+				log->debug("World camera: the frame's move held to the largest, {:.1f} held back, {} frames held so far",
+				           _lastHeldMove.heldBack, _lastHeldMove.frames);
+			}
+			_targetOrigin = *held;
+			originHasBeenAdjusted = true;
+		}
+	}
+	// Pushed, or what it looks at moved, the click's parameters are taken again
+	if (originHasBeenAdjusted || _limitsMovedFocus)
 	{
 		if (_mode != Mode::DraggingLandscape)
 		{
 			_originFocusDistanceAtInteractionStart =
 			    glm::max(glm::distance(_targetOrigin, _targetFocus), k_CameraInteractionStepSize + 0.1f);
-			UpdateFocusPointInteractionParameters(_targetOrigin, _targetFocus, eulerAngles, camera);
+			UpdateFocusPointInteractionParameters(_targetOrigin, _targetFocus, camera);
 		}
 	}
 
 	return originHasBeenAdjusted;
 }
 
-bool DefaultWorldCameraModel::ConstrainAltitude()
+bool DefaultWorldCameraModel::ConstrainAltitude(float groundAtFrameStart, bool keepsFocus)
 {
-	bool hasBeenAdjusted = false;
-	const auto minAltitude = k_FloatingHeight + Locator::terrainSystem::value().GetHeightAt(glm::xz(_targetOrigin));
-	if (_targetOrigin.y < minAltitude)
+	// The heights come from the land under the camera before the frame's moves. Below the lowest the camera alone is
+	// lifted to it; with the exclusions on, above the highest it slides down its view with what it looks at and the
+	// point it turns about
+	const camera_zones::Zones noZones {};
+	const auto& zones = Locator::cameraZoneSystem::has_value() ? Locator::cameraZoneSystem::value().GetZones() : noZones;
+	const auto bounds = camera_zones::HeightBoundsAt(groundAtFrameStart, k_FloatingHeight, zones);
+	const auto kept = camera_zones::KeepBetweenHeights(bounds, zones.exclusionsOn, _targetOrigin, _targetFocus, _focusAtClick);
+	_targetOrigin = kept.origin;
+	_targetFocus = kept.focus;
+	_focusAtClick = kept.turningPoint;
+	// The camera help counts the ceiling in a frame of the player's input
+	// The slide moves what the camera looks at too
+	_limitsMovedFocus = _limitsMovedFocus || kept.slid;
+	if (kept.slid && _dragCountsForHelp)
 	{
-		_targetOrigin.y = minAltitude;
-		hasBeenAdjusted = true;
+		help_profile::CameraHelpCallback(help_profile::CameraReason::HitCeiling, 0);
 	}
 
-	if (_mode != Mode::ArcBall && _rotateAroundDelta.x != 0.0f)
+	// Unless the frame keeps it, what the camera looks at is set again along its view, as far as the land in the
+	// middle of the screen
+	if (!keepsFocus)
 	{
-		_targetFocus = _targetOrigin + glm::normalize(_targetFocus - _targetOrigin) * _focusDistance;
+		_targetFocus = camera_zones::FocusAlongView(_targetOrigin, _targetFocus, _focusDistance);
 	}
 
-	return hasBeenAdjusted;
+	if (WorldCameraTraceOn() && (kept.raised || kept.slid || !keepsFocus))
+	{
+		spdlog::get("game")->info("World camera heights: land {:.4f}, lowest {:.4f}, highest {:.4f}, raised {}, slid {}, "
+		                          "focus set again {}",
+		                          groundAtFrameStart, bounds.lowest, bounds.highest, kept.raised ? 1 : 0, kept.slid ? 1 : 0,
+		                          keepsFocus ? 0 : 1);
+	}
+
+	return kept.raised || kept.slid;
 }
 
 bool DefaultWorldCameraModel::ConstrainDisc()
 {
-	bool hasBeenAdjusted = false;
-
-	const auto delta = _targetOrigin - k_ConstrainDiscCentre;
-	const auto distance2 = glm::length2(delta);
-
-	if (distance2 > k_ConstrainDiscRadius * k_ConstrainDiscRadius)
+	// Kept within the disc round the map's middle across the ground, whatever its height; the origin and the focus come
+	// out of it rounded, every frame
+	const auto disc = camera_zones::MapDiscFor(Locator::terrainSystem::value().GetCellsPerSide());
+	const auto kept = camera_zones::KeepInsideMapDisc(disc, _targetOrigin, _targetFocus);
+	const MiddleRounding rounding {.origin = kept.broughtBack ? glm::vec3(0.0f) : kept.origin - _targetOrigin,
+	                               .focus = kept.focus - _targetFocus};
+	if (rounding.origin != glm::vec3(0.0f) || rounding.focus != glm::vec3(0.0f))
 	{
-		_targetOrigin = k_ConstrainDiscCentre + delta * (k_ConstrainDiscRadius / glm::sqrt(distance2));
-		hasBeenAdjusted = true;
+		_lastMiddleRounding = rounding;
 	}
-
-	return hasBeenAdjusted;
+	_targetOrigin = kept.origin;
+	_targetFocus = kept.focus;
+	if (!kept.broughtBack)
+	{
+		return false;
+	}
+	// Brought back, it counts as what the camera looks at moved, not as the camera pushed
+	_limitsMovedFocus = true;
+	// The camera help counts it in a frame of the player's input, as it does the fence
+	if (_dragCountsForHelp)
+	{
+		help_profile::CameraHelpCallback(help_profile::CameraReason::HitAllowedAreaEdge, 0);
+	}
+	return true;
 }
 
-void DefaultWorldCameraModel::UpdateFocusPointInteractionParameters(glm::vec3 origin, glm::vec3 focus, glm::vec3 eulerAngles,
-                                                                    const Camera& camera)
+std::vector<camera_zones::Exclusion> DefaultWorldCameraModel::CameraExclusions(const camera_zones::Zones& zones)
+{
+	auto exclusions = zones.exclusions;
+	if (Locator::entitiesRegistry::has_value())
+	{
+		const auto domes = ecs::camera_domes::Exclusions(Locator::entitiesRegistry::value());
+		exclusions.insert(exclusions.end(), domes.begin(), domes.end());
+	}
+	return exclusions;
+}
+
+bool DefaultWorldCameraModel::KeepOffTheGround(glm::vec3 originAtFrameStart)
+{
+	if (!Locator::terrainSystem::has_value())
+	{
+		return false;
+	}
+	const auto& land = Locator::terrainSystem::value();
+	const camera_zones::Zones noZones {};
+	const auto& zones = Locator::cameraZoneSystem::has_value() ? Locator::cameraZoneSystem::value().GetZones() : noZones;
+	const auto exclusions = CameraExclusions(zones);
+	const auto nearby = camera_zones::NearbyExclusions(exclusions, originAtFrameStart);
+	const auto originBefore = _targetOrigin;
+	const auto focusBefore = _targetFocus;
+
+	// Out of the cylinders, while the zones keep the camera out of their exclusions
+	uint8_t cylinders = 0;
+	if (zones.exclusionsOn)
+	{
+		const auto out = camera_zones::PushOutOfCylinders(nearby, _targetOrigin);
+		_targetOrigin = out.origin;
+		cylinders = out.pushes;
+		for (uint8_t i = 0; i < cylinders && _dragCountsForHelp; ++i)
+		{
+			help_profile::CameraHelpCallback(help_profile::CameraReason::HitExclusion, 0);
+		}
+	}
+
+	// Off the land and the domes' roofs
+	const camera_zones::Ground ground {
+	    .height = [&land](glm::vec2 point) { return land.GetHeightAt(point); },
+	    .normal = [&land](glm::vec2 point) { return land.GetNormalAt(point); },
+	};
+	const auto push = camera_zones::PushOffTheGround(ground, nearby, zones.exclusionsOn, _targetOrigin, _targetFocus);
+	for (uint8_t i = 0; i < push.points && _dragCountsForHelp; ++i)
+	{
+		help_profile::CameraHelpCallback(help_profile::CameraReason::HitGround, 0);
+	}
+	_targetOrigin = push.origin;
+	_targetFocus = push.focus;
+
+	const bool pushed = cylinders != 0 || push.pushed;
+	_limitsMovedFocus = _limitsMovedFocus || push.focusMoved;
+	if (pushed)
+	{
+		_lastGroundKeep = {.points = push.points,
+		                   .onDomes = push.onDomes,
+		                   .cylinders = cylinders,
+		                   .nearby = nearby.size(),
+		                   .frames = _lastGroundKeep.frames + 1};
+		// A readout for the log (the game channel at debug): what pushed the camera, and how far
+		if (const auto logger = spdlog::get("game"); logger != nullptr)
+		{
+			logger->debug("World camera kept off the ground: {} of the probe's points (on domes {}), cylinders {}, near "
+			              "exclusions {}, origin ({:.4f}, {:.4f}, {:.4f}) -> ({:.4f}, {:.4f}, {:.4f}), focus moved {}",
+			              push.points, push.onDomes, cylinders, nearby.size(), originBefore.x, originBefore.y, originBefore.z,
+			              _targetOrigin.x, _targetOrigin.y, _targetOrigin.z, _targetFocus != focusBefore ? 1 : 0);
+		}
+	}
+	return pushed;
+}
+
+bool DefaultWorldCameraModel::KeepInsideFence(glm::vec3 originAtFrameStart, const Camera& camera)
+{
+	if (!Locator::cameraZoneSystem::has_value())
+	{
+		return false;
+	}
+	const auto& zones = Locator::cameraZoneSystem::value().GetZones();
+	// Turned by a drag round the edge of the screen, it is put further in, and goes on turning
+	const bool edgeTurning = _dragging && !_gripWithCameraInput && _drag.GetMode() == camera_drag::DragMode::EdgeRotate;
+	const auto kept = camera_zones::PushInsideFence(zones.fence, zones.fenceOn, originAtFrameStart, _targetOrigin, _targetFocus,
+	                                                camera_zones::SearchRadius(edgeTurning));
+	auto& script = player_camera::Get();
+	script.inclusionDistance = kept.inclusionDistance;
+	if (!kept.target.has_value())
+	{
+		return false;
+	}
+	// The camera goes to the point across the ground, keeping its height; what it looks at and the point it turns about
+	// move with it
+	const glm::vec3 origin {kept.target->x, _targetOrigin.y, kept.target->z};
+	_targetFocus = camera_zones::MovedWithOrigin(_targetFocus, _targetOrigin, origin);
+	_focusAtClick = camera_zones::MovedWithOrigin(_focusAtClick, _targetOrigin, origin);
+	_targetOrigin = origin;
+	++script.fenceHits;
+	// The camera help counts it in a frame of the player's input; the out of bounds sound where the camera is drawn; a
+	// shake round where it was put; and the controls dropped, unless it is turning round the edge
+	if (_dragCountsForHelp)
+	{
+		help_profile::CameraHelpCallback(help_profile::CameraReason::HitAllowedAreaEdge, 0);
+	}
+	audio::PlaySoundEffectAt(audio::Owner::None(), camera.GetOrigin(Camera::Interpolation::Current),
+	                         camera_zones::k_OutOfBoundsSample, 2, 0, false, true, audio::SfxBank::InGame);
+	camera_shake::Create(camera_zones::k_FenceShakeRadius, _targetOrigin, camera_zones::k_FenceShakeStrength,
+	                     camera_zones::k_FenceShakeMilliseconds, false);
+	if (!edgeTurning)
+	{
+		_fenceHeldBack = true;
+	}
+	// and the force field lights up about where the camera was put
+	Locator::cameraZoneSystem::value().PulseForceField(_targetOrigin);
+	return true;
+}
+
+void DefaultWorldCameraModel::UpdateFocusPointInteractionParameters(glm::vec3 origin, glm::vec3 focus, const Camera& camera)
 {
 	_focusAtClick = _targetFocus;
-	_screenSpaceMouseRaycastHitAtClick =
-	    camera.RaycastMouseToLand(true, Camera::Interpolation::Target).and_then(ecs::components::GetTransformPosition);
+	_screenSpaceMouseRaycastHitAtClick = camera.RaycastMouseToLand();
 	if (_screenSpaceMouseRaycastHitAtClick.has_value())
 	{
 		_arcBallRadius = PointDistanceAlongLineSegment(origin, focus, *_screenSpaceMouseRaycastHitAtClick);
@@ -259,49 +556,35 @@ void DefaultWorldCameraModel::UpdateFocusPointInteractionParameters(glm::vec3 or
 	_originAtClick = _targetOrigin;
 	_mouseAtClick = Locator::gameActionSystem::value().GetMousePosition();
 	_originFocusDistanceAtInteractionStart = glm::distance(origin, focus);
-	// TODO(#713): calculate a y-basis based on the projection on land of camera origin and hand
-	_originToHandPlaneNormal = glm::vec3(0.0f, 1.0f, 0.0f);
-	// TODO(#713): Calculate the with _originToHandPlaneNormal and the mouse hit point to put in _alignmentAtInteractionStart
-	_averageIslandDistance = GetVerticalLineInverseDistanceWeighingRayCast(camera);
+	// Dragging the land, the camera, the cursor and the plane are those of the press
+	if (_mode == Mode::DraggingLandscape && _dragging && _landGrip.has_value())
 	{
-		const auto diff = _targetOrigin - _targetFocus;
-		// If the camera is directly above the focus point, set pitch to 90 degrees.
-		if (glm::all(glm::lessThan(glm::abs(glm::xz(diff)), glm::vec2(0.1f, 0.1f))))
-		{
-			eulerAngles = glm::vec3(0.0f, glm::half_pi<float>(), 0.0f);
-		}
-		// Otherwise, calculate yaw and pitch based on the direction to the focus point.
-		else
-		{
-			eulerAngles =
-			    glm::vec3(glm::pi<float>() - glm::atan(diff.x, -diff.z), glm::atan(diff.y, glm::length(glm::xz(diff))), 0.0f);
-		}
+		_originAtClick = _landGrip->origin;
+		_focusAtClick = _landGrip->focus;
+		_mouseAtClick = _landGrip->cursor;
+		_originToHandPlaneNormal = _landGrip->plane.normal;
+		_alignmentAtInteractionStart = _landGrip->plane.distance;
+		_originFocusDistanceAtInteractionStart = glm::distance(_landGrip->origin, _landGrip->focus);
 	}
-	const auto extra =
-	    (_focusDistance - _averageIslandDistance) * glm::clamp(eulerAngles.y / (6.0f * glm::pi<float>()), 0.0f, 1.0f);
-	_averageIslandDistance += extra;
+	_averageIslandDistance = GetVerticalLineInverseDistanceWeighingRayCast(camera, origin);
+	// The steeper the camera looks down from the origin to the focus, the more the distance moves towards the focus
+	// distance
+	_averageIslandDistance = click_distance::TowardsFocus(_averageIslandDistance, _focusDistance, origin, focus);
 }
 
-glm::vec3 ScreenToWorld(const Camera& camera, glm::u16vec2 pixelCoord)
+float DefaultWorldCameraModel::RefreshClickDistance(const Camera& camera)
 {
-	const auto& window = Locator::windowing ::value();
+	UpdateFocusPointInteractionParameters(camera.GetOrigin(), camera.GetFocus(), camera);
+	return _averageIslandDistance;
+}
 
-	const auto screenSize = window.GetSize();
-	const auto aspect = window.GetAspectRatio();
-	const auto yFov = 2.0f * glm::atan(1.0f / camera.GetProjectionMatrix()[1][1]);
-
-	const auto screenCoord = static_cast<glm::vec2>(pixelCoord) / static_cast<glm::vec2>(screenSize);
-	const auto clipSpaceCoordinates = ((screenCoord - 0.5f) * 2.0f) * glm::vec2(1.0f, -1.0f);
-
-	const auto tanHalfFov = glm::tan(yFov / 2.0f);
-	const auto extents = glm::vec3(tanHalfFov * aspect, tanHalfFov, 1.0f);
-	const auto point = glm::vec4(glm::vec3(clipSpaceCoordinates, 1.0f) * extents, 1.0f);
-
-	return camera.GetRotationMatrix() * point;
+void DefaultWorldCameraModel::FlyToPlace(glm::vec3 origin, glm::vec3 focus, float rise)
+{
+	FlyTo(Locator::terrainSystem::value(), origin, focus, rise);
 }
 
 void DefaultWorldCameraModel::UpdateMode(const Camera& camera, glm::vec3 eulerAngles, float zoomDelta, glm::uvec2 mouseCurrent,
-                                         float mouseMovementDistance)
+                                         glm::vec3 originAtFrameStart)
 {
 	switch (_mode)
 	{
@@ -315,17 +598,32 @@ void DefaultWorldCameraModel::UpdateMode(const Camera& camera, glm::vec3 eulerAn
 		UpdateModeArcBall(eulerAngles, mouseCurrent, camera.GetHorizontalFieldOfView());
 		break;
 	case Mode::DraggingLandscape:
-		UpdateModeDragging(camera, mouseCurrent, mouseMovementDistance);
+		// A drag given up flies at once to where the double click would, when the flight is allowed and there is an
+		// object under the hand or land under the mouse
+		if (UpdateModeDragging(camera, mouseCurrent) && Allows(_features, camera_help::Feature::DoubleClickFly))
+		{
+			// a creature under the hand is flown to and then followed, as after a double click
+			_doubleClickCreature = CreatureUnderHand();
+			_doubleClickObject =
+			    _doubleClickCreature.has_value() ? ecs::object::MapCoordsOf(*_doubleClickCreature) : ObjectUnderHand();
+			if (_doubleClickObject.has_value() || _screenSpaceMouseRaycastHit.has_value())
+			{
+				ReportFlightToHand(_doubleClickObject.has_value());
+				UpdateModeFlying(eulerAngles, true);
+			}
+		}
 		break;
 	case Mode::FlyingToPoint:
 		UpdateModeFlying(eulerAngles);
 		break;
 	}
 
-	if (_mode != Mode::ArcBall && _rotateAroundDelta.x != 0.0f)
+	if ((_mode != Mode::ArcBall || _gripWithCameraInput) && _rotateAroundDelta.x != 0.0f)
 	{
+		// A tilt keeps the camera where it was heading at the frame's start, not where it is drawn on its way there, and
+		// what it looks at keeps its place from it
 		const auto diff = _targetFocus - _targetOrigin;
-		_targetOrigin = _currentOrigin;
+		_targetOrigin = originAtFrameStart;
 		_targetFocus = _targetOrigin + diff;
 		_focusAtClick = _targetFocus;
 	}
@@ -333,10 +631,12 @@ void DefaultWorldCameraModel::UpdateMode(const Camera& camera, glm::vec3 eulerAn
 
 void DefaultWorldCameraModel::UpdateModeCartesian()
 {
-	// Drag focus on land
-	const auto dist =
-	    _screenSpaceCenterRaycastHit.has_value() ? glm::distance(*_screenSpaceCenterRaycastHit, _targetOrigin) : _focusDistance;
-	_targetFocus = ProjectPointOnForwardVector(glm::max(dist - 1.0f, 0.1f));
+	// What the camera looks at goes onto its view, a unit short of the land in the middle of the screen (or the heading
+	// distance), the view made a unit long as the game makes it: a view of no length stays where it is
+	const auto dist = _screenSpaceCenterRaycastHit.has_value()
+	                      ? camera_zones::DistanceZYX(_targetOrigin, *_screenSpaceCenterRaycastHit)
+	                      : _focusDistance;
+	_targetFocus = camera_zones::FocusAlongView(_targetOrigin, _targetFocus, glm::max(dist - 1.0f, 0.1f));
 	_focusAtClick = _targetFocus;
 }
 
@@ -348,7 +648,8 @@ void DefaultWorldCameraModel::UpdateModePolar(glm::vec3 eulerAngles, bool recalc
 	const auto averageIslandPoint = _targetOrigin + _averageIslandDistance * glm::normalize(GetTargetForwardVector());
 
 	// Rotate camera origin based on euler angles as polar coordinates and focus and distance at interaction
-	_targetOrigin = _focusAtClick + _originFocusDistanceAtInteractionStart * glm::euclidean(glm::yx(eulerAngles));
+	_targetOrigin = script_camera::PointFromDistanceHeadingAndPitch(_focusAtClick, _originFocusDistanceAtInteractionStart,
+	                                                                eulerAngles.x, eulerAngles.y);
 
 	if (recalculatePoint)
 	{
@@ -365,7 +666,16 @@ void DefaultWorldCameraModel::UpdateModeArcBall(glm::vec3 eulerAngles, glm::u16v
 	{
 		return;
 	}
-	const auto point = _focusAtClick + _originFocusDistanceAtInteractionStart * glm::euclidean(glm::yx(eulerAngles));
+	// Land further ahead than a drag can grip leaves the camera where it is and shows the hint that it is too far,
+	// with the middle button as with the land gripped; a drag that starts again afterwards pans
+	if (_arcBallRadius > camera_pan::k_MaxGripDepth)
+	{
+		_tricons = camera_drag::tricon::k_GivenUp;
+		HandleDrag(false);
+		return;
+	}
+	const auto point = script_camera::PointFromDistanceHeadingAndPitch(_focusAtClick, _originFocusDistanceAtInteractionStart,
+	                                                                   eulerAngles.x, eulerAngles.y);
 
 	const auto basisZ = glm::normalize(point - _focusAtClick);
 	const auto basisX = glm::normalize(glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), basisZ));
@@ -386,63 +696,139 @@ void DefaultWorldCameraModel::UpdateModeArcBall(glm::vec3 eulerAngles, glm::u16v
 	_focusAtClick = _targetFocus;
 }
 
-void DefaultWorldCameraModel::UpdateModeDragging(const Camera& camera, glm::u16vec2 mouseCurrent, float mouseMovementDistance)
+bool DefaultWorldCameraModel::UpdateModeDragging(const Camera& camera, glm::u16vec2 mouseCurrent)
 {
-	// TODO(#713): Check on optional of _originToHandPlaneNormal to see if there even is a valid grabbing
-
-	// deproject with camera at origin (0, 0, 0), you can use the current
-	// rotation, because during this operation, we cannot rotate so the
-	// current rotation will be the same as rotation at click
-	// Use the current projection matrix too because we don't want fov
-	// changes to affect the current operation.
-	// In fact, using the regular deprojection followed by removing the
-	// current translation will have the same effect
-	const auto depth = glm::mix(0.3f, 3.5f, glm::clamp(camera.GetOrigin().y / 20.0f, 0.0f, 1.0f));
-	const auto mouseDeltaCurrent = ScreenToWorld(camera, mouseCurrent) * depth;
-	const auto mouseDeltaAtClick = ScreenToWorld(camera, _mouseAtClick) * depth;
-
-	// Get dot product of mouse-camera vector and the normal of the up maximizing plane between the camera and hand
-	// Note that mouseAlignment could be unit vectors, but they are scaled by the near plane
-	const auto mouseAlignmentCurrent = glm::dot(mouseDeltaCurrent, _originToHandPlaneNormal);
-	const auto mouseAlignmentAtClick = glm::dot(mouseDeltaAtClick, _originToHandPlaneNormal);
-
-	if ((mouseAlignmentCurrent < -k_HandDragVectorAlignmentThreshold &&
-	     mouseAlignmentAtClick < -k_HandDragVectorAlignmentThreshold) ||
-	    (mouseAlignmentCurrent > k_HandDragVectorAlignmentThreshold &&
-	     mouseAlignmentAtClick > k_HandDragVectorAlignmentThreshold))
+	if (!_landGrip.has_value())
 	{
-		const auto originAlignmentAtClick = glm::dot(_originAtClick, _originToHandPlaneNormal);
-		const auto alignmentDelta = _alignmentAtInteractionStart - originAlignmentAtClick;
-
-		const auto alignmentRatioCurrent = alignmentDelta / mouseAlignmentCurrent;
-		const auto alignmentRatioAtClick = alignmentDelta / mouseAlignmentAtClick;
-
-		if (alignmentRatioCurrent > k_HandDragVectorAlignmentRatioThreshold &&
-		    alignmentRatioAtClick > k_HandDragVectorAlignmentRatioThreshold)
-		{
-			auto movement = mouseDeltaCurrent * alignmentRatioCurrent - mouseDeltaAtClick * alignmentRatioAtClick;
-			const auto movementDistance2 = glm::length2(movement);
-			if (movementDistance2 > mouseMovementDistance)
-			{
-				// movement *= mouseMovementDistance *glm::sqrt(movementDistance2); // FIXME: This whole section is broken
-			}
-
-			_targetOrigin = _originAtClick - movement;
-			_targetFocus = _focusAtClick - movement;
-
-			_targetOrigin =
-			    _targetFocus + glm::normalize(_targetOrigin - _targetFocus) * _originFocusDistanceAtInteractionStart;
-		}
+		return false;
 	}
+	// Land gripped too far ahead isn't dragged: the zoom hint blinks and every control is dropped until all are let go
+	if (_landGrip->depth > camera_pan::k_MaxGripDepth)
+	{
+		_dragGivenUp = true;
+		_dragging = false;
+		_tricons = camera_drag::tricon::k_GivenUp;
+		return true;
+	}
+	// Panning needs the land grab, and the land under the cursor now and where the land was gripped
+	if (!Allows(_features, camera_help::Feature::GrabLand) || !_screenSpaceMouseRaycastHit.has_value() || !_landGrip->land)
+	{
+		return false;
+	}
+
+	// The lines of sight through the cursor now and at the grip, both from the camera as it was at the grip
+	const auto screenSize = glm::vec2(Locator::windowing::value().GetSize());
+	const auto inverseViewProjection = glm::inverse(camera.GetProjectionMatrix(Camera::Projection::Normal) *
+	                                                glm::lookAt(_originAtClick, _focusAtClick, glm::vec3(0.0f, 1.0f, 0.0f)));
+	const auto rayThrough = [&inverseViewProjection, screenSize](glm::vec2 cursor) {
+		const auto ndc = glm::vec2((cursor.x / screenSize.x - 0.5f) * 2.0f, ((1.0f - cursor.y / screenSize.y) - 0.5f) * 2.0f);
+		const auto near = inverseViewProjection * glm::vec4(ndc, 0.0f, 1.0f);
+		const auto far = inverseViewProjection * glm::vec4(ndc, 0.5f, 1.0f);
+		return glm::normalize(glm::vec3(far) / far.w - glm::vec3(near) / near.w);
+	};
+	const auto place =
+	    camera_pan::Pan({.normal = _originToHandPlaneNormal, .distance = _alignmentAtInteractionStart}, _originAtClick,
+	                    _focusAtClick, _originFocusDistanceAtInteractionStart, rayThrough(glm::vec2(mouseCurrent)),
+	                    rayThrough(glm::vec2(_mouseAtClick)), glm::ivec2(mouseCurrent), glm::ivec2(_mouseAtClick));
+	if (!place.has_value())
+	{
+		return false;
+	}
+	// The camera help counts the drag in each frame of the pan with the camera or the mouse moving, with the frame's
+	// input mask
+	if (_dragCountsForHelp)
+	{
+		help_profile::CameraHelpCallback(help_profile::CameraReason::Drag, _helpInputs);
+	}
+
+	// The camera stops short of land in its way, or of the sea, as the drawn camera sees it
+	const auto stopped = Locator::terrainSystem::has_value() && Locator::pickingSystem::has_value()
+	                         ? StopPanShortOfLand(Locator::pickingSystem::value(), *place, _originAtClick, camera.GetOrigin())
+	                         : *place;
+	_targetOrigin = stopped.origin;
+	_targetFocus = stopped.focus;
+	return false;
 }
 
-void DefaultWorldCameraModel::UpdateModeFlying(glm::vec3 eulerAngles)
+camera_pan::CameraPlace DefaultWorldCameraModel::StopPanShortOfLand(const ecs::systems::PickingSystemInterface& picking,
+                                                                    const camera_pan::CameraPlace& place,
+                                                                    glm::vec3 originAtGrip, glm::vec3 drawnCamera)
 {
+	// The land along the line from the camera at the grip through its new origin; without land, the sea where the line
+	// going down meets it, within 7500 across from the drawn camera
+	if (place.origin == originAtGrip)
+	{
+		return place;
+	}
+	const auto hit = picking.LandOrSeaAlong(originAtGrip, place.origin, drawnCamera);
+	if (!hit.has_value())
+	{
+		return place;
+	}
+	// Only the point's x and z are read
+	return camera_pan::StopShortOfLand(place, originAtGrip, glm::vec3(hit->x, 0.0f, hit->z));
+}
+
+void DefaultWorldCameraModel::UpdateModeFlying(glm::vec3 eulerAngles, bool afterGivenUpDrag)
+{
+	// A creature double clicked is followed once the flight to it is set, unless the flight goes nowhere or watches a
+	// fight instead
+	const auto creature = std::exchange(_doubleClickCreature, std::nullopt);
+	// to the object under the hand, else to the island's land under the mouse
+	const auto target =
+	    camera_flight::DoubleClickPoint(Locator::terrainSystem::value(), _doubleClickObject, _screenSpaceMouseRaycastHit);
+	if (!target.has_value())
+	{
+		return;
+	}
+	auto point = *target;
+	// A point outside the fence is put on it where the line along x crosses it, and the help told; one inside an
+	// exclusion is only told. Beyond the map's disc the flight goes nowhere
+	if (Locator::cameraZoneSystem::has_value())
+	{
+		const auto& zones = Locator::cameraZoneSystem::value().GetZones();
+		if (const auto crossing = camera_zones::CrossFence(zones.fence, zones.fenceOn, point, glm::vec3(1.0f, 0.0f, 0.0f));
+		    !crossing.inside)
+		{
+			help_profile::CameraHelpCallback(help_profile::CameraReason::InsideInclusionZone, 0);
+			point = crossing.closest;
+		}
+		if (camera_zones::InsideExclusion(CameraExclusions(zones), point))
+		{
+			help_profile::CameraHelpCallback(help_profile::CameraReason::InsideExclusionZone, 0);
+		}
+	}
+	if (!camera_zones::InsideMapDisc(camera_zones::MapDiscFor(Locator::terrainSystem::value().GetCellsPerSide()), point))
+	{
+		return;
+	}
+
+	// A double click onto a fight's arena, with no fight watched, starts watching it, whoever is in it: the first arena
+	// whose radius reaches the point across the land. The flight to the point goes on after it
+	bool watchesFight = false;
+	if (!afterGivenUpDrag && !_fight.watching && Locator::creatureFightSystem::has_value())
+	{
+		const auto arenas = Locator::creatureFightSystem::value().GetArenas();
+		if (const auto found = fight_orbit::ArenaAtPoint(ArenaViews(arenas), glm::xz(point)))
+		{
+			const auto& arena = arenas[*found];
+			const float ground =
+			    Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(arena.centre) : 0.0f;
+			StartFight(arena.maker, arena.opponent, glm::vec3(arena.centre.x, ground, arena.centre.y), arena.radius);
+			watchesFight = true;
+		}
+	}
+	// Creature Mode takes the follow at its next update, before the camera moves, as the original's follow comes on top
+	// once this update has set the flight
+	if (const auto follow = camera_flight::FollowAfterFlight(creature, watchesFight);
+	    follow.has_value() && Locator::creatureModeSystem::has_value())
+	{
+		Locator::creatureModeSystem::value().LockOnNext(*follow);
+	}
 	if (!_screenSpaceCenterRaycastHit.has_value())
 	{
 		return;
 	}
-	const auto point = _handPosition.value_or(_screenSpaceCenterRaycastHit.value_or(glm::zero<glm::vec3>()));
 
 	const auto distanceFromHitPoint = glm::length(point - *_screenSpaceCenterRaycastHit);
 	const auto distanceFromOrigin = glm::length(point - _targetOrigin);
@@ -468,62 +854,83 @@ void DefaultWorldCameraModel::UpdateModeFlying(glm::vec3 eulerAngles)
 	{
 		distanceFromFocus = k_FlyingDistanceThresholds[3];
 	}
-
-	// Find best angles
+	// After a drag given up: 1000 away, keeping the camera's heading
+	if (afterGivenUpDrag)
 	{
-		std::array<float, 0x20> scores {};
-		for (auto [score, flyingScore] : std::views::zip(scores, k_FlyingScoreAngles))
-		{
-			for (int j = 0; j < 5; ++j)
-			{
-				const auto p = point + static_cast<float>(j) + 3.0f * distanceFromFocus * glm::euclidean(glm::yx(eulerAngles));
-				score += point.y - Locator::terrainSystem::value().GetHeightAt(glm::xz(p));
-			}
-			score += 50.0f * std::cos(flyingScore);
-		}
+		distanceFromFocus = k_GivenUpFlightDistance;
+	}
+	_flightSeconds = afterGivenUpDrag ? k_GivenUpFlightStartSeconds : (wooshingDistance ? 0.0f : k_ShortFlightStartSeconds);
+	// The camera's easing starts from the same time: a short flight with no woosh eases from halfway down its ramp
+	_elapsedTime = camera_flight::EasingTimeAtStart(_flightSeconds);
 
-		const auto bestAngleIndex = std::distance(scores.begin(), std::max_element(scores.begin(), scores.end()));
-		const auto normal = Locator::terrainSystem::value().GetNormalAt(glm::xz(point));
-		const auto offsetPoint = point + normal;
-
-		const auto oldAngles = eulerAngles;
-		eulerAngles = EulerFromPoints(offsetPoint, point); // Placeholder
-
-		eulerAngles.y = glm::clamp((eulerAngles.y / 2.0f + oldAngles.y) / 5.0f + 3.0f * glm::pi<float>() / 25.0f,
-		                           glm::pi<float>() / 8.0f, glm::pi<float>() / 3.0f);
-		eulerAngles.x = static_cast<float>(bestAngleIndex) * glm::pi<float>() / 16.0f + oldAngles.x;
+	// Every flight but the one after a drag given up turns to the best side of the point at its own distance (not
+	// shaped), from the camera's heading, and takes the pitch that goes with it
+	if (!afterGivenUpDrag)
+	{
+		float pitch = eulerAngles.y;
+		eulerAngles.x =
+		    camera_flight::FindBestAngle(Locator::terrainSystem::value(), eulerAngles.x, distanceFromFocus, point, pitch);
+		eulerAngles.y = pitch;
 	}
 	eulerAngles.y = glm::clamp(eulerAngles.y, glm::pi<float>() / 8.0f, glm::pi<float>() * 10.0f / 21.0f);
 
 	_targetFocus = point;
-	_targetOrigin = _targetFocus + distanceFromFocus * glm::euclidean(glm::yx(eulerAngles));
+	_targetOrigin =
+	    script_camera::PointFromDistanceHeadingAndPitch(_targetFocus, distanceFromFocus, eulerAngles.x, eulerAngles.y);
+	// A frame that sets a flight is not held to the largest move
+	_flightSetThisFrame = true;
 
+	// The double click's flight whooshes without SetFlight's own test. It does so with the focus distance 100 when one
+	// distance is more than 100 * 1.5 and the other more than 10 (the test below), and also after a drag given up, with
+	// the focus distance 1000. That one goes straight there, with no flight over a midpoint
+	if (afterGivenUpDrag)
+	{
+		PlayWoosh();
+		return;
+	}
 	if (wooshingDistance)
 	{
-		SetFlight(_targetOrigin, _targetFocus);
+		_flightPath = CharterFlight(Locator::terrainSystem::value(), _targetOrigin, _targetFocus, _currentOrigin,
+		                            k_DoubleClickFlightRise);
+		PlayWoosh();
 	}
 }
 
 void DefaultWorldCameraModel::UpdateCameraInterpolationValues(const Camera& camera)
 {
-	// Get current curve interpolated values from camera
-	_currentOrigin = camera.GetOrigin(Camera::Interpolation::Current);
-	_currentFocus = camera.GetFocus(Camera::Interpolation::Current);
+	// Get current curve interpolated values from camera: the model reads the camera's zoomers, not the shaken camera
+	// (the shake only moves the drawn camera), so the shake never feeds back into the model
+	_currentOrigin = camera.GetOriginZoomer().GetCurrentValue();
+	_currentFocus = camera.GetFocusZoomer().GetCurrentValue();
 	_targetOrigin = camera.GetOrigin(Camera::Interpolation::Target);
 	_targetFocus = camera.GetFocus(Camera::Interpolation::Target);
 }
 
 void DefaultWorldCameraModel::UpdateRaycastHitPoints(const Camera& camera)
 {
-	// Raycast mouse and screen center
+	// The island's land under the mouse and under the screen's middle pixel
+	_screenSpaceMouseRaycastHit = camera.RaycastMouseToLand();
+	_screenSpaceCenterRaycastHit = camera.RaycastScreenCoordToLand(ScreenSize() / 2);
+}
+
+float DefaultWorldCameraModel::GetZoomScale() const
+{
+	// From the height between the camera and its focus, where they are going: 3 x the difference, at least 60, at most
+	// 240 below the focus and 2000 above it
+	const float origin = _targetOrigin.y;
+	const float focus = _targetFocus.y;
+	if (origin < focus)
 	{
-		const auto hit = camera.RaycastMouseToLand(false, Camera::Interpolation::Target);
-		_screenSpaceMouseRaycastHit = hit.and_then(ecs::components::GetTransformPosition);
+		const float scale = (focus - origin) * k_StepScaleHeightFactor;
+		return scale <= k_StepScaleMin ? k_StepScaleMin : (scale < k_ZoomScaleMaxBelowFocus ? scale : k_ZoomScaleMaxBelowFocus);
 	}
-	{
-		const auto hit = camera.RaycastScreenCoordToLand({0.5f, 0.5f}, false, Camera::Interpolation::Target);
-		_screenSpaceCenterRaycastHit = hit.and_then(ecs::components::GetTransformPosition);
-	}
+	const float scale = (origin - focus) * k_StepScaleHeightFactor;
+	return scale <= k_StepScaleMin ? k_StepScaleMin : (scale < k_ZoomScaleMax ? scale : k_ZoomScaleMax);
+}
+
+std::optional<CameraModel::ScreenCentre> DefaultWorldCameraModel::GetScreenCentre() const
+{
+	return ScreenCentre {.onLand = _screenSpaceCenterRaycastHit.has_value(), .headingDistance = _focusDistance};
 }
 
 void DefaultWorldCameraModel::UpdateFocusDistance()
@@ -537,64 +944,309 @@ void DefaultWorldCameraModel::UpdateFocusDistance()
 std::optional<CameraModel::CameraInterpolationUpdateInfo> DefaultWorldCameraModel::Update(std::chrono::microseconds dt,
                                                                                           const Camera& camera)
 {
-	_elapsedTime += dt;
+	const float frameSeconds = std::chrono::duration<float>(dt).count();
+	_flightSetThisFrame = false;
+	UpdateFightWatch(dt);
+	// The camera help hears the controls only in the update of the frame that read them: with none read for this one, a
+	// pan, a fence or the disc counts no drag or edge of the player's either
+	const bool controls = _controlsRead;
+	if (!controls)
+	{
+		_dragCountsForHelp = false;
+	}
 
 	UpdateCameraInterpolationValues(camera);
+	// While a fight is watched and the land wasn't gripped, the camera turns about where it looks
+	if (_fight.watching && _fight.arena.has_value() && !_grippedBefore)
+	{
+		_focusAtClick = _targetFocus;
+	}
+	const auto originAtFrameStart = _targetOrigin;
+	// The land under the camera before the frame's moves gives its lowest and highest heights
+	const float groundAtFrameStart =
+	    Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(glm::xz(originAtFrameStart)) : 0.0f;
 	UpdateRaycastHitPoints(camera);
 	UpdateFocusDistance();
+	// With the middle of the screen on the land and no fight watched, an arena whose fight the camera lingers over for
+	// more than a second (the time kept while it looks elsewhere) is watched
+	if (_screenSpaceCenterRaycastHit.has_value() && !_fight.watching && Locator::creatureFightSystem::has_value())
+	{
+		const auto arenas = Locator::creatureFightSystem::value().GetArenas();
+		if (const auto found = fight_orbit::ArenaUnderView(ArenaViews(arenas), glm::xz(_targetOrigin), glm::xz(_targetFocus)))
+		{
+			_fight.overArenaMs += static_cast<int32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(dt).count());
+			if (_fight.overArenaMs > fight_orbit::k_ArenaLingerMs)
+			{
+				const auto& arena = arenas[*found];
+				const float ground =
+				    Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(arena.centre) : 0.0f;
+				StartFight(arena.maker, arena.opponent, glm::vec3(arena.centre.x, ground, arena.centre.y), arena.radius);
+			}
+		}
+	}
+
+	// A drag just pressed grips the land under the cursor, or the focus with no land there
+	if (_dragging && !_landGrip.has_value())
+	{
+		const auto gripped = _screenSpaceMouseRaycastHit.value_or(_targetFocus);
+		const auto ground = Locator::terrainSystem::has_value()
+		                        ? Locator::terrainSystem::value().GetHeightAt(glm::xz(_targetOrigin))
+		                        : gripped.y;
+		_landGrip = LandGrip {
+		    .origin = _targetOrigin,
+		    .focus = _targetFocus,
+		    .cursor = glm::u16vec2(Locator::gameActionSystem::value().GetMousePosition()),
+		    .plane = camera_pan::PlaneThrough(gripped, _targetOrigin, ground),
+		    .land = _screenSpaceMouseRaycastHit.has_value(),
+		    .depth = PointDistanceAlongLineSegment(_targetOrigin, _targetFocus, gripped),
+		};
+	}
 
 	// Get angles (yaw, pitch, roll). Roll is always 0
 	glm::vec3 eulerAngles = EulerFromPoints(_targetOrigin, _focusAtClick);
+	// The trace also logs a watched fight's orbit as the frame leaves it, and the frame a watch starts or ends
+	const bool watchingAtStart = _fight.watching;
+	const float fightYawAtStart = _fight.yaw;
+	const float fightPitchAtStart = _fight.pitch;
+	const bool firstOrbitFrame = _fight.firstFrame;
+	// The trace logs the frames with a movement key or a tilt, and the frames the camera moves in
+	const auto trace = [this, &originAtFrameStart](const char* step, bool onlyIfMoved = false) {
+		const bool input = _keyBoardMoveDelta != glm::vec2() || _rotateAroundDelta.x != 0.0f;
+		if (WorldCameraTraceOn() && (input || (onlyIfMoved && _targetOrigin != originAtFrameStart)))
+		{
+			TraceWorldCamera({.step = step,
+			                  .origin = _targetOrigin,
+			                  .focus = _targetFocus,
+			                  .focusAtClick = _focusAtClick,
+			                  .keys = _keyBoardMoveDelta,
+			                  .tilt = _rotateAroundDelta.x,
+			                  .autoTilting = _autoTilting,
+			                  .idleMouse = _idleMouse,
+			                  .mode = static_cast<int>(_mode)});
+		}
+	};
+	trace("start");
+
+	// Dragging the land away from a watched fight stops watching it, while the scripts let the player leave a fight, and
+	// the camera is gripped as it is now
+	if (DraggedAwayFromFight())
+	{
+		if (player_camera::Get().fightExit)
+		{
+			EndFightNow();
+		}
+		UpdateFocusPointInteractionParameters(_targetOrigin, _targetFocus, camera);
+	}
 
 	if (_mode != _modePrev && _mode != Mode::FlyingToPoint && _modePrev != Mode::FlyingToPoint)
 	{
 		UpdateFocusPointInteractionParameters(camera.GetOrigin(Camera::Interpolation::Target),
-		                                      camera.GetFocus(Camera::Interpolation::Target), eulerAngles, camera);
+		                                      camera.GetFocus(Camera::Interpolation::Target), camera);
+		// Turning about the land under the cursor with the land gripped takes its heading and pitch from the camera as
+		// the fresh grip finds it, not from the point a drag was turning about
+		if (_gripWithCameraInput)
+		{
+			eulerAngles = EulerFromPoints(_targetOrigin, _focusAtClick);
+		}
 	}
 
 	ComputeDistanceFromBoundY();
 
-	// Get step size
-	const auto scalingFactor = 60.0f;
+	// The features SET_INTERFACE_INTERACTION allows. Without Zoom the zoom input is 0, without Rotate the rotation is
+	// skipped, without Pitch the pitch. The scripts' turns run between the controls and the update, which reads them
+	// again
+	_features = CameraFeatures();
+	if (!Allows(_features, camera_help::Feature::Zoom))
+	{
+		_rotateAroundDelta.z = 0.0f;
+	}
+	if (!Allows(_features, camera_help::Feature::Rotate))
+	{
+		_rotateAroundDelta.y = 0.0f;
+		_dragTurnAndTilt.x = 0.0f;
+	}
+	if (!Allows(_features, camera_help::Feature::Pitch) && !_autoTilting)
+	{
+		_rotateAroundDelta.x = 0.0f;
+		_dragTurnAndTilt.y = 0.0f;
+	}
+	// A watched fight's turn and tilt take the player's; a tilt dragged from the screen's edge goes the other way. Outside
+	// a fight they are set again when one starts
+	if (_fight.watching)
+	{
+		if (_rotateAroundDelta.y != 0.0f && Locator::windowing::has_value())
+		{
+			_fight.yaw += _rotateAroundDelta.y * glm::pi<float>() / static_cast<float>(Locator::windowing::value().GetSize().x);
+		}
+		_fight.pitch -= (_rotateAroundDelta.x - _dragTurnAndTilt.y) * k_PitchPerInput;
+		_fight.pitch += _dragTurnAndTilt.y * k_PitchPerInput;
+	}
+
+	// The zoom and the movement keys share one step, from the camera's height above its focus
+	const auto scalingFactor = GetZoomScale();
 	const auto zoomDelta = _rotateAroundDelta.z * 0.0015f * scalingFactor;
+
+	// The player's zoom, rotate and pitch of this frame go to the camera help (the help events 25..29 of
+	// GET_TOTAL_EVENTS, counted once a turn) with the frame's input mask, whatever the camera does with them, but only
+	// in the update of the frame whose controls gave them: never the ones a script's camera, a hand demo or a camera path
+	// left from an earlier frame. A drag round the edge or up and down made its own reports, and the self-tilting
+	// camera's tilt is not the player's
+	{
+		const float yaw = _rotateAroundDelta.y - _dragTurnAndTilt.x;
+		const float pitch = _autoTilting ? 0.0f : _rotateAroundDelta.x - _dragTurnAndTilt.y;
+		_lastHelpHeard = {.controls = controls, .inputs = controls ? _helpInputs : 0u, .reports = {}};
+		if (controls)
+		{
+			_lastHelpHeard.reports = help_profile::ReportsOfPlayerCamera(yaw, pitch, zoomDelta);
+			help_profile::OnPlayerCameraMove(yaw, pitch, zoomDelta, _helpInputs);
+		}
+	}
 
 	if (_mode == Mode::Polar || _mode == Mode::ArcBall)
 	{
-		// Adjust camera's orientation based on user input. Call will reset deltas.
+		// The confirmation sound's feeds: the turn and the tilt of this frame over the frame's seconds; 0 on the frames
+		// without them
+		{
+			const float seconds = std::chrono::duration_cast<std::chrono::duration<float>>(dt).count();
+			const auto width =
+			    static_cast<float>(Locator::windowing::has_value() ? Locator::windowing::value().GetSize().x : 800);
+			if (seconds > 0.0f)
+			{
+				audio::confirmation::FeedAngle(_rotateAroundDelta.y * glm::pi<float>() / width, seconds);
+				audio::confirmation::FeedPitch(_rotateAroundDelta.x * k_PitchPerInput, seconds);
+			}
+		}
+		// Adjust camera's orientation based on user input. The deltas stay as they are until the controls are read again
 		TiltZoom(eulerAngles, scalingFactor, zoomDelta);
 	}
+	else if (const float seconds = std::chrono::duration_cast<std::chrono::duration<float>>(dt).count(); seconds > 0.0f)
+	{
+		// A frame without a turn or a tilt feeds 0 to both
+		audio::confirmation::FeedAngle(0.0f, seconds);
+		audio::confirmation::FeedPitch(0.0f, seconds);
+	}
+
+	trace("turned");
+	// The push scroll moves and turns the camera by its speed, which then dies away
+	UpdateEdgeScroll(camera, eulerAngles,
+	                 edge_scroll::FrameSeconds(std::chrono::duration_cast<std::chrono::milliseconds>(dt).count()));
 
 	const auto mouseCurrent = Locator::gameActionSystem::value().GetMousePosition();
 	_originFocusDistanceAtInteractionStart =
 	    glm::max(_originFocusDistanceAtInteractionStart + zoomDelta, k_CameraInteractionStepSize + 0.1f);
-	const auto mouseMovementDistance =
-	    glm::max(glm::distance(static_cast<glm::vec2>(mouseCurrent), static_cast<glm::vec2>(_mouseAtClick)) *
-	                 _originFocusDistanceAtInteractionStart * 0.11f,
-	             50.0f);
+	// Zooming while the land is gripped takes the grip further ahead or nearer, as far as it goes
+	if (_landGrip.has_value() && Allows(_features, camera_help::Feature::Zoom))
+	{
+		_landGrip->depth = glm::max(_landGrip->depth + zoomDelta, k_CameraInteractionStepSize + 0.1f);
+	}
+	// and, turning about the land under the cursor (the middle button, or the land gripped with a turn, tilt or zoom),
+	// the camera's distance from that land
+	if (_mode == Mode::ArcBall && Allows(_features, camera_help::Feature::Zoom))
+	{
+		_arcBallRadius = glm::max(_arcBallRadius + zoomDelta, k_CameraInteractionStepSize + 0.1f);
+	}
+	// A watched fight puts the camera round its fighters instead of the controls' mode, unless only the land is dragged,
+	// or nothing is gripped and a keyboard move with the land grab allowed takes the camera this frame
+	_fight.easeSeconds = 0.0f;
+	const bool keyboardMoveStands =
+	    Allows(_features, camera_help::Feature::GrabLand) && !_gripping && _keyBoardMoveDelta != glm::vec2();
+	bool fightOrbit = false;
+	if (_fight.watching && !_gripOnly && !keyboardMoveStands)
+	{
+		fightOrbit = FollowFight(zoomDelta, frameSeconds);
+	}
+	if (!fightOrbit)
+	{
+		UpdateMode(camera, eulerAngles, zoomDelta, mouseCurrent, originAtFrameStart);
+	}
+	trace("mode");
+	if (WorldCameraTraceOn() &&
+	    (_fight.watching != watchingAtStart ||
+	     (fightOrbit && (firstOrbitFrame || _fight.yaw != fightYawAtStart || _fight.pitch != fightPitchAtStart))))
+	{
+		spdlog::get("game")->info("World camera fight: watching {} (was {}), orbit {}, yaw {:.5f}, pitch {:.5f}, distance "
+		                          "{:.4f}, origin ({:.4f}, {:.4f}, {:.4f})",
+		                          _fight.watching ? 1 : 0, watchingAtStart ? 1 : 0, fightOrbit ? 1 : 0, _fight.yaw,
+		                          _fight.pitch, _fight.distance, _targetOrigin.x, _targetOrigin.y, _targetOrigin.z);
+	}
 
-	UpdateMode(camera, eulerAngles, zoomDelta, mouseCurrent, mouseMovementDistance);
+	// After every move of the frame, the camera is pushed out of the cylinders and off the land and the domes, then the
+	// fence keeps it inside; then the lowest height, the map's disc and the largest move, in the game's order, the fence
+	// not asked again
+	const auto originBeforeLimits = _targetOrigin;
+	const auto focusBeforeLimits = _targetFocus;
+	_limitsMovedFocus = false;
+	const bool keptOffGround = KeepOffTheGround(originAtFrameStart);
+	const bool putBackByFence = KeepInsideFence(originAtFrameStart, camera);
+	// The fence moves what the camera looks at with it
+	_limitsMovedFocus = _limitsMovedFocus || putBackByFence;
+	// Pushed in a frame that sets a flight or orbits a watched fight, what it looks at keeps its place from the camera
+	// and is then set again along its view, and the self-tilting camera does not keep to its height
+	const bool refocus = (_flightSetThisFrame || fightOrbit) && (keptOffGround || putBackByFence);
+	if (refocus)
+	{
+		_targetFocus = focusBeforeLimits + (_targetOrigin - originBeforeLimits);
+		_limitsMovedFocus = true;
+	}
+	// What the camera looks at is set again along its view with the self-tilting camera on, or in a frame the player
+	// tilts it while not turning about the mouse, outside a watched fight's orbit; any other frame keeps it
+	const bool aboutMouse = _mode == Mode::ArcBall && !_gripWithCameraInput;
+	const bool keepsFocus = !refocus && !Allows(_features, camera_help::Feature::AutoPitch) &&
+	                        (fightOrbit || aboutMouse || _rotateAroundDelta.x == 0.0f);
+	// The largest move holds every frame but one that sets a flight, orbits a watched fight or zooms
+	const bool holdsMove = !_flightSetThisFrame && !fightOrbit && zoomDelta == 0.0f;
+	const bool originHasBeenAdjusted = ConstrainCamera(dt, camera, keptOffGround || putBackByFence, groundAtFrameStart,
+	                                                   keepsFocus, originAtFrameStart, holdsMove);
+	trace("kept");
 
-	const bool originHasBeenAdjusted = ConstrainCamera(dt, mouseMovementDistance, eulerAngles, camera);
+	// The self-tilting camera keeps to its height over the land in the frames it tilts or nothing is done: it stays
+	// where it was at the frame's start, that height above the land there, looking the way it now does
+	if (Allows(_features, camera_help::Feature::AutoPitch) && (_autoTilting || _idleMouse) && !refocus)
+	{
+		const auto ground = Locator::terrainSystem::has_value()
+		                        ? Locator::terrainSystem::value().GetHeightAt(glm::xz(originAtFrameStart))
+		                        : 0.0f;
+		const auto origin = glm::vec3(originAtFrameStart.x, ground + camera_help::GetAutoPitchDistance(), originAtFrameStart.z);
+		_targetFocus += origin - _targetOrigin;
+		_targetOrigin = origin;
+		_focusAtClick = _targetFocus;
+	}
 
-	return ComputeUpdateReturnInfo(originHasBeenAdjusted, camera.GetInterpolatorTime());
+	// The clear view, over everything else: as far from the view it started from to its close view as it has come
+	if (_clearView.value > k_ClearViewShown && _clearViewPlan.toOrigin.has_value())
+	{
+		const auto share = _clearView.value;
+		_targetOrigin = (*_clearViewPlan.toOrigin - _clearViewPlan.fromOrigin) * share + _clearViewPlan.fromOrigin;
+		_targetFocus = (_clearViewPlan.toFocus - _clearViewPlan.fromFocus) * share + _clearViewPlan.fromFocus;
+	}
+
+	trace("end", true);
+	_flightSeconds += frameSeconds;
+	// The easing's time counts the frame after whatever this update set it to, before the easing reads it
+	_elapsedTime += dt;
+	// The camera help has heard this frame's controls; a later update without the controls read again hears none
+	_controlsRead = false;
+	return ComputeUpdateReturnInfo(originHasBeenAdjusted, _limitsMovedFocus, camera.GetInterpolatorTime());
 }
 
 std::optional<CameraModel::CameraInterpolationUpdateInfo>
-DefaultWorldCameraModel::ComputeUpdateReturnInfo(bool originHasBeenAdjusted, std::chrono::microseconds t)
+DefaultWorldCameraModel::ComputeUpdateReturnInfo(bool originHasBeenAdjusted, bool focusMoved, std::chrono::microseconds t)
 {
 	if (!_flightPath.has_value())
 	{
-		static constinit auto kTimeThreshold = 1'500'000us;
-		auto duration = 300'000us;
-		if (originHasBeenAdjusted)
-		{
-			duration *= 2;
-		}
-		if (_elapsedTime <= kTimeThreshold)
+		constexpr auto k_TimeThreshold = 1'500'000us;
+		// Twice as long when the frame's limits moved what the camera looks at, and twice again when they pushed it
+		auto duration = camera_zones::EaseMicroseconds(originHasBeenAdjusted, focusMoved);
+		if (_elapsedTime <= k_TimeThreshold)
 		{
 			duration =
 			    std::chrono::microseconds {glm::mix(k_MinimalCameraAnimationDuration.count(), duration.count(),
-			                                        (static_cast<float>(_elapsedTime.count()) / kTimeThreshold.count()))};
+			                                        (static_cast<float>(_elapsedTime.count()) / k_TimeThreshold.count()))};
+		}
+		// The orbit round a watched fight eases the camera in over its own time
+		if (_fight.easeSeconds != 0.0f)
+		{
+			duration = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::duration<float>(_fight.easeSeconds));
 		}
 		return {{GetTargetOrigin(), GetTargetFocus(), duration}};
 	}
@@ -603,6 +1255,8 @@ DefaultWorldCameraModel::ComputeUpdateReturnInfo(bool originHasBeenAdjusted, std
 		std::optional<FlightPath> backup = std::nullopt;
 		std::swap(backup, _flightPath);
 		_elapsedTime = decltype(_elapsedTime)::zero();
+		// The flight's last leg starts the time since the flight began again
+		_flightSeconds = 0.0f;
 		return {{backup->origin, backup->focus, k_MinimalCameraAnimationDuration}};
 	}
 	if (_flightPath->midpoint.has_value())
@@ -615,103 +1269,420 @@ DefaultWorldCameraModel::ComputeUpdateReturnInfo(bool originHasBeenAdjusted, std
 	return std::nullopt;
 }
 
+void DefaultWorldCameraModel::SkipActions()
+{
+	// No controls are read for this frame's update: the camera help hears none of the ones read before, as the
+	// original's player camera starts again with no input when the camera comes back to it
+	_controlsRead = false;
+	++_framesWithoutControls;
+	DropControls();
+}
+
+void DefaultWorldCameraModel::DropControls()
+{
+	// Nor do they move the camera: it is left as a frame with nothing held leaves it, with no turn, tilt, zoom or move,
+	// the land let go of, no hold after a drag given up or the fence, no self-tilt and the mode of a frame without input
+	_rotateAroundDelta = glm::vec3();
+	_keyBoardMoveDelta = glm::vec2();
+	_dragTurnAndTilt = glm::vec2();
+	_clearViewHandPlace.reset();
+	_dragCountsForHelp = false;
+	_dragGivenUp = false;
+	_fenceHeldBack = false;
+	_grippedBefore = _gripping;
+	_gripping = false;
+	_gripOnly = false;
+	_landGripped = false;
+	_gripWithCameraInput = false;
+	_keyIconHints = 0;
+	HandleDrag(false);
+	_autoTilting = false;
+	_idleMouse = true;
+	_doubleClickObject.reset();
+	_doubleClickCreature.reset();
+	_modePrev = _mode;
+	_mode = Mode::Cartesian;
+}
+
+bool DefaultWorldCameraModel::FightersThere() const
+{
+	// (approximate) the arena is gone once either fighter is, as the watch's own check
+	const auto there = [](entt::entity fighter) {
+		return Locator::entitiesRegistry::has_value() && Locator::entitiesRegistry::value().Valid(fighter) &&
+		       Locator::entitiesRegistry::value().AllOf<ecs::components::Transform>(fighter);
+	};
+	return _fight.arena.has_value() && there(_fight.arena->fighterA) && there(_fight.arena->fighterB);
+}
+
+void DefaultWorldCameraModel::Reinitialise(bool keepFight)
+{
+	// Nothing held, the easing from the start, the clear view put away at once, no flight on its way; the fight's turn
+	// and focus at 0 and its first frame to come
+	DropControls();
+	_elapsedTime = std::chrono::microseconds::zero();
+	_clearView.SetPosition(0.0f);
+	_flightPath.reset();
+	_fight.firstFrame = true;
+	_fight.turn.SetPosition(0.0f);
+	_fight.focus.SetPosition(glm::vec3(0.0f));
+	// The watched fight is let go of, its orbit back where a camera with no fight has it, unless it is kept and both its
+	// fighters are still there
+	if (!keepFight || !_fight.watching || !FightersThere())
+	{
+		_fight.watching = false;
+		_fight.arena.reset();
+		_fight.yaw = glm::half_pi<float>();
+		_fight.pitch = 0.0f;
+		_fight.distance = 1.0f;
+		_fight.lingerLeftMs = 0;
+		_fight.overArenaMs = 0;
+		_fight.status = FightStatus::Ended;
+		_fight.easeSeconds = 0.0f;
+	}
+	// the push scroll stands still, its cursor at the pointer
+	_edgeScrollSpeed = glm::vec3(0.0f);
+	if (Locator::gameActionSystem::has_value())
+	{
+		_edgeCursor = glm::ivec2(Locator::gameActionSystem::value().GetMousePosition());
+	}
+}
+
+void DefaultWorldCameraModel::Restart()
+{
+	// The end of a script's control of the camera makes the player's camera again, which starts with no fight watched
+	Reinitialise(false);
+	++_restarts.count;
+	_restarts.lastTurn = game_clock::Turn();
+}
+
+void DefaultWorldCameraModel::Resume(glm::vec3 cameraOrigin)
+{
+	// The view the camera had when this model last moved it, read from the camera's zoomers at that update
+	const auto origin = _currentOrigin;
+	const auto focus = _currentFocus;
+	Reinitialise(true);
+	// The flight starts from where the camera is now: the dual camera moved it meanwhile
+	_currentOrigin = cameraOrigin;
+	if (Locator::terrainSystem::has_value())
+	{
+		FlyTo(Locator::terrainSystem::value(), origin, focus, k_ResumeFlightRise);
+	}
+}
+
+std::unique_ptr<CameraModel> DefaultWorldCameraModel::KeptUnder() const
+{
+	return std::make_unique<DefaultWorldCameraModel>(*this);
+}
+
 void DefaultWorldCameraModel::HandleActions(std::chrono::microseconds dt)
 {
 	_rotateAroundDelta = glm::vec3();
 	_keyBoardMoveDelta = glm::vec2();
+	_dragTurnAndTilt = glm::vec2();
+	_clearViewHandPlace.reset();
 
-	// Compute delta position (dp) based on the elapsed time and speed.
-	const auto dp = k_InteractionSpeedMultiplier * std::chrono::duration_cast<std::chrono::duration<float>>(dt).count();
 	const auto& actionSystem = Locator::gameActionSystem::value();
+	// Moving over the land can be sped up or slowed down; turning, tilting and zooming keep the game's speed
+	const auto moveSpeed =
+	    Locator::camera::has_value() ? Locator::camera::value().GetKeyboardMoveSpeed() : k_KeyboardMoveSpeedDefault;
+	// What the scripts let the player do
+	_features = CameraFeatures();
 
-	// TODO(#709): Set tricons based on ZOOM or TILT if any move is detected
+	// The helper icons the movement keys' modifiers offer, from the modifiers alone: the land gripped as the previous
+	// frame's controls left it holds them back, as the keys are read before this frame's grip. A fight watched in its
+	// arena keeps the turn modifier on
+	const bool fightWatched = _fight.watching && _fight.arena.has_value();
+	_keyIconHints = ModifierIconHints(actionSystem.Get(input::BindableActionMap::ZOOM_ON), fightWatched,
+	                                  actionSystem.Get(input::BindableActionMap::ROTATE_ON), _gripping);
 
-	if (actionSystem.GetAny(input::BindableActionMap::ROTATE_LEFT, input::BindableActionMap::ROTATE_RIGHT))
+	// The keys step by the camera's whole milliseconds of the frame, each key adding its own step in the game's order, so
+	// both keys of a pair held cancel out. The zoom key makes the movement keys zoom (forwards and backwards) or turn (left
+	// and right); the turn modifier (the turn key, or a fight watched) makes them tilt or turn; else they move
 	{
-		const float distance = (actionSystem.Get(input::BindableActionMap::ROTATE_LEFT) ? -1.0f : 1.0f) * dp;
-		_rotateAroundDelta.y += distance;
-	}
-
-	if (actionSystem.GetAny(input::BindableActionMap::TILT_UP, input::BindableActionMap::TILT_DOWN))
-	{
-		const float distance = (actionSystem.Get(input::BindableActionMap::TILT_DOWN) ? -1.0f : 1.0f) * dp;
-		_rotateAroundDelta.x += distance;
-	}
-
-	if (actionSystem.GetAny(input::BindableActionMap::MOVE_FORWARDS, input::BindableActionMap::MOVE_BACKWARDS))
-	{
-		const float distance = (actionSystem.Get(input::BindableActionMap::MOVE_FORWARDS) ? -1.0f : 1.0f) * dp;
-		// If ZOOM_ON is active, apply the movement as a zoom action.
-		if (actionSystem.Get(input::BindableActionMap::ZOOM_ON))
-		{
-			_rotateAroundDelta.z += distance;
-		}
-		// If ROTATE_ON is active, apply the movement as a tilt action.
-		// TODO(#710): fight will always be rotating
-		else if (actionSystem.Get(input::BindableActionMap::ROTATE_ON))
-		{
-			_rotateAroundDelta.x += distance;
-		}
-		// Otherwise, apply the movement normally.
-		else
-		{
-			_keyBoardMoveDelta.x += distance;
-		}
-	}
-
-	if (actionSystem.GetAny(input::BindableActionMap::MOVE_RIGHT, input::BindableActionMap::MOVE_LEFT))
-	{
-		const float distance = (actionSystem.Get(input::BindableActionMap::MOVE_RIGHT) ? -1.0f : 1.0f) * dp;
-		// If ZOOM_ON is active, apply the movement as a zoom action.
-		// If ROTATE_ON is active, apply the movement as a tilt action.
-		// TODO(#710): fight will always be rotating
-		if (actionSystem.GetAny(input::BindableActionMap::ZOOM_ON, input::BindableActionMap::ROTATE_ON))
-		{
-			_rotateAroundDelta.y += distance;
-		}
-		// Otherwise, apply the movement normally.
-		else
-		{
-			_keyBoardMoveDelta.y -= distance;
-		}
-	}
-
-	if (actionSystem.GetAny(input::BindableActionMap::ZOOM_IN, input::BindableActionMap::ZOOM_OUT))
-	{
-		const float distance =
-		    (actionSystem.Get(input::BindableActionMap::ZOOM_IN) ? -k_WheelZoomFactor : k_WheelZoomFactor) * dp;
-		_rotateAroundDelta.z += distance;
-	}
-
-	if (actionSystem.Get(input::UnbindableActionMap::TWO_BUTTON_CLICK))
-	{
-		_rotateAroundDelta.z += actionSystem.GetMouseDelta().y * k_TwoButtonZoomFactor;
-		// TODO(#711): the mouse has to be reset
-	}
-
-	if (actionSystem.Get(input::BindableActionMap::ROTATE_AROUND_MOUSE_ON))
-	{
-		const auto mouseDelta = static_cast<glm::vec2>(actionSystem.GetMouseDelta());
-		_rotateAroundDelta += glm::vec3(glm::yx(mouseDelta * k_RotateOnSpeedMultiplier), 0.0f);
+		using input::BindableActionMap;
+		const bool zoomHeld = actionSystem.Get(BindableActionMap::ZOOM_ON);
+		const camera_keys::Held held {
+		    .turnLeft = actionSystem.Get(BindableActionMap::ROTATE_LEFT),
+		    .turnRight = actionSystem.Get(BindableActionMap::ROTATE_RIGHT),
+		    .tiltUp = actionSystem.Get(BindableActionMap::TILT_UP),
+		    .tiltDown = actionSystem.Get(BindableActionMap::TILT_DOWN),
+		    .forwards = actionSystem.Get(BindableActionMap::MOVE_FORWARDS),
+		    .backwards = actionSystem.Get(BindableActionMap::MOVE_BACKWARDS),
+		    .left = actionSystem.Get(BindableActionMap::MOVE_LEFT),
+		    .right = actionSystem.Get(BindableActionMap::MOVE_RIGHT),
+		    .zoom = zoomHeld,
+		    .turnModifier = TurnModifierOn(zoomHeld, fightWatched, actionSystem.Get(BindableActionMap::ROTATE_ON)),
+		};
+		const auto steps = camera_keys::Step(
+		    held, edge_scroll::FrameSeconds(std::chrono::duration_cast<std::chrono::milliseconds>(dt).count()));
+		_rotateAroundDelta.y += steps.turn;
+		_rotateAroundDelta.x += steps.tilt;
+		_rotateAroundDelta.z += steps.zoom;
+		// Only the movement over the land takes the speed setting
+		_keyBoardMoveDelta.x += ScaleKeyboardMove(steps.forwards, moveSpeed);
+		_keyBoardMoveDelta.y += ScaleKeyboardMove(steps.strafe, moveSpeed);
 	}
 
 	const auto handPositions = actionSystem.GetHandPositions();
 	_handPosition = handPositions[0].or_else([handPositions] { return handPositions[1]; });
 
+	// Ctrl and Shift held together glide the camera over half a second from where it is to a close view of the object
+	// under the hand, else of the hand's point, and let go glide it back
+	{
+		const auto seconds = std::chrono::duration<float>(dt).count();
+		if (actionSystem.Get(input::BindableActionMap::ZOOM_ON) && actionSystem.Get(input::BindableActionMap::ROTATE_ON))
+		{
+			if (_clearView.value < k_ClearViewShown)
+			{
+				PlanClearView();
+			}
+			// Every frame it is held, the object is looked at again where it is now and the hand is put on its place on
+			// the land; once it is gone, the view stays on where it last was
+			bool followed = false;
+			if (_clearViewPlan.object.has_value())
+			{
+				if (const auto place = ClearViewObjectPlace(*_clearViewPlan.object); place.has_value())
+				{
+					_clearViewPlan.point = *place;
+					followed = true;
+				}
+				else
+				{
+					_clearViewPlan.object.reset();
+				}
+			}
+			if (_clearViewPlan.point.has_value())
+			{
+				auto& point = *_clearViewPlan.point;
+				point.y =
+				    Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(glm::xz(point)) : point.y;
+				if (followed)
+				{
+					_clearViewHandPlace = point;
+				}
+				_clearViewPlan.toFocus = point;
+				_clearViewPlan.toOrigin = script_camera::PointFromDistanceHeadingAndPitch(
+				    point, _clearViewPlan.distance, _clearViewPlan.heading, _clearViewPlan.pitch);
+			}
+			_clearView.SetDestinationWithSpeedAndTime(1.0f, 0.0f, k_ClearViewSeconds);
+		}
+		else
+		{
+			_clearView.SetDestinationWithSpeedAndTime(0.0f, 0.0f, k_ClearViewSeconds);
+		}
+		_clearView.Update(seconds);
+	}
+
+	// The mouse pushed past the screen's edge adds to the push scroll's speed, after the keys and before the mouse's own
+	// controls, while the land is not gripped (as the last frame's controls left it)
+	PushEdgeScroll(edge_scroll::FrameSeconds(std::chrono::duration_cast<std::chrono::milliseconds>(dt).count()));
+
+	// After a drag given up or at the fence, the land grip, the buttons and every move of the camera read so far are
+	// dropped until a frame with none of them. The wheel, with the zoom in and out actions, is read after this hold: it
+	// still zooms, and does not keep it
+	bool rotateAroundMouse = actionSystem.Get(input::BindableActionMap::ROTATE_AROUND_MOUSE_ON);
+	bool gripHeld = _handPosition.has_value() && actionSystem.Get(input::BindableActionMap::MOVE);
+	bool bothButtons = actionSystem.Get(input::UnbindableActionMap::TWO_BUTTON_CLICK);
+	if (_dragGivenUp || _fenceHeldBack)
+	{
+		if (gripHeld || rotateAroundMouse || actionSystem.Get(input::BindableActionMap::ACTION) || bothButtons ||
+		    _rotateAroundDelta != glm::vec3() || _keyBoardMoveDelta != glm::vec2())
+		{
+			gripHeld = false;
+			rotateAroundMouse = false;
+			bothButtons = false;
+			_rotateAroundDelta = glm::vec3();
+			_keyBoardMoveDelta = glm::vec2();
+		}
+		else
+		{
+			_dragGivenUp = false;
+			_fenceHeldBack = false;
+		}
+	}
+
+	// The wheel zooms a fixed step a notch, whatever the frame time, while a zoom action is performed: zooming out first,
+	// then in, each a notch its way when the wheel wasn't turned. A turn without either is lost, and so is the wheel
+	// during the clear view
+	bool wheelTurned = false;
+	if (_clearView.value < k_ClearViewShown)
+	{
+		float notches = 0.0f;
+		if (actionSystem.Get(input::BindableActionMap::ZOOM_OUT))
+		{
+			notches = actionSystem.GetMouseWheelDelta() != 0.0f ? actionSystem.GetMouseWheelDelta() : -1.0f;
+		}
+		else if (actionSystem.Get(input::BindableActionMap::ZOOM_IN))
+		{
+			notches = actionSystem.GetMouseWheelDelta() != 0.0f ? actionSystem.GetMouseWheelDelta() : 1.0f;
+		}
+		if (notches != 0.0f)
+		{
+			_rotateAroundDelta.z -= notches * k_WheelZoomPerNotch;
+			wheelTurned = true;
+		}
+	}
+
+	// Both buttons held let go of the land gripped, whether or not their feature lets them turn the camera
+	const bool bothButtonsHeld = bothButtons;
+	// The middle button and both buttons turn the camera only with their feature
+	rotateAroundMouse = rotateAroundMouse && Allows(_features, camera_help::Feature::JustZoom);
+	bothButtons = bothButtons && Allows(_features, camera_help::Feature::JustZoom);
+	// Both buttons zoom as the mouse moves up and down, and turn the camera as it moves across once it has moved a
+	// fortieth of the screen's width across in a frame or since they were pressed
+	if (bothButtons)
+	{
+		_rotateAroundDelta.z += actionSystem.GetMouseDelta().y * k_TwoButtonZoomFactor;
+		if (auto log = spdlog::get("game"); log != nullptr)
+		{
+			log->debug("Camera both buttons: mouse moved {} down, zoom input {:.2f}", actionSystem.GetMouseDelta().y,
+			           _rotateAroundDelta.z);
+		}
+	}
+	{
+		const auto width = Locator::windowing::has_value() ? Locator::windowing::value().GetSize().x : 1;
+		const auto across = _twoButtonTurn.Update(bothButtons, actionSystem.GetMouseDelta().x,
+		                                          static_cast<int>(actionSystem.GetMousePosition().x), width);
+		if (across != 0)
+		{
+			_rotateAroundDelta.y += static_cast<float>(across) * k_TwoButtonTurnFactor;
+		}
+	}
+	if (rotateAroundMouse)
+	{
+		const auto mouseDelta = static_cast<glm::vec2>(actionSystem.GetMouseDelta());
+		_rotateAroundDelta += glm::vec3(glm::yx(mouseDelta * k_RotateOnSpeedMultiplier), 0.0f);
+	}
+
+	// A pan counts as a drag for the camera help with any camera input, or with the grip, the middle button or both
+	// buttons held and the mouse moved more than 2 pixels across or down. Without the both-buttons feature the middle
+	// button and both buttons don't count, and a keyboard move alone doesn't count while gripping
+	{
+		const bool otherInput = _rotateAroundDelta != glm::vec3() || rotateAroundMouse;
+		const bool input = otherInput || (_keyBoardMoveDelta != glm::vec2() && !gripHeld);
+		const auto mouseMoved = glm::abs(actionSystem.GetMouseDelta());
+		_dragCountsForHelp =
+		    input || ((gripHeld || rotateAroundMouse || bothButtons) && (mouseMoved.x > 2 || mouseMoved.y > 2));
+		// That camera input, the land gripped or both buttons held drop the flight on its way, whoever started it. The
+		// camera carries on from where the flight's leg was taking it, as the controls move it. A flight that starts
+		// later in the frame, as the double click's does, is kept
+		if (input || gripHeld || bothButtons)
+		{
+			_flightPath.reset();
+		}
+	}
+	// Where this frame's camera input came from, the camera help's input mask for the reports of this frame's update:
+	// the turn, tilt and zoom read so far, before a drag or the self-tilting camera adds its own. The middle button and
+	// both buttons let go of the land gripped
+	_landGripped = gripHeld && !rotateAroundMouse && !bothButtonsHeld;
+	_helpInputs = help_profile::InputMask({
+	    .wheel = wheelTurned,
+	    .middleButton = rotateAroundMouse,
+	    .turnTiltOrZoom = _rotateAroundDelta != glm::vec3(),
+	    .moveKeys = _keyBoardMoveDelta != glm::vec2(),
+	    .landGripped = _landGripped,
+	    .bothButtons = bothButtons,
+	});
+	_controlsRead = true;
+	// A mouse button of the camera's held keeps the push scroll's speed from moving the camera
+	_cameraButtonsHeld = gripHeld || rotateAroundMouse || bothButtonsHeld;
+	// The land gripped, and whether with no other camera control (a keyboard move alone doesn't count)
+	_grippedBefore = _gripping;
+	_gripping = gripHeld;
+	_gripOnly = gripHeld && _rotateAroundDelta == glm::vec3() && !rotateAroundMouse && !bothButtons;
+
+	// The hints and what a drag of the land turns into, for the hand to show and the camera to follow
+	const bool dragHeld = gripHeld && !rotateAroundMouse;
+	// The land gripped with a turn, tilt or zoom: the camera turns about the land under the cursor and the drag is not
+	// followed. Once that input stops, with the land still gripped, the drag starts again from where the camera is, the
+	// cursor and the time as they are now, with the hints the drag had come to
+	const bool gripWithInputBefore = _gripWithCameraInput;
+	_gripWithCameraInput = camera_drag::GripWithCameraInput(dragHeld, rotateAroundMouse, bothButtonsHeld, _rotateAroundDelta);
+	if (gripWithInputBefore && !_gripWithCameraInput && _dragging)
+	{
+		_tricons = _drag.GetTricons();
+		HandleDrag(false);
+	}
+	_controlsTime += dt;
+	if (!dragHeld)
+	{
+		HandleDrag(false);
+	}
+	// What the player does with the camera this frame, before the self-tilting camera takes the tilt
+	const bool turning = Allows(_features, camera_help::Feature::Rotate) && _rotateAroundDelta.y != 0.0f;
+	const bool tilting = Allows(_features, camera_help::Feature::Pitch) && _rotateAroundDelta.x != 0.0f;
+	const bool zooming = Allows(_features, camera_help::Feature::Zoom) && _rotateAroundDelta.z != 0.0f;
+	const bool playerInput = _rotateAroundDelta != glm::vec3() || _keyBoardMoveDelta != glm::vec2() || rotateAroundMouse;
+	// The self-tilting camera, while the land isn't gripped: a fifth of the way towards its pitch each frame, at most
+	// the frame's seconds, nothing within a hundredth of it. The player's own tilt is dropped meanwhile
+	_autoTilting = false;
+	if (Allows(_features, camera_help::Feature::AutoPitch) && !gripHeld)
+	{
+		float heading = 0.0f;
+		float pitch = 0.0f;
+		script_camera::HeadingAndPitchFromPoints(_targetOrigin, _focusAtClick, heading, pitch);
+		const auto input =
+		    camera_help::AutoPitchInput(camera_help::GetAutoPitchAngle(), pitch, std::chrono::duration<float>(dt).count());
+		_rotateAroundDelta.x = input.value_or(0.0f);
+		_autoTilting = input.has_value();
+	}
+	// Nothing gripped and nothing done with the camera: the self-tilting camera keeps to its height
+	_idleMouse = !gripHeld && !playerInput;
+
+	// The hints follow the cursor while nothing is dragged and the camera isn't being turned, moved or zoomed, as far as
+	// the features let it, or while the camera tilts itself; the frame a drag is pressed keeps the frame before's
+	const bool cameraMoved = rotateAroundMouse || turning || tilting || zooming || _keyBoardMoveDelta != glm::vec2();
+	if (camera_drag::HintsFollowCursor(_dragging || dragHeld, cameraMoved, _autoTilting) && Locator::windowing::has_value())
+	{
+		const auto screenSize = Locator::windowing::value().GetSize();
+		const auto cursor =
+		    camera_drag::NormalisedCursor(glm::ivec2(actionSystem.GetMousePosition()), screenSize, ViewHeight(screenSize));
+		_tricons = camera_drag::IdleTricons(cursor, _screenSpaceMouseRaycastHit.has_value(), Windowed());
+		// No tilt from the screen's edge while a fight is watched
+		if (_fight.watching)
+		{
+			_tricons &= ~camera_drag::tricon::k_Pitch;
+		}
+	}
+
 	_modePrev = _mode;
-	if (_handPosition.has_value() && actionSystem.Get(input::UnbindableActionMap::DOUBLE_CLICK))
+	// The double click's flight needs its feature bit, the land grab its own
+	const bool canFly = Allows(_features, camera_help::Feature::DoubleClickFly);
+	const bool canGrab = Allows(_features, camera_help::Feature::GrabLand);
+	// A waiting double click is taken once its flight is allowed and in a frame with no other camera input (the input
+	// mask's keyboard bit); until then it waits
+	const bool takesDoubleClick = canFly && (_helpInputs & static_cast<uint32_t>(help_profile::CameraInput::Keyboard)) == 0 &&
+	                              actionSystem.Get(input::UnbindableActionMap::DOUBLE_CLICK);
+	// A drag the double click's flight doesn't take
+	if (dragHeld && !takesDoubleClick && !_gripWithCameraInput)
+	{
+		HandleDrag(true);
+	}
+	// The double click flies to the object under the hand, else to the land under the mouse; it is taken even when
+	// there is neither
+	const bool doubleClicked = takesDoubleClick && Locator::gameActionSystem::value().TakeDoubleClick();
+	// Taken on a creature, anyone's, it flies to the creature as to any object and then follows it (UpdateModeFlying)
+	_doubleClickCreature = doubleClicked ? CreatureUnderHand() : std::nullopt;
+	_doubleClickObject.reset();
+	if (doubleClicked)
+	{
+		_doubleClickObject =
+		    _doubleClickCreature.has_value() ? ecs::object::MapCoordsOf(*_doubleClickCreature) : ObjectUnderHand();
+	}
+	if (doubleClicked && (_doubleClickObject.has_value() || _screenSpaceMouseRaycastHit.has_value()))
 	{
 		_mode = Mode::FlyingToPoint;
+		ReportFlightToHand(_doubleClickObject.has_value());
 	}
-	else if (actionSystem.Get(input::BindableActionMap::ROTATE_AROUND_MOUSE_ON))
+	else if (rotateAroundMouse || _gripWithCameraInput)
 	{
 		_mode = Mode::ArcBall;
 	}
-	else if (_handPosition.has_value() && actionSystem.Get(input::BindableActionMap::MOVE))
+	else if (gripHeld && camera_drag::DragFollows(canGrab, _dragging ? _drag.GetMode() : std::nullopt))
 	{
-		_mode = Mode::DraggingLandscape;
+		_mode = FollowDrag();
 	}
-	else if (_keyBoardMoveDelta != glm::vec2() || _rotateAroundDelta != glm::vec3())
+	else if (_keyBoardMoveDelta != glm::vec2() || _rotateAroundDelta != glm::vec3() || playerInput)
 	{
 		_mode = Mode::Polar;
 	}
@@ -719,19 +1690,596 @@ void DefaultWorldCameraModel::HandleActions(std::chrono::microseconds dt)
 	{
 		_mode = Mode::Cartesian;
 	}
+
+	// What the helper icons by the hand are picked from: the hints (only that a drag gripped too far ahead was given
+	// up, while it is), the grip, the zoom and rotate keys, the turn, tilt and zoom asked for this frame, the drag round
+	// the edge or up and down, the middle button, a watched fight, the clear view and the features
+	glm::vec2 iconCursor {0.0f};
+	if (Locator::windowing::has_value())
+	{
+		const auto screenSize = Locator::windowing::value().GetSize();
+		iconCursor =
+		    camera_drag::NormalisedCursor(glm::ivec2(actionSystem.GetMousePosition()), screenSize, ViewHeight(screenSize));
+	}
+	const auto dragMode = _dragging ? _drag.GetMode() : std::nullopt;
+	_iconFrame = {
+	    .mouseHints = _dragGivenUp ? hand_tricons::k_TooFar : (_dragging ? _drag.GetTricons() : _tricons),
+	    .gripping = _gripping,
+	    .grippingOnly = _gripOnly,
+	    .keyHints = _keyIconHints,
+	    .turn = _rotateAroundDelta.y,
+	    .tilt = _rotateAroundDelta.x,
+	    .zoom = _rotateAroundDelta.z,
+	    .edgeTurning = dragMode == camera_drag::DragMode::EdgeRotate,
+	    .pitchDragging = dragMode == camera_drag::DragMode::Pitch || dragMode == camera_drag::DragMode::PitchFromTop,
+	    .rotatingAroundMouse = rotateAroundMouse,
+	    .fight = _fight.watching,
+	    .clearView = _clearView.value,
+	    .features = _features,
+	    .blocked = _dragGivenUp || _fenceHeldBack,
+	    .cursor = iconCursor,
+	};
+}
+
+void DefaultWorldCameraModel::HandleDrag(bool held)
+{
+	if (!held)
+	{
+		_dragging = false;
+		_landGrip.reset();
+		return;
+	}
+	if (!Locator::windowing::has_value())
+	{
+		return;
+	}
+	const auto& actionSystem = Locator::gameActionSystem::value();
+	const auto screenSize = Locator::windowing::value().GetSize();
+	const auto milliseconds =
+	    static_cast<uint32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(_controlsTime).count());
+	if (!_dragging)
+	{
+		// The drag takes the hints of the cursor before it was pressed
+		_dragging = true;
+		const auto cursor = glm::ivec2(actionSystem.GetMousePosition());
+		const auto normalised = camera_drag::NormalisedCursor(cursor, screenSize, ViewHeight(screenSize));
+		_drag.Start(_tricons, normalised, milliseconds);
+		if (auto log = spdlog::get("game"); log != nullptr)
+		{
+			log->debug("Camera drag: pressed at ({}, {}), normalised ({:.4f}, {:.4f}), view height {}, hints {:#x}, land under "
+			           "the cursor {}, at {} ms",
+			           cursor.x, cursor.y, normalised.x, normalised.y, ViewHeight(screenSize), _tricons,
+			           _screenSpaceMouseRaycastHit.has_value(), milliseconds);
+		}
+		_ringCursor = cursor;
+		// The land is gripped as the camera next looks at it
+		_landGrip.reset();
+	}
+	else
+	{
+		const bool undecided = !_drag.GetMode().has_value();
+		_drag.Move(actionSystem.GetMouseDelta(), screenSize, ViewHeight(screenSize), milliseconds,
+		           _screenSpaceMouseRaycastHit.has_value(), _features);
+		if (auto log = spdlog::get("game"); log != nullptr && undecided && _drag.GetMode().has_value())
+		{
+			log->debug("Camera drag: decided {} after {} ms, moved ({:.4f}, {:.4f}), land under the cursor {}, features {:#x}",
+			           static_cast<int>(*_drag.GetMode()), milliseconds - _drag.GetPressedMs(), _drag.GetMoved().x,
+			           _drag.GetMoved().y, _screenSpaceMouseRaycastHit.has_value(), _features);
+		}
+	}
+}
+
+DefaultWorldCameraModel::Mode DefaultWorldCameraModel::FollowDrag()
+{
+	using camera_drag::DragMode;
+	if (!_dragging || !Locator::windowing::has_value())
+	{
+		return Mode::DraggingLandscape;
+	}
+	const auto mode = _drag.GetMode();
+	if (!mode.has_value())
+	{
+		return Mode::Cartesian;
+	}
+	auto& actionSystem = Locator::gameActionSystem::value();
+	const auto screenSize = Locator::windowing::value().GetSize();
+	// A drag with only a keyboard move drops the move
+	if (_rotateAroundDelta == glm::vec3())
+	{
+		_keyBoardMoveDelta = glm::vec2();
+	}
+	switch (*mode)
+	{
+	case DragMode::Pan:
+		return Mode::DraggingLandscape;
+	case DragMode::EdgeRotate:
+	{
+		// Without turning nothing happens, the cursor included
+		if (!Allows(_features, camera_help::Feature::Rotate))
+		{
+			return Mode::Cartesian;
+		}
+		// The cursor is put back on the ring, and the camera turns about its focus by the angle swept round the middle.
+		// The ring is measured from where the pointer is now, as the game reads the mouse after the frame's movement,
+		// not where it was as the frame began: putting it back on the ring from there would undo that movement every
+		// frame and hold the camera still
+		const auto step =
+		    camera_drag::EdgeRotate(actionSystem.GetPointerPosition(), _ringCursor, screenSize, ViewHeight(screenSize));
+		_ringCursor = step.cursor;
+		actionSystem.WarpCursor(step.cursor);
+		_dragTurnAndTilt.x = step.angle * static_cast<float>(screenSize.x) / glm::pi<float>();
+		_rotateAroundDelta.y += _dragTurnAndTilt.x;
+		// The camera help, with the frame's input mask: Rotate when the frame counts as a drag, then the way it turned.
+		// Anything under a hundredth to the right counts as turning to the left, standing still included, as the
+		// original does
+		if (_dragCountsForHelp)
+		{
+			help_profile::CameraHelpCallback(help_profile::CameraReason::Rotate, _helpInputs);
+		}
+		if (step.angle > 0.01f)
+		{
+			help_profile::CameraHelpCallback(help_profile::CameraReason::RotateCW, _helpInputs);
+		}
+		if (step.angle < 0.01f)
+		{
+			help_profile::CameraHelpCallback(help_profile::CameraReason::RotateCCW, _helpInputs);
+		}
+		return Mode::Polar;
+	}
+	case DragMode::Pitch:
+	case DragMode::PitchFromTop:
+	{
+		if (!Allows(_features, camera_help::Feature::Pitch))
+		{
+			return Mode::Cartesian;
+		}
+		if (_dragCountsForHelp)
+		{
+			help_profile::CameraHelpCallback(help_profile::CameraReason::Pitch, _helpInputs);
+		}
+		const auto fov = Locator::camera::has_value() ? Locator::camera::value().GetHorizontalFieldOfView() : 0.0f;
+		_dragTurnAndTilt.y = camera_drag::PitchStep(actionSystem.GetMouseDelta().y, screenSize.y, fov) / k_PitchPerInput;
+		_rotateAroundDelta.x += _dragTurnAndTilt.y;
+		return Mode::Polar;
+	}
+	}
+	return Mode::DraggingLandscape;
+}
+
+int DefaultWorldCameraModel::ViewHeight(glm::ivec2 screenSize)
+{
+	const bool bars =
+	    Locator::cinematicDirectorSystem::has_value() && Locator::cinematicDirectorSystem::value().IsWideScreenOn();
+	return camera_drag::ViewHeight(screenSize, bars);
+}
+
+bool DefaultWorldCameraModel::Windowed()
+{
+	return Locator::config::has_value() && Locator::config::value().displayMode == windowing::DisplayMode::Windowed;
 }
 
 void DefaultWorldCameraModel::SetFlight(glm::vec3 origin, glm::vec3 focus)
 {
-	_flightPath = CharterFlight(origin, focus, _currentOrigin, k_FlightHeightFactor);
-	static constexpr auto k_WooshingNoiseIds = std::array<audio::SoundId, 4> {
-	    audio::SoundId::G_Woosh_01,
-	    audio::SoundId::G_Woosh_02,
-	    audio::SoundId::G_Woosh_03,
-	    audio::SoundId::G_Woosh_04,
+	FlyTo(Locator::terrainSystem::value(), origin, focus, k_PlaceFlightRise);
+}
+
+void DefaultWorldCameraModel::PlaceAt(glm::vec3 origin, glm::vec3 focus)
+{
+	_currentOrigin = origin;
+	_currentFocus = focus;
+	_targetOrigin = origin;
+	_targetFocus = focus;
+	// Turning, tilting and zooming start again from here
+	_originAtClick = origin;
+	_focusAtClick = focus;
+	_originFocusDistanceAtInteractionStart = glm::distance(origin, focus);
+	_arcBallRadius = 0.0f;
+	_screenSpaceMouseRaycastHitAtClick.reset();
+	// No flight carries it off, and a drag of the land held meanwhile grips the land again as the camera now looks at it
+	_flightPath.reset();
+	_mode = Mode::Cartesian;
+	_modePrev = Mode::Cartesian;
+	_dragging = false;
+	_dragGivenUp = false;
+	_fenceHeldBack = false;
+	_landGrip.reset();
+	_twoButtonTurn = {};
+}
+
+void DefaultWorldCameraModel::FlyTo(const LandIslandInterface& land, glm::vec3 origin, glm::vec3 focus, float rise)
+{
+	// Every flight to a place first keeps its place inside the camera fence
+	if (Locator::cameraZoneSystem::has_value())
+	{
+		const auto& zones = Locator::cameraZoneSystem::value().GetZones();
+		origin = camera_flight::FencedPlace(zones.fence, zones.fenceOn, origin, focus);
+	}
+	_flightPath = CharterFlight(land, origin, focus, _currentOrigin, rise);
+	// A flight to a place starts the flight clock and the camera's easing again
+	_flightSeconds = 0.0f;
+	_elapsedTime = std::chrono::microseconds::zero();
+	// The bookmarks', the scripts' and the watched fight's flights: the woosh only when the camera is farther than
+	// 100 * 1.5 from the new position
+	if (glm::distance(origin, _currentOrigin) > k_FlyingDistanceThresholds[0] * 1.5f)
+	{
+		PlayWoosh();
+	}
+}
+
+void DefaultWorldCameraModel::PlayWoosh()
+{
+	// 46 G_Woosh_01 + (tick count & 3): no owner, mode 3, no loops, 2D, InGame
+	audio::PlaySoundEffect(audio::Owner::None(), 46 + static_cast<int>(audio::TickCount() & 3), 3, 0, false, false,
+	                       audio::SfxBank::InGame);
+}
+
+void DefaultWorldCameraModel::PlanClearView()
+{
+	// From the view the camera has now to the hand's point, seen from the same side, nearer, and tilted to a quarter of
+	// the sum of its pitch and three quarters of pi
+	_clearViewPlan.fromOrigin = _targetOrigin;
+	_clearViewPlan.fromFocus = _targetFocus;
+	_clearViewPlan.point = _handPosition;
+	_clearViewPlan.object.reset();
+	// The object the interface last found under the hand, taken where it is even if it is going
+	if (Locator::handSystem::has_value() && Locator::entitiesRegistry::has_value())
+	{
+		const auto object = Locator::handSystem::value().GetCursorObject();
+		const auto& registry = std::as_const(Locator::entitiesRegistry::value());
+		if (object.has_value() && registry.Valid(*object) && registry.AllOf<ecs::components::Transform>(*object))
+		{
+			_clearViewPlan.object = object;
+			const auto coords = ecs::object::MapCoordsOf(*object);
+			_clearViewPlan.point = glm::vec3(map_coords::ToMetres(coords.x), 0.0f, map_coords::ToMetres(coords.z));
+		}
+	}
+	_clearViewPlan.toOrigin.reset();
+	float pitch = 0.0f;
+	script_camera::HeadingAndPitchFromPoints(_targetOrigin, _targetFocus, _clearViewPlan.heading, pitch);
+	const auto distance = glm::distance(_targetOrigin, _targetFocus);
+	if (distance > k_ClearViewFarCamera)
+	{
+		_clearViewPlan.distance = k_ClearViewFromFar;
+	}
+	else if (distance < k_ClearViewNearCamera)
+	{
+		_clearViewPlan.distance = k_ClearViewFromNear;
+	}
+	else
+	{
+		_clearViewPlan.distance = k_ClearViewDistance;
+	}
+	_clearViewPlan.pitch = (pitch + 0.75f * glm::pi<float>()) * 0.25f;
+}
+
+std::optional<glm::vec3> DefaultWorldCameraModel::ClearViewObjectPlace(entt::entity object)
+{
+	// Its x and z in metres while it is available, the height left for the land's
+	if (!Locator::entitiesRegistry::has_value())
+	{
+		return std::nullopt;
+	}
+	const auto& registry = std::as_const(Locator::entitiesRegistry::value());
+	if (!ecs::IsAvailable(object) || !registry.AllOf<ecs::components::Transform>(object))
+	{
+		return std::nullopt;
+	}
+	const auto coords = ecs::object::MapCoordsOf(object);
+	return glm::vec3(map_coords::ToMetres(coords.x), 0.0f, map_coords::ToMetres(coords.z));
+}
+
+void DefaultWorldCameraModel::ReportFlightToHand(bool onObject)
+{
+	help_profile::CameraHelpCallback(
+	    onObject ? help_profile::CameraReason::DoubleClickObject : help_profile::CameraReason::DoubleClickPos, 0);
+}
+
+std::optional<entt::entity> DefaultWorldCameraModel::CreatureUnderHand()
+{
+	if (!Locator::creatureHandSystem::has_value() || !Locator::creatureModeSystem::has_value() ||
+	    !Locator::entitiesRegistry::has_value())
+	{
+		return std::nullopt;
+	}
+	const auto creature = Locator::creatureHandSystem::value().CreatureUnderHand();
+	const auto& registry = std::as_const(Locator::entitiesRegistry::value());
+	if (!creature.has_value() || !registry.Valid(*creature) || !registry.AllOf<ecs::components::Transform>(*creature))
+	{
+		return std::nullopt;
+	}
+	return creature;
+}
+
+std::optional<map_coords::MapCoords> DefaultWorldCameraModel::ObjectUnderHand()
+{
+	// The object the interface last found under the hand, read before the hand looks again this frame
+	if (!Locator::handSystem::has_value() || !Locator::entitiesRegistry::has_value())
+	{
+		return std::nullopt;
+	}
+	const auto object = Locator::handSystem::value().GetCursorObject();
+	const auto& registry = std::as_const(Locator::entitiesRegistry::value());
+	if (!object.has_value() || !registry.Valid(*object) || !registry.AllOf<ecs::components::Transform>(*object))
+	{
+		return std::nullopt;
+	}
+	return ecs::object::MapCoordsOf(*object);
+}
+
+bool DefaultWorldCameraModel::EdgeScrollEnabled() const
+{
+	return edge_scroll::Enabled(player_camera::Get().pushScrolling, static_cast<int32_t>(_features), Windowed());
+}
+
+void DefaultWorldCameraModel::PushEdgeScroll(float seconds)
+{
+	if (!EdgeScrollEnabled() || _gripping || !Locator::camera::has_value())
+	{
+		return;
+	}
+	// the step from the heights of the drawn camera's origin and focus
+	const auto& camera = Locator::camera::value();
+	const float step =
+	    edge_scroll::Step(camera.GetOriginZoomer().GetCurrentValue().y, camera.GetFocusZoomer().GetCurrentValue().y);
+	const auto& actions = Locator::gameActionSystem::value();
+	_edgeScrollSpeed = edge_scroll::Push(_edgeScrollSpeed, _edgeCursor, glm::ivec2(actions.GetMousePosition()),
+	                                     actions.GetMouseDelta(), ScreenSize(), step, seconds);
+}
+
+void DefaultWorldCameraModel::UpdateEdgeScroll(const Camera& camera, glm::vec3& eulerAngles, float seconds)
+{
+	const auto& actions = Locator::gameActionSystem::value();
+	const auto pointer = glm::ivec2(actions.GetMousePosition());
+	const auto screen = ScreenSize();
+	// The camera's own cursor follows the pointer, running on past an edge the pointer stands at; while the middle
+	// button turns the camera it is the pointer
+	const auto followed = edge_scroll::FollowPointer(_edgeCursor, pointer, actions.GetMouseDelta(), screen, Windowed());
+	_edgeCursor = actions.Get(input::BindableActionMap::ROTATE_AROUND_MOUSE_ON) ? pointer : followed.position;
+	_edgeInsideX = followed.insideX;
+	_edgeInsideY = followed.insideY;
+	if (!EdgeScrollEnabled())
+	{
+		_edgeScrollSpeed = glm::vec3(0.0f);
+		return;
+	}
+	// The move and the turn, with no mouse button of the camera's held and the land not gripped
+	if (!_cameraButtonsHeld && !_gripping)
+	{
+		const bool wasStopped = edge_scroll::Stopped(_edgeScrollSpeed);
+		const auto move = edge_scroll::MoveOverLand(_edgeScrollSpeed, seconds, eulerAngles.y, eulerAngles.x);
+		if (Allows(_features, camera_help::Feature::GrabLand))
+		{
+			// the camera help hears a move as a drag
+			if (move != glm::vec3(0.0f) && _controlsRead)
+			{
+				help_profile::CameraHelpCallback(help_profile::CameraReason::Drag, _helpInputs);
+			}
+			_targetOrigin += move;
+			_targetFocus += move;
+			_focusAtClick += move;
+		}
+		const float turnSpeed = seconds * _edgeScrollSpeed.z;
+		if (turnSpeed != 0.0f && Allows(_features, camera_help::Feature::Rotate))
+		{
+			const float turn = edge_scroll::Turn(_edgeScrollSpeed, seconds, screen.x);
+			eulerAngles.x += turn;
+			_targetOrigin = script_camera::PointFromDistanceHeadingAndPitch(
+			    _focusAtClick, glm::distance(_targetOrigin, _focusAtClick), eulerAngles.x, eulerAngles.y);
+			if (glm::abs(turnSpeed) > 0.01f)
+			{
+				if (_controlsRead)
+				{
+					help_profile::CameraHelpCallback(help_profile::CameraReason::Rotate, _helpInputs);
+					help_profile::CameraHelpCallback(turnSpeed > 0.0f ? help_profile::CameraReason::RotateCW
+					                                                  : help_profile::CameraReason::RotateCCW,
+					                                 _helpInputs);
+				}
+				audio::confirmation::FeedAngle(turn, seconds);
+			}
+		}
+		// a speed that starts, or a turn with the average distance out of its range, takes the camera's interaction
+		// parameters again
+		if ((wasStopped && !edge_scroll::Stopped(_edgeScrollSpeed)) ||
+		    (turnSpeed != 0.0f && (_averageIslandDistance < 0.0f || _averageIslandDistance > 5000.0f)))
+		{
+			UpdateFocusPointInteractionParameters(_targetOrigin, _targetFocus, camera);
+		}
+	}
+	_edgeScrollSpeed = edge_scroll::Decay(_edgeScrollSpeed, _edgeInsideX, _edgeInsideY, seconds);
+}
+
+DefaultWorldCameraModel::EdgeScrollState DefaultWorldCameraModel::GetEdgeScroll() const
+{
+	return {.enabled = EdgeScrollEnabled(),
+	        .cursor = _edgeCursor,
+	        .insideX = _edgeInsideX,
+	        .insideY = _edgeInsideY,
+	        .speed = _edgeScrollSpeed};
+}
+
+uint32_t DefaultWorldCameraModel::CameraFeatures() const
+{
+	const auto features = camera_help::GetEnabledFeatures();
+	return static_cast<uint32_t>(_fight.watching ? camera_help::DuringFight(features) : features);
+}
+
+void DefaultWorldCameraModel::StartFight(entt::entity fighterA, entt::entity fighterB, glm::vec3 arenaCentre, float arenaRadius)
+{
+	// The fight's side has decided the camera watches: it starts a quarter turn round, tilted down, 5.5 of the second
+	// fighter's radii out, after a flight to look at the arena
+	if (fighterA == entt::null || fighterB == entt::null)
+	{
+		return;
+	}
+	_fight.watching = true;
+	_fight.arena = FightArena {.fighterA = fighterA, .fighterB = fighterB, .centre = arenaCentre, .radius = arenaRadius};
+	_fight.distance = fight_orbit::k_StartDistance;
+	_fight.yaw = fight_orbit::k_StartYaw;
+	_fight.pitch = fight_orbit::k_StartPitch;
+	_fight.status = FightStatus::On;
+	_fight.lingerLeftMs = 0;
+	_fight.firstFrame = true;
+	_fight.turn = Zoomer {};
+	_fight.focus.SetPosition(glm::vec3(0.0f));
+	// The camera's easing starts again: until the flight's last leg, or where the flight is dropped, the camera eases
+	// as slowly as a new camera does
+	_elapsedTime = std::chrono::microseconds::zero();
+	// The flight: from the arena's centre, its x and z as a map position holds them and its height the land's there
+	// (the creature's arenas have none of their own), to the view of its rim half a radius up, with no rise. The orbit
+	// runs from the next frame on, and its place reaches the camera once the flight's last leg is set
+	if (Locator::terrainSystem::has_value())
+	{
+		const auto& land = Locator::terrainSystem::value();
+		const auto centre = map_coords::ToWorld(&land, map_coords::FromMetres(glm::xz(arenaCentre)));
+		const auto view = camera_flight::ViewOfPoint(land, centre, camera_flight::ArenaLookPoint(centre, arenaRadius));
+		FlyTo(land, view.origin, view.focus, k_FightFlightRise);
+	}
+	_flightSeconds = 0.0f;
+}
+
+void DefaultWorldCameraModel::EndFightNow()
+{
+	_fight.watching = false;
+	_fight.arena.reset();
+	_fight.lingerLeftMs = 0;
+	_fight.status = FightStatus::Ended;
+}
+
+void DefaultWorldCameraModel::EndFight()
+{
+	// Only once: a fight already over keeps the time it has left
+	if (_fight.status != FightStatus::On)
+	{
+		return;
+	}
+	if (_fight.lingerLeftMs <= 0)
+	{
+		_fight.lingerLeftMs = fight_orbit::k_LingerMs;
+	}
+	_fight.status = FightStatus::Lingering;
+}
+
+bool DefaultWorldCameraModel::WantToQuitFight(glm::vec3 arenaCentre, float arenaRadius) const
+{
+	// Not without the land at the screen's middle
+	if (!_screenSpaceCenterRaycastHit.has_value())
+	{
+		return false;
+	}
+	return fight_orbit::WantToQuit(arenaCentre, arenaRadius, _currentOrigin, *_screenSpaceCenterRaycastHit, 1.0f);
+}
+
+void DefaultWorldCameraModel::UpdateFightWatch(std::chrono::microseconds dt)
+{
+	if (!_fight.watching)
+	{
+		return;
+	}
+	_fight.overArenaMs = 0;
+	if (_fight.status == FightStatus::Lingering)
+	{
+		_fight.lingerLeftMs -= static_cast<int32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(dt).count());
+		if (_fight.lingerLeftMs < 0)
+		{
+			_fight.status = FightStatus::Ended;
+		}
+	}
+	if (_fight.status == FightStatus::Ended)
+	{
+		EndFightNow();
+		return;
+	}
+	// (approximate) the arena is gone once either fighter is
+	const auto there = [](entt::entity fighter) {
+		return Locator::entitiesRegistry::has_value() && Locator::entitiesRegistry::value().Valid(fighter) &&
+		       Locator::entitiesRegistry::value().AllOf<ecs::components::Transform>(fighter);
 	};
-	const auto wooshNoiseId = static_cast<entt::id_type>(Locator::rng::value().Choose(k_WooshingNoiseIds));
-	Locator::audio::value().PlaySound(wooshNoiseId, audio::PlayType::Once);
+	if (!_fight.arena.has_value() || !there(_fight.arena->fighterA) || !there(_fight.arena->fighterB))
+	{
+		EndFight();
+		_fight.arena.reset();
+	}
+}
+
+bool DefaultWorldCameraModel::DraggedAwayFromFight() const
+{
+	// Gripping the land in the frame before, with the camera and the land at the screen's middle too far from the arena,
+	// its radius counted at three quarters
+	return _flightSeconds > fight_orbit::k_DragAwaySeconds && _fight.watching && _fight.arena.has_value() &&
+	       _screenSpaceCenterRaycastHit.has_value() &&
+	       fight_orbit::WantToQuit(_fight.arena->centre, _fight.arena->radius, _targetOrigin, *_screenSpaceCenterRaycastHit,
+	                               fight_orbit::k_DragAwayShare) &&
+	       _grippedBefore;
+}
+
+bool DefaultWorldCameraModel::FollowFight(float zoomDelta, float seconds)
+{
+	if (!_fight.arena.has_value() || !Locator::entitiesRegistry::has_value())
+	{
+		return false;
+	}
+	const auto& registry = std::as_const(Locator::entitiesRegistry::value());
+	const auto placeOf = [&registry](entt::entity fighter) -> std::optional<glm::vec3> {
+		const auto* transform = registry.Valid(fighter) ? registry.TryGet<const ecs::components::Transform>(fighter) : nullptr;
+		return transform != nullptr ? std::optional(transform->position) : std::nullopt;
+	};
+	const auto a = placeOf(_fight.arena->fighterA);
+	const auto b = placeOf(_fight.arena->fighterB);
+	if (!a.has_value() || !b.has_value())
+	{
+		return false;
+	}
+	// The camera eases into the orbit's place more slowly while its mode is new
+	_fight.easeSeconds = fight_orbit::EaseSeconds(script_camera::Get().modeSeconds);
+	const float radiusA = _fighterRadius(_fight.arena->fighterA);
+	const float radiusB = _fighterRadius(_fight.arena->fighterB);
+	const float spacing = fight_orbit::Spacing(*a, *b);
+	// The middle is raised by a quarter of the two fighters' head heights over the land (none while one is not known)
+	const auto headHeight = [](entt::entity fighter) {
+		return Locator::creatureFightSystem::has_value()
+		           ? Locator::creatureFightSystem::value().HeadHeight(fighter).value_or(0.0f)
+		           : 0.0f;
+	};
+	const auto middle =
+	    fight_orbit::RaisedMiddle(*a, *b, headHeight(_fight.arena->fighterA), headHeight(_fight.arena->fighterB));
+
+	// The zoom moves the camera nearer or further; too far ends the watch while the scripts let the player leave a fight,
+	// though the camera is still placed this frame
+	if (zoomDelta != 0.0f)
+	{
+		_fight.distance = fight_orbit::Zoom(_fight.distance, zoomDelta, spacing, radiusA, radiusB);
+	}
+	if (_fight.distance > fight_orbit::k_MaxDistance && player_camera::Get().fightExit)
+	{
+		EndFightNow();
+	}
+	_fight.distance = fight_orbit::ClampDistance(_fight.distance);
+	_fight.pitch = fight_orbit::ClampPitch(_fight.pitch);
+	const float distance = fight_orbit::OrbitDistance(_fight.distance, spacing, radiusA, radiusB);
+
+	// The focus and the turn follow the fighters over five seconds, put there at once on the first frame
+	const float heading = fight_orbit::FightersHeading(*a, *b, _fight.turn.value);
+	if (_fight.firstFrame)
+	{
+		_fight.turn.SetPosition(heading);
+		_fight.focus.SetPosition(middle);
+		_fight.firstFrame = false;
+	}
+	else
+	{
+		_fight.turn.SetDestinationWithSpeedAndTime(fight_orbit::TurnTowards(_fight.turn.value, heading), 0.0f,
+		                                           fight_orbit::k_FollowSeconds);
+		_fight.focus.SetDestinationWithTime(middle, fight_orbit::k_FollowSeconds);
+	}
+	_fight.turn.Update(seconds);
+	_fight.focus.Update(seconds);
+
+	const auto focus = _fight.focus.GetCurrentValue();
+	_targetFocus = focus;
+	_focusAtClick = focus;
+	_targetOrigin =
+	    script_camera::PointFromDistanceHeadingAndPitch(focus, distance, _fight.yaw - _fight.turn.value, _fight.pitch);
+	return true;
 }
 
 glm::vec3 DefaultWorldCameraModel::GetTargetOrigin() const
@@ -744,10 +2292,25 @@ glm::vec3 DefaultWorldCameraModel::GetTargetFocus() const
 	return _targetFocus;
 }
 
-std::chrono::seconds DefaultWorldCameraModel::GetIdleTime() const
+CameraModel::HandCues DefaultWorldCameraModel::GetHandCues() const
 {
-	SPDLOG_LOGGER_WARN(spdlog::get("game"), "TODO: Idle Time not implemented");
-	return {};
+	if (_dragging)
+	{
+		// With the clear view shown, the hand grips whatever the drag is
+		return {.tricons = _drag.GetTricons(),
+		        .dragging = true,
+		        .dragMode = _drag.GetMode(),
+		        .clearViewGrip = _clearView.value > k_ClearViewShown,
+		        .landGripped = _landGripped,
+		        .icons = _iconFrame,
+		        .clearView = _clearView.value,
+		        .clearViewHandPlace = _clearViewHandPlace};
+	}
+	return {.tricons = _tricons,
+	        .landGripped = _landGripped,
+	        .icons = _iconFrame,
+	        .clearView = _clearView.value,
+	        .clearViewHandPlace = _clearViewHandPlace};
 }
 
 glm::vec3 DefaultWorldCameraModel::GetTargetForwardVector() const

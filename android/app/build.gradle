@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    compileSdk 33
+    compileSdk 32
 
     def ndkHome = System.getenv("ANDROID_NDK_HOME")
     if (ndkHome) {

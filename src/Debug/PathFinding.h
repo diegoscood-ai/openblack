@@ -43,6 +43,8 @@ private:
 	glm::vec3 _destination {0.0f, 0.0f, 0.0f};
 	std::optional<entt::entity> _selectedVillager;
 	std::optional<entt::entity> _selectedFootpath;
+	/// An animal whose walk round the circles is read out
+	std::optional<entt::entity> _selectedAnimal;
 };
 
 } // namespace openblack::debug::gui

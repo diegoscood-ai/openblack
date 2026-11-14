@@ -1,0 +1,17 @@
+# Players and diplomacy
+
+How gods relate to each other: allies who share influence, enemies who attack, and the computer gods' attitude to the
+player.
+
+**Progress: 3/6 done, 0 chosen, 2 partial, 0 inferred — 77%**
+
+## Allies and enemies
+
+| Behaviour | Status | Where / notes |
+|-----------|--------|---------------|
+| Gods can be allies; an ally can use another's influence | done | the alliances are kept for every player all game (`components::PlayerAlliances`, `src/ECS/PlayerAlliances.h`); outside their own influence a player has the first ally's above a strength of 0.1 (`influence::CalculatePlayerInfluence`, `ecs::alliances::AlliesInfluence`); `test/test_influence.cpp` |
+| Scripts set and ask who is allied | done | `SetPlayerAlly` sets both ways (`ecs::alliances::SetAlliance` (`src/ECS/PlayerAlliances.cpp`)), `GetPlayerAlly` reads `ecs::alliances::Strength`; `test/test_player_alliances.cpp` |
+| A computer god's attitude to each player drives whether it attacks | partial 80% | the attitude is kept and set by the scripts (`ComputerMind::attitude`, `computer_player::SetAttitude`); see [../rival_gods/ai.md](../rival_gods/ai.md); read 2026-11-05: the attitude's one reader in the game is the defeat score's choice of the player (`DefeatPlayer37` 0x664B50: attitude × `CalculateDesireToAttack` 0x64CDB0), ported in `ComputerPlayerScoresDefeat.cpp` (test `ComputerMindScores.ThePlayerToDefeatIsTheOneMostWantedByTheAttitude`); missing: the attack that follows, on the computer gods' own rows ([../rival_gods/ai.md](../rival_gods/ai.md)) |
+| Towns attack the towns of other players | pending | nothing in our tree makes a town attack another player's; a town only remembers the aggression held against each player and its last attacker (`Town::aggression`, `src/ECS/Components/Town.h`); see ../town/emergencies_and_aggression.md |
+| Each player has their own colour on the map and their symbol | done | each player's influence curtain is drawn in its colour (`influence::k_CircleColours`, `src/ECS/Influence/Influence.h`, drawn by `src/ECS/Influence/InfluenceCircles.cpp`); the belief symbols over towns are drawn per player (`src/Particles/TownBelief.cpp`), and a computer player's cell of the players' symbol sheet holds its god's image (`player_symbol_sheet::MakeComputerSymbols`, `src/3D/PlayerSymbolSheet.cpp`), in its sparkles, its towns and its artefacts; as in the original, the symbols follow the player slot, so Khazar wears Lethys's symbol on Land 2 and Lethys wears Khazar's on Land 3 (`PlayerSymbol::CreateFinalTextureSymbols` 0x5DEF00; [the god's sparkles and symbol](../../../hand/computer-hands.md#the-gods-sparkles-and-symbol)); read 2026-11-05: the colour is `GPlayer::GetPlayer3DColor` 0x64B590 (the player colours by slot), read by its curtain, belief, sparkles and names as openblack draws them; tests `test/test_influence.cpp`, `test/test_player_symbol_sheet.cpp`, `test/test_town_belief_symbols.cpp` |
+| Players can't cast or grab outside their influence | partial 80% | the person's casts land only inside their influence (`src/Magic/CastRules.cpp`) and the hand knows when it is outside it; there are no other players' hands; see ../worship/influence.md; read 2026-11-05: the player's casts and every grab, scoop and tap refused outside the influence as the original (`StartGrab` 0x5D1740, `GenericPickup` 0x5D2800, `SendTap` 0x5D38A0; [the player's influence](../../../hand/grab-hold-and-throw.md#the-players-influence)); missing: the same rule for the computer gods' hands, not read |

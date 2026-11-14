@@ -1,0 +1,45 @@
+{
+ "function": "GetAngleFromXZ",
+ "symbol": "?GetAngleFromXZ@GUtils@@SAJABUMapCoords@@0@Z",
+ "addr": "0x0074D240",
+ "conv": "cdecl",
+ "ret": "u16",
+ "notes": "GUtils::GetAngleFromXZ(const MapCoords& from, const MapCoords& to): LHArcTan 0x74D0C0 on the 16.16 difference, the game angle (2048 to the circle) in ax. Integer only. openblack: gutils::GetAngleFromXZ (src/ECS/GUtilsAngle.h). Positions on the 512-cell map, near ones, and any 32 bits (the differences overflow).",
+ "buffers": {
+  "from": [
+   {"name": "from.x", "type": "i32", "gen": "pos"},
+   {"name": "from.z", "type": "i32", "gen": "pos"},
+   {"name": "from.altitude", "type": "f32", "value": 0}
+  ],
+  "to": [
+   {"name": "to.x", "type": "i32", "gen": {"mix": [[50, "pos"], [30, {"near": "from.x", "delta": {"int": [-1048576, 1048576]}}], [12, {"near": "from.x", "delta": {"int": [-300, 300]}}], [8, {"bits": true}]]}},
+   {"name": "to.z", "type": "i32", "gen": {"mix": [[50, "pos"], [30, {"near": "from.z", "delta": {"int": [-1048576, 1048576]}}], [12, {"near": "from.z", "delta": {"int": [-300, 300]}}], [8, {"bits": true}]]}},
+   {"name": "to.altitude", "type": "f32", "value": 0}
+  ]
+ },
+ "args": [
+  {"type": "ptr", "buffer": "from"},
+  {"type": "ptr", "buffer": "to"}
+ ],
+ "generators": {
+  "pos": {"int": [0, 33554431]}
+ },
+ "cases": [
+  {"from.x": 0, "from.z": 0, "to.x": 0, "to.z": 0},
+  {"from.x": 0, "from.z": 0, "to.x": 65536, "to.z": 0},
+  {"from.x": 0, "from.z": 0, "to.x": 0, "to.z": 65536},
+  {"from.x": 0, "from.z": 0, "to.x": -65536, "to.z": 0},
+  {"from.x": 0, "from.z": 0, "to.x": 0, "to.z": -65536},
+  {"from.x": 0, "from.z": 0, "to.x": 1000, "to.z": 1000},
+  {"from.x": 0, "from.z": 0, "to.x": -1000, "to.z": 1000},
+  {"from.x": 0, "from.z": 0, "to.x": 1000, "to.z": -1000},
+  {"from.x": 0, "from.z": 0, "to.x": -1000, "to.z": -1000},
+  {"from.x": 0, "from.z": 0, "to.x": "0x80000000", "to.z": 0},
+  {"from.x": 0, "from.z": 0, "to.x": 0, "to.z": "0x80000000"},
+  {"from.x": 0, "from.z": 0, "to.x": "0x80000000", "to.z": "0x80000000"},
+  {"from.x": 0, "from.z": 0, "to.x": "0x7FFFFFFF", "to.z": 1},
+  {"from.x": 0, "from.z": 0, "to.x": 16777216, "to.z": 33554431}
+ ],
+ "random_cases": 6000,
+ "seed": 104
+}

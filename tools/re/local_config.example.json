@@ -1,0 +1,8 @@
+{
+  "RUNBLACK_EXE": "D:/games/Black & White/runblack.exe",
+  "BW1_DECOMP": "D:/src/bw1-decomp",
+  "RE_TMP": "D:/tmp/re",
+  "CLANG_FORMAT": "clang-format",
+  "PRECHECK_BUILD_TREE": "D:/src/openblack",
+  "PRECHECK_DENY_WORDS": ""
+}

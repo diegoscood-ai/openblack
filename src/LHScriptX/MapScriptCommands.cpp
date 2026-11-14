@@ -13,6 +13,8 @@
 #include <stdexcept>
 #include <string>
 
+#include "ECS/PlayerCreature.h"
+#include "GameClock.h"
 #include "ScriptingBindingUtils.h"
 
 using namespace openblack::lhscriptx;
@@ -76,14 +78,17 @@ void MapScriptCommands::SetTurnsPerYear([[maybe_unused]] int32_t turnsPerYear)
 	                       std::to_string(__LINE__));
 }
 
-void MapScriptCommands::SetGameTickTime([[maybe_unused]] int32_t gameTickTime)
+void MapScriptCommands::SetGameTickTime(int32_t gameTickTime)
 {
-	throw std::logic_error(std::string {} + "Function " + __func__ + " not implemented. " + __FILE__ + ":" +
-	                       std::to_string(__LINE__));
+	// the turn length is the argument; the scheduler keeps its own 100 (game_clock)
+	openblack::game_clock::SetMsPerTurn(static_cast<uint32_t>(gameTickTime));
 }
 
 void MapScriptCommands::LoadFeatureScript(glm::vec3)
 {
+	// The map script's land is read by its own reader (lhscriptx::map_script::FeatureScripts), and the game loads it as
+	// its first land (Game::LoadMap: the land script, then the town features, the game's birthday, the players' post-load
+	// cleanup and the streams); this table is not run
 	throw std::logic_error(std::string {} + "Function " + __func__ + " not implemented. " + __FILE__ + ":" +
 	                       std::to_string(__LINE__));
 }
@@ -94,10 +99,12 @@ void MapScriptCommands::PauseGame()
 	                       std::to_string(__LINE__));
 }
 
-void MapScriptCommands::CreateCreature(int32_t, int32_t, int32_t, int32_t)
+void MapScriptCommands::CreateCreature(int32_t cellX, int32_t cellZ, int32_t type, int32_t player)
 {
-	throw std::logic_error(std::string {} + "Function " + __func__ + " not implemented. " + __FILE__ + ":" +
-	                       std::to_string(__LINE__));
+	// a creature of the type, a row of the creature tables, in the middle of the cell, for the player by number: one who
+	// has none, or nobody when the number names no player
+	ecs::player_creature::MakeForLandScript(type, ecs::player_creature::CellMiddle(cellX, cellZ),
+	                                        ecs::player_creature::PlayerOfNumber(player));
 }
 
 void MapScriptCommands::OutputVillagers()

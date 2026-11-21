@@ -16,9 +16,16 @@
 #include <ios>
 #include <istream>
 #include <memory>
+#include <optional>
+#include <string>
 #include <system_error>
+#include <vector>
 
+#include <spdlog/spdlog.h>
+
+#include "CasePath.h"
 #include "FileStream.h"
+#include "ModSearchRoots.h"
 #include "fmt/format.h"
 
 #ifdef _WIN32
@@ -33,41 +40,104 @@ using namespace openblack::filesystem;
 
 // todo: exceptions need to be replaced with real exceptions
 
+namespace
+{
+#ifdef _WIN32
+/// Windows' file system ignores case already, as the game's did
+constexpr bool k_CaseMatters = false;
+#else
+constexpr bool k_CaseMatters = true;
+#endif
+
+/// The path on disk of a file or folder, as written, or where case matters whatever the case of its parts, as the
+/// game's file system finds it; none when it is not there
+std::optional<std::filesystem::path> OnDisk(const std::filesystem::path& path)
+{
+	const auto exists = [](const std::filesystem::path& candidate) {
+		std::error_code error;
+		return std::filesystem::exists(candidate, error);
+	};
+	if constexpr (!k_CaseMatters)
+	{
+		return exists(path) ? std::optional(path) : std::nullopt;
+	}
+	else
+	{
+		const auto namesIn = [](const std::filesystem::path& folder) {
+			std::vector<std::string> names;
+			std::error_code error;
+			for (std::filesystem::directory_iterator it(folder.empty() ? std::filesystem::path(".") : folder, error), end;
+			     !error && it != end; it.increment(error))
+			{
+				names.push_back(it->path().filename().string());
+			}
+			return names;
+		};
+		return case_path::FindIgnoringCase(path, exists, namesIn);
+	}
+}
+} // namespace
+
 std::filesystem::path DefaultFileSystem::FindPath(const std::filesystem::path& path) const
+{
+	return FindPathIn(path, true);
+}
+
+std::filesystem::path DefaultFileSystem::FindPathIn(const std::filesystem::path& path, bool withMods) const
 {
 	if (path.empty())
 	{
 		throw std::invalid_argument("empty path");
 	}
 
+	// a switched-on data mod's file of the same path below the game's folder comes first
+	if (withMods && !_modRoots.empty())
+	{
+		if (const auto relative = mod_roots::GameRelative(path, _gamePath); relative.has_value())
+		{
+			const auto exists = [](const std::filesystem::path& candidate) {
+				std::error_code error;
+				return std::filesystem::is_regular_file(candidate, error);
+			};
+			if (auto found = mod_roots::FirstInRoots(_modRoots, *relative, exists); found.has_value())
+			{
+				if (const auto logger = spdlog::get("game"); logger != nullptr)
+				{
+					SPDLOG_LOGGER_INFO(logger, "{} from a mod: {}", relative->generic_string(), found->generic_string());
+				}
+				return *found;
+			}
+		}
+	}
+
 	// try absolute first
 	if (path.is_absolute())
 	{
-		if (std::filesystem::exists(path))
+		if (auto found = OnDisk(path); found.has_value())
 		{
-			return path;
+			return *found;
 		}
 	}
 	else
 	{
 		// try relative to current directory
-		if (std::filesystem::exists(path))
+		if (auto found = OnDisk(path); found.has_value())
 		{
-			return path;
+			return *found;
 		}
 
 		// try relative to game directory
-		if (std::filesystem::exists(_gamePath / path))
+		if (auto found = OnDisk(_gamePath / path); found.has_value())
 		{
-			return _gamePath / path;
+			return *found;
 		}
 
 		// try relative to additional paths
 		for (const auto& p : _additionalPaths)
 		{
-			if (std::filesystem::exists(p / path))
+			if (auto found = OnDisk(p / path); found.has_value())
 			{
-				return p / path;
+				return *found;
 			}
 		}
 	}
@@ -92,7 +162,21 @@ bool DefaultFileSystem::IsPathValid(const std::filesystem::path& path)
 
 std::unique_ptr<Stream> DefaultFileSystem::Open(const std::filesystem::path& path, Stream::Mode mode)
 {
-	return std::unique_ptr<Stream>(new FileStream(FindPath(path), mode));
+	// a file that is written may not be there yet: then it is made where the path says, relative to the game folder
+	if (mode != Stream::Mode::Read)
+	{
+		std::filesystem::path own;
+		try
+		{
+			own = path.empty() ? path : FindPathIn(path, false);
+		}
+		catch (const std::exception&)
+		{
+			own = path.is_absolute() ? path : _gamePath / path;
+		}
+		return std::make_unique<FileStream>(own, mode);
+	}
+	return std::make_unique<FileStream>(FindPath(path), mode);
 }
 
 bool DefaultFileSystem::Exists(const std::filesystem::path& path) const
@@ -119,6 +203,24 @@ std::vector<uint8_t> DefaultFileSystem::ReadAll(const std::filesystem::path& pat
 	return data;
 }
 
+std::optional<std::vector<uint8_t>> DefaultFileSystem::ReadUserFile(const std::filesystem::path& path)
+{
+	// found as any file is, but never in a data mod's folders
+	std::filesystem::path found;
+	try
+	{
+		found = FindPathIn(path, false);
+	}
+	catch (const std::exception&)
+	{
+		return std::nullopt;
+	}
+	FileStream file(found, Stream::Mode::Read);
+	std::vector<uint8_t> data(file.Size());
+	file.Read(data.data(), data.size());
+	return data;
+}
+
 void DefaultFileSystem::Iterate(const std::filesystem::path& path, bool recursive,
                                 const std::function<void(const std::filesystem::path&)>& function) const
 {
@@ -137,6 +239,62 @@ void DefaultFileSystem::Iterate(const std::filesystem::path& path, bool recursiv
 			function(f);
 		}
 	}
+}
+
+bool DefaultFileSystem::MakeFolder(const std::filesystem::path& path)
+{
+	// a folder given from the game's folder is made there, as a file written is
+	const auto folder = path.is_absolute() ? path : _gamePath / path;
+	std::error_code error;
+	std::filesystem::create_directories(folder, error);
+	return !error && std::filesystem::is_directory(folder, error);
+}
+
+bool DefaultFileSystem::Rename(const std::filesystem::path& from, const std::filesystem::path& to)
+{
+	// both given from the game's folder, as a file written is
+	const auto own = [this](const std::filesystem::path& path) { return path.is_absolute() ? path : _gamePath / path; };
+	std::error_code error;
+	std::filesystem::rename(own(from), own(to), error);
+	return !error;
+}
+
+bool DefaultFileSystem::Remove(const std::filesystem::path& path)
+{
+	const auto own = path.is_absolute() ? path : _gamePath / path;
+	std::error_code error;
+	return std::filesystem::remove(own, error) && !error;
+}
+
+bool DefaultFileSystem::RemoveFolder(const std::filesystem::path& path)
+{
+	const auto own = path.is_absolute() ? path : _gamePath / path;
+	std::error_code error;
+	if (!std::filesystem::is_directory(own, error))
+	{
+		return false;
+	}
+	// What the folder holds goes first, a read-only file staying with the folders above it; nothing is followed out of
+	// the folder through a link
+	std::vector<std::filesystem::path> held;
+	for (const auto& entry : std::filesystem::directory_iterator {own, error})
+	{
+		held.push_back(entry.path());
+	}
+	for (const auto& entry : held)
+	{
+		if (std::filesystem::is_directory(std::filesystem::symlink_status(entry, error)))
+		{
+			RemoveFolder(entry);
+		}
+		else if ((std::filesystem::status(entry, error).permissions() & std::filesystem::perms::owner_write) !=
+		         std::filesystem::perms::none)
+		{
+			std::filesystem::remove(entry, error);
+		}
+	}
+	// A folder still holding something stays
+	return std::filesystem::remove(own, error) && !error;
 }
 
 void DefaultFileSystem::SetGamePath(const std::filesystem::path& path)

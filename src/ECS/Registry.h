@@ -9,11 +9,19 @@
 
 #pragma once
 
+#include <cstdint>
+
+#include <source_location>
+#include <string_view>
+#include <tuple>
+#include <unordered_map>
+
+#include <entt/core/type_info.hpp>
 #include <entt/entity/entity.hpp>
 #include <entt/entity/helper.hpp>
 #include <entt/entity/registry.hpp>
 
-#include "ECS/RegistryContext.h"
+#include "ECS/DrawLayoutComponents.h"
 
 namespace openblack
 {
@@ -23,20 +31,42 @@ class Camera;
 namespace openblack::graphics
 {
 class DebugLines;
+class ShaderManager;
 } // namespace openblack::graphics
 
 namespace openblack::ecs
 {
+struct RegistryContext;
+
 class Registry
 {
 public:
 	Registry();
-	decltype(auto) Create() { return _registry.create(); }
+	/// A new entity, never with an id a script variable still names (AddScriptName)
+	entt::entity Create();
 	template <typename It>
 	void Create(It first, It last)
 	{
 		_registry.create(first, last);
+		for (; first != last; ++first)
+		{
+			if (_scriptNames.contains(*first))
+			{
+				_registry.storage<entt::entity>().erase(*first);
+				--_entitiesMade;
+				*first = Create();
+			}
+		}
 	}
+	/// A script variable takes the entity's id (a script reference). While any variable names an id, no new entity is
+	/// given it, even once its own entity has gone: a script's name for a thing names no other thing while a variable
+	/// holds it. An id comes back with a new version when its entity goes, and entt's versions come round again after
+	/// 4095 reuses, so without this a gone thing's id could name a later one
+	void AddScriptName(entt::entity entity);
+	/// A script variable lets go of the id; the count never goes below nothing
+	void RemoveScriptName(entt::entity entity);
+	/// How many script variables name the id
+	[[nodiscard]] uint32_t ScriptNames(entt::entity entity) const;
 	virtual void Release(entt::entity entity);
 	template <typename It>
 	void Release(It first, It last)
@@ -48,26 +78,45 @@ public:
 	template <typename It>
 	void Destroy(It first, It last)
 	{
-		SetDirty();
+		Dirty("Destroy", {}, 0, true);
 		_registry.destroy(first, last);
 	}
 	template <typename Component, typename... Args>
 	decltype(auto) Assign(entt::entity entity, [[maybe_unused]] Args&&... args)
 	{
-		SetDirty();
+		ComponentsChanged<Component>("Assign", true);
 		return _registry.emplace<Component>(entity, std::forward<Args>(args)...);
 	}
 	template <typename Component, typename... Args>
 	decltype(auto) AssignOrReplace(entt::entity entity, [[maybe_unused]] Args&&... args)
 	{
-		SetDirty();
+		// a component replaced keeps the entity's place in the draw lists: only one gained changes them
+		ComponentsChanged<Component>("AssignOrReplace", !_registry.all_of<Component>(entity));
 		return _registry.emplace_or_replace<Component>(entity, std::forward<Args>(args)...);
 	}
 	template <typename Component, typename... Other>
 	decltype(auto) Remove(entt::entity entity)
 	{
-		SetDirty();
+		// only a component the entity has, removed, changes the draw lists
+		ComponentsChanged<Component, Other...>("Remove", false, entity);
 		return _registry.remove<Component, Other...>(entity);
+	}
+	/// For simulation-only components the renderer never reads: like Assign / AssignOrReplace / Remove, without
+	/// rebuilding the drawn instances
+	template <typename Component, typename... Args>
+	decltype(auto) AssignState(entt::entity entity, Args&&... args)
+	{
+		return _registry.emplace<Component>(entity, std::forward<Args>(args)...);
+	}
+	template <typename Component, typename... Args>
+	decltype(auto) AssignOrReplaceState(entt::entity entity, Args&&... args)
+	{
+		return _registry.emplace_or_replace<Component>(entity, std::forward<Args>(args)...);
+	}
+	template <typename Component>
+	decltype(auto) RemoveState(entt::entity entity)
+	{
+		return _registry.remove<Component>(entity);
 	}
 	template <typename After, typename Before, typename... Args>
 	decltype(auto) SwapComponents(entt::entity entity, [[maybe_unused]] Before previousComponent,
@@ -76,7 +125,11 @@ public:
 		Remove<Before>(entity);
 		return Assign<After>(entity, std::forward<Args>(args)...);
 	}
-	virtual void SetDirty();
+	/// The drawn instances are written again at the next PrepareDraw, into the ranges they have
+	/// (RenderingSystemInterface::SetDirty): for a change of what the drawn entities look like or where they are, not of
+	/// which entities are drawn. `where`: the caller, counted by the profile (OPENBLACK_PROFILE, Profiler::CountDirty).
+	/// (Not virtual: a default argument)
+	void SetDirty(std::source_location where = std::source_location::current());
 	virtual RegistryContext& Context();
 	[[nodiscard]] virtual const RegistryContext& Context() const;
 	virtual void Reset();
@@ -136,6 +189,14 @@ public:
 		const auto* storage = _registry.template storage<Component>();
 		return entt::to_entity(*storage, component);
 	}
+	/// The entity a component the registry holds belongs to; entt::null for one it does not hold (no storage of its
+	/// type, or not in it)
+	template <typename Component>
+	[[nodiscard]] entt::entity EntityOf(const Component& component) const
+	{
+		const auto* storage = _registry.template storage<Component>();
+		return storage != nullptr ? entt::to_entity(*storage, component) : entt::entity {entt::null};
+	}
 	template <typename Dst, typename Src>
 	decltype(auto) As(Src& component)
 	{
@@ -152,10 +213,61 @@ public:
 		return _registry.view<Components...>().size();
 	}
 	[[nodiscard]] decltype(auto) Valid(entt::entity entity) const { return _registry.valid(entity); }
+	/// (openblack) every storage of the registry with its type id: the entities' own first (entt keeps it apart from
+	/// the components'), then the components' in the registry's order (Debug/StateHash.h)
+	template <typename Func>
+	void EachStorage(Func func) const
+	{
+		func(entt::type_hash<entt::entity>::value(), *_registry.storage<entt::entity>());
+		for (auto [id, storage] : _registry.storage())
+		{
+			func(id, storage);
+		}
+	}
+	/// Told whenever an entity gains a component
+	template <typename Component>
+	[[nodiscard]] decltype(auto) OnConstruct()
+	{
+		return _registry.on_construct<Component>();
+	}
+	/// entt's on_destroy sink of a component (Remove, Destroy and Reset publish it)
+	template <typename Component>
+	[[nodiscard]] decltype(auto) OnDestroy()
+	{
+		return _registry.on_destroy<Component>();
+	}
+	/// Every entity made since the registry was last emptied, those destroyed since too: the statistics' count of the
+	/// objects made on the land
+	[[nodiscard]] uint32_t GetEntitiesMade() const noexcept { return _entitiesMade; }
+	/// The count of the entities made is told by the registry it holds, so it is neither copied nor moved
+	Registry(const Registry&) = delete;
+	Registry& operator=(const Registry&) = delete;
 	virtual ~Registry() = default;
 
 protected:
 	entt::registry _registry;
+
+private:
+	void EntityMade(entt::registry& /*registry*/, entt::entity /*entity*/) { ++_entitiesMade; }
+
+	uint32_t _entitiesMade {0};
+	/// The ids the script variables name, with how many name each; kept across lands, as the scripts' variables are
+	std::unordered_map<entt::entity, uint32_t> _scriptNames;
+	/// Assign / AssignOrReplace / Remove: a component of the draw layout (k_ChangesDrawLayout) gained (`gained`) or,
+	/// for a removal from `entity`, one it has, has the draw lists made again; anything else only the instances
+	/// written again
+	template <typename... Components>
+	void ComponentsChanged(std::string_view operation, bool gained, entt::entity entity = entt::null)
+	{
+		using First = std::tuple_element_t<0, std::tuple<Components...>>;
+		const bool layout =
+		    gained ? k_AnyChangesDrawLayout<Components...>
+		           : entity != entt::null && ((k_ChangesDrawLayout<Components> && _registry.all_of<Components>(entity)) || ...);
+		Dirty(operation, entt::type_name<First>::value(), 0, layout);
+	}
+	/// SetDirty, by `where` / `what` / `line` (Profiler::CountDirty); `layout`: the draw lists are made again
+	/// (RenderingSystemInterface::SetLayoutDirty)
+	void Dirty(std::string_view where, std::string_view what, uint32_t line, bool layout = false);
 };
 
 } // namespace openblack::ecs

@@ -13,62 +13,21 @@
 
 #include <array>
 #include <optional>
+#include <span>
 #include <variant>
 
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 
+#include "BindableActions.h"
+#include "KeyBindings.h"
+#include "MouseButtons.h"
+#include "SystemMouse.h"
+
 union SDL_Event;
 
 namespace openblack::input
 {
-// clang-format off
-enum class BindableActionMap : uint64_t
-{
-	NONE                   = 0b000000000000000000000000000000000,
-	ALL                    = 0b111111111111111111111111111111111,
-	HELP                   = 0b000000000000000000000000000000001, // F1
-	MOVE                   = 0b000000000000000000000000000000010, // LMB
-	ACTION                 = 0b000000000000000000000000000000100, // RMB
-	ZOOM_OUT               = 0b000000000000000000000000000001000, // wheel down
-	ZOOM_IN                = 0b000000000000000000000000000010000, // wheel up
-	TALK                   = 0b000000000000000000000000000100000, // T
-	ZOOM_ON                = 0b000000000000000000000000001000000, // ctrl + arrows / lmb + rmb + mouse_motion
-	MOVE_LEFT              = 0b000000000000000000000000010000000, // left
-	MOVE_RIGHT             = 0b000000000000000000000000100000000, // right
-	MOVE_FORWARDS          = 0b000000000000000000000001000000000, // up
-	MOVE_BACKWARDS         = 0b000000000000000000000010000000000, // down
-	TILT_UP                = 0b000000000000000000000100000000000, // a
-	TILT_DOWN              = 0b000000000000000000001000000000000, // q
-	ROTATE_LEFT            = 0b000000000000000000010000000000000, // z
-	ROTATE_RIGHT           = 0b000000000000000000100000000000000, // u
-	ROTATE_ON              = 0b000000000000000001000000000000000, // shift
-	ROTATE_AROUND_MOUSE_ON = 0b000000000000000010000000000000000, // mmb
-	ZOOM_TO_TEMPLE         = 0b000000000000000100000000000000000, // space
-	ZOOM_TO_CREATURE       = 0b000000000000001000000000000000000, // c
-	ZOOM_TO_REALM          = 0b000000000000010000000000000000000, // f_3
-	ZOOM_TO_INSIDE_TEMPLE  = 0b000000000000100000000000000000000, // f_4
-	ZOOM_TO_CREATURE_ROOM  = 0b000000000001000000000000000000000, // f_5
-	ZOOM_TO_CHALLENGE_ROOM = 0b000000000010000000000000000000000, // f_6
-	ZOOM_TO_SAVE_GAME_ROOM = 0b000000000100000000000000000000000, // f_7
-	ZOOM_TO_OPTIONS_ROOM   = 0b000000001000000000000000000000000, // f_8
-	ZOOM_TO_LIBRARY        = 0b000000010000000000000000000000000, // f_9
-	LEASH_UNLEASH_CREATURE = 0b000000100000000000000000000000000, // l
-	SHOW_VILLAGER_NAMES    = 0b000001000000000000000000000000000, // n
-	SHOW_VILLAGER_DETAILS  = 0b000010000000000000000000000000000, // s
-	QUICK_SAVE             = 0b000100000000000000000000000000000, // ctrl + s
-	QUICK_LOAD             = 0b001000000000000000000000000000000, // ctrl + l
-	PREVIOUS_LEASH         = 0b010000000000000000000000000000000, // v
-	NEXT_LEASH             = 0b100000000000000000000000000000000, // B
-};
-enum class UnbindableActionMap : uint8_t
-{
-	NONE                   = 0b00000000,
-	DOUBLE_CLICK           = 0b00000001,
-	TWO_BUTTON_CLICK       = 0b00000010, // Is in the bindable menu in vanilla but in practice it is not.
-};
-using ActionMap = std::variant<BindableActionMap, UnbindableActionMap>;
-// clang-format on
 
 class GameActionInterface
 {
@@ -185,6 +144,8 @@ public:
 		    action);
 	}
 
+	virtual ~GameActionInterface() = default;
+
 	[[nodiscard]] virtual bool GetBindable(BindableActionMap action) const = 0;
 	[[nodiscard]] virtual bool GetUnbindable(UnbindableActionMap action) const = 0;
 	[[nodiscard]] virtual bool GetBindableChanged(BindableActionMap action) const = 0;
@@ -193,9 +154,63 @@ public:
 	[[nodiscard]] virtual bool GetUnbindableRepeat(UnbindableActionMap action) const = 0;
 	[[nodiscard]] virtual glm::uvec2 GetMousePosition() const = 0;
 	[[nodiscard]] virtual glm::ivec2 GetMouseDelta() const = 0;
+	/// Where the pointer is now, with the movement of this frame's events: with the real mouse the pointer itself, else
+	/// the frame's cursor
+	[[nodiscard]] virtual glm::ivec2 GetPointerPosition() const { return glm::ivec2(GetMousePosition()); }
+	/// Mouse wheel notches turned this frame, positive away from the user
+	[[nodiscard]] virtual float GetMouseWheelDelta() const = 0;
 	[[nodiscard]] virtual std::array<std::optional<glm::vec3>, 2> GetHandPositions() const = 0;
+
+	/// The options screen's actions and what each is bound to now
+	[[nodiscard]] virtual std::span<const KeyBinding> GetKeyBindings() const { return k_DefaultKeyBindings; }
+	/// Binds an action to a key chord, or unbinds its key; any other action bound to that chord loses it
+	virtual void SetKeyBinding([[maybe_unused]] BindableActionMap action, [[maybe_unused]] std::optional<KeyChord> key) {}
+	/// Binds an action to a mouse button or a turn of the wheel, or unbinds its button
+	virtual void SetMouseBinding([[maybe_unused]] BindableActionMap action, [[maybe_unused]] MouseInput mouse) {}
+	/// Puts every binding back to the game's defaults
+	virtual void ResetKeyBindings() {}
+	/// Presses an action's key for one frame, as if the player had, so its handling can be tried out
+	virtual void QueuePress([[maybe_unused]] BindableActionMap action) {}
+	/// Whether presses are waiting to be made
+	[[nodiscard]] virtual bool HasQueuedPresses() const { return false; }
+	/// Whether a double click is waiting, and takes it: a double click is marked as its second press comes and stays
+	/// marked, whatever the button does next, until the camera takes it. DOUBLE_CLICK reads the mark without taking it
+	/// (and so does this, for an action map that keeps no mark)
+	[[nodiscard]] virtual bool TakeDoubleClick() { return GetUnbindable(UnbindableActionMap::DOUBLE_CLICK); }
+	/// Which press of its quick row the last double click was (2, 4, 6 and on), 0 before any, for the debug readout
+	[[nodiscard]] virtual uint8_t GetLastDoubleClickPress() const { return 0; }
+
+	/// Puts the cursor somewhere in the window, as the camera does dragging round the screen's edge
+	virtual void WarpCursor([[maybe_unused]] glm::ivec2 position) {}
+	/// Where the cursor was put this frame, if it was
+	[[nodiscard]] virtual std::optional<glm::ivec2> GetCursorWarp() const { return std::nullopt; }
+	/// Actions the land's scripts don't allow now, which read as not held
+	virtual void SetBlockedActions([[maybe_unused]] BindableActionMap actions) {}
+	/// Whether the camera the player has can be turned with the mouse, which holds the cursor still while it is
+	virtual void AllowCursorFreeze([[maybe_unused]] bool allowed) {}
+	/// The cursor is held still while the mouse turns the camera, and the pointer's position isn't followed
+	[[nodiscard]] virtual bool IsCursorFrozen() const { return false; }
+	/// Whether a key of the keyboard (its SDL scancode) is held down now, as the game's input has seen it
+	[[nodiscard]] virtual bool IsKeyHeld([[maybe_unused]] SDL_Scancode key) const { return false; }
+	/// The actions each key that went down this frame is bound to, in the order the keys came: every key down the game
+	/// took (TakeKeyDown), a held key's repeats too, as the game takes its keys one event at a time
+	[[nodiscard]] virtual std::span<const BindableActionMap> GetKeyDownsThisFrame() const { return {}; }
+	/// Whether the game takes a key down that the window gave it this frame (KeyBuffer): not when it is the same key with
+	/// the same Shift, Ctrl and Alt as the frame's last one taken, or the frame already took as many as it holds
+	[[nodiscard]] virtual bool TakeKeyDown([[maybe_unused]] SDL_Scancode key, [[maybe_unused]] uint16_t modifiers)
+	{
+		return true;
+	}
+	/// Whether a mouse button is held down now, as the window's events left it, whoever they went to; never in the test
+	/// runs but under a recording's playback, which read no real button
+	[[nodiscard]] virtual bool IsMouseButtonHeld([[maybe_unused]] MouseButton button) const { return false; }
+	/// The system's mouse as the game knows it: a wheel and its buttons (a three-button wheel mouse unless asked)
+	[[nodiscard]] virtual SystemMouse GetSystemMouse() const { return {}; }
 
 	virtual void Frame() = 0;
 	virtual void ProcessEvent(const SDL_Event& event) = 0;
+	/// Every event the window dispatched, live or from a recording playing, before anything takes it: the keys and
+	/// buttons it holds, which the letting go made up for the keys and buttons taken elsewhere reads
+	virtual void SeeDispatchedEvent([[maybe_unused]] const SDL_Event& event) {}
 };
 } // namespace openblack::input

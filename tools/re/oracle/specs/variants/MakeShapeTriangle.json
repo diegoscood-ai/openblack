@@ -1,0 +1,9 @@
+{
+ "extends": "../MakeShapeCircle.json",
+ "function": "MakeShapeTriangle",
+ "symbol": "?MakeShapeTriangle@MakeShape@@SAXK@Z",
+ "addr": "0x0050FF50",
+ "notes": "MakeShape::MakeShapeTriangle (shape 8): its 256 points at DanceShapePoints + 8 * 0x800 (0x00CB1B70). See MakeShapeCircle.json.",
+ "args": [{"name": "shape", "type": "u32", "value": 8}],
+ "globals": [{"name": "points", "addr": "0x00CB1B70", "type": "i32", "count": 512, "out": true}]
+}

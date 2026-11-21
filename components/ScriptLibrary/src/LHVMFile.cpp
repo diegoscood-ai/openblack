@@ -58,15 +58,16 @@
  *         number of values/types - 4 bytes
  *         push count - 4 bytes
  *         pop count - 4 bytes
- * - number of values * 4 bytes (can be either float, int or uint)
- * - number of types * 4 bytes
+ * - number of values, each containing:
+ *         type - 4 bytes
+ *         value - 4 bytes (can be either float, int or uint)
  *
  * ----------------------- start of vars values block --------------------------
  * - 4 byte header containing:
  *         number of entries - 4 bytes
  * - number of entries, each containing:
- *         type - 4 bytes
- *         values - 4 bytes
+ *         type - 1 byte
+ *         value - 4 bytes
  *         name - null terminated string
  *
  * -------------------------- start of tasks block -----------------------------
@@ -83,6 +84,7 @@
  *         clock ticks - 4 bytes
  *         script id - 4 bytes
  *         script type - 4 bytes
+ *         four states, each 1 byte with all bits set when true:
  *         is in exception handler - 1 byte
  *         must stop - 1 byte
  *         must stop exception handler - 1 byte
@@ -106,6 +108,7 @@
 #include <cstdlib>
 #include <cstring>
 
+#include <algorithm>
 #include <fstream>
 #include <stdexcept>
 
@@ -279,16 +282,163 @@ void LHVMFile::Open(const std::vector<uint8_t>& buffer)
 	ReadFile(stream);
 }
 
-void LHVMFile::Write([[maybe_unused]] const std::filesystem::path& filepath)
+namespace
+{
+
+void WriteU32(std::ostream& stream, uint32_t value)
+{
+	stream.write(reinterpret_cast<const char*>(&value), sizeof(value));
+}
+
+void WriteString(std::ostream& stream, const std::string& value)
+{
+	stream.write(value.c_str(), static_cast<std::streamsize>(value.size() + 1));
+}
+
+void WriteStrings(std::ostream& stream, const std::vector<std::string>& values)
+{
+	WriteU32(stream, static_cast<uint32_t>(values.size()));
+	for (const auto& value : values)
+	{
+		WriteString(stream, value);
+	}
+}
+
+void WriteBool(std::ostream& stream, bool value)
+{
+	// The game writes all bits set for true
+	const auto byte = static_cast<char>(value ? 0xFF : 0);
+	stream.write(&byte, sizeof(byte));
+}
+
+void WriteStack(std::ostream& stream, const VMStack& stack)
+{
+	WriteU32(stream, stack.count);
+	WriteU32(stream, stack.pushCount);
+	WriteU32(stream, stack.popCount);
+	// The game writes each place as its type, then its value
+	for (uint32_t i = 0; i < stack.count; ++i)
+	{
+		WriteU32(stream, static_cast<uint32_t>(stack.types.at(i)));
+		WriteU32(stream, stack.values.at(i).uintVal);
+	}
+}
+
+/// Each value: its type in one byte, the value, then the variable's name
+void WriteVariableValues(std::ostream& stream, const std::vector<VMVar>& variables)
+{
+	WriteU32(stream, static_cast<uint32_t>(variables.size()));
+	for (const auto& variable : variables)
+	{
+		const auto type = static_cast<char>(variable.type);
+		stream.write(&type, sizeof(type));
+		WriteU32(stream, variable.value.uintVal);
+		WriteString(stream, variable.name);
+	}
+}
+
+/// Each state of a task is one byte, true when it is not zero
+bool ReadFlag(std::istream& stream, bool& flag)
+{
+	char byte = 0;
+	if (!stream.read(&byte, sizeof(byte)))
+	{
+		return false;
+	}
+	flag = byte != 0;
+	return true;
+}
+
+} // namespace
+
+bool LHVMFile::Write(const std::filesystem::path& filepath) const
+{
+	std::ofstream stream(filepath, std::ios::binary);
+	if (!stream.is_open())
+	{
+		return false;
+	}
+	Write(stream);
+	return stream.good();
+}
+
+void LHVMFile::Write(std::ostream& stream) const
 {
 	assert(_isLoaded);
 
-	// TODO(Daniels118): write static CHL data
+	stream.write(k_Magic.data(), k_Magic.size());
+	WriteU32(stream, static_cast<uint32_t>(_version));
+	WriteStrings(stream, _variablesNames);
 
-	if (_hasStatus)
+	WriteU32(stream, static_cast<uint32_t>(_instructions.size()));
+	for (const auto& instruction : _instructions)
 	{
-		// TODO(Daniels118): write runtime status data
+		WriteU32(stream, static_cast<uint32_t>(instruction.code));
+		WriteU32(stream, static_cast<uint32_t>(instruction.mode));
+		WriteU32(stream, static_cast<uint32_t>(instruction.type));
+		WriteU32(stream, instruction.data.uintVal);
+		WriteU32(stream, instruction.line);
 	}
+
+	WriteU32(stream, static_cast<uint32_t>(_autostart.size()));
+	for (const auto id : _autostart)
+	{
+		WriteU32(stream, id);
+	}
+
+	WriteU32(stream, static_cast<uint32_t>(_scripts.size()));
+	for (const auto& script : _scripts)
+	{
+		WriteString(stream, script.name);
+		WriteString(stream, script.filename);
+		WriteU32(stream, static_cast<uint32_t>(script.type));
+		WriteU32(stream, script.variablesOffset);
+		WriteStrings(stream, script.variables);
+		WriteU32(stream, script.instructionAddress);
+		WriteU32(stream, script.parameterCount);
+		WriteU32(stream, script.scriptId);
+	}
+
+	WriteU32(stream, static_cast<uint32_t>(_data.size()));
+	stream.write(_data.data(), static_cast<std::streamsize>(_data.size()));
+
+	if (!_hasStatus)
+	{
+		return;
+	}
+
+	// The running state, in the layout of the game's own script saves
+	WriteStack(stream, _stack);
+	WriteVariableValues(stream, _variableValues);
+	WriteU32(stream, static_cast<uint32_t>(_tasks.size()));
+	for (const auto& task : _tasks)
+	{
+		WriteVariableValues(stream, task.localVars);
+		WriteU32(stream, task.id);
+		WriteU32(stream, task.instructionAddress);
+		WriteU32(stream, task.pevInstructionAddress);
+		WriteU32(stream, task.waitingTaskId);
+		WriteU32(stream, task.variablesOffset);
+		WriteU32(stream, task.currentExceptionHandlerIndex);
+		WriteU32(stream, task.ticks);
+		WriteU32(stream, task.scriptId);
+		WriteU32(stream, static_cast<uint32_t>(task.type));
+		WriteBool(stream, task.inExceptionHandler);
+		WriteBool(stream, task.stop);
+		WriteBool(stream, task.iield);
+		WriteBool(stream, task.sleeping);
+		WriteStack(stream, task.stack);
+		WriteU32(stream, static_cast<uint32_t>(task.exceptionHandlerIps.size()));
+		for (const auto ip : task.exceptionHandlerIps)
+		{
+			WriteU32(stream, ip);
+		}
+	}
+	WriteU32(stream, _ticks);
+	WriteU32(stream, _currentLineNumber);
+	WriteU32(stream, _highestTaskId);
+	WriteU32(stream, _highestScriptId);
+	WriteU32(stream, _executedInstructions);
 }
 
 int LHVMFile::LoadVariablesNames(std::istream& stream, std::vector<std::string>& variables)
@@ -533,19 +683,16 @@ int LHVMFile::LoadStack(std::istream& stream, VMStack& stack)
 		return EXIT_FAILURE; // Error reading stack pop count
 	}
 
-	for (int i = 0; i < stack.count; i++)
-	{
-		if (!stream.read(reinterpret_cast<char*>(&stack.values.at(i)), sizeof(stack.values[0])))
-		{
-			return EXIT_FAILURE; // Error reading stack values
-		}
-	}
-
-	for (int i = 0; i < stack.count; i++)
+	// Each place is its type, then its value
+	for (uint32_t i = 0; i < stack.count; i++)
 	{
 		if (!stream.read(reinterpret_cast<char*>(&stack.types.at(i)), sizeof(stack.types[0])))
 		{
 			return EXIT_FAILURE; // Error reading stack types
+		}
+		if (!stream.read(reinterpret_cast<char*>(&stack.values.at(i)), sizeof(stack.values[0])))
+		{
+			return EXIT_FAILURE; // Error reading stack values
 		}
 	}
 
@@ -665,22 +812,22 @@ int LHVMFile::LoadTask(std::istream& stream, VMTask& task)
 		return EXIT_FAILURE; // Error reading type
 	}
 
-	if (!stream.read(reinterpret_cast<char*>(&task.inExceptionHandler), sizeof(task.inExceptionHandler)))
+	if (!ReadFlag(stream, task.inExceptionHandler))
 	{
 		return EXIT_FAILURE; // Error reading 'in exception handler'
 	}
 
-	if (!stream.read(reinterpret_cast<char*>(&task.stop), sizeof(task.stop)))
+	if (!ReadFlag(stream, task.stop))
 	{
 		return EXIT_FAILURE; // Error reading stop
 	}
 
-	if (!stream.read(reinterpret_cast<char*>(&task.iield), sizeof(task.iield)))
+	if (!ReadFlag(stream, task.iield))
 	{
 		return EXIT_FAILURE; // Error reading yield
 	}
 
-	if (!stream.read(reinterpret_cast<char*>(&task.sleeping), sizeof(task.sleeping)))
+	if (!ReadFlag(stream, task.sleeping))
 	{
 		return EXIT_FAILURE; // Error reading sleeping
 	}
@@ -701,13 +848,10 @@ int LHVMFile::LoadTask(std::istream& stream, VMTask& task)
 		return EXIT_FAILURE; // Error reading except struct
 	}
 
-	if (task.scriptId < 1 || task.scriptId >= _scripts.size())
-	{
-		return EXIT_FAILURE; // Script not found
-	}
-	auto& script = _scripts[task.scriptId - 1];
-	task.name = script.name;
-	task.filename = script.filename;
+	// The game finds the task's script by its id. A task with no script stays, with "Not compiled" as its names.
+	const auto script = std::ranges::find(_scripts, task.scriptId, &VMScript::scriptId);
+	task.name = script != _scripts.end() ? script->name : "Not compiled";
+	task.filename = script != _scripts.end() ? script->filename : "Not compiled";
 
 	return EXIT_SUCCESS;
 }

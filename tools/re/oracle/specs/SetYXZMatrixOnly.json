@@ -1,0 +1,41 @@
+{
+ "function": "SetYXZMatrixOnly",
+ "symbol": "?SetYXZMatrixOnly@LHMatrix@@QAEXMMM@Z",
+ "addr": "0x007FAC10",
+ "conv": "thiscall",
+ "ret": "void",
+ "notes": "LHMatrix::SetYXZMatrixOnly(y, x, z): the 9 rotation cells; the translation must stay as it was (t). openblack: lh_matrix::YXZ (src/3D/ObjectMatrix.h). fsin / fcos are extended: the large-angle edges show the x87 argument reduction (66-bit pi) and |a| >= 2^63 (fsin returns the argument).",
+ "this": "m",
+ "buffers": {
+  "m": [
+   {"name": "m", "type": "f32", "count": 9, "out": true},
+   {"name": "t", "type": "f32", "count": 3, "value": [1.5, -2.5, 3.5], "out": true}
+  ]
+ },
+ "args": [
+  {"name": "y", "type": "f32", "gen": "angle"},
+  {"name": "x", "type": "f32", "gen": "angle"},
+  {"name": "z", "type": "f32", "gen": "angle"}
+ ],
+ "generators": {
+  "angle": {"mix": [
+   [70, {"uniform": [-3.1415927, 3.1415927]}],
+   [15, {"uniform": [-6.2831855, 6.2831855]}],
+   [10, {"uniform": [-100, 100]}],
+   [5, {"choice": [0, "-0", 1.5707964, -1.5707964, 3.1415927, -3.1415927, 0.7853982, 6.2831855, 1e-7, -1e-7]}]
+  ]}
+ },
+ "edges": {
+  "y": [0, "-0", 1.5707964, -1.5707964, 3.1415927, -3.1415927, 6.2831855, 1e-30, "0x00000001", 1000, 1e6, 1e10, 9.3e18, 1e20, "inf", "-inf", "nan"],
+  "x": [0, "-0", 1.5707964, -1.5707964, 3.1415927, -3.1415927, 6.2831855, 1e-30, "0x00000001", 1000, 1e6, 1e10, 9.3e18, 1e20, "inf", "-inf", "nan"],
+  "z": [0, "-0", 1.5707964, -1.5707964, 3.1415927, -3.1415927, 6.2831855, 1e-30, "0x00000001", 1000, 1e6, 1e10, 9.3e18, 1e20, "inf", "-inf", "nan"]
+ },
+ "cases": [
+  {"y": 0, "x": 0, "z": 0},
+  {"y": 0.5, "x": 0.25, "z": -1},
+  {"y": 0, "x": 1.5707964, "z": 0},
+  {"y": 0.4, "x": -0.9, "z": 1.3}
+ ],
+ "random_cases": 4000,
+ "seed": 101
+}

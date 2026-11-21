@@ -1,0 +1,24 @@
+{
+ "function": "Mul",
+ "addr": "0x007FAFF0",
+ "conv": "fastcall",
+ "ret": "void",
+ "notes": "fn_007FAFF0(a, b), fastcall: a = a b in place (ecx = a, copied first; edx = b), the point through a first. openblack: lh_matrix::Mul (src/3D/LhMatrix43.h). a is an input and the output.",
+ "this": "a",
+ "buffers": {
+  "a": [{"name": "a", "type": "f32", "count": 12, "gen": "matrix", "out": true}],
+  "b": [{"name": "b", "type": "f32", "count": 12, "gen": "matrix"}]
+ },
+ "args": [
+  {"type": "ptr", "buffer": "b"}
+ ],
+ "generators": {
+  "matrix": {"mix": [
+   [60, {"rotation": {"angle": {"uniform": [-3.1415927, 3.1415927]}, "scale": {"loguniform": [0.1, 10]}, "translation": {"uniform": [-2000, 2000]}}}],
+   [35, {"uniform": [-10, 10]}],
+   [5, {"loguniform": [1e-20, 1e20], "signed": true}]
+  ]}
+ },
+ "random_cases": 4000,
+ "seed": 106
+}

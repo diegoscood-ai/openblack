@@ -32,10 +32,15 @@ void L3DAnim::Load(const anm::ANMFile& anm) noexcept
 	_unknown_0x34 = anm.GetHeader().unknown0x34;
 	assert(anm.GetHeader().frameCount == anm.GetKeyframes().size());
 	_unknown_0x3C = anm.GetHeader().unknown0x3C;
-	_duration = anm.GetHeader().animationDuration;
+	_dataSize = anm.GetHeader().animationDataSize;
 	_unknown_0x44 = anm.GetHeader().unknown0x44;
 	_unknown_0x48 = anm.GetHeader().unknown0x48;
 	_unknown_0x50 = anm.GetHeader().unknown0x50;
+	// the original's animation loader clears the loop flag of anim 323, ANM_P_OUT_OF_PRAY
+	if (_name.starts_with("M_P_Out_Of_Pray"))
+	{
+		SetLooping(false);
+	}
 
 	_frames.reserve(anm.GetKeyframes().size());
 	for (const auto& keyframe : anm.GetKeyframes())
@@ -114,11 +119,11 @@ std::vector<glm::mat4> L3DAnim::GetBoneMatrices(uint32_t time) const noexcept
 	{
 		return {};
 	}
-	if (_duration == 0)
+	if (_unknown_0x20 == 0)
 	{
 		return _frames[0].bones;
 	}
-	uint32_t animationTime = time % _duration;
+	uint32_t animationTime = time % _unknown_0x20;
 	uint32_t index = 0;
 	uint32_t previousTime = 0;
 	for (const auto& frame : _frames)
@@ -160,4 +165,40 @@ std::vector<glm::mat4> L3DAnim::GetBoneMatrices(uint32_t time) const noexcept
 
 	// assert(index < _frames.size());
 	return bones;
+}
+
+void L3DAnim::SampleLocal(int32_t milliseconds, std::vector<glm::mat4>& bones, bool blendSampler) const noexcept
+{
+	const auto frameCount = static_cast<int32_t>(_frames.size());
+	const auto duration = static_cast<int32_t>(GetPlayTime());
+	if (frameCount == 0)
+	{
+		bones.clear();
+		return;
+	}
+	const bool loop = IsLooping();
+	// integer maths, like the original
+	const int32_t period = loop || frameCount < 2 ? duration : duration * frameCount / (frameCount - 1);
+	int32_t t = milliseconds;
+	int32_t i = period > 0 ? frameCount * t / period : 0;
+	if (i >= frameCount || i < 0)
+	{
+		i = 0;
+		t = 0;
+	}
+	int32_t j = i + 1;
+	if (j == frameCount)
+	{
+		j = (loop || blendSampler) ? 0 : frameCount - 1;
+	}
+	const float f =
+	    period > 0 ? static_cast<float>(frameCount) / static_cast<float>(period) * static_cast<float>(t) - static_cast<float>(i)
+	               : 0.0f;
+	const auto& a = _frames[static_cast<size_t>(i)].bones;
+	const auto& b = _frames[static_cast<size_t>(j)].bones;
+	bones.resize(a.size());
+	for (size_t k = 0; k < a.size(); ++k)
+	{
+		bones[k] = a[k] + (b[k] - a[k]) * f;
+	}
 }

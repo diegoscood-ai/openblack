@@ -1,0 +1,466 @@
+/*******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+// The footpaths' queries: GetNextNode, GetEndNonHiddenNode, GetNearestPos, NextNodeNear / StepNextNode,
+// GetNearestPathTo / GetNearestPathToQuick and the loaded link's resolve (AttachLoadedLink). No game data: hand-made
+// footpaths, made in list order (node id = its place) unless a test inserts at the head as adding a node does. Also
+// the land script's LINK_FOOTPATH, which gives a footpath to the last created object, and the creation commands that
+// set or keep that object.
+
+#define LOCATOR_IMPLEMENTATIONS
+
+#include <vector>
+
+#include <entt/entity/entity.hpp>
+#include <glm/mat3x3.hpp>
+#include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
+#include <gtest/gtest.h>
+
+#include "3D/MapCoords.h"
+#include "ECS/Components/BuildingSite.h"
+#include "ECS/Components/Feature.h"
+#include "ECS/Components/Footpath.h"
+#include "ECS/Components/Stream.h"
+#include "ECS/Components/Town.h"
+#include "ECS/Components/Transform.h"
+#include "ECS/Components/WorshipSite.h"
+#include "ECS/Effects/Reactions.h"
+#include "ECS/Footpaths.h"
+#include "ECS/Registry.h"
+#include "ECS/RegistryContext.h"
+#include "LHScriptX/FeatureScriptCommands.h"
+#include "LHScriptX/Script.h"
+#include "Locator.h"
+#include "support/LandFakes.h"
+#include "support/RestoreService.h"
+#include "support/WorldSystems.h"
+
+using namespace openblack;
+using namespace openblack::ecs::components;
+namespace footpaths = openblack::ecs::footpaths;
+namespace map_coords = openblack::map_coords;
+
+namespace
+{
+class FootpathsTest: public ::testing::Test
+{
+protected:
+	void SetUp() override
+	{
+		Locator::entitiesRegistry::emplace<ecs::Registry>();
+		openblack::test::EmplaceWorldSystems();
+	}
+	void TearDown() override
+	{
+		lhscriptx::Script::SetLastCreated(entt::null);
+		Locator::entitiesRegistry::reset();
+		openblack::test::ResetWorldSystems();
+	}
+
+	static ecs::Registry& Reg() { return Locator::entitiesRegistry::value(); }
+
+	/// A footpath along x, one node every 10 m from x0, the flags of each
+	static entt::entity Make(int x0, std::initializer_list<uint8_t> flags)
+	{
+		const auto e = Reg().Create();
+		auto& f = Reg().Assign<Footpath>(e);
+		int x = x0;
+		for (const auto flag : flags)
+		{
+			const auto coords = map_coords::FromMetres(glm::vec2(static_cast<float>(x), 0.0f));
+			f.nodes.push_back({glm::vec3(static_cast<float>(x), 0.0f, 0.0f), coords, flag, f.nextNodeId++});
+			x += 10;
+		}
+		return e;
+	}
+
+	static map_coords::MapCoords At(float x) { return map_coords::FromMetres(glm::vec2(x, 0.0f)); }
+};
+
+TEST_F(FootpathsTest, NextNodeStepsOverHiddenNodes)
+{
+	// nodes 0..4; 2 is hidden (bit 2)
+	const auto f = Make(0, {1, 1, 4, 1, 1});
+	EXPECT_EQ(footpaths::GetNextNode(f, 1, 0), 3);                   // dir 0: the one after, over the hidden one
+	EXPECT_EQ(footpaths::GetNextNode(f, 3, 1), 1);                   // dir != 0: the one before
+	EXPECT_EQ(footpaths::GetNextNode(f, 0, 1), footpaths::k_NoNode); // nothing before the head
+	EXPECT_EQ(footpaths::GetNextNode(f, 4, 0), footpaths::k_NoNode);
+}
+
+TEST_F(FootpathsTest, EndNonHiddenNode)
+{
+	const auto f = Make(0, {8, 1, 1, 8});
+	const auto first = footpaths::GetEndNonHiddenNode(f, 1);
+	const auto last = footpaths::GetEndNonHiddenNode(f, 0);
+	ASSERT_TRUE(first.has_value() && last.has_value());
+	EXPECT_EQ(*first, footpaths::NodeCoords(f, 1));
+	EXPECT_EQ(*last, footpaths::NodeCoords(f, 2));
+	EXPECT_FALSE(footpaths::GetEndNonHiddenNode(Make(0, {4, 8}), 0).has_value());
+}
+
+TEST_F(FootpathsTest, NearestPosTakesTheNextWhenThePointIsPastTheNearest)
+{
+	const auto f = Make(0, {1, 1, 1});
+	// 14 m: nearest node 1 (10 m); toward node 2 (dir 0) the point lies between them -> node 2
+	EXPECT_EQ(footpaths::GetNearestPos(f, At(14.0f), 0), 2);
+	// toward node 0 (dir != 0): node 0 is 10 m from node 1 and 14 m from the point -> the nearest stays
+	EXPECT_EQ(footpaths::GetNearestPos(f, At(14.0f), 1), 1);
+}
+
+TEST_F(FootpathsTest, LinkPicksTheNearestFootpathAndItsDirection)
+{
+	const auto near = Make(0, {1, 1, 1});
+	const auto far = Make(100, {1, 1, 1});
+	const auto link = Reg().Create();
+	Reg().Assign<FootpathLink>(link, glm::vec3(0.0f),
+	                           std::vector<Footpath::Id> {static_cast<Footpath::Id>(far), static_cast<Footpath::Id>(near)});
+	float best = 1000.0f;
+	const auto choice = footpaths::GetNearestPathTo(link, At(1.0f), At(50.0f), best);
+	ASSERT_TRUE(choice.has_value());
+	EXPECT_TRUE(choice->footpath == near);
+	EXPECT_EQ(choice->direction, 0); // the tail (20 m) is nearer `to` than the head: toward the tail
+	// the quick one enters at the far end
+	float quickBest = 1000.0f;
+	const auto quick = footpaths::GetNearestPathToQuick(link, At(1.0f), At(50.0f), quickBest);
+	ASSERT_TRUE(quick.has_value());
+	EXPECT_TRUE(quick->footpath == near);
+	EXPECT_EQ(quick->node, 0);
+}
+
+// The way along one footpath that the link's query and the debug window's footpath walk take: toward the head only when
+// the tail is strictly farther from the destination
+TEST_F(FootpathsTest, DirectionGoesTowardTheEndNearerTheDestination)
+{
+	const auto f = Make(0, {1, 1, 1}); // the head at 0 m, the tail at 20 m
+	EXPECT_EQ(footpaths::DirectionToward(f, At(-5.0f)), 1);
+	EXPECT_EQ(footpaths::DirectionToward(f, At(50.0f)), 0);
+	EXPECT_EQ(footpaths::DirectionToward(f, At(10.0f)), 0); // as far from both ends
+	EXPECT_EQ(footpaths::DirectionToward(Reg().Create(), At(-5.0f)), 0);
+}
+
+// Adding a node inserts it at the head: the ids name the nodes, not their places
+TEST_F(FootpathsTest, NodeIdsSurviveHeadInsertion)
+{
+	const auto e = Reg().Create();
+	auto& f = Reg().Assign<Footpath>(e);
+	for (int x = 0; x < 30; x += 10)
+	{
+		const auto coords = At(static_cast<float>(x));
+		f.nodes.insert(f.nodes.begin(),
+		               Footpath::Node {glm::vec3(static_cast<float>(x), 0.0f, 0.0f), coords, 1, f.nextNodeId++});
+	}
+	// list: id 2 (20 m, the head), id 1 (10 m), id 0 (0 m)
+	EXPECT_EQ(footpaths::HeadNode(e), 2);
+	EXPECT_EQ(footpaths::TailNode(e), 0);
+	EXPECT_EQ(footpaths::GetNextNode(e, 2, 0), 1);
+	EXPECT_EQ(footpaths::GetNextNode(e, 1, 0), 0);
+	EXPECT_EQ(footpaths::GetNextNode(e, 1, 1), 2);
+	EXPECT_EQ(footpaths::NodeCoords(e, 0), At(0.0f));
+}
+
+// NextNodeNear: the nearest node within maxDist, then the next one; 0x2D at the end
+TEST_F(FootpathsTest, NextNodeNearAndStepNextNode)
+{
+	// nodes 0, 1, 2 at 0, 10 and 20 m
+	const auto f = Make(0, {1, 1, 1});
+	footpaths::NodeId node = footpaths::k_NoNode;
+	map_coords::MapCoords out {};
+	// the nearest (GetNearestPos, dir 0) 30 m away: over maxDist -> 0
+	EXPECT_EQ(footpaths::NextNodeNear(f, At(50.0f), node, out, 0, 5.0f), 0);
+	// at 9 m: GetNearestPos gives node 1 (node 2 is not nearer the point than node 1 is), 1 m away; its next is 2
+	EXPECT_EQ(footpaths::NextNodeNear(f, At(9.0f), node, out, 0, 5.0f), 1);
+	EXPECT_EQ(node, 2);
+	EXPECT_EQ(out, At(20.0f));
+	// no node after 2: 0x2D, node unchanged
+	EXPECT_EQ(footpaths::StepNextNode(f, node, out, 0), footpaths::k_EndOfFootpath);
+	EXPECT_EQ(node, 2);
+	// toward the head (dir != 0): 2 -> 1
+	EXPECT_EQ(footpaths::StepNextNode(f, node, out, 1), 1);
+	EXPECT_EQ(node, 1);
+	EXPECT_EQ(out, At(10.0f));
+	// at 21 m the nearest is the last node, with no next: 0x2D
+	EXPECT_EQ(footpaths::NextNodeNear(f, At(21.0f), node, out, 0, 5.0f), footpaths::k_EndOfFootpath);
+}
+
+// A node's occupants: the newest at the head
+TEST_F(FootpathsTest, OccupantsHeadFirst)
+{
+	const auto f = Make(0, {1, 1});
+	const auto a = Reg().Create();
+	const auto b = Reg().Create();
+	footpaths::AddOccupant(f, 1, a);
+	footpaths::AddOccupant(f, 1, b);
+	const auto& occupants = Reg().Get<Footpath>(f).nodes.at(1).occupants;
+	ASSERT_EQ(occupants.size(), 2u);
+	EXPECT_TRUE(occupants.front() == b);
+	footpaths::RemoveOccupant(f, 1, b);
+	ASSERT_EQ(occupants.size(), 1u);
+	EXPECT_TRUE(occupants.front() == a);
+}
+
+// A deleted villager leaves its node entirely: every entry of it goes, the others stay
+TEST_F(FootpathsTest, RemovingEveryEntryOfAnOccupant)
+{
+	const auto f = Make(0, {1, 1});
+	const auto a = Reg().Create();
+	const auto b = Reg().Create();
+	auto& occupants = Reg().Get<Footpath>(f).nodes.at(1).occupants;
+	occupants = {a, b, a};
+	footpaths::RemoveEveryOccupant(f, 1, a);
+	ASSERT_EQ(occupants.size(), 1u);
+	EXPECT_TRUE(occupants.front() == b);
+	// no such node: nothing
+	footpaths::RemoveEveryOccupant(f, 7, b);
+	EXPECT_EQ(occupants.size(), 1u);
+}
+
+// AttachLoadedLink: no fixed object at the point -> a planned abode within 0.05 m; none -> the link deleted
+TEST_F(FootpathsTest, LoadedLinkGoesToAPlanOrIsDeleted)
+{
+	const auto town = Reg().Create();
+	auto& t = Reg().Assign<Town>(town);
+	t.id = 1;
+	Reg().Context().towns[1] = town;
+	PlannedAbode plan {};
+	plan.position = glm::vec3(100.0f, 0.0f, 50.0f);
+	t.plannedAbodes.push_back(plan);
+	const auto link = Reg().Create();
+	Reg().Assign<FootpathLink>(link, glm::vec3(0.0f), std::vector<Footpath::Id> {});
+	footpaths::AttachLoadedLink(link, map_coords::FromWorld(glm::vec3(100.0f, 0.0f, 50.0f)));
+	EXPECT_TRUE(Reg().Get<Town>(town).plannedAbodes.at(0).footpathLink == link);
+	const auto stray = Reg().Create();
+	Reg().Assign<FootpathLink>(stray, glm::vec3(0.0f), std::vector<Footpath::Id> {});
+	footpaths::AttachLoadedLink(stray, map_coords::FromWorld(glm::vec3(300.0f, 0.0f, 50.0f)));
+	EXPECT_FALSE(Reg().Valid(stray));
+	EXPECT_TRUE(footpaths::GetFootpathLink(town) == entt::null);
+}
+// A thing's link handed on (to a rebuild plan) leaves the thing without one; a deleted link goes, its footpaths stay
+TEST_F(FootpathsTest, ALinkHandedOnOrDeletedLeavesItsFootpaths)
+{
+	const auto footpath = Make(0, {0, 0});
+	const auto building = Reg().Create();
+	const auto link = Reg().Create();
+	Reg().Assign<FootpathLink>(link, glm::vec3(0.0f), std::vector<Footpath::Id> {static_cast<Footpath::Id>(footpath)});
+	Reg().Assign<FootpathLinkOf>(building, link);
+	EXPECT_TRUE(footpaths::TakeFootpathLink(building) == link);
+	EXPECT_TRUE(footpaths::GetFootpathLink(building) == entt::null);
+	EXPECT_TRUE(Reg().Valid(link));
+	EXPECT_TRUE(footpaths::TakeFootpathLink(building) == entt::null);
+
+	const auto other = Reg().Create();
+	Reg().Assign<FootpathLinkOf>(other, link);
+	footpaths::DeleteFootpathLinkOf(other);
+	EXPECT_FALSE(Reg().Valid(link));
+	EXPECT_TRUE(footpaths::GetFootpathLink(other) == entt::null);
+	EXPECT_TRUE(Reg().Valid(footpath));
+	// nothing to delete: nothing happens
+	footpaths::DeleteFootpathLinkOf(other);
+	footpaths::DeleteFootpathLinkOf(entt::null);
+}
+
+// Create pushes at the head; PositionFromHead counts from it: position 0 is the newest
+TEST_F(FootpathsTest, PositionsCountFromTheNewest)
+{
+	const auto a = footpaths::Create();
+	const auto b = footpaths::Create();
+	EXPECT_EQ(footpaths::PositionFromHead(b), 0);
+	EXPECT_EQ(footpaths::PositionFromHead(a), 1);
+	EXPECT_TRUE(footpaths::AtPositionFromHead(0) == b);
+	EXPECT_TRUE(footpaths::AtPositionFromHead(1) == a);
+	EXPECT_TRUE(footpaths::AtPositionFromHead(2) == entt::null);
+	EXPECT_TRUE(footpaths::AtPositionFromHead(-1) == entt::null);
+	// a footpath made in between (the planner's, a .fot's) shifts the older ones
+	const auto c = footpaths::Create();
+	EXPECT_EQ(footpaths::PositionFromHead(a), 2);
+	EXPECT_TRUE(footpaths::AtPositionFromHead(0) == c);
+}
+} // namespace
+
+// ---- LINK_FOOTPATH --------------------------------------------------------------------------------------------------
+
+TEST_F(FootpathsTest, LinkFootpathGivesTheFootpathToTheLastCreatedFixedObject)
+{
+	// two script footpaths: the newest is position 0 from the head
+	const auto older = footpaths::Create();
+	const auto newer = footpaths::Create();
+	const auto feature = Reg().Create();
+	Reg().Assign<Transform>(feature, glm::vec3(5.0f, 0.0f, 5.0f), glm::mat3(1.0f), glm::vec3(1.0f));
+	Reg().Assign<Feature>(feature, FeatureInfo {});
+	lhscriptx::Script::SetLastCreated(feature);
+	lhscriptx::FeatureScriptCommands::LinkFootpath(1);
+	lhscriptx::FeatureScriptCommands::LinkFootpath(0);
+	const auto link = footpaths::GetFootpathLink(feature);
+	ASSERT_TRUE(link != entt::null);
+	// each one at the head of the link's list
+	const auto& list = Reg().Get<const FootpathLink>(link).footpaths;
+	ASSERT_EQ(list.size(), 2u);
+	EXPECT_EQ(list.at(0), static_cast<Footpath::Id>(newer));
+	EXPECT_EQ(list.at(1), static_cast<Footpath::Id>(older));
+}
+
+TEST_F(FootpathsTest, LinkFootpathAfterAThingThatHoldsNoLinkOrNothingDoesNothing)
+{
+	static_cast<void>(footpaths::Create());
+	// a thing that is not a fixed object of the map
+	const auto other = Reg().Create();
+	Reg().Assign<Transform>(other, glm::vec3(0.0f), glm::mat3(1.0f), glm::vec3(1.0f));
+	lhscriptx::Script::SetLastCreated(other);
+	lhscriptx::FeatureScriptCommands::LinkFootpath(0);
+	EXPECT_EQ(footpaths::GetFootpathLink(other), entt::entity {entt::null});
+	// no last created object, or no footpath at that position
+	const auto feature = Reg().Create();
+	Reg().Assign<Transform>(feature, glm::vec3(0.0f), glm::mat3(1.0f), glm::vec3(1.0f));
+	Reg().Assign<Feature>(feature, FeatureInfo {});
+	lhscriptx::Script::SetLastCreated(entt::null);
+	lhscriptx::FeatureScriptCommands::LinkFootpath(0);
+	lhscriptx::Script::SetLastCreated(feature);
+	lhscriptx::FeatureScriptCommands::LinkFootpath(5);
+	EXPECT_EQ(footpaths::GetFootpathLink(feature), entt::entity {entt::null});
+}
+
+TEST_F(FootpathsTest, CreationCommandsSetTheLastCreatedObject)
+{
+	// an arena is the last created object; an area leaves none
+	lhscriptx::FeatureScriptCommands::CreateArena({.metres = glm::vec3(1.0f, 0.0f, 2.0f)}, 10.0f);
+	EXPECT_TRUE(lhscriptx::Script::LastCreated() != entt::null);
+	lhscriptx::FeatureScriptCommands::CreateArea(glm::vec3(0.0f), 1.0f);
+	EXPECT_EQ(lhscriptx::Script::LastCreated(), entt::entity {entt::null});
+}
+
+// An arena starts its REACT_TO_FIGHT as it is made: the arena its initiator, for no player, not started
+TEST_F(FootpathsTest, AnArenaStartsItsFightReactionAsItIsMade)
+{
+	lhscriptx::FeatureScriptCommands::CreateArena({.metres = glm::vec3(1.0f, 0.0f, 2.0f)}, 10.0f);
+	const auto arena = lhscriptx::Script::LastCreated();
+	const auto& all = ecs::effects::reactions::All();
+	ASSERT_EQ(all.size(), 1u);
+	EXPECT_EQ(all.front().initiator, arena);
+	EXPECT_EQ(all.front().type, openblack::Reaction::ReactToFight);
+	EXPECT_FALSE(all.front().player.has_value());
+	EXPECT_EQ(all.front().turnCreated, 0u);
+}
+
+TEST_F(FootpathsTest, ALandScriptWaterfallIsAnEmptyObjectThatIsTheLastCreated)
+{
+	// CREATE_WATERFALL: the original makes an object with no mesh, no sound and no map cell, and it becomes the last
+	// created object; it is no fixed object of the map, so LINK_FOOTPATH gives it no footpath
+	const auto before = Reg().Size<Transform>();
+	lhscriptx::FeatureScriptCommands::CreateWaterfall(glm::vec3(30.0f, 0.0f, 40.0f));
+	const auto waterfall = lhscriptx::Script::LastCreated();
+	ASSERT_TRUE(waterfall != entt::null);
+	EXPECT_EQ(Reg().Size<Transform>(), before + 1);
+	EXPECT_EQ(Reg().Get<Transform>(waterfall).position, glm::vec3(30.0f, 0.0f, 40.0f));
+	EXPECT_FALSE(Reg().AnyOf<Feature>(waterfall));
+	static_cast<void>(footpaths::Create());
+	lhscriptx::FeatureScriptCommands::LinkFootpath(0);
+	EXPECT_EQ(footpaths::GetFootpathLink(waterfall), entt::entity {entt::null});
+}
+
+TEST_F(FootpathsTest, APlannedFeatureIsNotMadeAndLeavesNoLastCreatedObject)
+{
+	// CREATE_FEATURE with N4 != 0: the original's planned feature; nothing is made
+	lhscriptx::FeatureScriptCommands::CreateArena({.metres = glm::vec3(0.0f)}, 1.0f);
+	lhscriptx::FeatureScriptCommands::CreateFeature(glm::vec3(0.0f), FeatureInfo {}, 0, 1000, 1);
+	EXPECT_EQ(lhscriptx::Script::LastCreated(), entt::entity {entt::null});
+	EXPECT_EQ(Reg().Size<Feature>(), 0u);
+}
+
+TEST_F(FootpathsTest, APlannedWorshipSiteMakesNothingAndKeepsTheLastCreatedObject)
+{
+	// CREATE_PLANNED_WORSHIP_SITE: the original reads the line and does nothing; the arena made before it stays the
+	// last created object, and no site or building site is made
+	lhscriptx::FeatureScriptCommands::CreateArena({.metres = glm::vec3(1.0f, 0.0f, 2.0f)}, 10.0f);
+	const auto arena = lhscriptx::Script::LastCreated();
+	ASSERT_TRUE(arena != entt::null);
+	lhscriptx::FeatureScriptCommands::CreatePlannedWorshipSite(glm::vec3(10.0f, 0.0f, 20.0f), 0, "PLAYER_ONE", "NORSE", 0,
+	                                                           1000);
+	EXPECT_EQ(lhscriptx::Script::LastCreated(), arena);
+	EXPECT_EQ(Reg().Size<WorshipSite>(), 0u);
+	EXPECT_EQ(Reg().Size<BuildingSite>(), 0u);
+	// with nothing created before it, there is still none
+	lhscriptx::Script::SetLastCreated(entt::null);
+	lhscriptx::FeatureScriptCommands::CreatePlannedWorshipSite(glm::vec3(0.0f), 7, "PLAYER_TWO", "CELTIC", 1000, 1000);
+	EXPECT_EQ(lhscriptx::Script::LastCreated(), entt::entity {entt::null});
+}
+
+// ---- CREATE_FOOTPATH, CREATE_FOOTPATH_NODE ---------------------------------------------------------------------------
+
+// CREATE_FOOTPATH makes a new empty footpath at the head of the game's footpath list and keeps no number of the line's;
+// CREATE_FOOTPATH_NODE gives the node to the footpath whose place from the list's head is the line's number, at the
+// head of its nodes, with the point's map coordinates and the flag 1, and to none when no footpath stands there, as the
+// original (docs/wiki/scripts/map-script-reader.md#arenas-climates-and-waypoints)
+TEST_F(FootpathsTest, ALandScriptsFootpathTakesItsNodesByItsPlaceFromTheHead)
+{
+	lhscriptx::FeatureScriptCommands::CreateFootpath(7);
+	lhscriptx::FeatureScriptCommands::CreateFootpath(3);
+	const auto older = footpaths::AtPositionFromHead(1);
+	const auto newer = footpaths::AtPositionFromHead(0);
+	ASSERT_TRUE(older != entt::null);
+	ASSERT_TRUE(newer != entt::null);
+	EXPECT_TRUE(Reg().Get<const Footpath>(older).nodes.empty());
+	EXPECT_TRUE(Reg().Get<const Footpath>(newer).nodes.empty());
+
+	const glm::vec3 first(100.0f, 0.0f, 200.0f);
+	const glm::vec3 second(110.0f, 0.0f, 205.0f);
+	const glm::vec3 third(300.0f, 0.0f, 50.0f);
+	lhscriptx::FeatureScriptCommands::CreateFootpathNode(0, first);
+	lhscriptx::FeatureScriptCommands::CreateFootpathNode(0, second);
+	lhscriptx::FeatureScriptCommands::CreateFootpathNode(1, third);
+	// no footpath third from the head, nor before it: nothing
+	lhscriptx::FeatureScriptCommands::CreateFootpathNode(2, third);
+	lhscriptx::FeatureScriptCommands::CreateFootpathNode(-1, third);
+
+	const auto& newest = Reg().Get<const Footpath>(newer).nodes;
+	ASSERT_EQ(newest.size(), 2u);
+	EXPECT_EQ(newest.at(0).coords, map_coords::FromWorld(second));
+	EXPECT_EQ(newest.at(1).coords, map_coords::FromWorld(first));
+	EXPECT_EQ(newest.at(0).flags, 1);
+	EXPECT_EQ(newest.at(1).flags, 1);
+	const auto& oldest = Reg().Get<const Footpath>(older).nodes;
+	ASSERT_EQ(oldest.size(), 1u);
+	EXPECT_EQ(oldest.at(0).coords, map_coords::FromWorld(third));
+	EXPECT_EQ(oldest.at(0).flags, 1);
+	EXPECT_EQ(Reg().Size<Footpath>(), 2u);
+}
+
+// ---- CREATE_STREAM, CREATE_STREAM_POINT ------------------------------------------------------------------------------
+
+// CREATE_STREAM starts a stream of the line's number with no point; each CREATE_STREAM_POINT of that number puts its
+// point on the land there and adds it at the stream's tail, so the stream keeps its points in the script's order, as
+// the original (docs/wiki/scripts/map-script-reader.md#arenas-climates-and-waypoints). Land 1's first stream and its
+// first three points
+TEST_F(FootpathsTest, AStreamKeepsItsPointsOnTheLandInTheScriptsOrder)
+{
+	const test::RestoreService<Locator::terrainSystem> restoreTerrain;
+	const auto land = [](glm::vec2 at) { return 30.0f + (at.x * 0.01f) - (at.y * 0.002f); };
+	Locator::terrainSystem::emplace<test::HeightFieldIsland>(land);
+	lhscriptx::FeatureScriptCommands::CreateStream(0);
+	lhscriptx::FeatureScriptCommands::CreateStream(1);
+	const auto& streams = Reg().Context().streams;
+	ASSERT_TRUE(streams.contains(0));
+	ASSERT_TRUE(streams.contains(1));
+	EXPECT_TRUE(Reg().Get<const Stream>(streams.at(0)).points.empty());
+
+	const std::vector<glm::vec2> points {{1866.75f, 3122.91f}, {1872.31f, 3114.09f}, {1876.69f, 3105.25f}};
+	for (const auto& point : points)
+	{
+		lhscriptx::FeatureScriptCommands::CreateStreamPoint(0, glm::vec3(point.x, 0.0f, point.y));
+	}
+	const auto& made = Reg().Get<const Stream>(streams.at(0));
+	EXPECT_EQ(made.id, 0);
+	ASSERT_EQ(made.points.size(), points.size());
+	for (size_t i = 0; i < points.size(); ++i)
+	{
+		EXPECT_EQ(made.points.at(i), glm::vec3(points.at(i).x, land(points.at(i)), points.at(i).y)) << i;
+	}
+	// the other stream takes none of them
+	EXPECT_TRUE(Reg().Get<const Stream>(streams.at(1)).points.empty());
+	EXPECT_EQ(Reg().Get<const Stream>(streams.at(1)).id, 1);
+}

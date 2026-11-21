@@ -27,6 +27,11 @@ template <typename T>
 	{
 		return entt::hashed_string(identifier);
 	}
+	else if constexpr (std::is_same_v<T, entt::hashed_string>)
+	{
+		// already hashed: formatting it as a number and hashing again made Contains / Load miss every raw texture
+		return identifier.value();
+	}
 	else
 	{
 		return entt::hashed_string(fmt::format("{}", static_cast<uint32_t>(identifier)).c_str());
@@ -82,11 +87,6 @@ public:
 		{
 			func(i, r);
 		}
-	}
-
-	[[nodiscard]] entt::resource_cache<ResourceType>& GetCache() const
-	{
-		return static_cast<entt::resource_cache<ResourceType>&>(_resourceCache);
 	}
 
 	[[nodiscard]] decltype(auto) Size() const { return _resourceCache.size(); }

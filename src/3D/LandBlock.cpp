@@ -11,33 +11,46 @@
 
 #include <cassert>
 
+#include <algorithm>
 #include <ranges>
+#include <string_view>
+#include <unordered_map>
 
-#include <BulletDynamics/Dynamics/btRigidBody.h>
 #include <LNDFile.h>
+#include <bgfx/bgfx.h>
 
-#include "Dynamics/LandBlockBulletMeshInterface.h"
+#include "Graphics/IndexBuffer.h"
 #include "Graphics/Mesh.h"
-#include "Graphics/RendererInterface.h"
 #include "Graphics/VertexBuffer.h"
-#include "Locator.h"
 
 using namespace openblack;
 using namespace openblack::graphics;
 
+namespace
+{
+/// The material entry a corner takes in its country's list: min((255 altitude >> 8) + noise, 255). The vertex list and
+/// the inputs that tell which blocks share it both use this one rule
+[[nodiscard]] int32_t CornerMaterialEntry(int32_t altitude, uint8_t noise)
+{
+	return std::min((255 * altitude >> 8) + static_cast<int32_t>(noise), 255);
+}
+} // namespace
+
 LandVertex::LandVertex(const glm::vec3& position, const glm::vec3& weight, const std::array<uint32_t, 6>& mat,
-                       const glm::uvec3& blend, uint8_t lightLevel, float alpha)
+                       const glm::uvec3& blend, uint8_t lightLevel, glm::u8vec3 cellColour, float alpha,
+                       const glm::vec3& normal)
     : position {position}
     , weight {weight}
-    , firstMaterialID {static_cast<uint8_t>(mat[0]), static_cast<uint8_t>(mat[1]), static_cast<uint8_t>(mat[2]), 0u}
-    , secondMaterialID {static_cast<uint8_t>(mat[3]), static_cast<uint8_t>(mat[4]), static_cast<uint8_t>(mat[5]), 0u}
+    , firstMaterialID {static_cast<uint8_t>(mat[0]), static_cast<uint8_t>(mat[1]), static_cast<uint8_t>(mat[2]), 0}
+    , secondMaterialID {static_cast<uint8_t>(mat[3]), static_cast<uint8_t>(mat[4]), static_cast<uint8_t>(mat[5]), 0}
     , materialBlendCoefficient {blend, 0u}
-    , lightLevel {lightLevel}
+    , lightLevel {lightLevel, cellColour}
     , waterAlpha {alpha}
+    , normal {normal}
 {
 }
 
-void LandBlock::BuildMesh(LandIslandInterface& island)
+void LandBlock::BuildMesh(LandIslandInterface& island, SharedLandMesh* shared)
 {
 	if (_mesh != nullptr)
 	{
@@ -45,44 +58,55 @@ void LandBlock::BuildMesh(LandIslandInterface& island)
 	}
 
 	VertexDecl decl;
-	decl.reserve(7);
+	decl.reserve(8);
 	decl.emplace_back(VertexAttrib::Attribute::Position, static_cast<uint8_t>(3), VertexAttrib::Type::Float);
 	// weight
 	decl.emplace_back(VertexAttrib::Attribute::TexCoord1, static_cast<uint8_t>(3), VertexAttrib::Type::Float);
-	// first material id
-	decl.emplace_back(VertexAttrib::Attribute::Color1, static_cast<uint8_t>(3), VertexAttrib::Type::Uint8);
-	// second material id
-	decl.emplace_back(VertexAttrib::Attribute::Color2, static_cast<uint8_t>(3), VertexAttrib::Type::Uint8);
+	// first material id, w: once-per-block bits
+	decl.emplace_back(VertexAttrib::Attribute::Color1, static_cast<uint8_t>(4), VertexAttrib::Type::Uint8);
+	// second material id, w: once-per-block bits
+	decl.emplace_back(VertexAttrib::Attribute::Color2, static_cast<uint8_t>(4), VertexAttrib::Type::Uint8);
 	// material blend coefficient
 	decl.emplace_back(VertexAttrib::Attribute::TexCoord2, static_cast<uint8_t>(3), VertexAttrib::Type::Uint8, true);
 	// light level, align to 4 bytes
 	decl.emplace_back(VertexAttrib::Attribute::Color0, static_cast<uint8_t>(4), VertexAttrib::Type::Uint8, true);
-	// water alpha
+	// shore fade: 0 at altitude 1 or less (no small bump, no dynamic shadow), 1 above
 	decl.emplace_back(VertexAttrib::Attribute::Color3, static_cast<uint8_t>(1), VertexAttrib::Type::Float, true);
+	// smooth normal
+	decl.emplace_back(VertexAttrib::Attribute::Normal, static_cast<uint8_t>(3), VertexAttrib::Type::Float);
 
 	// reserve 16*16 quads of 2 tris with 3 verts = 1536
-	std::vector<LandVertex> vertices(k_VertexCount);
+	const bgfx::Memory* verticesMem = bgfx::alloc(sizeof(LandVertex) * k_VertexCount);
+	auto vertices = std::span(reinterpret_cast<LandVertex*>(verticesMem->data), k_VertexCount);
 
-	BuildVertexList(vertices, island);
+	BuildVertexList(vertices, island, shared);
 
-	auto vertexBuffer = Locator::rendererInterface::value().CreateVertexBuffer(
-	    "LandBlock", {reinterpret_cast<const uint8_t*>(vertices.data()), vertices.size() * sizeof(vertices[0])}, decl);
+	// Open sea cells (bit 0x02 of the flags byte) are not drawn: the original emits no triangles for them, so there
+	// only the sea shows and no Z is written.
+	// Here their six vertices collapse to a point (zero area, nothing rasterised).
+	constexpr uint8_t k_NotDrawnFlag = lnd::LNDCell::k_FullWaterFlag;
+	constexpr size_t k_VerticesPerCell = 6;
+	for (size_t cell = 0; cell < static_cast<size_t>(k_Resolution.x) * k_Resolution.y; ++cell)
+	{
+		const size_t x = cell / k_Resolution.y;
+		const size_t z = cell % k_Resolution.y;
+		if ((_block->cells.at(x * 17 + z).flags & k_NotDrawnFlag) != 0)
+		{
+			const auto collapsed = vertices[cell * k_VerticesPerCell].position;
+			for (size_t v = 0; v < k_VerticesPerCell; ++v)
+			{
+				vertices[cell * k_VerticesPerCell + v].position = collapsed;
+			}
+		}
+	}
+
+	auto vertexBuffer = std::make_unique<VertexBuffer>("LandBlock", verticesMem, decl);
 	_mesh = std::make_unique<Mesh>(std::move(vertexBuffer));
-
-	_dynamicsMeshInterface = std::make_unique<dynamics::LandBlockBulletMeshInterface>(vertices);
-
-	_physicsMesh = std::make_unique<btBvhTriangleMeshShape>(_dynamicsMeshInterface.get(), true);
-	_rigidBody = std::make_unique<btRigidBody>(0.0f, nullptr, _physicsMesh.get());
-	btTransform transform;
-	transform.setIdentity();
-	transform.setOrigin(btVector3(_block->mapX, 0, _block->mapZ));
-	_rigidBody->setWorldTransform(transform);
-	_rigidBody->setContactStiffnessAndDamping(300, 10);
-	_rigidBody->setUserIndex(-1);
 }
 
 void LandBlock::BuildVertexList(std::span<LandVertex> vertices, LandIslandInterface& island)
 {
+	// MeshInputs lists every value read here; keep the two in step
 	auto countries = island.GetCountries();
 
 	// auto neighbourBlockR = island.GetBlock(glm::u8vec2(_block->blockX + 1, _block->blockZ));
@@ -117,35 +141,51 @@ void LandBlock::BuildVertexList(std::span<LandVertex> vertices, LandIslandInterf
 			std::array<const lnd::LNDCell*, static_cast<size_t>(Corner::_COUNT)> cells;
 			// construct positions from cell altitudes
 			std::array<glm::vec3, static_cast<size_t>(Corner::_COUNT)> pos;
+			std::array<glm::vec3, static_cast<size_t>(Corner::_COUNT)> normals;
 			std::array<const lnd::LNDMapMaterial*, static_cast<size_t>(Corner::_COUNT)> materials;
-			for (auto [position, cell, material, offset] : std::views::zip(pos, cells, materials, offsets))
+			for (auto [position, normal, cell, material, offset] : std::views::zip(pos, normals, cells, materials, offsets))
 			{
-				cell = &island.GetCell(blockOffset + offset);
+				const auto coordinates = blockOffset + offset;
+				cell = &island.GetCell(coordinates);
+				// Sea flattening of the mesh: every vertex of altitude 3 or less at y = 0 (GetDrawnHeightAt; the game's
+				// altitude query flattens only next to a base corner of 4 or less)
+				const auto cellAltitude = island.GetCellAltitude(*cell);
 				position =
-				    glm::vec3(offset.x * LandIslandInterface::k_CellSize, cell->altitude * LandIslandInterface::k_HeightUnit,
+				    glm::vec3(offset.x * LandIslandInterface::k_CellSize,
+				              cellAltitude <= 3 ? 0.0f : static_cast<float>(cellAltitude) * LandIslandInterface::k_HeightUnit,
 				              offset.y * LandIslandInterface::k_CellSize);
+
+				// central differences of the neighbouring altitudes (clamped at the map edge)
+				const auto height = [&island](int cx, int cz) {
+					const int last = island.GetCellsPerSide() - 1;
+					const auto clamped = glm::u16vec2(std::clamp(cx, 0, last), std::clamp(cz, 0, last));
+					return static_cast<float>(island.GetCellAltitude(island.GetCell(clamped))) *
+					       LandIslandInterface::k_HeightUnit;
+				};
+				const int cx = coordinates.x;
+				const int cz = coordinates.y;
+				normal =
+				    glm::normalize(glm::vec3(height(cx - 1, cz) - height(cx + 1, cz), 2.0f * LandIslandInterface::k_CellSize,
+				                             height(cx, cz - 1) - height(cx, cz + 1)));
 
 				const auto& country = countries.at(cell->properties.country);
 				const auto noise = island.GetNoise(blockOffset + offset);
 
-				material = &country.materials.at((cell->altitude + noise) % country.materials.size());
+				// The material of the block texture's texel at this corner (with the cone weights (255, 0, 0, 0)
+				// there): min((255 altitude >> 8) + noise, 255). The texture itself (BlockTexture.h)
+				// takes it per texel; these per-vertex materials are only drawn when an island has no block texture.
+				// BWLandEditor maps above altitude 255 get the top entry too.
+				const auto altitude = static_cast<int32_t>(island.GetCellAltitude(*cell));
+				material = &country.materials.at(static_cast<size_t>(CornerMaterialEntry(altitude, noise)));
 			}
 
-			// TODO(470): This is temporary way for drawing landscape, should be moved to a shader in the renderer
-			// Using a lambda so we're not repeating ourselves
-			auto getAlpha = [](lnd::LNDCell::Properties properties) {
-				if (properties.hasWater || properties.fullWater)
-				{
-					return 0.0f;
-				}
-				if (properties.coastLine)
-				{
-					return 0.5f;
-				}
-				return 1.0f;
-			};
-			auto makeVert = [&getAlpha, &pos, &cells, &materials](Corner corner, const glm::vec3& weight,
-			                                                      const std::array<Corner, 3>& m) -> LandVertex {
+			// The coast's transparency is the per-texel coast alpha (CoastAlpha.h), not a per-vertex value. Per vertex
+			// only the shore fade: at altitude 1 or less the specular alpha is 0, which the small bump pass copies to
+			// its vertex alpha (vs_terrain) and uses to skip the triangles whose three vertices have it, and the
+			// dynamic shadows give such vertices colour 0, a fade.
+			auto shoreFade = [&island](const lnd::LNDCell& cell) { return island.GetCellAltitude(cell) > 1 ? 1.0f : 0.0f; };
+			auto makeVert = [&shoreFade, &pos, &normals, &cells, &materials](Corner corner, const glm::vec3& weight,
+			                                                                 const std::array<Corner, 3>& m) -> LandVertex {
 				const std::array<uint32_t, 6> mat = {
 				    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
 				    materials[static_cast<size_t>(m[0])]->indices[0],
@@ -172,7 +212,11 @@ void LandBlock::BuildVertexList(std::span<LandVertex> vertices, LandIslandInterf
 				// NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
 				const auto& cell = *cells[static_cast<size_t>(corner)];
 				// NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
-				return {pos[static_cast<size_t>(corner)], weight, mat, blend, cell.luminosity, getAlpha(cell.properties)};
+				// vertex specular = the cell's first dword read as a D3DCOLOR: blue, green, red
+				return {pos[static_cast<size_t>(corner)], weight, mat, blend, cell.luminosity,
+				        glm::u8vec3(cell.red, cell.green, cell.blue), shoreFade(cell),
+				        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
+				        normals[static_cast<size_t>(corner)]};
 			};
 
 			auto makeTriangle = [&makeVert, &vertices, &index](const std::array<Corner, 3>& corners, bool forward) {
@@ -204,6 +248,111 @@ void LandBlock::BuildVertexList(std::span<LandVertex> vertices, LandIslandInterf
 			}
 		}
 	}
+}
+
+void LandBlock::BuildVertexList(std::span<LandVertex> vertices, LandIslandInterface& island, SharedLandMesh* shared)
+{
+	if (shared != nullptr && !shared->vertices.empty())
+	{
+		std::ranges::copy(shared->vertices, vertices.begin());
+		return;
+	}
+	BuildVertexList(vertices, island);
+	if (shared != nullptr)
+	{
+		shared->vertices.assign(vertices.begin(), vertices.end());
+	}
+}
+
+std::string LandBlock::MeshInputs(LandIslandInterface& island) const
+{
+	// the same reads as BuildVertexList, in block space
+	static_assert(sizeof(lnd::LNDCell) == 8, "a cell's bytes are its inputs");
+	constexpr int k_Corners = k_Resolution.x + 1;
+	constexpr int k_Around = k_Corners + 2;
+	const auto blockOffset = static_cast<glm::u16vec2>(GetBlockPosition() * 16);
+	std::string inputs;
+	inputs.reserve(static_cast<size_t>(k_Corners * k_Corners) * (sizeof(lnd::LNDCell) + 1) +
+	               static_cast<size_t>(k_Around * k_Around) * sizeof(uint16_t));
+	for (int x = 0; x < k_Corners; ++x)
+	{
+		for (int z = 0; z < k_Corners; ++z)
+		{
+			const auto offset = glm::u16vec2(x, z);
+			// LNDCell is 8 one-byte fields with every bit used, so equal bytes are equal cells
+			const auto& cell = island.GetCell(blockOffset + offset);
+			inputs.append(reinterpret_cast<const char*>(&cell), sizeof(cell));
+			// the corner's entry in its country's materials, which the noise picks
+			const auto noise = island.GetNoise(blockOffset + offset);
+			const auto altitude = static_cast<int32_t>(island.GetCellAltitude(cell));
+			inputs.push_back(static_cast<char>(CornerMaterialEntry(altitude, noise)));
+		}
+	}
+	// the altitudes the normals read: each corner's neighbours, clamped at the map edge
+	const int last = island.GetCellsPerSide() - 1;
+	for (int x = -1; x <= k_Corners; ++x)
+	{
+		for (int z = -1; z <= k_Corners; ++z)
+		{
+			const auto clamped = glm::u16vec2(std::clamp(blockOffset.x + x, 0, last), std::clamp(blockOffset.y + z, 0, last));
+			const uint16_t altitude = island.GetCellAltitude(island.GetCell(clamped));
+			inputs.push_back(static_cast<char>(altitude & 0xFF));
+			inputs.push_back(static_cast<char>(altitude >> 8));
+		}
+	}
+	return inputs;
+}
+
+LandBlockMeshes::LandBlockMeshes(std::span<const LandBlock> blocks, LandIslandInterface& island)
+    : _meshOf(blocks.size())
+{
+	std::vector<std::string> inputs;
+	inputs.reserve(blocks.size());
+	std::unordered_map<std::string_view, std::vector<size_t>> blocksOf;
+	for (size_t i = 0; i < blocks.size(); ++i)
+	{
+		inputs.push_back(blocks[i].MeshInputs(island));
+	}
+	for (size_t i = 0; i < blocks.size(); ++i)
+	{
+		blocksOf[inputs[i]].push_back(i);
+	}
+	// a mesh only for inputs that more than one block has, numbered in the order of their first block
+	for (size_t i = 0; i < blocks.size(); ++i)
+	{
+		const auto& same = blocksOf.at(inputs[i]);
+		if (same.size() > 1 && same.front() == i)
+		{
+			for (const auto block : same)
+			{
+				_meshOf[block] = _meshes.size();
+			}
+			_meshes.emplace_back();
+		}
+	}
+}
+
+SharedLandMesh* LandBlockMeshes::Find(size_t block)
+{
+	return block < _meshOf.size() && _meshOf[block].has_value() ? &_meshes[*_meshOf[block]] : nullptr;
+}
+
+bool LandBlock::ReadsCorners(glm::ivec2 blockPosition, const CornerBox& corners)
+{
+	// the corners 0 to 16 of the block and the normals' neighbours, one before and one after
+	const glm::ivec2 first = blockPosition * static_cast<int>(k_Resolution.x) - 1;
+	const glm::ivec2 last = blockPosition * static_cast<int>(k_Resolution.x) + static_cast<int>(k_Resolution.x) + 1;
+	return corners.min.x <= last.x && corners.max.x >= first.x && corners.min.y <= last.y && corners.max.y >= first.y;
+}
+
+uint32_t LandBlock::HighestAltitude(const lnd::LNDBlock& block, uint8_t altitudeBits)
+{
+	uint32_t highest = 0;
+	for (const auto& cell : block.cells)
+	{
+		highest = std::max<uint32_t>(highest, cell.Altitude(altitudeBits));
+	}
+	return highest;
 }
 
 const lnd::LNDCell* LandBlock::GetCells() const

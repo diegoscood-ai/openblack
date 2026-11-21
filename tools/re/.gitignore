@@ -1,0 +1,22 @@
+# machine-local settings
+local_config.json
+# indexes and databases built from your copy of the game
+*.db
+*.db.tmp
+*.db-journal
+# oracle output made from the game's code, and builds
+oracle/vectors/
+oracle/scratch/
+oracle/cmp/report*.txt
+oracle/cmp/results*.json
+build/
+*.exe
+*.dll
+*.obj
+*.pdb
+*.lib
+*.ilk
+*.exp
+*.bak
+__pycache__/
+.pytest_cache/

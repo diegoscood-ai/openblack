@@ -9,7 +9,10 @@
 
 #pragma once
 
-#include "Audio/AudioManagerInterface.h"
+#include <string>
+
+#include <entt/core/fwd.hpp>
+
 #include "Window.h"
 
 namespace openblack::debug::gui
@@ -26,13 +29,16 @@ protected:
 	void ProcessEventAlways(const SDL_Event& event) noexcept override;
 
 private:
-	void Emitters() noexcept;
+	void Sounds() noexcept;
 	void Music() noexcept;
-	void AudioSettings() noexcept;
-	audio::PlayType _playType {audio::PlayType::Once};
-	entt::id_type _selectedSound;
+	/// a sample of the selected bank played 2D on the channels (audio::PlaySoundEffect, no owner)
+	void PlaySelected() const noexcept;
+	entt::id_type _selectedSound {0};
+	/// the 2D pan the selected sample plays at: 0 left, 90 ahead (default, as every 2D sample but the spooky voices'),
+	/// 180 right
+	int _selectedPan {90};
 	std::string _selectedSoundPack;
-	std::string _selectedMusicPack;
-	entt::entity _selectedEmitter;
+	/// MUSIC_TYPE of k_MusicBanks
+	int _selectedMusicType {0};
 };
 } // namespace openblack::debug::gui

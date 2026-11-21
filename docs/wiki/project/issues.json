@@ -1,0 +1,336 @@
+{
+ "fork": "https://github.com/diegoscood-ai/openblack",
+ "labels": {
+  "area:animal": [
+   82,
+   6
+  ],
+  "area:audio": [
+   319
+  ],
+  "area:camera": [
+   259,
+   258,
+   32
+  ],
+  "area:creature": [
+   332,
+   331,
+   329,
+   319,
+   280,
+   277,
+   276,
+   273,
+   272,
+   268,
+   267,
+   172,
+   6
+  ],
+  "area:debug": [
+   188
+  ],
+  "area:engine": [
+   224,
+   187,
+   140,
+   13,
+   8,
+   7,
+   6
+  ],
+  "area:gesture": [
+   317,
+   139
+  ],
+  "area:hand": [
+   317
+  ],
+  "area:interface": [
+   333
+  ],
+  "area:miracles": [
+   292,
+   288,
+   287,
+   286,
+   225,
+   172
+  ],
+  "area:particles": [
+   317
+  ],
+  "area:physics": [
+   273,
+   272
+  ],
+  "area:rendering": [
+   326,
+   307,
+   306,
+   304,
+   296,
+   248,
+   227
+  ],
+  "area:scripts": [
+   315
+  ],
+  "area:story": [
+   288,
+   287,
+   286
+  ],
+  "area:temple": [
+   304
+  ],
+  "area:terrain": [
+   307,
+   306
+  ],
+  "area:video": [
+   259,
+   258
+  ],
+  "area:villager": [
+   6
+  ]
+ },
+ "rows": {},
+ "domains": {
+  "animal": [
+   "area:animal"
+  ],
+  "audio": [
+   "area:audio"
+  ],
+  "building": [
+   "area:building"
+  ],
+  "camera": [
+   "area:camera"
+  ],
+  "creature": [
+   "area:creature"
+  ],
+  "easter_eggs": [
+   "area:easter_eggs"
+  ],
+  "engine": [
+   "area:engine"
+  ],
+  "gesture": [
+   "area:gesture"
+  ],
+  "hand": [
+   "area:hand"
+  ],
+  "interface": [
+   "area:interface"
+  ],
+  "miracles": [
+   "area:miracles"
+  ],
+  "multiplayer": [
+   "area:multiplayer"
+  ],
+  "nature": [
+   "area:nature"
+  ],
+  "ocean": [
+   "area:ocean"
+  ],
+  "pc_integration": [
+   "area:pc_integration"
+  ],
+  "physics": [
+   "area:physics"
+  ],
+  "rendering": [
+   "area:rendering"
+  ],
+  "resources": [
+   "area:resources"
+  ],
+  "rival_gods": [
+   "area:rival_gods"
+  ],
+  "scripts": [
+   "area:scripts"
+  ],
+  "sky": [
+   "area:sky"
+  ],
+  "story": [
+   "area:story"
+  ],
+  "temple": [
+   "area:temple"
+  ],
+  "terrain": [
+   "area:terrain"
+  ],
+  "town": [
+   "area:town"
+  ],
+  "vanilla_bugs": [
+   "area:vanilla_bugs"
+  ],
+  "video": [
+   "area:video"
+  ],
+  "villager": [
+   "area:villager"
+  ],
+  "weather": [
+   "area:weather"
+  ],
+  "worship": [
+   "area:worship"
+  ]
+ },
+ "areas": {
+  "Creature, magic and camera": [
+   "area:creature",
+   "area:magic",
+   "area:camera"
+  ],
+  "Renderer and interface": [
+   "area:rendering",
+   "area:interface",
+   "area:editor",
+   "area:video",
+   "area:weather"
+  ],
+  "Villagers, scripts, hand and audio": [
+   "area:villagers",
+   "area:script",
+   "area:hand",
+   "area:audio",
+   "area:particles",
+   "area:town",
+   "area:buildings"
+  ],
+  "Testbed, physics and animals": [
+   "area:testbed",
+   "area:physics",
+   "area:animals",
+   "area:trees"
+  ],
+  "Coordination": [
+   "area:engine"
+  ]
+ },
+ "names": {
+  "animal": "Animals",
+  "audio": "Sound and music",
+  "building": "Buildings",
+  "camera": "Camera",
+  "creature": "Creature",
+  "easter_eggs": "Easter eggs",
+  "engine": "Engine and files",
+  "gesture": "Gestures",
+  "hand": "The hand",
+  "interface": "Interface",
+  "miracles": "Miracles",
+  "multiplayer": "Skirmish and multiplayer lands",
+  "nature": "Nature",
+  "ocean": "Ocean",
+  "pc_integration": "PC integration",
+  "physics": "Physics",
+  "rendering": "Rendering",
+  "resources": "Food, wood and resources",
+  "rival_gods": "Rival gods",
+  "scripts": "Scripts",
+  "sky": "Sky",
+  "story": "Story",
+  "temple": "Temple",
+  "terrain": "Terrain",
+  "town": "Towns",
+  "vanilla_bugs": "Vanilla bugs",
+  "video": "Video",
+  "villager": "Villagers",
+  "weather": "Weather",
+  "worship": "Worship and belief"
+ },
+ "families": [
+  {
+   "key": "world",
+   "name": "World",
+   "icon": "\ud83c\udf0d",
+   "domains": [
+    "terrain",
+    "sky",
+    "ocean",
+    "weather",
+    "nature",
+    "physics",
+    "resources"
+   ]
+  },
+  {
+   "key": "creature",
+   "name": "Creature",
+   "icon": "\ud83d\udc09",
+   "domains": [
+    "creature"
+   ]
+  },
+  {
+   "key": "people",
+   "name": "Villagers, towns and animals",
+   "icon": "\ud83c\udfd8\ufe0f",
+   "domains": [
+    "villager",
+    "animal",
+    "town",
+    "building",
+    "worship"
+   ]
+  },
+  {
+   "key": "player",
+   "name": "Player and interface",
+   "icon": "\u270b",
+   "domains": [
+    "hand",
+    "gesture",
+    "miracles",
+    "camera",
+    "interface",
+    "temple",
+    "multiplayer"
+   ]
+  },
+  {
+   "key": "story",
+   "name": "Story",
+   "icon": "\ud83d\udcdc",
+   "domains": [
+    "story",
+    "scripts",
+    "rival_gods",
+    "easter_eggs"
+   ]
+  },
+  {
+   "key": "save",
+   "name": "Save and load",
+   "icon": "\ud83d\udcbe",
+   "domains": []
+  },
+  {
+   "key": "engine",
+   "name": "Engine",
+   "icon": "\u2699\ufe0f",
+   "domains": [
+    "engine",
+    "rendering",
+    "audio",
+    "video",
+    "pc_integration"
+   ]
+  }
+ ]
+}

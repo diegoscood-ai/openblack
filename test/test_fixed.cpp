@@ -8,17 +8,24 @@
  *******************************************************************************/
 
 #include <3D/AllMeshes.h>
+#include <3D/MapCoords.h>
+#include <3D/ObjectMatrix.h>
 #include <ECS/Archetypes/AbodeArchetype.h>
 #include <ECS/Archetypes/TownArchetype.h>
 #include <ECS/Archetypes/Utils.h>
+#include <ECS/Components/Abode.h>
 #include <ECS/Components/Fixed.h>
 #include <ECS/Components/Transform.h>
 #include <ECS/Registry.h>
+#include <ECS/Town/AbodeQueries.h>
+#include <ECS/Town/TownQueries.h>
+#include <ECS/VillagerRoutine.h>
 #include <Game.h>
 #include <Locator.h>
 #include <glm/gtx/string_cast.hpp>
 #include <gtest/gtest.h>
 
+#include "TestTempFolder.h"
 #include "third_party/json_helpers.h"
 #include "vector_compare.h"
 
@@ -39,10 +46,13 @@ protected:
 		    .logFile = "stdout",
 		};
 		std::fill_n(args.logLevels.begin(), args.logLevels.size(), spdlog::level::warn);
+		args.profileFolder = _profileFolder.Path();
 		_game = std::make_unique<Game>(std::move(args));
 		ASSERT_TRUE(_game->Initialize());
 	}
 	void TearDown() override { _game.reset(); }
+	/// The game's profiles, help record and saves, apart from every other test's
+	const openblack::test::TestTempFolder _profileFolder;
 	std::unique_ptr<Game> _game;
 };
 
@@ -98,4 +108,21 @@ TEST_F(TestFixed, celticAbodeBoundingCircleScaled)
 	const auto& fixed = Locator::entitiesRegistry::value().Get<const Fixed>(entity);
 	ASSERT_VEC2_NEAR(fixed.boundingCenter, glm::vec2(2224.492432f, 2372.338379f));
 	ASSERT_FLOAT_EQ(fixed.boundingRadius, 6.33014917f * scale);
+}
+
+// A town centre made by the game answers the door query with its own fixed point through the matrix it was placed
+// with, not its mesh's door, and the arrival query with its own place (docs/wiki/world/buildings.md#life-and-damage)
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables): external macro
+TEST_F(TestFixed, celticTownCentreHasItsOwnDoorAndIsArrivedAtItsPlace)
+{
+	TownArchetype::Create(0, glm::vec3(2185.72f, 0.0f, 2315.78f), PlayerNames::PLAYER_ONE, Tribe::CELTIC);
+	const auto centre = AbodeArchetype::Create(0, {2188.23f, 0.0f, 2317.47f}, AbodeInfo::CelticTownCentre, 2.932f, 1.0f, 0, 0);
+	const auto& registry = Locator::entitiesRegistry::value();
+	const auto place = ecs::town_queries::PosOf(centre);
+	EXPECT_EQ(ecs::abode_queries::GetArrivePos(centre), place);
+	const glm::vec3 at(map_coords::ToMetres(place.x), 0.0f, map_coords::ToMetres(place.y));
+	const auto& abode = registry.Get<const ecs::components::Abode>(centre);
+	const auto expected = ecs::villager_routine::TownCentreDoorPoint(affine::PlacementMatrix(at, abode.yAngle, 1.0f));
+	EXPECT_EQ(ecs::abode_queries::GetDoorPos(centre), expected);
+	EXPECT_NE(ecs::abode_queries::GetDoorPos(centre), place);
 }

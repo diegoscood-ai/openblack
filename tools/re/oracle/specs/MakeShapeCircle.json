@@ -1,0 +1,17 @@
+{
+ "function": "MakeShapeCircle",
+ "symbol": "?MakeShapeCircle@MakeShape@@SAXK@Z",
+ "addr": "0x0050F9A0",
+ "conv": "cdecl",
+ "ret": "void",
+ "notes": "MakeShape::MakeShapeCircle(shape 0): the dance shape's 256 points (i32 x, z pairs) into DanceShapePoints 0xCADB70 + shape * 0x800, at the game's 24-bit precision (docs/bw1-notes/dances.md, Shapes). One case: the function has no inputs. Variants in specs/variants/MakeShape*.json cover shapes 1, 2, 3, 8, 9 and 10. openblack: src/ECS/DanceShapes.cpp.",
+ "args": [
+  {"name": "shape", "type": "u32", "value": 0}
+ ],
+ "globals": [
+  {"name": "points", "addr": "0x00CADB70", "type": "i32", "count": 512, "out": true}
+ ],
+ "cases": [{}],
+ "random_cases": 0,
+ "seed": 1
+}

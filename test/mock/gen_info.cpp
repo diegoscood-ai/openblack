@@ -87,6 +87,8 @@ int main(int argc, char* argv[]) noexcept
 	constants.abode[12].abodeNumber = openblack::AbodeNumber::TownCentre;
 	std::memcpy(constants.abode[12].debugString.data(), townCentreDebugName.c_str(), townCentreDebugName.length());
 	constants.abode[12].meshId = openblack::MeshId::BuildingCelticVillageCentre;
+	// a town centre is of the town centre type, as the game's record is
+	constants.abode[12].abodeType = openblack::AbodeType::TownCentre;
 
 	std::ofstream output(args.outFilename, std::ios::binary);
 	output.write(reinterpret_cast<const char*>(&constants), sizeof(constants));

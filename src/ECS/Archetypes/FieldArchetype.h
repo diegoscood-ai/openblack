@@ -19,7 +19,9 @@ namespace openblack::ecs::archetypes
 class FieldArchetype
 {
 public:
-	static entt::entity Create(int townId, const glm::vec3& position, FieldTypeInfo type, float yAngleRadians);
+	/// underConstruction: a field rebuilt from its town's plan, not built yet (AbodeArchetype::Create's)
+	static entt::entity Create(int townId, const glm::vec3& position, FieldTypeInfo type, float yAngleRadians,
+	                           bool underConstruction = false);
 	FieldArchetype() = delete;
 };
 } // namespace openblack::ecs::archetypes

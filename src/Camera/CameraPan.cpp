@@ -1,0 +1,153 @@
+/******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+#include "CameraPan.h"
+
+#include <cmath>
+
+#include <glm/geometric.hpp>
+
+#include "Common/X87Vector.h"
+
+namespace openblack::camera_pan
+{
+
+namespace
+{
+namespace x87 = game_math::x87;
+
+/// Lines of sight this close to running along the plane, or facing away from it, can't drag the land
+constexpr float k_ParallelLimit = 0.001f;
+/// The plane must be ahead along both lines of sight, at least this far
+constexpr double k_MinAhead = 0.0001;
+/// The camera only stops short of land once it moves this far across
+constexpr float k_SmallestMove = 1e-4f;
+/// The sea stops the camera only this close, squared, across from where it is
+constexpr float k_SeaReachSquared = 5.625e7f;
+constexpr float k_LevelLimit = 0.0001f;
+
+glm::vec3 UnitOrZero(glm::vec3 v)
+{
+	// The game adds the squares from z to x and multiplies by one over the length
+	return v != glm::vec3(0.0f) ? x87::Scaled<x87::SumOrder::Zyx>(v) : v;
+}
+} // namespace
+
+GripPlane PlaneThrough(glm::vec3 gripped, glm::vec3 cameraOrigin, float groundUnderCamera)
+{
+	// From the ground under the camera, no higher than the gripped land, to the gripped land
+	const auto ground = glm::vec3(cameraOrigin.x, std::min(groundUnderCamera, gripped.y), cameraOrigin.z);
+	const auto towards = UnitOrZero(gripped - ground);
+	const auto across = UnitOrZero({towards.z, 0.0f, -towards.x});
+	// The game makes the normal a unit two times
+	const auto normal = UnitOrZero(UnitOrZero(glm::cross(towards, across)));
+	return {.normal = normal, .distance = x87::DotZyx(normal, gripped)};
+}
+
+std::optional<CameraPlace> Pan(const GripPlane& plane, glm::vec3 originAtGrip, glm::vec3 focusAtGrip, float distance,
+                               glm::vec3 rayNow, glm::vec3 rayAtGrip, glm::ivec2 cursorNow, glm::ivec2 cursorAtGrip)
+{
+	// The game adds the line now y, z then x, and the line at the grip z, y then x
+	const auto now = x87::Dot<x87::SumOrder::Yzx>(plane.normal, rayNow);
+	const auto atGrip = x87::DotZyx(plane.normal, rayAtGrip);
+	if ((-k_ParallelLimit <= now || -k_ParallelLimit <= atGrip) && (now <= k_ParallelLimit || atGrip <= k_ParallelLimit))
+	{
+		return std::nullopt;
+	}
+	const auto toPlane = plane.distance - x87::DotZyx(plane.normal, originAtGrip);
+	const auto alongNow = toPlane / now;
+	const auto alongAtGrip = toPlane / atGrip;
+	// Both compared in double with the game's double constant
+	if (!(static_cast<double>(alongNow) > k_MinAhead && static_cast<double>(alongAtGrip) > k_MinAhead))
+	{
+		return std::nullopt;
+	}
+
+	// The land under the cursor now moves to where the land under it at the grip was seen
+	// The move is the difference of the two points met, each from the camera
+	auto moved = (originAtGrip + rayNow * alongNow) - (originAtGrip + rayAtGrip * alongAtGrip);
+	const auto pixels = cursorNow - cursorAtGrip;
+	auto most = std::sqrt(static_cast<float>(pixels.x * pixels.x + pixels.y * pixels.y)) * distance * k_StepPerPixel;
+	if (most < k_MinStep)
+	{
+		most = k_MinStep;
+	}
+	const auto movedSquared = x87::Dot<x87::SumOrder::Xyz>(moved, moved);
+	if (most * most < movedSquared)
+	{
+		// Made a unit by one over the root, then scaled
+		if (moved != glm::vec3(0.0f))
+		{
+			moved *= 1.0f / std::sqrt(movedSquared);
+		}
+		moved *= most;
+	}
+
+	const auto focus = focusAtGrip - moved;
+	const auto back = (originAtGrip - moved) - focus;
+	// The way back adds its squares z, x then y, and is multiplied by one over the root
+	const auto unit = back != glm::vec3(0.0f) ? back * (1.0f / x87::Length<x87::SumOrder::Zxy>(back)) : back;
+	const auto origin = focus + unit * distance;
+	return CameraPlace {.origin = origin, .focus = focus};
+}
+
+CameraPlace StopShortOfLand(const CameraPlace& place, glm::vec3 originAtGrip, glm::vec3 landHit)
+{
+	const auto toLand = landHit - originAtGrip;
+	const auto move = place.origin - originAtGrip;
+	const auto acrossSquared = move.x * move.x + move.z * move.z;
+	if (!(k_LandStopDistance * k_LandStopDistance < acrossSquared))
+	{
+		return place;
+	}
+	const auto stop = k_LandStopDistance / std::sqrt(acrossSquared);
+	float share = 0.0f;
+	if (std::abs(move.x) > std::abs(move.z))
+	{
+		if (std::abs(move.x) <= k_SmallestMove)
+		{
+			return place;
+		}
+		share = toLand.x / move.x;
+	}
+	else
+	{
+		if (std::abs(move.z) <= k_SmallestMove)
+		{
+			return place;
+		}
+		share = toLand.z / move.z;
+	}
+	share -= stop;
+	if (!(share > 0.0f) || !(share < 1.0f))
+	{
+		return place;
+	}
+	const auto back = move * (1.0f - share);
+	return {.origin = place.origin - back, .focus = place.focus - back};
+}
+
+std::optional<glm::vec3> SeaHit(glm::vec3 originAtGrip, glm::vec3 newOrigin, glm::vec3 cameraNow)
+{
+	if (originAtGrip.y < newOrigin.y || std::abs(newOrigin.y - originAtGrip.y) < k_LevelLimit)
+	{
+		return std::nullopt;
+	}
+	const auto share = -(originAtGrip.y / (newOrigin.y - originAtGrip.y));
+	const auto hit = glm::vec3((newOrigin.x - originAtGrip.x) * share + originAtGrip.x, 0.0f,
+	                           (newOrigin.z - originAtGrip.z) * share + originAtGrip.z);
+	const auto across = glm::vec2(hit.x - cameraNow.x, hit.z - cameraNow.z);
+	if (k_SeaReachSquared < across.x * across.x + across.y * across.y)
+	{
+		return std::nullopt;
+	}
+	return hit;
+}
+
+} // namespace openblack::camera_pan

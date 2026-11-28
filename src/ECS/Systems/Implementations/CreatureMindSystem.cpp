@@ -1,0 +1,3893 @@
+/******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+#define LOCATOR_IMPLEMENTATIONS
+
+#include "CreatureMindSystem.h"
+
+#include <cmath>
+
+#include <algorithm>
+#include <array>
+#include <chrono>
+#include <functional>
+#include <iterator>
+#include <limits>
+#include <ranges>
+#include <span>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+#include <fmt/format.h>
+#include <glm/geometric.hpp>
+#include <glm/vec2.hpp>
+#include <spdlog/spdlog.h>
+
+#include "3D/CreatureBody.h"
+#include "3D/DayNightClock.h"
+#include "3D/LandAvoid.h"
+#include "3D/LandAvoidState.h"
+#include "3D/LandIslandInterface.h"
+#include "3D/MapCoords.h"
+#include "Camera/Camera.h"
+#include "Common/GameAngle.h"
+#include "Common/GameDistance.h"
+#include "Common/GameRandom.h"
+#include "Common/HelpText.h"
+#include "Creature/CreatureActionAgendas.h"
+#include "Creature/CreatureAttention.h"
+#include "Creature/CreatureBodyActivity.h"
+#include "Creature/CreatureCreation.h"
+#include "Creature/CreatureDesireSources.h"
+#include "Creature/CreatureDesires.h"
+#include "Creature/CreatureEmergencies.h"
+#include "Creature/CreatureFace.h"
+#include "Creature/CreatureFart.h"
+#include "Creature/CreatureFeedback.h"
+#include "Creature/CreatureFriendship.h"
+#include "Creature/CreatureHelp.h"
+#include "Creature/CreatureIdleMind.h"
+#include "Creature/CreatureKindAgendas.h"
+#include "Creature/CreatureLayers.h"
+#include "Creature/CreatureLearning.h"
+#include "Creature/CreatureLook.h"
+#include "Creature/CreatureObjectActions.h"
+#include "Creature/CreatureObjectBeliefs.h"
+#include "Creature/CreatureOddAgendas.h"
+#include "Creature/CreaturePhysiology.h"
+#include "Creature/CreaturePlanner.h"
+#include "Creature/CreaturePlayerAttention.h"
+#include "Creature/CreatureRestAndHome.h"
+#include "Creature/CreatureScriptAgendas.h"
+#include "Creature/CreatureScriptPlay.h"
+#include "Creature/CreatureSpellMind.h"
+#include "Creature/CreatureThrow.h"
+#include "Creature/CreatureTurnOrder.h"
+#include "Creature/PerceivedDesires.h"
+#include "CreatureMindSystemDetail.h"
+#include "CreatureMindTownHelp.h"
+#include "CreatureReactions.h"
+#include "Debug/DebugEnv.h"
+#include "ECS/Abodes.h"
+#include "ECS/AnimalAI.h"
+#include "ECS/Components/Abode.h"
+#include "ECS/Components/Animal.h"
+#include "ECS/Components/AnimalBrain.h"
+#include "ECS/Components/AnimatedStatic.h"
+#include "ECS/Components/Creature.h"
+#include "ECS/Components/CreatureBody.h"
+#include "ECS/Components/CreatureFight.h"
+#include "ECS/Components/CreatureHeldHeading.h"
+#include "ECS/Components/CreatureLocomotion.h"
+#include "ECS/Components/CreatureMind.h"
+#include "ECS/Components/CreatureNeeds.h"
+#include "ECS/Components/CreatureObjectAction.h"
+#include "ECS/Components/CreaturePartner.h"
+#include "ECS/Components/CreatureTallies.h"
+#include "ECS/Components/Feature.h"
+#include "ECS/Components/FishFarm.h"
+#include "ECS/Components/Flowers.h"
+#include "ECS/Components/MagicShield.h"
+#include "ECS/Components/Mobile.h"
+#include "ECS/Components/Pot.h"
+#include "ECS/Components/SpellIcon.h"
+#include "ECS/Components/Temple.h"
+#include "ECS/Components/Town.h"
+#include "ECS/Components/Transform.h"
+#include "ECS/Components/Tree.h"
+#include "ECS/Components/VillageTotem.h"
+#include "ECS/Components/Villager.h"
+#include "ECS/Components/WallHug.h"
+#include "ECS/Components/WorshipSite.h"
+#include "ECS/CreatureExplorationLand.h"
+#include "ECS/CreatureHome.h"
+#include "ECS/CreaturePose.h"
+#include "ECS/CreatureStruck.h"
+#include "ECS/Effects/EffectValues.h"
+#include "ECS/Effects/Reactions.h"
+#include "ECS/GodCamera.h"
+#include "ECS/InTheAir.h"
+#include "ECS/Influence/Influence.h"
+#include "ECS/Life.h"
+#include "ECS/MapCells.h"
+#include "ECS/ObjectFlags.h"
+#include "ECS/ObjectMetrics.h"
+#include "ECS/ObjectPhysics.h"
+#include "ECS/Registry.h"
+#include "ECS/ScriptHeld.h"
+#include "ECS/Systems/CreatureAnimationSystemInterface.h"
+#include "ECS/Systems/CreatureFightSystemInterface.h"
+#include "ECS/Systems/CreatureFizzSystemInterface.h"
+#include "ECS/Systems/CreatureHandSystemInterface.h"
+#include "ECS/Systems/CreatureHelpSystemInterface.h"
+#include "ECS/Systems/CreatureLocomotionSystemInterface.h"
+#include "ECS/Systems/CreatureObjectActionSystemInterface.h"
+#include "ECS/Systems/CreaturePhysiologySystemInterface.h"
+#include "ECS/Systems/CreatureSkinSystemInterface.h"
+#include "ECS/Systems/DayNightClockSystemInterface.h"
+#include "ECS/Systems/DynamicsSystemInterface.h"
+#include "ECS/Systems/FireSystemInterface.h"
+#include "ECS/Systems/HandSystemInterface.h"
+#include "ECS/Systems/LandAvoidSystemInterface.h"
+#include "ECS/Systems/MagicSystemInterface.h"
+#include "ECS/Systems/PlayerSystemInterface.h"
+#include "ECS/Systems/TeleportSystemInterface.h"
+#include "ECS/Systems/VillagerBuildingSitesInterface.h"
+#include "ECS/ToBeDeleted.h"
+#include "ECS/Villager/VillagerCore.h"
+#include "ECS/Villager/VillagerStateInfo.h"
+#include "GameClock.h"
+#include "Help/HelpSystem.h"
+#include "Help/ToolTips.h"
+#include "InfoConstants.h"
+#include "Input/LocalPlayer.h"
+#include "Locator.h"
+#include "ObjectMeasures.h"
+#include "Physics/TurnRules.h"
+
+using namespace openblack;
+using namespace openblack::ecs::systems;
+using namespace openblack::ecs::components;
+namespace animations = openblack::creature_layers::animations;
+using creature_desires::Desire;
+
+namespace openblack::ecs::systems::mind_detail
+{
+constexpr float k_TurnSeconds = game_clock::k_TurnSeconds;
+constexpr float k_TurnsPerSecond = 1.0f / k_TurnSeconds;
+// The contexts count their windows in whole seconds of game turns
+static_assert(1000 / game_clock::k_MsPerTurn == creature_learning::k_ContextTurnsPerSecond);
+/// A face told to by hand is held this long
+constexpr float k_ToldFaceMs = 3000.0f;
+/// How pressing the look a cut scene forces is, as the game's forced plan has it
+constexpr float k_CutSceneLookScore = 1.0f;
+
+/// A creature looks for food and water this far away at most
+constexpr float k_FoodSearchDistance = 200.0f;
+/// Food further than this from its mouth, for its size, has got away by the time it eats
+constexpr float k_EatReach = 15.0f;
+/// Having spat out what was not food, or was poisoned, it doesn't want food for a while
+constexpr float k_MealRefusedSuppressSeconds = 20.0f;
+/// The rows of the game's creature action table that eating and fighting count as
+constexpr std::string_view k_EatAction = "EatAfterExamining";
+constexpr std::string_view k_FightAction = "Fight";
+
+/// Just woken up, the eyelids droop and blink slowly; otherwise they are as they start
+constexpr float k_SleepyOpenness = -0.7f;
+constexpr int32_t k_SleepyBlinkIntervalMs = 2500;
+
+float Clamp01(float value)
+{
+	return std::clamp(value, 0.0f, 1.0f);
+}
+
+/// How a species' desires start, from the game's creature tables (creature_creation::SetupFor), before a new
+/// creature's draws
+std::array<creature_desires::DesireSetup, creature_desires::k_DesireCount> SetupFor(CreatureType species)
+{
+	if (!Locator::infoConstants::has_value())
+	{
+		return {};
+	}
+	return creature_creation::SetupFor(Locator::infoConstants::value(), species).desires;
+}
+
+/// The desires each stage of growing up brings and takes away, from the game's tables
+std::vector<creature_desires::PhaseDesires> Phases()
+{
+	std::vector<creature_desires::PhaseDesires> phases;
+	if (!Locator::infoConstants::has_value())
+	{
+		return phases;
+	}
+	const auto valid = [](uint32_t desire) { return desire < creature_desires::k_DesireCount; };
+	for (const auto& entry : Locator::infoConstants::value().creatureDevelopmentPhaseEntry)
+	{
+		auto& phase = phases.emplace_back();
+		const std::array<uint32_t, 10> add {entry.field0x3c, entry.field0x40, entry.field0x44, entry.field0x48,
+		                                    entry.field0x4c, entry.field0x50, entry.field0x54, entry.field0x58,
+		                                    entry.field0x5c, entry.field0x60};
+		const std::array<uint32_t, 4> remove {entry.field0x64, entry.field0x68, entry.field0x6c, entry.field0x70};
+		for (const auto desire : add | std::views::filter(valid))
+		{
+			phase.add.push_back(static_cast<Desire>(desire));
+		}
+		for (const auto desire : remove | std::views::filter(valid))
+		{
+			phase.remove.push_back(static_cast<Desire>(desire));
+		}
+	}
+	return phases;
+}
+
+/// How far from home a creature at a stage of growing up may go before it most wants to go home, from the game's
+/// table of stages; the last stage's past its end, and none without the table
+float GoHomeDistance(uint32_t developmentPhase)
+{
+	if (!Locator::infoConstants::has_value())
+	{
+		return 0.0f;
+	}
+	const auto& phases = Locator::infoConstants::value().creatureDevelopmentPhaseEntry;
+	return phases.at(std::min<size_t>(developmentPhase, phases.size() - 1)).goHomeDistance;
+}
+
+/// How far a creature stands from its home across the land, by the game's map distance; none without a home
+std::optional<float> HomeDistance(const ecs::Registry& registry, entt::entity creature, const glm::vec3& position)
+{
+	const auto home = ecs::creature_home::HomeOf(registry, creature);
+	if (!home.has_value())
+	{
+		return std::nullopt;
+	}
+	return creature_desires::HomeDistance(position, *home);
+}
+
+/// The sources that follow the creature's state: its body's, its mind's own (the wish to impress villagers and its innate
+/// personality among them) and how far it is from home
+std::optional<float> ReadSource(uint32_t type, const creature_desires::Desires& desires, const CreatureMindState& mind,
+                                const creature_physiology::Needs& needs, bool night, std::optional<float> homeDistance,
+                                uint32_t mushroomsEaten, bool computerPlayer)
+{
+	namespace sources = creature_desires::sources;
+	if (const auto value = creature_physiology::SourceValue(type, needs, night))
+	{
+		return value;
+	}
+	if (const auto trait = creature_desires::InnateTrait(type))
+	{
+		return mind.personality.at(*trait);
+	}
+	switch (type)
+	{
+	case sources::k_ImpressFromSeeingVillagers:
+		return desires.impressVillagers;
+	case sources::k_GoHome:
+	case sources::k_HangAroundAtHome:
+		return creature_desires::HomeSource(type, homeDistance, GoHomeDistance(mind.developmentPhase));
+	case sources::k_AttentionFromLoneliness:
+		return creature_attention::Loneliness(mind.turnsNotLookedAt, game_clock::MsPerTurn());
+	case sources::k_AttentionFromLackOfInteraction:
+		return creature_attention::LackOfInteraction(mind.turnsSinceMadeToAct, game_clock::MsPerTurn());
+	case sources::k_GetHighFromMushrooms:
+	case sources::k_Craziness:
+		return creature_desires::GetHighSource(mushroomsEaten);
+	case sources::k_ManifestState:
+		return creature_desires::ManifestStateSource(desires.sum);
+	case sources::k_RunAwayFromPlayer:
+		return Clamp01(-mind.attitudeToPlayer);
+	case sources::k_AngerFromSadness:
+	case sources::k_PlayFromSadness:
+	case sources::k_TirednessFromSadness:
+		return creature_desires::SourceValue(desires[Desire::Sadness], sources::k_Sadness).value_or(0.0f);
+	case sources::k_MissedFriends:
+		return mind.learnt.has_value() ? creature_friendship::MissedFriends(mind.learnt->creatures) : 0.0f;
+	case sources::k_HowInterestingIsPlayer:
+		return creature_desire_sources::HowInterestingIsPlayer(mind.playerInterest.value, needs.age, computerPlayer);
+	default:
+		return std::nullopt;
+	}
+}
+
+creature_look::Interest LookInterestOf(AnimalInfo type)
+{
+	// The class of every bird the original's factory makes. The vulture, goat and zebra are given the class of the
+	// same name and the citadel dove and bat the animal's: none of these is made by the factory, so this is assumed
+	// (docs/wiki/creature/mind.md#pending)
+	return animal_ai::IsDoveClass(type) ? creature_look::Interest::Dove : creature_look::Interest::Animal;
+}
+
+creature_look::Interest LookInterestOfThing(const ecs::Registry& registry, entt::entity thing)
+{
+	using creature_look::Interest;
+	if (registry.AllOf<Creature>(thing))
+	{
+		return Interest::Creature;
+	}
+	if (registry.AllOf<Villager>(thing))
+	{
+		return Interest::Villager;
+	}
+	if (registry.AllOf<Temple>(thing))
+	{
+		return Interest::Citadel;
+	}
+	if (registry.AllOf<Abode>(thing))
+	{
+		return Interest::Abode;
+	}
+	if (registry.AllOf<Tree>(thing))
+	{
+		return Interest::Tree;
+	}
+	if (const auto* animal = registry.TryGet<const Animal>(thing))
+	{
+		return LookInterestOf(animal->type);
+	}
+	// A loose static, a dead tree among them: a toy more than any other
+	if (const auto* still = registry.TryGet<const MobileStatic>(thing))
+	{
+		const auto* info = Locator::infoConstants::has_value() ? &Locator::infoConstants::value() : nullptr;
+		const auto row = static_cast<size_t>(still->type);
+		const bool toy = info != nullptr && row < info->mobileStatic.size() &&
+		                 ecs::creature_struck::IsToyModel(info->mobileStatic.at(row).meshId);
+		return creature_look::StaticInterest(toy);
+	}
+	if (registry.AllOf<DeadTree>(thing))
+	{
+		return creature_look::StaticInterest(false);
+	}
+	// The fixed things: features, fish farms, flowers, worship sites, totems, animated statics, spell icons and shields
+	if (registry.AnyOf<Feature, FishFarm, Flowers, WorshipSite, VillageTotem, AnimatedStatic, SpellIcon, MagicShield>(thing))
+	{
+		return Interest::Fixed;
+	}
+	return Interest::None;
+}
+
+std::optional<glm::vec3> LookPointOf(const ecs::Registry& registry, const creature_look::Target& held)
+{
+	const auto ground = [](glm::vec2 at) {
+		return Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(at) : 0.0f;
+	};
+	// A place of the mountains or the sea, on the ground
+	if (held.place.has_value())
+	{
+		return glm::vec3 {held.place->x, ground(*held.place), held.place->y};
+	}
+	// A thing at its place on the map, as high as it stands over the ground there
+	if (!held.id.has_value() || !registry.Valid(static_cast<entt::entity>(*held.id)))
+	{
+		return std::nullopt;
+	}
+	const auto thing = static_cast<entt::entity>(*held.id);
+	const auto at = ecs::object::MapCoordsOf(thing);
+	const glm::vec2 xz {map_coords::ToMetres(at.x), map_coords::ToMetres(at.z)};
+	return glm::vec3 {xz.x, ground(xz) + ecs::object::GetHeight(thing), xz.y};
+}
+
+bool Strokeable(const ecs::Registry& registry, entt::entity thing, entt::entity creature)
+{
+	if (!registry.Valid(thing))
+	{
+		return false;
+	}
+	const float life = ecs::life::LifeOf(thing);
+	return !(life >= 1.0f) && Locator::creatureObjectActionSystem::has_value() &&
+	       Locator::creatureObjectActionSystem::value().CanPickUp(creature, thing);
+}
+
+void ApplyEyes(CreatureEyes* eyes, creature_mind::Eyes look)
+{
+	if (eyes == nullptr || look == creature_mind::Eyes::Unchanged)
+	{
+		return;
+	}
+	const bool sleepy = look == creature_mind::Eyes::Sleepy;
+	// Sleepy eyes droop the lids and slow the blinking, and leave the eyes' mode as it was, as the game's just-woken look
+	if (!sleepy)
+	{
+		eyes->mode = look == creature_mind::Eyes::Closed   ? creature_eyes::Mode::Closed
+		             : look == creature_mind::Eyes::Wide   ? creature_eyes::Mode::Wide
+		             : look == creature_mind::Eyes::Stoned ? creature_eyes::Mode::Stoned
+		                                                   : creature_eyes::Mode::Calm;
+	}
+	// Stoned or wide eyes only change how the eyes look: the lids and the blinking stay as they were
+	if (look == creature_mind::Eyes::Stoned || look == creature_mind::Eyes::Wide)
+	{
+		return;
+	}
+	eyes->openness = sleepy ? k_SleepyOpenness : 0.0f;
+	eyes->blink.intervalMs = sleepy ? k_SleepyBlinkIntervalMs : creature_eyes::k_BlinkIntervalMs;
+}
+
+/// Turns the creature to face down the slope of the land about it, unless the lowest ground is right where it stands
+void FaceDownSlope(entt::entity creature, CreatureLocomotionSystemInterface& locomotion)
+{
+	const auto* transform = Locator::entitiesRegistry::value().TryGet<const Transform>(creature);
+	if (transform == nullptr || !Locator::terrainSystem::has_value())
+	{
+		return;
+	}
+	const glm::vec2 from {transform->position.x, transform->position.z};
+	const auto lowest = creature_mind::DownSlope(from, [](glm::vec2 at) -> std::optional<float> {
+		if (!map_coords::InBounds(glm::vec3(at.x, 0.0f, at.y)))
+		{
+			return std::nullopt;
+		}
+		return Locator::terrainSystem::value().GetHeightAt(at);
+	});
+	if (glm::distance(lowest, from) >= creature_mind::k_OnTopOf)
+	{
+		locomotion.TurnToFace(creature, lowest);
+	}
+}
+
+/// Sends the creature where its mind wants it to go
+/// A new agenda means that the creature stopped what it did. The creature of a player that is not the computer then
+/// goes back to its walk speed. Other creatures keep the speed that they got last.
+void KeepPaceWithAgenda(entt::entity creature, CreatureMindState& mind)
+{
+	if (mind.paceSerial == mind.idle.serial)
+	{
+		return;
+	}
+	mind.paceSerial = mind.idle.serial;
+	const auto* body = Locator::entitiesRegistry::value().TryGet<const Creature>(creature);
+	if (body == nullptr || !Locator::creatureLocomotionSystem::has_value())
+	{
+		return;
+	}
+	const bool computer = Locator::playerSystem::has_value() && Locator::playerSystem::value().IsComputerPlayer(body->owner);
+	if (!creature_emergencies::KeepsRunSpeed(body->owner != PlayerNames::NEUTRAL, computer))
+	{
+		Locator::creatureLocomotionSystem::value().ResetPace(creature);
+	}
+}
+
+/// Where a creature takes a thing to be: where it saw it last, by its belief about it; where the thing is now for a
+/// thing it holds no belief about, none for a thing gone
+std::optional<map_coords::MapCoords> BelievedPlaceOf(const ecs::Registry& registry, entt::entity creature, entt::entity thing)
+{
+	if (const auto* mind = registry.TryGet<const CreatureMindState>(creature); mind != nullptr)
+	{
+		if (const auto* belief = mind->beliefs.Find(thing); belief != nullptr && belief->place.has_value())
+		{
+			return belief->place;
+		}
+	}
+	if (!registry.Valid(thing) || !registry.AllOf<Transform>(thing))
+	{
+		return std::nullopt;
+	}
+	return ecs::object::MapCoordsOf(thing);
+}
+
+/// Carries out the walk the mind asks for: what came of a walk to a thing or of a run from the hand, none for any other
+std::optional<CreatureLocomotionSystemInterface::MoveResult> Move(entt::entity creature,
+                                                                  const creature_mind::Commands& commands)
+{
+	if (!Locator::creatureLocomotionSystem::has_value())
+	{
+		return std::nullopt;
+	}
+	auto& locomotion = Locator::creatureLocomotionSystem::value();
+	if (commands.stopMoving)
+	{
+		locomotion.Stop(creature);
+	}
+	if (commands.brakeToStop)
+	{
+		locomotion.BrakeToStop(creature);
+	}
+	if (!commands.move.has_value())
+	{
+		return std::nullopt;
+	}
+	using Kind = creature_mind::Movement::Kind;
+	using Pace = CreatureLocomotionSystemInterface::Pace;
+	const auto& move = *commands.move;
+	// A walk that does not ask for the run speed keeps the speed that the creature got last
+	const auto pace = move.run ? Pace::Run : Pace::Keep;
+	const auto object = move.object.has_value() ? std::optional(static_cast<entt::entity>(*move.object)) : std::nullopt;
+	switch (move.kind)
+	{
+	case Kind::ToPoint:
+	case Kind::Nearby:
+		locomotion.MoveTo(creature, move.point, pace, move.minDistance, move.maxDistance);
+		break;
+	case Kind::ToObject:
+		if (object.has_value())
+		{
+			return locomotion.MoveToObject(creature, *object, pace, move.maxDistance);
+		}
+		break;
+	case Kind::Follow:
+		if (object.has_value())
+		{
+			locomotion.Follow(creature, *object, move.maxDistance, pace);
+		}
+		break;
+	case Kind::FleeFrom:
+	{
+		// From where it takes the thing it runs from to be as the step starts, where it saw it last; from the point the
+		// thing stood at when the plan was made when the thing is gone
+		const auto& lookup = std::as_const(Locator::entitiesRegistry::value());
+		const auto at = object.has_value() ? BelievedPlaceOf(lookup, creature, *object) : std::nullopt;
+		locomotion.FleeFrom(creature,
+		                    at.has_value() ? glm::vec2(map_coords::ToMetres(at->x), map_coords::ToMetres(at->z)) : move.point,
+		                    Pace::Run);
+		break;
+	}
+	case Kind::FleeFromHand:
+		// The run from the hand asks for no speed: it goes at the speed the creature got last
+		return locomotion.FleeFrom(creature, move.point, Pace::Keep);
+	case Kind::TurnToFace:
+		// A turn asked for again every turn is not started again while one is under way
+		if (!move.whenFree || !locomotion.IsMoving(creature))
+		{
+			locomotion.TurnToFace(creature, move.point);
+		}
+		break;
+	case Kind::FaceDownSlope:
+		FaceDownSlope(creature, locomotion);
+		break;
+	case Kind::FacePoint:
+		// Only a script agenda plans it, and nothing gives a creature one: a script's focus is FocusByScript's
+		break;
+	case Kind::GoNearObject:
+	case Kind::GetAwayFromObject:
+	case Kind::TurnToFaceObject:
+	case Kind::TurnAwayFromObject:
+	case Kind::ToThrowPosition:
+		// Overseen turn by turn by the mind as it casts (StartSubMove)
+		break;
+	}
+	return std::nullopt;
+}
+
+/// Whether the thing the mind's step waits for is on the map, none when no step waits for one or the thing is gone
+std::optional<bool> WaitedForInMap(const ecs::Registry& registry, const creature_mind::IdleMind& idle)
+{
+	if (idle.step >= idle.agenda.size() || idle.agenda[idle.step].kind != creature_mind::Step::Kind::WaitInMap ||
+	    !idle.agenda[idle.step].object.has_value())
+	{
+		return std::nullopt;
+	}
+	const auto object = static_cast<entt::entity>(*idle.agenda[idle.step].object);
+	if (!registry.Valid(object))
+	{
+		return std::nullopt;
+	}
+	return ecs::map_cells::IsObjectInMap(object);
+}
+
+/// Whether the creature that the creature's step waits to be still is in its move: from the wait for its route, through
+/// its turns and steps, to its walk. A turn on the spot to face a point is no move, so the step does not wait for it. A
+/// thing that is gone, or is not a creature, does not move.
+bool WaitedForMoving(const ecs::Registry& registry, const creature_mind::IdleMind& idle)
+{
+	if (idle.step >= idle.agenda.size() || idle.agenda[idle.step].kind != creature_mind::Step::Kind::WaitForStill ||
+	    !idle.agenda[idle.step].object.has_value())
+	{
+		return false;
+	}
+	const auto object = static_cast<entt::entity>(*idle.agenda[idle.step].object);
+	const auto* locomotion = registry.Valid(object) && registry.AllOf<Creature>(object)
+	                             ? registry.TryGet<const CreatureLocomotion>(object)
+	                             : nullptr;
+	return locomotion != nullptr && InMove(*locomotion);
+}
+
+/// Whether the creature that the creature's step waits to be free performs an action with its body: it plays an action,
+/// is on its way somewhere or turning, acts on a thing or catches one, or fights. A thing that is gone, or is not a
+/// creature, is free.
+bool WaitedForBusy(const ecs::Registry& registry, const creature_mind::IdleMind& idle)
+{
+	if (idle.step >= idle.agenda.size() || idle.agenda[idle.step].kind != creature_mind::Step::Kind::WaitForFree ||
+	    !idle.agenda[idle.step].object.has_value())
+	{
+		return false;
+	}
+	const auto object = static_cast<entt::entity>(*idle.agenda[idle.step].object);
+	if (!registry.Valid(object) || !registry.AllOf<Creature>(object))
+	{
+		return false;
+	}
+	const auto* animation = registry.TryGet<const CreatureAnimation>(object);
+	const auto* fighting = registry.TryGet<const CreatureFighting>(object);
+	const bool handling = Locator::creatureObjectActionSystem::has_value() &&
+	                      (Locator::creatureObjectActionSystem::value().GetProgress(object).has_value() ||
+	                       Locator::creatureObjectActionSystem::value().IsCatching(object));
+	return creature_body::IsPerformingAction(
+	    {.playing = animation != nullptr && creature_layers::IsPlaying(animation->body),
+	     .moving =
+	         Locator::creatureLocomotionSystem::has_value() && Locator::creatureLocomotionSystem::value().IsMoving(object),
+	     .handling = handling,
+	     .fighting = fighting != nullptr && fighting->fighter.state != creature_fight::State::Idle});
+}
+
+/// Whether the living thing the step is to stop for good is flying: a villager or an animal in its flying state
+bool StoppedThingFlying(const ecs::Registry& registry, const creature_mind::IdleMind& idle)
+{
+	if (idle.step >= idle.agenda.size() || idle.agenda[idle.step].kind != creature_mind::Step::Kind::RenderImmobile ||
+	    !idle.agenda[idle.step].object.has_value())
+	{
+		return false;
+	}
+	const auto object = static_cast<entt::entity>(*idle.agenda[idle.step].object);
+	if (!registry.Valid(object))
+	{
+		return false;
+	}
+	if (registry.AllOf<Villager>(object))
+	{
+		return ecs::villager::GetState(object, LivingAction::Index::Top) == VillagerStates::Flying;
+	}
+	const auto* brain = registry.TryGet<const AnimalBrain>(object);
+	return brain != nullptr && brain->topState == static_cast<uint8_t>(ecs::animal_ai::AnimalState::Flying);
+}
+
+/// The living thing set dying, as the game sets its top state: a villager or an animal; anything else is left
+void SetDyingByState(ecs::Registry& registry, entt::entity object)
+{
+	if (!registry.Valid(object) || !ecs::IsAvailable(object))
+	{
+		return;
+	}
+	if (registry.AllOf<Villager>(object))
+	{
+		std::ignore = ecs::villager::SetTopState(object, VillagerStates::Dying);
+		return;
+	}
+	if (registry.AllOf<AnimalBrain>(object))
+	{
+		ecs::animal_ai::SetState(object, ecs::animal_ai::AnimalState::Dying);
+	}
+}
+
+/// The movements the mind oversees turn by turn, done or failed by what the creature's movement says
+bool IsSubMove(creature_mind::Movement::Kind kind)
+{
+	using Kind = creature_mind::Movement::Kind;
+	return kind == Kind::GoNearObject || kind == Kind::GetAwayFromObject || kind == Kind::TurnToFaceObject ||
+	       kind == Kind::ToThrowPosition;
+}
+
+void Apply(const creature_mind::Commands& commands, CreatureAnimation& animation, CreatureEyes* eyes)
+{
+	if (commands.endSit || commands.endStaticLoop)
+	{
+		animation.body = creature_layers::EndLoop(animation.body);
+	}
+	if (commands.endDance)
+	{
+		animation.body = creature_layers::EndDance(animation.body);
+	}
+	if (commands.startDance.has_value())
+	{
+		if (auto body = creature_layers::PlayDance(animation.body, *commands.startDance))
+		{
+			animation.body = *body;
+		}
+	}
+	if (commands.playOnce.has_value())
+	{
+		if (auto body = creature_layers::PlayOnce(animation.body, *commands.playOnce, commands.mirrored))
+		{
+			animation.body = *body;
+		}
+	}
+	if (commands.startSequence.has_value())
+	{
+		const auto& sequence = *commands.startSequence;
+		// A faint takes the body over from whatever it plays, unless it already falls or lies in one
+		const bool takesOver = commands.fainted && !(animation.body.kind == creature_layers::BodyAction::Kind::Sequence &&
+		                                             animation.body.animations[0] == sequence[0]);
+		// Played left to right when the mind drew that side for it
+		if (auto body = creature_layers::PlaySequence(takesOver ? creature_layers::BodyAction {} : animation.body, sequence[0],
+		                                              sequence[1], sequence[2], commands.holdLoop, commands.mirrored))
+		{
+			animation.body = *body;
+		}
+	}
+	if (commands.playOverlay.has_value())
+	{
+		if (auto gesture = creature_layers::PlayGesture(animation.gesture, *commands.playOverlay))
+		{
+			animation.gesture = *gesture;
+		}
+	}
+	if (commands.relaxFace)
+	{
+		animation.face = creature_layers::RelaxFace(animation.face);
+	}
+	if (commands.face.has_value())
+	{
+		animation.face = creature_layers::PullFace(animation.face, creature_face::AnimationOf(commands.face->face),
+		                                           commands.face->milliseconds, commands.face->cue);
+	}
+	ApplyEyes(eyes, commands.eyes);
+	if (eyes != nullptr && commands.blinkIntervalMs.has_value())
+	{
+		eyes->blink.intervalMs = *commands.blinkIntervalMs;
+	}
+}
+
+/// What, besides why, picks the faces the creature pulls
+creature_face::Feelings FeelingsOf(const CreatureMindState& mind)
+{
+	return {.variety = mind.idle.faceVariety, .attitudeToPlayer = mind.attitudeToPlayer, .idlePick = 0};
+}
+
+bool IsNight()
+{
+	return Locator::dayNightClock::has_value() && Locator::dayNightClock::value().Clock().IsVisualNight();
+}
+
+std::optional<creature_asked_to_fight::Fight> FightOf(const ecs::Registry& registry, entt::entity creature)
+{
+	const auto* fighting = registry.TryGet<const CreatureFighting>(creature);
+	if (fighting == nullptr)
+	{
+		return std::nullopt;
+	}
+	// The creature that asked leads the face-off; one it left (its fight over or called off) gives no more orders
+	const auto* asker = !fighting->madeArena && registry.Valid(fighting->opponent)
+	                        ? registry.TryGet<const CreatureFighting>(fighting->opponent)
+	                        : nullptr;
+	const bool askerFacesOff =
+	    asker != nullptr && asker->opponent == creature && asker->madeArena && asker->stage == CreatureFighting::Stage::FaceOff;
+	return creature_asked_to_fight::Fight {
+	    .askedForIt = fighting->madeArena,
+	    .askerFacesOff = askerFacesOff,
+	    .askerFaceOffTurns = askerFacesOff ? asker->faceOffTurns : 0,
+	    .won = fighting->stage == CreatureFighting::Stage::Celebrate,
+	};
+}
+
+void CallOffFightItWasAskedTo(entt::entity creature)
+{
+	// The creature that asked stops as one does whose partner stops what it does for a joint action: the fight being set
+	// up is left by both
+	const auto fight = FightOf(std::as_const(Locator::entitiesRegistry::value()), creature);
+	if (fight.has_value() && creature_asked_to_fight::NewPlanCallsOff(*fight) && Locator::creatureFightSystem::has_value())
+	{
+		Locator::creatureFightSystem::value().CallOff(creature);
+	}
+}
+
+/// Whether one found thing is to be taken over another as good: the lower entity
+bool Before(entt::entity entity, entt::entity other)
+{
+	return entt::to_integral(entity) < entt::to_integral(other);
+}
+
+/// What something is worth to eat, if anything
+std::optional<float> FoodValueOf(entt::entity entity)
+{
+	return Locator::creatureObjectActionSystem::has_value() ? Locator::creatureObjectActionSystem::value().FoodValueOf(entity)
+	                                                        : std::nullopt;
+}
+
+/// The food within reach of a point the creature would most like to eat, and where it is: the nearest, unless it has
+/// learnt to prefer some kinds of food (weigh says how useful each is, 0.1 for food nothing is known about); food it has
+/// learnt is worse than that it leaves alone
+std::optional<std::pair<entt::entity, glm::vec2>> NearestFood(const ecs::Registry& registry, entt::entity self, glm::vec2 from,
+                                                              const std::function<float(entt::entity)>& weigh)
+{
+	constexpr float k_FoodDistanceWeight = 0.05f;
+	std::optional<std::pair<entt::entity, glm::vec2>> nearest;
+	float best = 0.0f;
+	const auto consider = [&](entt::entity entity, const Transform& at) {
+		const glm::vec2 point {at.position.x, at.position.z};
+		const auto distance = glm::distance(point, from);
+		if (distance > k_FoodSearchDistance || !ecs::IsAvailable(entity) || registry.AllOf<HeldByCreature>(entity) ||
+		    !mind_detail::CanBeEaten(registry, self, entity))
+		{
+			return;
+		}
+		const auto usefulness = weigh ? weigh(entity) : creature_planner::k_DefaultUsefulness;
+		if (usefulness < creature_planner::k_DefaultUsefulness)
+		{
+			return;
+		}
+		const auto score = usefulness * creature_planner::DistancePriority(false, distance, k_FoodDistanceWeight) +
+		                   1e-6f * (k_FoodSearchDistance - distance);
+		if (score > best || (score == best && nearest.has_value() && Before(entity, nearest->first)))
+		{
+			best = score;
+			nearest = {entity, point};
+		}
+	};
+	std::as_const(registry).Each<const Villager, const Transform>(
+	    [&](entt::entity entity, const Villager&, const Transform& at) { consider(entity, at); });
+	// Animals are eaten too, as the game's creatures eat cows and sheep
+	std::as_const(registry).Each<const Animal, const Transform>(
+	    [&](entt::entity entity, const Animal&, const Transform& at) { consider(entity, at); });
+	std::as_const(registry).Each<const MobileObject, const Transform>(
+	    [&](entt::entity entity, const MobileObject&, const Transform& at) { consider(entity, at); });
+	std::as_const(registry).Each<const Pot, const Transform>(
+	    [&](entt::entity entity, const Pot&, const Transform& at) { consider(entity, at); });
+	return nearest;
+}
+
+/// Having done an action, the desire it satisfies is less, by the game's action table, and its body pays for it
+void Satisfied(entt::entity creature, creature_desires::Desires& desires, std::string_view action)
+{
+	if (Locator::infoConstants::has_value())
+	{
+		const auto& actions = Locator::infoConstants::value().creatureAction;
+		const auto found = std::ranges::find_if(actions, [action](const auto& row) {
+			return std::string_view(row.name.data(), strnlen(row.name.data(), row.name.size())) == action;
+		});
+		if (found != actions.end() && found->desire < creature_desires::k_DesireCount)
+		{
+			auto& state = desires[static_cast<Desire>(found->desire)];
+			if (desires.IsActivated(static_cast<Desire>(found->desire)))
+			{
+				state.value = std::clamp(state.value * found->desireMultiplier, 0.0f, std::max(state.max, 0.0f));
+			}
+		}
+	}
+	if (Locator::creaturePhysiologySystem::has_value())
+	{
+		Locator::creaturePhysiologySystem::value().FinishAction(creature, action);
+	}
+}
+
+/// A fart where the poo would drop: a cloud of grey puffs blown out behind the creature, from where it stands, on the
+/// game's synchronised random numbers, then its smoke at the anus. Its poo, its poo desire and its count of poos stay
+/// as they were. An evil creature's fart makes those near it faint
+void Fart(entt::entity creature)
+{
+	const auto& registry = std::as_const(Locator::entitiesRegistry::value());
+	const auto* transform = registry.TryGet<const Transform>(creature);
+	const auto* self = registry.TryGet<const Creature>(creature);
+	if (transform == nullptr || self == nullptr)
+	{
+		return;
+	}
+	const auto size = ecs::creature_pose::DrawnSize(registry, creature);
+	const creature_fart::FloatRandom random = [](float bound) { return game_random::GameFloatRand(bound); };
+	const auto velocities = creature_fart::PuffVelocities(BodyYaw(registry, creature, *transform), size, random);
+	// Without a physics (a test's world) the numbers are drawn all the same
+	if (Locator::dynamicsSystem::has_value())
+	{
+		auto& dynamics = Locator::dynamicsSystem::value();
+		for (const auto& velocity : velocities)
+		{
+			dynamics.AddPuff(transform->position, velocity, creature_fart::PuffSize(size), creature_fart::k_PuffColour,
+			                 openblack::physics::turn::PuffKind::Dust);
+		}
+	}
+	creature_fart::StartSmoke(creature);
+	// The fainting: a reaction of the creature's, for its own player, from where it stands; none with no reactions
+	if (creature_fart::MakesFaint(ecs::creature_pose::TargetMorph(registry, creature).evilGood) &&
+	    Locator::reactionSystem::has_value())
+	{
+		effects::reactions::CreateReaction(creature, openblack::Reaction::Fainting, self->owner, false);
+	}
+}
+
+/// What a step did to the body
+void TakeEffect(entt::entity creature, const creature_mind::Commands& commands, creature_desires::Desires& desires)
+{
+	using creature_mind::Effect;
+	if (commands.effect == Effect::None || !Locator::creaturePhysiologySystem::has_value())
+	{
+		return;
+	}
+	auto& physiology = Locator::creaturePhysiologySystem::value();
+	switch (commands.effect)
+	{
+	case Effect::Eat:
+		// Its body pays for the action; the meal itself takes its hunger down, as its hands judge it when the eating ends
+		physiology.FinishAction(creature, k_EatAction);
+		break;
+	// Examining, throwing about, hurling and sleeping do nothing to its desires as they happen: only the plan they are
+	// part of does, once carried out to its end
+	case Effect::Examined:
+	case Effect::ThrewAbout:
+	case Effect::Hurled:
+	case Effect::Slept:
+	case Effect::TookFromHand:
+	// Having looked another creature over, it notes when; having had a good look at a thing, its kind (ProcessTurn)
+	case Effect::Inspected:
+	case Effect::Observed:
+	// A run away that stopped far enough sees to its desire (RanFarEnoughFrom)
+	case Effect::RanAway:
+		break;
+	// A step that completes the action sees to its desires as the plan's end would (CompleteByStep)
+	case Effect::Completed:
+		break;
+	case Effect::Drink:
+		physiology.Drink(creature);
+		creature_desires::AfterDrinking(desires, k_TurnsPerSecond);
+		break;
+	// The poo's last step leaves it no poo; the lumps and farts came as it squatted (SquatFires)
+	case Effect::Poo:
+		physiology.Poo(creature);
+		break;
+	// the drops of sick are the animation's: they come out each turn its puke plays (CreatureAnimationSystem)
+	case Effect::Puke:
+		break;
+	case Effect::CameRound:
+		physiology.WakeFromFaint(creature);
+		break;
+	case Effect::None:
+		break;
+	}
+}
+
+/// Tells the creature's hands what to do with a thing
+void Order(const ecs::Registry& registry, entt::entity creature, const creature_mind::Commands& commands)
+{
+	if (!Locator::creatureObjectActionSystem::has_value())
+	{
+		return;
+	}
+	auto& hands = Locator::creatureObjectActionSystem::value();
+	// A kiss nothing allows plays nothing, and the step waits only for the body to be free
+	if (commands.kiss.has_value())
+	{
+		const auto& other = commands.kiss->other;
+		if (!hands.Kiss(creature, other.has_value() ? std::optional(static_cast<entt::entity>(*other)) : std::nullopt))
+		{
+			hands.Cancel(creature);
+		}
+	}
+	if (!commands.object.has_value())
+	{
+		return;
+	}
+	const auto& order = *commands.object;
+	const auto object = order.object.has_value() ? std::optional(static_cast<entt::entity>(*order.object)) : std::nullopt;
+	const auto ground = Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(order.point) : 0.0f;
+	const glm::vec3 point {order.point.x, ground, order.point.y};
+	using Kind = creature_mind::ObjectOrder::Kind;
+	switch (order.kind)
+	{
+	case Kind::Catch:
+		// Its hands' part is over once the catch has started: the body carries it on by itself
+		if (!object.has_value() || !registry.Valid(*object) || !hands.Catch(creature, *object))
+		{
+			hands.Cancel(creature);
+		}
+		break;
+	case Kind::PickUp:
+		if (object.has_value() && registry.Valid(*object) && ecs::IsAvailable(*object))
+		{
+			hands.PickUp(creature, *object);
+		}
+		else
+		{
+			hands.Cancel(creature);
+		}
+		break;
+	case Kind::FishFromSea:
+		hands.PickUpFishFromSea(creature);
+		break;
+	case Kind::PickUpPortion:
+		if (object.has_value() && registry.Valid(*object) && ecs::IsAvailable(*object))
+		{
+			hands.PickUpPortion(creature, *object, order.portion);
+		}
+		else
+		{
+			hands.Cancel(creature);
+		}
+		break;
+	case Kind::PutDown:
+		hands.PutDown(creature);
+		break;
+	case Kind::Discard:
+		// by its animation, as the game's discard: the put-down's lays it down where it stands, any other tosses it
+		if (creature_object_actions::DiscardPutsDown(order.animation))
+		{
+			hands.PutDown(creature);
+		}
+		else
+		{
+			hands.Discard(creature);
+		}
+		break;
+	case Kind::Eat:
+		hands.EatHeld(creature);
+		break;
+	case Kind::Keep:
+		hands.Keep(creature, order.animation);
+		break;
+	case Kind::Throw:
+	case Kind::ThrowNearby:
+	{
+		// At a thing: at where it will be after the time to where it is, then after the time to there. A creature is
+		// aimed at where its walk takes it, a villager ahead along its step, anything else at its middle where it is.
+		const auto* thing = object.has_value() && registry.Valid(*object) ? registry.TryGet<const Transform>(*object) : nullptr;
+		const auto* self = registry.TryGet<const Transform>(creature);
+		if (thing != nullptr && self != nullptr)
+		{
+			const auto groundAt = [](glm::vec2 at) {
+				return Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(at) : 0.0f;
+			};
+			const auto height = object_measures::Height(registry, *object);
+			creature_throw::ThrowAim aim;
+			if (registry.AllOf<Creature>(*object))
+			{
+				// Its speed and heading as its walk keeps them; one whose walk has not started stands still
+				const auto* walk = registry.TryGet<const CreatureLocomotion>(*object);
+				const bool walking = walk != nullptr && walk->started;
+				const float speed = walking ? walk->speed : 0.0f;
+				const float heading = walking ? walk->heading : 0.0f;
+				aim = creature_throw::AimAhead(self->position, thing->position, [&](float seconds) {
+					return creature_throw::CreatureAfter(thing->position, heading, speed, height, seconds, groundAt);
+				});
+			}
+			else
+			{
+				const auto groundThere = groundAt({thing->position.x, thing->position.z});
+				const auto* hug = registry.AllOf<Villager>(*object) ? registry.TryGet<const WallHug>(*object) : nullptr;
+				if (hug != nullptr)
+				{
+					// Led along its step unless its top state is a final one
+					namespace villager = ecs::villager;
+					const bool topFinal = villager::state_info::IsFinal(
+					    villager::state_info::StateInfo(villager::GetState(*object, villager::Index::Top)));
+					const auto msPerTurn = game_clock::MsPerTurn();
+					const uint32_t turnsPerSecond = msPerTurn != 0 ? 1000u / msPerTurn : 0u;
+					const auto middle = creature_throw::MiddleOf(thing->position, groundThere, height);
+					aim = creature_throw::AimAhead(self->position, thing->position, [&](float seconds) {
+						return creature_throw::VillagerAfter(middle, hug->step, topFinal, turnsPerSecond, seconds);
+					});
+				}
+				else
+				{
+					aim = creature_throw::AimAtStillThing(self->position, thing->position, groundThere, height);
+				}
+			}
+			hands.ThrowAtThing(creature, aim.point, aim.seconds);
+			break;
+		}
+		// At a point in the air when it has a height, as the player's camera; otherwise at the ground there
+		hands.Throw(creature, {point.x, order.pointHeight.value_or(point.y), point.z});
+		break;
+	}
+	case Kind::TakeFromHand:
+		if (!object.has_value() || !registry.Valid(*object) || !hands.TakeFromHand(creature, *object, order.mirrored))
+		{
+			hands.Cancel(creature);
+		}
+		break;
+	case Kind::ThrowInStore:
+	{
+		// At the store's own place on the ground, timed by the distance along the ground as every creature throw is
+		const auto* store = object.has_value() && registry.Valid(*object) ? registry.TryGet<const Transform>(*object) : nullptr;
+		const auto* self = registry.TryGet<const Transform>(creature);
+		if (store == nullptr || self == nullptr)
+		{
+			hands.Cancel(creature);
+			break;
+		}
+		const glm::vec2 at {store->position.x, store->position.z};
+		const auto height = Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(at) : 0.0f;
+		const glm::vec3 into {at.x, height, at.y};
+		const auto flight = creature_throw::ThrowFlightTime(creature_throw::GroundDistance(self->position, into));
+		hands.ThrowTaking(creature, into, flight);
+		break;
+	}
+	case Kind::Destroy:
+		if (object.has_value() && registry.Valid(*object) && ecs::IsAvailable(*object))
+		{
+			hands.Destroy(creature, *object);
+		}
+		else
+		{
+			hands.Cancel(creature);
+		}
+		break;
+	case Kind::Kick:
+		if (!object.has_value() || !registry.Valid(*object) || !hands.Kick(creature, *object))
+		{
+			hands.Cancel(creature);
+		}
+		break;
+	case Kind::PointAt:
+		if (object.has_value() || order.seconds.has_value() || order.pointHeight.has_value())
+		{
+			// At a thing, wherever it is now and goes; or at a point in the air, as the camera
+			const auto* at =
+			    object.has_value() && registry.Valid(*object) ? registry.TryGet<const Transform>(*object) : nullptr;
+			if (object.has_value() && at == nullptr)
+			{
+				hands.Cancel(creature);
+				break;
+			}
+			const auto aim = at != nullptr ? at->position : glm::vec3 {point.x, order.pointHeight.value_or(point.y), point.z};
+			hands.PointAtFor(creature, aim, order.seconds.value_or(creature_object_actions::k_PointSeconds), object);
+			break;
+		}
+		hands.PointAt(creature, point);
+		break;
+	}
+}
+
+creature_mind::HandsState HandsOf(entt::entity creature)
+{
+	if (!Locator::creatureObjectActionSystem::has_value())
+	{
+		return creature_mind::HandsState::Idle;
+	}
+	using State = CreatureObjectActionSystemInterface::State;
+	switch (Locator::creatureObjectActionSystem::value().GetState(creature))
+	{
+	case State::Busy:
+		return creature_mind::HandsState::Busy;
+	case State::Done:
+		return creature_mind::HandsState::Done;
+	case State::Failed:
+		return creature_mind::HandsState::Failed;
+	case State::Idle:
+		break;
+	}
+	return creature_mind::HandsState::Idle;
+}
+} // namespace openblack::ecs::systems::mind_detail
+
+using namespace openblack::ecs::systems::mind_detail;
+
+namespace
+{
+/// What it was set to do is forced on it as an order is: it chooses nothing for itself until its agenda is done
+void MarkCommanded(entt::entity creature)
+{
+	if (auto* mind = Locator::entitiesRegistry::value().TryGet<CreatureMindState>(creature); mind != nullptr)
+	{
+		mind->commanded = true;
+	}
+}
+
+/// The action of the hands that an order walking up to a thing starts: a pick-up or a stomp; any other order is taken as
+/// a keep, which walks to nothing
+creature_object_actions::Kind WalkingHandsKindOf(creature_mind::ObjectOrder::Kind order)
+{
+	switch (order)
+	{
+	case creature_mind::ObjectOrder::Kind::PickUp:
+		return creature_object_actions::Kind::PickUp;
+	case creature_mind::ObjectOrder::Kind::Destroy:
+		return creature_object_actions::Kind::Destroy;
+	default:
+		return creature_object_actions::Kind::Keep;
+	}
+}
+
+/// Fainting from what its body lacks, the advisor says why first
+void TellFainting(entt::entity creature)
+{
+	if (Locator::creatureHelpSystem::has_value())
+	{
+		Locator::creatureHelpSystem::value().Fainting(creature);
+	}
+}
+
+/// Whether a creature that stopped running away from the thing of its plan stands further from it, across the land, than
+/// its species' run-away distance. The distance is to where it takes the thing to be, where it saw it last
+/// (BelievedPlaceOf), not to where the thing may have gone since. Without the thing or its species' row, it is not
+bool RanFarEnoughFrom(const ecs::Registry& registry, entt::entity creature, const CreatureMindState& mind)
+{
+	const auto* body = registry.TryGet<const Creature>(creature);
+	if (body == nullptr || !Locator::infoConstants::has_value() || !mind.planner.current.has_value() ||
+	    !mind.planner.current->object.has_value())
+	{
+		return false;
+	}
+	const auto thing = static_cast<entt::entity>(*mind.planner.current->object);
+	const auto& species = Locator::infoConstants::value().creature;
+	const auto row = creature::InfoRow(body->species);
+	const auto place = BelievedPlaceOf(registry, creature, thing);
+	if (!place.has_value() || row >= species.size())
+	{
+		return false;
+	}
+	return creature_mind::RanFarEnough(game_math::GetDistanceInMetres(ecs::object::MapCoordsOf(creature), *place),
+	                                   species.at(row).runAwayDistance);
+}
+
+/// While it walks, the head does not look at what a step gives it to look at once that is this near
+constexpr float k_NoGazeWhileWalkingWithin = 10.0f;
+
+/// Where the player's hand nearest a creature is, none for a creature without a player or when there is no hand
+std::optional<glm::vec3> NearestHand(const ecs::Registry& registry, entt::entity creature)
+{
+	const auto* body = registry.TryGet<const Creature>(creature);
+	const auto* transform = registry.TryGet<const Transform>(creature);
+	if (body == nullptr || body->owner == PlayerNames::NEUTRAL || transform == nullptr || !Locator::handSystem::has_value())
+	{
+		return std::nullopt;
+	}
+	std::optional<glm::vec3> nearest;
+	for (const auto& hand : Locator::handSystem::value().GetPlayerHandPositions())
+	{
+		if (hand.has_value() &&
+		    (!nearest.has_value() || glm::distance(*hand, transform->position) < glm::distance(*nearest, transform->position)))
+		{
+			nearest = hand;
+		}
+	}
+	return nearest;
+}
+
+/// Where the player's hand nearest a creature is on the ground, only while its step watches the hand: where the hand
+/// last had a place, so also while it has none. None for a creature without a player
+std::optional<glm::vec2> HandPointOf(const ecs::Registry& registry, entt::entity creature, const CreatureMindState& mind)
+{
+	const auto& idle = mind.idle;
+	if (idle.step >= idle.agenda.size() || idle.agenda[idle.step].kind != creature_mind::Step::Kind::WatchHand)
+	{
+		return std::nullopt;
+	}
+	const auto* body = registry.TryGet<const Creature>(creature);
+	if (body == nullptr || body->owner == PlayerNames::NEUTRAL)
+	{
+		return std::nullopt;
+	}
+	return glm::vec2(mind.lastHandPoint.x, mind.lastHandPoint.z);
+}
+
+/// While the mind's step runs from the hand: where its player's hand nearest it last had a place on the ground, and
+/// whether it stands farther from there, in metres on the map, than its species' run-away distance. None for a creature
+/// without a player
+std::optional<creature_mind::Senses::FleeHandView> FleeHandViewOf(const ecs::Registry& registry, entt::entity creature,
+                                                                  const CreatureMindState& mind)
+{
+	const auto& idle = mind.idle;
+	if (idle.step >= idle.agenda.size() || idle.agenda[idle.step].kind != creature_mind::Step::Kind::Move ||
+	    idle.agenda[idle.step].movement.kind != creature_mind::Movement::Kind::FleeFromHand)
+	{
+		return std::nullopt;
+	}
+	const auto* body = registry.TryGet<const Creature>(creature);
+	if (body == nullptr || body->owner == PlayerNames::NEUTRAL)
+	{
+		return std::nullopt;
+	}
+	const glm::vec2 hand {mind.lastHandPoint.x, mind.lastHandPoint.z};
+	bool beyond = false;
+	if (Locator::infoConstants::has_value())
+	{
+		const auto& species = Locator::infoConstants::value().creature;
+		const auto row = creature::InfoRow(body->species);
+		beyond = row < species.size() &&
+		         game_math::GetDistanceInMetres(ecs::object::MapCoordsOf(creature), map_coords::FromMetres(hand)) >
+		             species.at(row).runAwayDistance;
+	}
+	return creature_mind::Senses::FleeHandView {.hand = hand, .beyondRunAway = beyond};
+}
+
+/// Whether a creature's movement is a turn on the spot, or a turn waiting for its action to end, rather than a way
+/// somewhere
+bool TurningOnTheSpot(const ecs::Registry& registry, entt::entity creature)
+{
+	const auto* self = registry.TryGet<const CreatureLocomotion>(creature);
+	return self != nullptr && (self->motion == CreatureLocomotion::Motion::Turning || self->turnAfterAction.has_value());
+}
+
+/// While the mind's step follows an interesting thing: whether the thing still does something interesting to the
+/// creature, and how far it is from the creature on the map, in metres; none when the thing has gone
+std::optional<creature_mind::Senses::FollowView> FollowViewOf(const ecs::Registry& registry, entt::entity creature,
+                                                              const creature_mind::IdleMind& idle)
+{
+	if (idle.step >= idle.agenda.size() || idle.agenda[idle.step].kind != creature_mind::Step::Kind::FollowInteresting ||
+	    !idle.agenda[idle.step].object.has_value())
+	{
+		return std::nullopt;
+	}
+	const auto thing = static_cast<entt::entity>(*idle.agenda[idle.step].object);
+	if (!registry.Valid(thing))
+	{
+		return std::nullopt;
+	}
+	return creature_mind::Senses::FollowView {
+	    .interesting = mind_detail::IsDoingSomethingInteresting(registry, thing, creature),
+	    .distance = game_math::GetDistanceInMetres(ecs::object::MapCoordsOf(creature), ecs::object::MapCoordsOf(thing)),
+	};
+}
+
+/// What a creature plays to show the player how it is, only while its step does that
+std::optional<size_t> CommunicatedOf(const CreatureMindState& mind)
+{
+	const auto& idle = mind.idle;
+	if (idle.step >= idle.agenda.size() || idle.agenda[idle.step].kind != creature_mind::Step::Kind::CommunicateToPlayer ||
+	    !mind.desires.has_value())
+	{
+		return std::nullopt;
+	}
+	const auto window = static_cast<uint32_t>(game_clock::TicksForSeconds(creature_desires::k_CommunicateFeedbackSeconds));
+	return creature_desires::CommunicatedAction(*mind.desires, game_clock::Turn() - mind.feedbackTurn, window,
+	                                            mind.attitudeToPlayer);
+}
+
+/// Whether the thing a creature's step watches fly is still really in the air, only while its step watches a flying thing
+bool WatchedThingInTheAir(const creature_mind::IdleMind& idle)
+{
+	if (idle.step >= idle.agenda.size() || idle.agenda[idle.step].kind != creature_mind::Step::Kind::WatchFlying ||
+	    !idle.agenda[idle.step].object.has_value())
+	{
+		return false;
+	}
+	return ecs::ActuallyInTheAir(static_cast<entt::entity>(*idle.agenda[idle.step].object));
+}
+
+/// Where the head looks for a step that gives it something to look at, if anywhere this turn: the top of a thing (not
+/// one it holds), or the thing itself, or the ground under it, the player's hand nearest it, the ground under a point, the
+/// camera, or the ground at its feet. Walking, it does not look at a thing or a point nearer than ten (its feet it always
+/// looks at). A creature without a player does not look at the camera or a hand.
+std::optional<glm::vec3> GazePoint(const ecs::Registry& registry, entt::entity creature, const creature_mind::Gaze& gaze,
+                                   bool walking)
+{
+	if (gaze.camera)
+	{
+		const auto* body = registry.TryGet<const Creature>(creature);
+		const auto camera = ecs::god_camera::Of(creature);
+		if (body == nullptr || body->owner == PlayerNames::NEUTRAL || !camera.has_value())
+		{
+			return std::nullopt;
+		}
+		return camera->origin;
+	}
+	if (gaze.hand)
+	{
+		return NearestHand(registry, creature);
+	}
+	if (gaze.player)
+	{
+		// The hand when it moved much lately, else the camera
+		const auto* mind = registry.TryGet<const CreatureMindState>(creature);
+		if (mind != nullptr && mind->playerInterest.handMovement > creature_player_attention::k_WatchHandMovement)
+		{
+			return NearestHand(registry, creature);
+		}
+		const auto camera = ecs::god_camera::Of(creature);
+		return camera.has_value() ? std::optional(camera->origin) : std::nullopt;
+	}
+	const auto* self = registry.TryGet<const Transform>(creature);
+	if (gaze.feet)
+	{
+		if (self == nullptr)
+		{
+			return std::nullopt;
+		}
+		const auto feet =
+		    creature_mind::FeetLookPoint(glm::vec2(self->position.x, self->position.z), BodyYaw(registry, creature, *self));
+		const auto ground =
+		    Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(feet) : self->position.y;
+		return glm::vec3 {feet.x, ground, feet.y};
+	}
+	std::optional<glm::vec3> at;
+	if (gaze.object.has_value())
+	{
+		const auto thing = static_cast<entt::entity>(*gaze.object);
+		const auto* transform = registry.Valid(thing) ? registry.TryGet<const Transform>(thing) : nullptr;
+		const auto* held = registry.TryGet<const CreatureHeldObject>(creature);
+		if (transform == nullptr || (!gaze.bottom && held != nullptr && held->object == thing))
+		{
+			return std::nullopt;
+		}
+		at = transform->position;
+	}
+	else if (gaze.point.has_value())
+	{
+		at = gaze.point;
+	}
+	if (!at.has_value() || self == nullptr)
+	{
+		return std::nullopt;
+	}
+	const glm::vec2 flat {at->x, at->z};
+	if (walking && glm::distance(glm::vec2(self->position.x, self->position.z), flat) < k_NoGazeWhileWalkingWithin)
+	{
+		return std::nullopt;
+	}
+	// The thing itself where it is, as up in the air
+	if (gaze.object.has_value() && gaze.itself)
+	{
+		return *at;
+	}
+	if (gaze.object.has_value() && !gaze.bottom)
+	{
+		return glm::vec3 {flat.x, at->y + ecs::object::GetHeight(static_cast<entt::entity>(*gaze.object)), flat.y};
+	}
+	// On the ground under it
+	const auto ground = Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(flat) : at->y;
+	return glm::vec3 {flat.x, ground, flat.y};
+}
+
+/// The top of a person called to a creature's dance: where the person stands, at the height of the land there plus the
+/// person's height. None when the person is gone
+std::optional<glm::vec3> DependentLookPoint(const ecs::Registry& registry, entt::entity person)
+{
+	const auto* at = registry.Valid(person) ? registry.TryGet<const Transform>(person) : nullptr;
+	if (at == nullptr)
+	{
+		return std::nullopt;
+	}
+	const glm::vec2 flat {at->position.x, at->position.z};
+	const auto ground =
+	    Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(flat) : at->position.y;
+	return glm::vec3 {flat.x, ground + ecs::object::GetHeight(person), flat.y};
+}
+
+/// The point of focus of the camera of a creature's player, on the land, while its step follows the camera; and whether
+/// the point is less than a sixth of a turn from the way its body faces, or in its own map cell. None for a creature
+/// without a player.
+std::pair<std::optional<glm::vec3>, bool> CameraFocusOf(const ecs::Registry& registry, entt::entity creature,
+                                                        const creature_mind::IdleMind& idle)
+{
+	if (idle.step >= idle.agenda.size() || idle.agenda[idle.step].kind != creature_mind::Step::Kind::FollowCamera)
+	{
+		return {std::nullopt, false};
+	}
+	const auto* body = registry.TryGet<const Creature>(creature);
+	const auto* transform = registry.TryGet<const Transform>(creature);
+	const auto camera = ecs::god_camera::Of(creature);
+	if (body == nullptr || body->owner == PlayerNames::NEUTRAL || transform == nullptr || !camera.has_value())
+	{
+		return {std::nullopt, false};
+	}
+	const auto focus = camera->focus;
+	const auto from = map_coords::FromMetres(glm::vec2(transform->position.x, transform->position.z));
+	const auto to = map_coords::FromMetres(glm::vec2(focus.x, focus.z));
+	// The way the body faces, as the game turns it: a quarter turn on from the map's
+	const auto ahead = -(transform->rotation * glm::vec3(0.0f, 0.0f, 1.0f));
+	const auto facing = static_cast<int32_t>(game_math::PhysicsRadiansToGameAngle(
+	    static_cast<float>(std::atan2(static_cast<double>(ahead.x), -static_cast<double>(ahead.z)))));
+	// The game takes the difference of the two angles with no wrap at a full turn
+	const auto apart = std::abs(facing - static_cast<int32_t>(game_math::GetAngleFromXZ(from, to)));
+	const bool inView =
+	    apart < game_math::k_GameAngleCircle / creature_look::k_BodyViewParts || map_coords::Cell(from) == map_coords::Cell(to);
+	return {focus, inView};
+}
+
+/// The player's hand as a creature that follows the hand sees it, only while its step follows the hand. If the hand is off
+/// the land, the last position of the hand counts.
+std::optional<creature_player_attention::FollowHandView> FollowHandViewOf(const ecs::Registry& registry, entt::entity creature,
+                                                                          const CreatureMindState& mind, bool bodyPlaying)
+{
+	const auto& idle = mind.idle;
+	if (idle.step >= idle.agenda.size() || idle.agenda[idle.step].kind != creature_mind::Step::Kind::FollowHand)
+	{
+		return std::nullopt;
+	}
+	const auto* body = registry.TryGet<const Creature>(creature);
+	const auto* transform = registry.TryGet<const Transform>(creature);
+	const auto* self = registry.TryGet<const CreatureLocomotion>(creature);
+	auto hand = NearestHand(registry, creature);
+	if (!hand.has_value())
+	{
+		hand = mind.playerInterest.lastHand;
+	}
+	creature_player_attention::FollowHandView view;
+	if (body == nullptr || body->owner == PlayerNames::NEUTRAL || !hand.has_value() || transform == nullptr || self == nullptr)
+	{
+		return view;
+	}
+	view.hasPlayer = true;
+	const map_coords::MapCoords handAt {.x = map_coords::ToFixed(hand->x), .z = map_coords::ToFixed(hand->z)};
+	const map_coords::MapCoords at {.x = map_coords::ToFixed(transform->position.x),
+	                                .z = map_coords::ToFixed(transform->position.z)};
+	view.handInMap = map_coords::InBounds(handAt);
+	view.hand = {hand->x, hand->z};
+	view.distance = game_math::GetDistanceInMetres(at, handAt);
+	view.reach = creature_player_attention::FollowHandReach(object_measures::TwoDRadius(registry, creature));
+	view.bodyPlaying = bodyPlaying;
+	view.directionClose = creature_player_attention::IsDirectionClose(
+	    at, handAt, creature_player_attention::GameAngleOf(creature_locomotion::DirectionOf(self->heading)));
+	return view;
+}
+
+/// The player as a creature that watches it sees it, only while its step watches the player
+std::optional<creature_player_attention::WatchPlayerView>
+WatchPlayerViewOf(const ecs::Registry& registry, entt::entity creature, const CreatureMindState& mind, bool bodyPlaying)
+{
+	const auto& idle = mind.idle;
+	if (idle.step >= idle.agenda.size() || idle.agenda[idle.step].kind != creature_mind::Step::Kind::WatchPlayer)
+	{
+		return std::nullopt;
+	}
+	const auto* body = registry.TryGet<const Creature>(creature);
+	const auto* transform = registry.TryGet<const Transform>(creature);
+	const auto* self = registry.TryGet<const CreatureLocomotion>(creature);
+	creature_player_attention::WatchPlayerView view {
+	    // TODO(creature-attention-actions): after a leash order to a place, the game makes the creature wait for orders for
+	    // fifteen seconds. The creature decides nothing in that time. openblack does not have that wait yet. Thus the watch
+	    // ends at once, as in the game at all other times.
+	    .waitingForOrders = false,
+	    .hasPlayer = body != nullptr && body->owner != PlayerNames::NEUTRAL,
+	    .bodyPlaying = bodyPlaying,
+	    .handMovement = mind.playerInterest.handMovement,
+	};
+	if (transform == nullptr || self == nullptr)
+	{
+		return view;
+	}
+	const auto targetOf = [transform, self](glm::vec3 point) {
+		const auto offset = glm::vec2(point.x, point.z) - glm::vec2(transform->position.x, transform->position.z);
+		return creature_player_attention::WatchPlayerView::Target {
+		    .point = {point.x, point.z},
+		    .distance = glm::distance(point, transform->position),
+		    .turn = creature_locomotion::WrapAngle(creature_locomotion::HeadingOf(offset) - self->heading),
+		};
+	};
+	if (const auto hand = NearestHand(registry, creature); hand.has_value())
+	{
+		view.hand = targetOf(*hand);
+	}
+	if (const auto camera = ecs::god_camera::Of(creature); camera.has_value())
+	{
+		view.camera = targetOf(camera->origin);
+	}
+	return view;
+}
+
+/// The ground's height at a point, or the height given without a land
+float GroundAt(glm::vec2 at, float otherwise)
+{
+	return Locator::terrainSystem::has_value() ? Locator::terrainSystem::value().GetHeightAt(at) : otherwise;
+}
+
+/// Where the head looks this turn on the way to a point, after this turn's look about (mind.look), or none when it
+/// has no look of its own: the point's ground, what it watches, or the sweep's point on the ground, as high above it
+/// as the creature stands above its own ground
+std::optional<glm::vec3> WalkLookPoint(const ecs::Registry& registry, entt::entity creature, CreatureMindState& mind,
+                                       const glm::vec3& point, const Transform& at, uint32_t turnsPerSecond)
+{
+	const auto* body = registry.TryGet<const Creature>(creature);
+	if (body == nullptr || !Locator::infoConstants::has_value())
+	{
+		return std::nullopt;
+	}
+	const auto& species = Locator::infoConstants::value().creature;
+	const auto row = creature::InfoRow(body->species);
+	if (row >= species.size())
+	{
+		return std::nullopt;
+	}
+	const auto& info = species.at(row);
+	const creature_mind::WalkLookInfo numbers {.sweepAngle = info.lookSweepAngle,
+	                                           .sweepStep = info.lookSweepStep,
+	                                           .firstDistance = info.lookSweepFirstDistance,
+	                                           .farthest = info.lookSweepFarthest,
+	                                           .distanceStep = info.lookSweepDistanceStep,
+	                                           .pointWithin = info.lookAtPointWithin};
+	if (!mind.walkLook.has_value())
+	{
+		mind.walkLook = creature_mind::StartWalkLook(numbers);
+	}
+	const glm::vec2 from {at.position.x, at.position.z};
+	const glm::vec2 to {point.x, point.z};
+	const auto recently = creature_object_beliefs::MovingSeenRecently(game_clock::Turn(), mind.movingSeen.turn, turnsPerSecond);
+	const auto look = creature_mind::LookWhileGoing(*mind.walkLook, numbers, from, to, BodyYaw(registry, creature, at),
+	                                                creature_look::Watches(mind.look), turnsPerSecond, recently);
+	if (look.forgetMovingSeen)
+	{
+		mind.movingSeen.weight = 0.0f;
+	}
+	using Kind = creature_mind::WalkLookAt::Kind;
+	switch (look.kind)
+	{
+	case Kind::Nothing:
+		break;
+	case Kind::Point:
+		return glm::vec3 {to.x, GroundAt(to, point.y), to.y};
+	case Kind::Interesting:
+		return LookPointOf(registry, mind.look);
+	case Kind::MovingSeen:
+		// Where it was seen, as high above the ground there as it stood
+		return glm::vec3 {mind.movingSeen.at.x, GroundAt(mind.movingSeen.at, point.y) + mind.movingSeen.height,
+		                  mind.movingSeen.at.y};
+	case Kind::Sweep:
+	{
+		const auto above = at.position.y - GroundAt(from, at.position.y);
+		return glm::vec3 {look.sweep.x, GroundAt(look.sweep, at.position.y) + above, look.sweep.y};
+	}
+	}
+	return std::nullopt;
+}
+
+/// The point the look of the step's walk goes towards this turn, none for any other look: the step's own point, or
+/// the point where its walk is going when the walk picked it as it set off
+std::optional<glm::vec3> WalkLookTarget(const ecs::Registry& registry, entt::entity creature,
+                                        const std::optional<creature_mind::Gaze>& gaze)
+{
+	if (!gaze.has_value())
+	{
+		return std::nullopt;
+	}
+	const auto* walk = registry.TryGet<const CreatureLocomotion>(creature);
+	return creature_mind::WalkLookTowards(*gaze, walk != nullptr ? walk->destination : std::nullopt);
+}
+
+/// One turn of its run from a thing or the hand: the eyes given go wide, and whether its head is on what it runs from
+/// this turn, by its species' seconds of looking back and of not (creature_mind::LookBackWhileRunningAway). Without the
+/// game's tables it does not look back
+bool LooksBackWhileRunningAway(const Creature& body, CreatureMindState& mind, CreatureEyes* eyes, uint32_t turnsPerSecond)
+{
+	if (eyes != nullptr)
+	{
+		eyes->mode = creature_eyes::Mode::Wide;
+	}
+	if (!Locator::infoConstants::has_value())
+	{
+		return false;
+	}
+	const auto& species = Locator::infoConstants::value().creature;
+	const auto row = creature::InfoRow(body.species);
+	if (row >= species.size())
+	{
+		return false;
+	}
+	const auto& info = species.at(row);
+	return creature_mind::LookBackWhileRunningAway(mind.runAwayLook, turnsPerSecond, info.runAwayLookSeconds,
+	                                               info.runAwayNotLookSeconds);
+}
+
+/// A mind made without the creature archetype (as tests make them) is given what a new creature draws, as the
+/// archetype does. Without the game's tables the desires start as their defaults, with no draw
+void MakeMind(CreatureType species, CreatureMindState& mind)
+{
+	if (!Locator::infoConstants::has_value())
+	{
+		mind.desires = creature_desires::Create(SetupFor(species), [](float low, float) { return low; });
+		return;
+	}
+	const creature_creation::Random random {
+	    .rand = [](uint32_t range) { return game_random::GameRand(range); },
+	    .floatRand = [](float range) { return game_random::GameFloatRand(range); },
+	};
+	auto made = creature_creation::Make(creature_creation::SetupFor(Locator::infoConstants::value(), species), random);
+	mind.desires = std::move(made.desires);
+	mind.personality = made.personality;
+	mind.previousActions = std::move(made.previousActions);
+}
+
+/// The creature heals itself: its life becomes full, and its wounds and blood age as if much time went by
+/// What the creature's hand holds goes, when it is still about, and the hand is empty either way: neither held nor
+/// drawn in the hand
+void UseUpHeld(entt::entity creature)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto* held = std::as_const(registry).TryGet<const CreatureHeldObject>(creature);
+	if (held == nullptr)
+	{
+		return;
+	}
+	const auto object = held->object;
+	registry.RemoveState<CreatureHeldObject>(creature);
+	if (!registry.Valid(object))
+	{
+		return;
+	}
+	if (std::as_const(registry).AllOf<HeldByCreature>(object))
+	{
+		registry.RemoveState<HeldByCreature>(object);
+	}
+	if (ecs::IsAvailable(object))
+	{
+		ecs::ToBeDeleted(object);
+	}
+}
+
+/// The stroke's heal: a single heal of 1, applied by the creature within a metre; a living thing then has its life full,
+/// and a villager goes home and an animal starts to wander
+void HealThing(ecs::Registry& registry, entt::entity creature, entt::entity thing)
+{
+	if (!registry.Valid(thing))
+	{
+		return;
+	}
+	auto values = ecs::effects::EffectValues {};
+	values.numbers.at(static_cast<size_t>(ecs::effects::EffectValues::Number::Heal)) = 1.0f;
+	values.radius = 1.0f;
+	values.appliedBy = creature;
+	values.appliedByCreature = true;
+	values.player = ecs::effects::EffectPlayer(true, registry.Get<const Creature>(creature).owner, std::nullopt);
+	static_cast<void>(ecs::effects::ApplyEffect(thing, values));
+	if (!registry.Valid(thing) || !registry.AnyOf<Villager, Animal, Creature>(thing))
+	{
+		return;
+	}
+	ecs::life::SetLife(thing, 1.0f);
+	if (registry.AllOf<Villager>(thing))
+	{
+		static_cast<void>(ecs::villager::SetTopState(thing, VillagerStates::GoHome));
+	}
+	else if (registry.AllOf<Animal>(thing))
+	{
+		ecs::animal_ai::SetState(thing, ecs::animal_ai::AnimalState::StartWander);
+	}
+}
+
+void HealItself(ecs::Registry& registry, entt::entity creature)
+{
+	if (auto* needs = registry.TryGet<CreatureNeeds>(creature))
+	{
+		needs->needs.life = 1.0f;
+	}
+	if (Locator::creatureSkinSystem::has_value())
+	{
+		Locator::creatureSkinSystem::value().Heal(creature, creature_mind::k_HealItselfCounts);
+	}
+}
+
+/// How interesting the creature finds its player this turn. The local player's hand is the player's; a creature of
+/// another player, or of none, finds nothing of interest here.
+float PlayerInterestNow(const Creature& body, CreatureMindState& mind)
+{
+	if (!Locator::handSystem::has_value() || body.owner != creature::LocalPlayer())
+	{
+		return creature_desire_sources::InterestNow(mind.playerInterest, std::nullopt, std::nullopt);
+	}
+	const auto& registry = Locator::entitiesRegistry::value();
+	const auto& hands = Locator::handSystem::value();
+	constexpr auto k_Hand = static_cast<size_t>(HandSystemInterface::Side::Left);
+	// Off the land the hand has no place: it counts as where it last was
+	auto hand = hands.GetPlayerHandPositions().at(k_Hand);
+	if (!hand.has_value())
+	{
+		hand = mind.playerInterest.lastHand;
+	}
+	std::optional<float> heldRadius;
+	if (const auto held = hands.GetHeldObject(); held.has_value() && registry.Valid(*held))
+	{
+		heldRadius = object_measures::TwoDRadius(registry, *held);
+	}
+	if (!hand.has_value())
+	{
+		return 0.0f;
+	}
+	return creature_desire_sources::InterestNow(mind.playerInterest, hand, heldRadius);
+}
+
+/// The rest of the agenda is no use: it gives it up
+void GiveUpAgenda(creature_mind::IdleMind& idle)
+{
+	idle.step = idle.agenda.size();
+	idle.stepStarted = false;
+	idle.gaveUp = true;
+}
+
+/// The fight that a creature's agenda starts with another creature, with the taunts the agenda drew as it was made:
+/// whether it started. Without the fights, none does. The game's log says why one did not
+bool StartFightWith(entt::entity creature, entt::entity other, std::optional<creature_fight::Taunts> taunts)
+{
+	if (!Locator::creatureFightSystem::has_value())
+	{
+		return false;
+	}
+	using StartResult = CreatureFightSystemInterface::StartResult;
+	const auto result = Locator::creatureFightSystem::value().StartFight(creature, other, taunts);
+	if (result != StartResult::Started)
+	{
+		constexpr std::array<std::string_view, 4> k_Results {"started", "no opponent", "busy", "refused"};
+		if (const auto logger = spdlog::get("game"))
+		{
+			logger->debug("Creature {}'s fight with {} does not start: {}", entt::to_integral(creature),
+			              entt::to_integral(other), k_Results.at(static_cast<size_t>(result)));
+		}
+	}
+	// The fight's agenda has asked the other creature and stood its mind still, a turn each, before this step: the
+	// fight's face-off goes on from the order to turn, on this turn
+	if (result == StartResult::Started)
+	{
+		if (auto* fighting = Locator::entitiesRegistry::value().TryGet<CreatureFighting>(creature);
+		    fighting != nullptr && fighting->madeArena)
+		{
+			fighting->faceOffTurns = creature_fight::k_FaceOffStillTurn;
+		}
+	}
+	return result == StartResult::Started;
+}
+} // namespace
+
+void CreatureMindSystem::TraceStepGate(entt::entity creature, std::string_view gate)
+{
+	static const bool trace = debug_env::CreatureStepTrace();
+	if (!trace)
+	{
+		return;
+	}
+	auto found = std::ranges::find(_stepGates, creature, &std::pair<entt::entity, std::string_view>::first);
+	if (found != _stepGates.end() && found->second == gate)
+	{
+		return;
+	}
+	if (found == _stepGates.end())
+	{
+		_stepGates.emplace_back(creature, gate);
+	}
+	else
+	{
+		found->second = gate;
+	}
+	if (const auto logger = spdlog::get("game"); logger)
+	{
+		logger->info("Creature {} mind turn: {}, turn {}", entt::to_integral(creature), gate, game_clock::Turn());
+	}
+}
+
+void CreatureMindSystem::ProcessTurn()
+{
+	BeginCreatureTurns();
+	std::vector<entt::entity> creatures;
+	std::as_const(Locator::entitiesRegistry::value())
+	    .Each<const Creature, const CreatureMindState, const CreatureAnimation, const Transform>(
+	        [&creatures](entt::entity entity, const auto&...) { creatures.push_back(entity); });
+	for (const auto entity : creatures)
+	{
+		// As every Living's, the reaction it follows ends first if it is over
+		creature_reactions::ProcessReaction(entity);
+		ThinkCreature(entity);
+	}
+	// The creatures passing out this turn are knocked out once every mind has thought
+	KnockOutPassingOut();
+	// A joint action stops for both creatures when either stops what it does for it
+	KeepJointActions();
+}
+
+void CreatureMindSystem::BeginCreatureTurns()
+{
+	// What every creature's mind reads of the turn as it starts: whether it is night, and whether the cinema bars are in
+	// for a cut scene, and which script task brought them
+	const auto* helpSystem = openblack::help::Get();
+	const auto* lookTables = GetTables();
+	_turn = MindTurn {
+	    .night = IsNight(),
+	    .barsIn = helpSystem != nullptr && helpSystem->GetWideScreen() != 0,
+	    .barsOwner = helpSystem != nullptr ? helpSystem->GetWideScreenOwner() : 0u,
+	    .lookTables = lookTables,
+	    .cutSceneLook = lookTables != nullptr
+	                        ? creature_mind_tables::FindAction(*lookTables, creature_mind::k_CutSceneLookAction)
+	                        : std::nullopt,
+	    .passingOut = {},
+	};
+	// how many desires each creature plans this turn, from how many creatures there are as the turn starts, before
+	// any of them has its turn; counted through the registry's read-only view, which makes no creature storage on a land
+	// that has none
+	_goalsPerTurn = creature_planner::GoalsPerTurn(std::as_const(Locator::entitiesRegistry::value()).Size<Creature>());
+}
+
+void CreatureMindSystem::ProcessCreatureTurn(entt::entity creature)
+{
+	// One creature's mind, then, passing out, its knock-out, then its joint action's keeping, its plans and its
+	// learning, before the next creature's mind (issue #6)
+	ThinkCreature(creature);
+	KnockOutPassingOut();
+	KeepJointActions(creature);
+	PlanCreatureTurn(creature);
+	LearnCreatureTurn(creature);
+}
+
+void CreatureMindSystem::EndCreatureTurns() {}
+
+void CreatureMindSystem::ProcessReaction(entt::entity creature)
+{
+	// As every Living's, the reaction it follows ends first if it is over, at its place in the living list's walk
+	if (Locator::entitiesRegistry::value().Valid(creature))
+	{
+		creature_reactions::ProcessReaction(creature);
+	}
+}
+
+void CreatureMindSystem::ProcessCheatDesire(entt::entity creature)
+{
+	// A desire made dominant for a while is let go of again each turn, until its time is up: after the leash and before
+	// the needs, in the creature's own turn, and not while the hand holds it or its locked select on it lasts
+	auto& registry = Locator::entitiesRegistry::value();
+	auto* mind = registry.Valid(creature) ? registry.TryGet<CreatureMindState>(creature) : nullptr;
+	if (mind == nullptr || !mind->desires.has_value())
+	{
+		return;
+	}
+	const auto held =
+	    Locator::creatureHandSystem::has_value() && Locator::creatureHandSystem::value().GetCreature() == creature;
+	if (held || ecs::object_flags::IsInLockedSelect(creature))
+	{
+		return;
+	}
+	const auto msPerTurn = game_clock::MsPerTurn();
+	const auto dominantRate = msPerTurn > 0 ? static_cast<float>(1000 / msPerTurn) : 0.0f;
+	static_cast<void>(creature_spell_mind::StepCheat(*mind->desires, mind->dominantDesire, dominantRate));
+}
+
+void CreatureMindSystem::KnockOutPassingOut()
+{
+	for (const auto entity : std::exchange(_turn.passingOut, {}))
+	{
+		if (Locator::creatureFightSystem::has_value())
+		{
+			Locator::creatureFightSystem::value().KnockOut(entity);
+		}
+	}
+}
+
+void CreatureMindSystem::ThinkCreature(entt::entity entity)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto& lookup = std::as_const(registry);
+	if (!registry.Valid(entity) || !lookup.AllOf<Creature, CreatureMindState, CreatureAnimation, Transform>(entity))
+	{
+		return;
+	}
+	const auto random = [](uint32_t range) { return game_random::GameRand(range); };
+	auto& [night, barsIn, barsOwner, lookTables, cutSceneLook, passingOut] = _turn;
+	{
+		// Its desires count as activated by the game's gathering flag as it stands this turn
+		if (auto* own = registry.TryGet<CreatureMindState>(entity); own != nullptr && own->desires.has_value())
+		{
+			own->desires->everyDesireActivated = influence::IsInfluenceEverywhere();
+		}
+		const auto& creature = lookup.Get<Creature>(entity);
+		const auto& transform = lookup.Get<Transform>(entity);
+		auto& mind = registry.Get<CreatureMindState>(entity);
+		auto& animation = registry.Get<CreatureAnimation>(entity);
+		[&]() {
+			SetUpMind(entity, creature.species, mind);
+			if (mind.pendingFile != nullptr)
+			{
+				TakeUpFile(entity, mind);
+			}
+			if (mind.scriptStage.has_value() && mind.pendingFile == nullptr)
+			{
+				TakeUpScriptStage(mind);
+			}
+			// The agendas a saved game kept are taken up as orders its mind waits on, as the game's load leaves every
+			// kept agenda: a script's play starts again, at the play it was at
+			if (const auto loaded = std::exchange(mind.loadedScriptPlay, std::nullopt); loaded.has_value())
+			{
+				mind.scriptPlay = *loaded;
+				mind.commanded = CarryOutForScript(entity, mind, creature_script_play::Agenda(*loaded), true) || mind.commanded;
+			}
+			// a script's move, at the leg it was on
+			if (!mind.loadedScriptMove.empty())
+			{
+				std::vector<creature_mind::Step> legs;
+				for (const auto& [point, within] : std::exchange(mind.loadedScriptMove, {}))
+				{
+					legs.push_back(creature_mind::ScriptMoveLeg(point, within));
+				}
+				mind.commanded = CarryOutForScript(entity, mind, std::move(legs), false) || mind.commanded;
+			}
+			// the turn a script's focus had it make
+			if (!mind.loadedScriptTurn.empty())
+			{
+				mind.commanded =
+				    CarryOutForScript(entity, mind, std::exchange(mind.loadedScriptTurn, {}), true) || mind.commanded;
+			}
+			// and a forced plan, at the step it was at
+			if (const auto loaded = std::exchange(mind.loadedForcedPlan, std::nullopt); loaded.has_value())
+			{
+				TakeUpLoadedForcedPlan(entity, mind, *loaded);
+			}
+			// the fight it started, its plan the fight with its opponent while the loaded duel lasts
+			if (const auto desire = std::exchange(mind.loadedFightDesire, std::nullopt); desire.has_value())
+			{
+				constexpr uint32_t k_FightAction = 21;
+				const auto* fighting = lookup.TryGet<const CreatureFighting>(entity);
+				if (fighting != nullptr && fighting->opponent != entt::null)
+				{
+					mind.planner.current = creature_planner::Plan {.desire = *desire,
+					                                               .action = k_FightAction,
+					                                               .object = entt::to_integral(fighting->opponent),
+					                                               .forced = *desire == creature_desires::Desire::ObeyPlayer};
+					mind.commanded = true;
+				}
+			}
+			if (mind.scriptName.has_value() && mind.learnt.has_value())
+			{
+				mind.learnt->name = std::move(*mind.scriptName);
+				mind.scriptName.reset();
+			}
+			if (!mind.scriptKnows.empty() && mind.learnt.has_value() && mind.pendingFile == nullptr)
+			{
+				const auto lessons = TakeUpScriptKnows(
+				    mind.scriptKnows, GetTables(), creature_mind_tables::MiracleMultiplier(creature::InfoRow(creature.species)),
+				    *mind.learnt);
+				mind.scriptKnows.clear();
+				// The advisor tells of what the script taught it, now that its mind has it
+				for (const auto& lesson : lessons)
+				{
+					if (Locator::creatureHelpSystem::has_value())
+					{
+						Locator::creatureHelpSystem::value().Raise(entity, lesson);
+					}
+				}
+			}
+			++mind.turn;
+			// It notes the region of the land where it stands, for its map of the places it went to, unless the hand
+			// holds it
+			if (!(Locator::creatureHandSystem::has_value() && Locator::creatureHandSystem::value().GetCreature() == entity))
+			{
+				ecs::creature_exploration_land::Visit(entity, {transform.position.x, transform.position.z});
+			}
+			// How interesting it finds its player follows the hand, also while the hand holds it. The speed of the hand
+			// follows the movement of the hand in the turn.
+			const auto handBefore = mind.playerInterest.lastHand;
+			creature_desire_sources::UpdateInterest(mind.playerInterest, PlayerInterestNow(creature, mind));
+			const auto handMovement = handBefore.has_value() && mind.playerInterest.lastHand.has_value()
+			                              ? *mind.playerInterest.lastHand - *handBefore
+			                              : glm::vec3(0.0f);
+			creature_player_attention::UpdateHandSpeed(mind.handSpeed, handMovement, k_TurnsPerSecond);
+			// Where the hand nearest it last had a place is kept for the look at the hand
+			mind.lastHandPoint = creature_player_attention::LastHandPoint(NearestHand(registry, entity), mind.lastHandPoint);
+			// It forgets the things gone from the world, and its eyes sweep a few cells about it, even under a script's
+			// control, unless a step of what it does stopped them
+			ForgetGoneThings(entity, mind);
+			// As its place on the map is filed, out of the hand and out of another creature's hand, it weighs the
+			// mountains and the sea to look at and takes in the town and the citadel nearest it from afar, before its
+			// eyes sweep
+			if (!(Locator::creatureHandSystem::has_value() && Locator::creatureHandSystem::value().GetCreature() == entity) &&
+			    !ecs::object_flags::IsInLockedSelect(entity) && !registry.AllOf<HeldByCreature>(entity) &&
+			    map_coords::InBounds(ecs::object::MapCoordsOf(entity)))
+			{
+				ConsiderPlacesToLookAt(entity, mind);
+				UpdateLongRangeVision(entity);
+			}
+			if (!creature_mind::LookingOff(mind.idle))
+			{
+				SweepEyes(entity, mind, animation, transform);
+			}
+			creature_perceived_desires::Fade(mind.perceivedDesires);
+			if (mind.learnt.has_value())
+			{
+				creature_learning::Age(mind.learnt->contexts, 1);
+			}
+			if (mind.desiresPhase != mind.developmentPhase)
+			{
+				creature_desires::ActivateForPhase(*mind.desires, Phases(), mind.developmentPhase);
+				mind.desiresPhase = mind.developmentPhase;
+			}
+			// Every turn it lives out of the hand, it notes whether its player's camera looks at it: the game's for the
+			// player at this machine, another god's own. A creature with no player has none to look at it
+			const bool held =
+			    Locator::creatureHandSystem::has_value() && Locator::creatureHandSystem::value().GetCreature() == entity;
+			if (!held)
+			{
+				const auto camera = creature.owner != PlayerNames::NEUTRAL ? ecs::god_camera::Of(entity)
+				                                                           : std::optional<ecs::god_camera::Camera> {};
+				const bool lookedAt =
+				    camera.has_value() && creature_attention::IsLookingAt(camera->origin, camera->focus, transform.position);
+				creature_attention::NoteTurn(lookedAt, mind.turnsLookedAt, mind.turnsNotLookedAt);
+				++mind.turnsSinceMadeToAct;
+			}
+			// Held by the player's hand its mind stands still, but for showing what it wants once it has turned to the
+			// player. It stands still until the hand's locked select on it has ended, after the hand let go, as long as
+			// the hand waits for it to be ready to be let go
+			if (held || ecs::object_flags::IsInLockedSelect(entity))
+			{
+				mind.startActionAgain = true;
+				if (mind.showDesireOnHold)
+				{
+					ShowDesireOnHold(entity, mind, animation);
+				}
+				TraceStepGate(entity, "held by a hand or in its locked select");
+				return;
+			}
+			// the turns a second, which the stuck count and the emergencies read
+			const auto msPerTurn = game_clock::MsPerTurn();
+			const auto dominantRate = msPerTurn > 0 ? static_cast<float>(1000 / msPerTurn) : 0.0f;
+			// Before it grows to its first stage, the desires of its body are held at 0, also under a script's control
+			if (lookTables != nullptr)
+			{
+				creature_turn_order::HoldBodyDesires(*mind.desires, lookTables->bodyDesires, mind.developmentPhase);
+			}
+			// After a hold, the first turn with a plan whose agenda has steps to carry out starts it again, also under a
+			// script's control
+			const auto planHasSteps = [&mind]() {
+				return mind.planActive && mind.planner.current.has_value() && mind.idle.serial == mind.planSerial &&
+				       mind.idle.step < mind.idle.agenda.size();
+			};
+			if (creature_turn_order::RestartsAfterHold(mind.startActionAgain, planHasSteps()))
+			{
+				mind.startActionAgain = false;
+				StartPlanAgain(entity, mind);
+			}
+			// A plan of its own under way sets it off. A player's creature, not the computer's and not under a script's
+			// control, that has not set off for long enough stops copying the player, its order over, and does not
+			// want to follow the player for a while
+			if (planHasSteps() && creature_turn_order::SetsOff(true, mind.planner.current->desire))
+			{
+				mind.setOffSinceStop = true;
+			}
+			if (creature.owner != PlayerNames::NEUTRAL &&
+			    !(Locator::playerSystem::has_value() && Locator::playerSystem::value().IsComputerPlayer(creature.owner)) &&
+			    !ecs::script_held::IsControlledByScript(entity) && msPerTurn > 0 &&
+			    creature_turn_order::StepStuck(mind.turnsStuck, mind.setOffSinceStop, static_cast<uint32_t>(1000 / msPerTurn)))
+			{
+				if (mind.learnt.has_value())
+				{
+					mind.learnt->mimicry.reset();
+				}
+				mind.commanded = false;
+				creature_desires::Suppress(*mind.desires, Desire::FollowPlayerDesire,
+				                           creature_turn_order::k_StuckNoFollowSeconds, k_TurnsPerSecond);
+			}
+			auto* needs = registry.TryGet<CreatureNeeds>(entity);
+			const auto body = needs != nullptr ? needs->needs : creature_physiology::Needs {};
+			// Under a script's control its desires are left as they were, and it plans nothing: it only carries out
+			// what the script gave it
+			const bool scripted = ecs::script_held::IsControlledByScript(entity);
+			// Out of the hand, it looks at its emergencies before it decides: low life, a fire on it, a fire in its town
+			if (!held)
+			{
+				StepEmergencies(entity, creature, mind, scripted, dominantRate);
+				// Its head's look for the step under way is read before it decides; looking at the people of its
+				// dance, it draws the one to look at now
+				DrawDependentLook(entity, mind);
+			}
+			// The asker of a joint action can make its mind stand still: its desires stand still, and it chooses
+			// nothing, but it carries out the orders of the asker. So can the creature that asked it to fight, from the
+			// turn it tells its mind to stand still
+			const auto fight = FightOf(lookup, entity);
+			const bool demobilised = lookup.AllOf<CreatureDemobilised>(entity) ||
+			                         (fight.has_value() && creature_asked_to_fight::MindStandsStill(*fight));
+			if (!scripted && !demobilised)
+			{
+				// A turn of what it does, counted towards how long the actions of its desire have gone undone when it stops
+				++mind.turnsPerformingAction;
+				const auto homeDistance = HomeDistance(registry, entity, transform.position);
+				const auto* tallies = lookup.TryGet<const CreatureTallies>(entity);
+				const uint32_t mushrooms = tallies != nullptr ? tallies->mushroomsEaten : 0;
+				// Its feelings for the other creatures fade a little before its desires read them
+				if (mind.learnt.has_value())
+				{
+					creature_friendship::Fade(mind.learnt->creatures);
+				}
+				// What was made full since its last turn is taken first, so that the sources reading it stay full. The
+				// player's interest, made full, is set to nothing, as the game's setter of that source does
+				if (mind.desires->madeFull.test(creature_desires::sources::k_HowInterestingIsPlayer))
+				{
+					mind.playerInterest.value = 0.0f;
+				}
+				creature_desires::TakeMadeFull(*mind.desires, mind.personality);
+				const bool computer =
+				    Locator::playerSystem::has_value() && Locator::playerSystem::value().IsComputerPlayer(creature.owner);
+				creature_desires::UpdateSources(*mind.desires, [&mind, &body, night, homeDistance, mushrooms, computer](
+				                                                   uint32_t type, const creature_desires::Desires& desires) {
+					return ReadSource(type, desires, mind, body, night, homeDistance, mushrooms, computer);
+				});
+				creature_desires::UpdateDesires(*mind.desires, k_TurnsPerSecond);
+			}
+
+			auto* eyes = registry.TryGet<CreatureEyes>(entity);
+			// It sits only where the mind says so below
+			if (needs != nullptr)
+			{
+				needs->sitting = false;
+			}
+			// Fighting or knocked out, the mind leaves the body alone. A creature asked to fight carries on with what it
+			// did until the creature that asked gives it its first order
+			if (lookup.AllOf<CreatureKnockedOut>(entity) ||
+			    (fight.has_value() && creature_asked_to_fight::FightHasBody(*fight)))
+			{
+				TraceStepGate(entity, lookup.AllOf<CreatureKnockedOut>(entity) ? "knocked out" : "fighting");
+				return;
+			}
+			// Exhausted, starved or out of life, it passes out as a fight's loser does: it lies where it fell, then a
+			// player's creature is carried to its pen to come round, from its first turn on, as the game's creature turn
+			// faints it whenever its needs give out. One still out cold from a faint does not faint again, nor does one asked
+			// to fight before its first order
+			const bool fainting = !fight.has_value() && needs != nullptr && needs->faint.has_value() && !mind.idle.outCold;
+			if (fainting && Locator::creatureFightSystem::has_value())
+			{
+				TellFainting(entity);
+				needs->faint.reset();
+				passingOut.push_back(entity);
+				TraceStepGate(entity, "passing out");
+				return;
+			}
+			// Without the fights' knock-outs, it drops where it stands and comes round there
+			if (fainting && !creature_mind::IsUnconscious(mind.idle))
+			{
+				if (Locator::creatureLocomotionSystem::has_value())
+				{
+					Locator::creatureLocomotionSystem::value().Stop(entity);
+				}
+				animation.body = {};
+				TellFainting(entity);
+				creature_mind::Plan(mind.idle, creature_mind::Activity::Faint, creature_mind::Faint());
+				// lying there is forced on it, as an order is
+				mind.commanded = true;
+				needs->faint.reset();
+			}
+			// A thing it uses gone, it stops what it was doing: every creature turn, before the leash and whether its mind
+			// processes or not, so a paused creature lets go of a gone thing too
+			LoseGoneThings(entity, mind);
+			// Paused or following the leash to the hand, the mind leaves the body alone; it faints all the same, as the
+			// game's creature turn takes the faint whatever the leash does and whether its mind processes or not
+			if (mind.paused || mind.leash.obeying)
+			{
+				TraceStepGate(entity, mind.paused ? "paused" : "following the leash");
+				return;
+			}
+			// Out cold with nothing left to do, it comes to, and chooses nothing this turn
+			const bool cameTo = creature_mind::ComesTo(mind.idle);
+			// What it was ordered or forced to do is over once its agenda has no step left, and so is what a fight's
+			// knock-out made it do
+			if (mind.idle.step >= mind.idle.agenda.size())
+			{
+				mind.commanded = false;
+				mind.fightEnded = false;
+				// and a reaction it still follows stops, before it copies a deed or takes up anything that waited
+				if (creature_reactions::ReactionOf(entity) != 0)
+				{
+					creature_reactions::StopReacting(entity);
+				}
+			}
+			// Free to choose what to do next, it weighs its desires' plans. A plan whose steps a script's question cut off
+			// counts as no plan here, as it has no steps
+			// With no agenda under way as the turn starts, the plan it keeps is worth nothing, so this turn's choice can
+			// take any plan
+			if (!scripted && !demobilised && !mind.planActive && mind.idle.step >= mind.idle.agenda.size())
+			{
+				creature_planner::NoPlanRuns(mind.planner);
+			}
+			const bool freeToChoose = !scripted && !demobilised && !cameTo && (!mind.planActive || mind.idle.stoppedByScript) &&
+			                          mind.idle.step >= mind.idle.agenda.size() &&
+			                          !(needs != nullptr && needs->faint.has_value());
+			if (freeToChoose)
+			{
+				// Copying a deed of its player's comes first: given the noticing or a copy of the deed, it does nothing
+				// else this turn; else a try at a miracle that fizzled, or what a stroke or slap left it to do, is what it
+				// does first
+				if (!PassMimicry(entity, mind))
+				{
+					ShowFizzle(entity, mind);
+					// What a stroke, a slap or its leash left it to do is all it does this turn
+					const bool kept = DoAfterFeedback(entity, mind);
+					// Given something by the hand, it decides what to do with what it holds, and plans nothing else this turn;
+					// so too with a cast on the leash waiting
+					const bool usedGift = !kept && UseWhatItWasGiven(entity, mind);
+					const bool castOnLeash = !kept && !usedGift && CastOnLeash(entity, mind);
+					if (!kept && !usedGift && !castOnLeash && mind.idle.step >= mind.idle.agenda.size())
+					{
+						PlanCreature(entity, mind);
+					}
+				}
+			}
+			// With an agenda under way, it weighs its desires' plans all the same before the agenda's step, from the desires
+			// of this turn, and a better plan takes the agenda over before it steps: the game's creature decides before its
+			// agenda goes on, each turn (issue #6)
+			else if (!scripted && !demobilised && !cameTo && !(needs != nullptr && needs->faint.has_value()))
+			{
+				PlanCreatureTurn(entity);
+			}
+			// A script's cut scene makes every creature free to think for itself look at the camera, after whatever it
+			// chose this turn, and again each turn it is doing anything else, until the cut scene is over; the look it
+			// is in then plays out to its end
+			if (!scripted && cutSceneLook.has_value() &&
+			    creature_mind::StartsLookAtCameraInCutScene(barsIn, barsOwner,
+			                                                mind_detail::CurrentAction(mind, lookTables) == cutSceneLook))
+			{
+				std::ignore = ForceActivity(entity, {.desire = creature_desires::Desire::ObeyPlayer,
+				                                     .action = creature_mind::k_CutSceneLookAction,
+				                                     .actionObject = entity,
+				                                     .score = k_CutSceneLookScore});
+				// it looks as it is ordered to, choosing nothing for itself meanwhile
+				mind.commanded = true;
+			}
+			const bool moving =
+			    Locator::creatureLocomotionSystem::has_value() && Locator::creatureLocomotionSystem::value().IsMoving(entity);
+			// The turns of a step count while it has one; a going near, getting away or turning goes on a turn
+			if (mind.idle.step < mind.idle.agenda.size())
+			{
+				++mind.stepTurns;
+			}
+			StepSubMove(entity, creature_layers::IsPlaying(animation.body));
+			// A catch takes up the body until it is over
+			const bool catching = Locator::creatureObjectActionSystem::has_value() &&
+			                      Locator::creatureObjectActionSystem::value().IsCatching(entity);
+			// So do the hands' animations on a thing, until they end
+			const bool handling = Locator::creatureObjectActionSystem::has_value() &&
+			                      Locator::creatureObjectActionSystem::value().GetProgress(entity).has_value();
+			const auto [cameraFocus, cameraFocusAhead] = CameraFocusOf(lookup, entity, mind.idle);
+			// The body is busy walking or turning, playing an action, acting on a thing or catching. (A fighter never
+			// gets here: the mind leaves it alone above)
+			const bool bodyBusy = creature_body::IsPerformingAction(
+			    {.playing = creature_layers::IsPlaying(animation.body), .moving = moving, .handling = handling || catching});
+			// The camera of its own god
+			const auto godCamera = ecs::god_camera::Of(entity);
+			const creature_mind::Senses senses {
+			    .seconds = k_TurnSeconds,
+			    .turnsPerSecond = game_clock::MsPerTurn() != 0 ? 1000u / game_clock::MsPerTurn() : 0u,
+			    .bodyBusy = bodyBusy,
+			    .bodyLooping = creature_layers::IsLooping(animation.body),
+			    .bodyPlaying = creature_layers::IsPlaying(animation.body),
+			    .realSpeed = animation.realSpeed,
+			    .bodyDancing = creature_layers::IsDancing(animation.body),
+			    .holding = lookup.AllOf<CreatureHeldObject>(entity),
+			    .heldMirrored =
+			        lookup.AllOf<CreatureHeldObject>(entity) && lookup.Get<const CreatureHeldObject>(entity).mirrored,
+			    .held = lookup.AllOf<CreatureHeldObject>(entity)
+			                ? std::optional(entt::to_integral(lookup.Get<const CreatureHeldObject>(entity).object))
+			                : std::nullopt,
+			    .moving = moving,
+			    .turning = TurningOnTheSpot(lookup, entity),
+			    .subMove = SubMoveOf(entity),
+			    .position = glm::vec2(transform.position.x, transform.position.z),
+			    .rested = needs != nullptr && needs->rested,
+			    .better = needs != nullptr && creature_mind::IsBetter(needs->needs.life, needs->needs.exhaustion),
+			    .hands = HandsOf(entity),
+			    .objectInMap = WaitedForInMap(lookup, mind.idle),
+			    .objectMoving = WaitedForMoving(lookup, mind.idle),
+			    .objectBusy = WaitedForBusy(lookup, mind.idle),
+			    .objectFlying = StoppedThingFlying(lookup, mind.idle),
+			    .camera =
+			        godCamera.has_value() ? std::optional(glm::vec2(godCamera->origin.x, godCamera->origin.z)) : std::nullopt,
+			    .cameraDistance = godCamera.has_value() ? glm::distance(transform.position, godCamera->origin) : 0.0f,
+			    .hasPlayer = creature.owner != PlayerNames::NEUTRAL,
+			    .handStillTurns = Locator::handSystem::has_value() ? Locator::handSystem::value().GetStillTurns() : 0u,
+			    .heading =
+			        lookup.AllOf<CreatureLocomotion>(entity) ? lookup.Get<const CreatureLocomotion>(entity).heading : 0.0f,
+			    .feelings = FeelingsOf(mind),
+			    .overlayPlaying = animation.gesture.animation.has_value(),
+			    .cameraFocus = cameraFocus,
+			    .cameraFocusAhead = cameraFocusAhead,
+			    .hand = HandPointOf(lookup, entity, mind),
+			    .fleeHand = FleeHandViewOf(lookup, entity, mind),
+			    .followHand = FollowHandViewOf(lookup, entity, mind, bodyBusy),
+			    .watchPlayer = WatchPlayerViewOf(lookup, entity, mind, bodyBusy),
+			    .dance = DanceViewOf(entity, mind.idle),
+			    .totemShare = mind_town_help::TotemShareOf(lookup, mind.idle),
+			    .objectInTheAir = WatchedThingInTheAir(mind.idle),
+			    .follow = FollowViewOf(lookup, entity, mind.idle),
+			    .swap = SwapViewOf(entity),
+			    .communicated = CommunicatedOf(mind),
+			};
+			// A sit counting its time rests the body this turn, the turn it is asked to end included
+			const bool sitCounting = creature_mind::SitCounting(mind.idle);
+			// A pick-up or a stomp that found no way to its thing leaves the creature keeping that in mind a while,
+			// before the agenda is given up
+			if (senses.hands == creature_mind::HandsState::Failed && mind.idle.stepStarted &&
+			    mind.idle.step < mind.idle.agenda.size())
+			{
+				const auto& step = mind.idle.agenda[mind.idle.step];
+				if (step.kind == creature_mind::Step::Kind::Object && step.order.object.has_value() &&
+				    creature_object_actions::LeavesThingAlone(WalkingHandsKindOf(step.order.kind),
+				                                              Locator::creatureObjectActionSystem::value().GetFailure(entity)))
+				{
+					mind.beliefs.MarkBlocked(static_cast<entt::entity>(*step.order.object), game_clock::Turn());
+				}
+			}
+			const auto stepBefore = std::pair {mind.idle.step, mind.idle.stepStarted};
+			TraceStepGate(entity, "thinks");
+			auto commands = creature_mind::Think(mind.idle, senses, random);
+			// A readout at run time, off by default (OPENBLACK_CREATURE_STEP_TRACE): the agenda's step as the mind leaves
+			// it, on every change and every turn of a step done with the hands
+			if (static const bool trace = debug_env::CreatureStepTrace(); trace)
+			{
+				const auto& idle = mind.idle;
+				const bool handsStep =
+				    idle.step < idle.agenda.size() && idle.agenda[idle.step].kind == creature_mind::Step::Kind::Object;
+				// also when what it senses changes while the step stays, so a step that waits to start shows what holds it
+				const auto line = fmt::format(
+				    "Creature {} step {} of {}, kind {}, {}: hands {}, body busy {}, moving {}, holding {}, never starts {}, "
+				    "letting go first {}",
+				    entt::to_integral(entity), idle.step, idle.agenda.size(),
+				    idle.step < idle.agenda.size() ? std::to_underlying(idle.agenda[idle.step].kind) : -1,
+				    idle.stepStarted ? "started" : "waiting", std::to_underlying(senses.hands), senses.bodyBusy, senses.moving,
+				    senses.held.has_value() ? static_cast<int64_t>(*senses.held) : int64_t {-1},
+				    idle.step < idle.agenda.size() && idle.agenda[idle.step].neverStarts, commands.letGoBeforeStep);
+				auto last = std::ranges::find(_stepLines, entity, &std::pair<entt::entity, std::string>::first);
+				const bool changed = last == _stepLines.end() || last->second != line;
+				if (last == _stepLines.end())
+				{
+					_stepLines.emplace_back(entity, line);
+				}
+				else
+				{
+					last->second = line;
+				}
+				if (const auto logger = spdlog::get("game");
+				    logger && (handsStep || changed || stepBefore != std::pair {idle.step, idle.stepStarted}))
+				{
+					logger->info("{}, turn {}", line, game_clock::Turn());
+				}
+			}
+			// The step about to begin needs its hands free: it puts down what it holds, or tosses it away, as its mind
+			// decides
+			if (commands.letGoBeforeStep && senses.held.has_value() && !commands.object.has_value())
+			{
+				commands.object =
+				    creature_mind::ObjectOrder {.kind = LetGoBeforeStep(entity, mind, static_cast<entt::entity>(*senses.held))};
+			}
+			// Showing the player how it is holds back the desire to show its state, on each try
+			if (commands.holdBackShowingState && mind.desires.has_value())
+			{
+				creature_desires::Suppress(*mind.desires, creature_desires::Desire::ManifestState,
+				                           creature_desires::k_CommunicateHoldBackSeconds,
+				                           static_cast<float>(senses.turnsPerSecond));
+			}
+			if (commands.dance.has_value())
+			{
+				CarryOutDance(entity, mind.idle, *commands.dance);
+			}
+			KeepDanceWithAgenda(entity, mind.idle);
+			KeepPaceWithAgenda(entity, mind);
+			// A faint stops a walk under way where it is, as it takes the body over
+			if (commands.fainted && commands.startSequence.has_value() && Locator::creatureLocomotionSystem::has_value() &&
+			    Locator::creatureLocomotionSystem::value().IsMoving(entity))
+			{
+				Locator::creatureLocomotionSystem::value().Stop(entity);
+			}
+			Apply(commands, animation, eyes);
+			const auto moved = Move(entity, commands);
+			// Following an interesting thing, it stops the action as a failure when it can't walk to the thing, which it
+			// keeps in mind a while
+			if (moved == CreatureLocomotionSystemInterface::MoveResult::InvalidDestination &&
+			    mind.idle.step < mind.idle.agenda.size() &&
+			    mind.idle.agenda[mind.idle.step].kind == creature_mind::Step::Kind::FollowInteresting)
+			{
+				FoundNoWay(entity);
+				GiveUpAgenda(mind.idle);
+			}
+			// Running from the hand with no way to go, it stops the action as a failure; while its body can't set off,
+			// the run is tried again from its start on the next turn
+			if (commands.move.has_value() && commands.move->kind == creature_mind::Movement::Kind::FleeFromHand &&
+			    mind.idle.step < mind.idle.agenda.size())
+			{
+				if (moved == CreatureLocomotionSystemInterface::MoveResult::InvalidDestination)
+				{
+					GiveUpAgenda(mind.idle);
+				}
+				else if (moved == CreatureLocomotionSystemInterface::MoveResult::Busy)
+				{
+					mind.idle.stepStarted = false;
+				}
+			}
+			if (commands.move.has_value() && IsSubMove(commands.move->kind) && mind.idle.step < mind.idle.agenda.size())
+			{
+				StartSubMove(entity, *commands.move, mind.idle.agenda[mind.idle.step].seconds);
+			}
+			if (commands.gesture.has_value() && mind.idle.step < mind.idle.agenda.size())
+			{
+				StartGesture(entity, *commands.gesture);
+			}
+			if (commands.releaseCast && Locator::magicSystem::has_value())
+			{
+				Locator::magicSystem::value().ReleaseCreatureCast(entity);
+			}
+			// Resting to get better, or once it has cast water on itself, its own fire stops
+			if (commands.coolDown && Locator::fireSystem::has_value())
+			{
+				Locator::fireSystem::value().PutOut(entity);
+			}
+			if (commands.healItself)
+			{
+				HealItself(registry, entity);
+			}
+			if (commands.healThing.has_value())
+			{
+				HealThing(registry, entity, static_cast<entt::entity>(*commands.healThing));
+			}
+			// The miracle is tried as the casting pose's loop begins, at its place or else at its thing; the rest of the
+			// agenda is no use without it
+			if (commands.cast.has_value() &&
+			    (commands.cast->place.has_value()
+			         ? !TryMiracleAt(entity, static_cast<MagicType>(commands.cast->magicType), *commands.cast->place)
+			         : commands.cast->object.has_value() &&
+			               !TryMiracle(entity, static_cast<MagicType>(commands.cast->magicType),
+			                           static_cast<entt::entity>(*commands.cast->object))))
+			{
+				GiveUpAgenda(mind.idle);
+			}
+			// A joint action: when the other creature refuses to be its partner, the rest of the agenda is no use
+			if (commands.requestPartner.has_value() &&
+			    !RequestPartner(entity, static_cast<entt::entity>(commands.requestPartner->creature),
+			                    commands.requestPartner->kind))
+			{
+				GiveUpAgenda(mind.idle);
+			}
+			// A fight: the duel between the two starts now, and the rest of the agenda is no use when it can't
+			if (commands.fight.has_value() &&
+			    !StartFightWith(entity, static_cast<entt::entity>(*commands.fight), commands.fightTaunts))
+			{
+				GiveUpAgenda(mind.idle);
+			}
+			// It asks a teleport stone for a jump: refused, the action ends as a failure; taken, the stone gives it the
+			// plan that carries it to the far stone
+			if (commands.teleport.has_value() &&
+			    !(Locator::teleportSystem::has_value() &&
+			      Locator::teleportSystem::value().DoTeleport(static_cast<entt::entity>(*commands.teleport), entity, false)))
+			{
+				if (const auto logger = spdlog::get("game"))
+				{
+					logger->trace("Creature {}: the teleport stone {} refuses the jump", entt::to_integral(entity),
+					              *commands.teleport);
+				}
+				GiveUpAgenda(mind.idle);
+			}
+			// Carried by the stone: out of sight by a share set at once each turn, and put at the far stone once faded out
+			if (commands.teleportFizz.has_value() && Locator::creatureFizzSystem::has_value())
+			{
+				Locator::creatureFizzSystem::value().SetFizz(entity, *commands.teleportFizz, 0.0f, false);
+			}
+			if (commands.teleportArrive.has_value() && Locator::teleportSystem::has_value())
+			{
+				if (const auto logger = spdlog::get("game"))
+				{
+					logger->trace("Creature {} comes out of the far teleport stone at ({}, {})", entt::to_integral(entity),
+					              commands.teleportArrive->x, commands.teleportArrive->y);
+				}
+				Locator::teleportSystem::value().CreatureArrives(
+				    entity, glm::vec3(commands.teleportArrive->x, 0.0f, commands.teleportArrive->y));
+			}
+			if (commands.stopTeleportControl)
+			{
+				mind.controlledByTeleport = false;
+			}
+			if (commands.order.has_value() && commands.order->step != nullptr)
+			{
+				TakeOrder(static_cast<entt::entity>(commands.order->partner), entity, *commands.order->step);
+			}
+			if (commands.demobilise.has_value())
+			{
+				SetDemobilised(static_cast<entt::entity>(commands.demobilise->first), commands.demobilise->second);
+			}
+			if (commands.renderImmobile.has_value())
+			{
+				SetDyingByState(registry, static_cast<entt::entity>(*commands.renderImmobile));
+			}
+			// A joint action with a town ends in a desire about the town: its plan takes the place of the agenda. The
+			// action stops as a failure, and so the joint action stops at once for the partner too, before the partner
+			// takes up the desire of its own step.
+			if (commands.applyDesire.has_value())
+			{
+				EndJointAction(entity);
+				std::ignore =
+				    ForceDesireOn(entity, commands.applyDesire->desire, static_cast<entt::entity>(commands.applyDesire->thing));
+			}
+			Order(lookup, entity, commands);
+			mind_town_help::Apply(lookup, commands);
+			StepSwap(entity, commands);
+			// A rock broken in two at once (a rock, the bonfire, a fragment: whatever answers it is a rock); anything
+			// else can't be, and the rest of the agenda is no use
+			if (commands.shatter.has_value())
+			{
+				const auto rock = static_cast<entt::entity>(*commands.shatter);
+				if (lookup.Valid(rock) && ecs::object_physics::IsRock(rock))
+				{
+					static_cast<void>(ecs::object_physics::SplitRockAsItGoes(rock));
+				}
+				else
+				{
+					mind.idle.step = mind.idle.agenda.size();
+					mind.idle.stepStarted = false;
+					mind.idle.gaveUp = true;
+				}
+			}
+			// A building or a totem mended by a fifth of its life (a totem on its town centre passes the mending on to
+			// the centre), and the tree used up mending it gone
+			bool repairedFully = false;
+			if (commands.repair.has_value() && lookup.Valid(static_cast<entt::entity>(*commands.repair)))
+			{
+				const auto mended = static_cast<entt::entity>(*commands.repair);
+				if (lookup.AllOf<Abode>(mended))
+				{
+					static_cast<void>(ecs::abodes::IncreaseLife(mended, creature_mind::k_RepairLife));
+				}
+				else if (lookup.AllOf<VillageTotem>(mended))
+				{
+					static_cast<void>(ecs::life::IncreaseLife(mended, creature_mind::k_RepairLife));
+				}
+				// Mended to all of its life, the thing's mending achieved the plan's aim
+				repairedFully = creature_mind::RepairedToFullLife(ecs::life::LifeOf(mended));
+			}
+			if ((commands.achievedAim || repairedFully) && mind.desires.has_value())
+			{
+				mind.desires->achieved = true;
+			}
+			// A building going up built at once with all the wood its site holds: the build is that wood over the
+			// site's wood value, read before the wood is taken from the pile
+			if (commands.build.has_value() && lookup.Valid(static_cast<entt::entity>(*commands.build)) &&
+			    lookup.AllOf<Abode>(static_cast<entt::entity>(*commands.build)) && Locator::villagerBuildingSites::has_value())
+			{
+				const auto site = ecs::abodes::GetBuildingSite(static_cast<entt::entity>(*commands.build));
+				if (site != entt::null)
+				{
+					auto& sites = Locator::villagerBuildingSites::value();
+					const uint32_t wood = sites.GetResource(site, ResourceType::Wood);
+					const float amount = static_cast<float>(wood) / sites.GetWoodValue(site);
+					static_cast<void>(sites.RemoveResource(site, ResourceType::Wood, wood));
+					sites.BuildBy(site, amount);
+				}
+			}
+			if (commands.useUp.has_value() && lookup.Valid(static_cast<entt::entity>(*commands.useUp)))
+			{
+				ecs::ToBeDeleted(static_cast<entt::entity>(*commands.useUp));
+			}
+			// What its hand holds goes when it is still about, and its hand is empty either way
+			if (commands.useUpHeld)
+			{
+				UseUpHeld(entity);
+			}
+			TakeEffect(entity, commands, *mind.desires);
+			// It faints, and those near it react as to a death. No player is known for it, as for a villager's death
+			if (commands.fainted)
+			{
+				ecs::effects::reactions::CreateReaction(entity, openblack::Reaction::ReactToDeath, std::nullopt, false);
+			}
+			// From this step on, the plan acts on the creature itself rather than on the thing it chose
+			if (commands.clearObjectToActOn)
+			{
+				creature_planner::ActOnItself(mind.planner, static_cast<uint32_t>(entt::to_integral(entity)));
+			}
+			// From this step on, the plan uses the creature itself rather than the thing it chose to use
+			if (commands.clearObjectToUse)
+			{
+				creature_planner::UseItself(mind.planner, static_cast<uint32_t>(entt::to_integral(entity)));
+			}
+			// Eating charged the body for its action already, which the plan's end then does not
+			if (commands.effect == creature_mind::Effect::Eat)
+			{
+				mind.satisfiedByEffect = true;
+			}
+			if (commands.effect == creature_mind::Effect::Completed)
+			{
+				CompleteByStep(entity, mind);
+			}
+			// A run away from a thing that stopped far enough from it sees to the plan's desire as the plan ends
+			if (commands.effect == creature_mind::Effect::RanAway && mind.desires.has_value() &&
+			    RanFarEnoughFrom(lookup, entity, mind))
+			{
+				mind.desires->achieved = true;
+			}
+			// Having had a good look at a thing, it knows its kind, and is far less curious about things of that kind
+			if (commands.effect == creature_mind::Effect::Observed && commands.effectObject.has_value() &&
+			    mind.learnt.has_value())
+			{
+				if (const auto belief =
+				        mind_detail::BeliefOf(registry, static_cast<entt::entity>(*commands.effectObject), entity))
+				{
+					mind.learnt->lookedOverKinds.insert(belief->type);
+				}
+			}
+			// Looking another creature over, it drops the look as soon as there is something to do about it, and notes
+			// when it looked
+			if (commands.weighCreature.has_value() &&
+			    WeighWatchedCreature(entity, mind, static_cast<entt::entity>(*commands.weighCreature)))
+			{
+				if (auto* inspected = mind.beliefs.Find(static_cast<entt::entity>(*commands.weighCreature)))
+				{
+					inspected->inspected = ecs::effects::reactions::Turn();
+				}
+			}
+			// Having looked another creature over, it notes when, and waits a while before it does again
+			if (commands.effect == creature_mind::Effect::Inspected && commands.effectObject.has_value())
+			{
+				if (auto* inspected = mind.beliefs.Find(static_cast<entt::entity>(*commands.effectObject)))
+				{
+					inspected->inspected = ecs::effects::reactions::Turn();
+				}
+			}
+			// With nothing under way once it has decided, the turn counts as one without an action, until it next stops
+			// what it was doing
+			if (!scripted && !demobilised && !mind.planActive && mind.idle.step >= mind.idle.agenda.size())
+			{
+				++mind.turnsWithoutAction;
+			}
+			FollowAgenda(entity, mind);
+			// The script's turn over, the plan it gave is done with
+			if (!mind.planActive && mind.idle.step >= mind.idle.agenda.size() && mind.planner.current.has_value() &&
+			    mind.planner.current->desire == Desire::ObeyPlayer &&
+			    mind.planner.current->action == creature_planner::k_FollowPlayerAction)
+			{
+				AgeOnStop(mind);
+				creature_planner::StopPlan(mind.planner);
+			}
+			if (needs != nullptr)
+			{
+				const auto rest = creature_mind::IsUnconscious(mind.idle) ? CreatureNeeds::Rest::Unconscious
+				                  : creature_mind::IsAsleep(mind.idle)    ? CreatureNeeds::Rest::Asleep
+				                  : creature_mind::IsResting(mind.idle)   ? CreatureNeeds::Rest::Resting
+				                                                          : CreatureNeeds::Rest::Awake;
+				// The turns of a sleep count from the first turn that it tried to start; the body counts each turn after
+				if (rest == CreatureNeeds::Rest::Asleep && needs->rest != CreatureNeeds::Rest::Asleep)
+				{
+					needs->restTurns = mind.idle.restTurns;
+				}
+				needs->rest = rest;
+				// A sit rests the body once a turn while it counts its time, after the body's own turn
+				needs->sitting = sitCounting;
+				if (needs->sitting && Locator::creaturePhysiologySystem::has_value())
+				{
+					Locator::creaturePhysiologySystem::value().Sit(entity);
+				}
+			}
+
+			// Looking about, the head turns to what it keeps in mind to look at, or else to where it last set off to
+			const auto lookAbout = [&]() {
+				if (const auto point = LookPointOf(lookup, mind.look); point.has_value())
+				{
+					return *point;
+				}
+				const auto* locomotion = lookup.TryGet<const CreatureLocomotion>(entity);
+				const auto destination = locomotion != nullptr ? locomotion->lastDestination : ecs::object::MapCoordsOf(entity);
+				const glm::vec2 xz {map_coords::ToMetres(destination.x), map_coords::ToMetres(destination.z)};
+				return glm::vec3 {xz.x, GroundAt(xz, transform.position.y) + destination.altitude, xz.y};
+			};
+			// A step with something to look at has the head on it; one whose look gives nothing this turn, or that has
+			// no look of its own, looks about. On the way to a point it looks about each turn, as its look there takes
+			// what it watches in turn with the point and a sweep
+			std::optional<glm::vec3> gazed;
+			std::optional<glm::vec3> about;
+			// The person of its dance drawn before it decided has the head on it, also when its step ended this turn
+			const auto dependent = std::exchange(mind.dependentLook, std::nullopt);
+			if (dependent.has_value())
+			{
+				gazed = DependentLookPoint(lookup, *dependent);
+			}
+			else if (const auto towards = WalkLookTarget(lookup, entity, commands.gaze); towards.has_value())
+			{
+				about = lookAbout();
+				gazed = WalkLookPoint(lookup, entity, mind, *towards, transform, senses.turnsPerSecond);
+			}
+			else if (commands.gaze.has_value())
+			{
+				// Running from a thing or the hand, its head is on it only in turn; from a thing its eyes are wide
+				if (!commands.gaze->runningFrom ||
+				    LooksBackWhileRunningAway(creature, mind, commands.gaze->hand ? nullptr : eyes, senses.turnsPerSecond))
+				{
+					gazed = GazePoint(lookup, entity, *commands.gaze,
+					                  Locator::creatureLocomotionSystem::has_value() &&
+					                      Locator::creatureLocomotionSystem::value().IsMoving(entity));
+				}
+			}
+			mind.lookingAbout =
+			    !gazed.has_value() && (commands.lookAbout || commands.gaze.has_value() || dependent.has_value());
+			if (gazed.has_value())
+			{
+				animation.lookAt = gazed;
+			}
+			else if (mind.lookingAbout)
+			{
+				animation.lookAt = about.has_value() ? *about : lookAbout();
+			}
+			else
+			{
+				animation.lookAt.reset();
+			}
+			// A script's focus is where its head looks, over anything else
+			if (mind.scriptFocus.has_value())
+			{
+				animation.lookAt = mind.scriptFocus;
+			}
+			// A thing it was told to look at: where the thing stands, until the thing is gone, which lets the focus go
+			if (mind.scriptFocusThing.has_value())
+			{
+				const auto thing = *mind.scriptFocusThing;
+				const auto* at = lookup.Valid(thing) ? lookup.TryGet<const Transform>(thing) : nullptr;
+				if (at != nullptr)
+				{
+					animation.lookAt = at->position;
+				}
+				else
+				{
+					mind.scriptFocusThing.reset();
+				}
+			}
+			if (eyes != nullptr)
+			{
+				eyes->lookAt = animation.lookAt;
+			}
+		}();
+	}
+}
+
+bool CreatureMindSystem::PlayAction(entt::entity creature, size_t animation, std::optional<bool> mirrored)
+{
+	auto* body = Locator::entitiesRegistry::value().TryGet<CreatureAnimation>(creature);
+	if (body == nullptr)
+	{
+		return false;
+	}
+	// Played left to right or not by a coin the game tosses, unless the caller says
+	const bool flipped = mirrored.has_value() ? *mirrored : game_random::GameRand(2) == 1;
+	const auto played = creature_layers::PlayOnce(body->body, animation, flipped);
+	if (played.has_value())
+	{
+		body->body = *played;
+	}
+	return played.has_value();
+}
+
+bool CreatureMindSystem::PlayGesture(entt::entity creature, size_t animation)
+{
+	auto* body = Locator::entitiesRegistry::value().TryGet<CreatureAnimation>(creature);
+	if (body == nullptr)
+	{
+		return false;
+	}
+	const auto played = creature_layers::PlayGesture(body->gesture, animation);
+	if (played.has_value())
+	{
+		body->gesture = *played;
+	}
+	return played.has_value();
+}
+
+void CreatureMindSystem::PullFace(entt::entity creature, size_t animation)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	if (auto* body = registry.TryGet<CreatureAnimation>(creature))
+	{
+		body->face = creature_layers::PullFace(body->face, animation, k_ToldFaceMs, creature_face::Cue::Told);
+	}
+}
+
+std::optional<creature_face::Request> CreatureMindSystem::ShowFeeling(entt::entity creature, creature_face::Cue cue)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	auto* body = registry.TryGet<CreatureAnimation>(creature);
+	auto* mind = registry.TryGet<CreatureMindState>(creature);
+	if (body == nullptr || mind == nullptr)
+	{
+		return std::nullopt;
+	}
+	const auto random = [](uint32_t range) { return game_random::GameRand(range); };
+	const creature_mind::Senses senses {.feelings = FeelingsOf(*mind)};
+	const auto face = creature_mind::PullFace(mind->idle, cue, senses, random);
+	if (face.has_value())
+	{
+		body->face = creature_layers::PullFace(body->face, creature_face::AnimationOf(face->face), face->milliseconds, cue);
+	}
+	return face;
+}
+
+bool CreatureMindSystem::SitDown(entt::entity creature)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	auto* body = registry.TryGet<CreatureAnimation>(creature);
+	auto* mind = registry.TryGet<CreatureMindState>(creature);
+	if (body == nullptr || mind == nullptr || creature_layers::IsPlaying(body->body))
+	{
+		return false;
+	}
+	// A paused mind won't get it up again: it sits until told to stand
+	if (mind->paused)
+	{
+		body->body =
+		    *creature_layers::PlaySequence(body->body, animations::k_StartSit, animations::k_Sit, animations::k_EndSit);
+		return true;
+	}
+	const auto random = [](uint32_t range) { return game_random::GameRand(range); };
+	Abandon(*mind);
+	creature_mind::Plan(mind->idle, creature_mind::Activity::Told, {creature_mind::SitDown(random)});
+	return true;
+}
+
+void CreatureMindSystem::UpdateAttitudeFromFeedback(entt::entity creature, float feedback)
+{
+	auto* mind = Locator::entitiesRegistry::value().TryGet<CreatureMindState>(creature);
+	if (mind == nullptr)
+	{
+		return;
+	}
+	// Good feedback shows it its player wants compassion, bad anger, by how much, and it warms or cools to the player
+	creature_perceived_desires::Increase(
+	    mind->perceivedDesires, static_cast<int32_t>(feedback > 0.0f ? CreatureDesires::Compassion : CreatureDesires::Anger),
+	    std::abs(feedback));
+	// The scripts read how strongly it was last rewarded or punished
+	mind->interactionMagnitude = feedback;
+	mind->feedbackTurn = game_clock::Turn();
+	mind->attitudeToPlayer = creature_feedback::AttitudeAfter(mind->attitudeToPlayer, feedback);
+	mind->averageFeedback = creature_feedback::AverageAfter(mind->averageFeedback, feedback);
+}
+
+void CreatureMindSystem::ChangeDesireSource(entt::entity creature, uint32_t type, float amount)
+{
+	auto* mind = Locator::entitiesRegistry::value().TryGet<CreatureMindState>(creature);
+	if (mind != nullptr && mind->desires.has_value())
+	{
+		creature_desires::ChangeSource(*mind->desires, type, amount);
+	}
+}
+
+void CreatureMindSystem::HandTookHold(entt::entity creature)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	auto* mind = registry.TryGet<CreatureMindState>(creature);
+	if (mind == nullptr)
+	{
+		return;
+	}
+	// Its body stops what it does: its side of a duel ends, it stops pointing, then it stops and turns on the spot
+	// towards the player's eye, from where its body is drawn
+	if (Locator::creatureFightSystem::has_value())
+	{
+		Locator::creatureFightSystem::value().EndOwnFight(creature);
+	}
+	if (Locator::creatureObjectActionSystem::has_value())
+	{
+		Locator::creatureObjectActionSystem::value().StopPointing(creature);
+	}
+	if (Locator::creatureLocomotionSystem::has_value() && Locator::camera::has_value())
+	{
+		const auto drawn = ecs::creature_pose::BetweenTurns(registry, creature);
+		const auto* transform = registry.TryGet<const Transform>(creature);
+		if (drawn.has_value() || transform != nullptr)
+		{
+			const auto body = drawn.has_value() ? drawn->position : transform->position;
+			const auto heading = creature_locomotion::HeldTurnHeading(body, Locator::camera::value().GetOrigin());
+			// kept for the interaction's camera, whether the body turns now, later or not at all
+			registry.AssignOrReplaceState<CreatureHeldHeading>(creature, CreatureHeldHeading {.heading = heading});
+			static_cast<void>(Locator::creatureLocomotionSystem::value().TurnToHeading(creature, heading));
+		}
+	}
+	mind->showDesireOnHold = true;
+}
+
+void CreatureMindSystem::ShowDesireOnHold(entt::entity creature, CreatureMindState& mind, CreatureAnimation& animation)
+{
+	// It waits only for the action its body plays to end, not for its turn to the player
+	if (creature_layers::IsPlaying(animation.body))
+	{
+		return;
+	}
+	mind.showDesireOnHold = false;
+	std::optional<Desire> credited;
+	if (mind.learnt.has_value())
+	{
+		if (const auto best = creature_learning::BestContext(mind.learnt->contexts); best.has_value())
+		{
+			credited = mind.learnt->contexts.at(*best).desire;
+		}
+	}
+	const auto planned =
+	    mind.planActive && mind.planner.current.has_value() ? std::optional(mind.planner.current->desire) : std::nullopt;
+	const auto desire = creature_help::DesireShownOnHold(credited, planned);
+	if (!desire.has_value())
+	{
+		return;
+	}
+	// Its emote is mirrored by the hand it holds something in, else by a coin
+	const auto* held = std::as_const(Locator::entitiesRegistry::value()).TryGet<const CreatureHeldObject>(creature);
+	PlayAction(creature, *creature_desires::EmoteFor(*desire),
+	           creature_help::ShownOnHoldMirror(held != nullptr ? std::optional(held->mirrored) : std::nullopt));
+	// The help says what it wants, even though the hand is on it
+	if (Locator::creatureHelpSystem::has_value())
+	{
+		Locator::creatureHelpSystem::value().Raise(
+		    creature,
+		    {.kind = creature_help::Kind::CurrentDesire, .parameter = static_cast<uint32_t>(*desire), .forced = true});
+	}
+}
+
+void CreatureMindSystem::ReceiveFeedback(entt::entity creature, float feedback)
+{
+	namespace sources = creature_desires::sources;
+	auto& registry = Locator::entitiesRegistry::value();
+	auto* mind = registry.TryGet<CreatureMindState>(creature);
+	if (mind == nullptr)
+	{
+		return;
+	}
+	mind->lastFeedback = CreatureMindState::Feedback {.value = feedback, .activity = mind->idle.activity};
+	if (const auto logger = spdlog::get("game"))
+	{
+		logger->info("Creature {} is {} by {:.2f} at stage {}", entt::to_integral(creature),
+		             feedback < 0.0f ? "slapped" : "stroked", feedback, mind->developmentPhase);
+	}
+	// Stroked or slapped, however lightly, it first stops whatever it was doing as a failure: its hands' animations on
+	// a thing play on to their end and a point brings its arm down, the walk, its agenda and the plan it carried out
+	// stop, what it learns from left as it was
+	if (Locator::creatureObjectActionSystem::has_value())
+	{
+		Locator::creatureObjectActionSystem::value().StopForNewAction(creature);
+	}
+	// as an action finished unsuccessfully: a walk brakes to a stop
+	if (Locator::creatureLocomotionSystem::has_value())
+	{
+		Locator::creatureLocomotionSystem::value().BrakeToStop(creature);
+	}
+	// a dance it dances stops
+	if (auto* body = registry.TryGet<CreatureAnimation>(creature); body != nullptr)
+	{
+		body->body = creature_layers::EndDance(body->body);
+	}
+	mind->idle.agenda.clear();
+	mind->idle.step = 0;
+	mind->idle.stepStarted = false;
+	mind->planActive = false;
+	// and the mark that the hand held it goes with its agenda; it has set off on nothing since
+	mind->startActionAgain = false;
+	mind->setOffSinceStop = false;
+	AgeOnStop(*mind);
+	creature_planner::StopPlan(mind->planner);
+	// A creature that learns nothing from it has done with it
+	if (std::as_const(registry).AllOf<CreatureLearningOff>(creature))
+	{
+		return;
+	}
+	// Too slight to count, it only looks at the player, idling about with it, and the hand offers to focus on it
+	if (creature_feedback::IsSlightFeedback(feedback))
+	{
+		std::ignore = ForceActivity(
+		    creature, {.desire = creature_desires::Desire::IdleWithPlayer, .action = "LookAtCamera", .score = 1.0f});
+		help::tooltips::Force(helptext::k_ToolTipFocusCreature, 1.0f);
+		return;
+	}
+	// A stroke shows it its player wants compassion, a slap anger, by how hard
+	UpdateAttitudeFromFeedback(creature, feedback);
+	LearnFromFeedback(creature, *mind, feedback);
+}
+
+void CreatureMindSystem::SetUpMind(entt::entity creature, CreatureType species, CreatureMindState& mind)
+{
+	if (!mind.desires.has_value())
+	{
+		MakeMind(species, mind);
+	}
+	if (!mind.learnt.has_value())
+	{
+		SetUpLearning(creature, mind);
+	}
+}
+
+void CreatureMindSystem::StopWhatItWasDoing(entt::entity creature, CreatureMindState& mind, bool stopWalking)
+{
+	// In its own duel its opponent stops too, the stronger for the fight
+	if (Locator::creatureFightSystem::has_value())
+	{
+		Locator::creatureFightSystem::value().PartnerStops(creature);
+	}
+	// The animations of a thing it has started on play on to their end, as the body's object states do; a walk or turn up
+	// to the thing, and pointing, stop
+	if (Locator::creatureObjectActionSystem::has_value())
+	{
+		Locator::creatureObjectActionSystem::value().StopForNewAction(creature);
+	}
+	// On a walk, it brakes along its route to a stop
+	if (stopWalking && Locator::creatureLocomotionSystem::has_value())
+	{
+		Locator::creatureLocomotionSystem::value().BrakeToStop(creature);
+	}
+	creature_mind::Plan(mind.idle, creature_mind::Activity::None, {});
+	mind.planActive = false;
+	AgeOnStop(mind);
+	creature_planner::StopPlan(mind.planner);
+	// An emergency it was in is over, and so is an order of its player's it carried out and what a fight's knock-out
+	// made it do
+	mind.emergencyRunning = false;
+	mind.startActionAgain = false;
+	mind.setOffSinceStop = false;
+	mind.commanded = false;
+	mind.fightEnded = false;
+	mind.forcedByPlayerAction = false;
+	mind.controlledByTeleport = false;
+	// and it is no longer shut in
+	mind.trapped = false;
+	// Its agenda cleared, the pass over its desires starts again, and nothing it does has achieved its aim yet
+	if (mind.desires.has_value())
+	{
+		mind.desires->achieved = false;
+		creature_planner::StartPass(mind.planner, creature_planner::PassDesires(*mind.desires));
+	}
+}
+
+void CreatureMindSystem::FocusByScript(entt::entity creature, const glm::vec3& point)
+{
+	auto* mind = Locator::entitiesRegistry::value().TryGet<CreatureMindState>(creature);
+	if (mind == nullptr)
+	{
+		return;
+	}
+	// Taken under the script's control, it gives up what it was doing and obeys: it turns to face the point, its head
+	// looking there from now on, as the plan of obeying its player, completed once the turn is over
+	mind->scriptFocus = point;
+	mind->scriptFocusThing.reset();
+	static_cast<void>(CarryOutForScript(creature, *mind, creature_mind::TurnToFacePoint(glm::vec2(point.x, point.z)), true));
+}
+
+void CreatureMindSystem::FocusOnThingByScript(entt::entity creature, entt::entity thing)
+{
+	auto* mind = Locator::entitiesRegistry::value().TryGet<CreatureMindState>(creature);
+	if (mind == nullptr)
+	{
+		return;
+	}
+	// As with a point: under the script's control it gives up what it was doing and obeys, turning to face the thing
+	// and holding still two seconds once it does, its head on the thing from now on
+	mind->scriptFocusThing = thing;
+	mind->scriptFocus.reset();
+	static_cast<void>(
+	    CarryOutForScript(creature, *mind, creature_mind::FaceThingForScript(static_cast<uint32_t>(thing)), true));
+	// and it comes to know the thing, as it does a thing it sees
+	ComeAcross(creature, *mind, thing);
+}
+
+void CreatureMindSystem::ReleaseFocusByScript(entt::entity creature)
+{
+	// Only the focus goes: the creature stays under the script's control, doing what it was doing
+	if (auto* mind = Locator::entitiesRegistry::value().TryGet<CreatureMindState>(creature); mind != nullptr)
+	{
+		mind->scriptFocus.reset();
+		mind->scriptFocusThing.reset();
+	}
+}
+
+namespace
+{
+/// As a script takes a creature or lets it go: a miracle it holds is let go of, and its body ends there and then what
+/// it plays, in this order: a dance (its finish plays), its own side of a fight (only in the midst of the duel), and a
+/// sit or a casting pose (the end plays now, or once the start has played)
+void EndForScript(entt::entity creature)
+{
+	if (Locator::magicSystem::has_value())
+	{
+		Locator::magicSystem::value().ReleaseCreatureCast(creature);
+	}
+	auto& registry = Locator::entitiesRegistry::value();
+	if (auto* body = registry.TryGet<CreatureAnimation>(creature); body != nullptr)
+	{
+		body->body = creature_layers::EndDance(body->body);
+	}
+	if (Locator::creatureFightSystem::has_value())
+	{
+		Locator::creatureFightSystem::value().EndOwnFight(creature);
+	}
+	if (auto* body = registry.TryGet<CreatureAnimation>(creature); body != nullptr)
+	{
+		body->body = creature_layers::EndLoop(body->body);
+	}
+}
+} // namespace
+
+void CreatureMindSystem::PrepareForScript(entt::entity creature, CreatureMindState& mind, bool stopWalking)
+{
+	if (!ecs::script_held::IsControlledByScript(creature))
+	{
+		ecs::script_held::SetControlledByScript(creature, true);
+	}
+	// What it does ends as an action that failed: the stronger for a duel it is in
+	if (Locator::creatureFightSystem::has_value())
+	{
+		Locator::creatureFightSystem::value().FailsWhileDueling(creature);
+	}
+	StopWhatItWasDoing(creature, mind, stopWalking);
+	EndForScript(creature);
+	mind.planner.current = creature_planner::Plan {.desire = Desire::ObeyPlayer,
+	                                               .action = creature_planner::k_FollowPlayerAction,
+	                                               .object = entt::to_integral(creature),
+	                                               .goalUsefulness = creature_planner::k_ForcedScore,
+	                                               .actionPriority = creature_planner::k_ForcedScore,
+	                                               .priority = creature_planner::k_ForcedScore};
+}
+
+bool CreatureMindSystem::CarryOutForScript(entt::entity creature, CreatureMindState& mind,
+                                           std::vector<creature_mind::Step> agenda, bool stopWalking)
+{
+	if (agenda.empty())
+	{
+		return false;
+	}
+	PrepareForScript(creature, mind, stopWalking);
+	creature_mind::Plan(mind.idle, creature_mind::Activity::Told, std::move(agenda));
+	// The agenda is the plan's: once over, it was carried out
+	mind.planActive = true;
+	mind.planSerial = mind.idle.serial;
+	mind.agendaSeen = mind.idle.serial;
+	mind.satisfiedByEffect = false;
+	mind.completedByStep = false;
+	return true;
+}
+
+void CreatureMindSystem::SetScriptPlay(entt::entity creature, uint32_t animation, uint32_t plays)
+{
+	if (auto* mind = Locator::entitiesRegistry::value().TryGet<CreatureMindState>(creature); mind != nullptr)
+	{
+		mind->scriptPlay = {.animation = animation, .plays = plays};
+	}
+}
+
+bool CreatureMindSystem::PlayForScript(entt::entity creature)
+{
+	auto* mind = Locator::entitiesRegistry::value().TryGet<CreatureMindState>(creature);
+	if (mind == nullptr)
+	{
+		return false;
+	}
+	return CarryOutForScript(creature, *mind, creature_script_play::Agenda(mind->scriptPlay), true);
+}
+
+bool CreatureMindSystem::MoveForScript(entt::entity creature, const glm::vec3& point, float distance)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	auto* mind = registry.TryGet<CreatureMindState>(creature);
+	const auto* transform = registry.TryGet<const Transform>(creature);
+	if (mind == nullptr || transform == nullptr)
+	{
+		return false;
+	}
+	// Both legs go by the creature's height, as it is drawn
+	const auto height = ecs::object::GetHeight(creature);
+	auto agenda =
+	    creature_mind::MoveForScript(glm::vec2(transform->position.x, transform->position.z), point, height, distance);
+	// Unlike every other thing a script has it do, the walk it is on is not stopped: the legs take it up, so a move sent
+	// again each turn to the same point carries the walk on, and one to a new point turns the walk there
+	const bool walking =
+	    Locator::creatureLocomotionSystem::has_value() && Locator::creatureLocomotionSystem::value().IsMoving(creature);
+	const bool done = CarryOutForScript(creature, *mind, std::move(agenda), false);
+	// For the debug tools, outside the registry
+	NoteNative(CreatureNative::MoveGameThing,
+	           {.object = static_cast<uint32_t>(entt::to_integral(creature)),
+	            .point = point,
+	            .done = done,
+	            .note = walking ? "sent while walking: the walk under way is taken up" : "sent while still",
+	            .turn = static_cast<uint32_t>(game_clock::Turn())});
+	return done;
+}
+
+bool CreatureMindSystem::HasPlayed(entt::entity creature)
+{
+	auto* mind = Locator::entitiesRegistry::value().TryGet<CreatureMindState>(creature);
+	if (mind == nullptr)
+	{
+		return true;
+	}
+	if (!creature_script_play::Played(mind->idle))
+	{
+		return false;
+	}
+	// Only being idle, what is left of its agenda is given up, so that it does not count as carried out; the plan it
+	// served stays with no steps
+	creature_script_play::ClearAfterPlayed(mind->idle);
+	return true;
+}
+
+void CreatureMindSystem::AbandonAction(entt::entity creature)
+{
+	auto* mind = Locator::entitiesRegistry::value().TryGet<CreatureMindState>(creature);
+	if (mind == nullptr)
+	{
+		return;
+	}
+	StopWhatItWasDoing(creature, *mind);
+	// A cast it was making is let go of with it
+	if (Locator::magicSystem::has_value())
+	{
+		Locator::magicSystem::value().ReleaseCreatureCast(creature);
+	}
+}
+
+void CreatureMindSystem::FoundNoWay(entt::entity creature)
+{
+	auto* mind = Locator::entitiesRegistry::value().TryGet<CreatureMindState>(creature);
+	if (mind == nullptr)
+	{
+		return;
+	}
+	// The action it was carrying out has just been done, as it gives it up
+	if (mind->planner.current.has_value() && mind->learnt.has_value() &&
+	    mind->planner.current->action < mind->learnt->turnsSinceDone.size())
+	{
+		mind->learnt->turnsSinceDone[mind->planner.current->action] = 0;
+	}
+	if (mind->idle.step >= mind->idle.agenda.size())
+	{
+		return;
+	}
+	// The thing the step is about: what it walks to, else what it handles, else what it looks over
+	const auto& step = mind->idle.agenda[mind->idle.step];
+	const auto thing = step.movement.object.has_value() ? step.movement.object
+	                   : step.order.object.has_value()  ? step.order.object
+	                                                    : step.object;
+	if (thing.has_value())
+	{
+		mind->beliefs.MarkBlocked(static_cast<entt::entity>(*thing), game_clock::Turn());
+	}
+}
+
+void CreatureMindSystem::ForceFinish(entt::entity creature)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	if (!registry.Valid(creature) || !registry.AllOf<CreatureMindState>(creature))
+	{
+		return;
+	}
+	Hurry(creature);
+	// What it was doing stops as a failure: it stops where it is, drops what it does with a thing, forgets its agenda and
+	// lets go of a cast
+	AbandonAction(creature);
+}
+
+void CreatureMindSystem::Hurry(entt::entity creature)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	if (!registry.Valid(creature))
+	{
+		return;
+	}
+	// The action that its body plays ends at two times the usual speed, and so do the animations of a thing it holds,
+	// lets go of, picks up or knocks down
+	if (auto* body = registry.TryGet<CreatureAnimation>(creature); body != nullptr)
+	{
+		body->body = creature_layers::Hurry(body->body);
+	}
+	if (Locator::creatureObjectActionSystem::has_value())
+	{
+		Locator::creatureObjectActionSystem::value().Hurry(creature);
+	}
+	// and its fight's moves, in its fight's start, stance, move or finish
+	if (Locator::creatureFightSystem::has_value())
+	{
+		Locator::creatureFightSystem::value().Hurry(creature);
+	}
+}
+
+void CreatureMindSystem::NoteNative(CreatureNative native, const CreatureNativeCall& call)
+{
+	auto& last = _lastNatives.at(static_cast<size_t>(native));
+	const auto calls = last.has_value() ? last->calls : 0;
+	last = call;
+	last->calls = calls + 1;
+}
+
+void CreatureMindSystem::ChangeDesires(entt::entity creature, const std::function<void(creature_desires::Desires&)>& change)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	auto* mind = registry.Valid(creature) ? registry.TryGet<CreatureMindState>(creature) : nullptr;
+	const auto* body = mind != nullptr ? registry.TryGet<const Creature>(creature) : nullptr;
+	if (body == nullptr)
+	{
+		return;
+	}
+	SetUpMind(creature, body->species, *mind);
+	if (!mind->desires.has_value())
+	{
+		return;
+	}
+	// Its stage of growing up decides which desires are active before the script has its say, not after
+	if (mind->desiresPhase != mind->developmentPhase)
+	{
+		creature_desires::ActivateForPhase(*mind->desires, Phases(), mind->developmentPhase);
+		mind->desiresPhase = mind->developmentPhase;
+	}
+	change(*mind->desires);
+}
+
+void CreatureMindSystem::ReleasedByScript(entt::entity creature)
+{
+	auto* mind = Locator::entitiesRegistry::value().TryGet<CreatureMindState>(creature);
+	if (mind == nullptr)
+	{
+		return;
+	}
+	mind->scriptFocus.reset();
+	mind->scriptFocusThing.reset();
+	// What it does ends as an action that failed, as the script's start ends it: the stronger for a duel it is in
+	if (Locator::creatureFightSystem::has_value())
+	{
+		Locator::creatureFightSystem::value().FailsWhileDueling(creature);
+	}
+	StopWhatItWasDoing(creature, *mind);
+	// The same stop as a script's start
+	EndForScript(creature);
+}
+
+bool CreatureMindSystem::ForceAction(entt::entity creature, size_t animation, bool mirrored,
+                                     std::optional<creature_face::Request> face, double interruptsAfter)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	auto* body = registry.TryGet<CreatureAnimation>(creature);
+	auto* mind = registry.TryGet<CreatureMindState>(creature);
+	if (body == nullptr || mind == nullptr || creature_mind::IsUnconscious(mind->idle))
+	{
+		return false;
+	}
+	// The face is pulled even when the body is too far into something to take the action
+	if (face.has_value())
+	{
+		body->face =
+		    creature_layers::PullFace(body->face, creature_face::AnimationOf(face->face), face->milliseconds, face->cue);
+	}
+	// Not while it is only just into something
+	if (Locator::creatureObjectActionSystem::has_value())
+	{
+		if (const auto progress = Locator::creatureObjectActionSystem::value().GetProgress(creature);
+		    progress.has_value() && static_cast<double>(*progress) < interruptsAfter)
+		{
+			return false;
+		}
+	}
+	// nor while its body's action, as far as the turns have played it, is no further through than the share
+	if (creature_layers::IsPlaying(body->body) && Locator::creatureAnimationSystem::has_value())
+	{
+		const auto duration = Locator::creatureAnimationSystem::value().AnimationDuration(
+		    creature, creature_layers::CurrentAnimation(body->body));
+		if (duration.has_value() && *duration > 0.0f &&
+		    !creature_feedback::MayInterrupt(body->body.timeMs, *duration, interruptsAfter))
+		{
+			// a trace at run time (the game channel at trace level), not compiled out of release builds
+			if (const auto logger = spdlog::get("game"))
+			{
+				logger->trace("Creature {}: action {} not forced: clip {} only {:.2f} through (needs {:.2f})",
+				              entt::to_integral(creature), animation, creature_layers::CurrentAnimation(body->body),
+				              body->body.timeMs / *duration, interruptsAfter);
+			}
+			return false;
+		}
+		// a trace at run time: the clip a forced action cuts, and how far it had got
+		if (const auto logger = spdlog::get("game"))
+		{
+			logger->trace("Creature {}: action {} forced, cutting clip {} at {:.2f} of {:.0f} ms", entt::to_integral(creature),
+			              animation, creature_layers::CurrentAnimation(body->body),
+			              duration.has_value() && *duration > 0.0f ? body->body.timeMs / *duration : 0.0f,
+			              duration.value_or(0.0f));
+		}
+	}
+	const auto played = creature_layers::PlayOnce(creature_layers::BodyAction {}, animation, mirrored);
+	if (!played.has_value())
+	{
+		return false;
+	}
+	if (Locator::creatureObjectActionSystem::has_value())
+	{
+		Locator::creatureObjectActionSystem::value().Cancel(creature);
+	}
+	if (Locator::creatureLocomotionSystem::has_value())
+	{
+		Locator::creatureLocomotionSystem::value().Stop(creature);
+	}
+	// Only the body plays it, as the game's hand forces it on the body alone: the mind keeps its plan and its agenda,
+	// whose steps wait for the body, and hears how it was treated once the hand lets go
+	body->body = *played;
+	return true;
+}
+
+void CreatureMindSystem::TakeUpLoadedForcedPlan(entt::entity creature, CreatureMindState& mind, const LoadedForcedPlan& loaded)
+{
+	const auto* tables = GetTables();
+	if (tables == nullptr || loaded.action >= tables->actions.size())
+	{
+		return;
+	}
+	creature_plan_actions::Situation situation {.instrument = loaded.instrument, .activity = loaded.activityObject};
+	situation.self = entt::to_integral(creature);
+	situation.forced = true;
+	// the camera, as the plan's own making sees it, for the agendas that turn to it or point at it
+	SeeCameraFor(creature, situation);
+	// a creature a script holds sits where the script told it, held the seconds the save keeps, as the script's sit
+	// draws them as the plan is forced (here nothing is drawn)
+	situation.controlledByScript = ecs::script_held::IsControlledByScript(creature);
+	if (situation.controlledByScript && loaded.seconds.has_value())
+	{
+		situation.radius = ecs::object::Get2DRadius(creature);
+		situation.drawnSeconds = *loaded.seconds;
+	}
+	// the agenda the action makes, its steps drawn at random taken as the saved agenda has them: a draw of 0 or of 1
+	// everywhere (the sleep at home's yawn first or not), the game's numbers not drawn
+	// (an agenda the load made from the saved one is taken as it is)
+	using Built = std::pair<const creature_plan_actions::Executor*, std::vector<creature_mind::Step>>;
+	std::optional<Built> built;
+	if (loaded.agenda.has_value())
+	{
+		if (const auto* executor = creature_plan_actions::For(tables->actions[loaded.action].name); executor != nullptr)
+		{
+			built = Built {executor, *loaded.agenda};
+		}
+	}
+	else
+	{
+		built =
+		    PlanAgenda(creature, loaded.action, loaded.object, situation, [](uint32_t range) { return range > 1 ? 1U : 0U; });
+	}
+	if (!loaded.agenda.has_value() && built.has_value() && built->second.size() != loaded.count)
+	{
+		built = PlanAgenda(creature, loaded.action, loaded.object, situation, [](uint32_t) { return 0U; });
+	}
+	if (!built.has_value() || built->second.size() != loaded.count || loaded.step >= built->second.size())
+	{
+		if (const auto logger = spdlog::get("game"))
+		{
+			logger->warn("Load: creature {} does not take up its forced plan of row {} at step {}", entt::to_integral(creature),
+			             loaded.action, loaded.step);
+		}
+		return;
+	}
+	auto& [executor, agenda] = *built;
+	// a turn to the camera goes to where its god's camera is now, as the game's turn reads the camera
+	if (situation.camera.has_value())
+	{
+		for (auto& step : agenda)
+		{
+			if (step.kind == creature_mind::Step::Kind::Move &&
+			    step.movement.kind == creature_mind::Movement::Kind::TurnToFace && step.gaze.has_value() && step.gaze->camera)
+			{
+				step.movement.point = *situation.camera;
+			}
+		}
+	}
+	if (auto& step = agenda[loaded.step]; loaded.turns.has_value() && step.kind == creature_mind::Step::Kind::LookAtCamera)
+	{
+		step.turns = loaded.turns;
+	}
+	if (auto& step = agenda[loaded.step]; loaded.seconds.has_value() && step.kind == creature_mind::Step::Kind::Static)
+	{
+		step.seconds = *loaded.seconds;
+	}
+	// a walk started again goes to the point the save keeps, as the game's walk takes its saved point
+	if (auto& step = agenda[loaded.step]; loaded.point.has_value() && step.kind == creature_mind::Step::Kind::Move &&
+	                                      step.movement.kind == creature_mind::Movement::Kind::ToPoint)
+	{
+		step.movement.point = *loaded.point;
+	}
+	if (!Replan(creature, executor->activity, std::move(agenda), false))
+	{
+		return;
+	}
+	mind.idle.step = loaded.step;
+	mind.idle.stepStarted = loaded.stepStarted;
+	constexpr float k_ForcedScore = std::numeric_limits<float>::max();
+	mind.planner.current = creature_planner::Plan {
+	    .desire = loaded.desire,
+	    .action = loaded.action,
+	    .object = loaded.object,
+	    .goalUsefulness = k_ForcedScore,
+	    .actionPriority = k_ForcedScore,
+	    .priority = k_ForcedScore,
+	    .activityObject = loaded.activityObject,
+	    .instrument = loaded.instrument,
+	    .forced = loaded.forced,
+	};
+	mind.planActive = true;
+	mind.planSerial = mind.idle.serial;
+	mind.agendaSeen = mind.idle.serial;
+	mind.satisfiedByEffect = false;
+	mind.completedByStep = false;
+	// an order its mind waits on, as the game's load leaves every kept agenda
+	mind.commanded = true;
+}
+
+void CreatureMindSystem::EndFightAsItStops(entt::entity creature)
+{
+	// What it was doing stops, and so does its fight, as the game's stop ends one: through its duel, whatever its plan
+	// was, it gains a fight's strength, an opponent dueling it stops and its own side of the duel ends; and the fight it
+	// made, still being set up, is left by both, the arena made for it gone. A fight it only obeys or was asked to is not
+	// ended here (the order, CallOffFightItWasAskedTo)
+	const auto& registry = std::as_const(Locator::entitiesRegistry::value());
+	const auto* fighting = registry.TryGet<const CreatureFighting>(creature);
+	if (fighting == nullptr || !Locator::creatureFightSystem::has_value())
+	{
+		return;
+	}
+	// the duel's part only in its duel, as the game's stop reaches a fight only through the body's opponent, which the
+	// duel's start sets
+	const bool inDuel = fighting->stage == CreatureFighting::Stage::Duel;
+	const bool settingUpItsOwn = IsLeadIn(fighting->stage) && fighting->madeArena;
+	auto& fights = Locator::creatureFightSystem::value();
+	if (inDuel)
+	{
+		fights.FailsWhileDueling(creature);
+		fights.PartnerStops(creature);
+		fights.EndOwnFight(creature);
+	}
+	if (settingUpItsOwn)
+	{
+		fights.CallOff(creature);
+	}
+}
+
+bool CreatureMindSystem::Replan(entt::entity creature, creature_mind::Activity activity,
+                                std::vector<creature_mind::Step> agenda, bool endWhatItDoes, bool fightStopped)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	auto* mind = registry.TryGet<CreatureMindState>(creature);
+	auto* body = registry.TryGet<CreatureAnimation>(creature);
+	if (mind == nullptr || body == nullptr || agenda.empty())
+	{
+		return false;
+	}
+	if (endWhatItDoes)
+	{
+		// its fight ends with the stop, once: not again when the forced plan's own stop has ended it
+		if (!fightStopped)
+		{
+			EndFightAsItStops(creature);
+		}
+		// and so does a fight it was only asked to, before its mind was told to stand still
+		CallOffFightItWasAskedTo(creature);
+		// What it was doing ends as a forced plan ends it: a walk brakes to a stop
+		if (Locator::creatureLocomotionSystem::has_value())
+		{
+			Locator::creatureLocomotionSystem::value().BrakeToStop(creature);
+		}
+		// The body's own action comes to its end and plays it out, the new plan's steps waiting for it: a pose's loop and
+		// a dance end and play their end, and an action played once plays on. A plan that hurries it made it play at two
+		// times the usual speed first. A body the fight shows is the fight's, and stops here
+		body->body = body->body.timedByPlayer ? creature_layers::BodyAction {}
+		                                      : creature_layers::EndDance(creature_layers::EndLoop(body->body));
+	}
+	else if (agenda.front().kind == creature_mind::Step::Kind::Move)
+	{
+		// The walk and the body go on as they are, and the plan's first walk takes up the walk under way
+		agenda.front().startsWhileWalking = true;
+	}
+	if (auto* eyes = registry.TryGet<CreatureEyes>(creature))
+	{
+		ApplyEyes(eyes, creature_mind::Eyes::Normal);
+	}
+	// Stopping what it does lets go of a miracle it holds
+	if (Locator::magicSystem::has_value())
+	{
+		Locator::magicSystem::value().ReleaseCreatureCast(creature);
+	}
+	Abandon(*mind);
+	// What it did has ended; an agenda with a fight in it marks it as set out to fight, as the fight's agenda is made
+	mind->fightStarted = std::ranges::any_of(
+	    agenda, [](const creature_mind::Step& step) { return step.kind == creature_mind::Step::Kind::Fight; });
+	creature_mind::Plan(mind->idle, activity, std::move(agenda));
+	return true;
+}
+
+bool CreatureMindSystem::PlansAction(entt::entity creature, std::string_view action)
+{
+	const auto& registry = std::as_const(Locator::entitiesRegistry::value());
+	const auto* mind = registry.Valid(creature) ? registry.TryGet<const CreatureMindState>(creature) : nullptr;
+	const auto* tables = GetTables();
+	if (mind == nullptr || tables == nullptr || !mind->planner.current.has_value() ||
+	    mind->planner.current->action >= tables->actions.size())
+	{
+		return false;
+	}
+	return tables->actions[mind->planner.current->action].name == action;
+}
+
+bool CreatureMindSystem::IsAvailableForReaction(entt::entity creature, uint8_t reaction)
+{
+	// The test reads the reactions' table, which comes with the game's data
+	return Locator::infoConstants::has_value() && creature_reactions::IsAvailableForReaction(creature, reaction);
+}
+
+bool CreatureMindSystem::Sleep(entt::entity creature)
+{
+	return Replan(creature, creature_mind::Activity::Sleep,
+	              creature_mind::Sleep([](uint32_t range) { return game_random::GameRand(range); }));
+}
+
+bool CreatureMindSystem::Eat(entt::entity creature, std::optional<entt::entity> food)
+{
+	const auto& registry = std::as_const(Locator::entitiesRegistry::value());
+	const auto* transform = registry.TryGet<const Transform>(creature);
+	if (!food.has_value() && transform != nullptr)
+	{
+		if (const auto nearest = NearestFood(registry, creature, glm::vec2(transform->position.x, transform->position.z), {}))
+		{
+			food = nearest->first;
+		}
+	}
+	if (!food.has_value() || !FoodValueOf(*food).has_value())
+	{
+		return false;
+	}
+	return Replan(creature, creature_mind::Activity::Eat, creature_mind::Eat(entt::to_integral(*food)));
+}
+
+bool CreatureMindSystem::Drink(entt::entity creature)
+{
+	const auto& registry = Locator::entitiesRegistry::value();
+	if (!registry.AllOf<Transform>(creature))
+	{
+		return false;
+	}
+	// At the place where the drinking action drinks, walking to within its height
+	const auto place = DrinkPlaceOf(creature);
+	return place.has_value() && Replan(creature, creature_mind::Activity::Drink,
+	                                   creature_drink::Drink(*place, object_measures::Height(registry, creature)));
+}
+
+bool CreatureMindSystem::Poo(entt::entity creature)
+{
+	return Replan(creature, creature_mind::Activity::Poo,
+	              creature_mind::Poo([](uint32_t range) { return game_random::GameRand(range); }));
+}
+
+void CreatureMindSystem::SquatFires(entt::entity creature, glm::vec3 bottom)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	auto* mind = registry.TryGet<CreatureMindState>(creature);
+	const auto* transform = registry.TryGet<const Transform>(creature);
+	if (mind == nullptr || transform == nullptr)
+	{
+		return;
+	}
+	// a fart when the plan is the fart, as its puffs and none of the rest; else the lump, thrown out behind it, and no
+	// poo nor poo desire left for a while
+	const auto* tables = GetTables();
+	const auto fart = tables != nullptr ? creature_mind_tables::FindAction(*tables, creature_fart::k_Action) : std::nullopt;
+	if (creature_fart::Farts(mind_detail::CurrentAction(*mind, tables), fart))
+	{
+		Fart(creature);
+		return;
+	}
+	if (Locator::creaturePhysiologySystem::has_value())
+	{
+		Locator::creaturePhysiologySystem::value().PooLump(
+		    creature, bottom, creature_fart::LumpVelocity(BodyYaw(registry, creature, *transform)));
+	}
+	if (mind->desires.has_value())
+	{
+		creature_desires::AfterPoo(*mind->desires, k_TurnsPerSecond);
+	}
+}
+
+bool CreatureMindSystem::Puke(entt::entity creature)
+{
+	// Sick, it does nothing else of its own accord until it is done
+	const bool sick = Replan(creature, creature_mind::Activity::Puke, creature_mind::Puke());
+	MarkCommanded(creature);
+	return sick;
+}
+
+void CreatureMindSystem::EndMeal(entt::entity creature, uint32_t objectType, float foodValue, creature_eating::MealEnd end)
+{
+	auto* mind = Locator::entitiesRegistry::value().TryGet<CreatureMindState>(creature);
+	if (mind == nullptr || !mind->desires.has_value())
+	{
+		return;
+	}
+	auto* counts = mind->learnt.has_value() && objectType < mind->learnt->objectTypes.size()
+	                   ? &mind->learnt->objectTypes.at(objectType)
+	                   : nullptr;
+	auto& desires = *mind->desires;
+	if (end == creature_eating::MealEnd::Eaten)
+	{
+		if (counts != nullptr)
+		{
+			++counts->eaten;
+		}
+		if (Locator::creaturePhysiologySystem::has_value())
+		{
+			auto& hunger = desires[Desire::Hunger].value;
+			hunger = Locator::creaturePhysiologySystem::value().HungerAfterMeal(creature, hunger, foodValue);
+		}
+		return;
+	}
+	// Not food, poisoned, or a meal that may not be eaten: it is held back from hunger for a while and is sick; only what
+	// is not food teaches it so
+	creature_desires::Suppress(desires, Desire::Hunger, k_MealRefusedSuppressSeconds, k_TurnsPerSecond);
+	if (end == creature_eating::MealEnd::NotFood && counts != nullptr)
+	{
+		++counts->notFood;
+	}
+	Puke(creature);
+}
+
+bool CreatureMindSystem::Faint(entt::entity creature)
+{
+	// What it was doing hurries to its end, then it faints as the game's faints are: knocked out, with its plan to die
+	// forced on it
+	Hurry(creature);
+	if (Locator::creatureFightSystem::has_value())
+	{
+		Locator::creatureFightSystem::value().ForceFaint(creature);
+		return std::as_const(Locator::entitiesRegistry::value()).AllOf<CreatureKnockedOut>(creature);
+	}
+	// Without the fights' knock-outs it drops where it stands, and does nothing else of its own accord until it comes
+	// round
+	const bool fainted = Replan(creature, creature_mind::Activity::Faint, creature_mind::Faint());
+	MarkCommanded(creature);
+	return fainted;
+}
+
+void CreatureMindSystem::Wake(entt::entity creature)
+{
+	if (auto* mind = Locator::entitiesRegistry::value().TryGet<CreatureMindState>(creature))
+	{
+		mind->idle.wakeWanted = true;
+	}
+}
+
+void CreatureMindSystem::StandUp(entt::entity creature)
+{
+	if (auto* body = Locator::entitiesRegistry::value().TryGet<CreatureAnimation>(creature))
+	{
+		body->body = creature_layers::EndLoop(body->body);
+	}
+}
+
+void CreatureMindSystem::FoughtFight(entt::entity creature, [[maybe_unused]] bool won)
+{
+	// Winning or losing, the fight is done. The game also has the loser learn from losing, which isn't known.
+	auto* mind = Locator::entitiesRegistry::value().TryGet<CreatureMindState>(creature);
+	if (mind != nullptr && mind->desires.has_value())
+	{
+		Satisfied(creature, *mind->desires, k_FightAction);
+	}
+}
+
+void CreatureMindSystem::MoveToStage(entt::entity creature, uint32_t stage)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	auto* mind = registry.Valid(creature) ? registry.TryGet<CreatureMindState>(creature) : nullptr;
+	if (mind == nullptr)
+	{
+		return;
+	}
+	mind->developmentPhase = stage;
+	// The mark that the hand held it goes with its agenda
+	mind->startActionAgain = false;
+	// The turns it has spent at its stage start again
+	if (mind->learnt.has_value())
+	{
+		mind->learnt->developmentTimer = 0;
+	}
+	// Its desires are set for the stage at once, even for the stage it is at already; a mind yet to think sets them up
+	// for the stage when it first does
+	if (mind->desires.has_value())
+	{
+		creature_desires::ActivateForPhase(*mind->desires, Phases(), stage);
+		mind->desiresPhase = stage;
+		if (const auto logger = spdlog::get("game"))
+		{
+			std::string on;
+			for (size_t i = 0; i < mind->desires->desires.size(); ++i)
+			{
+				if (mind->desires->desires[i].activated)
+				{
+					on += fmt::format("{}{}", on.empty() ? "" : " ", i);
+				}
+			}
+			logger->info("Creature {} moves to stage {}: desires on {}", entt::to_integral(creature), stage, on);
+		}
+	}
+	else
+	{
+		mind->desiresPhase.reset();
+		if (const auto logger = spdlog::get("game"))
+		{
+			logger->info("Creature {} moves to stage {}: its desires are set as it first thinks", entt::to_integral(creature),
+			             stage);
+		}
+	}
+	// The mind file a creature is made from, or given, is the creature's mind at once, so the stage comes after it: a
+	// mind that has yet to take up its file puts this stage over the file's once it has
+	const auto* body = registry.TryGet<const Creature>(creature);
+	const bool fileWaits = mind->pendingFile != nullptr || (!mind->resourceChecked && body != nullptr && body->mind != 0);
+	if (fileWaits)
+	{
+		mind->scriptStage = stage;
+	}
+	else
+	{
+		mind->scriptStage.reset();
+	}
+	GiveUpPlan(creature);
+}
+
+void CreatureMindSystem::TakeUpScriptStage(CreatureMindState& mind)
+{
+	const auto stage = *mind.scriptStage;
+	mind.scriptStage.reset();
+	mind.developmentPhase = stage;
+	if (mind.learnt.has_value())
+	{
+		mind.learnt->developmentTimer = 0;
+	}
+	if (mind.desires.has_value())
+	{
+		creature_desires::ActivateForPhase(*mind.desires, Phases(), stage);
+		mind.desiresPhase = stage;
+	}
+	else
+	{
+		mind.desiresPhase.reset();
+	}
+}

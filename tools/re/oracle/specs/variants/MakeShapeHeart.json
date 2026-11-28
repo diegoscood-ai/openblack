@@ -1,0 +1,9 @@
+{
+ "extends": "../MakeShapeCircle.json",
+ "function": "MakeShapeHeart",
+ "symbol": "?MakeShapeHeart@MakeShape@@SAXK@Z",
+ "addr": "0x00510090",
+ "notes": "MakeShape::MakeShapeHeart (shape 9): its 256 points at DanceShapePoints + 9 * 0x800 (0x00CB2370). See MakeShapeCircle.json.",
+ "args": [{"name": "shape", "type": "u32", "value": 9}],
+ "globals": [{"name": "points", "addr": "0x00CB2370", "type": "i32", "count": 512, "out": true}]
+}

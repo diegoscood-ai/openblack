@@ -1,0 +1,233 @@
+/******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+// The testbed's scenarios of a fish farm on the lake's shore: its shoal swimming, the hand finding the farm through
+// its fish, scooping them and scaring them, a hungry creature fishing, and a fisherman walking footpaths to the farm
+
+#include <string_view>
+#include <vector>
+
+#include "Creature/CreatureDesires.h"
+#include "TestbedScenarioRegistry.h"
+
+using namespace openblack;
+using namespace openblack::testbed_scenarios;
+
+namespace
+{
+using Kind = Command::Kind;
+
+/// The Action button, and the button that grips the land to move about
+constexpr size_t k_Action = 3;
+constexpr size_t k_Grip = 1;
+
+/// The farm stands on the lake's southern shore, its town's hut on the bank behind it. Its shoal lies in the first open
+/// water going out from it, a few metres north and east of it.
+constexpr glm::vec2 k_Farm {5.0f, 165.0f};
+constexpr glm::vec2 k_Hut {-10.0f, 140.0f};
+constexpr glm::vec2 k_Shoal {8.0f, 172.0f};
+
+std::vector<ObjectSetup> FarmAndTown()
+{
+	return {
+	    {.type = AbodeInfo::NorseHut, .offset = k_Hut, .yawDegrees = 180.0f},
+	    {.type = FishFarmInfo::Normal, .offset = k_Farm},
+	};
+}
+
+/// Looking steeply down onto the shoal from the shore, the pointer in the middle of the window over the shoal
+Framing OverTheShoal()
+{
+	return {.shot = Shot::Placed, .eye = {k_Shoal.x, 45.0f, k_Shoal.y - 25.0f}, .look = {k_Shoal.x, 0.0f, k_Shoal.y}};
+}
+
+Environment PointerOnTheShoal()
+{
+	return {.dispenserGrid = false, .cursor = glm::vec2(0.5f, 0.5f)};
+}
+
+Command Press(size_t button, float delay)
+{
+	return {.kind = Kind::PointerPress, .delaySeconds = delay, .value = button};
+}
+
+Command Release(size_t button, float delay)
+{
+	return {.kind = Kind::PointerRelease, .delaySeconds = delay, .value = button};
+}
+
+/// A fish farm whose map cell is the last of the land on the lake's southern shore
+constexpr glm::vec2 k_ShoreFarm {5.0f, 145.0f};
+
+/// The farm with its town's hut and empty storage pit on the bank behind it, and the footpaths a land's footpath file
+/// would lay between them: the farm's path from the farm's own place out to the pit, and the hut's path from its door
+/// to the pit; the fisherman starts by the hut, too far from the farm's path to join it, so he goes by way of the pit
+std::vector<ObjectSetup> ShoreFarmWithFootpaths()
+{
+	return {
+	    {.type = AbodeInfo::NorseHut, .offset = k_ShoreFarm + glm::vec2(-30.0f, -60.0f), .yawDegrees = 180.0f},
+	    {.type = FishFarmInfo::Normal, .offset = k_ShoreFarm},
+	    {.type = AbodeInfo::NorseStoragePit, .offset = k_ShoreFarm + glm::vec2(25.0f, -30.0f), .storedFood = 0},
+	    {.type = VillagerInfo::NorseFishermanMale, .offset = k_ShoreFarm + glm::vec2(-30.0f, -70.0f), .joinTown = true},
+	};
+}
+
+std::vector<FootpathSetup> ShoreFootpaths()
+{
+	const auto at = [](float x, float z) { return k_ShoreFarm + glm::vec2(x, z); };
+	return {
+	    // From the farm (object 1), a centimetre north, then bending round to the pit's side
+	    {.startsAt = 1, .nodes = {at(0.0f, 0.01f), at(4.0f, -8.0f), at(12.0f, -16.0f), at(18.0f, -22.0f)}, .leadsFrom = {1, 2}},
+	    // From the hut's door (object 0) to the pit
+	    {.nodes = {at(-30.0f, -54.0f), at(-15.0f, -48.0f), at(0.0f, -38.0f), at(12.0f, -30.0f), at(18.0f, -24.0f)},
+	     .leadsFrom = {0, 2}},
+	};
+}
+
+/// The hut and the empty storage pit by the lake-shore farm's place, and a fisherman of their town 30 m from the farm
+std::vector<ObjectSetup> ShoreTownForScriptFootpaths()
+{
+	return {
+	    {.type = AbodeInfo::NorseHut, .offset = k_ShoreFarm + glm::vec2(-30.0f, -60.0f), .yawDegrees = 180.0f},
+	    {.type = AbodeInfo::NorseStoragePit, .offset = k_ShoreFarm + glm::vec2(25.0f, -30.0f), .storedFood = 0},
+	    {.type = VillagerInfo::NorseFishermanMale, .offset = k_ShoreFarm + glm::vec2(-10.0f, -30.0f), .joinTown = true},
+	};
+}
+
+/// The land's script makes two footpaths and then the farm. The script makes the farm's path first, so the farm's path
+/// is number 1 after the script makes the second path. The link after the farm goes to the farm. The link after the
+/// tree does nothing, because a tree cannot keep footpaths. Each place is a distance from the middle of the map (the
+/// farm is at 5, 145).
+constexpr std::string_view k_ShoreScriptFootpaths = R"(CREATE_FOOTPATH(7)
+CREATE_FOOTPATH_NODE(0, "5.0,145.0")
+CREATE_FOOTPATH_NODE(0, "5.0,145.01")
+CREATE_FOOTPATH_NODE(0, "9.0,137.0")
+CREATE_FOOTPATH_NODE(0, "17.0,129.0")
+CREATE_FOOTPATH_NODE(0, "23.0,123.0")
+CREATE_FOOTPATH(8)
+CREATE_FOOTPATH_NODE(0, "-25.0,91.0")
+CREATE_FOOTPATH_NODE(0, "-10.0,97.0")
+CREATE_FISH_FARM("5.0,145.0", 0)
+LINK_FOOTPATH(1)
+CREATE_NEW_TREE(-1, "-40.0,120.0", 3, 1, 0.0, 0.6, 0.6)
+LINK_FOOTPATH(0)
+)";
+
+/// From above the middle of the paths, looking north over the farm to the lake
+Framing OverTheFootpaths()
+{
+	return {.shot = Shot::Placed,
+	        .eye = {k_ShoreFarm.x - 5.0f, 45.0f, k_ShoreFarm.y - 75.0f},
+	        .look = {k_ShoreFarm.x - 5.0f, 0.0f, k_ShoreFarm.y - 25.0f}};
+}
+} // namespace
+
+void testbed_scenarios::AddFishScenarios(std::vector<Scenario>& all)
+{
+	all.push_back({
+	    .id = "villagers.footpaths",
+	    .name = "A fisherman walking footpaths",
+	    .facet = Facet::Movement,
+	    .description = "The lake-shore fish farm, its town's hut and empty storage pit, with a footpath from the farm out "
+	                   "to the pit and one from the hut's door to the pit (drawn with the Footpaths debug lines). The "
+	                   "fisherman starts by the hut, more than 40 m from the farm's path. Seen from above the paths.",
+	    .expected = "The town wants food, so the fisherman sets off for the farm by way of the pit: he walks the hut's "
+	                "path to the pit, then the farm's path out to the farm, node by node, heading for each node on the "
+	                "way a little to one side of it and for the last one exactly. At the farm he fishes, as in the game.",
+	    .environment = {.dispenserGrid = false, .drawFootpaths = true},
+	    .framing = OverTheFootpaths(),
+	    .objects = ShoreFarmWithFootpaths(),
+	    .footpaths = ShoreFootpaths(),
+	});
+
+	all.push_back({
+	    .id = "villagers.script_footpaths",
+	    .name = "Footpaths made by the land's script",
+	    .facet = Facet::Movement,
+	    .description = "The lake-shore hut, its empty storage pit and a fisherman 30 m from the farm's place. Then lines "
+	                   "of a land's script make a footpath from the farm's place towards the pit, a second short "
+	                   "footpath, the fish farm, a link of footpath number 1 (the first one) to the farm, a tree, and a "
+	                   "link of footpath number 0 after the tree. The Footpaths debug lines show the footpaths.",
+	    .expected = "The town needs food, so the fisherman starts to walk to the farm. He walks to the nearest node of "
+	                "the farm's path. Then he walks along the path, node by node, to the farm. He walks to a point near "
+	                "each node, but to the last node exactly. Nobody uses the second path, because the link after the "
+	                "tree does nothing.",
+	    .environment = {.dispenserGrid = false, .drawFootpaths = true},
+	    .framing = OverTheFootpaths(),
+	    .objects = ShoreTownForScriptFootpaths(),
+	    .landScript = k_ShoreScriptFootpaths,
+	});
+
+	all.push_back({
+	    .id = "hand.fish_farm",
+	    .name = "A fish farm's shoal",
+	    .facet = Facet::Hand,
+	    .description = "A fish farm on the lake's southern shore, a hut of its town on the bank behind it, seen steeply "
+	                   "from above.",
+	    .expected = "Fifteen small flat fish swim under the water a few metres out from the shore, each turning after a "
+	                "point that moves about within 7 m of the shoal's middle, their tails flicking as they go. Nothing is "
+	                "drawn for the farm itself.",
+	    .environment = PointerOnTheShoal(),
+	    .framing = OverTheShoal(),
+	    .objects = FarmAndTown(),
+	    // The pointer is held over the shoal, the hand resting on the water
+	    .commands = {{.kind = Kind::PointerTo, .point = glm::vec2(0.5f, 0.5f)}},
+	});
+
+	all.push_back({
+	    .id = "hand.fish_scoop",
+	    .name = "Scooping fish out of a fish farm",
+	    .facet = Facet::Hand,
+	    .description = "The pointer rests over the farm's shoal. Every few seconds the Action button is pressed and held "
+	                   "for four seconds, then let go.",
+	    .expected = "A press with a fish under the hand locks onto the farm at once: a handful of 25 food comes into the "
+	                "hand, a stream of fish leaps from the farm into it and the handful grows every turn while the button "
+	                "is held. A press with no fish under the hand grips the water instead, its splash sending the fish "
+	                "darting away. As the farm empties fewer fish show.",
+	    .environment = PointerOnTheShoal(),
+	    .framing = OverTheShoal(),
+	    .objects = FarmAndTown(),
+	    .commands = {Press(k_Action, 3.0f), Release(k_Action, 4.0f), Press(k_Action, 3.0f), Release(k_Action, 4.0f)},
+	    .repeatFrom = 0,
+	});
+
+	all.push_back({
+	    .id = "hand.fish_scare",
+	    .name = "Scaring a fish farm's fish",
+	    .facet = Facet::Hand,
+	    .description = "The pointer rests a little off the farm's shoal, over open water. Every three seconds the button "
+	                   "that grips the land is pressed and let go at once, the hand gripping the water.",
+	    .expected = "Each grip splashes, and the fish within 8 m of it turn straight away from it and dart off four times "
+	                "as fast, slowing over two seconds; the whole shoal then heads for a new point 2 m from its middle.",
+	    .environment = {.dispenserGrid = false, .cursor = glm::vec2(0.5f, 0.35f)},
+	    .framing = OverTheShoal(),
+	    .objects = FarmAndTown(),
+	    .commands = {Press(k_Grip, 3.0f), Release(k_Grip, 0.1f)},
+	    .repeatFrom = 0,
+	});
+
+	all.push_back({
+	    .id = "needs.fish_and_eat",
+	    .name = "Hungry creature fishes",
+	    .facet = Facet::Needs,
+	    .description = "A hungry tiger on the bank above the lake, a fish farm on the shore below it and no other food "
+	                   "anywhere.",
+	    .expected = "It walks down to within 15 m of the farm's shoal, a bundle of food half as big again as it appears at "
+	                "its feet out of the water, and it picks it up and eats it; the farm's fish stay as they were.",
+	    .framing = {.shot = Shot::Follow},
+	    .creatures = {CreatureSetup {
+	        .species = CreatureType::Tiger,
+	        .offset = {0.0f, 120.0f},
+	        .facingDegrees = 180.0f,
+	        .needs = {.energy = 0.2f, .dehydration = 0.0f, .poo = 0.0f},
+	        .desires = {{.desire = creature_desires::Desire::Hunger, .fraction = 1.0f}},
+	    }},
+	    .objects = FarmAndTown(),
+	});
+}

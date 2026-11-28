@@ -1,0 +1,145 @@
+/******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+#include <cstdint>
+
+#include <algorithm>
+#include <span>
+#include <vector>
+
+#include <gtest/gtest.h>
+
+#include "3D/LowResolutionTextures.h"
+
+using namespace openblack;
+
+TEST(LowResolutionTextures, ThePicturesTheGameHalvesAndTheirAlphaFiles)
+{
+	EXPECT_TRUE(low_resolution_textures::HalvedAtLowDetail("misc0"));
+	EXPECT_TRUE(low_resolution_textures::HalvedAtLowDetail("misc0a"));
+	EXPECT_TRUE(low_resolution_textures::HalvedAtLowDetail("S_Fire"));
+	EXPECT_TRUE(low_resolution_textures::HalvedAtLowDetail("Sky"));
+	EXPECT_TRUE(low_resolution_textures::HalvedAtLowDetail("C_Ape_Haira"));
+	// The game keeps the atmosphere and the front end's buttons at their full size
+	EXPECT_FALSE(low_resolution_textures::HalvedAtLowDetail("atmos"));
+	EXPECT_FALSE(low_resolution_textures::HalvedAtLowDetail("Front_end_buttons"));
+	EXPECT_FALSE(low_resolution_textures::HalvedAtLowDetail("human_shadow"));
+}
+
+TEST(LowResolutionTextures, HalvingTakesTheFirstTexelOfEachTwoByTwoSquare)
+{
+	// Each texel holds its row and its column
+	std::vector<uint8_t> picture(static_cast<size_t>(256) * 256 * 3);
+	for (size_t row = 0; row < 256; ++row)
+	{
+		for (size_t column = 0; column < 256; ++column)
+		{
+			const auto at = ((row * 256) + column) * 3;
+			picture[at] = static_cast<uint8_t>(row);
+			picture[at + 1] = static_cast<uint8_t>(column);
+			picture[at + 2] = 7;
+		}
+	}
+	const auto half = low_resolution_textures::Halve(picture);
+	ASSERT_TRUE(half.has_value());
+	ASSERT_EQ(half->size(), static_cast<size_t>(128) * 128 * 3);
+	const auto at = ((5u * 128u) + 9u) * 3u;
+	EXPECT_EQ((*half)[at], 10);
+	EXPECT_EQ((*half)[at + 1], 18);
+	EXPECT_EQ((*half)[at + 2], 7);
+
+	// An alpha file has a byte a texel
+	std::vector<uint8_t> alpha(static_cast<size_t>(256) * 256);
+	alpha[(2 * 256) + 4] = 200;
+	alpha[(3 * 256) + 5] = 100;
+	const auto halfAlpha = low_resolution_textures::Halve(alpha);
+	ASSERT_TRUE(halfAlpha.has_value());
+	EXPECT_EQ((*halfAlpha)[(1 * 128) + 2], 200);
+	EXPECT_EQ(std::count(halfAlpha->begin(), halfAlpha->end(), uint8_t {100}), 0);
+
+	// A picture of another size is not halved
+	EXPECT_FALSE(low_resolution_textures::Halve(std::vector<uint8_t>(1000)).has_value());
+}
+
+TEST(LowResolutionTextures, APictureMadeInMemoryTakesTheMeanOfEachSquareRoundedDown)
+{
+	std::vector<uint16_t> picture(static_cast<size_t>(256) * 256, 0xF000);
+	// The square at row 2, column 4 of the half picture
+	const size_t at = (4 * 256) + 8;
+	picture[at] = 0xF123;
+	picture[at + 1] = 0xF456;
+	picture[at + 256] = 0x7789;
+	picture[at + 257] = 0x0ABC;
+	const auto half = low_resolution_textures::HalveByMean4444(picture);
+	ASSERT_TRUE(half.has_value());
+	ASSERT_EQ(half->size(), static_cast<size_t>(128) * 128);
+	// Each channel is the mean of its four, rounded down: alpha (15 + 15 + 7 + 0) / 4 = 9, red (1 + 4 + 7 + 10) / 4 = 5,
+	// green (2 + 5 + 8 + 11) / 4 = 6, blue (3 + 6 + 9 + 12) / 4 = 7
+	EXPECT_EQ((*half)[(2 * 128) + 4], 0x9567);
+	EXPECT_EQ((*half)[0], 0xF000);
+
+	// A picture of another size is not halved
+	EXPECT_FALSE(low_resolution_textures::HalveByMean4444(std::vector<uint16_t>(1000)).has_value());
+}
+
+TEST(LowResolutionTextures, AnOpaquePictureTakesTheMeanOfItsFiveBitColoursAndStaysOpaque)
+{
+	std::vector<uint16_t> picture(static_cast<size_t>(256) * 256, 0x0000);
+	// Red 1, 2, 3, 9 makes 15 / 4 = 3; green 31 four times stays 31; blue 0, 0, 0, 3 makes 0
+	picture[0] = static_cast<uint16_t>((1u << 10u) | (31u << 5u));
+	picture[1] = static_cast<uint16_t>((2u << 10u) | (31u << 5u));
+	picture[256] = static_cast<uint16_t>((3u << 10u) | (31u << 5u));
+	picture[257] = static_cast<uint16_t>((9u << 10u) | (31u << 5u) | 3u);
+	const auto half = low_resolution_textures::HalveByMean555Opaque(picture);
+	ASSERT_TRUE(half.has_value());
+	EXPECT_EQ((*half)[0], static_cast<uint16_t>(0x8000u | (3u << 10u) | (31u << 5u)));
+	EXPECT_EQ((*half)[1], 0x8000);
+}
+
+TEST(LowResolutionTextures, SixteenBitTexelsHalveToTheFirstTexelOfEachSquare)
+{
+	constexpr uint16_t k_Side = 4;
+	std::vector<uint16_t> picture(static_cast<size_t>(k_Side) * k_Side);
+	for (size_t i = 0; i < picture.size(); ++i)
+	{
+		picture[i] = static_cast<uint16_t>(0x1000 + i);
+	}
+	const auto half = low_resolution_textures::HalveTexels(picture, k_Side);
+	ASSERT_TRUE(half.has_value());
+	EXPECT_EQ(*half, (std::vector<uint16_t> {0x1000, 0x1002, 0x1008, 0x100A}));
+	EXPECT_FALSE(low_resolution_textures::HalveTexels(std::span<const uint16_t>(picture).first(15), k_Side).has_value());
+}
+
+// The original's system-memory texture copy into a half-size surface (LH3DSRAMTex::CopyInto, bw1-decomp
+// LH3DSRAMTex.cpp:317): each texel of the half is its square's four texels summed channel by channel and shifted down
+// by two; a 4444 skin keeps the four channels, a 555 one its five-bit colours with the opaque bit set
+TEST(LowResolutionTextures, ASkinHalvesAsTheOriginalsCopyIntoAHalfSurface)
+{
+	std::vector<uint16_t> skin(static_cast<size_t>(256) * 256, 0);
+	skin[0] = 0x1234;
+	skin[1] = 0x5678;
+	skin[256] = 0x9ABC;
+	skin[257] = 0xDEF0;
+	const auto half = low_resolution_textures::HalveByMean4444(skin);
+	ASSERT_TRUE(half.has_value());
+	ASSERT_EQ(half->size(), static_cast<size_t>(128) * 128);
+	// (1+5+9+D) >> 2 = 7, (2+6+A+E) >> 2 = 8, (3+7+B+F) >> 2 = 9, (4+8+C+0) >> 2 = 6
+	EXPECT_EQ(half->at(0), 0x7896);
+	EXPECT_EQ(half->at(1), 0x0000);
+	std::vector<uint16_t> opaque(static_cast<size_t>(256) * 256, 0);
+	opaque[0] = 0x7C00;
+	opaque[1] = 0x03E0;
+	opaque[256] = 0x001F;
+	opaque[257] = 0x7FFF;
+	const auto halfOpaque = low_resolution_textures::HalveByMean555Opaque(opaque);
+	ASSERT_TRUE(halfOpaque.has_value());
+	// red (31+0+0+31) >> 2 = 15, green the same, blue the same, the opaque bit set
+	EXPECT_EQ(halfOpaque->at(0), 0x8000 | (15 << 10) | (15 << 5) | 15);
+	EXPECT_EQ(halfOpaque->at(1), 0x8000);
+}

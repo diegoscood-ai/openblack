@@ -1,0 +1,207 @@
+/******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+
+#include <array>
+#include <optional>
+#include <span>
+#include <string>
+#include <string_view>
+
+#include <glm/vec2.hpp>
+#include <glm/vec4.hpp>
+
+#include "Creature/CreaturePhysiology.h"
+
+/// The creature's status panel: while the hand is over a creature, any player's, the left of the screen shows how
+/// damaged, hungry and tired it is as bars, and below them the reward the hand has given it so far, from a slap to a
+/// stroke. While the camera follows a creature the panel shows the first three near the top of the screen instead.
+/// It is drawn afresh every frame it is wanted, without fading. Everything here is pure: the values, their words and
+/// the panel's layout, in the dialogs' space as the game lays it out.
+namespace openblack::creature_panel
+{
+
+/// What brings the panel up over a creature: the game shows it whenever the hand is over one, but it can be made to
+/// need the right button held as well
+enum class Trigger : uint8_t
+{
+	Hover,
+	RightButtonHeld,
+};
+constexpr Trigger k_Trigger = Trigger::Hover;
+/// Whether the panel shows for a creature under the hand, with the right button held or not
+[[nodiscard]] constexpr bool Triggered(bool rightButtonHeld)
+{
+	return k_Trigger == Trigger::Hover || rightButtonHeld;
+}
+/// Whether a wanted panel is drawn: not while the game shows one of its sequences (inside the citadel, the falling
+/// spell), nor under an open box (the tattoo editor's among them)
+[[nodiscard]] constexpr bool Drawn(bool inSequence, bool boxOpen)
+{
+	return !inSequence && !boxOpen;
+}
+
+/// The panel's rows, top to bottom
+enum class Row : uint8_t
+{
+	Damage,
+	Hunger,
+	Tiredness,
+	Reward,
+};
+constexpr size_t k_RowCount = 4;
+
+/// The names of the rows' labels and the reward's words in the game's info scripts
+constexpr std::array<std::string_view, k_RowCount> k_LabelNames {
+    "HELP_TEXT_DIALOG_ADDITION_48",  // Damage
+    "HELP_TEXT_DIALOG_ADDITION_68",  // Hunger
+    "HELP_TEXT_DIALOG_ADDITION_137", // Tiredness
+    "HELP_TEXT_DIALOG_ADDITION_118", // Reward
+};
+constexpr std::string_view k_BadBoyName = "HELP_TEXT_DIALOG_ADDITION_23";
+constexpr std::string_view k_GoodBoyName = "HELP_TEXT_DIALOG_ADDITION_65";
+constexpr std::string_view k_NoRewardName = "HELP_TEXT_DIALOG_ADDITION_99";
+/// The hand's "Interact" tooltip, shown over the player's own creature
+constexpr uint32_t k_InteractToolTip = 18;
+
+/// Rewards nearer nothing than this read as no reward
+constexpr float k_NoRewardBelow = 0.01f;
+
+/// What the panel shows, each from 0 to 1 and the reward from -1 (slapped) to 1 (stroked); no reward row without one
+struct Values
+{
+	float damage {0.0f};
+	float hunger {0.0f};
+	float tiredness {0.0f};
+	std::optional<float> reward;
+};
+
+/// From 0 to 1, as the game clamps: anything not above 0, nonsense included, is 0, anything not below 1 is 1
+[[nodiscard]] float Clamp01(float value);
+/// From -1 to 1 the same way
+[[nodiscard]] float ClampReward(float reward);
+/// The panel's values from a body: damage is the life lost, hunger the energy missing (a big meal fills it past 1, and
+/// then it is 0) and tiredness the exhaustion; the reward when the hand gives one
+[[nodiscard]] Values FromNeeds(const creature_physiology::Needs& needs, std::optional<float> reward);
+
+/// A value as a whole percentage, cut short rather than rounded: 0.0399 is 3
+[[nodiscard]] int Percent(float value);
+/// "N%"
+[[nodiscard]] std::u16string FormatPercent(float value);
+/// A text with "%d" replaced by a number and "%%" by "%", as the scripts' texts give them
+[[nodiscard]] std::u16string FormatNumber(std::u16string_view format, int number);
+
+enum class RewardKind : uint8_t
+{
+	Bad,
+	Good,
+	None,
+};
+[[nodiscard]] RewardKind Classify(float reward);
+/// The scripts' words for the reward: "Bad Boy! %d%%", "Good Boy! %d%%" and "No Reward"
+struct RewardTexts
+{
+	std::u16string_view bad;
+	std::u16string_view good;
+	std::u16string_view none;
+};
+/// "Bad Boy! 37%", "Good Boy! 20%", or "No Reward 0%"
+[[nodiscard]] std::u16string FormatReward(float reward, const RewardTexts& texts);
+
+/// How full a row's bar is, 0 to 1; the reward's bar is half full with no reward
+[[nodiscard]] float Fill(Row row, const Values& values);
+/// The colour a row's bar fills with: yellow, but the reward's red while it is a punishment and green otherwise
+[[nodiscard]] glm::vec4 BarColour(Row row, float fill);
+/// The text of a row's value
+[[nodiscard]] std::u16string FormatValue(Row row, const Values& values, const RewardTexts& texts);
+
+/// A rectangle, from min to max
+struct Rect
+{
+	glm::vec2 min {0.0f};
+	glm::vec2 max {0.0f};
+};
+
+struct RowLayout
+{
+	Row row {Row::Damage};
+	Rect bar;
+	/// The top right of the label, and the top left of the value
+	glm::vec2 labelRight {0.0f};
+	glm::vec2 valueLeft {0.0f};
+};
+
+/// A point of the dialogs' space on a screen, in whole pixels: moved to the middle of a screen of 800 by 600 or more,
+/// else shrunk to fit and centred, each axis cut to a whole pixel
+[[nodiscard]] glm::vec2 DialogsToScreen(glm::u16vec2 resolution, glm::vec2 dialogs);
+/// What a length of the dialogs' space is divided by on a screen: 1 on a screen of 800 by 600 or more, else the
+/// larger of 850 over its width and 650 over its height
+[[nodiscard]] float DialogsDivisor(glm::u16vec2 resolution);
+
+/// The panel laid out in the dialogs' space, in whole units: on a screen of 800 by 600 or more a unit is a pixel and
+/// the space is centred on the screen; on a smaller screen the space is shrunk to fit it, and each point of the panel
+/// is cut to a whole pixel there as it is drawn. Every corner of what is drawn goes to the screen on its own.
+struct Layout
+{
+	/// The screen the panel is laid out for
+	glm::u16vec2 resolution {800, 600};
+	/// The see-through black box behind the panel, which fades out to its right
+	Rect box;
+	/// The rows' pitch, and the text's height, half of it
+	float size {0.0f};
+	float textSize {0.0f};
+	std::array<RowLayout, k_RowCount> rows {};
+	size_t rowCount {0};
+
+	[[nodiscard]] std::span<const RowLayout> Rows() const { return std::span(rows).first(rowCount); }
+	/// A point of the dialogs' space on the screen, in whole pixels
+	[[nodiscard]] glm::vec2 ToScreen(glm::vec2 dialogs) const { return DialogsToScreen(resolution, dialogs); }
+	/// The text's height on the screen: as high as in the dialogs' space, shrunk with it on a smaller screen
+	[[nodiscard]] float TextSizeOnScreen() const;
+};
+
+/// The width the labels' column takes: the widest label, at the text's size, and half a row more in whole pixels
+[[nodiscard]] float LabelColumnWidth(std::span<const float> labelWidths, float size);
+/// The rows' pitch on a screen: a sixteenth of its height in whole pixels, taken into the dialogs' space in whole
+/// units; the text is half of it
+[[nodiscard]] int RowPitch(glm::u16vec2 resolution);
+/// The panel's layout on a screen: the box's corners at shares of the screen in whole pixels, taken into the dialogs'
+/// space, with the reward a third of the screen high and a quarter down it, without it three quarters as high and
+/// near the top; the rows are laid out from there in the dialogs' space. The bars are as wide as the labels' column,
+/// measured at the text's size in the dialogs' space.
+[[nodiscard]] Layout Compute(glm::u16vec2 resolution, bool withReward, float labelColumnWidth);
+
+/// The part of a bar that is filled: from one side to the other, the bright end where it ends. The reward's bar fills
+/// from its middle, either way, and has a line down its middle.
+struct BarFill
+{
+	/// The dim end and the bright end, across the screen; nothing to fill when they meet
+	float from {0.0f};
+	float to {0.0f};
+	float top {0.0f};
+	float bottom {0.0f};
+	std::optional<float> middle;
+
+	[[nodiscard]] bool Empty() const { return from == to; }
+};
+/// The bars' frame is this many pixels thick inside their rectangle
+constexpr float k_BarInset = 3.0f;
+/// The frame's box is black, as opaque as the front end atlas's box cell (191) once cut to its top four bits and
+/// widened back, as the game keeps that atlas in 16-bit colour with four bits of alpha
+constexpr uint8_t k_BarFrameAlpha = static_cast<uint8_t>((191U & 0xF0U) | (191U >> 4U));
+/// The grey of the line round the frame two pixels in: the bevel's white times the box's white, each channel's
+/// 255 times 255 shifted down eight bits
+constexpr uint8_t k_BarLineGrey = static_cast<uint8_t>((255U * 255U) >> 8U);
+[[nodiscard]] BarFill FillOf(const Rect& bar, float fill, bool fromMiddle);
+
+} // namespace openblack::creature_panel

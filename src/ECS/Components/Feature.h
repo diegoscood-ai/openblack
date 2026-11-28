@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <entt/fwd.hpp>
+
 #include "Enums.h"
 
 namespace openblack::ecs::components
@@ -17,6 +19,14 @@ namespace openblack::ecs::components
 struct Feature
 {
 	FeatureInfo type;
+	/// The percent built: 1 when made by the map or a script, set by the CHL SET_PROPERTY 22 (ecs/FeatureBuild.h)
+	float percentBuilt {1.0f};
+	/// the model while the partly built one of ecs/FeatureBuild.h is drawn (0: none)
+	entt::id_type intactMesh {0};
+	entt::id_type builtMesh {0};
+	/// Whether it bakes its static shadow into the land: off for one made not yet built (a load of one saved partly
+	/// built), on once it is built; a script lowering a built one's percentage leaves it on
+	bool shadowOnTexture {true};
 };
 
 } // namespace openblack::ecs::components

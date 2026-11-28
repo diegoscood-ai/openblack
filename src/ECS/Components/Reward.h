@@ -1,0 +1,75 @@
+/******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+#pragma once
+
+#include <cstdint>
+
+#include <array>
+#include <optional>
+
+#include <entt/entity/entity.hpp>
+#include <glm/vec3.hpp>
+
+#include "ECS/RewardRules.h"
+#include "Enums.h"
+
+namespace openblack::ecs::components
+{
+
+/// A reward chest a script gives: falling from the sky, then on the land where it can be knocked about
+struct Reward
+{
+	enum class State : uint8_t
+	{
+		/// Coming down from the sky
+		Falling,
+		/// On the land
+		Landed,
+		/// Tapped open by its player: its lid lifts, and it goes some turns later
+		Opened,
+	};
+
+	RewardObjectInfo type {RewardObjectInfo::None};
+	std::optional<PlayerNames> player;
+	/// The town it was given to, none for none
+	entt::entity town {entt::null};
+	State state {State::Landed};
+	/// When it was given, counted by the rewards: a later one has a higher number
+	uint32_t serial {0};
+	/// Its own clock since it was given, in seconds of the game's time
+	float seconds {0.0f};
+	/// Where it is to land: the point on the land under where it was given
+	glm::vec3 landingPoint {0.0f};
+	/// Where it was given, at the height the giver asked for: its dust stays about here
+	glm::vec3 madeAt {0.0f};
+	/// It has landed this frame, and goes into the map's cells at the next game turn
+	bool goesIntoMap {false};
+	/// How long its dust has left to show, once it has fallen, in whole milliseconds
+	float dustMilliseconds {0.0f};
+	/// Its dust is drawn this frame: on the frame it lands, then each frame once it is in the map's cells
+	bool dustShown {false};
+	std::array<reward::DustSprite, reward::k_DustSprites> dust {};
+	/// Its player has tapped it open (the scripts ask whether it is active)
+	bool opened {false};
+	/// Game turns an opened chest has left before it goes
+	int32_t turnsLeft {0};
+	/// Where the opened chest's clip has got to, in milliseconds
+	uint32_t clipPlace {0};
+	/// The miracle its town learnt from it, spinning above the opened chest until the chest goes
+	/// (worship::seed_graphic); none for none
+	entt::entity townSeed {entt::null};
+};
+
+/// A reward chest that has come to the land, and stands in the map's cells
+struct RewardOnLand
+{
+};
+
+} // namespace openblack::ecs::components

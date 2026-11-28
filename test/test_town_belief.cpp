@@ -1,0 +1,1547 @@
+/******************************************************************************
+ * Copyright (c) 2018-2026 openblack developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/openblack/openblack
+ *
+ * openblack is licensed under the GNU General Public License version 3.
+ *******************************************************************************/
+
+// The town belief (ECS/Town/TownBelief): SetBelief's
+// cap, Init and the ctor order, the per-turn Fold (pending, recent, boredom, the desires' cost, the
+// conversion), ProcessOncePerTurn, CheckLosingBelief's help sprite, the land script's SET_TOWN_BELIEF* and a town left
+// empty (the countdown of its turn and SetTownEmpty).
+// The values are those of info.dat.
+
+#define LOCATOR_IMPLEMENTATIONS
+
+#include <cstdint>
+
+#include <algorithm>
+#include <array>
+#include <bit>
+#include <memory>
+#include <optional>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include <entt/core/hashed_string.hpp>
+#include <entt/entity/entity.hpp>
+#include <glm/mat3x3.hpp>
+#include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
+#include <gtest/gtest.h>
+#include <spdlog/sinks/null_sink.h>
+#include <spdlog/spdlog.h>
+
+#include "3D/MapCoords.h"
+#include "Common/EventManager.h"
+#include "ECS/Abodes.h"
+#include "ECS/Archetypes/TownArchetype.h"
+#include "ECS/BuildingSites.h"
+#include "ECS/Components/Abode.h"
+#include "ECS/Components/BuildingSite.h"
+#include "ECS/Components/FloatingNumber.h"
+#include "ECS/Components/Forest.h"
+#include "ECS/Components/Mesh.h"
+#include "ECS/Components/SpellIcon.h"
+#include "ECS/Components/Temple.h"
+#include "ECS/Components/Town.h"
+#include "ECS/Components/TownMagic.h"
+#include "ECS/Components/Transform.h"
+#include "ECS/Components/Tree.h"
+#include "ECS/Components/Villager.h"
+#include "ECS/Components/Wonder.h"
+#include "ECS/Components/WorshipSite.h"
+#include "ECS/Effects/Reactions.h"
+#include "ECS/Events/TownBeliefEvents.h"
+#include "ECS/Fire/FireObjectTraits.h"
+#include "ECS/Influence/InfluenceState.h"
+#include "ECS/MapCells.h"
+#include "ECS/ObjectCreationIndex.h"
+#include "ECS/Registry.h"
+#include "ECS/ToBeDeleted.h"
+#include "ECS/Town/TownBelief.h"
+#include "ECS/Town/TownFeatures.h"
+#include "ECS/Town/TownProcess.h"
+#include "ECS/Town/Wonders.h"
+#include "ECS/Trees.h"
+#include "Enums.h"
+#include "GameClock.h"
+#include "InfoConstants.h"
+#include "LHScriptX/FeatureScriptCommands.h"
+#include "LandBalance.h"
+#include "Locator.h"
+#include "Magic/Core/Players.h"
+#include "Magic/Impressiveness.h"
+#include "Resources/Loaders.h"
+#include "Resources/Resources.h"
+#include "Worship/TownCentreSpellIcon.h"
+#include "creature/CreatureSystemFakes.h"
+#include "support/LandFakes.h"
+#include "support/ParticleFakes.h"
+#include "support/RestoreService.h"
+#include "support/SpecialPointMesh.h"
+#include "support/TestServices.h"
+#include "support/WorldSystems.h"
+
+using namespace openblack;
+using namespace openblack::ecs::components;
+namespace tb = openblack::ecs::town_belief;
+
+namespace
+{
+constexpr size_t P(PlayerNames player)
+{
+	return static_cast<size_t>(player);
+}
+
+constexpr size_t k_One = P(PlayerNames::PLAYER_ONE);
+constexpr size_t k_Two = P(PlayerNames::PLAYER_TWO);
+constexpr size_t k_Neutral = P(PlayerNames::NEUTRAL);
+
+/// The spot visuals started and the players given to them
+class RecordingParticles final: public test::InertParticleSystem
+{
+public:
+	std::vector<SpotVisualType> started;
+	std::vector<int> players;
+
+	entt::entity StartSpotVisual(SpotVisualType type, glm::vec3 /*position*/, std::optional<int> /*turns*/,
+	                             entt::entity /*owner*/, float /*magnitude*/) override
+	{
+		started.push_back(type);
+		return Locator::entitiesRegistry::value().Create();
+	}
+	void SetSpotVisualPlayer(entt::entity /*visual*/, int player) override { players.push_back(player); }
+};
+
+class TownBeliefTest: public ::testing::Test
+{
+protected:
+	void SetUp() override
+	{
+		// a centre's icon logs as it leaves its slot: run alone, no other test has made the game's logger
+		if (spdlog::get("game") == nullptr)
+		{
+			spdlog::create<spdlog::sinks::null_sink_mt>("game");
+		}
+		test::EmplaceMapAndVillagerDefaults();
+		auto info = std::make_unique<InfoConstants>();
+		// the belief, player and town values of info.dat
+		info->belief.claimedTownBeliefMultiplier = 1.5f;
+		info->belief.lostATownBeliefInPlayerMultiplier = 0.9f;
+		info->belief.minimumThreshold = 0.25f;
+		info->belief.beliefLeftWhenHelpSpritesWarn = 0.05f;
+		info->player.computerPlayerBeliefChangeDecay = 0.997f;
+		info->town.beliefInNeutralPlayer = 0.5f;
+		// the town desires' belief scale, delay and threshold decay
+		const std::array<float, 17> scales = {6e-5f, 5e-5f, 2e-5f, 1.3e-4f, 0.0f,  2e-5f, 3e-5f, 0.0f, 0.0f,
+		                                      0.0f,  0.0f,  0.0f,  3e-5f,   2e-5f, 0.0f,  2e-5f, 2e-5f};
+		for (size_t d = 0; d < scales.size(); ++d)
+		{
+			auto& desire = info->townDesire.at(d);
+			desire.desireToBeliefScale = scales.at(d);
+			desire.desireAffectsBeliefAfter = d == 14 ? 5.0f : 1.0f;
+			desire.desireToBeliefThresholdDecay = 2.1e-5f;
+		}
+		// the reactions' boredom additions: 0.00056, 0.00028 for 0, 3, 5 and 28
+		for (size_t k = 0; k < info->reaction.size(); ++k)
+		{
+			const bool half = k == 0 || k == 3 || k == 5 || k == 28;
+			info->reaction.at(k).additionToTownBoredomMultipliers = half ? 0.00028f : 0.00056f;
+		}
+		Locator::infoConstants::reset(info.release());
+		Locator::entitiesRegistry::emplace<ecs::Registry>();
+		openblack::test::EmplaceWorldSystems();
+		// a town taken over starts its fireworks: no particles run here
+		Locator::particleSystem::emplace<test::InertParticleSystem>();
+		land_balance::Reset();
+		game_clock::SetTurn(1);
+		influence::detail::MapGlobals().landNumber = 0;
+		tb::detail::ClearForTests();
+		// A fresh event manager per test: its handlers capture this fixture
+		Locator::events::emplace<EventManager>();
+		auto& events = Locator::events::value();
+		_help.clear();
+		events.AddHandler<ecs::events::TownBeliefHelp>(
+		    [this](const ecs::events::TownBeliefHelp& event) { _help.emplace_back(event.kind, event.town); });
+		_tips.clear();
+		events.AddHandler<ecs::events::TownBeliefToolTip>(
+		    [this](const ecs::events::TownBeliefToolTip& event) { _tips.emplace_back(event.text, event.value); });
+	}
+
+	void TearDown() override
+	{
+		Locator::terrainSystem::reset();
+		Locator::handSystem::reset();
+		Locator::events::reset();
+		tb::detail::ClearForTests();
+		influence::detail::MapGlobals().landNumber = 0;
+		land_balance::Reset();
+		game_clock::SetTurn(0);
+		Locator::entitiesRegistry::reset();
+		openblack::test::ResetWorldSystems();
+		test::ResetMapAndVillagerDefaults();
+		Locator::infoConstants::reset();
+	}
+
+	static entt::entity MakeTown(int id, PlayerNames owner)
+	{
+		return ecs::archetypes::TownArchetype::Create(id, glm::vec3(100.0f * static_cast<float>(id), 0.0f, 0.0f), owner,
+		                                              Tribe::CELTIC);
+	}
+
+	static Town& TownOf(entt::entity town) { return Locator::entitiesRegistry::value().Get<Town>(town); }
+	static TownBelief& BeliefOf(entt::entity town) { return TownOf(town).belief; }
+
+	std::vector<std::pair<tb::detail::HelpSprite, entt::entity>> _help;
+	std::vector<std::pair<uint32_t, float>> _tips; ///< help::tooltips::Force(text, value)
+};
+} // namespace
+
+// 1. SetBelief clamps to the cap only
+TEST_F(TownBeliefTest, SetBeliefClampsToCapOnly)
+{
+	TownBelief belief {};
+	tb::SetBelief(belief, PlayerNames::PLAYER_ONE, 12.0f);
+	EXPECT_EQ(belief.belief.at(k_One), 10.0f); // the default cap 10 (Init)
+	tb::SetBelief(belief, PlayerNames::PLAYER_ONE, -3.0f);
+	EXPECT_EQ(belief.belief.at(k_One), -3.0f); // no lower clamp
+	tb::SetCap(belief, PlayerNames::PLAYER_ONE, 2.0f);
+	tb::SetBelief(belief, PlayerNames::PLAYER_ONE, 5.0f);
+	EXPECT_EQ(belief.belief.at(k_One), 2.0f);
+	EXPECT_EQ(tb::GetCap(belief, PlayerNames::PLAYER_ONE), 2.0f);
+	EXPECT_EQ(tb::GetBeliefInPlayer(belief, PlayerNames::PLAYER_ONE), 2.0f);
+	tb::SetBelief(belief, PlayerNames::PLAYER_ONE, 2.0f); // equal: v itself
+	EXPECT_EQ(belief.belief.at(k_One), 2.0f);
+}
+
+// 2. Init and the ctor order (Init before beliefInNeutralPlayer: the neutral belief 0 until the first fold)
+TEST_F(TownBeliefTest, InitAndCtorOrder)
+{
+	Town town {};
+	auto& b = town.belief;
+	b.belief.fill(5.0f);
+	b.cap.fill(3.0f);
+	b.pending.fill(1.0f);
+	b.reduceAccumulator.fill(1.0f);
+	b.lastAddedTurn.fill(7);
+	b.boredom.fill(0.2f);
+	b.recent.at(2) = 0.3f;
+	b.addedThisPeriod.at(2) = 0.4f;
+	b.beliefInNeutralPlayer = 0.7f;
+	tb::Init(town);
+	for (size_t i = 0; i < tb::k_Players; ++i)
+	{
+		EXPECT_EQ(b.belief.at(i), i == k_Neutral ? 0.7f : 0.0f) << i;
+		EXPECT_EQ(b.cap.at(i), 10.0f);
+		EXPECT_EQ(b.pending.at(i), 0.0f);
+		EXPECT_EQ(b.reduceAccumulator.at(i), 0.0f);
+		EXPECT_EQ(b.lastAddedTurn.at(i), 0u);
+	}
+	for (const float boredom : b.boredom)
+	{
+		EXPECT_EQ(boredom, 1.0f);
+	}
+	for (size_t d = 0; d < tb::k_Desires; ++d)
+	{
+		EXPECT_EQ(b.desireThreshold.at(d), d == 14 ? 5.0f : 1.0f) << d;
+	}
+	EXPECT_EQ(b.recent.at(2), 0.3f);          // not reset
+	EXPECT_EQ(b.addedThisPeriod.at(2), 0.4f); // not reset
+
+	// the Town ctor: Init, then beliefInNeutralPlayer from info.dat and beliefScale = 1
+	const auto made = MakeTown(1, PlayerNames::NEUTRAL);
+	EXPECT_EQ(BeliefOf(made).belief.at(k_Neutral), 0.0f);
+	EXPECT_EQ(BeliefOf(made).beliefInNeutralPlayer, 0.5f);
+	EXPECT_EQ(BeliefOf(made).beliefScale, 1.0f);
+	EXPECT_EQ(BeliefOf(made).desireThreshold.at(0), 1.0f);
+	tb::Fold(made); // step 4 pins it
+	EXPECT_EQ(BeliefOf(made).belief.at(k_Neutral), 0.5f);
+}
+
+// 3. The fold's pending -> belief (step 1)
+TEST_F(TownBeliefTest, FoldPending)
+{
+	const auto town = MakeTown(1, PlayerNames::NEUTRAL); // neutral: no desire cost, the thresholds only reset
+	auto& b = BeliefOf(town);
+	b.desireThreshold.at(3) = 0.4f;
+	b.pending.at(k_One) = 0.1f;
+	tb::Fold(town);
+	EXPECT_EQ(b.belief.at(k_One), 0.1f);
+	EXPECT_EQ(b.addedThisPeriod.at(k_One), 0.1f);
+	EXPECT_EQ(b.pending.at(k_One), 0.0f);
+	EXPECT_EQ(b.desireThreshold.at(3), 1.0f);
+	EXPECT_EQ(TownOf(town).owner, PlayerNames::NEUTRAL);
+	EXPECT_EQ(tb::BeliefSpriteCount(), 0u); // no town centre: no sprite
+
+	// the belief scale at 0: d == 0, pending kept, nothing else
+	const auto other = MakeTown(2, PlayerNames::NEUTRAL);
+	auto& o = BeliefOf(other);
+	o.beliefScale = 0.0f;
+	o.desireThreshold.at(3) = 0.4f;
+	o.pending.at(k_One) = 0.1f;
+	tb::Fold(other);
+	EXPECT_EQ(o.pending.at(k_One), 0.1f);
+	EXPECT_EQ(o.belief.at(k_One), 0.0f);
+	EXPECT_EQ(o.addedThisPeriod.at(k_One), 0.0f);
+	EXPECT_EQ(o.desireThreshold.at(3), 0.4f);
+
+	// the cap applies to the folded value
+	b.cap.at(k_One) = 0.15f;
+	b.pending.at(k_One) = 0.1f;
+	tb::Fold(town);
+	EXPECT_EQ(b.belief.at(k_One), 0.15f);
+	EXPECT_EQ(b.addedThisPeriod.at(k_One), 0.2f);
+}
+
+// 4. recent x 0.997 for the 8 slots every fold
+TEST_F(TownBeliefTest, FoldRecentDecay)
+{
+	const auto town = MakeTown(1, PlayerNames::NEUTRAL);
+	auto& b = BeliefOf(town);
+	b.recent.fill(1.0f);
+	tb::Fold(town);
+	for (const float recent : b.recent)
+	{
+		EXPECT_EQ(recent, 0.997f);
+	}
+	tb::Fold(town);
+	for (const float recent : b.recent)
+	{
+		EXPECT_EQ(recent, 0.997f * 0.997f);
+	}
+}
+
+// 5. The boredom (step 2): stored only below 1
+TEST_F(TownBeliefTest, FoldBoredom)
+{
+	const auto town = MakeTown(1, PlayerNames::NEUTRAL);
+	auto& b = BeliefOf(town);
+	b.boredom.at(1) = 1.0f - 0.0003f; // + 0.00056 >= 1: unchanged
+	b.boredom.at(2) = 0.5f;
+	b.boredom.at(3) = 0.5f; // 0.00028
+	tb::Fold(town);
+	EXPECT_EQ(b.boredom.at(1), 1.0f - 0.0003f);
+	EXPECT_FLOAT_EQ(b.boredom.at(2), 0.50056f);
+	EXPECT_FLOAT_EQ(b.boredom.at(3), 0.50028f);
+	EXPECT_EQ(b.boredom.at(4), 1.0f); // from Init: 1 + 0.00056 >= 1
+
+	// x the lost-town scale
+	land_balance::SetLostTownScale(0.5f);
+	b.boredom.at(2) = 0.5f;
+	tb::Fold(town);
+	EXPECT_FLOAT_EQ(b.boredom.at(2), 0.50028f);
+
+	// AddToBoredomMultiplier: not below 0
+	tb::AddToBoredomMultiplier(b, 2, -1.0f);
+	EXPECT_EQ(b.boredom.at(2), 0.0f);
+	EXPECT_EQ(tb::GetBoredomMultiplier(town, 2), 0.0f);
+	EXPECT_EQ(tb::GetBoredomMultiplier(entt::null, 2), 1.0f);
+}
+
+// A miracle seen again before the town has got over the last one impresses it little: nine villagers of a town of nine
+// (30 people for an unweighted belief, each impression tiring the town by -0.02 times the villager's share) wear the
+// look-at-nice-miracle boredom from 1 down to 0.4 in one pour; 199 turns later it has only come back to about 0.51,
+// and the next pour's nine impressions wear it to nothing, the last villager reading 0. The bits are the original's,
+// from its own boredom step run with the same inputs
+TEST_F(TownBeliefTest, AMiracleSeenAgainSoonFindsTheTownStillTiredOfIt)
+{
+	constexpr size_t k_LookAtNiceSpell = 21;
+	const auto town = MakeTown(1, PlayerNames::NEUTRAL);
+	auto& b = BeliefOf(town);
+	const float share = magic::TownShare(30.0f, 9);
+	EXPECT_EQ(std::bit_cast<uint32_t>(share), 0x40555115u);
+	const float update = -0.02f * share;
+
+	for (int villager = 0; villager < 9; ++villager)
+	{
+		tb::AddToBoredomMultiplier(b, k_LookAtNiceSpell, update);
+	}
+	EXPECT_EQ(std::bit_cast<uint32_t>(b.boredom.at(k_LookAtNiceSpell)), 0x3ECCD2ECu); // 0.4000467
+
+	// the town's turns until the next pour that reaches it
+	for (int turn = 0; turn < 199; ++turn)
+	{
+		tb::Fold(town);
+	}
+	EXPECT_EQ(std::bit_cast<uint32_t>(b.boredom.at(k_LookAtNiceSpell)), 0x3F02F09Bu); // 0.5114838
+
+	// the next pour: each villager is impressed by what the ones before it left
+	constexpr std::array<uint32_t, 9> k_Read {0x3F02F09Bu, 0x3EE3BFC2u, 0x3EC19E4Eu, 0x3E9F7CDAu, 0x3E7AB6CCu,
+	                                          0x3E3673E4u, 0x3DE461F8u, 0x3D37B850u, 0x00000000u};
+	for (const auto expected : k_Read)
+	{
+		EXPECT_EQ(std::bit_cast<uint32_t>(tb::GetBoredomMultiplier(town, k_LookAtNiceSpell)), expected);
+		tb::AddToBoredomMultiplier(b, k_LookAtNiceSpell, update);
+	}
+	EXPECT_EQ(b.boredom.at(k_LookAtNiceSpell), 0.0f);
+}
+
+// 6. The desires that cost the owner belief (step 3)
+TEST_F(TownBeliefTest, FoldDesireCost)
+{
+	const auto town = MakeTown(1, PlayerNames::PLAYER_TWO);
+	auto& t = TownOf(town);
+	auto& b = t.belief;
+	b.belief.at(k_Two) = 2.0f;
+	t.desire.desire.at(0) = 1.5f; // GetDesire = the sum of its three parts = 1.5 > threshold 1
+	b.desireThreshold.at(1) = 0.25f;
+	tb::Fold(town);
+	EXPECT_NEAR(b.belief.at(k_Two), 2.0f - 3e-5f, 1e-6f); // (1.5 - 1) x 6e-5
+	EXPECT_EQ(b.desireThreshold.at(0), 1.0f - 2.1e-5f);
+	EXPECT_EQ(b.desireThreshold.at(1), 0.25f); // at the minimum 0.25: no more decay
+	EXPECT_EQ(b.desireThreshold.at(14), 5.0f - 2.1e-5f);
+	EXPECT_EQ(b.reduceAccumulator.at(k_Two), 0.0f); // no town centre: not accumulated
+	EXPECT_EQ(t.owner, PlayerNames::PLAYER_TWO);
+
+	// the neutral owner: nothing
+	const auto neutral = MakeTown(2, PlayerNames::NEUTRAL);
+	auto& n = TownOf(neutral);
+	n.belief.belief.at(k_Neutral) = 0.5f;
+	n.desire.desire.at(0) = 1.5f;
+	tb::Fold(neutral);
+	EXPECT_EQ(n.belief.belief.at(k_Neutral), 0.5f);
+	EXPECT_EQ(n.belief.desireThreshold.at(0), 1.0f);
+}
+
+TEST_F(TownBeliefTest, TheDesireCostRoundsTheDifferenceAndThenTheProductToAFloat)
+{
+	const auto town = MakeTown(1, PlayerNames::PLAYER_TWO);
+	auto& t = TownOf(town);
+	auto& b = t.belief;
+	b.beliefInNeutralPlayer = 0.0f; // so the small belief left stays the strongest
+	b.belief.at(k_Two) = 0.0008f;
+	t.desire.desire.at(0) = 8.3f;
+	b.desireThreshold.at(0) = 1.7f;
+	tb::Fold(town);
+	// (8.3 - 1.7) rounded to a float before the product by 6e-5 leaves one bit less than one rounding at the end
+	EXPECT_EQ(std::bit_cast<uint32_t>(b.belief.at(k_Two)), 0x39D3CFF5u);
+	EXPECT_EQ(t.owner, PlayerNames::PLAYER_TWO);
+}
+
+// 7. The conversion (steps 5 and 6)
+TEST_F(TownBeliefTest, FoldConversion)
+{
+	// a neutral town, 0.5 against player one's 0.5: the tie goes to the higher slot, the neutral 7
+	const auto tie = MakeTown(1, PlayerNames::NEUTRAL);
+	BeliefOf(tie).belief.at(k_One) = 0.5f;
+	tb::Fold(tie);
+	EXPECT_EQ(TownOf(tie).owner, PlayerNames::NEUTRAL);
+	EXPECT_EQ(BeliefOf(tie).belief.at(k_One), 0.5f);
+	EXPECT_TRUE(_help.empty());
+
+	// 0.51: player one takes it with 1.5 x 0.51
+	const auto taken = MakeTown(2, PlayerNames::NEUTRAL);
+	BeliefOf(taken).belief.at(k_One) = 0.51f;
+	tb::Fold(taken);
+	EXPECT_EQ(TownOf(taken).owner, PlayerNames::PLAYER_ONE);
+	EXPECT_FLOAT_EQ(BeliefOf(taken).belief.at(k_One), 0.765f);
+	ASSERT_EQ(_help.size(), 1u);
+	EXPECT_EQ(_help.at(0).first, tb::detail::HelpSprite::GeneralGood); // the new owner is the local player
+	EXPECT_EQ(_help.at(0).second, taken);
+	_help.clear();
+
+	// a town of player one with 0.4 against the neutral 0.5: back to the neutral player; every town of player one
+	// (this one included) x 0.9 x the lost-town scale
+	const auto lost = MakeTown(3, PlayerNames::PLAYER_ONE);
+	const auto kept = MakeTown(4, PlayerNames::PLAYER_ONE);
+	BeliefOf(lost).belief.at(k_One) = 0.4f;
+	BeliefOf(kept).belief.at(k_One) = 2.0f;
+	tb::Fold(lost);
+	EXPECT_EQ(TownOf(lost).owner, PlayerNames::NEUTRAL);
+	EXPECT_FLOAT_EQ(BeliefOf(lost).belief.at(k_Neutral), 0.75f); // 1.5 x the pinned 0.5
+	EXPECT_FLOAT_EQ(BeliefOf(lost).belief.at(k_One), 0.36f);
+	EXPECT_FLOAT_EQ(BeliefOf(kept).belief.at(k_One), 1.8f);
+	EXPECT_FLOAT_EQ(BeliefOf(taken).belief.at(k_One), 0.765f * 0.9f); // the town taken above is player one's too
+	EXPECT_EQ(TownOf(kept).owner, PlayerNames::PLAYER_ONE);
+	ASSERT_EQ(_help.size(), 1u);
+	EXPECT_EQ(_help.at(0).first, tb::detail::HelpSprite::GeneralBad); // the old owner is the local player
+
+	// with SET_LOST_TOWN_SCALE 0.5
+	land_balance::SetLostTownScale(0.5f);
+	const auto second = MakeTown(5, PlayerNames::PLAYER_ONE);
+	BeliefOf(second).belief.at(k_One) = 0.1f;
+	tb::Fold(second);
+	EXPECT_EQ(TownOf(second).owner, PlayerNames::NEUTRAL);
+	EXPECT_FLOAT_EQ(BeliefOf(kept).belief.at(k_One), 1.8f * 0.9f * 0.5f);
+}
+
+// 8. ProcessOncePerTurn
+TEST_F(TownBeliefTest, ProcessOncePerTurn)
+{
+	const auto first = MakeTown(1, PlayerNames::PLAYER_TWO);
+	const auto second = MakeTown(2, PlayerNames::PLAYER_TWO);
+	BeliefOf(first).addedThisPeriod.at(k_One) = 0.002f;
+	BeliefOf(second).addedThisPeriod.at(k_One) = 0.003f;
+	BeliefOf(second).addedThisPeriod.at(k_Two) = 0.5f;
+
+	game_clock::SetTurn(21); // not a multiple of 10: nothing
+	tb::ProcessOncePerTurn();
+	EXPECT_EQ(BeliefOf(first).addedThisPeriod.at(k_One), 0.002f);
+	EXPECT_TRUE(_tips.empty());
+
+	game_clock::SetTurn(30);
+	tb::ProcessOncePerTurn();
+	for (const auto town : {first, second})
+	{
+		for (const float added : BeliefOf(town).addedThisPeriod)
+		{
+			EXPECT_EQ(added, 0.0f);
+		}
+	}
+	ASSERT_EQ(_tips.size(), 1u);
+	EXPECT_EQ(_tips.at(0).first, 0xEE1u);
+	EXPECT_EQ(_tips.at(0).second, (0.0f + 0.003f + 0.002f) * 1000.0f); // newest first, the local player's only
+	_tips.clear();
+
+	// not over 0.001: no tooltip
+	BeliefOf(first).addedThisPeriod.at(k_One) = 0.0005f;
+	game_clock::SetTurn(40);
+	tb::ProcessOncePerTurn();
+	EXPECT_TRUE(_tips.empty());
+	EXPECT_EQ(BeliefOf(first).addedThisPeriod.at(k_One), 0.0f);
+	EXPECT_TRUE(_help.empty()); // the local player has no town
+}
+
+// 8b. ProcessOncePerTurn: the believers gained float up, in yellow and four wide, from the land under the cursor
+TEST_F(TownBeliefTest, BelieversGainedFloatUpFromTheLandUnderTheCursor)
+{
+	const auto town = MakeTown(1, PlayerNames::PLAYER_TWO);
+	auto& hand = static_cast<test::creature_fakes::FakeHand&>(Locator::handSystem::emplace<test::creature_fakes::FakeHand>());
+	hand.hoverLandPoint = glm::vec3(123.456f, 9.0f, 210.789f);
+	Locator::terrainSystem::emplace<test::HeightFieldIsland>([](glm::vec2 xz) { return xz.x * 0.5f + 3.0f; });
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto numbers = [&registry]() {
+		std::vector<FloatingNumber> all;
+		registry.Each<const FloatingNumber>(
+		    [&all](entt::entity /*unused*/, const FloatingNumber& number) { all.push_back(number); });
+		return all;
+	};
+
+	BeliefOf(town).addedThisPeriod.at(k_One) = 0.012f;
+	game_clock::SetTurn(30);
+	tb::ProcessOncePerTurn();
+	auto made = numbers();
+	ASSERT_EQ(made.size(), 1u);
+	EXPECT_EQ(made.at(0).text, "  12");
+	EXPECT_EQ(made.at(0).colour, 0xFFFFFF00u);
+	EXPECT_EQ(made.at(0).life, 5.0f);
+	// on the ground at the point as map coordinates hold it
+	const float x = map_coords::ToMetres(map_coords::ToFixed(123.456f));
+	const float z = map_coords::ToMetres(map_coords::ToFixed(210.789f));
+	EXPECT_EQ(made.at(0).position, glm::vec3(x, x * 0.5f + 3.0f, z));
+
+	// no land under the cursor: the map's corner, on the ground there
+	hand.hoverLandPoint.reset();
+	BeliefOf(town).addedThisPeriod.at(k_One) = 0.4f;
+	game_clock::SetTurn(40);
+	tb::ProcessOncePerTurn();
+	made = numbers();
+	ASSERT_EQ(made.size(), 2u);
+	const auto corner = std::ranges::find(made, std::string(" 400"), &FloatingNumber::text);
+	ASSERT_NE(corner, made.end());
+	EXPECT_EQ(corner->position, glm::vec3(0.0f, 3.0f, 0.0f));
+
+	// nothing gained over 0.001: no number
+	BeliefOf(town).addedThisPeriod.at(k_One) = 0.0005f;
+	game_clock::SetTurn(50);
+	tb::ProcessOncePerTurn();
+	EXPECT_EQ(numbers().size(), 2u);
+}
+
+// 9. CheckLosingBelief: the "losing belief" help sprite
+TEST_F(TownBeliefTest, LosingBelief)
+{
+	const auto town = MakeTown(1, PlayerNames::PLAYER_ONE);
+	const auto other = MakeTown(2, PlayerNames::PLAYER_ONE);
+	for (const auto t : {town, other})
+	{
+		BeliefOf(t).belief.at(k_One) = 0.54f;
+		BeliefOf(t).belief.at(k_Neutral) = 0.5f; // 0.54 - 0.05 < 0.5
+	}
+	tb::CheckLosingBelief(PlayerNames::PLAYER_ONE);
+	ASSERT_EQ(_help.size(), 1u); // the first town found only
+	EXPECT_EQ(_help.at(0).first, tb::detail::HelpSprite::LosingBelief);
+	EXPECT_EQ(_help.at(0).second, town);
+	_help.clear();
+
+	// from ProcessOncePerTurn, on a turn % 10 == 0
+	game_clock::SetTurn(10);
+	tb::ProcessOncePerTurn();
+	EXPECT_EQ(_help.size(), 1u);
+	_help.clear();
+
+	// on land 1 nothing
+	influence::detail::MapGlobals().landNumber = 1;
+	tb::CheckLosingBelief(PlayerNames::PLAYER_ONE);
+	EXPECT_TRUE(_help.empty());
+	influence::detail::MapGlobals().landNumber = 0;
+
+	// 0.56 - 0.05 > 0.5: nothing
+	for (const auto t : {town, other})
+	{
+		BeliefOf(t).belief.at(k_One) = 0.56f;
+	}
+	tb::CheckLosingBelief(PlayerNames::PLAYER_ONE);
+	EXPECT_TRUE(_help.empty());
+}
+
+// 10. The land script: SET_TOWN_BELIEF overwrites (and sets beliefInNeutralPlayer for the neutral player), SET_TOWN_BELIEF_CAP
+// caps the later sets, SET_TOWN_BALANCE_BELIEF_SCALE, SET_LOST_TOWN_SCALE
+TEST_F(TownBeliefTest, Scripts)
+{
+	using lhscriptx::FeatureScriptCommands;
+	const auto town = MakeTown(5, PlayerNames::NEUTRAL);
+	FeatureScriptCommands::SetTownBelief(5, "PLAYER_ONE", 0.3f);
+	FeatureScriptCommands::SetTownBelief(5, "PLAYER_ONE", 0.8f);
+	EXPECT_EQ(BeliefOf(town).belief.at(k_One), 0.8f);
+	FeatureScriptCommands::SetTownBelief(5, "NEUTRAL", 0.7f);
+	EXPECT_EQ(BeliefOf(town).beliefInNeutralPlayer, 0.7f);
+	EXPECT_EQ(BeliefOf(town).belief.at(k_Neutral), 0.7f);
+	FeatureScriptCommands::SetTownBelief(5, "PLAYER_ONE", 20.0f);
+	EXPECT_EQ(BeliefOf(town).belief.at(k_One), 10.0f); // the cap
+	FeatureScriptCommands::SetTownBeliefCap(5, "PLAYER_TWO", 2.0f);
+	FeatureScriptCommands::SetTownBelief(5, "PLAYER_TWO", 5.0f);
+	EXPECT_EQ(BeliefOf(town).belief.at(k_Two), 2.0f);
+	// the player name ignores case, an unknown name is the neutral player
+	FeatureScriptCommands::SetTownBelief(5, "player_two", 1.5f);
+	EXPECT_EQ(BeliefOf(town).belief.at(k_Two), 1.5f);
+	FeatureScriptCommands::SetTownBelief(5, "NOBODY", 0.6f);
+	EXPECT_EQ(BeliefOf(town).beliefInNeutralPlayer, 0.6f);
+	EXPECT_EQ(BeliefOf(town).belief.at(k_Neutral), 0.6f);
+	FeatureScriptCommands::SetTownBelief(99, "PLAYER_ONE", 1.0f); // no such town: nothing
+	FeatureScriptCommands::SetTownBalanceBeliefScale(5, 0.5f);
+	EXPECT_EQ(BeliefOf(town).beliefScale, 0.5f);
+	FeatureScriptCommands::SetLostTownScale(0.25f);
+	EXPECT_EQ(tb::LostTownScale(), 0.25f);
+	land_balance::Reset();
+	EXPECT_EQ(tb::LostTownScale(), 1.0f);
+}
+
+// The claimed-town multiplier is capped
+TEST_F(TownBeliefTest, FoldConversionCapsTheClaimedBelief)
+{
+	const auto town = MakeTown(1, PlayerNames::NEUTRAL);
+	BeliefOf(town).belief.at(k_Two) = 8.0f;
+	tb::Fold(town);
+	EXPECT_EQ(TownOf(town).owner, PlayerNames::PLAYER_TWO);
+	EXPECT_FLOAT_EQ(BeliefOf(town).belief.at(k_Two), 10.0f); // 1.5 x 8 over the default cap
+}
+
+// SET_PLAYER_BELIEF: the belief in a player as a share of the belief in the town's owner
+TEST_F(TownBeliefTest, ScriptSetsBeliefAsAShareOfBeliefInTheOwner)
+{
+	TownBelief belief {};
+	tb::SetBelief(belief, PlayerNames::PLAYER_TWO, 2.0f);
+	tb::SetBelief(belief, PlayerNames::PLAYER_ONE, 1.0f);
+	tb::SetBeliefRelativeToOwner(belief, PlayerNames::PLAYER_TWO, PlayerNames::PLAYER_ONE, 0.25f);
+	EXPECT_FLOAT_EQ(belief.belief.at(k_One), 0.5f);
+	tb::SetBeliefRelativeToOwner(belief, PlayerNames::PLAYER_TWO, PlayerNames::PLAYER_ONE, 0.0f);
+	EXPECT_FLOAT_EQ(belief.belief.at(k_One), 0.0f);
+}
+
+// OBJECT_RELATIVE_BELIEF: the take-town cheat halves the most believed in and gives the taker more
+TEST_F(TownBeliefTest, TakingATownHalvesTheMostBelievedAndGivesTheTakerMore)
+{
+	constexpr std::array k_InGame {PlayerNames::PLAYER_ONE, PlayerNames::PLAYER_TWO, PlayerNames::NEUTRAL};
+	TownBelief belief {};
+	tb::SetBelief(belief, PlayerNames::NEUTRAL, 0.5f);
+	tb::SetBelief(belief, PlayerNames::PLAYER_TWO, 2.0f);
+	tb::PlayerTakeTownCheat(belief, PlayerNames::PLAYER_ONE, 1.0f, k_InGame);
+	EXPECT_FLOAT_EQ(belief.belief.at(k_Two), 1.0f);
+	EXPECT_FLOAT_EQ(belief.belief.at(k_One), 3.0f);
+	EXPECT_FLOAT_EQ(belief.belief.at(k_Neutral), 0.5f);
+	// taken by the neutral player: nobody is believed in
+	tb::PlayerTakeTownCheat(belief, PlayerNames::NEUTRAL, 1.0f, k_InGame);
+	EXPECT_FLOAT_EQ(belief.belief.at(k_One), 0.0f);
+	EXPECT_FLOAT_EQ(belief.belief.at(k_Two), 0.0f);
+	EXPECT_FLOAT_EQ(belief.belief.at(k_Neutral), 0.0f);
+}
+
+// The take-town cheat weighs the players on the land and the neutral player, in the players' order; a player nobody
+// plays on the land is left out
+TEST(TownBeliefRules, TheTakeTownCheatWeighsThePlayersOnTheLandAndTheNeutralOne)
+{
+	constexpr std::array k_OnLand {PlayerNames::PLAYER_TWO, PlayerNames::PLAYER_ONE, PlayerNames::PLAYER_TWO};
+	const std::vector weighed {PlayerNames::PLAYER_ONE, PlayerNames::PLAYER_TWO, PlayerNames::NEUTRAL};
+	EXPECT_EQ(tb::PlayersOnLandAndNeutral(k_OnLand), weighed);
+	EXPECT_EQ(tb::PlayersOnLandAndNeutral({}), std::vector {PlayerNames::NEUTRAL});
+}
+
+// Only the local player winning a town from another hears the take-over
+TEST(TownBeliefRules, OnlyTheLocalPlayerWinningATownHearsIt)
+{
+	EXPECT_TRUE(tb::HearsTakeOver(PlayerNames::NEUTRAL, PlayerNames::PLAYER_ONE, PlayerNames::PLAYER_ONE));
+	EXPECT_TRUE(tb::HearsTakeOver(PlayerNames::PLAYER_TWO, PlayerNames::PLAYER_ONE, PlayerNames::PLAYER_ONE));
+	EXPECT_FALSE(tb::HearsTakeOver(PlayerNames::NEUTRAL, PlayerNames::PLAYER_TWO, PlayerNames::PLAYER_ONE));
+	EXPECT_FALSE(tb::HearsTakeOver(PlayerNames::PLAYER_ONE, PlayerNames::PLAYER_ONE, PlayerNames::PLAYER_ONE));
+}
+
+// A town changing hands: the villagers' celebration of the new owner, the fireworks and the owner's symbol for a
+// player, the influence drawn afresh; nothing for the same owner, no visuals for the neutral player
+TEST_F(TownBeliefTest, TakeOverTownDoesTheRest)
+{
+	auto& particles = static_cast<RecordingParticles&>(Locator::particleSystem::emplace<RecordingParticles>());
+	const auto town = MakeTown(1, PlayerNames::NEUTRAL);
+	influence::detail::Globals().circlesDirty = false;
+	tb::TakeOverTown(PlayerNames::PLAYER_ONE, town);
+	EXPECT_EQ(TownOf(town).owner, PlayerNames::PLAYER_ONE);
+	namespace reactions = ecs::effects::reactions;
+	const auto celebration = reactions::GetReactionOfTypeInitiatedBy(town, Reaction::ReactToTownCelebration);
+	ASSERT_NE(celebration, 0u); // no town centre: the town itself
+	EXPECT_EQ(reactions::Find(celebration)->player, PlayerNames::PLAYER_ONE);
+	EXPECT_EQ(particles.started, (std::vector {SpotVisualType::TownFireworks, SpotVisualType::PlayerIconFountain}));
+	EXPECT_EQ(particles.players, std::vector<int> {0});
+	EXPECT_TRUE(influence::detail::Globals().circlesDirty);
+
+	// the same owner again: nothing
+	particles.started.clear();
+	influence::detail::Globals().circlesDirty = false;
+	tb::TakeOverTown(PlayerNames::PLAYER_ONE, town);
+	EXPECT_TRUE(particles.started.empty());
+	EXPECT_FALSE(influence::detail::Globals().circlesDirty);
+
+	// back to the neutral player: no visuals
+	tb::TakeOverTown(PlayerNames::NEUTRAL, town);
+	EXPECT_EQ(TownOf(town).owner, PlayerNames::NEUTRAL);
+	EXPECT_TRUE(particles.started.empty());
+	EXPECT_TRUE(influence::detail::Globals().circlesDirty);
+}
+
+// A town changing hands: a built wonder of it takes its power off the old owner's tribe and gives it to the new one's
+// (docs/wiki/beings/towns.md#changing-hands-and-emptying)
+TEST_F(TownBeliefTest, TakeOverTownMovesItsWondersPowerToTheNewOwner)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	// the fixture's table with the Celtic wonder row of the Celtic tribe
+	auto info = std::make_unique<InfoConstants>(Locator::infoConstants::value());
+	info->abode.at(static_cast<size_t>(AbodeInfo::CelticWonder)).tribeType = Tribe::CELTIC;
+	Locator::infoConstants::reset(info.release());
+	const auto town = MakeTown(1, PlayerNames::PLAYER_ONE);
+	const auto wonder = registry.Create();
+	registry.Assign<Abode>(wonder, AbodeNumber::Wonder, TownOf(town).id, 0u, 0u).info = AbodeInfo::CelticWonder;
+	registry.Assign<Wonder>(wonder).power = 2.5f;
+	const auto tribe = static_cast<size_t>(Tribe::CELTIC);
+	auto& one = magic::players::MagicOf(PlayerNames::PLAYER_ONE).maxTribalPower.at(tribe);
+	auto& two = magic::players::MagicOf(PlayerNames::PLAYER_TWO).maxTribalPower.at(tribe);
+	one = 3.5f;
+	two = 1.0f;
+
+	tb::TakeOverTown(PlayerNames::PLAYER_TWO, town);
+	EXPECT_FLOAT_EQ(one, 1.0f);
+	EXPECT_FLOAT_EQ(two, 3.5f);
+	// the players' tribal powers outlive the registry: back to their starting 1
+	one = 1.0f;
+	two = 1.0f;
+}
+
+// A built wonder adds its power to its town's owner's most tribal power for the wonder's tribe, and takes it off again
+// when it goes; one still being built adds nothing (docs/wiki/beings/towns.md)
+TEST_F(TownBeliefTest, ABuiltWonderAddsItsPowerToItsTownsOwnerForItsTribe)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	auto info = std::make_unique<InfoConstants>(Locator::infoConstants::value());
+	info->abode.at(static_cast<size_t>(AbodeInfo::CelticWonder)).tribeType = Tribe::CELTIC;
+	Locator::infoConstants::reset(info.release());
+	const auto town = MakeTown(1, PlayerNames::PLAYER_THREE);
+	const auto wonder = registry.Create();
+	registry.Assign<Abode>(wonder, AbodeNumber::Wonder, TownOf(town).id, 0u, 0u).info = AbodeInfo::CelticWonder;
+	registry.Assign<Wonder>(wonder).power = 2.5f;
+	const auto tribe = static_cast<size_t>(Tribe::CELTIC);
+	auto& owner = magic::players::MagicOf(PlayerNames::PLAYER_THREE).maxTribalPower.at(tribe);
+	auto& other = magic::players::MagicOf(PlayerNames::PLAYER_ONE).maxTribalPower.at(tribe);
+	auto& otherTribe = magic::players::MagicOf(PlayerNames::PLAYER_THREE).maxTribalPower.at(static_cast<size_t>(Tribe::NORSE));
+	owner = 1.0f;
+	other = 1.0f;
+	otherTribe = 1.0f;
+
+	ecs::wonders::AddToPlayer(wonder);
+	EXPECT_FLOAT_EQ(owner, 3.5f);
+	EXPECT_FLOAT_EQ(other, 1.0f);
+	EXPECT_FLOAT_EQ(otherTribe, 1.0f);
+	ecs::wonders::RemoveFromPlayer(wonder);
+	EXPECT_FLOAT_EQ(owner, 1.0f);
+	// still being built: nothing
+	registry.Get<Abode>(wonder).buildFlags |= Abode::k_UnderConstruction;
+	ecs::wonders::AddToPlayer(wonder);
+	EXPECT_FLOAT_EQ(owner, 1.0f);
+	// the players' tribal powers outlive the registry: back to their starting 1
+	owner = 1.0f;
+}
+
+// A town changing hands: the spell icons in its town centre's slots are the new owner's, and so are their seed
+// graphics; empty slots are skipped
+TEST_F(TownBeliefTest, TakeOverTownGivesTheCentreSpellIconsToTheNewOwner)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto town = MakeTown(1, PlayerNames::PLAYER_ONE);
+	const auto centre = registry.Create();
+	registry.Assign<Transform>(centre, glm::vec3(100.0f, 0.0f, 0.0f), glm::mat3(1.0f), glm::vec3(1.0f));
+	registry.Assign<TownCentreIcons>(centre);
+	std::array<entt::entity, 2> icons {entt::null, entt::null};
+	std::array<entt::entity, 2> graphics {entt::null, entt::null};
+	for (size_t i = 0; i < icons.size(); ++i)
+	{
+		graphics.at(i) = registry.Create();
+		registry.Assign<SpellSeedGraphic>(graphics.at(i)).player = PlayerNames::PLAYER_ONE;
+		icons.at(i) = registry.Create();
+		auto& icon = registry.Assign<SpellIcon>(icons.at(i));
+		icon.player = PlayerNames::PLAYER_ONE;
+		icon.graphic = graphics.at(i);
+	}
+	// slots 0 and 3 hold an icon, the others are empty
+	registry.Get<TownCentreIcons>(centre).icons.at(0) = icons.at(0);
+	registry.Get<TownCentreIcons>(centre).icons.at(3) = icons.at(1);
+	TownOf(town).centre = centre;
+
+	tb::TakeOverTown(PlayerNames::PLAYER_TWO, town);
+	for (size_t i = 0; i < icons.size(); ++i)
+	{
+		EXPECT_EQ(registry.Get<const SpellIcon>(icons.at(i)).player, PlayerNames::PLAYER_TWO);
+		EXPECT_EQ(registry.Get<const SpellSeedGraphic>(graphics.at(i)).player, PlayerNames::PLAYER_TWO);
+	}
+	EXPECT_EQ(worship::town_centre::GraphicPlayers(centre),
+	          (std::vector<PlayerNames> {PlayerNames::PLAYER_TWO, PlayerNames::PLAYER_TWO}));
+
+	// back to the neutral player: the icons follow
+	tb::TakeOverTown(PlayerNames::NEUTRAL, town);
+	EXPECT_EQ(registry.Get<const SpellIcon>(icons.at(1)).player, PlayerNames::NEUTRAL);
+	EXPECT_EQ(worship::town_centre::GraphicPlayers(centre),
+	          (std::vector<PlayerNames> {PlayerNames::NEUTRAL, PlayerNames::NEUTRAL}));
+}
+
+// A town centre's spell icon is found by its seed and shows the highest of the three power-up levels its town holds of
+// it, none when it holds none; another seed's levels do not reach it
+TEST_F(TownBeliefTest, ACentreSpellIconShowsTheHighestPowerUpLevelHeld)
+{
+	namespace centre_icons = worship::town_centre;
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto centre = registry.Create();
+	registry.Assign<TownCentreIcons>(centre);
+	const auto graphic = registry.Create();
+	registry.Assign<SpellSeedGraphic>(graphic);
+	const auto icon = registry.Create();
+	auto& spellIcon = registry.Assign<SpellIcon>(icon);
+	spellIcon.infoIndex = 1;
+	spellIcon.seedType = SpellSeedType::Fire;
+	spellIcon.graphic = graphic;
+	const entt::entity noTown = entt::null;
+	registry.Assign<TownCentreSpellIcon>(icon, noTown, centre, static_cast<uint8_t>(2));
+	registry.Get<TownCentreIcons>(centre).icons.at(2) = icon;
+
+	EXPECT_TRUE(centre_icons::FindSpellIcon(centre, SpellSeedType::Fire) == icon);
+	EXPECT_TRUE(centre_icons::FindSpellIcon(centre, SpellSeedType::Food) == entt::null);
+	EXPECT_EQ(centre_icons::SpellCount(centre), 1);
+	const auto shown = [&registry, graphic]() { return registry.Get<const SpellSeedGraphic>(graphic).powerUp; };
+	EXPECT_EQ(shown(), -1);
+	centre_icons::AddPowerUp(centre, SpellSeedType::Fire, 1);
+	EXPECT_EQ(shown(), 1);
+	centre_icons::AddPowerUp(centre, SpellSeedType::Fire, 0);
+	EXPECT_EQ(shown(), 1);
+	centre_icons::AddPowerUp(centre, SpellSeedType::Fire, 2);
+	EXPECT_EQ(shown(), 2);
+	centre_icons::AddPowerUp(centre, SpellSeedType::Food, 1);
+	EXPECT_EQ(shown(), 2);
+	centre_icons::ClearPowerUp(centre, SpellSeedType::Fire, 2);
+	EXPECT_EQ(shown(), 1);
+	centre_icons::ClearPowerUp(centre, SpellSeedType::Fire, 1);
+	EXPECT_EQ(shown(), 0);
+	centre_icons::ClearPowerUp(centre, SpellSeedType::Fire, 0);
+	EXPECT_EQ(shown(), -1);
+	EXPECT_EQ(registry.Get<const TownCentreSpellIcon>(icon).powerUps, (std::array<bool, 3> {false, false, false}));
+}
+
+namespace
+{
+/// The test town centre's mesh: no geometry, only the special points of its six icon slots
+constexpr entt::id_type k_CentreSlotsMesh = entt::hashed_string::value("test town centre slots");
+} // namespace
+
+// A town centre's new spell icon is made at the special point of its first free slot, the point of that number on the
+// centre's mesh moved with the centre, and is its town's, at the head of the town's list; the next seed takes the next
+// slot's point, and a seed the centre shows already makes no other icon
+TEST_F(TownBeliefTest, ACentreSpellIconIsMadeAtTheSpecialPointOfItsFirstFreeSlot)
+{
+	namespace centre_icons = worship::town_centre;
+	const test::RestoreService<Locator::resources> keepResources;
+	Locator::resources::emplace<resources::Resources>();
+	std::vector<test::MeshSpecialPoint> points(6);
+	for (size_t slot = 0; slot < points.size(); ++slot)
+	{
+		points.at(slot) = {.offset = {static_cast<float>(slot) + 1.0f, 2.0f, -3.0f}, .yAngle = 0.0f};
+	}
+	Locator::resources::value().GetMeshes().Load(k_CentreSlotsMesh, resources::L3DLoader::FromBufferTag {},
+	                                             std::string("test town centre slots"), test::MeshOfSpecialPoints(points));
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto town = MakeTown(1, PlayerNames::PLAYER_ONE);
+	const auto centre = registry.Create();
+	registry.Assign<Transform>(centre, glm::vec3(100.0f, 0.0f, 50.0f), glm::mat3(1.0f), glm::vec3(1.0f));
+	registry.Assign<Mesh>(centre, k_CentreSlotsMesh, static_cast<int8_t>(0), static_cast<int8_t>(0));
+	registry.Assign<Abode>(centre, AbodeNumber::TownCentre, TownOf(town).id, 0u, 0u);
+
+	ASSERT_TRUE(centre_icons::AddSpell(centre, SpellSeedType::Fire));
+	const auto fire = centre_icons::FindSpellIcon(centre, SpellSeedType::Fire);
+	ASSERT_TRUE(fire != entt::null);
+	EXPECT_EQ(registry.Get<const TownCentreIcons>(centre).icons.at(0), fire);
+	EXPECT_EQ(registry.Get<const TownCentreSpellIcon>(fire).slot, 0u);
+	const auto& fireAt = registry.Get<const Transform>(fire).position;
+	EXPECT_FLOAT_EQ(fireAt.x, 101.0f);
+	EXPECT_FLOAT_EQ(fireAt.y, 2.0f);
+	EXPECT_FLOAT_EQ(fireAt.z, 47.0f);
+	EXPECT_EQ(registry.Get<const SpellIcon>(fire).player, PlayerNames::PLAYER_ONE);
+	ASSERT_FALSE(registry.Get<const TownMagic>(town).spellIcons.empty());
+	EXPECT_EQ(registry.Get<const TownMagic>(town).spellIcons.front(), fire);
+
+	ASSERT_TRUE(centre_icons::AddSpell(centre, SpellSeedType::Food));
+	const auto food = centre_icons::FindSpellIcon(centre, SpellSeedType::Food);
+	ASSERT_TRUE(food != entt::null);
+	EXPECT_EQ(registry.Get<const TownCentreSpellIcon>(food).slot, 1u);
+	EXPECT_FLOAT_EQ(registry.Get<const Transform>(food).position.x, 102.0f);
+	EXPECT_EQ(registry.Get<const TownMagic>(town).spellIcons.front(), food);
+
+	EXPECT_FALSE(centre_icons::AddSpell(centre, SpellSeedType::Fire));
+	EXPECT_EQ(centre_icons::SpellCount(centre), 2);
+}
+
+namespace
+{
+/// A town centre with a Fire icon in slot 2, in its town's list, with its seed graphic, as the game makes them
+struct CentreWithIcon
+{
+	entt::entity town {entt::null};
+	entt::entity centre {entt::null};
+	entt::entity icon {entt::null};
+	entt::entity graphic {entt::null};
+};
+
+CentreWithIcon MakeCentreWithIcon(entt::entity town)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	CentreWithIcon made {.town = town};
+	made.centre = registry.Create();
+	registry.Assign<Transform>(made.centre, glm::vec3(100.0f, 0.0f, 0.0f), glm::mat3(1.0f), glm::vec3(1.0f));
+	registry.Assign<TownCentreIcons>(made.centre);
+	made.graphic = registry.Create();
+	registry.Assign<SpellSeedGraphic>(made.graphic);
+	made.icon = registry.Create();
+	registry.Assign<Transform>(made.icon, glm::vec3(100.0f, 0.0f, 10.0f), glm::mat3(1.0f), glm::vec3(1.0f));
+	auto& spellIcon = registry.Assign<SpellIcon>(made.icon);
+	spellIcon.infoIndex = 1;
+	spellIcon.seedType = SpellSeedType::Fire;
+	spellIcon.graphic = made.graphic;
+	registry.Assign<TownCentreSpellIcon>(made.icon, town, made.centre, static_cast<uint8_t>(2));
+	registry.Get<TownCentreIcons>(made.centre).icons.at(2) = made.icon;
+	registry.Get<TownMagic>(town).spellIcons.push_back(made.icon);
+	worship::town_centre::ConnectDeletionListener();
+	return made;
+}
+
+/// After its icon went: the slot and the town's list are empty, and every use of the centre's slots runs
+void ExpectIconGone(const CentreWithIcon& made)
+{
+	namespace centre_icons = worship::town_centre;
+	auto& registry = Locator::entitiesRegistry::value();
+	EXPECT_FALSE(registry.Valid(made.icon));
+	EXPECT_EQ(registry.Get<const TownCentreIcons>(made.centre).icons.at(2), entt::entity {entt::null});
+	EXPECT_TRUE(registry.Get<const TownMagic>(made.town).spellIcons.empty());
+	EXPECT_TRUE(centre_icons::FindSpellIcon(made.centre, SpellSeedType::Fire) == entt::null);
+	EXPECT_EQ(centre_icons::SpellCount(made.centre), 0);
+	centre_icons::AddPowerUp(made.centre, SpellSeedType::Fire, 1);
+	centre_icons::ClearPowerUp(made.centre, SpellSeedType::Fire, 1);
+	centre_icons::RemoveSpell(made.centre, SpellSeedType::Fire);
+	// the centre has no special points here: no new icon is made, and nothing reads the old one
+	EXPECT_FALSE(centre_icons::AddSpell(made.centre, SpellSeedType::Fire));
+	centre_icons::MakeFunctional(made.centre);
+	EXPECT_EQ(centre_icons::SpellCount(made.centre), 0);
+}
+} // namespace
+
+// A town centre's spell icon burnt down (fire's deletion of a thing, also an explosion's and a tornado's) leaves its
+// centre's slot and its town's list and takes its seed graphic with it, as its own deletion does; the centre's slots
+// are then used again without reading the deleted icon
+TEST_F(TownBeliefTest, ACentreSpellIconDestroyedByAnEffectLeavesItsCentreAndTown)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto made = MakeCentreWithIcon(MakeTown(1, PlayerNames::PLAYER_ONE));
+	ecs::fire::traits::DestroyedByEffect(made.icon);
+	EXPECT_FALSE(registry.Valid(made.graphic));
+	ExpectIconGone(made);
+}
+
+// The same through the deletion every thing goes through
+TEST_F(TownBeliefTest, ACentreSpellIconToBeDeletedLeavesItsCentreAndTown)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto made = MakeCentreWithIcon(MakeTown(1, PlayerNames::PLAYER_ONE));
+	ecs::ToBeDeleted(made.icon, true);
+	EXPECT_FALSE(registry.Valid(made.graphic));
+	ExpectIconGone(made);
+}
+
+// Destroyed by the registry on any other path: its slot and its town's list still let go of it
+TEST_F(TownBeliefTest, ACentreSpellIconDestroyedByTheRegistryLeavesItsSlot)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto made = MakeCentreWithIcon(MakeTown(1, PlayerNames::PLAYER_ONE));
+	registry.Destroy(made.icon);
+	ExpectIconGone(made);
+}
+
+// A slot holding an entity that is no longer an icon is read as empty, never through the dead entity
+TEST_F(TownBeliefTest, AStaleCentreSlotIsReadAsEmpty)
+{
+	namespace centre_icons = worship::town_centre;
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto centre = registry.Create();
+	registry.Assign<TownCentreIcons>(centre);
+	const auto gone = registry.Create();
+	registry.Destroy(gone);
+	registry.Get<TownCentreIcons>(centre).icons.at(0) = gone;
+	EXPECT_TRUE(centre_icons::FindSpellIcon(centre, SpellSeedType::Fire) == entt::null);
+	EXPECT_EQ(centre_icons::SpellCount(centre), 0);
+	centre_icons::AddPowerUp(centre, SpellSeedType::Fire, 0);
+	centre_icons::ClearPowerUp(centre, SpellSeedType::Fire, 0);
+	centre_icons::RemoveSpell(centre, SpellSeedType::Fire);
+}
+
+// A town leaving a building site takes back its builders there, in list order: only those of the town that are
+// available, the town asked first
+TEST(TownTakeOverRules, OnlyTheTownsAvailableBuildersLeaveASite)
+{
+	const auto town = entt::entity {10};
+	const auto other = entt::entity {11};
+	const std::array builders {entt::entity {1}, entt::entity {2}, entt::entity {3}, entt::entity {4}};
+	// 1 and 4 are the town's and available, 2 is the town's but dying, 3 is another town's
+	const auto townOf = [&](entt::entity builder) { return builder == entt::entity {3} ? other : town; };
+	std::vector<entt::entity> asked;
+	const auto available = [&](entt::entity builder) {
+		asked.push_back(builder);
+		return builder != entt::entity {2};
+	};
+	std::vector<entt::entity> left;
+	ecs::building_sites::ForEachBuilderOfTown(builders, town, townOf, available,
+	                                          [&](entt::entity builder) { left.push_back(builder); });
+	EXPECT_EQ(left, (std::vector {entt::entity {1}, entt::entity {4}}));
+	// another town's builder is never asked whether it is available
+	EXPECT_EQ(asked, (std::vector {entt::entity {1}, entt::entity {2}, entt::entity {4}}));
+}
+
+// A town changing hands leaves its old owner's temple heart: the heart's building site goes out of the town's list
+// but is not deleted, and the town's other sites stay; a heart without a site, or another player's heart, does nothing
+TEST_F(TownBeliefTest, TakeOverTownLeavesTheOldOwnersHeartSite)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto town = MakeTown(1, PlayerNames::PLAYER_ONE);
+	// player one's temple, its heart being built, with a building site and no builders
+	const auto heart = registry.Create();
+	registry.Assign<Transform>(heart, glm::vec3(300.0f, 0.0f, 0.0f), glm::mat3(1.0f), glm::vec3(1.0f));
+	registry.Assign<Temple>(heart, PlayerNames::PLAYER_ONE);
+	registry.Assign<CitadelWorship>(heart);
+	registry.Assign<CitadelHeart>(heart).citadel = heart;
+	const auto heartSite = registry.Create();
+	registry.Assign<BuildingSite>(heartSite).root = heart;
+	registry.Assign<CitadelPartBuild>(heart).buildingSite = heartSite;
+	// another site of the town, on another building
+	const auto house = registry.Create();
+	const auto houseSite = registry.Create();
+	registry.Assign<BuildingSite>(houseSite).root = house;
+	TownOf(town).buildingSites = {heartSite, houseSite};
+
+	tb::TakeOverTown(PlayerNames::PLAYER_TWO, town);
+	EXPECT_EQ(TownOf(town).buildingSites, std::vector<entt::entity> {houseSite});
+	EXPECT_TRUE(registry.Valid(heartSite));
+	EXPECT_TRUE(registry.AllOf<BuildingSite>(heartSite));
+
+	// the town is player two's now, and player one's heart is not its owner's: its site stays in the list
+	TownOf(town).buildingSites = {heartSite, houseSite};
+	tb::TakeOverTown(PlayerNames::NEUTRAL, town);
+	EXPECT_EQ(TownOf(town).buildingSites, (std::vector<entt::entity> {heartSite, houseSite}));
+}
+
+// A town changing hands leaves its old site, which stays, and joins its new player's citadel: the citadel's site of the
+// town's tribe takes it (docs/wiki/project/progress/worship/worship_sites.md, a town claimed or lost)
+TEST_F(TownBeliefTest, TakeOverTownMovesTheTownFromItsSiteToItsNewOwnersSite)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto town = MakeTown(1, PlayerNames::PLAYER_ONE);
+	// it has people, so it may have a site
+	const auto person = registry.Create();
+	registry.Assign<Villager>(person).town = town;
+	registry.Assign<Transform>(person, glm::vec3(100.0f, 0.0f, 0.0f), glm::mat3(1.0f), glm::vec3(1.0f));
+	const auto oldSite = registry.Create();
+	registry.Assign<WorshipSite>(oldSite).towns = {town};
+	registry.Get<TownMagic>(town).worshipSite = oldSite;
+	// player two's citadel, with a site of the town's tribe
+	const auto citadel = registry.Create();
+	registry.Assign<Temple>(citadel, PlayerNames::PLAYER_TWO);
+	registry.Assign<CitadelWorship>(citadel);
+	registry.Assign<Transform>(citadel, glm::vec3(500.0f, 0.0f, 0.0f), glm::mat3(1.0f), glm::vec3(1.0f));
+	const auto newSite = registry.Create();
+	auto& celtic = registry.Assign<WorshipSite>(newSite);
+	celtic.citadel = citadel;
+	celtic.player = PlayerNames::PLAYER_TWO;
+	celtic.tribe = Tribe::CELTIC;
+	registry.Get<CitadelWorship>(citadel).sites.at(0) = newSite;
+
+	tb::TakeOverTown(PlayerNames::PLAYER_TWO, town);
+	EXPECT_TRUE(registry.Get<const WorshipSite>(oldSite).towns.empty());
+	EXPECT_TRUE(registry.Valid(oldSite));
+	EXPECT_EQ(registry.Get<const WorshipSite>(newSite).towns, std::vector<entt::entity> {town});
+	EXPECT_EQ(registry.Get<const TownMagic>(town).worshipSite, newSite);
+}
+
+// A town changing hands leaves its old owner as a town's deletion does: the magic it holds goes from the old owner to
+// the new one, and its worship site's building site, in the town's list, is deleted
+// (docs/wiki/world/buildings.md#a-towns-deletion)
+TEST_F(TownBeliefTest, TakeOverTownTakesItsMagicAndItsWorshipSitesBuildingSiteFromTheOldOwner)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	// the players' magic outlives the registry: kept and put back
+	const auto one = magic::players::MagicOf(PlayerNames::PLAYER_ONE);
+	const auto two = magic::players::MagicOf(PlayerNames::PLAYER_TWO);
+	const auto town = MakeTown(1, PlayerNames::PLAYER_ONE);
+	// it holds the fireball, enabled for its owner as a town's magic is
+	registry.Get<TownMagic>(town).held.at(static_cast<size_t>(MagicType::Fireball)) = true;
+	magic::players::SetMagicTypeEnabled(PlayerNames::PLAYER_ONE, MagicType::Fireball, true);
+	ASSERT_TRUE(magic::players::IsMagicTypeEnabled(PlayerNames::PLAYER_ONE, MagicType::Fireball));
+	ASSERT_FALSE(magic::players::IsMagicTypeEnabled(PlayerNames::PLAYER_TWO, MagicType::Fireball));
+	// its worship site is being built: the site's building site is in the town's list
+	const auto worship = registry.Create();
+	registry.Assign<WorshipSite>(worship).towns = {town};
+	registry.Get<TownMagic>(town).worshipSite = worship;
+	const auto site = registry.Create();
+	registry.Assign<BuildingSite>(site).root = worship;
+	TownOf(town).buildingSites.push_back(site);
+	ASSERT_EQ(ecs::building_sites::GetBuildingSiteInList(town, worship), site);
+
+	tb::TakeOverTown(PlayerNames::PLAYER_TWO, town);
+	EXPECT_FALSE(magic::players::IsMagicTypeEnabled(PlayerNames::PLAYER_ONE, MagicType::Fireball));
+	EXPECT_TRUE(magic::players::IsMagicTypeEnabled(PlayerNames::PLAYER_TWO, MagicType::Fireball));
+	EXPECT_TRUE(TownOf(town).buildingSites.empty());
+	EXPECT_TRUE(registry.Get<const WorshipSite>(worship).towns.empty());
+	magic::players::MagicOf(PlayerNames::PLAYER_ONE) = one;
+	magic::players::MagicOf(PlayerNames::PLAYER_TWO) = two;
+}
+
+// The empty town countdown of a town's turn, as the original's: down by one while it runs, the town empty as it
+// reaches 0 (people or not), and stopped short of 0 by people
+TEST(TownEmptyCountdown, ItRunsDownToTheTownEmptyingAndPeopleStopItShortOfZero)
+{
+	namespace tp = ecs::town_process;
+	const auto idle = tp::StepEmptyCountdown(0, 0);
+	EXPECT_EQ(idle.countdown, 0u);
+	EXPECT_FALSE(idle.empties);
+	const auto started = tp::StepEmptyCountdown(50, 0);
+	EXPECT_EQ(started.countdown, 49u);
+	EXPECT_FALSE(started.empties);
+	const auto last = tp::StepEmptyCountdown(1, 0);
+	EXPECT_EQ(last.countdown, 0u);
+	EXPECT_TRUE(last.empties);
+	const auto lastWithPeople = tp::StepEmptyCountdown(1, 3);
+	EXPECT_EQ(lastWithPeople.countdown, 0u);
+	EXPECT_TRUE(lastWithPeople.empties);
+	const auto stopped = tp::StepEmptyCountdown(20, 1);
+	EXPECT_EQ(stopped.countdown, 0u);
+	EXPECT_FALSE(stopped.empties);
+}
+
+// A town left empty starts its belief again, believes in every player as much as in the neutral player (info.dat's
+// 0.5) and is given to the neutral player
+TEST_F(TownBeliefTest, AnEmptiedTownBelievesInEveryoneAsInTheNeutralPlayerAndIsTheNeutralPlayers)
+{
+	const auto town = MakeTown(1, PlayerNames::PLAYER_ONE);
+	auto& b = BeliefOf(town);
+	b.belief.fill(4.0f);
+	b.pending.fill(1.0f);
+	b.cap.fill(3.0f);
+	tb::SetTownEmpty(town);
+	EXPECT_EQ(TownOf(town).owner, PlayerNames::NEUTRAL);
+	for (size_t i = 0; i < tb::k_Players; ++i)
+	{
+		EXPECT_EQ(BeliefOf(town).belief.at(i), 0.5f) << i;
+		EXPECT_EQ(BeliefOf(town).pending.at(i), 0.0f) << i;
+		EXPECT_EQ(BeliefOf(town).cap.at(i), 10.0f) << i;
+	}
+}
+
+// Every town's nearest town is worked out again as a town is made and as one changes hands, over every player's list
+// of towns in order: of two equally near the first walked is kept, so a town moving to the neutral player's list
+// (walked last) gives way to the other
+TEST_F(TownBeliefTest, EveryTownsNearestTownIsWorkedOutAgainAsATownIsMadeAndChangesHands)
+{
+	// 10 cells apart along x: the middle town is equally near to the other two
+	const auto first = MakeTown(1, PlayerNames::PLAYER_ONE);
+	EXPECT_EQ(TownOf(first).nearestTown, entt::entity {entt::null});
+	const auto middle = MakeTown(2, PlayerNames::PLAYER_TWO);
+	EXPECT_EQ(TownOf(first).nearestTown, middle);
+	EXPECT_EQ(TownOf(middle).nearestTown, first);
+	const auto last = MakeTown(3, PlayerNames::PLAYER_TWO);
+	EXPECT_EQ(TownOf(middle).nearestTown, first); // player one's list is walked first
+	EXPECT_EQ(TownOf(last).nearestTown, middle);
+
+	tb::TakeOverTown(PlayerNames::NEUTRAL, first);
+	EXPECT_EQ(TownOf(middle).nearestTown, last); // the neutral player's list is walked last
+	EXPECT_EQ(TownOf(first).nearestTown, middle);
+	EXPECT_EQ(TownOf(last).nearestTown, middle);
+}
+
+// A town leaving its player (its deletion does it too): every other town's nearest town is worked out again without
+// it, and its own is kept; a town that finds none keeps the one it had
+// A town takes its first totem as its own and moves to where it stands; a later totem changes nothing while it has
+// one; any totem of the town deleted clears it, the town staying where it is, and the next totem moves it again
+TEST_F(TownBeliefTest, ATownMovesToItsFirstTotemAndKeepsItUntilATotemOfItIsDeleted)
+{
+	auto& registry = Locator::entitiesRegistry::value();
+	const auto town = MakeTown(1, PlayerNames::PLAYER_ONE);
+	const auto totemAt = [&registry](glm::vec3 at) {
+		const auto totem = registry.Create();
+		registry.Assign<Transform>(totem, at, glm::mat3(1.0f), glm::vec3(1.0f));
+		return totem;
+	};
+	const auto first = totemAt({140.0f, 3.0f, 20.0f});
+	ecs::abodes::SetTownTotem(town, first);
+	EXPECT_EQ(TownOf(town).totem, first);
+	EXPECT_EQ(registry.Get<Transform>(town).position, glm::vec3(140.0f, 3.0f, 20.0f));
+	const auto second = totemAt({160.0f, 4.0f, 30.0f});
+	ecs::abodes::SetTownTotem(town, second);
+	EXPECT_EQ(TownOf(town).totem, first);
+	EXPECT_EQ(registry.Get<Transform>(town).position, glm::vec3(140.0f, 3.0f, 20.0f));
+	ecs::abodes::SetTownTotem(town, entt::null);
+	EXPECT_EQ(TownOf(town).totem, entt::entity {entt::null});
+	EXPECT_EQ(registry.Get<Transform>(town).position, glm::vec3(140.0f, 3.0f, 20.0f));
+	ecs::abodes::SetTownTotem(town, second);
+	EXPECT_EQ(TownOf(town).totem, second);
+	EXPECT_EQ(registry.Get<Transform>(town).position, glm::vec3(160.0f, 4.0f, 30.0f));
+}
+
+TEST_F(TownBeliefTest, ATownLeavingItsPlayerIsNoOtherTownsNearestAndKeepsItsOwn)
+{
+	const auto first = MakeTown(1, PlayerNames::PLAYER_ONE);
+	const auto middle = MakeTown(2, PlayerNames::PLAYER_ONE);
+	const auto far = MakeTown(5, PlayerNames::PLAYER_ONE);
+	EXPECT_EQ(TownOf(far).nearestTown, middle);
+	tb::RemoveTownFromPlayer(middle);
+	EXPECT_EQ(TownOf(first).nearestTown, far);
+	EXPECT_EQ(TownOf(far).nearestTown, first);
+	EXPECT_EQ(TownOf(middle).nearestTown, first);
+	// left alone, a town finds none and keeps the one it had; the middle town is taken away first, as leaving its player
+	// alone keeps it in its owner's list until the owner's change or its deletion is done
+	Locator::entitiesRegistry::value().Destroy(middle);
+	tb::RemoveTownFromPlayer(far);
+	EXPECT_EQ(TownOf(first).nearestTown, far);
+}
+
+namespace
+{
+/// The town features of a map load (ecs::town_features): towns, their storage pits, trees and forests, with the
+/// town info's maxDistanceForTownForest (250) and a tree row worth wood. No game data
+class TownFeaturesTest: public ::testing::Test
+{
+protected:
+	void SetUp() override
+	{
+		test::EmplaceMapAndVillagerDefaults();
+		auto info = std::make_unique<InfoConstants>();
+		info->town.maxDistanceForTownForest = 250.0f;
+		// every tree row is a FOREST_TREE (the map cells read the row's type), worth 100 wood
+		for (auto& tree : info->tree)
+		{
+			tree.type = ObjectType::ForestTree;
+			tree.woodValue = 100;
+		}
+		Locator::infoConstants::reset(info.release());
+		Locator::entitiesRegistry::emplace<ecs::Registry>();
+		openblack::test::EmplaceWorldSystems();
+		land_balance::Reset();
+		ecs::map_cells::Clear();
+		ecs::object_index::OnLoadMap();
+	}
+
+	void TearDown() override
+	{
+		ecs::ClearForests();
+		ecs::map_cells::Clear();
+		land_balance::Reset();
+		Locator::entitiesRegistry::reset();
+		openblack::test::ResetWorldSystems();
+		test::ResetMapAndVillagerDefaults();
+		Locator::infoConstants::reset();
+	}
+
+	static ecs::Registry& Reg() { return Locator::entitiesRegistry::value(); }
+
+	/// A town whose rectangle is the single point `centre` and whose storage pit stands at `pit` (metres)
+	static entt::entity MakeTown(int id, glm::vec2 centre, glm::vec2 pit)
+	{
+		const auto town = ecs::archetypes::TownArchetype::CreateWithoutDesireFlags(id, glm::vec3(centre.x, 0.0f, centre.y),
+		                                                                           PlayerNames::NEUTRAL, Tribe::CELTIC);
+		auto& t = Reg().Get<Town>(town);
+		const glm::ivec2 corner {map_coords::ToFixed(centre.x), map_coords::ToFixed(centre.y)};
+		t.areaMin = corner;
+		t.areaMax = corner;
+		const auto storage = Reg().Create();
+		Reg().Assign<Transform>(storage, glm::vec3(pit.x, 0.0f, pit.y), glm::mat3(1.0f), glm::vec3(1.0f));
+		t.storagePit = storage;
+		return town;
+	}
+
+	/// A tree in the map cells at `at` (metres)
+	static entt::entity TreeAt(glm::vec2 at)
+	{
+		const auto tree = Reg().Create();
+		ecs::object_index::Assign(tree);
+		Reg().Assign<Transform>(tree, glm::vec3(at.x, 0.0f, at.y), glm::mat3(1.0f), glm::vec3(1.0f));
+		Reg().Assign<Tree>(tree);
+		ecs::map_cells::InsertMapObject(tree);
+		return tree;
+	}
+};
+} // namespace
+
+// Each town's forest list takes the forests with wood within 250 of its storage pit
+// (docs/wiki/beings/towns.md#town-features, docs/wiki/beings/villager-jobs.md#the-villages-forests)
+TEST_F(TownFeaturesTest, EachTownTakesTheForestsWithin250OfItsStoragePit)
+{
+	MakeTown(1, {1000.0f, 1000.0f}, {1000.0f, 1050.0f});
+	MakeTown(2, {2000.0f, 1000.0f}, {2000.0f, 1050.0f});
+	// a big forest with wood, 100 from town 1's pit and about 1005 from town 2's
+	const auto forest = ecs::CreateForest(0, glm::vec3(1000.0f, 0.0f, 1150.0f));
+	const auto big = Reg().Create();
+	Reg().Assign<Transform>(big, glm::vec3(1000.0f, 0.0f, 1150.0f), glm::mat3(1.0f), glm::vec3(1.0f));
+	auto& b = Reg().Assign<BigForest>(big);
+	b.wood = 1000.0f;
+	b.woodValue = 1000.0f;
+	b.forestId = forest;
+	ecs::SetForestBigForest(forest, big);
+	ecs::town_features::AssignTownFeatures();
+	EXPECT_EQ(ecs::TownForests(1), std::vector<uint32_t> {forest});
+	EXPECT_TRUE(ecs::TownForests(2).empty());
+}
+
+// Every town's scenic forest is made (newest town first, at its rectangle's centre) before any town takes its
+// forests: a newer town whose pit is near an older town's centre takes the older town's scenic forest too
+// (docs/wiki/beings/towns.md#town-features)
+TEST_F(TownFeaturesTest, EveryScenicForestIsMadeBeforeAnyTownTakesItsForests)
+{
+	// the older town, with a tree 10 from its centre; the newer one 1000 away, its pit 100 from the older one's centre
+	MakeTown(1, {1000.0f, 1000.0f}, {1000.0f, 1050.0f});
+	MakeTown(2, {2000.0f, 1000.0f}, {1100.0f, 1000.0f});
+	const auto tree = TreeAt({1010.0f, 1000.0f});
+	ecs::town_features::AssignTownFeatures();
+	const auto scenic = Reg().Get<const Tree>(tree).forestId;
+	ASSERT_NE(scenic, 0u);
+	EXPECT_TRUE(ecs::IsScenicForest(scenic));
+	EXPECT_EQ(ecs::TownForests(1), std::vector<uint32_t> {scenic});
+	EXPECT_EQ(ecs::TownForests(2), std::vector<uint32_t> {scenic});
+}
+
+// ---- The steps as the game's FPU rounds them -------------------------------------------------------------------------
+// Each table holds cases read back from the original game itself, chosen where working in doubles gives another answer
+
+namespace
+{
+struct AmountCase
+{
+	uint32_t belief;
+	int32_t amount; ///< 0: no sprite
+};
+constexpr std::array<AmountCase, 10> k_AmountCases {{
+    {0x405648E8, 33482},
+    {0x404ED773, 32319},
+    {0x3B656041, 35},
+    {0x38D1B717, 1},
+    {0x3BA3D70A, 50},
+    {0x3A6BEDFA, 9},
+    {0x405648E7, 33481},
+    {0x405648E9, 33482},
+    {0x38D1B715, 0},
+    {0x38D1B716, 0},
+}};
+
+struct BoredomCase
+{
+	uint32_t lostTownScale;
+	size_t reaction;
+	uint32_t before;
+	uint32_t after;
+};
+constexpr std::array<BoredomCase, 12> k_BoredomCases {{
+    {0x3F59E34E, 0, 0x3F7FF051, 0x3F7FFFEF},
+    {0x3F59E34E, 1, 0x3F7FE0B8, 0x3F7FFFF5},
+    {0x3F59E34E, 2, 0x3F7FE0AD, 0x3F7FFFEA},
+    {0x3F59E34E, 31, 0x3F7FE0C3, 0x3F7FE0C3},
+    {0x3FDE8B26, 6, 0x3F7FC031, 0x3F7FC031},
+    {0x3FDE8B26, 38, 0x3F7FC031, 0x3F7FC031},
+    {0x3F000000, 38, 0x3F7FEDA6, 0x3F7FEDA6},
+    {0x3F800000, 0, 0x3F7FEDA6, 0x3F7FEDA6},
+    {0x3F800000, 5, 0x3F7FEDA6, 0x3F7FEDA6},
+    {0x400198FE, 3, 0x3F7FDAD7, 0x3F7FDAD7},
+    {0x3F000000, 19, 0x3F7FEDA6, 0x3F7FEDA6},
+    {0x3F000000, 21, 0x3F7FEDA6, 0x3F7FEDA6},
+}};
+
+struct LosingCase
+{
+	size_t player;
+	std::array<uint32_t, 8> belief;
+	bool warned;
+};
+constexpr std::array<LosingCase, 10> k_LosingCases {{
+    {2, {0x40B031E0, 0x4018AF08, 0x40B1CB7A, 0x3FB12CDA, 0x401E4684, 0x3E63D372, 0x3FC351B5, 0x3FD94D14}, false},
+    {5, {0x410B034D, 0x40843D2E, 0x3FEAFAE2, 0x3F3B4F2E, 0x3E645ADE, 0x410BD01B, 0x40725CB7, 0x4089C26F}, false},
+    {3, {0x3D0DCC47, 0x3F025330, 0x3ED552F1, 0x3F9903A9, 0x3C89036F, 0x3E0EE2A1, 0x3F929D43, 0x3E59B5F4}, false},
+    {4, {0x3FD2B36D, 0x4063E1BD, 0x3F2F7ABC, 0x3F1629C4, 0x406714F0, 0x3E276735, 0x3F10B623, 0x3D43E44B}, false},
+    {1, {0x3E8E3E84, 0x3F8FFBD9, 0x3F08C1B1, 0x3F899573, 0x3DA16F80, 0x3EBAB8E4, 0x3ECC9EAF, 0x3CDFD86A}, false},
+    {0, {0x3FE99A67, 0x3EB4501D, 0x3E81C0BB, 0x3EDAF086, 0x3FE33401, 0x3F40BE33, 0x3F1081AA, 0x3DABE2D8}, false},
+    {1, {0x3EBBBAB7, 0x402392C4, 0x3F9FB50B, 0x40205F91, 0x3EE221E7, 0x3E7F2A1A, 0x3F8CC918, 0x3F897CB0}, false},
+    {5, {0x3F623729, 0x3F0B8030, 0x3EFF9C40, 0x3EF6DC2A, 0x3EC1A46D, 0x40119A87, 0x400E6754, 0x3F8ABA41}, false},
+    {1, {0x3E79F127, 0x3FADDD7F, 0x3E8CBE4C, 0x3F19D343, 0x3FA77719, 0x3EDDCD9F, 0x3F274C0A, 0x3ED67D77}, false},
+    {6, {0x3E677A29, 0x3F5E0D26, 0x40133C40, 0x3F59FF60, 0x3E09A06C, 0x3EDDF47C, 0x40166F73, 0x3DD1DDE4}, false},
+}};
+
+struct RivalCase
+{
+	size_t player;
+	std::array<uint32_t, 8> belief;
+	std::array<uint32_t, 8> recent;
+	uint32_t ratio;
+};
+constexpr std::array<RivalCase, 6> k_RivalCases {{
+    {3,
+     {0x40FBA287, 0x3F3A69D4, 0x3F998A53, 0x40348477, 0x404305A5, 0x4116BE67, 0x407E01A4, 0x410E1746},
+     {0x3D7E71A6, 0x3C94BF1A, 0x3DAF9D62, 0x3CA52AF9, 0x3D98696D, 0x3D9B0B8C, 0x3D775B4B, 0x3D4ECC7A},
+     0x3F3933CE},
+    {1,
+     {0x411A55A4, 0x409257CD, 0x4001B422, 0x3DE81428, 0x3FCB6709, 0x3FC5108A, 0x40B0683E, 0x3FD672B8},
+     {0x3D83C36C, 0x3D80B8CB, 0x3C485A65, 0x3C4B11BB, 0x3D8F72FA, 0x3CAA95B9, 0x3AEBB2FA, 0x3D9FBA37},
+     0x3EF7462E},
+    {0,
+     {0x40885940, 0x4000ABD5, 0x3EA76704, 0x40099CC9, 0x410AFA0D, 0x4058063A, 0x40D59082, 0x40140487},
+     {0x3D853ED2, 0x3D386B12, 0x3D96D019, 0x3D587398, 0x3D19C183, 0x3CE575DD, 0x3D7368F0, 0x3DAA5E17},
+     0x3CC0F1B8},
+    {1,
+     {0x3FF039DC, 0x40C53140, 0x411D1313, 0x410CE0E2, 0x4111DE97, 0x3F5B4472, 0x40E4C833, 0x409BD9E1},
+     {0x3DBA3519, 0x3C88B6F9, 0x3D60C8B9, 0x3C4596BC, 0x3DA4BC70, 0x3D93FB6C, 0x3B4C2243, 0x3CFD9E2F},
+     0x3EBDF69C},
+    {3,
+     {0x3FFD1847, 0x40D6BBA8, 0x411EC7F0, 0x41150DD9, 0x40C9998D, 0x41092DB8, 0x409D7E22, 0x40BBD962},
+     {0x3DB70941, 0x3BC389C6, 0x3D146797, 0x3D193AB0, 0x3D0BB027, 0x3D2F3CEE, 0x3BBB5282, 0x3D8B122E},
+     0x3E3886C9},
+    {1,
+     {0x3F803AF9, 0x411CDD0D, 0x3ECF9635, 0x411A988C, 0x4100204D, 0x40582738, 0x40809B78, 0x40E9CA65},
+     {0x3CDFB862, 0x3DA645D2, 0x3DBB751A, 0x3BB058E6, 0x3D9CE34B, 0x3DBB2D56, 0x3D6BE088, 0x3C70CFF4},
+     0x3BE029EF},
+}};
+
+struct AddedCase
+{
+	size_t player;
+	uint32_t belief;
+	uint32_t added;
+	uint32_t ratio;
+};
+constexpr std::array<AddedCase, 6> k_AddedCases {{
+    {1, 0x4085F4B3, 0x3FA7C0AF, 0x3D003C3E},
+    {3, 0x3FBC2A96, 0x3FDB768C, 0x3DEEDD01},
+    {4, 0x4116B3E5, 0x4014E93A, 0x3CCA5D7D},
+    {1, 0x4089D2E5, 0x3FFF1BD1, 0x3D3D8A3F},
+    {2, 0x410D0B3A, 0x3E019D6C, 0x3ABC3472},
+    {2, 0x40F38BA4, 0x403F3925, 0x3D20CD3A},
+}};
+
+float Bits(uint32_t value)
+{
+	return std::bit_cast<float>(value);
+}
+} // namespace
+
+// The belief sprite's amount is the belief times 10000 rounded to a float, then truncated: a product just under a whole
+// number can round up onto it, and an amount that is not above 0 draws nothing
+TEST_F(TownBeliefTest, TheBeliefSpritesAmountIsTheFloatProductTruncated)
+{
+	for (const auto& c : k_AmountCases)
+	{
+		tb::detail::ClearForTests();
+		tb::DrawBelief(Bits(c.belief), entt::null, std::nullopt);
+		const auto sprite = tb::PopBeliefSprite();
+		if (c.amount == 0)
+		{
+			EXPECT_FALSE(sprite.has_value()) << c.belief;
+			continue;
+		}
+		ASSERT_TRUE(sprite.has_value()) << c.belief;
+		EXPECT_EQ(sprite->amount, c.amount) << c.belief;
+	}
+}
+
+// The fold's boredom: the lost-town scale times the reaction's addition, plus the boredom, each rounded to a float, is
+// kept only below 1
+TEST_F(TownBeliefTest, TheFoldsBoredomIsSummedInFloatsAndKeptOnlyBelowOne)
+{
+	const auto town = MakeTown(1, PlayerNames::NEUTRAL);
+	for (const auto& c : k_BoredomCases)
+	{
+		land_balance::SetLostTownScale(Bits(c.lostTownScale));
+		auto& b = BeliefOf(town);
+		b.boredom.at(c.reaction) = Bits(c.before);
+		tb::Fold(town);
+		EXPECT_EQ(std::bit_cast<uint32_t>(BeliefOf(town).boredom.at(c.reaction)), c.after) << c.reaction;
+	}
+}
+
+// The losing-belief warning compares the player's belief less the warning margin, rounded to a float, with every
+// other slot's belief
+TEST_F(TownBeliefTest, TheLosingBeliefWarningComparesTheFloatDifference)
+{
+	influence::detail::MapGlobals().landNumber = 2;
+	// one town for each player, its beliefs set again for each case
+	std::array<entt::entity, 8> towns {};
+	towns.fill(entt::null);
+	for (const auto& c : k_LosingCases)
+	{
+		_help.clear();
+		const auto player = static_cast<PlayerNames>(c.player);
+		if (towns.at(c.player) == entt::null)
+		{
+			towns.at(c.player) = MakeTown(static_cast<int>(10 + c.player), player);
+		}
+		for (size_t i = 0; i < c.belief.size(); ++i)
+		{
+			BeliefOf(towns.at(c.player)).belief.at(i) = Bits(c.belief.at(i));
+		}
+		tb::CheckLosingBelief(player);
+		EXPECT_EQ(!_help.empty(), c.warned) << c.player;
+	}
+}
+
+// The rival ratio: the rival's belief over the player's, doubled, squared and at most 1, each step a float
+TEST_F(TownBeliefTest, TheRivalRatioIsWorkedInFloats)
+{
+	for (const auto& c : k_RivalCases)
+	{
+		TownBelief belief;
+		for (size_t i = 0; i < 8; ++i)
+		{
+			belief.belief.at(i) = Bits(c.belief.at(i));
+			belief.recent.at(i) = Bits(c.recent.at(i));
+		}
+		EXPECT_EQ(std::bit_cast<uint32_t>(tb::RivalRecentRatio(belief, static_cast<PlayerNames>(c.player))), c.ratio)
+		    << c.player;
+	}
+}
+
+// What was added this period over ten times the belief, each a float
+TEST_F(TownBeliefTest, TheAddedRatioIsWorkedInFloats)
+{
+	for (const auto& c : k_AddedCases)
+	{
+		TownBelief belief;
+		belief.belief.at(c.player) = Bits(c.belief);
+		belief.addedThisPeriod.at(c.player) = Bits(c.added);
+		EXPECT_EQ(std::bit_cast<uint32_t>(tb::GetAddedThisPeriodRatio(belief, static_cast<PlayerNames>(c.player))), c.ratio)
+		    << c.player;
+	}
+}
